@@ -1,0 +1,33 @@
+{
+  "description": "MCP server settings combine source and command. settings-schema-valid and transport-exclusivity fire.",
+  "state": {
+    "settings": {
+      "mcpServers": {
+        "linear": {
+          "source": "@acme/mcps/linear",
+          "command": "npx"
+        }
+      }
+    },
+    "existingPaths": [
+      ".axm",
+      ".axm/settings.json"
+    ],
+    "listings": {},
+    "detectedProjectAgents": []
+  },
+  "scope": "project",
+  "expectedFindings": [
+    {
+      "ruleId": "workspace/settings-schema-valid",
+      "severity": "error",
+      "file": ".axm/settings.json"
+    },
+    {
+      "ruleId": "workspace/mcp-server-transport-exclusivity",
+      "severity": "warning",
+      "file": ".axm/settings.json",
+      "messageIncludes": "exactly one of source, command, or url"
+    }
+  ]
+}

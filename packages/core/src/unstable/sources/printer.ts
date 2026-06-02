@@ -43,6 +43,8 @@ export const printSourceParams = (source: SourceParams): string => {
     case "registry": {
       return "registry";
     }
+    case "inline":
+      return "inline";
   }
 };
 
@@ -99,6 +101,14 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
       return {
         type: "registry",
         owner: Option.none(),
+      };
+    case "inline":
+      return {
+        type: "inline",
+        command: Option.fromUndefinedOr(entry.command),
+        args: entry.args ?? [],
+        url: Option.fromUndefinedOr(entry.url),
+        headers: entry.headers ?? {},
       };
   }
 };

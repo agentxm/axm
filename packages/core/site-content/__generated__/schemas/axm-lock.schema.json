@@ -41,6 +41,38 @@
         }
       ]
     },
+    "InlineMcpServerLockEntry": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["inline"] },
+        "command": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "args": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        },
+        "url": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "headers": {
+          "anyOf": [
+            { "type": "object", "additionalProperties": { "type": "string" } },
+            { "type": "null" }
+          ]
+        },
+        "syncedAgents": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        },
+        "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+        "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+        "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+      },
+      "required": ["type", "installedAt", "updatedAt"],
+      "additionalProperties": false,
+      "title": "Inline MCP Server Lock Entry",
+      "description": "Lockfile entry for an inline MCP server configured directly in settings.json."
+    },
     "FilesInputValue": {
       "anyOf": [
         { "type": "string" },
@@ -1110,166 +1142,213 @@
               "additionalProperties": {
                 "anyOf": [
                   {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["github"] },
-                      "owner": { "$ref": "#/definitions/SourceNamespace" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["github"] },
+                          "owner": { "$ref": "#/definitions/SourceNamespace" },
+                          "repo": { "$ref": "#/definitions/SourceSegment" },
+                          "ref": {
+                            "anyOf": [
+                              { "type": "string", "allOf": [{ "minLength": 1 }] },
+                              { "type": "null" }
+                            ]
+                          },
+                          "path": {
+                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                          },
+                          "syncedAgents": {
+                            "anyOf": [
+                              { "type": "array", "items": { "type": "string" } },
+                              { "type": "null" }
+                            ]
+                          },
+                          "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+                        },
+                        "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                        "additionalProperties": false
                       },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["gitlab"] },
+                          "owner": { "$ref": "#/definitions/SourceNamespace" },
+                          "repo": { "$ref": "#/definitions/SourceSegment" },
+                          "ref": {
+                            "anyOf": [
+                              { "type": "string", "allOf": [{ "minLength": 1 }] },
+                              { "type": "null" }
+                            ]
+                          },
+                          "path": {
+                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                          },
+                          "syncedAgents": {
+                            "anyOf": [
+                              { "type": "array", "items": { "type": "string" } },
+                              { "type": "null" }
+                            ]
+                          },
+                          "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+                        },
+                        "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                        "additionalProperties": false
                       },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                    "additionalProperties": false
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["bitbucket"] },
+                          "owner": { "$ref": "#/definitions/SourceNamespace" },
+                          "repo": { "$ref": "#/definitions/SourceSegment" },
+                          "ref": {
+                            "anyOf": [
+                              { "type": "string", "allOf": [{ "minLength": 1 }] },
+                              { "type": "null" }
+                            ]
+                          },
+                          "path": {
+                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                          },
+                          "syncedAgents": {
+                            "anyOf": [
+                              { "type": "array", "items": { "type": "string" } },
+                              { "type": "null" }
+                            ]
+                          },
+                          "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+                        },
+                        "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["azurerepos"] },
+                          "organization": { "$ref": "#/definitions/SourceSegment" },
+                          "project": { "$ref": "#/definitions/SourceSegment" },
+                          "repo": { "$ref": "#/definitions/SourceSegment" },
+                          "ref": {
+                            "anyOf": [
+                              { "type": "string", "allOf": [{ "minLength": 1 }] },
+                              { "type": "null" }
+                            ]
+                          },
+                          "path": {
+                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                          },
+                          "syncedAgents": {
+                            "anyOf": [
+                              { "type": "array", "items": { "type": "string" } },
+                              { "type": "null" }
+                            ]
+                          },
+                          "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+                        },
+                        "required": [
+                          "type",
+                          "organization",
+                          "project",
+                          "repo",
+                          "installedAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["git"] },
+                          "url": { "type": "string" },
+                          "ref": {
+                            "anyOf": [
+                              { "type": "string", "allOf": [{ "minLength": 1 }] },
+                              { "type": "null" }
+                            ]
+                          },
+                          "path": {
+                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                          },
+                          "syncedAgents": {
+                            "anyOf": [
+                              { "type": "array", "items": { "type": "string" } },
+                              { "type": "null" }
+                            ]
+                          },
+                          "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+                        },
+                        "required": ["type", "url", "installedAt", "updatedAt"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["local"] },
+                          "path": { "type": "string" },
+                          "syncedAgents": {
+                            "anyOf": [
+                              { "type": "array", "items": { "type": "string" } },
+                              { "type": "null" }
+                            ]
+                          },
+                          "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+                        },
+                        "required": ["type", "path", "installedAt", "updatedAt"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["registry"] },
+                          "owner": { "$ref": "#/definitions/Handle" },
+                          "name": { "$ref": "#/definitions/ExtensionName" },
+                          "resolvedVersion": { "$ref": "#/definitions/Version" },
+                          "integrity": { "type": "string" },
+                          "sourceName": { "type": "string" },
+                          "syncedAgents": {
+                            "anyOf": [
+                              { "type": "array", "items": { "type": "string" } },
+                              { "type": "null" }
+                            ]
+                          },
+                          "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
+                        },
+                        "required": [
+                          "type",
+                          "owner",
+                          "name",
+                          "resolvedVersion",
+                          "integrity",
+                          "sourceName",
+                          "installedAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
                   },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["gitlab"] },
-                      "owner": { "$ref": "#/definitions/SourceNamespace" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["bitbucket"] },
-                      "owner": { "$ref": "#/definitions/SourceNamespace" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["azurerepos"] },
-                      "organization": { "$ref": "#/definitions/SourceSegment" },
-                      "project": { "$ref": "#/definitions/SourceSegment" },
-                      "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
-                    },
-                    "required": [
-                      "type",
-                      "organization",
-                      "project",
-                      "repo",
-                      "installedAt",
-                      "updatedAt"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["git"] },
-                      "url": { "type": "string" },
-                      "ref": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "url", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["local"] },
-                      "path": { "type": "string" },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
-                    },
-                    "required": ["type", "path", "installedAt", "updatedAt"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["registry"] },
-                      "owner": { "$ref": "#/definitions/Handle" },
-                      "name": { "$ref": "#/definitions/ExtensionName" },
-                      "resolvedVersion": { "$ref": "#/definitions/Version" },
-                      "integrity": { "type": "string" },
-                      "sourceName": { "type": "string" },
-                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
-                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
-                    },
-                    "required": [
-                      "type",
-                      "owner",
-                      "name",
-                      "resolvedVersion",
-                      "integrity",
-                      "sourceName",
-                      "installedAt",
-                      "updatedAt"
-                    ],
-                    "additionalProperties": false
-                  }
+                  { "$ref": "#/definitions/InlineMcpServerLockEntry" }
                 ]
               }
             },

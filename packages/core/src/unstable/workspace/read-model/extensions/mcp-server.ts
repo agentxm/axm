@@ -69,6 +69,7 @@ export interface ActualMcpServer {
   readonly origin: McpServerDetectionOrigin;
   readonly contentRoot: string | null;
   readonly configFile: string | null;
+  readonly config: Readonly<Record<string, unknown>> | null;
 }
 export type ActualMcpServers = ReadonlyArray<ActualMcpServer>;
 
@@ -137,6 +138,7 @@ const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): Act
       : { _tag: "external-axm-mcp-server" },
   contentRoot: occ.contentLocation,
   configFile: null,
+  config: null,
 });
 
 const mcpConfigToActual = (occ: McpConfigOccurrence, scope: Scope): ActualMcpServer => ({
@@ -147,6 +149,7 @@ const mcpConfigToActual = (occ: McpConfigOccurrence, scope: Scope): ActualMcpSer
       : { _tag: "agent-mcp-config", agentId: occ.agentId },
   contentRoot: null,
   configFile: occ.contentLocation,
+  config: occ.config,
 });
 
 // ---------------------------------------------------------------------------

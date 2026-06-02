@@ -106,11 +106,15 @@ export {
   removeMcpServerMixed,
   removeMcpServerConfigOnly,
   removeMcpServerConfigFirst,
+  pruneManagedMcpServersForAgent,
   runCliInvocation,
+  syncInlineMcpServerToAgent,
   type CliInvocation,
   type CliInvocationResult,
   type MixedStrategyConfig,
   type ConfigFirstStrategy,
+  type PruneManagedMcpServersArgs,
+  type SyncInlineMcpServerArgs,
 } from "./mcp-sync.js";
 
 // Agent service implementations

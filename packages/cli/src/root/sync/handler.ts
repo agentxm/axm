@@ -13,7 +13,9 @@ import {
   CodingAgentRepository,
   getInstructionsGitignoreStatus,
   getInstructionsStatus,
+  pruneManagedMcpServersForAgent,
   resolveInstructionsConfig,
+  syncInlineMcpServerToAgent,
   syncInstructionTarget,
   syncInstructionsGitignore,
   type CodingAgentRepositoryService,
@@ -34,6 +36,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
+import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import { FilesManager, renderWorkspaceGeneratorRegions } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
@@ -133,6 +136,98 @@ const buildMcpServerSyncOperation = ({
   };
 };
 
+const isInlineMcpServerEntry = (entry: McpServerEntry): boolean =>
+  entry.source === "inline" && (entry.command !== undefined || entry.url !== undefined);
+
+const buildInlineMcpServerSyncOperation = ({
+  name,
+  entry,
+  agentIds,
+  fs,
+  path,
+  ws,
+}: {
+  readonly name: string;
+  readonly entry: McpServerEntry;
+  readonly agentIds: ReadonlyArray<string>;
+  readonly fs: FileSystem.FileSystem;
+  readonly path: Path.Path;
+  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+}): PlannedJobStep => ({
+  key: `mcp-server:inline:${name}`,
+  label: `mcp-server ${name}`,
+  readiness: "ready",
+  run: Effect.forEach(
+    agentIds,
+    (agentId) =>
+      syncInlineMcpServerToAgent(agentId, {
+        workspaceRoot: ws.baseDir,
+        serverName: name,
+        entry,
+        scope: ws.scope,
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.map((outcome) => ({ agentId, outcome })),
+      ),
+    { concurrency: "unbounded" },
+  ).pipe(
+    Effect.map((outcomes) => {
+      const warnings = outcomes.filter(({ outcome }) => outcome._tag !== "success");
+      return {
+        result: "success",
+        message:
+          warnings.length === 0
+            ? `Synced inline MCP server ${name}`
+            : `Synced inline MCP server ${name} with ${warnings.length} warning(s)`,
+      };
+    }),
+  ),
+});
+
+const buildMcpServerPruneOperation = ({
+  declaredServerNames,
+  agentIds,
+  fs,
+  path,
+  ws,
+}: {
+  readonly declaredServerNames: ReadonlySet<string>;
+  readonly agentIds: ReadonlyArray<string>;
+  readonly fs: FileSystem.FileSystem;
+  readonly path: Path.Path;
+  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+}): PlannedJobStep => ({
+  key: "mcp-server:prune",
+  label: "mcp-server stale managed entries",
+  readiness: "ready",
+  run: Effect.forEach(
+    agentIds,
+    (agentId) =>
+      pruneManagedMcpServersForAgent(agentId, {
+        workspaceRoot: ws.baseDir,
+        declaredServerNames,
+        scope: ws.scope,
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.map((outcome) => ({ agentId, outcome })),
+      ),
+    { concurrency: "unbounded" },
+  ).pipe(
+    Effect.map((outcomes) => {
+      const warnings = outcomes.filter(({ outcome }) => outcome._tag !== "success");
+      return {
+        result: "success",
+        message:
+          warnings.length === 0
+            ? "Pruned stale managed MCP server entries"
+            : `Pruned stale managed MCP server entries with ${warnings.length} warning(s)`,
+      };
+    }),
+  ),
+});
+
 const configuredFilesToRefs = (
   entries: Readonly<Record<string, { readonly source: string; readonly enabled?: boolean }>>,
 ) =>
@@ -176,6 +271,8 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const env = { fs, path, baseDir: ws.baseDir };
+  const configuredMcpServerEntries = yield* ws.getConfiguredMcpServerEntries();
+  const configuredAgents = yield* ws.getConfiguredAgents();
 
   const [
     skillRefs,
@@ -272,6 +369,12 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     ...subagentRefs,
     ...packSubagentRefs.filter((ref) => !directSubagentNames.has(ref.subagent.name)),
   ];
+  const declaredMcpServerNames = new Set([
+    ...Object.entries(configuredMcpServerEntries)
+      .filter(([, entry]) => entry.enabled)
+      .map(([name]) => name),
+    ...packMcpServerRefs.map((ref) => ref.server.name),
+  ]);
 
   return {
     expectedSubagentNames: new Set(materializedSubagentRefs.map((ref) => ref.subagent.name)),
@@ -287,9 +390,32 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       ...mcpServerRefs.map((ref) =>
         buildMcpServerSyncOperation({ ref, fs, path, ws, renderer, agentRepo }),
       ),
+      ...Object.entries(configuredMcpServerEntries)
+        .filter(([, entry]) => entry.enabled && isInlineMcpServerEntry(entry))
+        .map(([name, entry]) =>
+          buildInlineMcpServerSyncOperation({
+            name,
+            entry,
+            agentIds: configuredAgents,
+            fs,
+            path,
+            ws,
+          }),
+        ),
       ...packMcpServerRefs
         .filter((ref) => !directMcpServerNames.has(ref.server.name))
         .map((ref) => buildMcpServerSyncOperation({ ref, fs, path, ws, renderer, agentRepo })),
+      ...(configuredAgents.length > 0 && declaredMcpServerNames.size > 0
+        ? [
+            buildMcpServerPruneOperation({
+              declaredServerNames: declaredMcpServerNames,
+              agentIds: configuredAgents,
+              fs,
+              path,
+              ws,
+            }),
+          ]
+        : []),
       ...materializedSubagentRefs.map((ref) => buildMaterializeOperation(subagentManager, { ref })),
       ...fileRefs.map((ref) => buildMaterializeOperation(fileManager, { ref })),
       ...packFileRefs

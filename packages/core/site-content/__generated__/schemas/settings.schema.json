@@ -636,6 +636,14 @@
       "title": "Packs Config",
       "description": "Feature-level configuration for packs."
     },
+    "McpServerEnv": {
+      "anyOf": [
+        { "type": "object", "additionalProperties": { "type": "string" } },
+        { "type": "array", "items": { "type": "string" } }
+      ],
+      "title": "MCP Server Env",
+      "description": "MCP environment values as a map or pass-through variable names. Array entries decode to ${VAR} references."
+    },
     "McpServerEntry": {
       "anyOf": [
         { "type": "string" },
@@ -656,6 +664,37 @@
                 }
               ]
             },
+            "command": {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "Executable command for an inline stdio MCP server.",
+                  "examples": ["npx"]
+                }
+              ]
+            },
+            "args": {
+              "type": "array",
+              "description": "Arguments passed to the inline stdio MCP server command.",
+              "examples": [["-y", "linear-mcp-server"]],
+              "items": { "type": "string" }
+            },
+            "url": {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "Remote MCP server URL.",
+                  "examples": ["https://mcp.sentry.dev/sse"]
+                }
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": { "type": "string" },
+              "description": "HTTP headers for a remote MCP server. Prefer ${VAR} references for secrets."
+            },
             "enabled": {
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
@@ -666,23 +705,21 @@
               "description": "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
               "default": false
             },
-            "env": {
-              "type": "object",
-              "additionalProperties": { "type": "string" },
-              "description": "Resolved MCP server configuration values keyed by environment variable, argument, header, or URL variable name."
-            }
+            "env": { "$ref": "#/definitions/McpServerEnv" }
           },
-          "required": ["source"],
-          "additionalProperties": false,
-          "title": "MCP Server Entry Object",
-          "description": "An MCP server entry with source and optional enabled/authored/env fields."
+          "additionalProperties": false
         }
       ],
       "title": "MCP Server Entry",
-      "description": "An MCP server entry: a source string, or an object with source plus optional enabled/authored/env fields.",
+      "description": "An MCP server entry: a source string, sourced object, inline command object, or inline URL object.",
       "examples": [
         "@acme/mcps/context@^1.0.0",
-        { "source": "github:acme/agent-extensions", "enabled": false }
+        { "source": "github:acme/agent-extensions", "enabled": false },
+        { "command": "npx", "args": ["-y", "linear-mcp-server"], "env": ["LINEAR_API_KEY"] },
+        {
+          "url": "https://mcp.sentry.dev/sse",
+          "headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" }
+        }
       ]
     },
     "McpServersMap": {

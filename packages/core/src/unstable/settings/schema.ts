@@ -190,11 +190,27 @@ type EnabledEntry = AuthoredEntry & {
   readonly enabled: boolean;
 };
 
-type McpServerEntryObject = EnabledEntryObject & {
-  readonly env?: Readonly<Record<string, string>> | undefined;
+type McpServerEnvInput = Readonly<Record<string, string>> | ReadonlyArray<string>;
+
+type McpServerVerboseEntryObject = {
+  readonly source?: string | undefined;
+  readonly command?: string | undefined;
+  readonly args?: ReadonlyArray<string> | undefined;
+  readonly url?: string | undefined;
+  readonly headers?: Readonly<Record<string, string>> | undefined;
+  readonly enabled?: boolean | undefined;
+  readonly authored?: boolean | undefined;
+  readonly env?: McpServerEnvInput | undefined;
 };
 
-type CanonicalMcpServerEntry = EnabledEntry & {
+type CanonicalMcpServerEntry = {
+  readonly source: string;
+  readonly command?: string | undefined;
+  readonly args?: ReadonlyArray<string> | undefined;
+  readonly url?: string | undefined;
+  readonly headers?: Readonly<Record<string, string>> | undefined;
+  readonly enabled: boolean;
+  readonly authored: boolean;
   readonly env: Readonly<Record<string, string>>;
 };
 
@@ -234,6 +250,46 @@ const entrySourceFieldSchema = (label: string, fqnType: string) =>
       ],
     }),
   );
+
+const McpServerEnvSchema = Schema.Union([
+  Schema.Record(Schema.String, Schema.String),
+  Schema.Array(Schema.String),
+]).annotate({
+  identifier: "McpServerEnv",
+  title: "MCP Server Env",
+  description:
+    "MCP environment values as a map or pass-through variable names. Array entries decode to ${VAR} references.",
+});
+
+const decodeMcpEnv = (env: McpServerEnvInput | undefined): Readonly<Record<string, string>> => {
+  if (env === undefined) return {};
+  if (Array.isArray(env)) {
+    return Object.fromEntries(env.map((name) => [name, `\${${name}}`]));
+  }
+  return Object.fromEntries(Object.entries(env));
+};
+
+const hasOwnKey = (entry: Readonly<Record<string, unknown>>, key: string): boolean =>
+  Object.hasOwn(entry, key) && entry[key] !== undefined;
+
+const validateMcpTransportExclusivity = (
+  entry: Readonly<Record<string, unknown>>,
+): string | undefined => {
+  const transports = ["source", "command", "url"].filter((key) => hasOwnKey(entry, key));
+  if (transports.length !== 1) {
+    return "MCP server entry must include exactly one of source, command, or url";
+  }
+  if (hasOwnKey(entry, "source") && (hasOwnKey(entry, "args") || hasOwnKey(entry, "headers"))) {
+    return "MCP server source entries cannot include args or headers";
+  }
+  if (hasOwnKey(entry, "command") && hasOwnKey(entry, "headers")) {
+    return "MCP server command entries cannot include headers";
+  }
+  if (hasOwnKey(entry, "url") && hasOwnKey(entry, "args")) {
+    return "MCP server URL entries cannot include args";
+  }
+  return undefined;
+};
 
 const telemetryModeExamples = [true, "errors", false] as const;
 
@@ -298,8 +354,8 @@ type RuleEntryCanonical = EnabledEntry;
 type HookEntryCanonical = EnabledEntry;
 
 const compactOrVerboseEntry = <
-  ObjectEntry extends AuthoredEntryObject,
-  CanonicalEntry extends AuthoredEntry,
+  ObjectEntry,
+  CanonicalEntry,
   ObjectSchema extends Schema.Codec<ObjectEntry, ObjectEntry>,
   CanonicalSchema extends Schema.Codec<CanonicalEntry, CanonicalEntry>,
 >(
@@ -772,16 +828,51 @@ export const McpServerEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("MCP server", "mcps"),
   enabled: enabledFieldSchema,
   authored: authoredFieldSchema,
-  env: Schema.optionalKey(
-    Schema.Record(Schema.String, Schema.String).annotate({
-      description:
-        "Resolved MCP server configuration values keyed by environment variable, argument, header, or URL variable name.",
-    }),
-  ),
+  env: Schema.optionalKey(McpServerEnvSchema),
 }).annotate({
   title: "MCP Server Entry Object",
   description: "An MCP server entry with source and optional enabled/authored/env fields.",
 });
+
+const McpServerVerboseEntryObjectSchema = Schema.Struct({
+  source: Schema.optionalKey(entrySourceFieldSchema("MCP server", "mcps")),
+  command: Schema.optionalKey(
+    Schema.NonEmptyString.pipe(
+      Schema.annotate({
+        description: "Executable command for an inline stdio MCP server.",
+        examples: ["npx"],
+      }),
+    ),
+  ),
+  args: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Arguments passed to the inline stdio MCP server command.",
+      examples: [["-y", "linear-mcp-server"]],
+    }),
+  ),
+  url: Schema.optionalKey(
+    Schema.NonEmptyString.pipe(
+      Schema.annotate({
+        description: "Remote MCP server URL.",
+        examples: ["https://mcp.sentry.dev/sse"],
+      }),
+    ),
+  ),
+  headers: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.String).annotate({
+      description: "HTTP headers for a remote MCP server. Prefer ${VAR} references for secrets.",
+    }),
+  ),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
+  env: Schema.optionalKey(McpServerEnvSchema),
+}).pipe(
+  Schema.check(
+    Schema.makeFilter((entry: McpServerVerboseEntryObject) =>
+      validateMcpTransportExclusivity(entry),
+    ),
+  ),
+);
 
 /**
  * Union of MCP server entry forms: plain source string or object with source + enabled + authored + env.
@@ -792,47 +883,100 @@ export const McpServerEntryObjectSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export const McpServerEntrySchema = compactOrVerboseEntry(
-  McpServerEntryObjectSchema,
+  McpServerVerboseEntryObjectSchema,
   Schema.Struct({
     source: Schema.String,
+    command: Schema.optional(Schema.String),
+    args: Schema.optional(Schema.Array(Schema.String)),
+    url: Schema.optional(Schema.String),
+    headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
     enabled: Schema.Boolean,
     authored: Schema.Boolean,
     env: Schema.Record(Schema.String, Schema.String),
   }),
   {
-    decode: (entry: string | McpServerEntryObject): CanonicalMcpServerEntry =>
+    decode: (entry: string | McpServerVerboseEntryObject): CanonicalMcpServerEntry =>
       typeof entry === "string"
         ? { source: entry, enabled: true, authored: false, env: {} }
         : {
-            source: entry.source,
+            source: "source" in entry && entry.source !== undefined ? entry.source : "inline",
+            ...("command" in entry && entry.command !== undefined
+              ? { command: entry.command }
+              : {}),
+            ...("args" in entry && entry.args !== undefined ? { args: entry.args } : {}),
+            ...("url" in entry && entry.url !== undefined ? { url: entry.url } : {}),
+            ...("headers" in entry && entry.headers !== undefined
+              ? { headers: entry.headers }
+              : {}),
             enabled: entry.enabled ?? true,
             authored: entry.authored ?? false,
-            env: entry.env ?? {},
+            env: decodeMcpEnv(entry.env),
           },
-    encode: (entry: CanonicalMcpServerEntry): string | McpServerEntryObject => {
-      if (entry.enabled && !entry.authored && Object.keys(entry.env).length === 0) {
+    encode: (entry: CanonicalMcpServerEntry): string | McpServerVerboseEntryObject => {
+      if (
+        entry.source !== "inline" &&
+        entry.enabled &&
+        !entry.authored &&
+        Object.keys(entry.env).length === 0
+      ) {
         return entry.source;
       }
       const obj: {
-        source: string;
+        source?: string;
+        command?: string;
+        args?: ReadonlyArray<string>;
+        url?: string;
+        headers?: Readonly<Record<string, string>>;
         enabled?: boolean;
         authored?: boolean;
         env?: Readonly<Record<string, string>>;
-      } = { source: entry.source };
+      } = {};
+      if (entry.source !== "inline") obj.source = entry.source;
+      if (entry.command !== undefined) obj.command = entry.command;
+      if (entry.args !== undefined && entry.args.length > 0) obj.args = entry.args;
+      if (entry.url !== undefined) obj.url = entry.url;
+      if (entry.headers !== undefined && Object.keys(entry.headers).length > 0) {
+        obj.headers = entry.headers;
+      }
       if (!entry.enabled) obj.enabled = false;
       if (entry.authored) obj.authored = true;
       if (Object.keys(entry.env).length > 0) obj.env = entry.env;
-      return obj;
+      if (entry.source !== "inline") {
+        return {
+          source: entry.source,
+          ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
+          ...(obj.authored === undefined ? {} : { authored: obj.authored }),
+          ...(obj.env === undefined ? {} : { env: obj.env }),
+        };
+      }
+      if (entry.command !== undefined) {
+        return {
+          command: entry.command,
+          ...(obj.args === undefined ? {} : { args: obj.args }),
+          ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
+          ...(obj.authored === undefined ? {} : { authored: obj.authored }),
+          ...(obj.env === undefined ? {} : { env: obj.env }),
+        };
+      }
+      return {
+        url: entry.url ?? "",
+        ...(obj.headers === undefined ? {} : { headers: obj.headers }),
+        ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
+        ...(obj.authored === undefined ? {} : { authored: obj.authored }),
+        ...(obj.env === undefined ? {} : { env: obj.env }),
+      };
     },
   },
   {
     identifier: "McpServerEntry",
     title: "MCP Server Entry",
     description:
-      "An MCP server entry: a source string, or an object with source plus optional enabled/authored/env fields.",
+      "An MCP server entry: a source string, sourced object, inline command object, or inline URL object.",
     examples: [
       "@acme/mcps/context@^1.0.0",
       { source: "github:acme/agent-extensions", enabled: false },
+      { command: "npx", args: ["-y", "linear-mcp-server"], env: ["LINEAR_API_KEY"] },
+      { url: "https://mcp.sentry.dev/sse", headers: { Authorization: "Bearer ${SENTRY_TOKEN}" } },
     ],
   },
 );

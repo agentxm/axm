@@ -137,6 +137,7 @@ export interface WorkspaceMcpConfigOccurrence {
   readonly origin: "workspace";
   readonly name: ExtensionName;
   readonly contentLocation: AbsolutePath;
+  readonly config: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -153,6 +154,7 @@ export interface AgentMcpConfigOccurrence {
   readonly agentId: AgentId;
   readonly name: ExtensionName;
   readonly contentLocation: AbsolutePath;
+  readonly config: Readonly<Record<string, unknown>>;
 }
 
 /**

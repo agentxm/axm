@@ -189,6 +189,7 @@ export interface MakeWorkspaceMcpConfigOccurrenceInput {
   readonly scope: Scope;
   readonly name: string;
   readonly contentLocation: string;
+  readonly config?: Readonly<Record<string, unknown>>;
 }
 
 export interface MakeAgentMcpConfigOccurrenceInput {
@@ -196,6 +197,7 @@ export interface MakeAgentMcpConfigOccurrenceInput {
   readonly agentId: AgentId;
   readonly name: string;
   readonly contentLocation: string;
+  readonly config?: Readonly<Record<string, unknown>>;
 }
 
 export const makeWorkspaceMcpConfigOccurrence = (
@@ -206,6 +208,7 @@ export const makeWorkspaceMcpConfigOccurrence = (
   origin: "workspace",
   name: decodeExtensionNameSync(input.name),
   contentLocation: decodeFixtureAbsolutePath(input.contentLocation),
+  config: input.config ?? {},
 });
 
 export const makeAgentMcpConfigOccurrence = (
@@ -217,6 +220,7 @@ export const makeAgentMcpConfigOccurrence = (
   agentId: input.agentId,
   name: decodeExtensionNameSync(input.name),
   contentLocation: decodeFixtureAbsolutePath(input.contentLocation),
+  config: input.config ?? {},
 });
 
 // ---------------------------------------------------------------------------

@@ -7,7 +7,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { ExitCode } from "../app-error/index.js";
 import { handle } from "../test-helpers.js";
-import { addMcpServerMixed, removeMcpServerMixed, runCliInvocation } from "./mcp-sync.js";
+import {
+  addMcpServerMixed,
+  pruneManagedMcpServersForAgent,
+  removeMcpServerMixed,
+  runCliInvocation,
+  syncInlineMcpServerToAgent,
+} from "./mcp-sync.js";
 
 const addArgs = (workspaceRoot: string) => ({
   workspaceRoot,
@@ -259,6 +265,121 @@ describe("mcp-sync helpers", () => {
             expect(outcome.reason).toContain("supported platforms");
             expect(outcome.reason).toContain(process.platform);
           }
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("syncs inline stdio MCP servers to agent config with env references", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-"));
+        try {
+          const outcome = yield* syncInlineMcpServerToAgent("claude-code", {
+            workspaceRoot,
+            serverName: "linear",
+            scope: "project",
+            entry: {
+              source: "inline",
+              command: "npx",
+              args: ["-y", "linear-mcp-server"],
+              enabled: true,
+              authored: false,
+              env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+            },
+          });
+
+          expect(outcome).toEqual({ _tag: "success" });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
+          expect(config).toContain('"linear"');
+          expect(config).toContain('"command": "npx"');
+          expect(config).toContain('"args": [');
+          expect(config).toContain('"LINEAR_API_KEY": "${LINEAR_API_KEY}"');
+          expect(config).not.toContain("real_literal_token");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("syncs inline remote MCP servers to agent config with header references", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-"));
+        try {
+          const outcome = yield* syncInlineMcpServerToAgent("claude-code", {
+            workspaceRoot,
+            serverName: "sentry",
+            scope: "project",
+            entry: {
+              source: "inline",
+              url: "https://mcp.sentry.dev/sse",
+              headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+              enabled: true,
+              authored: false,
+              env: {},
+            },
+          });
+
+          expect(outcome).toEqual({ _tag: "success" });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
+          expect(config).toContain('"sentry"');
+          expect(config).toContain('"type": "sse"');
+          expect(config).toContain('"Authorization": "Bearer ${SENTRY_TOKEN}"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("prunes stale AXM-managed MCP servers from agent config", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-"));
+        try {
+          yield* syncInlineMcpServerToAgent("claude-code", {
+            workspaceRoot,
+            serverName: "linear",
+            scope: "project",
+            entry: {
+              source: "inline",
+              command: "npx",
+              args: ["-y", "linear-mcp-server"],
+              enabled: true,
+              authored: false,
+              env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+            },
+          });
+          yield* syncInlineMcpServerToAgent("claude-code", {
+            workspaceRoot,
+            serverName: "stale",
+            scope: "project",
+            entry: {
+              source: "inline",
+              command: "stale-mcp",
+              enabled: true,
+              authored: false,
+              env: {},
+            },
+          });
+
+          const outcome = yield* pruneManagedMcpServersForAgent("claude-code", {
+            workspaceRoot,
+            scope: "project",
+            declaredServerNames: new Set(["linear"]),
+          });
+
+          expect(outcome).toEqual({ _tag: "success" });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
+          expect(config).toContain('"linear"');
+          expect(config).not.toContain('"stale"');
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

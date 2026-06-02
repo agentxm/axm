@@ -1,12 +1,15 @@
 import { Command } from "effect/unstable/cli";
 
 import { mcpsVersionCommand } from "../shared/version-command.js";
+import { addCommand } from "./add.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
+import { importCommand } from "./import.js";
 import { installCommand } from "./install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { publishCommand } from "./publish.js";
+import { removeCommand } from "./remove.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { updateCommand } from "./update.js";
 
@@ -27,6 +30,9 @@ export const mcpsCommand = Command.make("mcps").pipe(
     },
   ]),
   Command.withSubcommands([
+    addCommand,
+    removeCommand,
+    importCommand,
     installCommand,
     uninstallCommand,
     listCommand,

@@ -1019,8 +1019,50 @@ describe("Settings schema", () => {
         });
       });
 
-      it("rejects object without source", () => {
+      it("decodes an inline stdio object", () => {
+        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
+          command: "npx",
+          args: ["-y", "linear-mcp-server"],
+          env: ["LINEAR_API_KEY"],
+        });
+
+        expect(result).toEqual({
+          source: "inline",
+          command: "npx",
+          args: ["-y", "linear-mcp-server"],
+          authored: false,
+          enabled: true,
+          env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+        });
+      });
+
+      it("decodes an inline remote object", () => {
+        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
+          url: "https://mcp.sentry.dev/sse",
+          headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+        });
+
+        expect(result).toEqual({
+          source: "inline",
+          url: "https://mcp.sentry.dev/sse",
+          headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+          authored: false,
+          enabled: true,
+          env: {},
+        });
+      });
+
+      it("rejects object without a transport", () => {
         expect(() => Schema.decodeUnknownSync(McpServerEntrySchema)({ foo: "bar" })).toThrow();
+      });
+
+      it("rejects object with multiple transports", () => {
+        expect(() =>
+          Schema.decodeUnknownSync(McpServerEntrySchema)({
+            source: "@wayne/mcps/batcomputer",
+            command: "npx",
+          }),
+        ).toThrow();
       });
     });
 
@@ -1045,6 +1087,23 @@ describe("Settings schema", () => {
         expect(result).toEqual({
           source: "@wayne/mcps/batcomputer",
           authored: true,
+        });
+      });
+
+      it("encodes inline entries without a visible source field", () => {
+        const result = Schema.encodeSync(McpServerEntrySchema)({
+          source: "inline",
+          command: "npx",
+          args: ["-y", "linear-mcp-server"],
+          enabled: true,
+          authored: false,
+          env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+        });
+
+        expect(result).toEqual({
+          command: "npx",
+          args: ["-y", "linear-mcp-server"],
+          env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
         });
       });
     });

@@ -24,11 +24,8 @@
  * }
  * ```
  *
- * The scanner emits one occurrence per `<server-name>`. The per-server payload
- * (command, args, env, etc.) is intentionally not parsed here — Phase 7's MCP
- * server subject module decodes it through its own schema. The scanner's
- * contract is "this server name is observed at this surface", not "this
- * server is well-formed".
+ * The scanner emits one occurrence per `<server-name>` and captures each
+ * record-shaped server payload for import/adoption flows.
  */
 
 import * as Effect from "effect/Effect";
@@ -95,17 +92,25 @@ export const makeMcpConfigScanner = (
  * server name.
  */
 const McpConfigShapeSchema = Schema.Struct({
-  mcpServers: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  mcpServers: Schema.optional(
+    Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
+  ),
 });
 
 const decodeMcpConfigShape = Schema.decodeUnknownEffect(McpConfigShapeSchema);
 
-const extractServerNames = (
+const extractServers = (
   decoded: typeof McpConfigShapeSchema.Type,
-): ReadonlyArray<ExtensionName> =>
+): ReadonlyArray<{
+  readonly name: ExtensionName;
+  readonly config: Readonly<Record<string, unknown>>;
+}> =>
   decoded.mcpServers === undefined
     ? []
-    : Object.keys(decoded.mcpServers).map((name) => decodeExtensionNameSync(name));
+    : Object.entries(decoded.mcpServers).map(([name, config]) => ({
+        name: decodeExtensionNameSync(name),
+        config,
+      }));
 
 const readMcpConfig = (
   fs: FileSystem.FileSystem,
@@ -177,14 +182,15 @@ const scanWorkspaceMcp = (
     const filePath = path.join(workspaceRoot, ".mcp.json");
     const decoded = yield* readMcpConfig(fs, diagnostics, filePath);
     if (Option.isNone(decoded)) return [];
-    const names = extractServerNames(decoded.value);
+    const servers = extractServers(decoded.value);
     const contentLocation = makeAbsolutePath(path, filePath);
-    return names.map<WorkspaceMcpConfigOccurrence>((name) => ({
+    return servers.map<WorkspaceMcpConfigOccurrence>((server) => ({
       _tag: "mcp-config",
       scope,
       origin: "workspace",
-      name,
+      name: server.name,
       contentLocation,
+      config: server.config,
     }));
   });
 
@@ -207,15 +213,16 @@ const scanAgentMcp = (
     const filePath = path.join(workspaceRoot, rootSegmentOpt.value, "mcp.json");
     const decoded = yield* readMcpConfig(fs, diagnostics, filePath);
     if (Option.isNone(decoded)) return [];
-    const names = extractServerNames(decoded.value);
+    const servers = extractServers(decoded.value);
     const contentLocation = makeAbsolutePath(path, filePath);
-    return names.map<AgentMcpConfigOccurrence>((name) => ({
+    return servers.map<AgentMcpConfigOccurrence>((server) => ({
       _tag: "mcp-config",
       scope,
       origin: "agent",
       agentId: descriptor.id,
-      name,
+      name: server.name,
       contentLocation,
+      config: server.config,
     }));
   });
 

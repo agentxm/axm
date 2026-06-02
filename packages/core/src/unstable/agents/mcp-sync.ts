@@ -9,12 +9,17 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import { parse, type ParseError } from "jsonc-parser";
 import {
   AGENTS_BY_ID,
   type Agent,
   type AgentId as CapabilityAgentId,
+  type McpRemoteDialect,
+  type McpStdioDialect,
 } from "../agent-capabilities/index.js";
-import { envOption } from "../utils/index.js";
+import type { McpConfigTarget } from "../agent-capabilities/index.js";
+import { getHome } from "./constants.js";
+import { envOption, isPathSafe } from "../utils/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
@@ -28,6 +33,7 @@ import type {
   McpServerSyncOutcome,
   RemoveMcpServerArgs,
 } from "./coding-agent.js";
+import type { McpServerEntry } from "../settings/index.js";
 
 export interface CliInvocation {
   readonly command: string;
@@ -43,6 +49,7 @@ export interface CliInvocationResult {
 }
 
 type NodePlatform = NodeJS.Platform;
+type InlineRemoteTransport = "streamable-http" | "sse";
 
 const DEFAULT_SUPPORTED_PLATFORMS = ["darwin", "linux", "win32"] as const;
 
@@ -56,6 +63,9 @@ const decodeJsonMcpConfigFromJsonString = Schema.decodeUnknownEffect(
 );
 
 const emptyJsonMcpConfig: JsonMcpConfig = { servers: {} };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const redactSecrets = (value: string): string =>
   value
@@ -199,6 +209,96 @@ const decodeJsonConfig = (
       }),
     ),
   );
+
+const parseJsonObject = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
+  Effect.sync(() => {
+    const errors: Array<ParseError> = [];
+    const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
+    if (errors.length > 0) throw errors;
+    return parsed;
+  }).pipe(
+    Effect.mapError((error) =>
+      makeAppError({
+        code: "validation",
+        detail: `Invalid MCP config JSON/JSONC: ${configPath}`,
+        cause: error,
+      }),
+    ),
+  );
+
+const resolveMcpConfigTargetPath = (
+  workspaceRoot: string,
+  target: McpConfigTarget,
+): Effect.Effect<string, AppError, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const home = yield* getHome;
+    const configPath =
+      target.scope === "user"
+        ? target.path.startsWith("~/")
+          ? path.join(home, target.path.slice(2))
+          : path.resolve(home, target.path)
+        : path.resolve(workspaceRoot, target.path);
+
+    if (target.scope === "project" && !isPathSafe(workspaceRoot, configPath)) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `MCP config target escapes workspace root: ${target.path}`,
+      });
+    }
+    return configPath;
+  });
+
+const readOptionalConfig = (
+  configPath: string,
+): Effect.Effect<Option.Option<string>, AppError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!exists) return Option.none();
+    return yield* fs.readFileString(configPath).pipe(
+      Effect.map(Option.some),
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to read MCP config: ${configPath}`,
+          cause: error,
+        }),
+      ),
+    );
+  });
+
+const collectManagedJsonServerNames = (
+  configPath: string,
+  raw: string,
+  serversKey: string,
+  declaredServerNames: ReadonlySet<string>,
+): Effect.Effect<ReadonlyArray<string>, AppError> =>
+  Effect.gen(function* () {
+    const parsed = yield* parseJsonObject(configPath, raw);
+    if (!isRecord(parsed)) return [];
+    const servers = parsed[serversKey];
+    if (!isRecord(servers)) return [];
+    return Object.entries(servers).flatMap(([name, entry]) =>
+      isRecord(entry) && entry["managedBy"] === "axm" && !declaredServerNames.has(name)
+        ? [name]
+        : [],
+    );
+  });
+
+const collectManagedTomlServerNames = (
+  raw: string,
+  declaredServerNames: ReadonlySet<string>,
+): ReadonlyArray<string> => {
+  const names: Array<string> = [];
+  const blockPattern = /^# axm managed mcp-server ([a-z0-9][a-z0-9-]*) start$/gm;
+  let match: RegExpExecArray | null;
+  while ((match = blockPattern.exec(raw)) !== null) {
+    const name = match[1];
+    if (name !== undefined && !declaredServerNames.has(name)) names.push(name);
+  }
+  return names;
+};
 
 const upsertJsonConfigServer = (
   configPath: string,
@@ -382,6 +482,218 @@ const entryFromAddArgs = (args: AddMcpServerArgs) => ({
   version: args.resolvedVersion,
   canonicalPath: args.canonicalPath,
 });
+
+const addInlineTypeField = (
+  entry: Record<string, unknown>,
+  typeField: McpStdioDialect["typeField"] | McpRemoteDialect["typeField"],
+  transport: "stdio" | InlineRemoteTransport,
+): void => {
+  if (typeField === undefined) return;
+  if (typeof typeField.value === "string") {
+    entry[typeField.name] = typeField.value;
+    return;
+  }
+  if (transport !== "stdio") {
+    entry[typeField.name] = typeField.value[transport];
+  }
+};
+
+const projectInlineStdio = (args: {
+  readonly dialect: McpStdioDialect;
+  readonly command: string;
+  readonly commandArgs: ReadonlyArray<string>;
+  readonly env: Readonly<Record<string, string>>;
+  readonly enabled: boolean;
+  readonly nativeEnabled: boolean;
+}): Readonly<Record<string, unknown>> => {
+  const invocation = [args.command, ...args.commandArgs];
+  const entry: Record<string, unknown> = { managedBy: "axm" };
+  addInlineTypeField(entry, args.dialect.typeField, "stdio");
+  if (args.nativeEnabled) entry["enabled"] = args.enabled;
+  if (args.dialect.command === "array") {
+    entry["command"] = invocation;
+  } else {
+    entry["command"] = args.command;
+    if (args.commandArgs.length > 0) entry["args"] = args.commandArgs;
+  }
+  if (Object.keys(args.env).length > 0 && args.dialect.envKey !== undefined) {
+    entry[args.dialect.envKey] = args.env;
+  }
+  return entry;
+};
+
+const inferInlineRemoteTransport = (url: string): InlineRemoteTransport =>
+  url.endsWith("/sse") || url.includes("/sse?") ? "sse" : "streamable-http";
+
+const projectInlineRemote = (args: {
+  readonly dialect: McpRemoteDialect;
+  readonly url: string;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly enabled: boolean;
+  readonly nativeEnabled: boolean;
+}): Readonly<Record<string, unknown>> => {
+  const transport = inferInlineRemoteTransport(args.url);
+  const entry: Record<string, unknown> = { managedBy: "axm" };
+  addInlineTypeField(entry, args.dialect.typeField, transport);
+  if (args.nativeEnabled) entry["enabled"] = args.enabled;
+  entry[args.dialect.urlKey[transport]] = args.url;
+  if (Object.keys(args.headers).length > 0 && args.dialect.headersKey !== undefined) {
+    entry[args.dialect.headersKey] = args.headers;
+  }
+  return entry;
+};
+
+export interface SyncInlineMcpServerArgs {
+  readonly workspaceRoot: string;
+  readonly serverName: string;
+  readonly entry: McpServerEntry;
+  readonly scope?: "project" | "user";
+}
+
+export interface PruneManagedMcpServersArgs {
+  readonly workspaceRoot: string;
+  readonly declaredServerNames: ReadonlySet<string>;
+  readonly scope?: "project" | "user";
+}
+
+export const syncInlineMcpServerToAgent = (
+  agentId: string,
+  args: SyncInlineMcpServerArgs,
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    if (!isCapabilityAgentId(agentId)) {
+      return {
+        _tag: "unsupported",
+        reason: `${agentId} has no MCP capability catalog entry`,
+      } as const;
+    }
+
+    const agent: Agent = AGENTS_BY_ID[agentId];
+    const capability = agent.mcp;
+    if (
+      capability === undefined ||
+      capability.standardsCompliance !== "full" ||
+      capability.config === undefined
+    ) {
+      return {
+        _tag: "unsupported",
+        reason: `${agentId} does not have full MCP config support`,
+      } as const;
+    }
+
+    const config = capability.config;
+    const projected =
+      args.entry.command !== undefined
+        ? config.stdio === undefined
+          ? Option.none<Readonly<Record<string, unknown>>>()
+          : Option.some(
+              projectInlineStdio({
+                dialect: config.stdio,
+                command: args.entry.command,
+                commandArgs: args.entry.args ?? [],
+                env: args.entry.env,
+                enabled: args.entry.enabled,
+                nativeEnabled: config.nativeEnabled,
+              }),
+            )
+        : args.entry.url !== undefined
+          ? config.remote === undefined
+            ? Option.none<Readonly<Record<string, unknown>>>()
+            : Option.some(
+                projectInlineRemote({
+                  dialect: config.remote,
+                  url: args.entry.url,
+                  headers: args.entry.headers ?? {},
+                  enabled: args.entry.enabled,
+                  nativeEnabled: config.nativeEnabled,
+                }),
+              )
+          : Option.none<Readonly<Record<string, unknown>>>();
+
+    if (Option.isNone(projected)) {
+      return {
+        _tag: "unsupported",
+        reason: `${agentId} does not support this inline MCP server transport`,
+      } as const;
+    }
+
+    const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
+    yield* Effect.forEach(
+      targets,
+      (target) =>
+        writeAgentMcpConfig({
+          workspaceRoot: args.workspaceRoot,
+          serverName: args.serverName,
+          serversKey: config.serversKey,
+          target,
+          entry: projected.value,
+        }),
+      { concurrency: "unbounded" },
+    );
+    return { _tag: "success" } as const;
+  });
+
+export const pruneManagedMcpServersForAgent = (
+  agentId: string,
+  args: PruneManagedMcpServersArgs,
+): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    if (!isCapabilityAgentId(agentId)) {
+      return {
+        _tag: "unsupported",
+        reason: `${agentId} has no MCP capability catalog entry`,
+      } as const;
+    }
+
+    const agent: Agent = AGENTS_BY_ID[agentId];
+    const capability = agent.mcp;
+    if (
+      capability === undefined ||
+      capability.standardsCompliance !== "full" ||
+      capability.config === undefined
+    ) {
+      return {
+        _tag: "unsupported",
+        reason: `${agentId} does not have full MCP config support`,
+      } as const;
+    }
+
+    const config = capability.config;
+    const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
+    yield* Effect.forEach(
+      targets,
+      (target) =>
+        Effect.gen(function* () {
+          const configPath = yield* resolveMcpConfigTargetPath(args.workspaceRoot, target);
+          const raw = yield* readOptionalConfig(configPath);
+          if (Option.isNone(raw)) return;
+          const staleNames =
+            target.format === "toml"
+              ? collectManagedTomlServerNames(raw.value, args.declaredServerNames)
+              : yield* collectManagedJsonServerNames(
+                  configPath,
+                  raw.value,
+                  config.serversKey,
+                  args.declaredServerNames,
+                );
+          yield* Effect.forEach(
+            staleNames,
+            (serverName) =>
+              removeAgentMcpConfig({
+                workspaceRoot: args.workspaceRoot,
+                serverName,
+                serversKey: config.serversKey,
+                target,
+                nativeEnabled: config.nativeEnabled,
+                disableOnly: false,
+              }),
+            { concurrency: "unbounded" },
+          );
+        }),
+      { concurrency: "unbounded" },
+    );
+    return { _tag: "success" } as const;
+  });
 
 const isCapabilityAgentId = (id: string): id is CapabilityAgentId => id in AGENTS_BY_ID;
 

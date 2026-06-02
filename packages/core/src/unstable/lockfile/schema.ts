@@ -140,6 +140,20 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     }),
   ]);
 
+const InlineMcpServerLockEntrySchema = Schema.Struct({
+  type: Schema.Literal("inline"),
+  command: Schema.optional(Schema.NonEmptyString),
+  args: Schema.optional(Schema.Array(Schema.String)),
+  url: Schema.optional(Schema.NonEmptyString),
+  headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  syncedAgents: Schema.optional(Schema.Array(Schema.String)),
+  ...BaseCommonFields,
+}).annotate({
+  identifier: "InlineMcpServerLockEntry",
+  title: "Inline MCP Server Lock Entry",
+  description: "Lockfile entry for an inline MCP server configured directly in settings.json.",
+});
+
 // =============================================================================
 // Skill Lock Entry (union of all source types, with agents)
 // =============================================================================
@@ -299,7 +313,13 @@ export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServerLockEntrySchema = makeSourceLockUnion(BaseCommonFields);
+export const McpServerLockEntrySchema = Schema.Union([
+  makeSourceLockUnion({
+    syncedAgents: Schema.optional(Schema.Array(Schema.String)),
+    ...BaseCommonFields,
+  }),
+  InlineMcpServerLockEntrySchema,
+]);
 
 /**
  * Inferred type for McpServerLockEntry schema.

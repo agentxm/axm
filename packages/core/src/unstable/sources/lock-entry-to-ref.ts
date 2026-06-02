@@ -121,7 +121,7 @@ function findSourceConfig(
 }
 
 const gitBasedSourceFromEntry = (
-  entry: Exclude<SourceLockEntry, { readonly type: "registry" | "local" }>,
+  entry: Exclude<SourceLockEntry, { readonly type: "registry" | "local" | "inline" }>,
   getSources: LockEntryToRefDeps["getConfiguredSources"],
 ): Effect.Effect<GitBasedSource, AppError> => {
   switch (entry.type) {
@@ -336,6 +336,13 @@ export const mcpServerLockEntryToRef = (
               location: lockEntryLocation(deps.baseDir, "mcps", extensionName),
               gitTreeSha: Option.fromUndefinedOr(entry.gitTreeHash),
               server: { name: extensionName },
+            }),
+          );
+        case "inline":
+          return Effect.fail(
+            makeAppError({
+              code: "internal",
+              detail: `Inline MCP server "${extensionName}" does not resolve to a package ref`,
             }),
           );
       }

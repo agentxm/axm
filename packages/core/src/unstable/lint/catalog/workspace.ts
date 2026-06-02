@@ -58,6 +58,8 @@ import { packsDeclarationsValidRule } from "./workspace/packs-declarations-valid
 import { packsDependenciesResolvedRule } from "./workspace/packs-dependencies-resolved.js";
 import { packsMembersRetainedRule } from "./workspace/packs-members-retained.js";
 import { configuredButNotInstalledRule } from "./workspace/configured-but-not-installed.js";
+import { mcpServerNoSecretLiteralRule } from "./workspace/mcp-server-no-secret-literal.js";
+import { mcpServerTransportExclusivityRule } from "./workspace/mcp-server-transport-exclusivity.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
@@ -85,6 +87,8 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
   configuredButNotInstalledRule,
+  mcpServerTransportExclusivityRule,
+  mcpServerNoSecretLiteralRule,
   // Lockfile aligned (configured).
   skillsLockfileAlignedRule,
   // Integrity intact (configured + implicit).

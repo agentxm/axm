@@ -1648,23 +1648,34 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
-            const sourceInput = lockEntryToSourceParams(lockEntry);
-            const source = printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
             const authored = currentMcpServers[name]?.authored ?? false;
             const currentEnabled = currentMcpServers[name]?.enabled ?? true;
             const currentEnv = currentMcpServers[name]?.env ?? {};
+            const settingsEntry =
+              lockEntry.type === "inline"
+                ? {
+                    source: "inline",
+                    ...(lockEntry.command === undefined ? {} : { command: lockEntry.command }),
+                    ...(lockEntry.args === undefined ? {} : { args: lockEntry.args }),
+                    ...(lockEntry.url === undefined ? {} : { url: lockEntry.url }),
+                    ...(lockEntry.headers === undefined ? {} : { headers: lockEntry.headers }),
+                    enabled: enabled ?? currentEnabled,
+                    authored,
+                    env: env ?? currentEnv,
+                  }
+                : {
+                    source: printSourceParams(lockEntryToSourceParams(lockEntry)),
+                    enabled: enabled ?? currentEnabled,
+                    authored,
+                    env: env ?? currentEnv,
+                  };
             const updatedSettings = {
               ...currentSettings,
               mcpServers: {
                 ...currentMcpServers,
-                [name]: {
-                  source,
-                  enabled: enabled ?? currentEnabled,
-                  authored,
-                  env: env ?? currentEnv,
-                },
+                [name]: settingsEntry,
               },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));

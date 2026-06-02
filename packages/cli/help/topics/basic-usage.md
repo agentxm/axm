@@ -50,6 +50,21 @@ AXM makes it easy to enable or disable extensions on the fly.
 - `axm skills disable doomscroll`
 - `axm subagents enable karate-shihan`
 
+### MCP servers
+
+Use `axm mcps add` to configure MCP servers you already know about without
+publishing them first.
+
+```bash
+axm mcps add linear --command "npx -y linear-mcp-server" --env LINEAR_API_KEY
+axm mcps add sentry --url https://mcp.sentry.dev/sse --header 'Authorization:Bearer ${SENTRY_TOKEN}'
+axm mcps import
+axm sync
+```
+
+AXM stores env and header secrets as `${VAR}` references in `.axm/settings.json`
+and syncs the configured MCP servers into each configured agent.
+
 ### Ignoring extensions
 
 It's possible to ignore pre-existing skills and other extensions in your workspace so that AXM won't modify or prune them. This is helpful when these extensions are installed/managed by some other tool or mechanism.

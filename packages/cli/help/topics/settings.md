@@ -36,6 +36,36 @@ Feature config lives under `rulesConfig`, `skillsConfig`, `commandsConfig`, `sub
 
 `lint` configures workspace-only severity overrides for `axm lint`.
 
+## MCP servers
+
+Registry MCP servers use the same source-string form as other extensions. Inline
+MCP servers can be declared directly with either `command`/`args` for stdio or
+`url`/`headers` for a remote server. Use `axm mcps add` for both forms, `axm
+mcps import` to adopt unmanaged entries from existing agent config files, and
+`axm sync` to re-emit configured servers to every configured agent.
+
+```jsonc
+{
+  "mcpServers": {
+    "github": "@acme/mcps/github@^1.0.0",
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "linear-mcp-server"],
+      "env": ["LINEAR_API_KEY"],
+    },
+    "sentry": {
+      "url": "https://mcp.sentry.dev/sse",
+      "headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" },
+    },
+  },
+}
+```
+
+MCP `env` accepts either a map or an array of variable names. Array entries
+decode to `${VAR}` references. Keep secrets out of settings by storing
+`${VAR}` references in `env` and `headers`; AXM preserves those references when
+syncing agent config.
+
 ## Authoring
 
 Let AXM edit settings for routine install, remove, enable, disable, agent, and

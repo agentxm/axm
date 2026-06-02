@@ -23,6 +23,7 @@ import type { Handle } from "../extensions/handle.js";
  * - `"git"` - Generic git repository source
  * - `"registry"` - Package registry source
  * - `"local"` - Local filesystem path source
+ * - `"inline"` - Inline workspace configuration
  *
  * @experimental
  */
@@ -34,11 +35,12 @@ export const SourceTypeSchema = Schema.Literals([
   "git",
   "registry",
   "local",
+  "inline",
 ]).annotate({
   identifier: "SourceType",
   title: "Source Type",
   description:
-    "Source type discriminator: github, gitlab, bitbucket, azurerepos, git, registry, or local.",
+    "Source type discriminator: github, gitlab, bitbucket, azurerepos, git, registry, local, or inline.",
 });
 
 /**
@@ -226,6 +228,11 @@ export interface LocalSourceHost {
   readonly type: "local";
 }
 
+/** Self-describing — inline transport details live in SourceParams. @experimental */
+export interface InlineSourceHost {
+  readonly type: "inline";
+}
+
 /** @experimental */
 export type SourceHost =
   | GitHubSourceHost
@@ -234,7 +241,8 @@ export type SourceHost =
   | AzureReposSourceHost
   | GitSourceHost
   | RegistrySourceHost
-  | LocalSourceHost;
+  | LocalSourceHost
+  | InlineSourceHost;
 
 // -----------------------------------------------------------------------------
 // SourceParams — coordinates within a source
@@ -297,6 +305,15 @@ export interface LocalSourceParams {
 }
 
 /** @experimental */
+export interface InlineSourceParams {
+  readonly type: "inline";
+  readonly command: Option.Option<string>;
+  readonly args: ReadonlyArray<string>;
+  readonly url: Option.Option<string>;
+  readonly headers: Readonly<Record<string, string>>;
+}
+
+/** @experimental */
 export type SourceParams =
   | GitHubSourceParams
   | GitLabSourceParams
@@ -304,7 +321,8 @@ export type SourceParams =
   | AzureReposSourceParams
   | GitSourceParams
   | RegistrySourceParams
-  | LocalSourceParams;
+  | LocalSourceParams
+  | InlineSourceParams;
 
 // -----------------------------------------------------------------------------
 // Source — SourceHost & SourceParams
@@ -318,6 +336,8 @@ export type GitLabSource = GitLabSourceHost & GitLabSourceParams;
 export type BitbucketSource = BitbucketSourceHost & BitbucketSourceParams;
 /** @experimental */
 export type AzureReposSource = AzureReposSourceHost & AzureReposSourceParams;
+/** @experimental */
+export type InlineSource = InlineSourceHost & InlineSourceParams;
 /** @experimental */
 export type GitSource = GitSourceHost & GitSourceParams;
 /** @experimental */

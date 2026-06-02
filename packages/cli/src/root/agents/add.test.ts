@@ -8,9 +8,10 @@ import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
-import { DocsManager } from "@agentxm/client-core/unstable/docs";
+import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
+import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
@@ -58,8 +59,8 @@ const emptyMcpServerManager = {
   removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof McpServerManager>;
 
-const emptyDocsManager = {
-  type: "docs",
+const emptyFilesManager = {
+  type: "files",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
   listMaterializable: () => Effect.succeed([]),
@@ -68,7 +69,19 @@ const emptyDocsManager = {
   removeSettingsEntry: () => Effect.void,
   upsertLockfileEntry: () => Effect.void,
   removeLockfileEntry: () => Effect.void,
-} satisfies ServiceMap.Service.Shape<typeof DocsManager>;
+} satisfies ServiceMap.Service.Shape<typeof FilesManager>;
+
+const emptyRuleManager = {
+  type: "rule",
+  isInstalled: () => Effect.succeed(false),
+  materializeInstall: () => Effect.void,
+  listMaterializable: () => Effect.succeed([]),
+  materializeUninstall: () => Effect.void,
+  upsertSettingsEntry: () => Effect.void,
+  removeSettingsEntry: () => Effect.void,
+  upsertLockfileEntry: () => Effect.void,
+  removeLockfileEntry: () => Effect.void,
+} satisfies ServiceMap.Service.Shape<typeof RuleManager>;
 
 const emptySubagentManager = {
   type: "subagent",
@@ -98,7 +111,8 @@ const emptyManagersLayer = Layer.mergeAll(
   Layer.succeed(SkillManager, emptySkillManager),
   Layer.succeed(CommandManager, emptyCommandManager),
   Layer.succeed(McpServerManager, emptyMcpServerManager),
-  Layer.succeed(DocsManager, emptyDocsManager),
+  Layer.succeed(FilesManager, emptyFilesManager),
+  Layer.succeed(RuleManager, emptyRuleManager),
   Layer.succeed(SubagentManager, emptySubagentManager),
   Layer.succeed(PackManager, emptyPackManager),
 );

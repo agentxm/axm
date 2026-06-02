@@ -66,7 +66,7 @@ export const validatePathSafety = (baseDir: string, targetPath: string) =>
 const ALWAYS_EXCLUDED_NAMES = new Set([".git"]);
 
 /**
- * Entries additionally omitted from an agent-facing artifact: human docs,
+ * Entries additionally omitted from an agent-facing artifact: human files,
  * AXM-managed install metadata, and authoring-private (`_`-prefixed) files.
  * These belong in the canonical copy (they are part of the published package)
  * but are trimmed when fanning out to an agent directory.

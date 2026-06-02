@@ -7,9 +7,10 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { DocsManagerLive } from "@agentxm/client-core/unstable/docs";
+import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -97,8 +98,9 @@ describe("root sync handler", () => {
     const managersLayer = Layer.provide(
       Layer.mergeAll(
         CommandManagerLive,
-        DocsManagerLive,
+        FilesManagerLive,
         McpServerManagerLive,
+        RuleManagerLive,
         SkillManagerLive,
         SubagentManagerLive,
       ),
@@ -217,25 +219,25 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("renders settings-owned Context docs packages", () =>
+  it.effect("renders settings-owned Context Files packages", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: [],
-        docs: {
+        files: {
           "context-kit": "./extensions/context-kit",
         },
       });
       const fileDir = path.join(tempDir, "extensions", "context-kit");
-      writeJson(path.join(fileDir, "docs.json"), {
+      writeJson(path.join(fileDir, "files.json"), {
         owner: "@acme",
-        type: "docs",
+        type: "files",
         name: "context-kit",
         version: "1.0.0",
         contents: [
           {
             source: { kind: "static", path: "context.md" },
-            target: "docs/context.md",
+            target: "files/context.md",
             mode: "sync-always",
           },
         ],
@@ -245,7 +247,7 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ dryRun: false }));
 
-      const renderedFile = path.join(tempDir, "docs", "context.md");
+      const renderedFile = path.join(tempDir, "files", "context.md");
       expect(fs.existsSync(renderedFile)).toBe(true);
       expect(fs.readFileSync(renderedFile, "utf-8")).toContain("# Context");
     }),

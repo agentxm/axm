@@ -61,7 +61,7 @@ const buildSetPackArgs = (
       resolvedCommands: resolved.resolvedCommands,
       resolvedMcpServers: resolved.resolvedMcpServers,
       resolvedSubagents: resolved.resolvedSubagents,
-      resolvedDocs: resolved.resolvedDocs,
+      resolvedFiles: resolved.resolvedFiles,
       resolvedRules: resolved.resolvedRules,
       versionRange,
     } satisfies SetPackArgs;

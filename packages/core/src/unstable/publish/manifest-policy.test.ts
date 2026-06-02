@@ -46,7 +46,7 @@ describe("manifestFilenameForType", () => {
     expect(manifestFilenameForType("mcp-server")).toBe("mcp-server.json");
     expect(manifestFilenameForType("subagent")).toBe("subagent.json");
     expect(manifestFilenameForType("pack")).toBe("pack.json");
-    expect(manifestFilenameForType("docs")).toBe("docs.json");
+    expect(manifestFilenameForType("files")).toBe("files.json");
   });
 });
 
@@ -172,8 +172,8 @@ describe("resolveManifest", () => {
     Effect.gen(function* () {
       const manifest = JSON.stringify({
         owner: "@acme",
-        type: "docs",
-        name: "baseline-docs",
+        type: "files",
+        name: "baseline-files",
         version: "1.0.0",
         contents: [
           {
@@ -185,13 +185,13 @@ describe("resolveManifest", () => {
       });
 
       const resolved = yield* resolveManifest({
-        type: "docs",
-        entries: [makeEntry("docs.json"), makeEntry("src/README.md")],
-        readEntry: makeReadEntry({ "docs.json": manifest }),
+        type: "files",
+        entries: [makeEntry("files.json"), makeEntry("src/README.md")],
+        readEntry: makeReadEntry({ "files.json": manifest }),
       });
 
-      expect(resolved.identity.name).toBe("baseline-docs");
-      expect(resolved.identity.type).toBe("docs");
+      expect(resolved.identity.name).toBe("baseline-files");
+      expect(resolved.identity.type).toBe("files");
     }),
   );
 

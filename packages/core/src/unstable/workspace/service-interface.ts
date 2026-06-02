@@ -18,13 +18,13 @@ import * as ServiceMap from "effect/Context";
 import type { AppError } from "../app-error/index.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionRef } from "../extensions/refs.js";
-import type { FileInputValue } from "../docs/manifest-schema.js";
+import type { FileInputValue } from "../files/manifest-schema.js";
 import type {
   RegistryPackLockEntryArgs,
   CommandLockEntry,
   CommandsLockMap,
-  DocsLockEntry,
-  DocsLockMap,
+  FilesLockEntry,
+  FilesLockMap,
   McpServerLockEntry,
   McpServersLockMap,
   PackLockEntry,
@@ -38,8 +38,8 @@ import type {
 } from "../lockfile/index.js";
 import type {
   CommandEntry,
-  DocsEntry,
-  DocsMap,
+  FilesEntry,
+  FilesMap,
   InstructionsConfigValue,
   McpServerEntry,
   McpServersMap,
@@ -124,8 +124,8 @@ export interface SubagentExtensionTarget {
   readonly name: string;
 }
 
-export interface DocsExtensionTarget {
-  readonly type: "docs";
+export interface FilesExtensionTarget {
+  readonly type: "files";
   readonly name: string;
 }
 
@@ -143,7 +143,7 @@ export type ExtensionTarget =
   | CommandExtensionTarget
   | McpServerExtensionTarget
   | SubagentExtensionTarget
-  | DocsExtensionTarget
+  | FilesExtensionTarget
   | RuleExtensionTarget;
 
 /**
@@ -304,11 +304,11 @@ export interface SetMcpServerArgs {
 }
 
 /**
- * Arguments for `setDocs` -- bundles the Context docs package name with the lock entry.
+ * Arguments for `setFiles` -- bundles the Context Files package name with the lock entry.
  */
-export interface SetDocsArgs {
+export interface SetFilesArgs {
   readonly name: string;
-  readonly lockEntry: DocsLockEntry;
+  readonly lockEntry: FilesLockEntry;
   readonly versionRange: Option.Option<string>;
 }
 
@@ -376,35 +376,35 @@ export interface WorkspaceMutationsService {
   /** Read settings and return configured MCP server entries, defaulting to `{}`. */
   readonly getConfiguredMcpServerEntries: () => Effect.Effect<McpServersMap, AppError>;
   /** Read settings and return configured context, defaulting to `{}`. */
-  readonly getConfiguredDocsEntries: () => Effect.Effect<DocsMap, AppError>;
-  /** Read settings and return workspace vars available to Context docs templates, defaulting to `{}`. */
+  readonly getConfiguredFilesEntries: () => Effect.Effect<FilesMap, AppError>;
+  /** Read settings and return workspace vars available to Context Files templates, defaulting to `{}`. */
   readonly getWorkspaceVars: () => Effect.Effect<
     Readonly<Record<string, FileInputValue>>,
     AppError
   >;
   /** Read lockfile and return the context lock map. */
-  readonly getLockedDocs: () => Effect.Effect<DocsLockMap, AppError>;
-  /** Read lockfile and return the entry for a specific Context docs package, or Option.none(). */
-  readonly getLockedDocsEntry: (
+  readonly getLockedFiles: () => Effect.Effect<FilesLockMap, AppError>;
+  /** Read lockfile and return the entry for a specific Context Files package, or Option.none(). */
+  readonly getLockedFilesEntry: (
     name: string,
-  ) => Effect.Effect<Option.Option<DocsLockEntry>, AppError>;
-  /** Add or update a Context docs package in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setDocs: (args: SetDocsArgs) => Effect.Effect<void, AppError>;
-  /** Add or update a Context docs package in lockfile only. Used for pack dependencies. Serialized by semaphore. */
-  readonly setDocsLock: (args: SetDocsArgs) => Effect.Effect<void, AppError>;
-  /** Remove a Context docs package from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeDocs: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a Context docs package from settings only. Serialized by semaphore. */
-  readonly removeDocsSettings: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a Context docs package from lockfile only. Serialized by semaphore. */
-  readonly removeDocsLock: (name: string) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<Option.Option<FilesLockEntry>, AppError>;
+  /** Add or update a Context Files package in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  readonly setFiles: (args: SetFilesArgs) => Effect.Effect<void, AppError>;
+  /** Add or update a Context Files package in lockfile only. Used for pack dependencies. Serialized by semaphore. */
+  readonly setFilesLock: (args: SetFilesArgs) => Effect.Effect<void, AppError>;
+  /** Remove a Context Files package from both settings and lockfile. No-op if absent. Serialized by semaphore. */
+  readonly removeFiles: (name: string) => Effect.Effect<void, AppError>;
+  /** Remove a Context Files package from settings only. Serialized by semaphore. */
+  readonly removeFilesSettings: (name: string) => Effect.Effect<void, AppError>;
+  /** Remove a Context Files package from lockfile only. Serialized by semaphore. */
+  readonly removeFilesLock: (name: string) => Effect.Effect<void, AppError>;
   /** Update a context entry by applying an updater function. Serialized by semaphore. */
-  readonly updateDocsEntry: (
+  readonly updateFilesEntry: (
     name: string,
-    updater: (entry: DocsEntry) => DocsEntry,
+    updater: (entry: FilesEntry) => FilesEntry,
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a context entry in settings only. Serialized by semaphore. */
-  readonly setDocsEntry: (name: string, entry: DocsEntry) => Effect.Effect<void, AppError>;
+  readonly setFilesEntry: (name: string, entry: FilesEntry) => Effect.Effect<void, AppError>;
   /** Read settings and return configured rules, defaulting to `{}`. */
   readonly getConfiguredRuleEntries: () => Effect.Effect<RulesMap, AppError>;
   /** Read lockfile and return the rules lock map. */

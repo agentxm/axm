@@ -34,7 +34,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
-  type DocsLockEntry,
+  type FilesLockEntry,
   type RegistryPackLockEntry,
   ResolvedExtensionMapSchema,
   type ResolvedExtensionMap,
@@ -168,18 +168,18 @@ export const makeBaseWorkspaceMock = (
     addConfiguredSource: () => Effect.void,
     getIgnoredSkillPatterns: emptyArr,
     getConfiguredSkillEntries: () => Effect.succeed({}),
-    getConfiguredDocsEntries: () => Effect.succeed({}),
+    getConfiguredFilesEntries: () => Effect.succeed({}),
     getConfiguredRuleEntries: () => Effect.succeed({}),
     getWorkspaceVars: () => Effect.succeed({}),
-    getLockedDocs: () => Effect.succeed({}),
-    getLockedDocsEntry: () => Effect.succeed(Option.none<DocsLockEntry>()),
-    setDocs: () => Effect.void,
-    setDocsLock: () => Effect.void,
-    removeDocs: () => Effect.void,
-    removeDocsSettings: () => Effect.void,
-    removeDocsLock: () => Effect.void,
-    updateDocsEntry: () => Effect.void,
-    setDocsEntry: () => Effect.void,
+    getLockedFiles: () => Effect.succeed({}),
+    getLockedFilesEntry: () => Effect.succeed(Option.none<FilesLockEntry>()),
+    setFiles: () => Effect.void,
+    setFilesLock: () => Effect.void,
+    removeFiles: () => Effect.void,
+    removeFilesSettings: () => Effect.void,
+    removeFilesLock: () => Effect.void,
+    updateFilesEntry: () => Effect.void,
+    setFilesEntry: () => Effect.void,
     getLockedRules: () => Effect.succeed({}),
     getLockedRuleEntry: () => Effect.succeed(Option.none<RuleLockEntry>()),
     setRule: () => Effect.void,
@@ -287,7 +287,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly owner?: string | undefined;
   readonly skills?: Record<string, unknown> | undefined;
   readonly commands?: Record<string, unknown> | undefined;
-  readonly docs?: Record<string, unknown> | undefined;
+  readonly files?: Record<string, unknown> | undefined;
   readonly rules?: Record<string, unknown> | undefined;
   readonly mcps?: Record<string, unknown> | undefined;
   readonly packs?: Record<string, unknown> | undefined;
@@ -308,7 +308,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(opts.owner && { owner: opts.owner }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.commands) && { commands: opts.commands }),
-    ...(hasEntries(opts.docs) && { docs: opts.docs }),
+    ...(hasEntries(opts.files) && { files: opts.files }),
     ...(hasEntries(opts.rules) && { rules: opts.rules }),
     ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
     ...(hasEntries(opts["mcps"]) && { mcps: opts["mcps"] }),
@@ -320,7 +320,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     lockfileVersion: 1,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileCommands) && { commands: opts.lockfileCommands }),
-    ...(hasEntries(opts.lockfileFiles) && { docs: opts.lockfileFiles }),
+    ...(hasEntries(opts.lockfileFiles) && { files: opts.lockfileFiles }),
     ...(hasEntries(opts.lockfileRules) && { rules: opts.lockfileRules }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),

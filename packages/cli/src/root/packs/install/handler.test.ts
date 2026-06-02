@@ -40,7 +40,7 @@ import type { PackInstallHandlerArgs } from "./handler.js";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { DocsManagerLive } from "@agentxm/client-core/unstable/docs";
+import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -164,7 +164,7 @@ describe("packs install handler", () => {
       PackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
-      DocsManagerLive,
+      FilesManagerLive,
       RuleManagerLive,
       McpServerManagerLive,
       SubagentManagerLive,
@@ -214,7 +214,7 @@ describe("packs install handler", () => {
       PackManagerLive,
       SkillManagerLive,
       CommandManagerLive,
-      DocsManagerLive,
+      FilesManagerLive,
       RuleManagerLive,
       McpServerManagerLive,
       SubagentManagerLive,

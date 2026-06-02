@@ -39,7 +39,7 @@ const unmanagedFinding = (name: string, location: string): AdvisoryFinding => ({
 
 export const skillsManagedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  // Keep the public description short and invariant-focused; the module docs
+  // Keep the public description short and invariant-focused; the module files
   // carry the narrower artifact-level implementation detail.
   description: "Skills are managed by the workspace.",
   kind: "advisory",

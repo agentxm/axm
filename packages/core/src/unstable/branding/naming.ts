@@ -34,11 +34,11 @@ export const CANONICAL_NAMING = [
     sentenceLabel: "subagent",
   },
   {
-    id: "docs",
-    pluralSegment: "docs",
-    displayLabel: "Context docs",
-    sentenceLabel: "context docs",
-    manifestFilename: "docs.json",
+    id: "files",
+    pluralSegment: "files",
+    displayLabel: "Context Files",
+    sentenceLabel: "context files",
+    manifestFilename: "files.json",
   },
   {
     id: "rule",
@@ -60,7 +60,7 @@ export const NAMING_BY_ID: Record<ExtensionType, CanonicalNamingEntry> = {
   command: CANONICAL_NAMING[1],
   "mcp-server": CANONICAL_NAMING[2],
   subagent: CANONICAL_NAMING[3],
-  docs: CANONICAL_NAMING[4],
+  files: CANONICAL_NAMING[4],
   rule: CANONICAL_NAMING[5],
   pack: CANONICAL_NAMING[6],
 };

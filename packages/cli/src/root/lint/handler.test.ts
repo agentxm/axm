@@ -27,9 +27,10 @@ import {
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { DocsManagerLive } from "@agentxm/client-core/unstable/docs";
+import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -37,9 +38,10 @@ import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/wo
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 
 import { InstallCommandCommandWorkflowActionsLive } from "../commands/install/command-actions.js";
-import { InstallDocsCommandWorkflowActionsLive } from "../docs/install/command-actions.js";
+import { InstallFilesCommandWorkflowActionsLive } from "../files/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "../mcps/install/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
+import { InstallRuleCommandWorkflowActionsLive } from "../rules/install/command-actions.js";
 import { InstallSkillCommandWorkflowActionsLive } from "../skills/install/command-actions.js";
 import { InstallSubagentCommandWorkflowActionsLive } from "../subagents/install/command-actions.js";
 import { handleLint, resolveLintRoot } from "./handler.js";
@@ -89,7 +91,11 @@ describe("axm lint handler", () => {
       InstallMcpServerCommandWorkflowActionsLive,
       McpServerManagerLive,
     );
-    const contextLayer = Layer.provideMerge(InstallDocsCommandWorkflowActionsLive, DocsManagerLive);
+    const contextLayer = Layer.provideMerge(
+      InstallFilesCommandWorkflowActionsLive,
+      FilesManagerLive,
+    );
+    const rulesLayer = Layer.provideMerge(InstallRuleCommandWorkflowActionsLive, RuleManagerLive);
     const skillsLayer = Layer.provideMerge(
       InstallSkillCommandWorkflowActionsLive,
       SkillManagerLive,
@@ -103,6 +109,7 @@ describe("axm lint handler", () => {
       commandsLayer,
       contextLayer,
       mcpServersLayer,
+      rulesLayer,
       skillsLayer,
       subagentsLayer,
     );

@@ -26,16 +26,16 @@ import {
 } from "./errors.js";
 import {
   makeCommandExtensionsApi,
-  makeDocsExtensionsApi,
+  makeFilesExtensionsApi,
   makeMcpServerExtensionsApi,
   makePackExtensionsApi,
   makeRuleExtensionsApi,
   makeSkillExtensionsApi,
   makeSubagentExtensionsApi,
   type CommandExtensionsApi,
-  type DocsExtensionsApi,
+  type FilesExtensionsApi,
   type InstalledPackForCommands,
-  type InstalledPackForDocs,
+  type InstalledPackForFiles,
   type InstalledPackForMcpServers,
   type InstalledPackForRules,
   type InstalledPackForSkills,
@@ -102,7 +102,7 @@ export interface WorkspaceReadModel {
   readonly commands: CommandExtensionsApi;
   readonly mcpServers: McpServerExtensionsApi;
   readonly subagents: SubagentExtensionsApi;
-  readonly docs: DocsExtensionsApi;
+  readonly files: FilesExtensionsApi;
   readonly rules: RuleExtensionsApi;
   readonly packs: PackExtensionsApi;
   readonly agents: ScopedAgentsApi;
@@ -385,7 +385,9 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       ),
     );
 
-  const docsInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForDocs>> = Effect.succeed([]);
+  const filesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForFiles>> = Effect.succeed(
+    [],
+  );
   const rulesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>> =
     installedPackMembers.pipe(
       Effect.map((packs) =>
@@ -435,10 +437,10 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     diagnostics,
   });
 
-  const docs = yield* makeDocsExtensionsApi({
+  const files = yield* makeFilesExtensionsApi({
     scope,
     scanners: { canonical: canonicalScanner },
-    installedPacks: docsInstalledPacks,
+    installedPacks: filesInstalledPacks,
     ignoredNames: new Set<string>(),
     diagnostics,
   });
@@ -525,7 +527,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     commands,
     mcpServers,
     subagents,
-    docs,
+    files,
     rules,
     packs: packsApi,
     agents,

@@ -18,11 +18,11 @@ const TEST_VERSION = "0.0.0-test";
 
 const captureHelpDoc = (path: ReadonlyArray<string>): Effect.Effect<HelpDoc, unknown, never> =>
   Effect.gen(function* () {
-    const docs: Array<HelpDoc> = [];
+    const files: Array<HelpDoc> = [];
     const formatter: CliOutput.Formatter = {
       ...CliOutput.defaultFormatter({ colors: false }),
       formatHelpDoc: (doc) => {
-        docs.push(doc);
+        files.push(doc);
         return "";
       },
     };
@@ -32,7 +32,7 @@ const captureHelpDoc = (path: ReadonlyArray<string>): Effect.Effect<HelpDoc, unk
       Effect.provideService(CliOutput.Formatter, formatter),
     );
 
-    const doc = docs[0];
+    const doc = files[0];
     if (doc === undefined) {
       return yield* Effect.die(new Error(`Expected help for ${path.join(" ")}`));
     }

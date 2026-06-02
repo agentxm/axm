@@ -16,9 +16,9 @@ import {
   type InstallMcpServerHandlerArgs,
 } from "../mcps/install/command-actions.js";
 import {
-  InstallDocsCommandWorkflowActions,
-  type InstallDocsHandlerArgs,
-} from "../docs/install/command-actions.js";
+  InstallFilesCommandWorkflowActions,
+  type InstallFilesHandlerArgs,
+} from "../files/install/command-actions.js";
 import {
   InstallPackCommandWorkflowActions,
   type InstallPackHandlerArgs,
@@ -31,7 +31,7 @@ import { InstallSkillCommandWorkflowActions } from "../skills/install/command-ac
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./resolve-root-update-intent.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
-import { runDocsWorkspaceGeneratorPhase } from "../docs/workspace-generator-phase.js";
+import { runFilesWorkspaceGeneratorPhase } from "../files/workspace-generator-phase.js";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
@@ -68,9 +68,9 @@ const runUpdateIntent = (intent: RootUpdateIntent, args: RootUpdateFlags) =>
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(mcpArgs, actions, args);
       }
-      case "docs": {
-        const actions = yield* InstallDocsCommandWorkflowActions;
-        const fileArgs: InstallDocsHandlerArgs = { source: intent.source };
+      case "files": {
+        const actions = yield* InstallFilesCommandWorkflowActions;
+        const fileArgs: InstallFilesHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(fileArgs, actions, args);
       }
       case "rule": {
@@ -108,8 +108,8 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
       Effect.gen(function* () {
         const intent = yield* resolveRootUpdateIntent(source);
         const resolution = yield* runUpdateIntent(intent, args);
-        if (!args.preview && (intent.type === "docs" || intent.type === "pack")) {
-          yield* runDocsWorkspaceGeneratorPhase({ dryRun: false });
+        if (!args.preview && (intent.type === "files" || intent.type === "pack")) {
+          yield* runFilesWorkspaceGeneratorPhase({ dryRun: false });
         }
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(

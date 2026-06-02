@@ -72,7 +72,7 @@ export interface UninstallSettingsContext {
   readonly commands: Readonly<Record<string, string>>;
   readonly mcpServers: Readonly<Record<string, string>>;
   readonly subagents: Readonly<Record<string, string>>;
-  readonly docs?: Readonly<Record<string, string>> | undefined;
+  readonly files?: Readonly<Record<string, string>> | undefined;
 }
 
 /**
@@ -113,8 +113,8 @@ export const expandPackUninstallTargets = (args: {
   const candidateSubagents = supportedDependencyTypes.includes("subagent")
     ? Object.keys(packEntry.resolvedSubagents)
     : [];
-  const candidateContext = supportedDependencyTypes.includes("docs")
-    ? Object.keys(packEntry.resolvedDocs ?? {})
+  const candidateContext = supportedDependencyTypes.includes("files")
+    ? Object.keys(packEntry.resolvedFiles ?? {})
     : [];
 
   // Collect dependencies still referenced by OTHER installed packs
@@ -133,7 +133,7 @@ export const expandPackUninstallTargets = (args: {
     for (const fqn of Object.keys(entry.resolvedSubagents)) {
       retainedByOtherPacks.add(fqn);
     }
-    for (const fqn of Object.keys(entry.resolvedDocs ?? {})) {
+    for (const fqn of Object.keys(entry.resolvedFiles ?? {})) {
       retainedByOtherPacks.add(fqn);
     }
   }
@@ -152,7 +152,7 @@ export const expandPackUninstallTargets = (args: {
   for (const name of Object.keys(settings.subagents)) {
     directlyConfigured.add(name);
   }
-  for (const name of Object.keys(settings.docs ?? {})) {
+  for (const name of Object.keys(settings.files ?? {})) {
     directlyConfigured.add(name);
   }
 
@@ -190,7 +190,7 @@ export const expandPackUninstallTargets = (args: {
   for (const fqn of candidateContext) {
     const name = nameFromFqn(fqn);
     if (!retainedByOtherPacks.has(fqn) && !directlyConfigured.has(name)) {
-      orphanedTargets.push({ type: "docs", name });
+      orphanedTargets.push({ type: "files", name });
     }
   }
 

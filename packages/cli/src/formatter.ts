@@ -211,7 +211,7 @@ const groupLabel = (group: string | undefined): string => {
 };
 
 /** Core capability commands, rendered with descriptions at the top of root help. */
-const CORE_COMMANDS = ["skills", "commands", "docs", "mcps", "subagents", "packs", "agents"];
+const CORE_COMMANDS = ["skills", "commands", "files", "mcps", "subagents", "packs", "agents"];
 const CORE_GROUP_LABEL = "CORE";
 
 /** Compact group that should render above the descriptive Core block. */
@@ -277,7 +277,7 @@ const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
   auth: "Manage registry authentication",
   commands: "Manage slash-command extensions",
   discover: "Find extensions for this project",
-  docs: "Manage docs docs",
+  files: "Manage Context Files packages",
   help: "Show topic and command help",
   install: "Install extensions from the registry",
   lint: "Check workspace configuration",
@@ -305,9 +305,9 @@ const formatSubcommandName = (name: string, alias: string | undefined): string =
 
 const rootCommandDisplayName = (
   command: string,
-  docs: ReadonlyMap<string, RootSubcommandDoc>,
+  files: ReadonlyMap<string, RootSubcommandDoc>,
 ): string => {
-  const doc = docs.get(command);
+  const doc = files.get(command);
   return formatSubcommandName(command, doc?.alias);
 };
 
@@ -338,12 +338,12 @@ const makeHelpColors = (enabled: boolean): HelpColors => {
 
 const rootCommandDescription = (
   command: string,
-  docs: ReadonlyMap<string, RootSubcommandDoc>,
+  files: ReadonlyMap<string, RootSubcommandDoc>,
 ): string => {
   const customDescription = ROOT_COMMAND_DESCRIPTIONS[command];
   if (customDescription !== undefined) return customDescription;
 
-  const doc = docs.get(command);
+  const doc = files.get(command);
   return doc?.shortDescription ?? doc?.description ?? "";
 };
 
@@ -351,16 +351,16 @@ const renderCommandRow = (
   command: string,
   description: string,
   columnWidth: number,
-  docs: ReadonlyMap<string, RootSubcommandDoc>,
+  files: ReadonlyMap<string, RootSubcommandDoc>,
   colors: HelpColors,
 ): string => {
-  const displayName = rootCommandDisplayName(command, docs);
+  const displayName = rootCommandDisplayName(command, files);
   const padding = " ".repeat(Math.max(1, columnWidth - displayName.length));
   return `  ${colors.cyan(displayName)}${padding}${description}`;
 };
 
 const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
-  const commandDocs = new Map(
+  const commandFiles = new Map(
     (doc.subcommands ?? []).flatMap((group) =>
       group.commands.map((command) => [command.name, command]),
     ),
@@ -371,7 +371,7 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
 
     const columnWidth =
       commands.reduce(
-        (max, command) => Math.max(max, rootCommandDisplayName(command, commandDocs).length),
+        (max, command) => Math.max(max, rootCommandDisplayName(command, commandFiles).length),
         0,
       ) + 1;
 
@@ -380,9 +380,9 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
       ...commands.map((command) =>
         renderCommandRow(
           command,
-          rootCommandDescription(command, commandDocs),
+          rootCommandDescription(command, commandFiles),
           columnWidth,
-          commandDocs,
+          commandFiles,
           colors,
         ),
       ),

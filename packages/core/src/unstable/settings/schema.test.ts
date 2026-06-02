@@ -8,8 +8,8 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
   CommandsMapSchema,
-  DocsEntrySchema,
-  DocsMapSchema,
+  FilesEntrySchema,
+  FilesMapSchema,
   McpServersMapSchema,
   McpServerEntryObjectSchema,
   McpServerEntrySchema,
@@ -88,9 +88,9 @@ describe("Settings schema", () => {
           strict: true,
           maxDepth: 3,
         },
-        docs: {
+        files: {
           "workspace-baseline": {
-            source: "@ac/docs/workspace-baseline@^1.0.0",
+            source: "@ac/files/workspace-baseline@^1.0.0",
             inputs: {
               projectName: "AgentXM",
               strict: true,
@@ -106,9 +106,9 @@ describe("Settings schema", () => {
         strict: true,
         maxDepth: 3,
       });
-      expect(result.docs).toEqual({
+      expect(result.files).toEqual({
         "workspace-baseline": {
-          source: "@ac/docs/workspace-baseline@^1.0.0",
+          source: "@ac/files/workspace-baseline@^1.0.0",
           enabled: true,
           authored: false,
           inputs: {
@@ -665,16 +665,16 @@ describe("Settings schema", () => {
   describe("context at root level", () => {
     it("accepts compact context entries", () => {
       const input = {
-        docs: {
-          baseline: "@ac/docs/baseline@^1.0.0",
+        files: {
+          baseline: "@ac/files/baseline@^1.0.0",
         },
       };
 
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.docs).toEqual({
+      expect(result.files).toEqual({
         baseline: {
-          source: "@ac/docs/baseline@^1.0.0",
+          source: "@ac/files/baseline@^1.0.0",
           enabled: true,
           authored: false,
           inputs: {},
@@ -683,21 +683,21 @@ describe("Settings schema", () => {
     });
 
     it("encodes default context entries as compact strings", () => {
-      const decoded = Schema.decodeUnknownSync(DocsEntrySchema)("@ac/docs/baseline@^1.0.0");
-      const encoded = Schema.encodeSync(DocsEntrySchema)(decoded);
+      const decoded = Schema.decodeUnknownSync(FilesEntrySchema)("@ac/files/baseline@^1.0.0");
+      const encoded = Schema.encodeSync(FilesEntrySchema)(decoded);
 
-      expect(encoded).toBe("@ac/docs/baseline@^1.0.0");
+      expect(encoded).toBe("@ac/files/baseline@^1.0.0");
     });
 
     it("encodes context entries with inputs as objects", () => {
-      const decoded = Schema.decodeUnknownSync(DocsEntrySchema)({
-        source: "@ac/docs/baseline@^1.0.0",
+      const decoded = Schema.decodeUnknownSync(FilesEntrySchema)({
+        source: "@ac/files/baseline@^1.0.0",
         inputs: { projectName: "batcave" },
       });
-      const encoded = Schema.encodeSync(DocsEntrySchema)(decoded);
+      const encoded = Schema.encodeSync(FilesEntrySchema)(decoded);
 
       expect(encoded).toEqual({
-        source: "@ac/docs/baseline@^1.0.0",
+        source: "@ac/files/baseline@^1.0.0",
         inputs: { projectName: "batcave" },
       });
     });
@@ -705,12 +705,12 @@ describe("Settings schema", () => {
     it("rejects unsupported structured input values", () => {
       const input = {
         baseline: {
-          source: "@ac/docs/baseline@^1.0.0",
+          source: "@ac/files/baseline@^1.0.0",
           inputs: { nested: { value: "nope" } },
         },
       };
 
-      expect(() => Schema.decodeUnknownSync(DocsMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(FilesMapSchema)(input)).toThrow();
     });
   });
 

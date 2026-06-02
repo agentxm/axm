@@ -341,7 +341,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
                 versionTargets.push({ fqn: depFqn, type: parsed.type });
                 break;
               case "pack":
-              case "docs":
+              case "files":
               case "rule":
                 break;
             }
@@ -522,7 +522,7 @@ const makeDependencyStep = (
           detail: `Pack dependencies of packs are not supported for publishing: ${depFqn}`,
         }),
       );
-    case "docs":
+    case "files":
     case "rule":
       return Effect.fail(
         makeAppError({

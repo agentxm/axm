@@ -13,7 +13,7 @@ import {
   emitPlanResolutionResult,
   planResolutionToSummary,
 } from "../../json-output.js";
-import { runDocsWorkspaceGeneratorPhase } from "../docs/workspace-generator-phase.js";
+import { runFilesWorkspaceGeneratorPhase } from "../files/workspace-generator-phase.js";
 import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./workspace-update.js";
 
 const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>): SubjectType =>
@@ -62,8 +62,8 @@ export const handleWorkspaceUpdate = (args: {
     }
 
     const resolution = yield* previewOrApplyPlan(planResult.plan, args.flags);
-    if (!args.flags.preview && (Option.isNone(args.type) || args.type.value === "docs")) {
-      yield* runDocsWorkspaceGeneratorPhase({ dryRun: false });
+    if (!args.flags.preview && (Option.isNone(args.type) || args.type.value === "files")) {
+      yield* runFilesWorkspaceGeneratorPhase({ dryRun: false });
     }
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(

@@ -193,7 +193,7 @@
       "type": "string",
       "allOf": [
         {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|docs|rules)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
           "title": "Non-Pack Extension FQN",
           "description": "Extension identifier restricted to non-pack types (skills, commands, mcps, subagents, context, rules).",
           "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
@@ -285,7 +285,7 @@
       "required": ["owner", "version", "type", "name", "dependencies"],
       "additionalProperties": false,
       "title": "Pack Manifest",
-      "description": "Extension manifest file for extension packs. Bundles a curated set of skills, commands, MCP servers, subagents, Context docs packages, and rules into a single installable unit."
+      "description": "Extension manifest file for extension packs. Bundles a curated set of skills, commands, MCP servers, subagents, Context Files packages, and rules into a single installable unit."
     }
   }
 }

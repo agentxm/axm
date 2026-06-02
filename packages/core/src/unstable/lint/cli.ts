@@ -39,7 +39,7 @@ import type { Evaluated } from "./evaluate.js";
 import { evaluateContexts } from "./evaluate.js";
 import type {
   CommandRuleContext,
-  DocsRuleContext,
+  FilesRuleContext,
   McpServerRuleContext,
   PackRuleContext,
   SkillRuleContext,
@@ -49,7 +49,7 @@ import type {
 import type { AutofixingRule, LintFinding, Severity } from "./rule.js";
 import {
   commandRules,
-  docsRules,
+  filesRules,
   mcpServerRules,
   packRules,
   skillRules,
@@ -71,7 +71,7 @@ import {
  * @experimental This API is unstable and may change without notice.
  */
 export interface RenderedFinding {
-  readonly group: "skill" | "pack" | "command" | "subagent" | "mcp-server" | "docs" | "workspace";
+  readonly group: "skill" | "pack" | "command" | "subagent" | "mcp-server" | "files" | "workspace";
   readonly displayRoot: string;
   readonly path: string;
   readonly finding: LintFinding;
@@ -90,7 +90,7 @@ export interface GroupEvaluations {
   readonly commands?: ReadonlyArray<Evaluated<CommandRuleContext>>;
   readonly subagents?: ReadonlyArray<Evaluated<SubagentRuleContext>>;
   readonly mcpServers?: ReadonlyArray<Evaluated<McpServerRuleContext>>;
-  readonly docs?: ReadonlyArray<Evaluated<DocsRuleContext>>;
+  readonly files?: ReadonlyArray<Evaluated<FilesRuleContext>>;
   readonly workspace: ReadonlyArray<Evaluated<WorkspaceRuleContext>>;
 }
 
@@ -141,24 +141,24 @@ export const evaluateAllCatalogs = (args: {
   readonly commandContexts?: ReadonlyArray<CommandRuleContext>;
   readonly subagentContexts?: ReadonlyArray<SubagentRuleContext>;
   readonly mcpServerContexts?: ReadonlyArray<McpServerRuleContext>;
-  readonly fileContexts?: ReadonlyArray<DocsRuleContext>;
+  readonly fileContexts?: ReadonlyArray<FilesRuleContext>;
   readonly workspaceContext: WorkspaceRuleContext;
   readonly config: LintConfig;
 }): Effect.Effect<GroupEvaluations> =>
   Effect.gen(function* () {
-    const [skills, packs, commands, subagents, mcpServers, docs, workspace] = yield* Effect.all(
+    const [skills, packs, commands, subagents, mcpServers, files, workspace] = yield* Effect.all(
       [
         evaluateContexts(skillRules, args.skillContexts, args.config),
         evaluateContexts(packRules, args.packContexts, args.config),
         evaluateContexts(commandRules, args.commandContexts ?? [], args.config),
         evaluateContexts(subagentRules, args.subagentContexts ?? [], args.config),
         evaluateContexts(mcpServerRules, args.mcpServerContexts ?? [], args.config),
-        evaluateContexts(docsRules, args.fileContexts ?? [], args.config),
+        evaluateContexts(filesRules, args.fileContexts ?? [], args.config),
         evaluateContexts(workspaceRules, [args.workspaceContext], args.config),
       ],
       { concurrency: "unbounded" },
     );
-    return { skills, packs, commands, subagents, mcpServers, docs, workspace };
+    return { skills, packs, commands, subagents, mcpServers, files, workspace };
   });
 
 // -----------------------------------------------------------------------------
@@ -210,7 +210,7 @@ export const collectRenderedFindings = (
   ...flattenEvaluated("command", evaluations.commands ?? [], (c) => c.displayRoot),
   ...flattenEvaluated("subagent", evaluations.subagents ?? [], (c) => c.displayRoot),
   ...flattenEvaluated("mcp-server", evaluations.mcpServers ?? [], (c) => c.displayRoot),
-  ...flattenEvaluated("docs", evaluations.docs ?? [], (c) => c.displayRoot),
+  ...flattenEvaluated("files", evaluations.files ?? [], (c) => c.displayRoot),
   ...flattenEvaluated("workspace", evaluations.workspace, (c) => c.displayRoot),
 ];
 
@@ -356,7 +356,7 @@ export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string
       | typeof commandRules
       | typeof subagentRules
       | typeof mcpServerRules
-      | typeof docsRules,
+      | typeof filesRules,
   ): void => {
     for (const rule of rules) {
       if (rule.severity !== "error") {
@@ -376,7 +376,7 @@ export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string
   visitCatalog(commandRules);
   visitCatalog(subagentRules);
   visitCatalog(mcpServerRules);
-  visitCatalog(docsRules);
+  visitCatalog(filesRules);
 
   return weakened;
 };

@@ -12,9 +12,9 @@ import {
   type InstallCommandHandlerArgs,
 } from "../commands/install/command-actions.js";
 import {
-  InstallDocsCommandWorkflowActions,
-  type InstallDocsHandlerArgs,
-} from "../docs/install/command-actions.js";
+  InstallFilesCommandWorkflowActions,
+  type InstallFilesHandlerArgs,
+} from "../files/install/command-actions.js";
 import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
@@ -23,6 +23,10 @@ import {
   InstallPackCommandWorkflowActions,
   type InstallPackHandlerArgs,
 } from "../packs/install/command-actions.js";
+import {
+  InstallRuleCommandWorkflowActions,
+  type InstallRuleHandlerArgs,
+} from "../rules/install/command-actions.js";
 import {
   InstallSkillCommandWorkflowActions,
   type InstallSkillSourceHandlerArgs,
@@ -139,10 +143,10 @@ describe("root update handler", () => {
     };
 
     const contextActions = {
-      parseArgs: (args: InstallDocsHandlerArgs) =>
+      parseArgs: (args: InstallFilesHandlerArgs) =>
         Effect.sync(() => {
           calls.push({
-            type: "docs",
+            type: "files",
             source: args.source,
             yes: false,
             force: false,
@@ -153,7 +157,7 @@ describe("root update handler", () => {
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
       finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("docs")),
+      buildPlan: () => Effect.succeed(makePlan("files")),
     };
 
     const subagentActions = {
@@ -172,6 +176,24 @@ describe("root update handler", () => {
       discoverRefs: () => Effect.succeed([]),
       finalizeIntent: () => Effect.succeed({}),
       buildPlan: () => Effect.succeed(makePlan("subagent")),
+    };
+
+    const ruleActions = {
+      parseArgs: (args: InstallRuleHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({
+            type: "rule",
+            source: args.source,
+            yes: false,
+            force: false,
+            preview: true,
+          });
+          return {};
+        }),
+      resolveSourceRequests: () => Effect.succeed([]),
+      discoverRefs: () => Effect.succeed([]),
+      finalizeIntent: () => Effect.succeed({}),
+      buildPlan: () => Effect.succeed(makePlan("rule")),
     };
 
     const packActions = {
@@ -217,9 +239,9 @@ describe("root update handler", () => {
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
-        InstallDocsCommandWorkflowActions,
+        InstallFilesCommandWorkflowActions,
         contextActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallDocsCommandWorkflowActions
+          typeof InstallFilesCommandWorkflowActions
         >,
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
@@ -227,6 +249,13 @@ describe("root update handler", () => {
         InstallSubagentCommandWorkflowActions,
         subagentActions as unknown as ServiceMap.Service.Shape<
           typeof InstallSubagentCommandWorkflowActions
+        >,
+      ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
+        InstallRuleCommandWorkflowActions,
+        ruleActions as unknown as ServiceMap.Service.Shape<
+          typeof InstallRuleCommandWorkflowActions
         >,
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
@@ -259,8 +288,9 @@ describe("root update handler", () => {
         "@acme/skills/code-review",
         "@acme/commands/release-notes",
         "@acme/mcps/dev-server",
-        "@ac/docs/workspace-baseline",
+        "@ac/files/workspace-baseline",
         "@acme/subagents/researcher",
+        "@acme/rules/workspace-guidance",
         "@acme/packs/frontend-tools",
       ] as const;
 
@@ -272,8 +302,9 @@ describe("root update handler", () => {
         { type: "skill", source: "@acme/skills/code-review", ...flags },
         { type: "command", source: "@acme/commands/release-notes", ...flags },
         { type: "mcp-server", source: "@acme/mcps/dev-server", ...flags },
-        { type: "docs", source: "@ac/docs/workspace-baseline", ...flags },
+        { type: "files", source: "@ac/files/workspace-baseline", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
+        { type: "rule", source: "@acme/rules/workspace-guidance", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);
     }),

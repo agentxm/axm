@@ -108,23 +108,23 @@ export {
 // ---------------------------------------------------------------------------
 
 export {
-  makeDocsExtensionsApi,
-  type ActualDocsPackage,
-  type ActualDocs,
-  type DeclaredDocsPackage,
-  type DeclaredDocs,
-  type DocsDetectionOrigin,
-  type DocsExtensionsApi,
-  type DocsExtensionsApiDeps,
-  type DocsPackMember,
-  type DocsScanners,
-  type IgnoredDocsCandidate,
-  type InstalledDocsPackage,
-  type InstalledPackForDocs,
-  type ResolvedDocsPackage,
-  type ResolvedDocs,
-  type UnmanagedDocsPackage,
-} from "./docs.js";
+  makeFilesExtensionsApi,
+  type ActualFilesPackage,
+  type ActualFiles,
+  type DeclaredFilesPackage,
+  type DeclaredFiles,
+  type FilesDetectionOrigin,
+  type FilesExtensionsApi,
+  type FilesExtensionsApiDeps,
+  type FilesPackMember,
+  type FilesScanners,
+  type IgnoredFilesCandidate,
+  type InstalledFilesPackage,
+  type InstalledPackForFiles,
+  type ResolvedFilesPackage,
+  type ResolvedFiles,
+  type UnmanagedFilesPackage,
+} from "./files.js";
 
 // ---------------------------------------------------------------------------
 // Rule subject

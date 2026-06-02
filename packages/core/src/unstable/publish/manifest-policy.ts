@@ -10,7 +10,7 @@ import {
   type ExtensionName,
   type ExtensionType,
 } from "../extensions/common.js";
-import { DocsManifestSchema, DOCS_MANIFEST_FILENAME } from "../docs/manifest-schema.js";
+import { FilesManifestSchema, FILES_MANIFEST_FILENAME } from "../files/manifest-schema.js";
 import { HandleSchema, type Handle } from "../extensions/handle.js";
 import { McpServerManifestSchema, MCP_SERVER_MANIFEST_FILENAME } from "../mcps/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
@@ -51,8 +51,8 @@ export const manifestFilenameForType = (type: string): string | undefined => {
       return SUBAGENT_MANIFEST_FILENAME;
     case "pack":
       return PACK_MANIFEST_FILENAME;
-    case "docs":
-      return DOCS_MANIFEST_FILENAME;
+    case "files":
+      return FILES_MANIFEST_FILENAME;
     default:
       return undefined;
   }
@@ -84,8 +84,8 @@ export const manifestSchemaForType = (type: string) => {
       return SubagentManifestSchema;
     case "pack":
       return PackManifestSchema;
-    case "docs":
-      return DocsManifestSchema;
+    case "files":
+      return FilesManifestSchema;
     default:
       return undefined;
   }

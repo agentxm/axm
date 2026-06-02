@@ -147,9 +147,9 @@
       "types": "./dist/src/unstable/packs/index.d.ts",
       "default": "./dist/src/unstable/packs/index.js"
     },
-    "./unstable/docs": {
-      "types": "./dist/src/unstable/docs/index.d.ts",
-      "default": "./dist/src/unstable/docs/index.js"
+    "./unstable/files": {
+      "types": "./dist/src/unstable/files/index.d.ts",
+      "default": "./dist/src/unstable/files/index.js"
     },
     "./unstable/rules": {
       "types": "./dist/src/unstable/rules/index.d.ts",

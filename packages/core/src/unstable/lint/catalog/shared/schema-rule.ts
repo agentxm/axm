@@ -129,7 +129,7 @@ const describeSchemaDocument = (file: string): string => {
   switch (file) {
     case "command.json":
       return "Command manifest";
-    case "docs.json":
+    case "files.json":
       return "context manifest";
     case "mcp-server.json":
       return "MCP server manifest";

@@ -136,7 +136,7 @@ export const applyLockfileUpdates = (
  * Applies a batch of lockfile updates and writes the result once.
  *
  * This is intended for sync flows that discover multiple render-hash changes
- * while reconciling Context docs package targets.
+ * while reconciling Context Files package targets.
  *
  * @experimental This API is unstable and may change without notice.
  */

@@ -27,7 +27,7 @@ import {
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
-import { DocsManagerLive } from "@agentxm/client-core/unstable/docs";
+import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -43,8 +43,8 @@ import {
 } from "@agentxm/client-core/unstable/auth";
 import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/install/command-actions.js";
 import { UninstallCommandCommandWorkflowActionsLive } from "./root/commands/uninstall/command-actions.js";
-import { InstallDocsCommandWorkflowActionsLive } from "./root/docs/install/command-actions.js";
-import { UninstallDocsCommandWorkflowActionsLive } from "./root/docs/uninstall/command-actions.js";
+import { InstallFilesCommandWorkflowActionsLive } from "./root/files/install/command-actions.js";
+import { UninstallFilesCommandWorkflowActionsLive } from "./root/files/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/install/command-actions.js";
 import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/uninstall/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
@@ -211,9 +211,12 @@ const makeWorkspaceProgramLayer = (
     ),
     CommandManagerLive,
   );
-  const docsLayer = Layer.provideMerge(
-    Layer.mergeAll(InstallDocsCommandWorkflowActionsLive, UninstallDocsCommandWorkflowActionsLive),
-    DocsManagerLive,
+  const filesLayer = Layer.provideMerge(
+    Layer.mergeAll(
+      InstallFilesCommandWorkflowActionsLive,
+      UninstallFilesCommandWorkflowActionsLive,
+    ),
+    FilesManagerLive,
   );
   const rulesLayer = Layer.provideMerge(
     Layer.mergeAll(InstallRuleCommandWorkflowActionsLive, UninstallRuleCommandWorkflowActionsLive),
@@ -246,7 +249,7 @@ const makeWorkspaceProgramLayer = (
   );
   const coreExtensions = Layer.mergeAll(
     commandsLayer,
-    docsLayer,
+    filesLayer,
     rulesLayer,
     mcpServersLayer,
     skillsLayer,

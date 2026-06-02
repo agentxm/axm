@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import type { CommandExtensionRef } from "../../commands/index.js";
 import { parseRegistrySourcePatternParts, parseRegistrySourceRef } from "../../extensions/index.js";
-import type { DocsExtensionRef } from "../../docs/index.js";
+import type { FilesExtensionRef } from "../../files/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import type { RuleExtensionRef } from "../../rules/index.js";
@@ -219,7 +219,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
     };
   });
 
-export const resolveConfiguredDocs = (name: string, source: string) =>
+export const resolveConfiguredFiles = (name: string, source: string) =>
   Effect.gen(function* () {
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
@@ -234,35 +234,35 @@ export const resolveConfiguredDocs = (name: string, source: string) =>
 
     const parsedPattern = parseRegistrySourcePatternParts(source);
     const requestedOwner =
-      parsedPattern?.type === "docs"
+      parsedPattern?.type === "files"
         ? Option.some(parsedPattern.owner)
         : resolvedSource.type === "registry"
           ? resolvedSource.owner
           : Option.none();
     const versionRange =
-      resolvedSource.type === "registry" && parsedPattern?.type === "docs"
+      resolvedSource.type === "registry" && parsedPattern?.type === "files"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
 
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
-        type: "docs",
+        type: "files",
         owner: requestedOwner,
         versionRange,
       })
       .pipe(
         Effect.map((entries) =>
-          entries.filter((entry): entry is DocsExtensionRef => entry.type === "docs"),
+          entries.filter((entry): entry is FilesExtensionRef => entry.type === "files"),
         ),
         Effect.mapError((cause) =>
           makeAppError({
             code: "internal",
-            detail: `Failed to resolve configured Context docs package "${name}"`,
+            detail: `Failed to resolve configured Context Files package "${name}"`,
             suggestions: [
               {
                 description:
-                  "Verify the configured source is reachable and still contains the Context docs package.",
+                  "Verify the configured source is reachable and still contains the Context Files package.",
               },
             ],
             cause,
@@ -274,11 +274,11 @@ export const resolveConfiguredDocs = (name: string, source: string) =>
     if (ref === undefined) {
       return yield* makeAppError({
         code: "not_found",
-        detail: `Configured Context docs package "${name}" could not be found in its source`,
+        detail: `Configured Context Files package "${name}" could not be found in its source`,
         suggestions: [
           {
             description:
-              "Verify the configured source still contains the Context docs package or update settings.json.",
+              "Verify the configured source still contains the Context Files package or update settings.json.",
           },
         ],
       });

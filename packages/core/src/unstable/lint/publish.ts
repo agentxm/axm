@@ -21,14 +21,14 @@ import { manifestSchemaValidRule as subagentManifestSchemaValidRule } from "./ca
 import { manifestKeysRecognizedRule as mcpServerManifestKeysRecognizedRule } from "./catalog/mcp-server/manifest-keys-recognized.js";
 import { manifestPresentRule as mcpServerManifestPresentRule } from "./catalog/mcp-server/manifest-present.js";
 import { manifestSchemaValidRule as mcpServerManifestSchemaValidRule } from "./catalog/mcp-server/manifest-schema-valid.js";
-import { generatorValidRule as docsGeneratorValidRule } from "./catalog/docs/generator-valid.js";
-import { manifestKeysRecognizedRule as docsManifestKeysRecognizedRule } from "./catalog/docs/manifest-keys-recognized.js";
-import { manifestPresentRule as docsManifestPresentRule } from "./catalog/docs/manifest-present.js";
-import { manifestSchemaValidRule as docsManifestSchemaValidRule } from "./catalog/docs/manifest-schema-valid.js";
-import { markerValidRule as docsMarkerValidRule } from "./catalog/docs/marker-valid.js";
-import { packageValidRule as docsPackageValidRule } from "./catalog/docs/package-valid.js";
-import { targetValidRule as docsTargetValidRule } from "./catalog/docs/target-valid.js";
-import { templateValidRule as docsTemplateValidRule } from "./catalog/docs/template-valid.js";
+import { generatorValidRule as filesGeneratorValidRule } from "./catalog/files/generator-valid.js";
+import { manifestKeysRecognizedRule as filesManifestKeysRecognizedRule } from "./catalog/files/manifest-keys-recognized.js";
+import { manifestPresentRule as filesManifestPresentRule } from "./catalog/files/manifest-present.js";
+import { manifestSchemaValidRule as filesManifestSchemaValidRule } from "./catalog/files/manifest-schema-valid.js";
+import { markerValidRule as filesMarkerValidRule } from "./catalog/files/marker-valid.js";
+import { packageValidRule as filesPackageValidRule } from "./catalog/files/package-valid.js";
+import { targetValidRule as filesTargetValidRule } from "./catalog/files/target-valid.js";
+import { templateValidRule as filesTemplateValidRule } from "./catalog/files/template-valid.js";
 import { frontmatterParseableRule as skillFrontmatterParseableRule } from "./catalog/skill/frontmatter-parseable.js";
 import { manifestKeysRecognizedRule as skillManifestKeysRecognizedRule } from "./catalog/skill/manifest-keys-recognized.js";
 import { manifestPresentRule as skillManifestPresentRule } from "./catalog/skill/manifest-present.js";
@@ -36,7 +36,7 @@ import { manifestSchemaValidRule as skillManifestSchemaValidRule } from "./catal
 import { skillMdPresentRule } from "./catalog/skill/skill-md-present.js";
 import type {
   CommandRuleContext,
-  DocsRuleContext,
+  FilesRuleContext,
   McpServerRuleContext,
   PackRuleContext,
   SkillRuleContext,
@@ -52,9 +52,9 @@ export type {
   CommandContent,
   CommandFileAccessor,
   CommandRuleContext,
-  DocsContent,
-  DocsAccessor,
-  DocsRuleContext,
+  FilesContent,
+  FilesAccessor,
+  FilesRuleContext,
   McpServerContent,
   McpServerFileAccessor,
   McpServerRuleContext,
@@ -69,7 +69,7 @@ export type {
   SubagentRuleContext,
 } from "./context.js";
 export type { LintFinding, LintRule } from "./rule.js";
-export { makeVftDocsAccessor, type DocsVFTNode } from "./catalog/docs-accessor/vft.js";
+export { makeVftFilesAccessor, type FilesVFTNode } from "./catalog/files-accessor/vft.js";
 export { makeVftPackFileAccessor, type PackVFTNode } from "./catalog/pack-accessor/vft.js";
 export {
   makeVftSkillFileAccessor,
@@ -121,13 +121,13 @@ export const mcpServerRules: ReadonlyArray<LintRule<McpServerRuleContext>> = [
   mcpServerManifestKeysRecognizedRule,
 ];
 
-export const docsRules: ReadonlyArray<LintRule<DocsRuleContext>> = [
-  docsManifestPresentRule,
-  docsManifestSchemaValidRule,
-  docsManifestKeysRecognizedRule,
-  docsPackageValidRule,
-  docsTargetValidRule,
-  docsTemplateValidRule,
-  docsGeneratorValidRule,
-  docsMarkerValidRule,
+export const filesRules: ReadonlyArray<LintRule<FilesRuleContext>> = [
+  filesManifestPresentRule,
+  filesManifestSchemaValidRule,
+  filesManifestKeysRecognizedRule,
+  filesPackageValidRule,
+  filesTargetValidRule,
+  filesTemplateValidRule,
+  filesGeneratorValidRule,
+  filesMarkerValidRule,
 ];

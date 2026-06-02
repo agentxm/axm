@@ -9,18 +9,18 @@ import { LearnMore } from "./formatter.js";
 import { baseLayer } from "./runtime.js";
 
 const TEST_VERSION = "0.0.0-test";
-type HelpDocs = Map<string, HelpDoc>;
+type HelpFiles = Map<string, HelpDoc>;
 
 const formatCommandPath = (path: ReadonlyArray<string>): string =>
   path.length === 0 ? "axm" : `axm ${path.join(" ")}`;
 
 const captureHelpDoc = (path: ReadonlyArray<string>): Effect.Effect<HelpDoc, unknown, never> =>
   Effect.gen(function* () {
-    const docs: Array<HelpDoc> = [];
+    const files: Array<HelpDoc> = [];
     const formatter: CliOutput.Formatter = {
       ...CliOutput.defaultFormatter({ colors: false }),
       formatHelpDoc: (doc) => {
-        docs.push(doc);
+        files.push(doc);
         return "";
       },
     };
@@ -30,7 +30,7 @@ const captureHelpDoc = (path: ReadonlyArray<string>): Effect.Effect<HelpDoc, unk
       Effect.provideService(CliOutput.Formatter, formatter),
     );
 
-    const doc = docs[0];
+    const doc = files[0];
     if (doc === undefined) {
       return yield* Effect.die(
         new Error(`Expected help output for ${formatCommandPath(path)} --help`),
@@ -40,17 +40,17 @@ const captureHelpDoc = (path: ReadonlyArray<string>): Effect.Effect<HelpDoc, unk
     return doc;
   });
 
-const collectHelpDocs = (
+const collectHelpFiles = (
   path: ReadonlyArray<string> = [],
-): Effect.Effect<HelpDocs, unknown, never> =>
+): Effect.Effect<HelpFiles, unknown, never> =>
   Effect.gen(function* () {
     const doc = yield* captureHelpDoc(path);
     const childPaths = (doc.subcommands ?? []).flatMap((group) =>
       group.commands.map((subcommand) => [...path, subcommand.name]),
     );
-    const childEntries: ReadonlyArray<HelpDocs> = yield* Effect.forEach(
+    const childEntries: ReadonlyArray<HelpFiles> = yield* Effect.forEach(
       childPaths,
-      collectHelpDocs,
+      collectHelpFiles,
       {
         concurrency: "unbounded",
       },
@@ -76,8 +76,8 @@ describe("root command help", () => {
   });
 
   it("uses executable examples across the full command tree", async () => {
-    const docs = await Effect.runPromise(collectHelpDocs());
-    const entries = Array.from(docs.entries());
+    const files = await Effect.runPromise(collectHelpFiles());
+    const entries = Array.from(files.entries());
     const missingExamples = entries
       .filter(([, doc]) => (doc.examples ?? []).length === 0)
       .map(([command]) => command);

@@ -193,13 +193,13 @@ export const emitPlanResolutionResult = <TCommand extends string>(
  */
 export const planResolutionToSummary = (
   resolution: PlanResolution,
-  docs: { readonly subjectType?: SubjectType; readonly sourceKind?: SourceKind },
+  files: { readonly subjectType?: SubjectType; readonly sourceKind?: SourceKind },
 ): CommandOutcomeSummary => {
   const result = toPlanResolutionResult(resolution);
   return {
     outcome: result.outcome,
-    ...(docs.subjectType !== undefined ? { subjectType: docs.subjectType } : {}),
-    ...(docs.sourceKind !== undefined ? { sourceKind: docs.sourceKind } : {}),
+    ...(files.subjectType !== undefined ? { subjectType: files.subjectType } : {}),
+    ...(files.sourceKind !== undefined ? { sourceKind: files.sourceKind } : {}),
     ...(result.appliedCount > 0 ? { appliedCount: result.appliedCount } : {}),
     ...(result.failedCount > 0 ? { failedCount: result.failedCount } : {}),
     ...(result.blockedCount > 0 ? { blockedCount: result.blockedCount } : {}),

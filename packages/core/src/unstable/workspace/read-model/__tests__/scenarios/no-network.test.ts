@@ -74,7 +74,7 @@ describe("no source resolution or network I/O", () => {
         yield* project.commands.installed;
         yield* project.mcpServers.installed;
         yield* project.subagents.installed;
-        yield* project.docs.installed;
+        yield* project.files.installed;
         yield* project.rules.installed;
         yield* project.packs.installed;
         yield* project.agents.list;

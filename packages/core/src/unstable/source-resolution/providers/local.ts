@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
-import { docsPackagesInDir } from "../../docs/index.js";
+import { filesPackagesInDir } from "../../files/index.js";
 import { rulePackagesInDir } from "../../rules/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type { SourceHostProvider, LocalSource } from "../../sources/index.js";
@@ -40,7 +40,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
   find: (source, options) =>
     Effect.gen(function* () {
       const skillRefs =
-        options.type === "docs" || options.type === "rule"
+        options.type === "files" || options.type === "rule"
           ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
           : skillsInDir(source.path, Option.none(), {
               fullDepth: false,
@@ -71,15 +71,15 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
               ),
             );
 
-      const docsRefs =
-        options.type !== "docs" && options.type !== "*"
+      const fileRefs =
+        options.type !== "files" && options.type !== "*"
           ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
-          : docsPackagesInDir(source.path, { fullDepth: false }).pipe(
+          : filesPackagesInDir(source.path, { fullDepth: false }).pipe(
               Effect.map((discovered) =>
                 Array.map(
                   discovered,
                   (d): ExtensionRef => ({
-                    type: "docs",
+                    type: "files",
                     refType: "local",
                     file: { name: d.manifest.name },
                     source,
@@ -107,14 +107,14 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
               ),
             );
 
-      const mapped = [...(yield* skillRefs), ...(yield* docsRefs), ...(yield* ruleRefs)];
+      const mapped = [...(yield* skillRefs), ...(yield* fileRefs), ...(yield* ruleRefs)];
       if (options.names.length === 0) return mapped;
       const nameSet = new Set(options.names);
       return mapped.filter((r) => {
         switch (r.type) {
           case "skill":
             return nameSet.has(r.skill.name);
-          case "docs":
+          case "files":
             return nameSet.has(r.file.name);
           case "rule":
             return nameSet.has(r.rule.name);

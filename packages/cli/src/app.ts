@@ -27,7 +27,7 @@ import { rulesCommand } from "./root/rules/command.js";
 import { skillsCommand } from "./root/skills/_skills.js";
 import { packsCommand } from "./root/packs/_packs.js";
 import { commandsCommand } from "./root/commands/_commands.js";
-import { docsCommand } from "./root/docs/_docs.js";
+import { filesCommand } from "./root/files/_files.js";
 import { mcpsCommand } from "./root/mcps/_mcps.js";
 import { subagentsCommand } from "./root/subagents/_subagents.js";
 import { authCommand } from "./root/auth/_auth.js";
@@ -56,7 +56,7 @@ removeBuiltInFlag(GlobalFlag.LogLevel);
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
-    "Open extension manager for AI coding agents.\n  Manage skills, commands, Context docs packages, MCP servers, and packs across your AI coding agents from a single CLI.",
+    "Open extension manager for AI coding agents.\n  Manage skills, commands, Context Files packages, MCP servers, and packs across your AI coding agents from a single CLI.",
   ),
   Command.withExamples([
     { command: "axm setup", description: "Start managing extensions in your project" },
@@ -80,7 +80,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       commands: [
         skillsCommand,
         commandsCommand,
-        docsCommand,
+        filesCommand,
         mcpsCommand,
         subagentsCommand,
         packsCommand,

@@ -116,7 +116,7 @@ describe("publishPack", () => {
         dependencies: {
           "@community/skills/example": "^1.0.0",
           "@community/commands/release": "~2.0.0",
-          "@community/mcps/docs": "3.1.0",
+          "@community/mcps/files": "3.1.0",
           "@community/subagents/researcher": "1.4.0",
         },
       });
@@ -137,7 +137,7 @@ describe("publishPack", () => {
       expect(index.versions[0]?.dependencies).toEqual({
         "@community/skills/example": "^1.0.0",
         "@community/commands/release": "~2.0.0",
-        "@community/mcps/docs": "3.1.0",
+        "@community/mcps/files": "3.1.0",
         "@community/subagents/researcher": "1.4.0",
       });
     }),

@@ -95,7 +95,7 @@ prompt = "Review code."
   it("strips an existing markdown banner", () => {
     const content = insertManagedFileBanner("# Workspace\n", {
       editPath: "AGENTS.md",
-      helpTopic: "docs",
+      helpTopic: "files",
       format: "markdown",
     });
 

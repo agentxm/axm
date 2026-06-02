@@ -59,7 +59,7 @@ export {
 // Configured entry resolution
 export {
   resolveConfiguredCommand,
-  resolveConfiguredDocs,
+  resolveConfiguredFiles,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredRule,
@@ -68,7 +68,7 @@ export {
   type ConfiguredEntryFailureReason,
   type ResolvedConfiguredCommand,
   type ResolvedConfiguredEntry,
-  type ResolvedConfiguredDocs,
+  type ResolvedConfiguredFiles,
   type ResolvedConfiguredMcpServer,
   type ResolvedConfiguredPack,
   type ResolvedConfiguredRule,
@@ -145,7 +145,7 @@ export {
   type SetSkillArgs,
   type SetPackArgs,
   type SetCommandArgs,
-  type SetDocsArgs,
+  type SetFilesArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
   type SkillPathSource,
@@ -159,7 +159,7 @@ export {
   type CommandExtensionTarget,
   type McpServerExtensionTarget,
   type SubagentExtensionTarget,
-  type DocsExtensionTarget,
+  type FilesExtensionTarget,
   type RuleExtensionTarget,
 } from "./service-interface.js";
 

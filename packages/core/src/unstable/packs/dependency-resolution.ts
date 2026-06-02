@@ -31,7 +31,7 @@ export interface ResolvedPackDependencies {
   readonly resolvedCommands: ResolvedExtensionMap;
   readonly resolvedMcpServers: ResolvedExtensionMap;
   readonly resolvedSubagents: ResolvedExtensionMap;
-  readonly resolvedDocs: ResolvedExtensionMap;
+  readonly resolvedFiles: ResolvedExtensionMap;
   readonly resolvedRules: ResolvedExtensionMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
@@ -41,7 +41,7 @@ type SupportedPackDependencyType =
   | "command"
   | "mcp-server"
   | "subagent"
-  | "docs"
+  | "files"
   | "rule";
 
 const registrySourceForDependency = (
@@ -142,7 +142,7 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
   const commands: Array<readonly [string, VersionRange]> = [];
   const mcpServers: Array<readonly [string, VersionRange]> = [];
   const subagents: Array<readonly [string, VersionRange]> = [];
-  const docs: Array<readonly [string, VersionRange]> = [];
+  const files: Array<readonly [string, VersionRange]> = [];
   const rules: Array<readonly [string, VersionRange]> = [];
   const unsupported: string[] = [];
 
@@ -161,8 +161,8 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
       case "subagent":
         subagents.push([fqn, constraint]);
         break;
-      case "docs":
-        docs.push([fqn, constraint]);
+      case "files":
+        files.push([fqn, constraint]);
         break;
       case "rule":
         rules.push([fqn, constraint]);
@@ -173,7 +173,7 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
     }
   }
 
-  return { skills, commands, mcpServers, subagents, docs, rules, unsupported };
+  return { skills, commands, mcpServers, subagents, files, rules, unsupported };
 };
 
 export const resolvePackDependencies = (
@@ -213,7 +213,7 @@ export const resolvePackDependencies = (
       "subagent",
       sources,
     );
-    const resolvedDocs = yield* resolveDependencyGroup(pack, dependencies.docs, "docs", sources);
+    const resolvedFiles = yield* resolveDependencyGroup(pack, dependencies.files, "files", sources);
     const resolvedRules = yield* resolveDependencyGroup(pack, dependencies.rules, "rule", sources);
 
     return {
@@ -221,7 +221,7 @@ export const resolvePackDependencies = (
       resolvedCommands: toResolvedMap(resolvedCommands),
       resolvedMcpServers: toResolvedMap(resolvedMcpServers),
       resolvedSubagents: toResolvedMap(resolvedSubagents),
-      resolvedDocs: toResolvedMap(resolvedDocs),
+      resolvedFiles: toResolvedMap(resolvedFiles),
       resolvedRules: toResolvedMap(resolvedRules),
       dependencyRefs: [
         ...resolvedSkills.map((dependency) =>
@@ -260,7 +260,7 @@ export const resolvePackDependencies = (
             dependency.ref.packages,
           ),
         ),
-        ...resolvedDocs.map((dependency) => dependency.ref),
+        ...resolvedFiles.map((dependency) => dependency.ref),
         ...resolvedRules.map((dependency) =>
           buildRegistryRuleRef(
             dependency.owner,

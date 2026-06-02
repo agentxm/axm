@@ -69,7 +69,7 @@ describe("makeAxmFormatter", () => {
 
   describe("LearnMore footer", () => {
     it("appends footer when LearnMore annotation is present", () => {
-      const footerText = "LEARN MORE\n  Visit https://example.com for docs.";
+      const footerText = "LEARN MORE\n  Visit https://example.com for files.";
       const annotations = ServiceMap.make(LearnMore, footerText);
       const doc = makeHelpDoc({ annotations });
       const output = formatter.formatHelpDoc(doc);
@@ -77,12 +77,12 @@ describe("makeAxmFormatter", () => {
     });
 
     it("bolds the LEARN MORE heading when colors are enabled", () => {
-      const footerText = "LEARN MORE\n  Visit https://example.com for docs.";
+      const footerText = "LEARN MORE\n  Visit https://example.com for files.";
       const annotations = ServiceMap.make(LearnMore, footerText);
       const doc = makeHelpDoc({ annotations });
       const output = colorFormatter.formatHelpDoc(doc);
       expect(output).toContain("\u001b[1mLEARN MORE\u001b[0m");
-      expect(output).toContain("Visit https://example.com for docs.");
+      expect(output).toContain("Visit https://example.com for files.");
     });
 
     it("does not append footer when LearnMore annotation is absent", () => {
@@ -105,14 +105,14 @@ describe("makeAxmFormatter", () => {
       const annotations = ServiceMap.make(
         LearnMore,
         formatLearnMore([
-          ["axm docs install @ac/docs/workspace-baseline", "Install a Context docs package"],
+          ["axm files install @ac/files/workspace-baseline", "Install a Context Files package"],
         ]),
       );
       const doc = makeHelpDoc({ annotations });
       const output = formatter.formatHelpDoc(doc);
 
       expect(output).toContain(
-        "LEARN MORE\n  axm docs install @ac/docs/workspace-baseline\n    Install a Context docs package",
+        "LEARN MORE\n  axm files install @ac/files/workspace-baseline\n    Install a Context Files package",
       );
     });
   });
@@ -126,9 +126,9 @@ describe("makeAxmFormatter", () => {
             group: "EXTENSIONS",
             commands: [
               {
-                name: "docs",
+                name: "files",
                 alias: undefined,
-                shortDescription: "docs",
+                shortDescription: "files",
                 description: "",
               },
               {
@@ -159,7 +159,7 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
       expect(output).toContain("USAGE\n  axm <command> [flags]");
       expect(output).toMatch(/CORE\n {2}skills\s+Manage agent skills/);
-      expect(output).toMatch(/ {2}docs\s+Manage docs docs/);
+      expect(output).toMatch(/ {2}files\s+Manage Context Files packages/);
       expect(output).toMatch(/ {2}mcps, mcps\s+Manage MCP server extensions/);
       expect(output).toMatch(/ {2}agents\s+Configure coding-agent targets/);
       expect(output).toContain("START HERE\n  help, setup");
@@ -203,7 +203,7 @@ describe("makeAxmFormatter", () => {
 
     it("adds a section break before subcommand examples", () => {
       const doc = makeHelpDoc({
-        usage: "axm docs <subcommand> [flags]",
+        usage: "axm files <subcommand> [flags]",
         subcommands: [
           {
             group: undefined,
@@ -212,7 +212,7 @@ describe("makeAxmFormatter", () => {
                 name: "disable",
                 alias: undefined,
                 shortDescription:
-                  "Disable a Context docs package without removing sync-once targets",
+                  "Disable a Context Files package without removing sync-once targets",
                 description: "",
               },
             ],
@@ -220,8 +220,8 @@ describe("makeAxmFormatter", () => {
         ],
         examples: [
           {
-            command: "axm docs install @ac/docs/workspace-baseline",
-            description: "Install a Context docs package",
+            command: "axm files install @ac/files/workspace-baseline",
+            description: "Install a Context Files package",
           },
         ],
       });
@@ -306,8 +306,8 @@ describe("makeAxmFormatter", () => {
       expect(formatter.formatVersion("axm", "1.2.3")).toBe("1.2.3");
     });
 
-    it("serializes help docs as plain JSON", () => {
-      const footerText = "LEARN MORE\n  Visit https://example.com for docs.";
+    it("serializes help files as plain JSON", () => {
+      const footerText = "LEARN MORE\n  Visit https://example.com for files.";
       const annotations = ServiceMap.make(LearnMore, footerText);
       const doc = makeHelpDoc({
         usage: "axm skills install [flags]",

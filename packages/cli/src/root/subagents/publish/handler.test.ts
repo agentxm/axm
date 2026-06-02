@@ -571,8 +571,8 @@ describe("subagents-publish.handler", () => {
         version: "1.0.0",
         agents: ["claude-code"],
       });
-      createManagedSubagent(tempDir, "@test", "research-docs", {
-        name: "@test/subagents/research-docs",
+      createManagedSubagent(tempDir, "@test", "research-files", {
+        name: "@test/subagents/research-files",
         version: "1.0.0",
         agents: ["claude-code"],
       });
@@ -598,10 +598,10 @@ describe("subagents-publish.handler", () => {
             installedAt: now,
             updatedAt: now,
           },
-          "research-docs": {
+          "research-files": {
             type: "registry",
             owner: "@test",
-            name: "research-docs",
+            name: "research-files",
             resolvedVersion: "1.0.0",
             integrity: "sha384-test",
             sourceName: "local",
@@ -623,7 +623,7 @@ describe("subagents-publish.handler", () => {
         },
         {
           "research-code": "@test/subagents/research-code",
-          "research-docs": "@test/subagents/research-docs",
+          "research-files": "@test/subagents/research-files",
           summarizer: "@test/subagents/summarizer",
         },
       );
@@ -654,7 +654,7 @@ describe("subagents-publish.handler", () => {
                 "extensions",
                 "@test",
                 "subagents",
-                "research-docs",
+                "research-files",
                 "index.json",
               ),
             ),

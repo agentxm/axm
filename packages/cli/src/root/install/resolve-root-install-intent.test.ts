@@ -12,7 +12,7 @@ describe("resolveRootInstallIntent", () => {
         { source: "@acme/commands/release-notes@^1.2.0", type: "command" },
         { source: "@acme/mcps/dev-server", type: "mcp-server" },
         { source: "@acme/subagents/researcher", type: "subagent" },
-        { source: "@ac/docs/policy", type: "docs" },
+        { source: "@ac/files/policy", type: "files" },
         { source: "@acme/packs/frontend-tools", type: "pack" },
       ] as const;
 
@@ -75,7 +75,7 @@ describe("resolveRootInstallIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcps, subagents, docs, packs");
+      ).toContain("skills, commands, mcps, subagents, files, rules, packs");
     }),
   );
 });

@@ -30,6 +30,7 @@ import {
   type McpServerLockEntry,
   type RegistryPackLockEntry,
   type ResolvedExtensionMap,
+  type RuleLockEntry,
   type SkillLockEntry,
 } from "../lockfile/index.js";
 import { decodeExtensionNameSync } from "../extensions/index.js";
@@ -157,6 +158,7 @@ export const makeBaseWorkspaceMock = (
     getIgnoredSkillPatterns: emptyArr,
     getConfiguredSkillEntries: () => Effect.succeed({}),
     getConfiguredDocsEntries: () => Effect.succeed({}),
+    getConfiguredRuleEntries: () => Effect.succeed({}),
     getWorkspaceVars: () => Effect.succeed({}),
     getLockedDocs: () => Effect.succeed({}),
     getLockedDocsEntry: () => Effect.succeed(Option.none<DocsLockEntry>()),
@@ -167,6 +169,15 @@ export const makeBaseWorkspaceMock = (
     removeDocsLock: () => Effect.void,
     updateDocsEntry: () => Effect.void,
     setDocsEntry: () => Effect.void,
+    getLockedRules: () => Effect.succeed({}),
+    getLockedRuleEntry: () => Effect.succeed(Option.none<RuleLockEntry>()),
+    setRule: () => Effect.void,
+    setRuleLock: () => Effect.void,
+    removeRule: () => Effect.void,
+    removeRuleSettings: () => Effect.void,
+    removeRuleLock: () => Effect.void,
+    updateRuleEntry: () => Effect.void,
+    setRuleEntry: () => Effect.void,
     getIgnoredCommandPatterns: emptyArr,
     getIgnoredMcpServerPatterns: emptyArr,
     getIgnoredPackPatterns: emptyArr,
@@ -247,12 +258,14 @@ export interface WriteWorkspaceFilesOptions {
   readonly commands?: Record<string, unknown> | undefined;
   readonly mcps?: Record<string, unknown> | undefined;
   readonly subagents?: Record<string, unknown> | undefined;
+  readonly rules?: Record<string, unknown> | undefined;
   readonly packs?: Record<string, unknown> | undefined;
   readonly sources?: ReadonlyArray<unknown> | undefined;
   readonly lockfileSkills?: Record<string, unknown> | undefined;
   readonly lockfileCommands?: Record<string, unknown> | undefined;
   readonly lockfileMcpServers?: Record<string, unknown> | undefined;
   readonly lockfileSubagents?: Record<string, unknown> | undefined;
+  readonly lockfileRules?: Record<string, unknown> | undefined;
   readonly lockfilePacks?: Record<string, unknown> | undefined;
 }
 
@@ -264,6 +277,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.commands) && { commands: opts.commands }),
     ...(hasEntries(opts["mcps"]) && { mcps: opts["mcps"] }),
     ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
+    ...(hasEntries(opts.rules) && { rules: opts.rules }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
     ...(opts.sources && { sources: opts.sources }),
   };
@@ -274,6 +288,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.lockfileCommands) && { commands: opts.lockfileCommands }),
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
+    ...(hasEntries(opts.lockfileRules) && { rules: opts.lockfileRules }),
     ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
   };
 

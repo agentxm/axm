@@ -294,6 +294,8 @@ type DocsEntryCanonical = EnabledEntry & {
   readonly inputs: FileInputValuesMap;
 };
 
+type RuleEntryCanonical = EnabledEntry;
+
 const compactOrVerboseEntry = <
   ObjectEntry extends AuthoredEntryObject,
   CanonicalEntry extends AuthoredEntry,
@@ -600,6 +602,83 @@ export const DocsMapSchema = Schema.Record(ExtensionMapKeySchema, DocsEntrySchem
 
 /** @experimental */
 export type DocsMap = Schema.Schema.Type<typeof DocsMapSchema>;
+
+// -----------------------------------------------------------------------------
+// Rule Entry Schemas
+// -----------------------------------------------------------------------------
+
+/**
+ * Managed rule with source and optional config flags.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RuleEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("rule", "rules"),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
+}).annotate({
+  title: "Rule Entry Object",
+  description: "A rule entry with source and optional enabled/authored flags.",
+});
+
+/**
+ * Union of rule entry forms: plain source string or object with source + enabled + authored.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RuleEntrySchema = compactOrVerboseEntry(
+  RuleEntryObjectSchema,
+  Schema.Struct({
+    source: Schema.String,
+    enabled: Schema.Boolean,
+    authored: Schema.Boolean,
+  }),
+  {
+    decode: (entry: string | EnabledEntryObject): RuleEntryCanonical =>
+      typeof entry === "string"
+        ? { source: entry, enabled: true, authored: false }
+        : {
+            source: entry.source,
+            enabled: entry.enabled ?? true,
+            authored: entry.authored ?? false,
+          },
+    encode: (entry: RuleEntryCanonical): string | EnabledEntryObject => {
+      if (entry.enabled && !entry.authored) return entry.source;
+      const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+        source: entry.source,
+      };
+      if (!entry.enabled) obj.enabled = false;
+      if (entry.authored) obj.authored = true;
+      return obj;
+    },
+  },
+  {
+    identifier: "RuleEntry",
+    title: "Rule Entry",
+    description: "A rule entry: a source string, or an object with source plus optional flags.",
+    examples: [
+      "@acme/rules/api-conventions@^1.0.0",
+      { source: "@acme/rules/api-conventions@^1.0.0", enabled: false },
+    ],
+  },
+);
+
+/** @experimental */
+export type RuleEntry = Schema.Schema.Type<typeof RuleEntrySchema>;
+
+/**
+ * Rules map - maps rule names to rule entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RulesMapSchema = Schema.Record(ExtensionMapKeySchema, RuleEntrySchema).annotate({
+  identifier: "RulesMap",
+  title: "Rules Map",
+  description: "A map of rule names to rule entries.",
+});
+
+/** @experimental */
+export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
 
 // -----------------------------------------------------------------------------
 // MCP Server Entry Schemas
@@ -1102,6 +1181,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "commands",
   "commandsConfig",
   "docs",
+  "rules",
   "subagents",
   "subagentsConfig",
   "packs",
@@ -1125,6 +1205,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - commands: Desired commands by name to version specifier
  * - commandsConfig: Feature-level configuration for commands
  * - docs: Desired Context docs packages by name to source string or input config
+ * - rules: Desired rules by name to source string
  * - subagents: Desired subagents by name to version specifier
  * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
@@ -1201,6 +1282,12 @@ export const SettingsSchema = Schema.Struct({
     Schema.Union([DocsMapSchema]).annotate({
       description:
         "Your installed Context docs packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or scalar `inputs`.",
+    }),
+  ),
+  rules: Schema.optionalKey(
+    Schema.Union([RulesMapSchema]).annotate({
+      description:
+        "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`.",
     }),
   ),
   subagents: Schema.optionalKey(

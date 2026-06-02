@@ -29,6 +29,8 @@ import type {
   McpServersLockMap,
   PackLockEntry,
   PacksLockMap,
+  RuleLockEntry,
+  RulesLockMap,
   SkillLockEntry,
   SkillsLockMap,
   SubagentLockEntry,
@@ -43,6 +45,8 @@ import type {
   McpServersMap,
   PackEntry,
   PacksMap,
+  RuleEntry,
+  RulesMap,
   SkillEntry,
   SkillsMap,
   SubagentEntry,
@@ -125,6 +129,11 @@ export interface DocsExtensionTarget {
   readonly name: string;
 }
 
+export interface RuleExtensionTarget {
+  readonly type: "rule";
+  readonly name: string;
+}
+
 /**
  * Identifies a specific extension by type and name.
  */
@@ -134,7 +143,8 @@ export type ExtensionTarget =
   | CommandExtensionTarget
   | McpServerExtensionTarget
   | SubagentExtensionTarget
-  | DocsExtensionTarget;
+  | DocsExtensionTarget
+  | RuleExtensionTarget;
 
 /**
  * Maps an ExtensionRef type to its corresponding ExtensionTarget type.
@@ -302,6 +312,15 @@ export interface SetDocsArgs {
   readonly versionRange: Option.Option<string>;
 }
 
+/**
+ * Arguments for `setRule` -- bundles the rule name with the lock entry.
+ */
+export interface SetRuleArgs {
+  readonly name: string;
+  readonly lockEntry: RuleLockEntry;
+  readonly versionRange: Option.Option<string>;
+}
+
 // ---------------------------------------------------------------------------
 // Service interface
 // ---------------------------------------------------------------------------
@@ -386,6 +405,31 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a context entry in settings only. Serialized by semaphore. */
   readonly setDocsEntry: (name: string, entry: DocsEntry) => Effect.Effect<void, AppError>;
+  /** Read settings and return configured rules, defaulting to `{}`. */
+  readonly getConfiguredRuleEntries: () => Effect.Effect<RulesMap, AppError>;
+  /** Read lockfile and return the rules lock map. */
+  readonly getLockedRules: () => Effect.Effect<RulesLockMap, AppError>;
+  /** Read lockfile and return the entry for a specific rule, or Option.none(). */
+  readonly getLockedRuleEntry: (
+    name: string,
+  ) => Effect.Effect<Option.Option<RuleLockEntry>, AppError>;
+  /** Add or update a rule in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  readonly setRule: (args: SetRuleArgs) => Effect.Effect<void, AppError>;
+  /** Add or update a rule in lockfile only. Used for pack dependencies. Serialized by semaphore. */
+  readonly setRuleLock: (args: SetRuleArgs) => Effect.Effect<void, AppError>;
+  /** Remove a rule from both settings and lockfile. No-op if absent. Serialized by semaphore. */
+  readonly removeRule: (name: string) => Effect.Effect<void, AppError>;
+  /** Remove a rule from settings only. Serialized by semaphore. */
+  readonly removeRuleSettings: (name: string) => Effect.Effect<void, AppError>;
+  /** Remove a rule from lockfile only. Serialized by semaphore. */
+  readonly removeRuleLock: (name: string) => Effect.Effect<void, AppError>;
+  /** Update a rule entry by applying an updater function. Serialized by semaphore. */
+  readonly updateRuleEntry: (
+    name: string,
+    updater: (entry: RuleEntry) => RuleEntry,
+  ) => Effect.Effect<void, AppError>;
+  /** Create or overwrite a rule entry in settings only. Serialized by semaphore. */
+  readonly setRuleEntry: (name: string, entry: RuleEntry) => Effect.Effect<void, AppError>;
   /** Read lockfile and return the skills lock map. */
   readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific skill, or Option.none(). */

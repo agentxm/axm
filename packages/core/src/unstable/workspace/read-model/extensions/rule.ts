@@ -13,8 +13,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../../agents/types.js";
-import type { ExtensionName } from "../../../extensions/common.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
+import type { Lockfile, RuleLockEntry } from "../../../lockfile/schema.js";
+import type { RuleEntry, Settings } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
+import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
   ActivationState,
@@ -44,10 +47,16 @@ export type RuleDetectionOrigin =
 // Payloads
 // ---------------------------------------------------------------------------
 
-export type DeclaredRule = never;
+export interface DeclaredRule {
+  readonly name: ExtensionName;
+  readonly entry: RuleEntry;
+}
 export type DeclaredRules = ReadonlyArray<DeclaredRule>;
 
-export type ResolvedRule = never;
+export interface ResolvedRule {
+  readonly name: ExtensionName;
+  readonly lockEntry: RuleLockEntry;
+}
 export type ResolvedRules = ReadonlyArray<ResolvedRule>;
 
 export interface ActualRule {
@@ -77,11 +86,23 @@ export interface UnmanagedRule {
   readonly actual: ActualRule;
 }
 
-export type IgnoredRuleCandidate = {
-  readonly key: ExtensionKey<"rule">;
-  readonly reason: "actual-ignored";
-  readonly actual: ActualRule;
-};
+export type IgnoredRuleCandidate =
+  | {
+      readonly key: ExtensionKey<"rule">;
+      readonly reason: "declared-ignored";
+      readonly declared: DeclaredRule;
+    }
+  | {
+      readonly key: ExtensionKey<"rule">;
+      readonly reason: "pack-member-ignored";
+      readonly member: RulePackMember;
+      readonly pack: InstalledPackRef;
+    }
+  | {
+      readonly key: ExtensionKey<"rule">;
+      readonly reason: "actual-ignored";
+      readonly actual: ActualRule;
+    };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -96,6 +117,22 @@ const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): Act
     contentRoot: occ.contentLocation,
     packageRoot,
   };
+};
+
+const declaredFromSettings = (settings: Settings): DeclaredRules => {
+  if (settings.rules === undefined) return [];
+  return Object.entries(settings.rules).map(([name, entry]) => ({
+    name: decodeExtensionNameSync(name),
+    entry,
+  }));
+};
+
+const resolvedFromLockfile = (lockfile: Lockfile): ResolvedRules => {
+  if (lockfile.rules === undefined) return [];
+  return Object.entries(lockfile.rules).map(([name, lockEntry]) => ({
+    name: decodeExtensionNameSync(name),
+    lockEntry,
+  }));
 };
 
 // ---------------------------------------------------------------------------
@@ -113,6 +150,11 @@ export interface RuleScanners {
   readonly canonical: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
 }
 
+export interface RuleScopedLoaders {
+  readonly settings: Effect.Effect<Option.Option<Settings>, SettingsReadError>;
+  readonly lockfile: Effect.Effect<Option.Option<Lockfile>, LockfileReadError>;
+}
+
 export interface InstalledPackForRules {
   readonly ref: InstalledPackRef;
   readonly rules: ReadonlyArray<RulePackMember>;
@@ -120,6 +162,7 @@ export interface InstalledPackForRules {
 
 export interface RuleExtensionsApiDeps {
   readonly scope: Scope;
+  readonly loaders: RuleScopedLoaders;
   readonly scanners: RuleScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>>;
   readonly ignoredNames: ReadonlySet<string>;
@@ -127,12 +170,14 @@ export interface RuleExtensionsApiDeps {
 }
 
 export interface RuleExtensionsApi {
-  readonly declared: Effect.Effect<Option.Option<DeclaredRules>>;
-  readonly resolved: Effect.Effect<Option.Option<ResolvedRules>>;
+  readonly declared: Effect.Effect<Option.Option<DeclaredRules>, SettingsReadError>;
+  readonly resolved: Effect.Effect<Option.Option<ResolvedRules>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualRules>;
   readonly installed: Effect.Effect<ReadonlyArray<InstalledRule>>;
   readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledRule>>;
-  readonly declaredByName: (name: string) => Effect.Effect<Option.Option<DeclaredRule>>;
+  readonly declaredByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<DeclaredRule>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledRule>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedRule>>;
   readonly ignored: Effect.Effect<ReadonlyArray<IgnoredRuleCandidate>>;
@@ -152,25 +197,19 @@ const rulePolicy = (
   DeclaredRules,
   ResolvedRules,
   ActualRules,
-  // `never` rather than `RulePackMember`: v1 emits no rule pack members, so
-  // the projection helper never invokes pack-member callbacks. The narrower
-  // `never` lets `buildPackMemberIgnoredRow` be implemented without a throw.
-  never,
+  RulePackMember,
   InstalledRule,
   UnmanagedRule,
   IgnoredRuleCandidate
 > => ({
-  declaredEntries: () => [],
-  declaredName: (entry) => entry,
-  declaredActivation: () => "enabled",
-  resolvedEntries: () => [],
-  resolvedName: (entry) => entry,
+  declaredEntries: (d) => d,
+  declaredName: (entry) => entry.name,
+  declaredActivation: (entry) => (entry.entry.enabled === false ? "disabled" : "enabled"),
+  resolvedEntries: (r) => r,
+  resolvedName: (entry) => entry.name,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
-  // `m: never` — the helper invocation passes `TPackMember = never`, so
-  // this callback is statically uninhabitable. Returning `m` (typed as
-  // `never`) satisfies the `string` return type.
-  packMemberName: (m) => m,
+  packMemberName: (m) => m.name,
   isIgnoredName: (name, ignored) => ignored.has(name),
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
@@ -187,14 +226,17 @@ const rulePolicy = (
     key: { scope, type: "rule", name: entry.key.name },
     actual: entry,
   }),
-  // `DeclaredRule = never` (rules have no settings entry shape), so
-  // `input.declared` has type `never` and `return input.declared` satisfies
-  // any `TIgnored` statically. The body is uninhabitable at runtime.
-  buildDeclaredIgnoredRow: (input) => input.declared,
-  // The helper invocation passes `TPackMember = never` (v1 emits no rule
-  // pack members), so `input.member` has type `never` and the body is
-  // uninhabitable at runtime — no throw needed.
-  buildPackMemberIgnoredRow: (input) => input.member,
+  buildDeclaredIgnoredRow: (input) => ({
+    key: { scope, type: "rule", name: input.name },
+    reason: "declared-ignored",
+    declared: input.declared,
+  }),
+  buildPackMemberIgnoredRow: (input) => ({
+    key: { scope, type: "rule", name: input.name },
+    reason: "pack-member-ignored",
+    member: input.member,
+    pack: input.pack,
+  }),
   buildActualIgnoredRow: (input) => ({
     key: { scope, type: "rule", name: input.name },
     reason: "actual-ignored",
@@ -214,21 +256,16 @@ export const makeRuleExtensionsApi = (
   Effect.gen(function* () {
     const { scope, scanners, ignoredNames, diagnostics } = deps;
 
-    const declared: RuleExtensionsApi["declared"] = Effect.succeed(Option.none<DeclaredRules>());
-    const resolved: RuleExtensionsApi["resolved"] = Effect.succeed(Option.none<ResolvedRules>());
+    const declared: RuleExtensionsApi["declared"] = deps.loaders.settings.pipe(
+      Effect.map((opt) => Option.map(opt, declaredFromSettings)),
+    );
+    const resolved: RuleExtensionsApi["resolved"] = deps.loaders.lockfile.pipe(
+      Effect.map((opt) => Option.map(opt, resolvedFromLockfile)),
+    );
     const actual: RuleExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
       return filterMapOccurrences(canonical, "rule", (occ) => canonicalToActual(occ, scope));
     });
-
-    // v1 emits no rule pack members. Pass an empty installed-packs effect to
-    // the projection helper with `TPackMember = never` so unreachable
-    // pack-member callbacks become statically uninhabitable.
-    // `deps.installedPacks` is accepted on the public dep contract but ignored
-    // here until v2 wires rule pack members through.
-    const installedPacksForHelper: Effect.Effect<
-      ReadonlyArray<{ readonly ref: InstalledPackRef; readonly members: ReadonlyArray<never> }>
-    > = Effect.succeed([]);
 
     const project = yield* Effect.cached(
       projectInstalledExtensions({
@@ -236,8 +273,10 @@ export const makeRuleExtensionsApi = (
         declared,
         resolved,
         actual,
-        installedPacks: installedPacksForHelper,
-        packMembers: (pack) => pack.members,
+        installedPacks: deps.installedPacks,
+        packMembers: (pack: {
+          readonly rules: ReadonlyArray<RulePackMember>;
+        }): ReadonlyArray<RulePackMember> => pack.rules,
         packRef: (pack) => pack.ref,
         ignoredNames,
         policy: rulePolicy(scope),
@@ -255,6 +294,5 @@ export const makeRuleExtensionsApi = (
       declared,
       resolved,
       actual,
-      declaredByName: () => Effect.succeed(Option.none()),
     } satisfies RuleExtensionsApi;
   });

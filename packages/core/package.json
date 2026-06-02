@@ -151,6 +151,14 @@
       "types": "./dist/src/unstable/docs/index.d.ts",
       "default": "./dist/src/unstable/docs/index.js"
     },
+    "./unstable/rules": {
+      "types": "./dist/src/unstable/rules/index.d.ts",
+      "default": "./dist/src/unstable/rules/index.js"
+    },
+    "./unstable/managed-files": {
+      "types": "./dist/src/unstable/managed-files/index.d.ts",
+      "default": "./dist/src/unstable/managed-files/index.js"
+    },
     "./unstable/commands": {
       "types": "./dist/src/unstable/commands/index.d.ts",
       "default": "./dist/src/unstable/commands/index.js"

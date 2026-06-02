@@ -1,7 +1,7 @@
 ---
 name: axm
 description: |
-  AXM - Agent Extension Manager: Use when performing any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover/etc.) involving agent skills, subagents, slash commands/stored prompts, MCP servers, context packages, or packs
+  AXM - Agent Extension Manager: Use when performing any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover/etc.) involving agent skills, subagents, slash commands/stored prompts, MCP servers, context packages, rule extensions, or packs
 invocable: true
 ---
 
@@ -35,7 +35,7 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 `--json` for machine-readable output. `--scope user` targets `$HOME/.axm` instead of the project workspace. Install/uninstall/update accept a registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
 
-`<type>` ∈ {`skills`, `subagents`, `commands`, `mcps`, `context`, `packs`}.
+`<type>` ∈ {`skills`, `subagents`, `commands`, `mcps`, `context`, `rules`, `packs`}.
 
 ### Workspace setup & discovery
 

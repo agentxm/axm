@@ -29,6 +29,7 @@ import {
   writeLockfile,
   type RegistryPackLockEntry,
   type DocsLockMap,
+  type RulesLockMap,
   type SubagentsLockMap,
 } from "../lockfile/index.js";
 import type { Lockfile } from "../lockfile/schema.js";
@@ -57,6 +58,8 @@ import {
   type SubagentEntry,
   type PackEntry,
   type PacksMap,
+  type RuleEntry,
+  type RulesMap,
   type Settings,
   SETTINGS_FILENAME,
   type SkillsMap,
@@ -88,6 +91,7 @@ import {
   type SetPackArgs,
   type SetCommandArgs,
   type SetDocsArgs,
+  type SetRuleArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
   type SkillPathSource,
@@ -664,6 +668,168 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             }).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setDocsEntry")),
+
+      getConfiguredRuleEntries: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s): RulesMap => s.rules ?? {}),
+          Effect.withSpan("WorkspaceMutations.getConfiguredRuleEntries"),
+        ),
+
+      getLockedRules: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.rules ?? {})),
+
+      getLockedRuleEntry: (name: string) =>
+        readLockfileSafe(workspaceDir).pipe(
+          Effect.map((lf) => Option.fromUndefinedOr((lf.rules ?? {})[name])),
+        ),
+
+      setRule: ({ name, lockEntry, versionRange }: SetRuleArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            const source =
+              lockEntry.type === "registry"
+                ? (() => {
+                    const fqn = formatFqn({
+                      owner: lockEntry.owner,
+                      type: "rule",
+                      name: decodeExtensionNameSync(name),
+                    });
+                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                  })()
+                : printSourceParams(lockEntryToSourceParams(lockEntry));
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentRules: RulesMap = currentSettings.rules ?? {};
+            const currentEntry = currentRules[name];
+            const authored = currentEntry?.authored ?? false;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              rules: {
+                ...currentRules,
+                [name]: { source, enabled: true, authored },
+              },
+            }).pipe(Effect.provide(fsLayer));
+
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedRules = currentLockfile.rules ?? {};
+            const previous = currentLockedRules[name];
+            yield* writeLockfile(workspaceDir, {
+              ...currentLockfile,
+              rules: {
+                ...currentLockedRules,
+                [name]: {
+                  ...lockEntry,
+                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
+                  updatedAt: new Date(),
+                },
+              },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setRule")),
+
+      setRuleLock: ({ name, lockEntry }: SetRuleArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedRules = currentLockfile.rules ?? {};
+            const previous = currentLockedRules[name];
+            yield* writeLockfile(workspaceDir, {
+              ...currentLockfile,
+              rules: {
+                ...currentLockedRules,
+                [name]: {
+                  ...lockEntry,
+                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
+                  updatedAt: new Date(),
+                },
+              },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setRuleLock")),
+
+      removeRule: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentRules: RulesMap = currentSettings.rules ?? {};
+            const remainingSettings =
+              name in currentRules
+                ? (() => {
+                    const { [name]: _, ...remainingRules } = currentRules;
+                    void _;
+                    return { ...currentSettings, rules: remainingRules };
+                  })()
+                : currentSettings;
+
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedRules = currentLockfile.rules ?? {};
+            const remainingLockfile =
+              name in currentLockedRules
+                ? (() => {
+                    const { [name]: _, ...remainingRules } = currentLockedRules;
+                    void _;
+                    return { ...currentLockfile, rules: remainingRules };
+                  })()
+                : currentLockfile;
+
+            yield* writeSettings(workspaceDir, remainingSettings).pipe(Effect.provide(fsLayer));
+            yield* writeLockfile(workspaceDir, remainingLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeRule")),
+
+      removeRuleSettings: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentRules: RulesMap = currentSettings.rules ?? {};
+            if (!(name in currentRules)) return;
+            const { [name]: _, ...remainingRules } = currentRules;
+            void _;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              rules: remainingRules,
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeRuleSettings")),
+
+      removeRuleLock: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedRules: RulesLockMap = currentLockfile.rules ?? {};
+            if (!(name in currentLockedRules)) return;
+            const { [name]: _, ...remainingRules } = currentLockedRules;
+            void _;
+            yield* writeLockfile(workspaceDir, {
+              ...currentLockfile,
+              rules: remainingRules,
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeRuleLock")),
+
+      updateRuleEntry: (name: string, updater: (entry: RuleEntry) => RuleEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentRules: RulesMap = currentSettings.rules ?? {};
+            const existingEntry = currentRules[name];
+            if (existingEntry === undefined) return;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              rules: { ...currentRules, [name]: updater(existingEntry) },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.updateRuleEntry")),
+
+      setRuleEntry: (name: string, entry: RuleEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentRules: RulesMap = currentSettings.rules ?? {};
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              rules: { ...currentRules, [name]: entry },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setRuleEntry")),
 
       getLockedSkills: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.skills)),
 
@@ -1554,7 +1720,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   ? packEntry.resolvedCommands
                   : target.type === "mcp-server"
                     ? packEntry.resolvedMcpServers
-                    : (packEntry.resolvedDocs ?? {});
+                    : target.type === "docs"
+                      ? (packEntry.resolvedDocs ?? {})
+                      : (packEntry.resolvedRules ?? {});
 
             // Check if any FQN key in the resolved map ends with the target name
             for (const fqn of Object.keys(resolvedMap)) {
@@ -1621,6 +1789,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   ...currentLockfile,
                   docs: {
                     ...docs,
+                    [target.name]: { ...entry, retainedByPack: true },
+                  },
+                };
+                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                break;
+              }
+              case "rule": {
+                const rules = currentLockfile.rules ?? {};
+                const entry = rules[target.name];
+                if (entry === undefined) return;
+                const updatedLockfile = {
+                  ...currentLockfile,
+                  rules: {
+                    ...rules,
                     [target.name]: { ...entry, retainedByPack: true },
                   },
                 };

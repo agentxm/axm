@@ -18,6 +18,7 @@ import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
 import { docsPackagesInDir, type DocsExtensionRef } from "../../docs/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
+import { rulePackagesInDir, type RuleExtensionRef } from "../../rules/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type {
@@ -84,7 +85,7 @@ export const createGitHostingSourceHostProvider = <
       yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(ref));
 
       const refs =
-        options.type === "docs"
+        options.type === "docs" || options.type === "rule"
           ? []
           : yield* skillsInDir(tempDir, subPath, {
               fullDepth: false,
@@ -158,7 +159,36 @@ export const createGitHostingSourceHostProvider = <
               ),
             );
 
-      const allRefs = [...refs, ...docsRefs];
+      const ruleRefs =
+        options.type !== "rule" && options.type !== "*"
+          ? []
+          : yield* rulePackagesInDir(fileSearchRoot, {
+              fullDepth: false,
+            }).pipe(
+              Effect.flatMap((discovered) =>
+                Effect.forEach(
+                  discovered,
+                  (d) =>
+                    Effect.gen(function* () {
+                      const filePath = fileUrlToPath(d.location);
+                      const relativeDir = path.relative(tempDir, filePath);
+                      const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
+                      const ref: RuleExtensionRef = {
+                        type: "rule" as const,
+                        refType: "git-hosted" as const,
+                        rule: { name: d.manifest.name },
+                        source,
+                        location: d.location,
+                        gitTreeSha: Option.some(gitTreeSha),
+                      };
+                      return ref;
+                    }),
+                  { concurrency: "unbounded" },
+                ),
+              ),
+            );
+
+      const allRefs = [...refs, ...docsRefs, ...ruleRefs];
       if (options.names.length === 0) return allRefs;
       const nameSet = new Set(options.names);
       return allRefs.filter((r) => {
@@ -167,6 +197,8 @@ export const createGitHostingSourceHostProvider = <
             return nameSet.has(r.skill.name);
           case "docs":
             return nameSet.has(r.file.name);
+          case "rule":
+            return nameSet.has(r.rule.name);
           default:
             return false;
         }

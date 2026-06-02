@@ -22,6 +22,7 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   "pack-schema": "JSON Schema for a pack manifest.",
   "package-extensions": "How AXM links registry extensions to ecosystem packages.",
   rules: "How AXM propagates one workspace instruction file to every configured agent.",
+  "rule-schema": "JSON Schema for a rule extension manifest.",
   settings: "What AXM tracks in the .axm/settings.json workspace state file.",
   "settings-schema": "JSON Schema for the .axm/settings.json file.",
   "mcp-server-schema": "JSON Schema for an MCP server manifest.",

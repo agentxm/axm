@@ -62,6 +62,8 @@ export interface InstallPackOperationArgs {
   readonly resolvedMcpServers: ResolvedExtensionMap;
   /** Resolved subagent FQNs to exact versions */
   readonly resolvedSubagents: ResolvedExtensionMap;
+  /** Resolved rule FQNs to exact versions */
+  readonly resolvedRules: ResolvedExtensionMap;
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
   readonly versionRange: Option<string>;
   /** Pack extension ref for fetching the archive. */
@@ -85,7 +87,8 @@ const collectMissingResolvedDependencies = (
       !Object.hasOwn(op.args.resolvedSkills, fqn) &&
       !Object.hasOwn(op.args.resolvedCommands, fqn) &&
       !Object.hasOwn(op.args.resolvedMcpServers, fqn) &&
-      !Object.hasOwn(op.args.resolvedSubagents, fqn)
+      !Object.hasOwn(op.args.resolvedSubagents, fqn) &&
+      !Object.hasOwn(op.args.resolvedRules, fqn)
     ) {
       missing.push(fqn);
     }
@@ -130,6 +133,10 @@ export const installPack: OperationHandler<
     yield* validateExactResolvedVersionMap(
       `packs.${op.args.packName}.resolvedSubagents`,
       op.args.resolvedSubagents,
+    );
+    yield* validateExactResolvedVersionMap(
+      `packs.${op.args.packName}.resolvedRules`,
+      op.args.resolvedRules,
     );
 
     // Extract to managed location
@@ -225,6 +232,7 @@ export const installPack: OperationHandler<
         resolvedCommands: op.args.resolvedCommands,
         resolvedMcpServers: op.args.resolvedMcpServers,
         resolvedSubagents: op.args.resolvedSubagents,
+        resolvedRules: op.args.resolvedRules,
         versionRange: op.args.versionRange,
       })
       .pipe(Effect.catch((e) => renderer.warn(`Pack metadata update failed: ${String(e)}`)));

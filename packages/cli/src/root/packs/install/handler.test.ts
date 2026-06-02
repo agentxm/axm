@@ -42,6 +42,7 @@ import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { DocsManagerLive } from "@agentxm/client-core/unstable/docs";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
+import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -164,6 +165,7 @@ describe("packs install handler", () => {
       SkillManagerLive,
       CommandManagerLive,
       DocsManagerLive,
+      RuleManagerLive,
       McpServerManagerLive,
       SubagentManagerLive,
     );
@@ -213,6 +215,7 @@ describe("packs install handler", () => {
       SkillManagerLive,
       CommandManagerLive,
       DocsManagerLive,
+      RuleManagerLive,
       McpServerManagerLive,
       SubagentManagerLive,
     );

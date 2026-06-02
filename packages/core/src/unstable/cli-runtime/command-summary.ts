@@ -10,6 +10,7 @@ export type SubjectType =
   | "skill"
   | "command"
   | "docs"
+  | "rule"
   | "subagent"
   | "pack"
   | "mcp-server"

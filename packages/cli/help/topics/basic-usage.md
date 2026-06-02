@@ -2,7 +2,7 @@
 
 AXM is the agent extension manager for coding agents and AI assistants.
 
-- One tool to manage agent skills, subagents, commands, and more across agents.
+- One tool to manage agent skills, subagents, commands, rules, and more across agents.
 - Bundle skills, subagents, commands and more with packs
 - Package and publish your extensions to the AgentXM.ai registry
 - Discover and distribute agent extensions for your platform package ecosystems, including JavaScript, Python, Rust, Java, .NET, Ruby, Go, and more
@@ -22,7 +22,7 @@ You will need to have an AgentXM.ai account to publish extensions to the registr
 
 ## How AXM works
 
-_Extensions_ are agent extensions managed by AXM: skills, subagents, and commands. Coding agents may have other extensibility mechanisms (e.g. hooks, plugins, etc.) that aren't managed by AXM.
+_Extensions_ are agent extensions managed by AXM: skills, subagents, commands, rules, and extension packs. Coding agents may have other extensibility mechanisms (e.g. hooks, plugins, etc.) that aren't managed by AXM.
 
 After running `axm setup`, AXM configures a workspace settings file at [`.axm/settings.json`](https://axm.sh/schemas/settings.schema.json). Installed extensions are listed there, sometimes with extended metadata. Management operations apply to every coding agent configured in `$.agents`.
 
@@ -65,6 +65,7 @@ It's possible to ignore pre-existing skills and other extensions in your workspa
 - `axm help skills` — working with skills
 - `axm help subagents` — working with subagents
 - `axm help commands` — working with slash commands
+- `axm help rules` — instruction-file propagation and installable rule extensions
 - `axm help packs` — working with packs
 - `axm help exit-codes` — process exit codes and their meaning
 - `axm <command> --help` — flags and examples for any command

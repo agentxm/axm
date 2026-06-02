@@ -23,6 +23,10 @@ import {
   InstallPackCommandWorkflowActions,
   type InstallPackHandlerArgs,
 } from "../packs/install/command-actions.js";
+import {
+  InstallRuleCommandWorkflowActions,
+  type InstallRuleHandlerArgs,
+} from "../rules/install/command-actions.js";
 import { InstallSkillCommandWorkflowActions } from "../skills/install/command-actions.js";
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import { resolveRootInstallIntent, type RootInstallIntent } from "./resolve-root-install-intent.js";
@@ -68,6 +72,11 @@ const runInstallIntent = (intent: RootInstallIntent, args: RootInstallFlags) =>
         const actions = yield* InstallDocsCommandWorkflowActions;
         const fileArgs: InstallDocsHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(fileArgs, actions, args);
+      }
+      case "rule": {
+        const actions = yield* InstallRuleCommandWorkflowActions;
+        const ruleArgs: InstallRuleHandlerArgs = { source: intent.source };
+        return yield* runInstallCommandWorkflow(ruleArgs, actions, args);
       }
       case "subagent": {
         const actions = yield* InstallSubagentCommandWorkflowActions;

@@ -182,6 +182,7 @@ interface PackMemberSets {
   readonly commands: ReadonlyArray<ExtensionName>;
   readonly mcpServers: ReadonlyArray<ExtensionName>;
   readonly subagents: ReadonlyArray<ExtensionName>;
+  readonly rules: ReadonlyArray<ExtensionName>;
 }
 
 // ---------------------------------------------------------------------------
@@ -237,6 +238,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       commands: emptyIgnoredPatterns(),
       mcpServers: emptyIgnoredPatterns(),
       subagents: emptyIgnoredPatterns(),
+      rules: emptyIgnoredPatterns(),
       packs: emptyIgnoredPatterns(),
     }),
     onSome: (settings) => ({
@@ -317,12 +319,15 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedMcpServers);
         const subagentNames =
           resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedSubagents);
+        const ruleNames =
+          resolvedSome === null ? [] : memberNamesFromResolvedMap(resolvedSome.resolvedRules ?? {});
         return {
           key: row.key,
           skills: skillNames,
           commands: commandNames,
           mcpServers: mcpServerNames,
           subagents: subagentNames,
+          rules: ruleNames,
         };
       });
     }),
@@ -381,9 +386,18 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     );
 
   const docsInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForDocs>> = Effect.succeed([]);
-  const rulesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>> = Effect.succeed(
-    [],
-  );
+  const rulesInstalledPacks: Effect.Effect<ReadonlyArray<InstalledPackForRules>> =
+    installedPackMembers.pipe(
+      Effect.map((packs) =>
+        packs.map((p) => ({
+          ref: { key: p.key },
+          rules: p.rules.map((name) => ({
+            name,
+            providingPack: { key: p.key },
+          })),
+        })),
+      ),
+    );
 
   const skills = yield* makeSkillExtensionsApi({
     scope,
@@ -431,6 +445,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
 
   const rules = yield* makeRuleExtensionsApi({
     scope,
+    loaders,
     scanners: { canonical: canonicalScanner },
     installedPacks: rulesInstalledPacks,
     ignoredNames: new Set<string>(),

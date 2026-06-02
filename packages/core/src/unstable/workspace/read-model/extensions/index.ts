@@ -146,6 +146,7 @@ export {
   type RuleExtensionsApiDeps,
   type RulePackMember,
   type RuleScanners,
+  type RuleScopedLoaders,
   type UnmanagedRule,
 } from "./rule.js";
 

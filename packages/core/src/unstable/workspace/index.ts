@@ -62,6 +62,7 @@ export {
   resolveConfiguredDocs,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
+  resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
   type ConfiguredEntryFailureReason,
@@ -70,6 +71,7 @@ export {
   type ResolvedConfiguredDocs,
   type ResolvedConfiguredMcpServer,
   type ResolvedConfiguredPack,
+  type ResolvedConfiguredRule,
   type ResolvedConfiguredSkill,
   type ResolvedConfiguredSubagent,
 } from "./configured-entry-resolution/index.js";
@@ -158,6 +160,7 @@ export {
   type McpServerExtensionTarget,
   type SubagentExtensionTarget,
   type DocsExtensionTarget,
+  type RuleExtensionTarget,
 } from "./service-interface.js";
 
 // Workspace mutation service implementation (layer)

@@ -40,6 +40,8 @@ export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
       return { type: "subagent", name: ref.subagent.name };
     case "docs":
       return { type: "docs", name: ref.file.name };
+    case "rule":
+      return { type: "rule", name: ref.rule.name };
   }
 };
 

@@ -60,6 +60,27 @@ automatically:
 Run `axm rules` to see the mechanism, target file, and health for each
 configured agent and propagation root.
 
+## Installable rule extensions
+
+Rule extensions are installable guidance packages. A rule package has a
+`rule.json` manifest and a `src/RULE.md` body. Installing a rule injects the
+body into the managed `region=rules` block in the workspace instruction source,
+then the existing instruction propagation sends that source to configured
+agents.
+
+Install or remove rules through the generic extension commands:
+
+```bash
+axm install @owner/rules/<name>
+axm uninstall @owner/rules/<name>
+```
+
+Rules are tracked in `.axm/settings.json` under `rules` and in
+`.axm/axm-lock.yaml` under `rules`. Set a rule entry to `{ "enabled": false }`
+to keep it installed but omit it from the rendered guidance region.
+
+Run `axm help rule-schema` to inspect the raw `rule.json` schema.
+
 ## Commands
 
 All commands live under `axm rules` and accept `--scope project` (default) or

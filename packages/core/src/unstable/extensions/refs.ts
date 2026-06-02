@@ -14,6 +14,7 @@ import type { CommandExtensionRef } from "../commands/refs.js";
 import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { SubagentExtensionRef } from "../subagents/refs.js";
 import type { DocsExtensionRef } from "../docs/refs.js";
+import type { RuleExtensionRef } from "../rules/refs.js";
 import type { PackRef } from "../packs/refs.js";
 
 /** @experimental */
@@ -23,4 +24,5 @@ export type ExtensionRef =
   | McpServerExtensionRef
   | SubagentExtensionRef
   | DocsExtensionRef
+  | RuleExtensionRef
   | PackRef;

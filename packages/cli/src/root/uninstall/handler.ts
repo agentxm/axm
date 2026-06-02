@@ -23,6 +23,10 @@ import {
   type UninstallPackHandlerArgs,
 } from "../packs/uninstall/command-actions.js";
 import {
+  UninstallRuleCommandWorkflowActions,
+  type UninstallRuleHandlerArgs,
+} from "../rules/uninstall/command-actions.js";
+import {
   UninstallSkillCommandWorkflowActions,
   type UninstallHandlerArgs,
 } from "../skills/uninstall/command-actions.js";
@@ -66,6 +70,11 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
         case "docs": {
           const actions = yield* UninstallDocsCommandWorkflowActions;
           const uninstallArgs: UninstallDocsHandlerArgs = { name: intent.name };
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
+        }
+        case "rule": {
+          const actions = yield* UninstallRuleCommandWorkflowActions;
+          const uninstallArgs: UninstallRuleHandlerArgs = { name: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
         }
         case "subagent": {

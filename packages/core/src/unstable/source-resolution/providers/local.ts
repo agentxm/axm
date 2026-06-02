@@ -17,6 +17,7 @@ import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
 import { docsPackagesInDir } from "../../docs/index.js";
+import { rulePackagesInDir } from "../../rules/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type { SourceHostProvider, LocalSource } from "../../sources/index.js";
 
@@ -39,7 +40,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
   find: (source, options) =>
     Effect.gen(function* () {
       const skillRefs =
-        options.type === "docs"
+        options.type === "docs" || options.type === "rule"
           ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
           : skillsInDir(source.path, Option.none(), {
               fullDepth: false,
@@ -88,7 +89,25 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
               ),
             );
 
-      const mapped = [...(yield* skillRefs), ...(yield* docsRefs)];
+      const ruleRefs =
+        options.type !== "rule" && options.type !== "*"
+          ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
+          : rulePackagesInDir(source.path, { fullDepth: false }).pipe(
+              Effect.map((discovered) =>
+                Array.map(
+                  discovered,
+                  (d): ExtensionRef => ({
+                    type: "rule",
+                    refType: "local",
+                    rule: { name: d.manifest.name },
+                    source,
+                    location: d.location,
+                  }),
+                ),
+              ),
+            );
+
+      const mapped = [...(yield* skillRefs), ...(yield* docsRefs), ...(yield* ruleRefs)];
       if (options.names.length === 0) return mapped;
       const nameSet = new Set(options.names);
       return mapped.filter((r) => {
@@ -97,6 +116,8 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
             return nameSet.has(r.skill.name);
           case "docs":
             return nameSet.has(r.file.name);
+          case "rule":
+            return nameSet.has(r.rule.name);
           default:
             return false;
         }

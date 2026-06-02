@@ -24,6 +24,10 @@ import {
   type InstallPackHandlerArgs,
 } from "../packs/install/command-actions.js";
 import {
+  InstallRuleCommandWorkflowActions,
+  type InstallRuleHandlerArgs,
+} from "../rules/install/command-actions.js";
+import {
   InstallSkillCommandWorkflowActions,
   type InstallSkillSourceHandlerArgs,
 } from "../skills/install/command-actions.js";
@@ -192,6 +196,24 @@ describe("root install handler", () => {
       buildPlan: () => Effect.succeed(makePlan("pack")),
     };
 
+    const ruleActions = {
+      parseArgs: (args: InstallRuleHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({
+            type: "rule",
+            source: args.source,
+            yes: false,
+            force: false,
+            preview: true,
+          });
+          return {};
+        }),
+      resolveSourceRequests: () => Effect.succeed([]),
+      discoverRefs: () => Effect.succeed([]),
+      finalizeIntent: () => Effect.succeed({}),
+      buildPlan: () => Effect.succeed(makePlan("rule")),
+    };
+
     const fullLayer = Layer.mergeAll(
       ctx.fullLayer,
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
@@ -236,6 +258,13 @@ describe("root install handler", () => {
           typeof InstallPackCommandWorkflowActions
         >,
       ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
+        InstallRuleCommandWorkflowActions,
+        ruleActions as unknown as ServiceMap.Service.Shape<
+          typeof InstallRuleCommandWorkflowActions
+        >,
+      ),
     );
 
     return { provide: makeEffectProvide(fullLayer) };
@@ -260,6 +289,7 @@ describe("root install handler", () => {
         "@acme/commands/release-notes",
         "@acme/mcps/dev-server",
         "@ac/docs/workspace-baseline",
+        "@acme/rules/review-policy",
         "@acme/subagents/researcher",
         "@acme/packs/frontend-tools",
       ] as const;
@@ -273,6 +303,7 @@ describe("root install handler", () => {
         { type: "command", source: "@acme/commands/release-notes", ...flags },
         { type: "mcp-server", source: "@acme/mcps/dev-server", ...flags },
         { type: "docs", source: "@ac/docs/workspace-baseline", ...flags },
+        { type: "rule", source: "@acme/rules/review-policy", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);

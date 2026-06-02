@@ -6,6 +6,7 @@ import { parseRegistrySourcePatternParts, parseRegistrySourceRef } from "../../e
 import type { DocsExtensionRef } from "../../docs/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
+import type { RuleExtensionRef } from "../../rules/index.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
@@ -278,6 +279,77 @@ export const resolveConfiguredDocs = (name: string, source: string) =>
           {
             description:
               "Verify the configured source still contains the Context docs package or update settings.json.",
+          },
+        ],
+      });
+    }
+
+    return {
+      ref,
+      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
+    };
+  });
+
+export const resolveConfiguredRule = (name: string, source: string) =>
+  Effect.gen(function* () {
+    const providers = yield* SourceHostProviders;
+    const resolvedSource = yield* resolveSource(source).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "validation",
+          detail: `Invalid rule source for ${name}: ${cause.message}`,
+          cause,
+        }),
+      ),
+    );
+
+    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const requestedOwner =
+      parsedPattern?.type === "rules"
+        ? Option.some(parsedPattern.owner)
+        : resolvedSource.type === "registry"
+          ? resolvedSource.owner
+          : Option.none();
+    const versionRange =
+      resolvedSource.type === "registry" && parsedPattern?.type === "rules"
+        ? Option.fromUndefinedOr(parsedPattern.versionRange)
+        : Option.none<VersionRange>();
+
+    const refs = yield* providers
+      .find(resolvedSource, {
+        names: [name],
+        type: "rule",
+        owner: requestedOwner,
+        versionRange,
+      })
+      .pipe(
+        Effect.map((entries) =>
+          entries.filter((entry): entry is RuleExtensionRef => entry.type === "rule"),
+        ),
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to resolve configured rule "${name}"`,
+            suggestions: [
+              {
+                description:
+                  "Verify the configured source is reachable and still contains the rule.",
+              },
+            ],
+            cause,
+          }),
+        ),
+      );
+
+    const ref = refs.find((entry) => entry.rule.name === name);
+    if (ref === undefined) {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Configured rule "${name}" could not be found in its source`,
+        suggestions: [
+          {
+            description:
+              "Verify the configured source still contains the rule or update settings.json.",
           },
         ],
       });

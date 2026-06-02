@@ -34,6 +34,7 @@ import {
 } from "@agentxm/client-core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { DocsManager, type DocsExtensionRef } from "@agentxm/client-core/unstable/docs";
+import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import {
   SubagentManager,
@@ -53,6 +54,7 @@ import type {
   CommandExtensionTarget,
   DocsExtensionTarget,
   McpServerExtensionTarget,
+  RuleExtensionTarget,
   SkillExtensionTarget,
   SubagentExtensionTarget,
 } from "@agentxm/client-core/unstable/workspace";
@@ -131,6 +133,7 @@ type PackDependencyNameSets = {
   readonly "mcp-server": Set<string>;
   readonly subagent: Set<string>;
   readonly docs: Set<string>;
+  readonly rule: Set<string>;
 };
 
 type DroppedPackDependencyTarget =
@@ -138,7 +141,8 @@ type DroppedPackDependencyTarget =
   | CommandExtensionTarget
   | McpServerExtensionTarget
   | SubagentExtensionTarget
-  | DocsExtensionTarget;
+  | DocsExtensionTarget
+  | RuleExtensionTarget;
 
 const makePackDependencyNameSets = (): PackDependencyNameSets => ({
   skill: new Set<string>(),
@@ -146,6 +150,7 @@ const makePackDependencyNameSets = (): PackDependencyNameSets => ({
   "mcp-server": new Set<string>(),
   subagent: new Set<string>(),
   docs: new Set<string>(),
+  rule: new Set<string>(),
 });
 
 const nameFromFqn = (fqn: string): string => parseExtensionFqnParts(fqn)?.name ?? fqn;
@@ -174,6 +179,9 @@ const collectResolvedDependencyNames = (
       case "docs":
         names.docs.add(ref.file.name);
         break;
+      case "rule":
+        names.rule.add(ref.rule.name);
+        break;
     }
   }
 
@@ -186,12 +194,14 @@ const collectDirectlyConfiguredNames = (args: {
   readonly mcpServers: Readonly<Record<string, unknown>>;
   readonly subagents: Readonly<Record<string, unknown>>;
   readonly docs: Readonly<Record<string, unknown>>;
+  readonly rules: Readonly<Record<string, unknown>>;
 }): PackDependencyNameSets => ({
   skill: new Set(Object.keys(args.skills)),
   command: new Set(Object.keys(args.commands)),
   "mcp-server": new Set(Object.keys(args.mcpServers)),
   subagent: new Set(Object.keys(args.subagents)),
   docs: new Set(Object.keys(args.docs)),
+  rule: new Set(Object.keys(args.rules)),
 });
 
 const collectDroppedPackDependencyTargets = (args: {
@@ -201,6 +211,7 @@ const collectDroppedPackDependencyTargets = (args: {
     readonly resolvedMcpServers: Readonly<Record<string, string>>;
     readonly resolvedSubagents: Readonly<Record<string, string>>;
     readonly resolvedDocs?: Readonly<Record<string, string>> | undefined;
+    readonly resolvedRules?: Readonly<Record<string, string>> | undefined;
   };
   readonly nextDependencies: PackDependencyNameSets;
   readonly directlyConfigured: PackDependencyNameSets;
@@ -242,6 +253,13 @@ const collectDroppedPackDependencyTargets = (args: {
     const name = nameFromFqn(fqn);
     if (!args.nextDependencies.docs.has(name) && !args.directlyConfigured.docs.has(name)) {
       droppedTargets.push({ type: "docs", name });
+    }
+  }
+
+  for (const fqn of Object.keys(args.lockedPack.resolvedRules ?? {})) {
+    const name = nameFromFqn(fqn);
+    if (!args.nextDependencies.rule.has(name) && !args.directlyConfigured.rule.has(name)) {
+      droppedTargets.push({ type: "rule", name });
     }
   }
 
@@ -314,6 +332,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
     const contextManager = yield* DocsManager;
+    const ruleManager = yield* RuleManager;
     const mcpServerMgr = yield* McpServerManager;
     const subagentMgr = yield* SubagentManager;
 
@@ -739,6 +758,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           mcpServers: configuredMcpServers,
           subagents: configuredSubagents,
           docs: configuredFiles,
+          rules: {},
         });
         const nextDependencies = collectResolvedDependencyNames(refs);
         const droppedTargets = Option.match(lockedPack, {
@@ -777,6 +797,12 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
           if (target.type === "docs") {
             return buildUninstallOperation<DocsExtensionRef>(contextManager, retentionPolicy, {
+              target,
+            });
+          }
+
+          if (target.type === "rule") {
+            return buildUninstallOperation<RuleExtensionRef>(ruleManager, retentionPolicy, {
               target,
             });
           }

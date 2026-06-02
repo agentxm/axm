@@ -16,6 +16,7 @@ import {
   resolveConfiguredDocs,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
+  resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
 } from "@agentxm/client-core/unstable/workspace";
@@ -34,6 +35,8 @@ import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
 import type { InstallPackCommandIntent } from "../packs/install/intent.js";
+import { InstallRuleCommandWorkflowActions } from "../rules/install/command-actions.js";
+import type { InstallRuleCommandIntent } from "../rules/install/intent.js";
 import { InstallSkillCommandWorkflowActions } from "../skills/install/command-actions.js";
 import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
@@ -63,6 +66,7 @@ type WorkspaceUpdateCollectorContext =
   | InstallSkillCommandWorkflowActions
   | InstallCommandCommandWorkflowActions
   | InstallDocsCommandWorkflowActions
+  | InstallRuleCommandWorkflowActions
   | InstallSubagentCommandWorkflowActions
   | InstallMcpServerCommandWorkflowActions
   | InstallPackCommandWorkflowActions;
@@ -210,6 +214,16 @@ const resolveFileIntent = (name: string, source: string) =>
     ),
   );
 
+const resolveRuleIntent = (name: string, source: string) =>
+  resolveConfiguredRule(name, source).pipe(
+    Effect.map(
+      ({ ref, versionRange }) =>
+        ({
+          refs: [{ ref, versionRange }],
+        }) satisfies InstallRuleCommandIntent,
+    ),
+  );
+
 const resolveMcpServerIntent = (name: string, source: string) =>
   resolveConfiguredMcpServer(name, source).pipe(
     Effect.map(
@@ -290,6 +304,25 @@ const collectFilePlans = () =>
     return toCollectedWorkspaceUpdatePlans({ plans });
   });
 
+const collectRulePlans = () =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const actions = yield* InstallRuleCommandWorkflowActions;
+    const configured = yield* ws.getConfiguredRuleEntries();
+    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+
+    const plans = yield* Effect.forEach(
+      entries,
+      ([name, entry]) =>
+        resolveRuleIntent(name, entry.source).pipe(
+          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        ),
+      { concurrency: "unbounded" },
+    );
+
+    return toCollectedWorkspaceUpdatePlans({ plans });
+  });
+
 const collectSubagentPlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -354,6 +387,7 @@ const workspaceUpdateCollectors: ReadonlyArray<WorkspaceUpdateCollector> = [
   { type: "skill" as const, collect: collectSkillPlans },
   { type: "command" as const, collect: collectCommandPlans },
   { type: "docs" as const, collect: collectFilePlans },
+  { type: "rule" as const, collect: collectRulePlans },
   { type: "subagent" as const, collect: collectSubagentPlans },
   { type: "mcp-server" as const, collect: collectMcpServerPlans },
   { type: "pack" as const, collect: collectPackPlans },

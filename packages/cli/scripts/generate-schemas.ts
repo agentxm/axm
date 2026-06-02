@@ -22,6 +22,7 @@ import { McpServerManifestSchema } from "../../core/src/unstable/mcps/index.js";
 import { SubagentManifestSchema } from "../../core/src/unstable/subagents/index.js";
 import { PackManifestSchema } from "../../core/src/unstable/packs/index.js";
 import { DocsManifestSchema } from "../../core/src/unstable/docs/index.js";
+import { RuleManifestSchema } from "../../core/src/unstable/rules/index.js";
 import { LockfileSchema } from "../../core/src/unstable/lockfile/index.js";
 import { AxmPackageMetaSchema } from "../../core/src/unstable/packaging/index.js";
 import { SettingsSchema } from "../../core/src/unstable/settings/index.js";
@@ -75,6 +76,11 @@ const schemas: SchemaConfig[] = [
   {
     name: "docs.schema.json",
     schema: DocsManifestSchema,
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
+  },
+  {
+    name: "rule.schema.json",
+    schema: RuleManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {

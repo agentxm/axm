@@ -3,6 +3,7 @@ export {
   resolveConfiguredDocs,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
+  resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
 } from "./resolve.js";
@@ -18,6 +19,7 @@ export {
   type ResolvedConfiguredDocs,
   type ResolvedConfiguredMcpServer,
   type ResolvedConfiguredPack,
+  type ResolvedConfiguredRule,
   type ResolvedConfiguredSkill,
   type ResolvedConfiguredSubagent,
 } from "./types.js";

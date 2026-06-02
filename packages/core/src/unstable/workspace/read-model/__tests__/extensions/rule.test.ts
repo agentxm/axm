@@ -25,6 +25,10 @@ const harness = (params: {
     const diagnostics = makeDiagnostics(ref);
     return yield* makeRuleExtensionsApi({
       scope: "project",
+      loaders: {
+        settings: Effect.succeed(Option.none()),
+        lockfile: Effect.succeed(Option.none()),
+      },
       scanners: {
         canonical: Effect.succeed(params.canonicalOccurrences ?? []),
       },
@@ -35,7 +39,7 @@ const harness = (params: {
   });
 
 describe("makeRuleExtensionsApi", () => {
-  it.effect("declared and resolved are Option.none()", () =>
+  it.effect("declared and resolved are absent when settings and lockfile are absent", () =>
     Effect.gen(function* () {
       const api = yield* harness({});
       const declared = yield* api.declared;

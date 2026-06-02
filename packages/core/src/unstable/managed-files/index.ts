@@ -1,7 +1,7 @@
 /**
- * Compatibility re-export for docs managed-region helpers.
+ * Shared managed-file helpers.
  *
- * @experimental This API is unstable and may change without notice.
+ * @experimental All exports from this module are unstable and may change without notice.
  */
 
 export {
@@ -15,4 +15,4 @@ export {
   type FileRegionMarkerIdentity,
   type FileRegionMarkerKind,
   type ReplaceManagedRegionArgs,
-} from "../managed-files/index.js";
+} from "./markers.js";

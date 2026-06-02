@@ -85,6 +85,7 @@ export const makeReadModelRecordReaders = (args: {
         readonly resolvedMcpServers?: Readonly<Record<string, unknown>> | undefined;
         readonly resolvedSubagents?: Readonly<Record<string, unknown>> | undefined;
         readonly resolvedDocs?: Readonly<Record<string, unknown>> | undefined;
+        readonly resolvedRules?: Readonly<Record<string, unknown>> | undefined;
       };
     }>,
     key:
@@ -92,7 +93,8 @@ export const makeReadModelRecordReaders = (args: {
       | "resolvedCommands"
       | "resolvedMcpServers"
       | "resolvedSubagents"
-      | "resolvedDocs",
+      | "resolvedDocs"
+      | "resolvedRules",
   ): ReadonlyArray<ExtensionName> => {
     const names: Array<ExtensionName> = [];
     for (const pack of packs) {
@@ -306,6 +308,23 @@ export const makeReadModelRecordReaders = (args: {
               packMemberNames: packMemberNames(
                 Option.getOrElse(packs, () => []),
                 "resolvedDocs",
+              ),
+            });
+          }
+          case "rule": {
+            const installed = yield* scoped.rules.installed;
+            const resolved = yield* scoped.rules.resolved;
+            const packs = yield* scoped.packs.resolved;
+            const unmanaged = yield* scoped.rules.unmanaged;
+            return collectReadModelRecordRows({
+              type,
+              installed,
+              resolved,
+              unmanaged,
+              ignored: [],
+              packMemberNames: packMemberNames(
+                Option.getOrElse(packs, () => []),
+                "resolvedRules",
               ),
             });
           }

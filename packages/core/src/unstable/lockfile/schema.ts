@@ -390,6 +390,35 @@ export const DocsLockMapSchema = Schema.Record(Schema.String, DocsLockEntrySchem
 export type DocsLockMap = Schema.Schema.Type<typeof DocsLockMapSchema>;
 
 // =============================================================================
+// Rule Lock Entry (union of all source types, no agents)
+// =============================================================================
+
+const RuleCommonFields = {
+  ...BaseCommonFields,
+  materializedTargets: Schema.optional(Schema.Array(MaterializedFileTargetSchema)),
+};
+
+/**
+ * Lock entry for a single installed rule.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RuleLockEntrySchema = makeSourceLockUnion(RuleCommonFields);
+
+/** @experimental */
+export type RuleLockEntry = Schema.Schema.Type<typeof RuleLockEntrySchema>;
+
+/**
+ * Map of rule names to their lock entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RulesLockMapSchema = Schema.Record(Schema.String, RuleLockEntrySchema);
+
+/** @experimental */
+export type RulesLockMap = Schema.Schema.Type<typeof RulesLockMapSchema>;
+
+// =============================================================================
 // Pack Lock Entry
 // =============================================================================
 
@@ -425,6 +454,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedMcpServers: ResolvedExtensionMapSchema,
   resolvedSubagents: ResolvedExtensionMapSchema,
   resolvedDocs: Schema.optional(ResolvedExtensionMapSchema),
+  resolvedRules: Schema.optional(ResolvedExtensionMapSchema),
 }).annotate({
   identifier: "RegistryPackLockEntry",
   title: "Registry Pack Lock Entry",
@@ -526,6 +556,7 @@ export const LockfileSchema = Schema.Struct({
   subagents: Schema.optional(SubagentsLockMapSchema),
   mcpServers: Schema.optional(McpServersLockMapSchema),
   docs: Schema.optional(DocsLockMapSchema),
+  rules: Schema.optional(RulesLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
 }).annotate({
   identifier: "Lockfile",

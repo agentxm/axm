@@ -36,6 +36,7 @@ import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstabl
 import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import { DocsManager, renderWorkspaceGeneratorRegions } from "@agentxm/client-core/unstable/docs";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
+import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import {
   applyPlan,
   resolvePlan,
@@ -51,6 +52,7 @@ import {
   displayPlan,
   WorkspaceMutations,
   resolveConfiguredDocs,
+  resolveConfiguredRule,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 
@@ -138,12 +140,22 @@ const configuredDocsToRefs = (
     { concurrency: "unbounded" },
   );
 
+const configuredRulesToRefs = (
+  entries: Readonly<Record<string, { readonly source: string; readonly enabled?: boolean }>>,
+) =>
+  Effect.forEach(
+    Object.entries(entries).filter(([, entry]) => entry.enabled !== false),
+    ([name, entry]) => resolveConfiguredRule(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
+    { concurrency: "unbounded" },
+  );
+
 export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* () {
   const skillManager = yield* SkillManager;
   const commandManager = yield* CommandManager;
   const mcpServerManager = yield* McpServerManager;
   const subagentManager = yield* SubagentManager;
   const fileManager = yield* DocsManager;
+  const ruleManager = yield* RuleManager;
   const packManager = yield* PackManager;
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
@@ -152,7 +164,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const path = yield* Path.Path;
   const env = { fs, path, baseDir: ws.baseDir };
 
-  const [skillRefs, commandRefs, mcpServerRefs, subagentRefs, docsRefs, packRefs] =
+  const [skillRefs, commandRefs, mcpServerRefs, subagentRefs, docsRefs, ruleRefs, packRefs] =
     yield* Effect.all(
       [
         skillManager.listMaterializable(),
@@ -160,57 +172,71 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         mcpServerManager.listMaterializable(),
         subagentManager.listMaterializable(),
         fileManager.listMaterializable(),
+        ruleManager.listMaterializable(),
         packManager.listMaterializable(),
       ],
       { concurrency: "unbounded" },
     );
 
-  const [packSkillRefs, packCommandRefs, packMcpServerRefs, packSubagentRefs, packFileRefs] =
-    yield* Effect.all(
-      [
-        configuredSkillsToDiskRefs(
-          env,
-          Object.assign(
-            {},
-            ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "skills")),
-          ),
+  const [
+    packSkillRefs,
+    packCommandRefs,
+    packMcpServerRefs,
+    packSubagentRefs,
+    packFileRefs,
+    packRuleRefs,
+  ] = yield* Effect.all(
+    [
+      configuredSkillsToDiskRefs(
+        env,
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "skills")),
         ),
-        configuredCommandsToDiskRefs(
-          env,
-          Object.assign(
-            {},
-            ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "commands")),
-          ),
+      ),
+      configuredCommandsToDiskRefs(
+        env,
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "commands")),
         ),
-        configuredMcpServersToDiskRefs(
-          env,
-          Object.assign(
-            {},
-            ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "mcps")),
-          ),
+      ),
+      configuredMcpServersToDiskRefs(
+        env,
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "mcps")),
         ),
-        configuredSubagentsToDiskRefs(
-          env,
-          Object.assign(
-            {},
-            ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "subagents")),
-          ),
+      ),
+      configuredSubagentsToDiskRefs(
+        env,
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "subagents")),
         ),
-        configuredDocsToRefs(
-          Object.assign(
-            {},
-            ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "docs")),
-          ),
+      ),
+      configuredDocsToRefs(
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "docs")),
         ),
-      ],
-      { concurrency: "unbounded" },
-    );
+      ),
+      configuredRulesToRefs(
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "rules")),
+        ),
+      ),
+    ],
+    { concurrency: "unbounded" },
+  );
 
   const directSkillNames = new Set(skillRefs.map((ref) => ref.skill.name));
   const directCommandNames = new Set(commandRefs.map((ref) => ref.command.name));
   const directMcpServerNames = new Set(mcpServerRefs.map((ref) => ref.server.name));
   const directSubagentNames = new Set(subagentRefs.map((ref) => ref.subagent.name));
   const directDocsNames = new Set(docsRefs.map((ref) => ref.file.name));
+  const directRuleNames = new Set(ruleRefs.map((ref) => ref.rule.name));
 
   const materializedSubagentRefs = [
     ...subagentRefs,
@@ -239,6 +265,10 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       ...packFileRefs
         .filter((ref) => !directDocsNames.has(ref.file.name))
         .map((ref) => buildMaterializeOperation(fileManager, { ref })),
+      ...ruleRefs.map((ref) => buildMaterializeOperation(ruleManager, { ref })),
+      ...packRuleRefs
+        .filter((ref) => !directRuleNames.has(ref.rule.name))
+        .map((ref) => buildMaterializeOperation(ruleManager, { ref })),
     ] satisfies ReadonlyArray<PlannedJobStep>,
   };
 });

@@ -409,6 +409,57 @@
       "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
       "additionalProperties": { "$ref": "#/definitions/DocsEntry" }
     },
+    "RuleEntry": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+                  "examples": [
+                    "@acme/rules/code-review@^1.0.0",
+                    "github:acme/agent-extensions",
+                    "./extensions/code-review"
+                  ]
+                }
+              ]
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
+              "default": true
+            },
+            "authored": {
+              "type": "boolean",
+              "description": "Set to true to mark this entry as authored locally in this workspace. Omit otherwise — false is the default and should not be written explicitly.",
+              "default": false
+            }
+          },
+          "required": ["source"],
+          "additionalProperties": false,
+          "title": "Rule Entry Object",
+          "description": "A rule entry with source and optional enabled/authored flags."
+        }
+      ],
+      "title": "Rule Entry",
+      "description": "A rule entry: a source string, or an object with source plus optional flags.",
+      "examples": [
+        "@acme/rules/api-conventions@^1.0.0",
+        { "source": "@acme/rules/api-conventions@^1.0.0", "enabled": false }
+      ]
+    },
+    "RulesMap": {
+      "type": "object",
+      "title": "Rules Map",
+      "description": "A map of rule names to rule entries.",
+      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
+      "additionalProperties": { "$ref": "#/definitions/RuleEntry" }
+    },
     "SubagentEntry": {
       "anyOf": [
         { "type": "string" },
@@ -679,6 +730,10 @@
         "docs": {
           "anyOf": [{ "$ref": "#/definitions/DocsMap" }],
           "description": "Your installed Context docs packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or scalar `inputs`."
+        },
+        "rules": {
+          "anyOf": [{ "$ref": "#/definitions/RulesMap" }],
+          "description": "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`."
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],

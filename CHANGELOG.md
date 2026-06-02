@@ -1,3 +1,13 @@
+## 0.14.0 (2026-06-02)
+
+### 🚀 Features
+
+- Add inline MCP workspace configuration ([677dea16](https://github.com/agentxm/axm/commit/677dea16))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.13.2 (2026-06-02)
 
 ### 🩹 Fixes

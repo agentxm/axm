@@ -1,3 +1,13 @@
+## 0.13.2 (2026-06-02)
+
+### 🩹 Fixes
+
+- Add managed hook extension support ([f146505f](https://github.com/agentxm/axm/commit/f146505f))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.13.1 (2026-06-01)
 
 ### 🩹 Fixes

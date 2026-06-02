@@ -42,10 +42,14 @@ const commandRef: RegistryCommandRef = {
 };
 
 const parsedArgs: ParsedCommandInstallArgs = {
-  owner: handle("@acme"),
-  commandName: extensionName("my-cmd"),
+  source: {
+    type: "registry",
+    location: new URL("file:///tmp/registry"),
+    owner: Option.none(),
+  },
+  owner: Option.some(handle("@acme")),
+  commandNames: [extensionName("my-cmd")],
   versionRange: Option.none<VersionRange>(),
-  resolvedInput: "@acme/commands/my-cmd",
   force: false,
 };
 
@@ -55,14 +59,13 @@ const sourceRequest: CommandInstallSourceRequest = {
     location: new URL("file:///tmp/registry"),
     owner: Option.none(),
   },
-  owner: handle("@acme"),
-  commandName: extensionName("my-cmd"),
+  owner: Option.some(handle("@acme")),
+  commandNames: [extensionName("my-cmd")],
   versionRange: Option.none<VersionRange>(),
 };
 
 const installIntent: InstallCommandCommandIntent = {
-  ref: commandRef,
-  versionRange: Option.none<VersionRange>(),
+  refs: [{ ref: commandRef, versionRange: Option.none<VersionRange>() }],
   force: false,
 };
 

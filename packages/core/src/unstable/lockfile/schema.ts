@@ -19,7 +19,12 @@ import { ExtensionNameSchema } from "../extensions/common.js";
 import { FileInputValueSchema, FileMaterializationModeSchema } from "../files/manifest-schema.js";
 import { RelativePathSchema } from "../utils/path-types.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
-import { SourceRefSchema, SourceSegmentSchema, SourceSubPathSchema } from "../sources/types.js";
+import {
+  SourceNamespaceSchema,
+  SourceRefSchema,
+  SourceSegmentSchema,
+  SourceSubPathSchema,
+} from "../sources/types.js";
 
 export const LOCKFILE_VERSION = 2;
 
@@ -81,7 +86,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
   Schema.Union([
     Schema.Struct({
       type: Schema.Literal("github"),
-      owner: SourceSegmentSchema,
+      owner: SourceNamespaceSchema,
       repo: SourceSegmentSchema,
       ref: Schema.optional(SourceRefSchema),
       path: Schema.optional(SourceSubPathSchema),
@@ -89,7 +94,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     }),
     Schema.Struct({
       type: Schema.Literal("gitlab"),
-      owner: SourceSegmentSchema,
+      owner: SourceNamespaceSchema,
       repo: SourceSegmentSchema,
       ref: Schema.optional(SourceRefSchema),
       path: Schema.optional(SourceSubPathSchema),
@@ -97,7 +102,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     }),
     Schema.Struct({
       type: Schema.Literal("bitbucket"),
-      owner: SourceSegmentSchema,
+      owner: SourceNamespaceSchema,
       repo: SourceSegmentSchema,
       ref: Schema.optional(SourceRefSchema),
       path: Schema.optional(SourceSubPathSchema),

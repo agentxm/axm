@@ -86,7 +86,14 @@ export const getPriorityDirectories = (): ReadonlyArray<string> => {
 /**
  * Directories to skip during recursive Phase 3 scan.
  */
-const SKIPPED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "build", "__pycache__"]);
+const SKIPPED_DIRECTORIES = new Set([
+  "node_modules",
+  ".git",
+  ".axm",
+  "dist",
+  "build",
+  "__pycache__",
+]);
 
 /**
  * Maximum recursion depth for Phase 3.

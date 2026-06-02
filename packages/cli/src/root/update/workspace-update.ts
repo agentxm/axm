@@ -197,8 +197,7 @@ const resolveCommandIntent = (name: string, source: string) =>
     Effect.map(
       ({ ref, versionRange }) =>
         ({
-          ref,
-          versionRange,
+          refs: [{ ref, versionRange }],
           force: false,
         }) satisfies InstallCommandCommandIntent,
     ),

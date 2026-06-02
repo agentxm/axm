@@ -24,34 +24,32 @@ describe("resolveRootInstallIntent", () => {
     }),
   );
 
-  it.effect("rejects non-FQN sources", () =>
+  it.effect("parses source locators", () =>
     Effect.gen(function* () {
-      const error = yield* resolveRootInstallIntent("owner/repo").pipe(Effect.flip);
-      const appError = getAppError(error);
+      const cases = [
+        "./local-path",
+        "owner/repo",
+        "github:owner/repo//skills@v1.0.0",
+        "git@example.com:owner/repo.git",
+        "https://example.com/owner/repo.git",
+      ] as const;
 
-      expect(appError.code).toBe("usage");
-      expect(appError.detail).toContain("only accepts registry FQNs");
-      expect(
-        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("axm skills install owner/repo");
-      expect(
-        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("axm subagents install owner/repo");
+      const results = yield* Effect.forEach(cases, (source) => resolveRootInstallIntent(source));
+
+      expect(results).toEqual(cases.map((source) => ({ source, type: "locator" })));
     }),
   );
 
-  it.effect("rejects local paths with source-kind-specific guidance", () =>
+  it.effect("rejects bare names with per-type guidance", () =>
     Effect.gen(function* () {
-      const error = yield* resolveRootInstallIntent("./local-path").pipe(Effect.flip);
+      const error = yield* resolveRootInstallIntent("code-review").pipe(Effect.flip);
       const appError = getAppError(error);
 
       expect(appError.code).toBe("usage");
+      expect(appError.detail).toContain("registry FQN or source locator");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("axm skills install ./local-path");
-      expect(
-        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("axm subagents install ./local-path");
+      ).toContain("axm skills install code-review");
     }),
   );
 

@@ -1,7 +1,7 @@
 /**
  * Shared helper for parsing provider shorthand patterns.
  *
- * Parses the `owner/repo[/path][@ref]` portion (after stripping the prefix)
+ * Parses the `owner/repo[//subpath][@ref]` portion (after stripping the prefix)
  * into constituent parts.
  *
  * @packageDocumentation
@@ -17,10 +17,51 @@ import {
   type GitHostedSourceParamParts,
 } from "../../sources/types.js";
 
-/** Matches: owner/repo[/path][@ref] */
-const PROVIDER_SHORTHAND_PATTERN = /^([^/@]+)\/([^/@]+)(?:\/([^@]+))?(?:@(.+))?$/;
-
 const decodeGitHostedSourceParamParts = Schema.decodeUnknownResult(GitHostedSourceParamPartsSchema);
+
+type ParsedProviderShorthand = {
+  readonly owner: string;
+  readonly repo: string;
+  readonly subPath?: string;
+  readonly ref?: string;
+};
+
+const parseRef = (input: string) => {
+  const refIndex = input.lastIndexOf("@");
+  if (refIndex <= 0) {
+    return { coordinate: input };
+  }
+
+  const ref = input.slice(refIndex + 1);
+  if (ref.length === 0) {
+    return { coordinate: input };
+  }
+
+  return { coordinate: input.slice(0, refIndex), ref };
+};
+
+const parseCoordinate = (input: string): ParsedProviderShorthand | undefined => {
+  const { coordinate, ref } = parseRef(input);
+  const subPathMarker = coordinate.indexOf("//");
+  const repoCoordinate = subPathMarker === -1 ? coordinate : coordinate.slice(0, subPathMarker);
+  const subPath = subPathMarker === -1 ? undefined : coordinate.slice(subPathMarker + 2);
+  const segments = repoCoordinate.split("/");
+  const repo = segments.at(-1);
+  const ownerSegments = segments.slice(0, -1);
+
+  if (repo === undefined || repo.length === 0 || ownerSegments.length === 0) {
+    return undefined;
+  }
+
+  const owner = ownerSegments.join("/");
+
+  return {
+    owner,
+    repo,
+    ...(subPath === undefined ? {} : { subPath }),
+    ...(ref === undefined ? {} : { ref }),
+  };
+};
 
 /**
  * Parse the body of a provider shorthand (the part after the `prefix:` prefix).
@@ -32,20 +73,15 @@ export const parseProviderShorthand = (
   _original: string,
 ): Effect.Effect<GitHostedSourceParamParts, AppError> =>
   Effect.gen(function* () {
-    const match = input.match(PROVIDER_SHORTHAND_PATTERN);
-    if (!match || !match[1] || !match[2]) {
+    const parsed = parseCoordinate(input);
+    if (parsed === undefined) {
       return yield* makeAppError({
         code: "validation",
         detail: "Invalid shorthand format",
       });
     }
 
-    const decoded = decodeGitHostedSourceParamParts({
-      owner: match[1],
-      repo: match[2],
-      ...(match[3] === undefined ? {} : { subPath: match[3] }),
-      ...(match[4] === undefined ? {} : { ref: match[4] }),
-    });
+    const decoded = decodeGitHostedSourceParamParts(parsed);
 
     if (Result.isFailure(decoded)) {
       return yield* makeAppError({

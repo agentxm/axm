@@ -310,6 +310,50 @@ describe("root install handler", () => {
     }),
   );
 
+  it.effect("dispatches source locators to convention-based install surfaces", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const flags = {
+        yes: true,
+        force: true,
+        preview: true,
+      } satisfies RootInstallFlags;
+      const { provide } = makeLayers(calls);
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+      });
+
+      yield* provide(handleInstall({ source: Option.some("github:acme/extensions"), ...flags }));
+
+      expect(calls).toEqual([
+        {
+          type: "skill",
+          source: "github:acme/extensions",
+          yes: false,
+          force: false,
+          preview: true,
+        },
+        { type: "command", source: "github:acme/extensions", ...flags },
+        {
+          type: "files",
+          source: "github:acme/extensions",
+          yes: false,
+          force: false,
+          preview: true,
+        },
+        { type: "rule", source: "github:acme/extensions", yes: false, force: false, preview: true },
+        {
+          type: "subagent",
+          source: "github:acme/extensions",
+          yes: false,
+          force: false,
+          preview: true,
+        },
+      ]);
+    }),
+  );
+
   it.effect("rejects shorthand command declarations on workspace install", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];

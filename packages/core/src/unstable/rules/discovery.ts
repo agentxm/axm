@@ -26,7 +26,14 @@ export interface RulePackageDiscoveryOptions {
   readonly fullDepth: boolean;
 }
 
-const SKIPPED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "build", "__pycache__"]);
+const SKIPPED_DIRECTORIES = new Set([
+  "node_modules",
+  ".git",
+  ".axm",
+  "dist",
+  "build",
+  "__pycache__",
+]);
 const MAX_DEPTH = 5;
 
 const tryParseRulePackageInDir = (dir: string) =>

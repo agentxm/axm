@@ -22,7 +22,7 @@ export type RootInstallableType = InstallableExtensionType;
 
 export interface RootInstallIntent {
   readonly source: string;
-  readonly type: RootInstallableType;
+  readonly type: RootInstallableType | "locator";
 }
 
 const rootInstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
@@ -33,7 +33,7 @@ const rootInstallRegistryOnlyHowToFix = (source: string): string => {
   const parsed = parseInputPattern(source);
 
   if (Option.isNone(parsed)) {
-    return "Use `axm install @<handle>/<plural-type>/<name>[@<version>]`. For path, URL, or git sources, use `axm skills install <source>` or `axm subagents install <source>` instead.";
+    return "Use `axm install @<handle>/<plural-type>/<name>[@<version>]` or a path, URL, git, or provider shorthand source locator.";
   }
 
   switch (parsed.value.pattern.pattern) {
@@ -42,10 +42,10 @@ const rootInstallRegistryOnlyHowToFix = (source: string): string => {
     case "git-scp-address":
     case "shorthand-input":
     case "slash-pattern":
-      return `Root install only accepts registry FQNs. Use \`axm skills install ${source}\` or \`axm subagents install ${source}\` instead.`;
+      return `Use \`axm install ${source}\` to install every extension AXM can discover from the source.`;
     case "name-input":
     case "glob-input":
-      return `Root install only accepts registry FQNs. Use the matching per-type command instead: \`axm skills install ${source}\`, \`axm commands install ${source}\`, \`axm subagents install ${source}\`, \`axm packs install ${source}\`, or \`axm mcps install ${source}\`.`;
+      return `Root install needs a registry FQN or source locator. For bare names, use the matching per-type command: \`axm skills install ${source}\`, \`axm commands install ${source}\`, \`axm subagents install ${source}\`, \`axm packs install ${source}\`, or \`axm mcps install ${source}\`.`;
     case "registry-pattern-input":
       return "Use `axm install @<handle>/<plural-type>/<name>[@<version>]`.";
   }
@@ -58,9 +58,28 @@ export const resolveRootInstallIntent = (input: string) =>
     const pluralType = segments.length === 3 ? segments[1] : undefined;
 
     if (!source.startsWith("@")) {
+      const parsedInput = parseInputPattern(source);
+      if (Option.isSome(parsedInput)) {
+        switch (parsedInput.value.pattern.pattern) {
+          case "file-path-pattern":
+          case "url-input":
+          case "git-scp-address":
+          case "shorthand-input":
+          case "slash-pattern":
+            return {
+              source,
+              type: "locator",
+            } satisfies RootInstallIntent;
+          case "name-input":
+          case "glob-input":
+          case "registry-pattern-input":
+            break;
+        }
+      }
+
       return yield* makeAppError({
         code: "usage",
-        detail: "Root install only accepts registry FQNs",
+        detail: "Root install needs a registry FQN or source locator",
         suggestions: [{ description: rootInstallRegistryOnlyHowToFix(source) }],
       });
     }

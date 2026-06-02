@@ -14,7 +14,9 @@ import type { VersionRange } from "@agentxm/client-core/unstable/version-constra
  * Intent for installing a command extension.
  */
 export interface InstallCommandCommandIntent {
-  readonly ref: CommandExtensionRef;
-  readonly versionRange: Option.Option<VersionRange>;
+  readonly refs: ReadonlyArray<{
+    readonly ref: CommandExtensionRef;
+    readonly versionRange: Option.Option<VersionRange>;
+  }>;
   readonly force: boolean;
 }

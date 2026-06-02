@@ -3,7 +3,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/Lockfile",
   "definitions": {
+    "SourceNamespace": { "type": "string", "allOf": [{ "minLength": 1 }] },
     "SourceSegment": { "type": "string", "allOf": [{ "minLength": 1 }] },
+    "SourceSubPath": { "type": "string", "allOf": [{ "minLength": 1 }] },
     "IsoDateTimeString": { "type": "string", "allOf": [{ "minLength": 1 }] },
     "Handle": {
       "type": "string",
@@ -180,7 +182,7 @@
                 "type": "object",
                 "properties": {
                   "type": { "type": "string", "enum": ["github"] },
-                  "owner": { "$ref": "#/definitions/SourceSegment" },
+                  "owner": { "$ref": "#/definitions/SourceNamespace" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
                   "ref": {
                     "anyOf": [
@@ -189,10 +191,7 @@
                     ]
                   },
                   "path": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                   },
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -225,7 +224,7 @@
                 "type": "object",
                 "properties": {
                   "type": { "type": "string", "enum": ["gitlab"] },
-                  "owner": { "$ref": "#/definitions/SourceSegment" },
+                  "owner": { "$ref": "#/definitions/SourceNamespace" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
                   "ref": {
                     "anyOf": [
@@ -234,10 +233,7 @@
                     ]
                   },
                   "path": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                   },
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -270,7 +266,7 @@
                 "type": "object",
                 "properties": {
                   "type": { "type": "string", "enum": ["bitbucket"] },
-                  "owner": { "$ref": "#/definitions/SourceSegment" },
+                  "owner": { "$ref": "#/definitions/SourceNamespace" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
                   "ref": {
                     "anyOf": [
@@ -279,10 +275,7 @@
                     ]
                   },
                   "path": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                   },
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -325,10 +318,7 @@
                     ]
                   },
                   "path": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                   },
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -377,10 +367,7 @@
                     ]
                   },
                   "path": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                   },
                   "agents": { "type": "array", "items": { "type": "string" } },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -500,7 +487,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -509,10 +496,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -545,7 +529,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -554,10 +538,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -590,7 +571,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -599,10 +580,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -645,10 +623,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -697,10 +672,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -823,7 +795,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -832,10 +804,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -868,7 +837,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -877,10 +846,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -913,7 +879,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -922,10 +888,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -968,10 +931,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1020,10 +980,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "agents": { "type": "array", "items": { "type": "string" } },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1146,7 +1103,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -1155,10 +1112,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1172,7 +1126,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -1181,10 +1135,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1198,7 +1149,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -1207,10 +1158,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1234,10 +1182,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1266,10 +1211,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1334,7 +1276,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -1343,10 +1285,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1375,7 +1314,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -1384,10 +1323,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1416,7 +1352,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -1425,10 +1361,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1467,10 +1400,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1514,10 +1444,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1627,7 +1554,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -1636,10 +1563,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1662,7 +1586,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -1671,10 +1595,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1697,7 +1618,7 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
-                      "owner": { "$ref": "#/definitions/SourceSegment" },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
                       "ref": {
                         "anyOf": [
@@ -1706,10 +1627,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1742,10 +1660,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1783,10 +1698,7 @@
                         ]
                       },
                       "path": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                       },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },

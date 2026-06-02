@@ -10,7 +10,9 @@ import { handleInstall } from "./handler.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
-    Argument.withDescription("Registry FQN (@owner/<plural-type>/<name>[@version])"),
+    Argument.withDescription(
+      "Registry FQN (@owner/<plural-type>/<name>[@version]) or source locator",
+    ),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(
@@ -34,7 +36,7 @@ export const installCommand = Command.make(
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription(
-    "Install a registry extension, or reinstall all configured extensions from their sources",
+    "Install extensions from a registry FQN or source locator, or reinstall configured extensions",
   ),
   Command.withExamples([
     {
@@ -48,6 +50,10 @@ export const installCommand = Command.make(
     {
       command: "axm install @acme/commands/release-notes@^1.2.0",
       description: "Install a command with a version constraint",
+    },
+    {
+      command: "axm install github:acme/agent-extensions//tools@v1.0.0",
+      description: "Install everything AXM can discover from a locator",
     },
     {
       command: "axm install @acme/packs/frontend-tools --preview",

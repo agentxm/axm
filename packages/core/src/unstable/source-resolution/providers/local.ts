@@ -9,17 +9,12 @@
 
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 
-import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
-import { filesPackagesInDir } from "../../files/index.js";
-import { rulePackagesInDir } from "../../rules/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type { SourceHostProvider, LocalSource } from "../../sources/index.js";
+import { discoverConventionRefs } from "./convention-discovery.js";
 
 /**
  * Source host provider for local filesystem paths.
@@ -38,91 +33,15 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
   match: (url: URL) => Effect.succeed(url.protocol === "file:"),
 
   find: (source, options) =>
-    Effect.gen(function* () {
-      const skillRefs =
-        options.type === "files" || options.type === "rule"
-          ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
-          : skillsInDir(source.path, Option.none(), {
-              fullDepth: false,
-              includeInternal: false,
-            }).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "network",
-                  detail: `Failed to discover skills`,
-                  cause: error,
-                }),
-              ),
-              Effect.map((discovered) =>
-                Array.map(
-                  discovered,
-                  (d): ExtensionRef => ({
-                    type: "skill",
-                    refType: "local",
-                    skill: {
-                      name: decodeExtensionNameSync(d.skill.name),
-                      description: Option.some(d.skill.description),
-                      metadata: d.skill.metadata,
-                    },
-                    source,
-                    location: d.location,
-                  }),
-                ),
-              ),
-            );
-
-      const fileRefs =
-        options.type !== "files" && options.type !== "*"
-          ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
-          : filesPackagesInDir(source.path, { fullDepth: false }).pipe(
-              Effect.map((discovered) =>
-                Array.map(
-                  discovered,
-                  (d): ExtensionRef => ({
-                    type: "files",
-                    refType: "local",
-                    file: { name: d.manifest.name },
-                    source,
-                    location: d.location,
-                  }),
-                ),
-              ),
-            );
-
-      const ruleRefs =
-        options.type !== "rule" && options.type !== "*"
-          ? Effect.succeed<ReadonlyArray<ExtensionRef>>([])
-          : rulePackagesInDir(source.path, { fullDepth: false }).pipe(
-              Effect.map((discovered) =>
-                Array.map(
-                  discovered,
-                  (d): ExtensionRef => ({
-                    type: "rule",
-                    refType: "local",
-                    rule: { name: d.manifest.name },
-                    source,
-                    location: d.location,
-                  }),
-                ),
-              ),
-            );
-
-      const mapped = [...(yield* skillRefs), ...(yield* fileRefs), ...(yield* ruleRefs)];
-      if (options.names.length === 0) return mapped;
-      const nameSet = new Set(options.names);
-      return mapped.filter((r) => {
-        switch (r.type) {
-          case "skill":
-            return nameSet.has(r.skill.name);
-          case "files":
-            return nameSet.has(r.file.name);
-          case "rule":
-            return nameSet.has(r.rule.name);
-          default:
-            return false;
-        }
-      });
-    }),
+    discoverConventionRefs(source, source.path, options).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "network",
+          detail: "Failed to discover extensions",
+          cause: error,
+        }),
+      ),
+    ),
 
   fetch: (_source, ref) => {
     if (ref.refType !== "local") {

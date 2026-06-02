@@ -138,9 +138,9 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("resolves github:owner/repo/path@ref with config", () =>
+    it.effect("resolves github:owner/repo//path@ref with config", () =>
       Effect.gen(function* () {
-        const result = yield* resolve("github:owner/repo/skills/my-skill@v1.0.0");
+        const result = yield* resolve("github:owner/repo//skills/my-skill@v1.0.0");
         expect(result.type).toBe("github");
         if (result.type === "github") {
           expect(result.owner).toBe("owner");
@@ -162,6 +162,19 @@ describe("resolveSource", () => {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(result.url).toEqual(new URL("https://gitlab.com"));
+        }
+      }),
+    );
+
+    it.effect("resolves gitlab subgroup locator with // subpath", () =>
+      Effect.gen(function* () {
+        const result = yield* resolve("gitlab:group/subgroup/repo//packages/tool@main");
+        expect(result.type).toBe("gitlab");
+        if (result.type === "gitlab") {
+          expect(result.owner).toBe("group/subgroup");
+          expect(result.repo).toBe("repo");
+          expect(result.subPath).toEqual(Option.some("packages/tool"));
+          expect(result.ref).toEqual(Option.some("main"));
         }
       }),
     );
@@ -334,10 +347,11 @@ describe("resolveSource", () => {
   describe("git passthrough", () => {
     it.effect("git SCP address for unknown host passes through as git source", () =>
       Effect.gen(function* () {
-        // git@example.com:owner/repo.git fails in resolveSource
-        // since example.com is not a configured host. This should fail with AppError.
-        const error = yield* Effect.flip(resolve("git@example.com:owner/repo.git"));
-        expect(error).toBeInstanceOf(AppError);
+        const result = yield* resolve("git@example.com:owner/repo.git");
+        expect(result.type).toBe("git");
+        if (result.type === "git") {
+          expect(result.url.href).toBe("ssh://git@example.com/owner/repo.git");
+        }
       }),
     );
   });
@@ -489,14 +503,12 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("SCP with no matching config fails", () =>
+    it.effect("SCP with no matching config falls back to generic git", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(
-          resolveSource("git@unknown-host.com:owner/repo.git").pipe(
-            Effect.provide(makeWorkspaceLayer(BUILT_IN_SOURCES)),
-          ),
+        const result = yield* resolveSource("git@unknown-host.com:owner/repo.git").pipe(
+          Effect.provide(makeWorkspaceLayer(BUILT_IN_SOURCES)),
         );
-        expect(error).toBeInstanceOf(AppError);
+        expect(result.type).toBe("git");
       }),
     );
 
@@ -545,7 +557,7 @@ describe("resolveSource", () => {
           { name: "github", type: "github", url: new URL("https://github.com") },
           { name: "ghe", type: "github", url: new URL("https://github.example.com") },
         ];
-        const result = yield* resolveSource("ghe:owner/repo/skills/my-skill@v1.0.0").pipe(
+        const result = yield* resolveSource("ghe:owner/repo//skills/my-skill@v1.0.0").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
         expect(result.type).toBe("github");

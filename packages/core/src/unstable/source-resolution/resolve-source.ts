@@ -26,6 +26,7 @@ import { parseLocalPath } from "./providers/local-parser/index.js";
 import { parseInputPattern } from "../sources/index.js";
 import type {
   InputParseResult,
+  GitSource,
   ShorthandInput,
   RegistrySource,
   Source,
@@ -52,6 +53,15 @@ import { WorkspaceMutations } from "../workspace/index.js";
 
 /** Source types that require a matching config from workspace. */
 const GIT_HOSTING_TYPES = new Set<SourceType>(["github", "gitlab", "bitbucket", "azurerepos"]);
+
+const isGenericGitUrl = (url: URL): boolean =>
+  url.protocol === "git:" || url.protocol === "ssh:" || url.pathname.endsWith(".git");
+
+const genericGitSourceFromUrl = (url: URL): GitSource => ({
+  type: "git",
+  url,
+  ref: Option.none(),
+});
 
 const firstSuccess = <A, E, R>(
   attempts: ReadonlyArray<Effect.Effect<A, E, R>>,
@@ -194,15 +204,27 @@ export const routeUrlInput = (url: URL, input: string) =>
 
     const attempts = Array.map(sources, tryMatch);
     if (Array.isReadonlyArrayEmpty(attempts)) {
+      if (isGenericGitUrl(url)) {
+        return genericGitSourceFromUrl(url);
+      }
       return yield* noMatch;
     }
 
-    return yield* firstSuccess(attempts, () =>
-      makeAppError({
-        code: "validation",
-        detail: `No configured source matches URL "${url.href}"`,
-      }),
-    );
+    for (const attempt of attempts) {
+      const result = yield* Effect.result(attempt);
+      if (result._tag === "Success") {
+        return result.success;
+      }
+    }
+
+    if (isGenericGitUrl(url)) {
+      return genericGitSourceFromUrl(url);
+    }
+
+    return yield* makeAppError({
+      code: "validation",
+      detail: `No configured source matches URL "${url.href}"`,
+    });
   });
 
 /**
@@ -284,16 +306,21 @@ export const routeScpInput = (
     );
 
     const attempts = Array.map(sources, tryMatch);
+    const genericGitSource = genericGitSourceFromUrl(
+      new URL(`ssh://${scp.user}@${scp.host}/${scp.path}`),
+    );
     if (Array.isReadonlyArrayEmpty(attempts)) {
-      return yield* noMatch;
+      return genericGitSource;
     }
 
-    return yield* firstSuccess(attempts, () =>
-      makeAppError({
-        code: "validation",
-        detail: `No configured source matches SCP address "${scpInput}"`,
-      }),
-    );
+    for (const attempt of attempts) {
+      const result = yield* Effect.result(attempt);
+      if (result._tag === "Success") {
+        return result.success;
+      }
+    }
+
+    return genericGitSource;
   });
 
 // -----------------------------------------------------------------------------

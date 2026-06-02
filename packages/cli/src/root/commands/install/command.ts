@@ -8,7 +8,7 @@ import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const installConfig = {
   source: Argument.string("source").pipe(
-    Argument.withDescription("Registry command reference (@owner/commands/name or bare name)"),
+    Argument.withDescription("Registry command reference, bare name, or source locator"),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(
@@ -32,7 +32,7 @@ export const installCommand = Command.make(
 ).pipe(
   withArgvTracking(installConfig),
   Command.withDescription(
-    "Reinstall configured commands from their sources, or install a command from a registry",
+    "Reinstall configured commands, or install commands from a registry or source locator",
   ),
   Command.withExamples([
     {
@@ -46,6 +46,10 @@ export const installCommand = Command.make(
     {
       command: "axm commands install my-cmd",
       description: "Install using your default owner",
+    },
+    {
+      command: "axm commands install github:acme/agent-extensions//commands@v1.0.0",
+      description: "Install commands discovered from a locator",
     },
     {
       command: "axm commands install @acme/commands/my-cmd --preview",

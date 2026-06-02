@@ -13,13 +13,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync } from "../../extensions/index.js";
-import { filesPackagesInDir, type FilesExtensionRef } from "../../files/index.js";
-import { getTreeSha, shallowClone } from "../../git/index.js";
-import { rulePackagesInDir, type RuleExtensionRef } from "../../rules/index.js";
-import type { SkillExtensionRef } from "../../skills/index.js";
+import { shallowClone } from "../../git/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type {
   SourceHostProvider,
@@ -33,6 +28,7 @@ import type {
   AzureReposSource,
   GitHostingSourceHost,
 } from "../../sources/index.js";
+import { discoverConventionRefs } from "./convention-discovery.js";
 
 // -----------------------------------------------------------------------------
 // New Factory (SourceHostProvider)
@@ -60,7 +56,6 @@ export const createGitHostingSourceHostProvider = <
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const path = yield* Path.Path;
       const fs = yield* FileSystem.FileSystem;
 
       const cloneUrl = buildCloneUrlForSource(source);
@@ -79,130 +74,9 @@ export const createGitHostingSourceHostProvider = <
         (dir) => fs.remove(dir, { recursive: true }).pipe(Effect.ignore),
       );
 
-      const ref = source.ref;
-      const subPath = source.subPath;
+      yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref));
 
-      yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(ref));
-
-      const refs =
-        options.type === "files" || options.type === "rule"
-          ? []
-          : yield* skillsInDir(tempDir, subPath, {
-              fullDepth: false,
-              includeInternal: false,
-            }).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "network",
-                  detail: "Failed to discover skills",
-                  cause: error,
-                }),
-              ),
-              Effect.flatMap((oldRefs) =>
-                Effect.forEach(
-                  oldRefs,
-                  (d) =>
-                    Effect.gen(function* () {
-                      const skillPath = fileUrlToPath(d.location);
-                      const relativeDir = path.relative(tempDir, skillPath);
-                      const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
-                      const ref: SkillExtensionRef = {
-                        type: "skill" as const,
-                        refType: "git-hosted" as const,
-                        skill: {
-                          name: decodeExtensionNameSync(d.skill.name),
-                          description: Option.some(d.skill.description),
-                          metadata: d.skill.metadata,
-                        },
-                        source,
-                        location: d.location,
-                        gitTreeSha: Option.some(gitTreeSha),
-                      };
-                      return ref;
-                    }),
-                  { concurrency: "unbounded" },
-                ),
-              ),
-            );
-
-      const fileSearchRoot = Option.match(subPath, {
-        onNone: () => tempDir,
-        onSome: (value) => path.join(tempDir, value),
-      });
-
-      const fileRefs =
-        options.type !== "files" && options.type !== "*"
-          ? []
-          : yield* filesPackagesInDir(fileSearchRoot, {
-              fullDepth: false,
-            }).pipe(
-              Effect.flatMap((discovered) =>
-                Effect.forEach(
-                  discovered,
-                  (d) =>
-                    Effect.gen(function* () {
-                      const filePath = fileUrlToPath(d.location);
-                      const relativeDir = path.relative(tempDir, filePath);
-                      const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
-                      const ref: FilesExtensionRef = {
-                        type: "files" as const,
-                        refType: "git-hosted" as const,
-                        file: { name: d.manifest.name },
-                        source,
-                        location: d.location,
-                        gitTreeSha: Option.some(gitTreeSha),
-                      };
-                      return ref;
-                    }),
-                  { concurrency: "unbounded" },
-                ),
-              ),
-            );
-
-      const ruleRefs =
-        options.type !== "rule" && options.type !== "*"
-          ? []
-          : yield* rulePackagesInDir(fileSearchRoot, {
-              fullDepth: false,
-            }).pipe(
-              Effect.flatMap((discovered) =>
-                Effect.forEach(
-                  discovered,
-                  (d) =>
-                    Effect.gen(function* () {
-                      const filePath = fileUrlToPath(d.location);
-                      const relativeDir = path.relative(tempDir, filePath);
-                      const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
-                      const ref: RuleExtensionRef = {
-                        type: "rule" as const,
-                        refType: "git-hosted" as const,
-                        rule: { name: d.manifest.name },
-                        source,
-                        location: d.location,
-                        gitTreeSha: Option.some(gitTreeSha),
-                      };
-                      return ref;
-                    }),
-                  { concurrency: "unbounded" },
-                ),
-              ),
-            );
-
-      const allRefs = [...refs, ...fileRefs, ...ruleRefs];
-      if (options.names.length === 0) return allRefs;
-      const nameSet = new Set(options.names);
-      return allRefs.filter((r) => {
-        switch (r.type) {
-          case "skill":
-            return nameSet.has(r.skill.name);
-          case "files":
-            return nameSet.has(r.file.name);
-          case "rule":
-            return nameSet.has(r.rule.name);
-          default:
-            return false;
-        }
-      });
+      return yield* discoverConventionRefs(source, tempDir, options);
     }),
 
   fetch: (_source, _ref) => {

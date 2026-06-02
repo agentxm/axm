@@ -75,6 +75,7 @@ export const RefTypeSchema = Schema.Literals(["git-hosted", "registry", "local"]
 export type RefType = Schema.Schema.Type<typeof RefTypeSchema>;
 
 const noSlashSegmentMessage = "Expected non-empty segment without '/' characters";
+const noTraversalSegmentMessage = "Expected subpath without '..' traversal segments";
 
 export const SourceSegmentSchema = Schema.NonEmptyString.pipe(
   Schema.check(
@@ -89,10 +90,37 @@ export const SourceSegmentSchema = Schema.NonEmptyString.pipe(
 
 export const SourceRefSchema = Schema.NonEmptyString;
 
-export const SourceSubPathSchema = Schema.NonEmptyString;
+export const SourceNamespaceSchema = Schema.NonEmptyString.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) =>
+      value.split("/").some((segment) => segment.length === 0 || segment === "..")
+        ? "Expected non-empty namespace path segments without '..' traversal"
+        : undefined,
+    ),
+  ),
+).annotate({
+  identifier: "SourceNamespace",
+  title: "Source Namespace",
+  description:
+    "A non-empty repository namespace path. GitLab subgroup paths may contain slash-separated segments.",
+});
+
+export const SourceSubPathSchema = Schema.NonEmptyString.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) =>
+      value.split("/").some((segment) => segment.length === 0 || segment === "..")
+        ? noTraversalSegmentMessage
+        : undefined,
+    ),
+  ),
+).annotate({
+  identifier: "SourceSubPath",
+  title: "Source Subpath",
+  description: "A non-empty repository subpath without empty or '..' traversal segments.",
+});
 
 const GitHostedSourceParamFields = {
-  owner: SourceSegmentSchema,
+  owner: SourceNamespaceSchema,
   repo: SourceSegmentSchema,
   ref: Schema.OptionFromOptionalKey(SourceRefSchema),
   subPath: Schema.OptionFromOptionalKey(SourceSubPathSchema),

@@ -26,7 +26,7 @@ import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { ExtensionName, Handle } from "@agentxm/client-core/unstable/extensions";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
-import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import { parseInputPattern, type Source } from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
   resolveIdentifier,
@@ -64,10 +64,10 @@ export interface InstallCommandHandlerArgs {
 // -----------------------------------------------------------------------------
 
 export interface ParsedCommandInstallArgs {
-  readonly owner: Handle;
-  readonly commandName: ExtensionName;
+  readonly source: Source;
+  readonly owner: Option.Option<Handle>;
+  readonly commandNames: ReadonlyArray<ExtensionName>;
   readonly versionRange: Option.Option<VersionRange>;
-  readonly resolvedInput: string;
   readonly force: boolean;
 }
 
@@ -76,9 +76,9 @@ export interface ParsedCommandInstallArgs {
 // -----------------------------------------------------------------------------
 
 export interface CommandInstallSourceRequest {
-  readonly source: RegistrySource;
-  readonly owner: Handle;
-  readonly commandName: ExtensionName;
+  readonly source: Source;
+  readonly owner: Option.Option<Handle>;
+  readonly commandNames: ReadonlyArray<ExtensionName>;
   readonly versionRange: Option.Option<VersionRange>;
 }
 
@@ -131,6 +131,30 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
       provide(
         Effect.gen(function* () {
           const trimmed = args.source.trim();
+          const parsedInput = parseInputPattern(trimmed);
+          if (Option.isSome(parsedInput)) {
+            switch (parsedInput.value.pattern.pattern) {
+              case "file-path-pattern":
+              case "url-input":
+              case "git-scp-address":
+              case "shorthand-input":
+              case "slash-pattern": {
+                const source = yield* resolveSource(trimmed);
+                return {
+                  source,
+                  owner: source.type === "registry" ? source.owner : Option.none<Handle>(),
+                  commandNames: [],
+                  versionRange: Option.none<VersionRange>(),
+                  force: false,
+                } satisfies ParsedCommandInstallArgs;
+              }
+              case "name-input":
+              case "glob-input":
+              case "registry-pattern-input":
+                break;
+            }
+          }
+
           const parsed = parseRegistryInstallTarget(trimmed, {
             expectedType: "command",
             allowBareName: true,
@@ -138,11 +162,12 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
           if (Result.isSuccess(parsed)) {
             if (parsed.success.kind === "registry") {
+              const source = yield* resolveSource(trimmed);
               return {
-                owner: parsed.success.owner,
-                commandName: parsed.success.name,
+                source,
+                owner: Option.some(parsed.success.owner),
+                commandNames: [parsed.success.name],
                 versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
-                resolvedInput: trimmed,
                 force: false,
               };
             }
@@ -160,11 +185,13 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
               }
               const configuredOwner = yield* ws.getConfiguredOwner();
               if (Option.isSome(configuredOwner)) {
+                const resolvedInput = `${configuredOwner.value}/commands/${parsed.success.name}`;
+                const source = yield* resolveSource(resolvedInput);
                 return {
-                  owner: configuredOwner.value,
-                  commandName: parsed.success.name,
+                  source,
+                  owner: Option.some(configuredOwner.value),
+                  commandNames: [parsed.success.name],
                   versionRange: Option.none<VersionRange>(),
-                  resolvedInput: `${configuredOwner.value}/commands/${parsed.success.name}`,
                   force: false,
                 };
               }
@@ -183,11 +210,12 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                 ],
               });
             }
+            const source = yield* resolveSource(resolved.fqn);
             return {
-              owner,
-              commandName: parsed.success.name,
+              source,
+              owner: Option.some(owner),
+              commandNames: [parsed.success.name],
               versionRange: Option.none<VersionRange>(),
-              resolvedInput: resolved.fqn,
               force: false,
             };
           }
@@ -222,45 +250,14 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     const resolveSourceRequests = (
       parsed: ParsedCommandInstallArgs,
     ): Effect.Effect<ReadonlyArray<CommandInstallSourceRequest>, AppError> =>
-      provide(
-        Effect.gen(function* () {
-          const source = yield* resolveSource(parsed.resolvedInput).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "validation",
-                detail: `Invalid source: ${error.message}`,
-                suggestions: [
-                  {
-                    description: "Use @owner/commands/command-name or just command-name.",
-                  },
-                ],
-                cause: error,
-              }),
-            ),
-          );
-
-          if (source.type !== "registry") {
-            return yield* makeAppError({
-              code: "usage",
-              detail: "Commands can only be installed from a registry",
-              suggestions: [
-                {
-                  description: "Use a registry source: @owner/commands/command-name",
-                },
-              ],
-            });
-          }
-
-          return [
-            {
-              source,
-              owner: parsed.owner,
-              commandName: parsed.commandName,
-              versionRange: parsed.versionRange,
-            },
-          ];
-        }),
-      );
+      Effect.succeed([
+        {
+          source: parsed.source,
+          owner: parsed.owner,
+          commandNames: parsed.commandNames,
+          versionRange: parsed.versionRange,
+        },
+      ]);
 
     const discoverRefs = (
       reqs: ReadonlyArray<CommandInstallSourceRequest>,
@@ -272,9 +269,9 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             (req) =>
               sources
                 .find(req.source, {
-                  names: [req.commandName],
+                  names: req.commandNames,
                   type: "command",
-                  owner: Option.some(req.owner),
+                  owner: req.owner,
                   versionRange: req.versionRange,
                 })
                 .pipe(
@@ -305,19 +302,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         if (refs.length === 0) {
           return yield* makeAppError({
             code: "not_found",
-            detail: `Command "${parsed.commandName}" not found in registry`,
-            suggestions: [
-              {
-                description: "Verify the command name and check available commands.",
-              },
-            ],
-          });
-        }
-        const [ref] = refs;
-        if (ref === undefined) {
-          return yield* makeAppError({
-            code: "not_found",
-            detail: `Command "${parsed.commandName}" not found in registry`,
+            detail: "No commands found in source",
             suggestions: [
               {
                 description: "Verify the command name and check available commands.",
@@ -326,8 +311,10 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           });
         }
         return {
-          ref,
-          versionRange: parsed.versionRange,
+          refs: refs.map((ref) => ({
+            ref,
+            versionRange: ref.refType === "registry" ? parsed.versionRange : Option.none(),
+          })),
           force: parsed.force,
         };
       });
@@ -344,7 +331,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
             frontmatter: {},
             body: "",
             agentId,
-            commandName: intent.ref.command.name,
+            commandName: intent.refs[0]?.ref.command.name ?? "command",
             agentOverrides: undefined,
           });
           if (output._tag === "Skipped") continue;
@@ -369,17 +356,17 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
         return {
           _tag: "Plan",
-          name: "Install command",
-          description: Option.some(`Install command ${intent.ref.command.name}`),
+          name: "Install command(s)",
+          description: Option.some("Install command extension(s)"),
           jobs: [
             {
               concurrency: 1 as const,
-              steps: [
+              steps: intent.refs.map((entry) =>
                 buildInstallOperation(commandMgr, {
-                  ref: intent.ref,
-                  versionRange: intent.versionRange,
+                  ref: entry.ref,
+                  versionRange: entry.versionRange,
                 }),
-              ],
+              ),
             },
           ],
           ...(sections === undefined ? {} : { sections }),

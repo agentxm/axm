@@ -26,6 +26,14 @@ import {
 
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
   getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test-ns"))),
+  getRegistrySourceHosts: () =>
+    Effect.succeed([
+      {
+        name: "default",
+        type: "registry",
+        location: new URL("file:///tmp/registry"),
+      },
+    ]),
 });
 
 const mockCommandManager = {
@@ -97,10 +105,10 @@ describe("parseCommandInstallArgs", () => {
           ...defaultFlags,
         }),
       );
-      expect(result.owner).toBe("@acme");
-      expect(result.commandName).toBe("my-cmd");
+      expect(Option.getOrNull(result.owner)).toBe("@acme");
+      expect(result.commandNames).toEqual(["my-cmd"]);
       expect(Option.isNone(result.versionRange)).toBe(true);
-      expect(result.resolvedInput).toBe("@acme/commands/my-cmd");
+      expect(result.source.type).toBe("registry");
     }),
   );
 
@@ -112,8 +120,8 @@ describe("parseCommandInstallArgs", () => {
           ...defaultFlags,
         }),
       );
-      expect(result.owner).toBe("@acme");
-      expect(result.commandName).toBe("my-cmd");
+      expect(Option.getOrNull(result.owner)).toBe("@acme");
+      expect(result.commandNames).toEqual(["my-cmd"]);
       expect(Option.getOrNull(result.versionRange)).toBe("^1.0.0");
     }),
   );
@@ -126,9 +134,9 @@ describe("parseCommandInstallArgs", () => {
           ...defaultFlags,
         }),
       );
-      expect(result.owner).toBe("@test-ns");
-      expect(result.commandName).toBe("my-cmd");
-      expect(result.resolvedInput).toBe("@test-ns/commands/my-cmd");
+      expect(Option.getOrNull(result.owner)).toBe("@test-ns");
+      expect(result.commandNames).toEqual(["my-cmd"]);
+      expect(result.source.type).toBe("registry");
     }),
   );
 
@@ -185,8 +193,7 @@ describe("buildPlan", () => {
     Effect.gen(function* () {
       const plan = yield* runWithActions((actions) =>
         actions.buildPlan({
-          ref: makeRegistryRef(),
-          versionRange: Option.none(),
+          refs: [{ ref: makeRegistryRef(), versionRange: Option.none() }],
           force: false,
         }),
       );
@@ -212,8 +219,7 @@ describe("buildPlan", () => {
       const plan = yield* runWithActions(
         (actions) =>
           actions.buildPlan({
-            ref: makeRegistryRef(),
-            versionRange: Option.none(),
+            refs: [{ ref: makeRegistryRef(), versionRange: Option.none() }],
             force: false,
           }),
         makeActionsLayer(workspace),

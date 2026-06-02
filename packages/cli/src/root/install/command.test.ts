@@ -33,14 +33,16 @@ const captureHelpOutput = (path: ReadonlyArray<string>): Effect.Effect<string, u
   });
 
 describe("root install command help", () => {
-  it("documents the no-arg and FQN install contract", async () => {
+  it("documents the no-arg, FQN, and locator install contract", async () => {
     const output = stripAnsi(await Effect.runPromise(captureHelpOutput(["install"])));
 
     expect(output).toContain(
-      "Install a registry extension, or reinstall all configured extensions from their sources",
+      "Install extensions from a registry FQN or source locator, or reinstall configured extensions",
     );
-    expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) (optional)");
+    expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) or source");
+    expect(output).toContain("locator (optional)");
     expect(output).toContain("axm install");
     expect(output).toContain("axm install @acme/skills/code-review");
+    expect(output).toContain("axm install github:acme/agent-extensions//tools@v1.0.0");
   });
 });

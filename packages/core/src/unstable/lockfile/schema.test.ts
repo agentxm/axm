@@ -449,6 +449,26 @@ describe("lockfile schema", () => {
       expect(result.gitTreeHash).toBe("abc123def456");
     });
 
+    it("accepts GitLab subgroup namespace lock entries", () => {
+      const input = {
+        type: "gitlab",
+        owner: "example/subgroup",
+        repo: "extensions",
+        path: "subagents/researcher",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
+
+      expect(result.type).toBe("gitlab");
+      if (result.type === "gitlab") {
+        expect(result.owner).toBe("example/subgroup");
+        expect(result.repo).toBe("extensions");
+      }
+    });
+
     it("accepts valid local lock entry", () => {
       const input = {
         type: "local",

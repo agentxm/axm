@@ -212,11 +212,11 @@ describe("parseInputPattern", () => {
       });
     });
 
-    it("classifies bitbucket:owner/repo/path@ref as ShorthandInput", () => {
-      expectSome("bitbucket:owner/repo/path@ref", {
+    it("classifies bitbucket:owner/repo//path@ref as ShorthandInput", () => {
+      expectSome("bitbucket:owner/repo//path@ref", {
         pattern: "shorthand-input",
         prefix: "bitbucket",
-        remainingInput: "owner/repo/path@ref",
+        remainingInput: "owner/repo//path@ref",
       });
     });
 

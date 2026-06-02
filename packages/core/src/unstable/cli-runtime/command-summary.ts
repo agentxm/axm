@@ -11,6 +11,7 @@ export type SubjectType =
   | "command"
   | "files"
   | "rule"
+  | "hook"
   | "subagent"
   | "pack"
   | "mcp-server"

@@ -77,6 +77,29 @@ subagents:
   lastVerified: 2026-05-16
   directory: .claude/agents
   layout: directory
+hooks:
+  notes: Managed hooks merge into the Claude Code settings hooks block and execute materialized AXM package entrypoints.
+  scopes:
+    - user
+    - project
+  configFiles:
+    - scope: user
+      path: ~/.claude/settings.json
+      format: json
+      gitignored: false
+    - scope: project
+      path: .claude/settings.json
+      format: json
+      gitignored: false
+    - scope: project
+      path: .claude/settings.local.json
+      format: json
+      gitignored: true
+  serializer: claude-code-settings
+  sources:
+    - https://docs.claude.com/en/docs/claude-code/hooks
+    - https://docs.claude.com/en/docs/claude-code/settings
+  lastVerified: 2026-06-02
 instructions:
   standardsCompliance: parity
   convention: vendor

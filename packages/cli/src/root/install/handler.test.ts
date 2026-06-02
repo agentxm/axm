@@ -16,6 +16,10 @@ import {
   type InstallFilesHandlerArgs,
 } from "../files/install/command-actions.js";
 import {
+  InstallHookCommandWorkflowActions,
+  type InstallHookHandlerArgs,
+} from "../hooks/install/command-actions.js";
+import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
 } from "../mcps/install/command-actions.js";
@@ -178,6 +182,24 @@ describe("root install handler", () => {
       buildPlan: () => Effect.succeed(makePlan("subagent")),
     };
 
+    const hookActions = {
+      parseArgs: (args: InstallHookHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({
+            type: "hook",
+            source: args.source,
+            yes: false,
+            force: false,
+            preview: true,
+          });
+          return {};
+        }),
+      resolveSourceRequests: () => Effect.succeed([]),
+      discoverRefs: () => Effect.succeed([]),
+      finalizeIntent: () => Effect.succeed({}),
+      buildPlan: () => Effect.succeed(makePlan("hook")),
+    };
+
     const packActions = {
       parseArgs: (args: InstallPackHandlerArgs) =>
         Effect.sync(() => {
@@ -253,6 +275,13 @@ describe("root install handler", () => {
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
+        InstallHookCommandWorkflowActions,
+        hookActions as unknown as ServiceMap.Service.Shape<
+          typeof InstallHookCommandWorkflowActions
+        >,
+      ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
         InstallPackCommandWorkflowActions,
         packActions as unknown as ServiceMap.Service.Shape<
           typeof InstallPackCommandWorkflowActions
@@ -290,6 +319,7 @@ describe("root install handler", () => {
         "@acme/mcps/dev-server",
         "@ac/files/workspace-baseline",
         "@acme/rules/review-policy",
+        "@acme/hooks/tool-audit",
         "@acme/subagents/researcher",
         "@acme/packs/frontend-tools",
       ] as const;
@@ -304,6 +334,7 @@ describe("root install handler", () => {
         { type: "mcp-server", source: "@acme/mcps/dev-server", ...flags },
         { type: "files", source: "@ac/files/workspace-baseline", ...flags },
         { type: "rule", source: "@acme/rules/review-policy", ...flags },
+        { type: "hook", source: "@acme/hooks/tool-audit", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);
@@ -343,6 +374,7 @@ describe("root install handler", () => {
           preview: true,
         },
         { type: "rule", source: "github:acme/extensions", yes: false, force: false, preview: true },
+        { type: "hook", source: "github:acme/extensions", yes: false, force: false, preview: true },
         {
           type: "subagent",
           source: "github:acme/extensions",

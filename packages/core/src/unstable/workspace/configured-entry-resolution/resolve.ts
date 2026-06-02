@@ -4,6 +4,7 @@ import { makeAppError } from "../../app-error/index.js";
 import type { CommandExtensionRef } from "../../commands/index.js";
 import { parseRegistrySourcePatternParts, parseRegistrySourceRef } from "../../extensions/index.js";
 import type { FilesExtensionRef } from "../../files/index.js";
+import type { HookExtensionRef } from "../../hooks/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import type { RuleExtensionRef } from "../../rules/index.js";
@@ -350,6 +351,77 @@ export const resolveConfiguredRule = (name: string, source: string) =>
           {
             description:
               "Verify the configured source still contains the rule or update settings.json.",
+          },
+        ],
+      });
+    }
+
+    return {
+      ref,
+      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
+    };
+  });
+
+export const resolveConfiguredHook = (name: string, source: string) =>
+  Effect.gen(function* () {
+    const providers = yield* SourceHostProviders;
+    const resolvedSource = yield* resolveSource(source).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "validation",
+          detail: `Invalid hook source for ${name}: ${cause.message}`,
+          cause,
+        }),
+      ),
+    );
+
+    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const requestedOwner =
+      parsedPattern?.type === "hooks"
+        ? Option.some(parsedPattern.owner)
+        : resolvedSource.type === "registry"
+          ? resolvedSource.owner
+          : Option.none();
+    const versionRange =
+      resolvedSource.type === "registry" && parsedPattern?.type === "hooks"
+        ? Option.fromUndefinedOr(parsedPattern.versionRange)
+        : Option.none<VersionRange>();
+
+    const refs = yield* providers
+      .find(resolvedSource, {
+        names: [name],
+        type: "hook",
+        owner: requestedOwner,
+        versionRange,
+      })
+      .pipe(
+        Effect.map((entries) =>
+          entries.filter((entry): entry is HookExtensionRef => entry.type === "hook"),
+        ),
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to resolve configured hook "${name}"`,
+            suggestions: [
+              {
+                description:
+                  "Verify the configured source is reachable and still contains the hook.",
+              },
+            ],
+            cause,
+          }),
+        ),
+      );
+
+    const ref = refs.find((entry) => entry.hook.name === name);
+    if (ref === undefined) {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Configured hook "${name}" could not be found in its source`,
+        suggestions: [
+          {
+            description:
+              "Verify the configured source still contains the hook or update settings.json.",
           },
         ],
       });

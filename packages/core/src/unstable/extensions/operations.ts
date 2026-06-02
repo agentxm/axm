@@ -42,6 +42,8 @@ export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
       return { type: "files", name: ref.file.name };
     case "rule":
       return { type: "rule", name: ref.rule.name };
+    case "hook":
+      return { type: "hook", name: ref.hook.name };
   }
 };
 

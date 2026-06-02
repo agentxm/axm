@@ -154,6 +154,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
 
     const resolvedSubagents: ResolvedExtensionMap = {};
     const resolvedRules: ResolvedExtensionMap = {};
+    const resolvedHooks: ResolvedExtensionMap = {};
 
     // Build InstallPackOperation from the ref
     const packOp: InstallPackOperation = {
@@ -169,6 +170,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         resolvedMcpServers,
         resolvedSubagents,
         resolvedRules,
+        resolvedHooks,
         versionRange,
         ref,
       },

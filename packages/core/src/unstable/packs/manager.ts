@@ -63,6 +63,7 @@ const buildSetPackArgs = (
       resolvedSubagents: resolved.resolvedSubagents,
       resolvedFiles: resolved.resolvedFiles,
       resolvedRules: resolved.resolvedRules,
+      resolvedHooks: resolved.resolvedHooks,
       versionRange,
     } satisfies SetPackArgs;
   });

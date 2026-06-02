@@ -26,7 +26,7 @@ describe("printSourceParams", () => {
       ref: Option.some("main"),
       subPath: Option.some("skills/foo"),
     });
-    expect(printSourceParams(source)).toBe("github:acme/widgets/skills/foo@main");
+    expect(printSourceParams(source)).toBe("github:acme/widgets//skills/foo@main");
   });
 
   it("prints gitlab source", () => {
@@ -48,7 +48,7 @@ describe("printSourceParams", () => {
       ref: Option.none(),
       subPath: Option.some("tools"),
     });
-    expect(printSourceParams(source)).toBe("bitbucket:acme/widgets/tools");
+    expect(printSourceParams(source)).toBe("bitbucket:acme/widgets//tools");
   });
 
   it("prints azurerepos source", () => {

@@ -40,6 +40,7 @@ import {
   publishSubagent,
   type PublishSubagentOperation,
 } from "@agentxm/client-core/unstable/subagents";
+import { publishHook, type PublishHookOperation } from "@agentxm/client-core/unstable/hooks";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
@@ -71,7 +72,8 @@ export type PackPublishOp =
   | PublishSkillOperation
   | PublishCommandOperation
   | PublishMcpServerOperation
-  | PublishSubagentOperation;
+  | PublishSubagentOperation
+  | PublishHookOperation;
 
 interface TargetRegistry {
   readonly registryName: string;
@@ -338,6 +340,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
               case "command":
               case "mcp-server":
               case "subagent":
+              case "hook":
                 versionTargets.push({ fqn: depFqn, type: parsed.type });
                 break;
               case "pack":
@@ -513,6 +516,17 @@ const makeDependencyStep = (
         readiness: "ready",
         label,
         run: provideServices(publishSubagent(op)).pipe(Effect.map(toJobStepResult)),
+      } satisfies PlannedJobStep);
+    }
+    case "hook": {
+      const op: PublishHookOperation = {
+        name: "publish-hook",
+        args: { name: depFqn, registryName },
+      };
+      return Effect.succeed({
+        readiness: "ready",
+        label,
+        run: provideServices(publishHook(op)).pipe(Effect.map(toJobStepResult)),
       } satisfies PlannedJobStep);
     }
     case "pack":

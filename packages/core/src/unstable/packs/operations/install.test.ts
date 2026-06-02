@@ -52,6 +52,7 @@ const makeOp = (): InstallPackOperation => ({
     resolvedMcpServers: {},
     resolvedSubagents: {},
     resolvedRules: {},
+    resolvedHooks: {},
     versionRange: Option.none(),
     ref: makePackRef(),
   },

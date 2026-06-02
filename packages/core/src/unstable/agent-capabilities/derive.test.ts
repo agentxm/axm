@@ -35,6 +35,7 @@ describe("agent capability derivation", () => {
       "mcp-server",
       "subagent",
       "files",
+      "hook",
     ]);
   });
 

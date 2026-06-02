@@ -483,13 +483,6 @@
       "title": "Rules Capability",
       "description": "Agent support for structured rule files."
     },
-    "PermissionMechanism": {
-      "type": "string",
-      "enum": ["config-file", "cli-flag", "ui-only"],
-      "title": "Permission Mechanism",
-      "description": "How an agent exposes permission configuration.",
-      "examples": ["config-file", "cli-flag", "ui-only"]
-    },
     "ConfigFileLocation": {
       "type": "object",
       "properties": {
@@ -502,6 +495,54 @@
       "additionalProperties": false,
       "title": "Config File Location",
       "description": "A configuration file where an agent's permission rules can live."
+    },
+    "HooksSerializer": {
+      "anyOf": [{ "type": "string", "enum": ["claude-code-settings"] }],
+      "title": "Hooks Serializer",
+      "description": "Native settings serializer AXM uses for managed hook declarations.",
+      "examples": ["claude-code-settings"]
+    },
+    "HooksCapability": {
+      "type": "object",
+      "properties": {
+        "lifecycle": { "$ref": "#/definitions/CapabilityLifecycle" },
+        "notes": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "docs": {
+          "anyOf": [
+            { "type": "array", "items": { "$ref": "#/definitions/DocLink" } },
+            { "type": "null" }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            { "type": "array", "items": { "type": "string", "allOf": [{ "minLength": 1 }] } },
+            { "type": "null" }
+          ]
+        },
+        "lastVerified": {
+          "anyOf": [{ "$ref": "#/definitions/LastVerifiedDate" }, { "type": "null" }]
+        },
+        "scopes": {
+          "type": "array",
+          "allOf": [{ "uniqueItems": true }],
+          "items": { "$ref": "#/definitions/Scope" }
+        },
+        "configFiles": { "type": "array", "items": { "$ref": "#/definitions/ConfigFileLocation" } },
+        "serializer": { "$ref": "#/definitions/HooksSerializer" }
+      },
+      "required": ["scopes", "configFiles", "serializer"],
+      "additionalProperties": false,
+      "title": "Hooks Capability",
+      "description": "Agent support for lifecycle hook extensions."
+    },
+    "PermissionMechanism": {
+      "type": "string",
+      "enum": ["config-file", "cli-flag", "ui-only"],
+      "title": "Permission Mechanism",
+      "description": "How an agent exposes permission configuration.",
+      "examples": ["config-file", "cli-flag", "ui-only"]
     },
     "PermissionGrammarStyle": {
       "type": "string",
@@ -672,6 +713,7 @@
           "anyOf": [{ "$ref": "#/definitions/InstructionsCapability" }, { "type": "null" }]
         },
         "rules": { "anyOf": [{ "$ref": "#/definitions/RulesCapability" }, { "type": "null" }] },
+        "hooks": { "anyOf": [{ "$ref": "#/definitions/HooksCapability" }, { "type": "null" }] },
         "permissions": {
           "anyOf": [{ "$ref": "#/definitions/PermissionsCapability" }, { "type": "null" }]
         }

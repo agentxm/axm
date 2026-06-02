@@ -18,6 +18,7 @@ import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/mcps
 import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
+import { HOOK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/hooks";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { VersionSchema, type Version } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -26,6 +27,7 @@ export const versionableTypes = [
   "skill",
   "subagent",
   "mcp-server",
+  "hook",
   "pack",
 ] as const satisfies ReadonlyArray<ExtensionType>;
 
@@ -55,6 +57,7 @@ const manifestFilenameByType: Record<VersionableExtensionType, string> = {
   skill: SKILL_MANIFEST_FILENAME,
   subagent: SUBAGENT_MANIFEST_FILENAME,
   "mcp-server": MCP_SERVER_MANIFEST_FILENAME,
+  hook: HOOK_MANIFEST_FILENAME,
   pack: PACK_MANIFEST_FILENAME,
 };
 

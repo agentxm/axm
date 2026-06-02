@@ -115,6 +115,8 @@ const extensionTypeFromLocalDir = (entry: string): ExtensionType | null => {
       return "files";
     case "rules":
       return "rule";
+    case "hooks":
+      return "hook";
     case "packs":
       return "pack";
     default:

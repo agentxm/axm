@@ -8,6 +8,7 @@ import { platformCanonicalLintConfig } from "../lint/config.js";
 import { composePath } from "../lint/compose-path.js";
 import type {
   CommandRuleContext,
+  HookRuleContext,
   McpServerRuleContext,
   PackRuleContext,
   SkillRuleContext,
@@ -16,6 +17,7 @@ import type {
 import { evaluateContexts } from "../lint/evaluate.js";
 import {
   commandRules,
+  hookRules,
   mcpServerRules,
   packRules,
   skillRules,
@@ -58,6 +60,12 @@ export type PublishLintArgs =
       readonly extensionDir: string;
       readonly manifestJson: unknown;
       readonly platform: PublishLintPlatform;
+    }
+  | {
+      readonly type: "hook";
+      readonly extensionDir: string;
+      readonly manifestJson: unknown;
+      readonly platform: PublishLintPlatform;
     };
 
 interface PublishLintFinding {
@@ -77,6 +85,8 @@ export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, A
       return evaluateSubagent(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "mcp-server":
       return evaluateMcpServer(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
+    case "hook":
+      return evaluateHook(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
   }
 };
 
@@ -141,6 +151,18 @@ const evaluateMcpServer = (args: Extract<PublishLintArgs, { readonly type: "mcp-
     displayRoot: "",
   };
   return evaluateContexts(mcpServerRules, [context], platformCanonicalLintConfig).pipe(
+    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
+  );
+};
+
+const evaluateHook = (args: Extract<PublishLintArgs, { readonly type: "hook" }>) => {
+  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
+  const context: HookRuleContext = {
+    subject: { hookJson: args.manifestJson },
+    files,
+    displayRoot: "",
+  };
+  return evaluateContexts(hookRules, [context], platformCanonicalLintConfig).pipe(
     Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
   );
 };

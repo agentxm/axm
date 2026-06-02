@@ -139,6 +139,8 @@ const describeSchemaDocument = (file: string): string => {
       return "Pack manifest";
     case "subagent.json":
       return "Subagent manifest";
+    case "hook.json":
+      return "Hook manifest";
     default:
       return "Document";
   }

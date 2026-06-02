@@ -314,10 +314,10 @@ describe("SourceHostProviders dispatch", () => {
           )
           .pipe(Effect.result);
 
-        // Git provider is a stub that always fails
+        // Git provider attempts a shallow clone and reports the clone failure.
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure.detail).toContain("not yet supported");
+          expect(result.failure.detail).toContain("Failed to shallow clone");
         }
       }),
     ),

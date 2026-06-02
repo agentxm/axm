@@ -60,6 +60,7 @@ export {
 export {
   resolveConfiguredCommand,
   resolveConfiguredFiles,
+  resolveConfiguredHook,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredRule,
@@ -69,6 +70,7 @@ export {
   type ResolvedConfiguredCommand,
   type ResolvedConfiguredEntry,
   type ResolvedConfiguredFiles,
+  type ResolvedConfiguredHook,
   type ResolvedConfiguredMcpServer,
   type ResolvedConfiguredPack,
   type ResolvedConfiguredRule,
@@ -161,6 +163,7 @@ export {
   type SubagentExtensionTarget,
   type FilesExtensionTarget,
   type RuleExtensionTarget,
+  type HookExtensionTarget,
 } from "./service-interface.js";
 
 // Workspace mutation service implementation (layer)

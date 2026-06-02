@@ -47,6 +47,7 @@ describe("manifestFilenameForType", () => {
     expect(manifestFilenameForType("subagent")).toBe("subagent.json");
     expect(manifestFilenameForType("pack")).toBe("pack.json");
     expect(manifestFilenameForType("files")).toBe("files.json");
+    expect(manifestFilenameForType("hook")).toBe("hook.json");
   });
 });
 

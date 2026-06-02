@@ -28,6 +28,7 @@ import {
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
+import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
@@ -39,6 +40,7 @@ import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/works
 
 import { InstallCommandCommandWorkflowActionsLive } from "../commands/install/command-actions.js";
 import { InstallFilesCommandWorkflowActionsLive } from "../files/install/command-actions.js";
+import { InstallHookCommandWorkflowActionsLive } from "../hooks/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "../mcps/install/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
 import { InstallRuleCommandWorkflowActionsLive } from "../rules/install/command-actions.js";
@@ -95,6 +97,7 @@ describe("axm lint handler", () => {
       InstallFilesCommandWorkflowActionsLive,
       FilesManagerLive,
     );
+    const hooksLayer = Layer.provideMerge(InstallHookCommandWorkflowActionsLive, HookManagerLive);
     const rulesLayer = Layer.provideMerge(InstallRuleCommandWorkflowActionsLive, RuleManagerLive);
     const skillsLayer = Layer.provideMerge(
       InstallSkillCommandWorkflowActionsLive,
@@ -108,6 +111,7 @@ describe("axm lint handler", () => {
     const coreExtensions = Layer.mergeAll(
       commandsLayer,
       contextLayer,
+      hooksLayer,
       mcpServersLayer,
       rulesLayer,
       skillsLayer,

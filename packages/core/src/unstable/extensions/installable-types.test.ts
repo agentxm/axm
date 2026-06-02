@@ -22,6 +22,7 @@ describe("installable extension types", () => {
       "subagent",
       "files",
       "rule",
+      "hook",
       "pack",
     ]);
   });
@@ -34,6 +35,7 @@ describe("installable extension types", () => {
       "subagents",
       "files",
       "rules",
+      "hooks",
       "packs",
     ]);
   });
@@ -43,6 +45,7 @@ describe("installable extension types", () => {
     expect(isInstallableExtensionType("mcp-server")).toBe(true);
     expect(isInstallableExtensionType("files")).toBe(true);
     expect(isInstallableExtensionType("rule")).toBe(true);
+    expect(isInstallableExtensionType("hook")).toBe(true);
   });
 
   it("guards installable plural segments", () => {
@@ -50,6 +53,7 @@ describe("installable extension types", () => {
     expect(isInstallableExtensionTypePlural("mcps")).toBe(true);
     expect(isInstallableExtensionTypePlural("files")).toBe(true);
     expect(isInstallableExtensionTypePlural("rules")).toBe(true);
+    expect(isInstallableExtensionTypePlural("hooks")).toBe(true);
     expect(isInstallableExtensionTypePlural(undefined)).toBe(false);
   });
 
@@ -58,10 +62,12 @@ describe("installable extension types", () => {
     expect(toInstallableExtensionType("packs")).toBe("pack");
     expect(toInstallableExtensionType("files")).toBe("files");
     expect(toInstallableExtensionType("rules")).toBe("rule");
+    expect(toInstallableExtensionType("hooks")).toBe("hook");
     expect(toInstallableExtensionTypePlural("command")).toBe("commands");
     expect(toInstallableExtensionTypePlural("subagent")).toBe("subagents");
     expect(toInstallableExtensionTypePlural("files")).toBe("files");
     expect(toInstallableExtensionTypePlural("rule")).toBe("rules");
+    expect(toInstallableExtensionTypePlural("hook")).toBe("hooks");
   });
 
   it("exposes installable type schemas", () => {
@@ -72,6 +78,9 @@ describe("installable extension types", () => {
       Result.isSuccess(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("files")),
     ).toBe(true);
     expect(
+      Result.isSuccess(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("hook")),
+    ).toBe(true);
+    expect(
       Result.isFailure(Schema.decodeUnknownResult(InstallableExtensionTypeSchema)("file")),
     ).toBe(true);
     expect(
@@ -79,6 +88,9 @@ describe("installable extension types", () => {
     ).toBe(true);
     expect(
       Result.isSuccess(Schema.decodeUnknownResult(InstallableExtensionTypePluralSchema)("rules")),
+    ).toBe(true);
+    expect(
+      Result.isSuccess(Schema.decodeUnknownResult(InstallableExtensionTypePluralSchema)("hooks")),
     ).toBe(true);
   });
 });

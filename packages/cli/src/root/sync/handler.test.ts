@@ -8,6 +8,7 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
+import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
@@ -99,6 +100,7 @@ describe("root sync handler", () => {
       Layer.mergeAll(
         CommandManagerLive,
         FilesManagerLive,
+        HookManagerLive,
         McpServerManagerLive,
         RuleManagerLive,
         SkillManagerLive,

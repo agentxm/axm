@@ -12,6 +12,7 @@ import { buildRegistrySkillRef } from "../skills/registry-ref-builder.js";
 import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
 import { buildRegistryMcpServerRef } from "../mcps/registry-ref-builder.js";
 import { buildRegistrySubagentRef } from "../subagents/registry-ref-builder.js";
+import { buildRegistryHookRef } from "../hooks/registry-ref-builder.js";
 import { buildRegistryRuleRef } from "../rules/registry-ref-builder.js";
 import {
   decodeVersionSync,
@@ -33,6 +34,7 @@ export interface ResolvedPackDependencies {
   readonly resolvedSubagents: ResolvedExtensionMap;
   readonly resolvedFiles: ResolvedExtensionMap;
   readonly resolvedRules: ResolvedExtensionMap;
+  readonly resolvedHooks: ResolvedExtensionMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
 
@@ -42,7 +44,8 @@ type SupportedPackDependencyType =
   | "mcp-server"
   | "subagent"
   | "files"
-  | "rule";
+  | "rule"
+  | "hook";
 
 const registrySourceForDependency = (
   pack: PackRef,
@@ -144,6 +147,7 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
   const subagents: Array<readonly [string, VersionRange]> = [];
   const files: Array<readonly [string, VersionRange]> = [];
   const rules: Array<readonly [string, VersionRange]> = [];
+  const hooks: Array<readonly [string, VersionRange]> = [];
   const unsupported: string[] = [];
 
   for (const [fqn, constraint] of Object.entries(dependencies)) {
@@ -167,13 +171,16 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
       case "rule":
         rules.push([fqn, constraint]);
         break;
+      case "hook":
+        hooks.push([fqn, constraint]);
+        break;
       case "pack":
         unsupported.push(fqn);
         break;
     }
   }
 
-  return { skills, commands, mcpServers, subagents, files, rules, unsupported };
+  return { skills, commands, mcpServers, subagents, files, rules, hooks, unsupported };
 };
 
 export const resolvePackDependencies = (
@@ -215,6 +222,7 @@ export const resolvePackDependencies = (
     );
     const resolvedFiles = yield* resolveDependencyGroup(pack, dependencies.files, "files", sources);
     const resolvedRules = yield* resolveDependencyGroup(pack, dependencies.rules, "rule", sources);
+    const resolvedHooks = yield* resolveDependencyGroup(pack, dependencies.hooks, "hook", sources);
 
     return {
       resolvedSkills: toResolvedMap(resolvedSkills),
@@ -223,6 +231,7 @@ export const resolvePackDependencies = (
       resolvedSubagents: toResolvedMap(resolvedSubagents),
       resolvedFiles: toResolvedMap(resolvedFiles),
       resolvedRules: toResolvedMap(resolvedRules),
+      resolvedHooks: toResolvedMap(resolvedHooks),
       dependencyRefs: [
         ...resolvedSkills.map((dependency) =>
           buildRegistrySkillRef(
@@ -263,6 +272,15 @@ export const resolvePackDependencies = (
         ...resolvedFiles.map((dependency) => dependency.ref),
         ...resolvedRules.map((dependency) =>
           buildRegistryRuleRef(
+            dependency.owner,
+            dependency.name,
+            dependency.ref.version,
+            dependency.source,
+            dependency.ref.packages,
+          ),
+        ),
+        ...resolvedHooks.map((dependency) =>
+          buildRegistryHookRef(
             dependency.owner,
             dependency.name,
             dependency.ref.version,

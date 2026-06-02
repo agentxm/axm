@@ -20,6 +20,7 @@ import { commandRules } from "./command.js";
 import { subagentRules } from "./subagent.js";
 import { mcpServerRules } from "./mcp-server.js";
 import { filesRules } from "./files.js";
+import { hookRules } from "./hook.js";
 import { workspaceRules } from "./workspace.js";
 
 export { skillRules } from "./skill.js";
@@ -28,6 +29,7 @@ export { commandRules } from "./command.js";
 export { subagentRules } from "./subagent.js";
 export { mcpServerRules } from "./mcp-server.js";
 export { filesRules } from "./files.js";
+export { hookRules } from "./hook.js";
 export { workspaceRules } from "./workspace.js";
 
 // Phase 3a accessor + context-builder helpers.
@@ -96,5 +98,6 @@ export const allCatalogRuleIds: ReadonlyArray<string> = [
   ...subagentRules.map((r) => r.id),
   ...mcpServerRules.map((r) => r.id),
   ...filesRules.map((r) => r.id),
+  ...hookRules.map((r) => r.id),
   ...workspaceRules.map((r) => r.id),
 ];

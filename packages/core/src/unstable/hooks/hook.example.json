@@ -1,0 +1,19 @@
+{
+  "$schema": "https://axm.sh/schemas/hook.schema.json",
+  "type": "hook",
+  "owner": "@acme",
+  "name": "tool-audit",
+  "version": "0.1.0",
+  "description": "Blocks writes that look like secrets.",
+  "runtime": "bash",
+  "entrypoint": "src/hook.sh",
+  "bindings": [{ "event": "PreToolUse", "matcher": "Write|Edit|MultiEdit" }],
+  "timeoutMs": 5000,
+  "blocking": true,
+  "capabilities": {
+    "network": false,
+    "filesystemWrite": false,
+    "exec": [],
+    "env": []
+  }
+}

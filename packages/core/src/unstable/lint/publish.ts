@@ -29,6 +29,10 @@ import { markerValidRule as filesMarkerValidRule } from "./catalog/files/marker-
 import { packageValidRule as filesPackageValidRule } from "./catalog/files/package-valid.js";
 import { targetValidRule as filesTargetValidRule } from "./catalog/files/target-valid.js";
 import { templateValidRule as filesTemplateValidRule } from "./catalog/files/template-valid.js";
+import { entrypointExistsRule as hookEntrypointExistsRule } from "./catalog/hook/entrypoint-exists.js";
+import { manifestKeysRecognizedRule as hookManifestKeysRecognizedRule } from "./catalog/hook/manifest-keys-recognized.js";
+import { manifestPresentRule as hookManifestPresentRule } from "./catalog/hook/manifest-present.js";
+import { manifestSchemaValidRule as hookManifestSchemaValidRule } from "./catalog/hook/manifest-schema-valid.js";
 import { frontmatterParseableRule as skillFrontmatterParseableRule } from "./catalog/skill/frontmatter-parseable.js";
 import { manifestKeysRecognizedRule as skillManifestKeysRecognizedRule } from "./catalog/skill/manifest-keys-recognized.js";
 import { manifestPresentRule as skillManifestPresentRule } from "./catalog/skill/manifest-present.js";
@@ -37,6 +41,7 @@ import { skillMdPresentRule } from "./catalog/skill/skill-md-present.js";
 import type {
   CommandRuleContext,
   FilesRuleContext,
+  HookRuleContext,
   McpServerRuleContext,
   PackRuleContext,
   SkillRuleContext,
@@ -53,6 +58,7 @@ export type {
   CommandFileAccessor,
   CommandRuleContext,
   FilesContent,
+  HookContent,
   FilesAccessor,
   FilesRuleContext,
   McpServerContent,
@@ -130,4 +136,11 @@ export const filesRules: ReadonlyArray<LintRule<FilesRuleContext>> = [
   filesTemplateValidRule,
   filesGeneratorValidRule,
   filesMarkerValidRule,
+];
+
+export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
+  hookManifestPresentRule,
+  hookManifestSchemaValidRule,
+  hookManifestKeysRecognizedRule,
+  hookEntrypointExistsRule,
 ];

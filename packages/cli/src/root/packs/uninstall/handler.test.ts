@@ -30,7 +30,9 @@ import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
+import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
+import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 
@@ -146,7 +148,9 @@ describe("packs uninstall handler", () => {
       SkillManagerLive,
       CommandManagerLive,
       FilesManagerLive,
+      HookManagerLive,
       McpServerManagerLive,
+      RuleManagerLive,
       SubagentManagerLive,
     );
     const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);

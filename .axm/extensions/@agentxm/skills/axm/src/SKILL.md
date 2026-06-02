@@ -1,7 +1,7 @@
 ---
 name: axm
 description: |
-  AXM - Agent Extension Manager: Use when performing any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover/etc.) involving agent skills, subagents, slash commands/stored prompts, MCP servers, context packages, rule extensions, or packs
+  AXM - Agent Extension Manager: Use when performing any operation (install/create/new/edit/update/add/remove/delete/publish/find/discover/etc.) involving agent skills, subagents, slash commands/stored prompts, MCP servers, context packages, rule extensions, hook extensions, or packs
 invocable: true
 ---
 
@@ -23,6 +23,7 @@ invocable: true
    - `command/*` → `axm help commands`
    - `mcp-server/*` → `axm help mcp-server-schema`
    - `context/*` → `axm help context`
+   - `hook/*` → `axm help hook-schema`
    - `pack/*` → `axm help packs`
    - workspace/config findings → `axm help settings`
 4. **Do not auto-resolve unmanaged extensions**: For `workspace/<plural-type>-managed` findings (e.g., `workspace/skills-managed`), group related unmanaged items, then present adopt/fork/ignore/prune choices with a recommended option using the signals in the topic help.
@@ -35,7 +36,7 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 `--json` for machine-readable output. `--scope user` targets `$HOME/.axm` instead of the project workspace. Install/uninstall/update accept a registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
 
-`<type>` ∈ {`skills`, `subagents`, `commands`, `mcps`, `context`, `rules`, `packs`}.
+`<type>` ∈ {`skills`, `subagents`, `commands`, `mcps`, `context`, `rules`, `hooks`, `packs`}.
 
 ### Workspace setup & discovery
 

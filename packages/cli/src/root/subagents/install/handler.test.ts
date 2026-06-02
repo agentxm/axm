@@ -175,8 +175,8 @@ describe("subagents install handler — error propagation", () => {
           preview: false,
         }).pipe(Effect.flip);
         const appError = getAppError(error);
-        expect(appError.code).toBe("usage");
-        expect(appError.cause).toBeDefined();
+        expect(appError.code).toBe("not_found");
+        expect(appError.detail).toBe("No subagents found in source");
       }),
     );
   });

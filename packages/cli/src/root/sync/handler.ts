@@ -35,6 +35,7 @@ import {
 import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import { FilesManager, renderWorkspaceGeneratorRegions } from "@agentxm/client-core/unstable/files";
+import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import {
@@ -52,6 +53,7 @@ import {
   displayPlan,
   WorkspaceMutations,
   resolveConfiguredFiles,
+  resolveConfiguredHook,
   resolveConfiguredRule,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
@@ -150,6 +152,15 @@ const configuredRulesToRefs = (
     { concurrency: "unbounded" },
   );
 
+const configuredHooksToRefs = (
+  entries: Readonly<Record<string, { readonly source: string; readonly enabled?: boolean }>>,
+) =>
+  Effect.forEach(
+    Object.entries(entries).filter(([, entry]) => entry.enabled !== false),
+    ([name, entry]) => resolveConfiguredHook(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
+    { concurrency: "unbounded" },
+  );
+
 export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* () {
   const skillManager = yield* SkillManager;
   const commandManager = yield* CommandManager;
@@ -157,6 +168,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const subagentManager = yield* SubagentManager;
   const fileManager = yield* FilesManager;
   const ruleManager = yield* RuleManager;
+  const hookManager = yield* HookManager;
   const packManager = yield* PackManager;
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
@@ -165,19 +177,28 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const path = yield* Path.Path;
   const env = { fs, path, baseDir: ws.baseDir };
 
-  const [skillRefs, commandRefs, mcpServerRefs, subagentRefs, fileRefs, ruleRefs, packRefs] =
-    yield* Effect.all(
-      [
-        skillManager.listMaterializable(),
-        commandManager.listMaterializable(),
-        mcpServerManager.listMaterializable(),
-        subagentManager.listMaterializable(),
-        fileManager.listMaterializable(),
-        ruleManager.listMaterializable(),
-        packManager.listMaterializable(),
-      ],
-      { concurrency: "unbounded" },
-    );
+  const [
+    skillRefs,
+    commandRefs,
+    mcpServerRefs,
+    subagentRefs,
+    fileRefs,
+    ruleRefs,
+    hookRefs,
+    packRefs,
+  ] = yield* Effect.all(
+    [
+      skillManager.listMaterializable(),
+      commandManager.listMaterializable(),
+      mcpServerManager.listMaterializable(),
+      subagentManager.listMaterializable(),
+      fileManager.listMaterializable(),
+      ruleManager.listMaterializable(),
+      hookManager.listMaterializable(),
+      packManager.listMaterializable(),
+    ],
+    { concurrency: "unbounded" },
+  );
 
   const [
     packSkillRefs,
@@ -186,6 +207,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     packSubagentRefs,
     packFileRefs,
     packRuleRefs,
+    packHookRefs,
   ] = yield* Effect.all(
     [
       configuredSkillsToDiskRefs(
@@ -228,6 +250,12 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "rules")),
         ),
       ),
+      configuredHooksToRefs(
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "hooks")),
+        ),
+      ),
     ],
     { concurrency: "unbounded" },
   );
@@ -238,6 +266,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const directSubagentNames = new Set(subagentRefs.map((ref) => ref.subagent.name));
   const directFilesNames = new Set(fileRefs.map((ref) => ref.file.name));
   const directRuleNames = new Set(ruleRefs.map((ref) => ref.rule.name));
+  const directHookNames = new Set(hookRefs.map((ref) => ref.hook.name));
 
   const materializedSubagentRefs = [
     ...subagentRefs,
@@ -270,6 +299,10 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       ...packRuleRefs
         .filter((ref) => !directRuleNames.has(ref.rule.name))
         .map((ref) => buildMaterializeOperation(ruleManager, { ref })),
+      ...hookRefs.map((ref) => buildMaterializeOperation(hookManager, { ref })),
+      ...packHookRefs
+        .filter((ref) => !directHookNames.has(ref.hook.name))
+        .map((ref) => buildMaterializeOperation(hookManager, { ref })),
     ] satisfies ReadonlyArray<PlannedJobStep>,
   };
 });

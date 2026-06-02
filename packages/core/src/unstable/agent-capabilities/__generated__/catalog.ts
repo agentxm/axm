@@ -424,6 +424,38 @@ export const AGENTS = [
       nestedDiscovery: true,
       importSyntax: "at-path",
     },
+    hooks: {
+      lifecycle: "available",
+      notes:
+        "Managed hooks merge into the Claude Code settings hooks block and execute materialized AXM package entrypoints.",
+      sources: [
+        "https://docs.claude.com/en/docs/claude-code/hooks",
+        "https://docs.claude.com/en/docs/claude-code/settings",
+      ],
+      lastVerified: "2026-06-02",
+      scopes: ["user", "project"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.claude/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".claude/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".claude/settings.local.json",
+          format: "json",
+          gitignored: true,
+        },
+      ],
+      serializer: "claude-code-settings",
+    },
     permissions: {
       lifecycle: "available",
       sources: [
@@ -4117,6 +4149,38 @@ export const AGENTS_BY_ID = {
       files: ["CLAUDE.md"],
       nestedDiscovery: true,
       importSyntax: "at-path",
+    },
+    hooks: {
+      lifecycle: "available",
+      notes:
+        "Managed hooks merge into the Claude Code settings hooks block and execute materialized AXM package entrypoints.",
+      sources: [
+        "https://docs.claude.com/en/docs/claude-code/hooks",
+        "https://docs.claude.com/en/docs/claude-code/settings",
+      ],
+      lastVerified: "2026-06-02",
+      scopes: ["user", "project"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.claude/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".claude/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".claude/settings.local.json",
+          format: "json",
+          gitignored: true,
+        },
+      ],
+      serializer: "claude-code-settings",
     },
     permissions: {
       lifecycle: "available",

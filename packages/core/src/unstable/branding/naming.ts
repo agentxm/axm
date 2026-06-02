@@ -47,6 +47,13 @@ export const CANONICAL_NAMING = [
     sentenceLabel: "rule",
   },
   {
+    id: "hook",
+    pluralSegment: "hooks",
+    displayLabel: "Hook",
+    sentenceLabel: "hook",
+    manifestFilename: "hook.json",
+  },
+  {
     id: "pack",
     pluralSegment: "packs",
     displayLabel: "Pack",
@@ -62,5 +69,6 @@ export const NAMING_BY_ID: Record<ExtensionType, CanonicalNamingEntry> = {
   subagent: CANONICAL_NAMING[3],
   files: CANONICAL_NAMING[4],
   rule: CANONICAL_NAMING[5],
-  pack: CANONICAL_NAMING[6],
+  hook: CANONICAL_NAMING[6],
+  pack: CANONICAL_NAMING[7],
 };

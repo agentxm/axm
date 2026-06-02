@@ -73,6 +73,8 @@ export interface UninstallSettingsContext {
   readonly mcpServers: Readonly<Record<string, string>>;
   readonly subagents: Readonly<Record<string, string>>;
   readonly files?: Readonly<Record<string, string>> | undefined;
+  readonly rules?: Readonly<Record<string, string>> | undefined;
+  readonly hooks?: Readonly<Record<string, string>> | undefined;
 }
 
 /**
@@ -116,6 +118,12 @@ export const expandPackUninstallTargets = (args: {
   const candidateContext = supportedDependencyTypes.includes("files")
     ? Object.keys(packEntry.resolvedFiles ?? {})
     : [];
+  const candidateRules = supportedDependencyTypes.includes("rule")
+    ? Object.keys(packEntry.resolvedRules ?? {})
+    : [];
+  const candidateHooks = supportedDependencyTypes.includes("hook")
+    ? Object.keys(packEntry.resolvedHooks ?? {})
+    : [];
 
   // Collect dependencies still referenced by OTHER installed packs
   const retainedByOtherPacks = new Set<string>();
@@ -136,6 +144,12 @@ export const expandPackUninstallTargets = (args: {
     for (const fqn of Object.keys(entry.resolvedFiles ?? {})) {
       retainedByOtherPacks.add(fqn);
     }
+    for (const fqn of Object.keys(entry.resolvedRules ?? {})) {
+      retainedByOtherPacks.add(fqn);
+    }
+    for (const fqn of Object.keys(entry.resolvedHooks ?? {})) {
+      retainedByOtherPacks.add(fqn);
+    }
   }
 
   // Collect directly-configured extensions from settings
@@ -153,6 +167,12 @@ export const expandPackUninstallTargets = (args: {
     directlyConfigured.add(name);
   }
   for (const name of Object.keys(settings.files ?? {})) {
+    directlyConfigured.add(name);
+  }
+  for (const name of Object.keys(settings.rules ?? {})) {
+    directlyConfigured.add(name);
+  }
+  for (const name of Object.keys(settings.hooks ?? {})) {
     directlyConfigured.add(name);
   }
 
@@ -191,6 +211,20 @@ export const expandPackUninstallTargets = (args: {
     const name = nameFromFqn(fqn);
     if (!retainedByOtherPacks.has(fqn) && !directlyConfigured.has(name)) {
       orphanedTargets.push({ type: "files", name });
+    }
+  }
+
+  for (const fqn of candidateRules) {
+    const name = nameFromFqn(fqn);
+    if (!retainedByOtherPacks.has(fqn) && !directlyConfigured.has(name)) {
+      orphanedTargets.push({ type: "rule", name });
+    }
+  }
+
+  for (const fqn of candidateHooks) {
+    const name = nameFromFqn(fqn);
+    if (!retainedByOtherPacks.has(fqn) && !directlyConfigured.has(name)) {
+      orphanedTargets.push({ type: "hook", name });
     }
   }
 

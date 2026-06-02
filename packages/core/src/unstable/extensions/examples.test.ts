@@ -17,6 +17,7 @@ import { CommandManifestSchema } from "../commands/manifest-schema.js";
 import { McpServerManifestSchema } from "../mcps/manifest-schema.js";
 import { PackManifestSchema } from "../packs/manifest-schema.js";
 import { FilesManifestSchema } from "../files/manifest-schema.js";
+import { HookManifestSchema } from "../hooks/manifest-schema.js";
 
 const CORE_UNSTABLE = path.join(import.meta.dirname, "..");
 
@@ -95,5 +96,15 @@ describe("example files", () => {
     expect(result.type).toBe("files");
     expect(result.name).toBe("workspace-baseline");
     expect(result.contents).toHaveLength(2);
+  });
+
+  it("hook.example.json conforms to HookManifestSchema", () => {
+    const example = readJsonFile(path.join(CORE_UNSTABLE, "hooks/hook.example.json"));
+    const result = Schema.decodeUnknownSync(HookManifestSchema)(example);
+    expect(result).toBeDefined();
+    expect(result.owner).toBe("@acme");
+    expect(result.type).toBe("hook");
+    expect(result.name).toBe("tool-audit");
+    expect(result.bindings).toHaveLength(1);
   });
 });

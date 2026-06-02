@@ -25,6 +25,8 @@ import type {
   CommandsLockMap,
   FilesLockEntry,
   FilesLockMap,
+  HookLockEntry,
+  HooksLockMap,
   McpServerLockEntry,
   McpServersLockMap,
   PackLockEntry,
@@ -40,6 +42,8 @@ import type {
   CommandEntry,
   FilesEntry,
   FilesMap,
+  HookEntry,
+  HooksMap,
   InstructionsConfigValue,
   McpServerEntry,
   McpServersMap,
@@ -134,6 +138,11 @@ export interface RuleExtensionTarget {
   readonly name: string;
 }
 
+export interface HookExtensionTarget {
+  readonly type: "hook";
+  readonly name: string;
+}
+
 /**
  * Identifies a specific extension by type and name.
  */
@@ -144,7 +153,8 @@ export type ExtensionTarget =
   | McpServerExtensionTarget
   | SubagentExtensionTarget
   | FilesExtensionTarget
-  | RuleExtensionTarget;
+  | RuleExtensionTarget
+  | HookExtensionTarget;
 
 /**
  * Maps an ExtensionRef type to its corresponding ExtensionTarget type.
@@ -321,6 +331,15 @@ export interface SetRuleArgs {
   readonly versionRange: Option.Option<string>;
 }
 
+/**
+ * Arguments for `setHook` -- bundles the hook name with the lock entry.
+ */
+export interface SetHookArgs {
+  readonly name: string;
+  readonly lockEntry: HookLockEntry;
+  readonly versionRange: Option.Option<string>;
+}
+
 // ---------------------------------------------------------------------------
 // Service interface
 // ---------------------------------------------------------------------------
@@ -430,6 +449,31 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a rule entry in settings only. Serialized by semaphore. */
   readonly setRuleEntry: (name: string, entry: RuleEntry) => Effect.Effect<void, AppError>;
+  /** Read settings and return configured hooks, defaulting to `{}`. */
+  readonly getConfiguredHookEntries: () => Effect.Effect<HooksMap, AppError>;
+  /** Read lockfile and return the hooks lock map. */
+  readonly getLockedHooks: () => Effect.Effect<HooksLockMap, AppError>;
+  /** Read lockfile and return the entry for a specific hook, or Option.none(). */
+  readonly getLockedHookEntry: (
+    name: string,
+  ) => Effect.Effect<Option.Option<HookLockEntry>, AppError>;
+  /** Add or update a hook in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  readonly setHook: (args: SetHookArgs) => Effect.Effect<void, AppError>;
+  /** Add or update a hook in lockfile only. Used for pack dependencies. Serialized by semaphore. */
+  readonly setHookLock: (args: SetHookArgs) => Effect.Effect<void, AppError>;
+  /** Remove a hook from both settings and lockfile. No-op if absent. Serialized by semaphore. */
+  readonly removeHook: (name: string) => Effect.Effect<void, AppError>;
+  /** Remove a hook from settings only. Serialized by semaphore. */
+  readonly removeHookSettings: (name: string) => Effect.Effect<void, AppError>;
+  /** Remove a hook from lockfile only. Serialized by semaphore. */
+  readonly removeHookLock: (name: string) => Effect.Effect<void, AppError>;
+  /** Update a hook entry by applying an updater function. Serialized by semaphore. */
+  readonly updateHookEntry: (
+    name: string,
+    updater: (entry: HookEntry) => HookEntry,
+  ) => Effect.Effect<void, AppError>;
+  /** Create or overwrite a hook entry in settings only. Serialized by semaphore. */
+  readonly setHookEntry: (name: string, entry: HookEntry) => Effect.Effect<void, AppError>;
   /** Read lockfile and return the skills lock map. */
   readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific skill, or Option.none(). */

@@ -86,6 +86,7 @@ export const makeReadModelRecordReaders = (args: {
         readonly resolvedSubagents?: Readonly<Record<string, unknown>> | undefined;
         readonly resolvedFiles?: Readonly<Record<string, unknown>> | undefined;
         readonly resolvedRules?: Readonly<Record<string, unknown>> | undefined;
+        readonly resolvedHooks?: Readonly<Record<string, unknown>> | undefined;
       };
     }>,
     key:
@@ -94,7 +95,8 @@ export const makeReadModelRecordReaders = (args: {
       | "resolvedMcpServers"
       | "resolvedSubagents"
       | "resolvedFiles"
-      | "resolvedRules",
+      | "resolvedRules"
+      | "resolvedHooks",
   ): ReadonlyArray<ExtensionName> => {
     const names: Array<ExtensionName> = [];
     for (const pack of packs) {
@@ -327,6 +329,54 @@ export const makeReadModelRecordReaders = (args: {
                 "resolvedRules",
               ),
             });
+          }
+          case "hook": {
+            const settingsOption = yield* scoped.state.settings;
+            const lockfileOption = yield* scoped.state.lockfile;
+            const packs = yield* scoped.packs.resolved;
+            const settings = Option.getOrElse(settingsOption, () => createDefaultSettings());
+            const configured = settings.hooks ?? {};
+            const locked = Option.match(lockfileOption, {
+              onNone: () => ({}),
+              onSome: (lockfile) => lockfile.hooks ?? {},
+            });
+            const configuredNames = new Set(Object.keys(configured));
+            const lockedEntries = Object.entries(locked);
+            const lockedByName = new Map(lockedEntries);
+            const configuredRows = Object.entries(configured).map(
+              ([name, entry]): ReadModelRecordRow => {
+                const lockEntry = lockedByName.get(name);
+                return {
+                  type,
+                  name,
+                  source: entry.source,
+                  enabled: entry.enabled,
+                  packagingKind: packagingKindForResolved(
+                    Option.fromUndefinedOr(lockEntry === undefined ? undefined : { lockEntry }),
+                    type,
+                    entry.source,
+                  ),
+                  lifecycle: "configured",
+                };
+              },
+            );
+            const lockedRows = lockedEntries.flatMap(([name, lockEntry]) => {
+              if (configuredNames.has(name)) return [];
+              return Option.getOrElse(
+                resolvedRowToImplicit(type, {
+                  name,
+                  lockEntry,
+                }),
+                () => [],
+              );
+            });
+            const packRows = packMemberNames(
+              Option.getOrElse(packs, () => []),
+              "resolvedHooks",
+            )
+              .filter((name) => !configuredNames.has(name))
+              .map((name) => packMemberToImplicit(type, name));
+            return [...configuredRows, ...lockedRows, ...packRows];
           }
         }
       }),

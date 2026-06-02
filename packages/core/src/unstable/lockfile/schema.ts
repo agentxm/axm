@@ -424,6 +424,35 @@ export const RulesLockMapSchema = Schema.Record(Schema.String, RuleLockEntrySche
 export type RulesLockMap = Schema.Schema.Type<typeof RulesLockMapSchema>;
 
 // =============================================================================
+// Hook Lock Entry (union of all source types, no agents)
+// =============================================================================
+
+const HookCommonFields = {
+  ...BaseCommonFields,
+  materializedTargets: Schema.optional(Schema.Array(MaterializedFileTargetSchema)),
+};
+
+/**
+ * Lock entry for a single installed hook.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const HookLockEntrySchema = makeSourceLockUnion(HookCommonFields);
+
+/** @experimental */
+export type HookLockEntry = Schema.Schema.Type<typeof HookLockEntrySchema>;
+
+/**
+ * Map of hook names to their lock entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const HooksLockMapSchema = Schema.Record(Schema.String, HookLockEntrySchema);
+
+/** @experimental */
+export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
+
+// =============================================================================
 // Pack Lock Entry
 // =============================================================================
 
@@ -460,6 +489,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedSubagents: ResolvedExtensionMapSchema,
   resolvedFiles: Schema.optional(ResolvedExtensionMapSchema),
   resolvedRules: Schema.optional(ResolvedExtensionMapSchema),
+  resolvedHooks: Schema.optional(ResolvedExtensionMapSchema),
 }).annotate({
   identifier: "RegistryPackLockEntry",
   title: "Registry Pack Lock Entry",
@@ -562,6 +592,7 @@ export const LockfileSchema = Schema.Struct({
   mcpServers: Schema.optional(McpServersLockMapSchema),
   files: Schema.optional(FilesLockMapSchema),
   rules: Schema.optional(RulesLockMapSchema),
+  hooks: Schema.optional(HooksLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
 }).annotate({
   identifier: "Lockfile",

@@ -11,6 +11,7 @@ import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "../../commands
 import type { CommandExtensionRef } from "../../commands/index.js";
 import { filesPackagesInDir, type FilesExtensionRef } from "../../files/index.js";
 import { getTreeSha } from "../../git/index.js";
+import { hookPackagesInDir, type HookExtensionRef } from "../../hooks/index.js";
 import { rulePackagesInDir, type RuleExtensionRef } from "../../rules/index.js";
 import { MANIFEST_FILENAME, SubagentManifestSchema } from "../../subagents/manifest-schema.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
@@ -402,6 +403,44 @@ const ruleRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
     );
   });
 
+const hookRefsInDir = (source: ExternalSource, basePath: string, options: FindOptions) =>
+  Effect.gen(function* () {
+    const root = yield* searchRootFor(source, basePath);
+    const discovered = yield* hookPackagesInDir(root, { fullDepth: true });
+    const matching = discovered.filter(({ manifest }) => matchesIdentity(manifest, options));
+    return yield* Effect.forEach(
+      matching,
+      (discovery) =>
+        Effect.gen(function* () {
+          const hook = { name: discovery.manifest.name };
+          switch (source.type) {
+            case "local":
+              return {
+                type: "hook",
+                refType: "local",
+                hook,
+                source,
+                location: discovery.location,
+              } satisfies HookExtensionRef;
+            case "github":
+            case "gitlab":
+            case "bitbucket":
+            case "azurerepos":
+            case "git":
+              return {
+                type: "hook",
+                refType: "git-hosted",
+                hook,
+                source,
+                location: discovery.location,
+                gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
+              } satisfies HookExtensionRef;
+          }
+        }),
+      { concurrency: "unbounded" },
+    );
+  });
+
 const identityKey = (ref: ExtensionRef): string | undefined => {
   switch (ref.type) {
     case "command":
@@ -412,6 +451,8 @@ const identityKey = (ref: ExtensionRef): string | undefined => {
       return `${ref.type}:${ref.file.name}`;
     case "rule":
       return `${ref.type}:${ref.rule.name}`;
+    case "hook":
+      return `${ref.type}:${ref.hook.name}`;
     case "skill":
       return `${ref.type}:${ref.skill.name}`;
     case "mcp-server":
@@ -459,6 +500,9 @@ export const discoverConventionRefs = (
         : []),
       ...(options.type === "rule" || options.type === "*"
         ? yield* ruleRefsInDir(source, basePath, options)
+        : []),
+      ...(options.type === "hook" || options.type === "*"
+        ? yield* hookRefsInDir(source, basePath, options)
         : []),
     ];
 

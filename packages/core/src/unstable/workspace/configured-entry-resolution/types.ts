@@ -2,6 +2,7 @@ import type * as Option from "effect/Option";
 import type { CommandExtensionRef } from "../../commands/index.js";
 import type { AppError } from "../../app-error/index.js";
 import type { FilesExtensionRef } from "../../files/index.js";
+import type { HookExtensionRef } from "../../hooks/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import type { RuleExtensionRef } from "../../rules/index.js";
@@ -26,6 +27,7 @@ export type ResolvedConfiguredSubagent = ResolvedConfiguredEntry<SubagentExtensi
 export type ResolvedConfiguredCommand = ResolvedConfiguredEntry<CommandExtensionRef>;
 export type ResolvedConfiguredFiles = ResolvedConfiguredEntry<FilesExtensionRef>;
 export type ResolvedConfiguredRule = ResolvedConfiguredEntry<RuleExtensionRef>;
+export type ResolvedConfiguredHook = ResolvedConfiguredEntry<HookExtensionRef>;
 export type ResolvedConfiguredMcpServer = ResolvedConfiguredEntry<McpServerExtensionRef>;
 export type ResolvedConfiguredPack = ResolvedConfiguredEntry<PackRef>;
 

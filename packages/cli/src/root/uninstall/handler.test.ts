@@ -16,6 +16,14 @@ import {
   type UninstallMcpServerHandlerArgs,
 } from "../mcps/uninstall/command-actions.js";
 import {
+  UninstallFilesCommandWorkflowActions,
+  type UninstallFilesHandlerArgs,
+} from "../files/uninstall/command-actions.js";
+import {
+  UninstallHookCommandWorkflowActions,
+  type UninstallHookHandlerArgs,
+} from "../hooks/uninstall/command-actions.js";
+import {
   UninstallPackCommandWorkflowActions,
   type UninstallPackHandlerArgs,
 } from "../packs/uninstall/command-actions.js";
@@ -27,6 +35,10 @@ import {
   UninstallSubagentCommandWorkflowActions,
   type UninstallSubagentHandlerArgs,
 } from "../subagents/uninstall/command-actions.js";
+import {
+  UninstallRuleCommandWorkflowActions,
+  type UninstallRuleHandlerArgs,
+} from "../rules/uninstall/command-actions.js";
 import {
   getAppError,
   makeEffectProvide,
@@ -120,6 +132,36 @@ describe("root uninstall handler", () => {
       buildUninstallPlan: () => Effect.succeed(makePlan("subagent")),
     };
 
+    const filesActions = {
+      parseArgs: (args: UninstallFilesHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({ type: "files", name: args.name });
+          return {};
+        }),
+      finalizeIntent: () => Effect.succeed({}),
+      buildUninstallPlan: () => Effect.succeed(makePlan("files")),
+    };
+
+    const ruleActions = {
+      parseArgs: (args: UninstallRuleHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({ type: "rule", name: args.name });
+          return {};
+        }),
+      finalizeIntent: () => Effect.succeed({}),
+      buildUninstallPlan: () => Effect.succeed(makePlan("rule")),
+    };
+
+    const hookActions = {
+      parseArgs: (args: UninstallHookHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({ type: "hook", name: args.name });
+          return {};
+        }),
+      finalizeIntent: () => Effect.succeed({}),
+      buildUninstallPlan: () => Effect.succeed(makePlan("hook")),
+    };
+
     const packActions = {
       parseArgs: (args: UninstallPackHandlerArgs) =>
         Effect.sync(() => {
@@ -162,6 +204,27 @@ describe("root uninstall handler", () => {
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
+        UninstallFilesCommandWorkflowActions,
+        filesActions as unknown as ServiceMap.Service.Shape<
+          typeof UninstallFilesCommandWorkflowActions
+        >,
+      ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
+        UninstallRuleCommandWorkflowActions,
+        ruleActions as unknown as ServiceMap.Service.Shape<
+          typeof UninstallRuleCommandWorkflowActions
+        >,
+      ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
+        UninstallHookCommandWorkflowActions,
+        hookActions as unknown as ServiceMap.Service.Shape<
+          typeof UninstallHookCommandWorkflowActions
+        >,
+      ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
         UninstallPackCommandWorkflowActions,
         packActions as unknown as ServiceMap.Service.Shape<
           typeof UninstallPackCommandWorkflowActions
@@ -192,6 +255,9 @@ describe("root uninstall handler", () => {
           "@acme/skills/code-review",
           "@acme/commands/release-notes@^1.2.0",
           "@acme/mcps/dev-server",
+          "@ac/files/workspace-baseline",
+          "@acme/rules/review-policy",
+          "@acme/hooks/tool-audit",
           "@acme/subagents/researcher",
           "@acme/packs/frontend-tools",
         ] as const;
@@ -202,6 +268,9 @@ describe("root uninstall handler", () => {
           { type: "skill", name: "code-review" },
           { type: "command", name: "release-notes" },
           { type: "mcp-server", name: "dev-server" },
+          { type: "files", name: "workspace-baseline" },
+          { type: "rule", name: "review-policy" },
+          { type: "hook", name: "tool-audit" },
           { type: "subagent", name: "researcher" },
           { type: "pack", name: "frontend-tools" },
         ]);

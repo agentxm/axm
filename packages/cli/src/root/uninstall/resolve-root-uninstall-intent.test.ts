@@ -75,7 +75,7 @@ describe("resolveRootUninstallIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcps, subagents, files, rules, packs");
+      ).toContain("skills, commands, mcps, subagents, files, rules, hooks, packs");
     }),
   );
 });

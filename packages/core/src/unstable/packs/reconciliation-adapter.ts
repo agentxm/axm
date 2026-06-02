@@ -121,6 +121,7 @@ const parsePackDependency = (
       });
     case "files":
     case "rule":
+    case "hook":
     case "pack":
       return Option.none();
   }
@@ -348,6 +349,7 @@ const resolveInstalledDependencyMaps = (
           break;
         case "files":
         case "rule":
+        case "hook":
         case "pack":
           return {
             _tag: "Unresolved",

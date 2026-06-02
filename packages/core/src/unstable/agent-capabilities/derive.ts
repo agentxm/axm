@@ -21,6 +21,7 @@ export const LEAF_EXTENSION_TYPES = [
   "subagent",
   "files",
   "rule",
+  "hook",
 ] as const satisfies ReadonlyArray<ExtensionType>;
 
 /** @experimental This API is unstable and may change without notice. */
@@ -34,6 +35,7 @@ export const capabilityKinds = [
   "subagents",
   "instructions",
   "rules",
+  "hooks",
   "permissions",
 ] as const;
 
@@ -59,6 +61,7 @@ export const EXTENSION_TYPE_CAPABILITY = {
   subagent: (agent: Agent) => agent.subagents,
   files: (agent: Agent) => agent.instructions,
   rule: (agent: Agent) => agent.rules,
+  hook: (agent: Agent) => agent.hooks,
 } satisfies Record<LeafExtensionType, (agent: Agent) => AgentCapability | undefined>;
 
 /** @experimental This API is unstable and may change without notice. */

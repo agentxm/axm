@@ -25,7 +25,7 @@ describe("print", () => {
   });
 
   it("formats with subPath", () => {
-    expect(print(makeSource({ subPath: "src/lib" }))).toBe("github:acme/widgets/src/lib");
+    expect(print(makeSource({ subPath: "src/lib" }))).toBe("github:acme/widgets//src/lib");
   });
 
   it("formats with ref", () => {
@@ -34,7 +34,7 @@ describe("print", () => {
 
   it("formats with subPath and ref", () => {
     expect(print(makeSource({ subPath: "src/lib", ref: "v2" }))).toBe(
-      "github:acme/widgets/src/lib@v2",
+      "github:acme/widgets//src/lib@v2",
     );
   });
 

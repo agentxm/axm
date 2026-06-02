@@ -9,6 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
+import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
@@ -71,6 +72,18 @@ const emptyFilesManager = {
   removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof FilesManager>;
 
+const emptyHookManager = {
+  type: "hook",
+  isInstalled: () => Effect.succeed(false),
+  materializeInstall: () => Effect.void,
+  listMaterializable: () => Effect.succeed([]),
+  materializeUninstall: () => Effect.void,
+  upsertSettingsEntry: () => Effect.void,
+  removeSettingsEntry: () => Effect.void,
+  upsertLockfileEntry: () => Effect.void,
+  removeLockfileEntry: () => Effect.void,
+} satisfies ServiceMap.Service.Shape<typeof HookManager>;
+
 const emptyRuleManager = {
   type: "rule",
   isInstalled: () => Effect.succeed(false),
@@ -112,6 +125,7 @@ const emptyManagersLayer = Layer.mergeAll(
   Layer.succeed(CommandManager, emptyCommandManager),
   Layer.succeed(McpServerManager, emptyMcpServerManager),
   Layer.succeed(FilesManager, emptyFilesManager),
+  Layer.succeed(HookManager, emptyHookManager),
   Layer.succeed(RuleManager, emptyRuleManager),
   Layer.succeed(SubagentManager, emptySubagentManager),
   Layer.succeed(PackManager, emptyPackManager),

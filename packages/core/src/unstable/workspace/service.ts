@@ -29,6 +29,7 @@ import {
   writeLockfile,
   type RegistryPackLockEntry,
   type FilesLockMap,
+  type HooksLockMap,
   type RulesLockMap,
   type SubagentsLockMap,
 } from "../lockfile/index.js";
@@ -51,6 +52,8 @@ import {
   createDefaultSettings,
   type FilesEntry,
   type FilesMap,
+  type HookEntry,
+  type HooksMap,
   type InstructionsConfigValue,
   type McpServerEntry,
   type McpServersMap,
@@ -92,6 +95,7 @@ import {
   type SetCommandArgs,
   type SetFilesArgs,
   type SetRuleArgs,
+  type SetHookArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
   type SkillPathSource,
@@ -830,6 +834,168 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             }).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setRuleEntry")),
+
+      getConfiguredHookEntries: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s): HooksMap => s.hooks ?? {}),
+          Effect.withSpan("WorkspaceMutations.getConfiguredHookEntries"),
+        ),
+
+      getLockedHooks: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.hooks ?? {})),
+
+      getLockedHookEntry: (name: string) =>
+        readLockfileSafe(workspaceDir).pipe(
+          Effect.map((lf) => Option.fromUndefinedOr((lf.hooks ?? {})[name])),
+        ),
+
+      setHook: ({ name, lockEntry, versionRange }: SetHookArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            const source =
+              lockEntry.type === "registry"
+                ? (() => {
+                    const fqn = formatFqn({
+                      owner: lockEntry.owner,
+                      type: "hook",
+                      name: decodeExtensionNameSync(name),
+                    });
+                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                  })()
+                : printSourceParams(lockEntryToSourceParams(lockEntry));
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentHooks: HooksMap = currentSettings.hooks ?? {};
+            const currentEntry = currentHooks[name];
+            const authored = currentEntry?.authored ?? false;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              hooks: {
+                ...currentHooks,
+                [name]: { source, enabled: true, authored },
+              },
+            }).pipe(Effect.provide(fsLayer));
+
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedHooks = currentLockfile.hooks ?? {};
+            const previous = currentLockedHooks[name];
+            yield* writeLockfile(workspaceDir, {
+              ...currentLockfile,
+              hooks: {
+                ...currentLockedHooks,
+                [name]: {
+                  ...lockEntry,
+                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
+                  updatedAt: new Date(),
+                },
+              },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setHook")),
+
+      setHookLock: ({ name, lockEntry }: SetHookArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedHooks = currentLockfile.hooks ?? {};
+            const previous = currentLockedHooks[name];
+            yield* writeLockfile(workspaceDir, {
+              ...currentLockfile,
+              hooks: {
+                ...currentLockedHooks,
+                [name]: {
+                  ...lockEntry,
+                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
+                  updatedAt: new Date(),
+                },
+              },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setHookLock")),
+
+      removeHook: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentHooks: HooksMap = currentSettings.hooks ?? {};
+            const remainingSettings =
+              name in currentHooks
+                ? (() => {
+                    const { [name]: _, ...remainingHooks } = currentHooks;
+                    void _;
+                    return { ...currentSettings, hooks: remainingHooks };
+                  })()
+                : currentSettings;
+
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedHooks = currentLockfile.hooks ?? {};
+            const remainingLockfile =
+              name in currentLockedHooks
+                ? (() => {
+                    const { [name]: _, ...remainingHooks } = currentLockedHooks;
+                    void _;
+                    return { ...currentLockfile, hooks: remainingHooks };
+                  })()
+                : currentLockfile;
+
+            yield* writeSettings(workspaceDir, remainingSettings).pipe(Effect.provide(fsLayer));
+            yield* writeLockfile(workspaceDir, remainingLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeHook")),
+
+      removeHookSettings: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentHooks: HooksMap = currentSettings.hooks ?? {};
+            if (!(name in currentHooks)) return;
+            const { [name]: _, ...remainingHooks } = currentHooks;
+            void _;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              hooks: remainingHooks,
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeHookSettings")),
+
+      removeHookLock: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedHooks: HooksLockMap = currentLockfile.hooks ?? {};
+            if (!(name in currentLockedHooks)) return;
+            const { [name]: _, ...remainingHooks } = currentLockedHooks;
+            void _;
+            yield* writeLockfile(workspaceDir, {
+              ...currentLockfile,
+              hooks: remainingHooks,
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeHookLock")),
+
+      updateHookEntry: (name: string, updater: (entry: HookEntry) => HookEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentHooks: HooksMap = currentSettings.hooks ?? {};
+            const existingEntry = currentHooks[name];
+            if (existingEntry === undefined) return;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              hooks: { ...currentHooks, [name]: updater(existingEntry) },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.updateHookEntry")),
+
+      setHookEntry: (name: string, entry: HookEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentHooks: HooksMap = currentSettings.hooks ?? {};
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              hooks: { ...currentHooks, [name]: entry },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setHookEntry")),
 
       getLockedSkills: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.skills)),
 
@@ -1722,7 +1888,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     ? packEntry.resolvedMcpServers
                     : target.type === "files"
                       ? (packEntry.resolvedFiles ?? {})
-                      : (packEntry.resolvedRules ?? {});
+                      : target.type === "rule"
+                        ? (packEntry.resolvedRules ?? {})
+                        : (packEntry.resolvedHooks ?? {});
 
             // Check if any FQN key in the resolved map ends with the target name
             for (const fqn of Object.keys(resolvedMap)) {
@@ -1803,6 +1971,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   ...currentLockfile,
                   rules: {
                     ...rules,
+                    [target.name]: { ...entry, retainedByPack: true },
+                  },
+                };
+                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                break;
+              }
+              case "hook": {
+                const hooks = currentLockfile.hooks ?? {};
+                const entry = hooks[target.name];
+                if (entry === undefined) return;
+                const updatedLockfile = {
+                  ...currentLockfile,
+                  hooks: {
+                    ...hooks,
                     [target.name]: { ...entry, retainedByPack: true },
                   },
                 };

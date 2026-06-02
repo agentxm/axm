@@ -9,6 +9,7 @@ export const installableExtensionTypes = [
   "subagent",
   "files",
   "rule",
+  "hook",
   "pack",
 ] as const satisfies ReadonlyArray<ExtensionType>;
 
@@ -27,6 +28,7 @@ export const installableExtensionTypePluralSegments = [
   "subagents",
   "files",
   "rules",
+  "hooks",
   "packs",
 ] as const satisfies ReadonlyArray<ExtensionTypePlural>;
 
@@ -50,6 +52,7 @@ const installableExtensionTypeFromPlural: Record<
   subagents: "subagent",
   files: "files",
   rules: "rule",
+  hooks: "hook",
   packs: "pack",
 };
 
@@ -63,6 +66,7 @@ const installableExtensionTypeToPlural: Record<
   subagent: "subagents",
   files: "files",
   rule: "rules",
+  hook: "hooks",
   pack: "packs",
 };
 

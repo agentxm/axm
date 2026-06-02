@@ -122,6 +122,7 @@ const exampleNamesByType: Record<VersionableExtensionType, string> = {
   skill: "code-review",
   subagent: "researcher",
   "mcp-server": "my-server",
+  hook: "block-secrets",
   pack: "frontend-tools",
 };
 

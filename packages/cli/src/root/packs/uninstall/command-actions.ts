@@ -21,7 +21,9 @@ import {
 } from "@agentxm/client-core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unstable/files";
+import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
 import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
+import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import {
   SubagentManager,
   type SubagentExtensionRef,
@@ -96,7 +98,9 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
     const skillMgr = yield* SkillManager;
     const commandMgr = yield* CommandManager;
     const contextManager = yield* FilesManager;
+    const hookManager = yield* HookManager;
     const mcpServerMgr = yield* McpServerManager;
+    const ruleManager = yield* RuleManager;
     const subagentMgr = yield* SubagentManager;
 
     const parseArgs = (args: UninstallPackHandlerArgs) =>
@@ -194,12 +198,14 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         const lockedCommands = yield* ws.getLockedCommands();
         const lockedMcpServers = yield* ws.getLockedMcpServers();
         const lockedFiles = yield* ws.getLockedFiles();
+        const lockedHooks = yield* ws.getLockedHooks();
         const lockfile = {
           lockfileVersion: LOCKFILE_VERSION,
           skills: lockedSkills,
           commands: lockedCommands,
           mcpServers: lockedMcpServers,
           files: lockedFiles,
+          hooks: lockedHooks,
           packs: lockedPacks,
         };
 
@@ -209,6 +215,8 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         const configuredMcpServers = yield* ws.records.getConfiguredMcpServers();
         const configuredSubagents = yield* ws.records.getConfiguredSubagents();
         const configuredFiles = yield* ws.getConfiguredFilesEntries();
+        const configuredRules = yield* ws.getConfiguredRuleEntries();
+        const configuredHooks = yield* ws.getConfiguredHookEntries();
 
         const settings: UninstallSettingsContext = {
           skills: Object.fromEntries(Object.keys(configuredSkills).map((k) => [k, k])),
@@ -216,6 +224,8 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           mcpServers: Object.fromEntries(Object.keys(configuredMcpServers).map((k) => [k, k])),
           subagents: Object.fromEntries(Object.keys(configuredSubagents).map((k) => [k, k])),
           files: Object.fromEntries(Object.keys(configuredFiles).map((k) => [k, k])),
+          rules: Object.fromEntries(Object.keys(configuredRules).map((k) => [k, k])),
+          hooks: Object.fromEntries(Object.keys(configuredHooks).map((k) => [k, k])),
         };
 
         // Expand each pack and collect all targets, deduplicating by type+name
@@ -224,7 +234,15 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         for (const pack of intent.packsToUninstall) {
           const targets = yield* expandPackUninstallTargets({
             pack,
-            supportedDependencyTypes: ["skill", "command", "mcp-server", "subagent", "files"],
+            supportedDependencyTypes: [
+              "skill",
+              "command",
+              "mcp-server",
+              "subagent",
+              "files",
+              "rule",
+              "hook",
+            ],
             lockfile,
             settings,
           });
@@ -275,6 +293,18 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
           if (target.type === "files") {
             return buildUninstallOperation<FilesExtensionRef>(contextManager, retentionPolicy, {
+              target,
+            });
+          }
+
+          if (target.type === "rule") {
+            return buildUninstallOperation<RuleExtensionRef>(ruleManager, retentionPolicy, {
+              target,
+            });
+          }
+
+          if (target.type === "hook") {
+            return buildUninstallOperation<HookExtensionRef>(hookManager, retentionPolicy, {
               target,
             });
           }

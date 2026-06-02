@@ -1,6 +1,7 @@
 export {
   resolveConfiguredCommand,
   resolveConfiguredFiles,
+  resolveConfiguredHook,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredRule,
@@ -17,6 +18,7 @@ export {
   type ResolvedConfiguredCommand,
   type ResolvedConfiguredEntry,
   type ResolvedConfiguredFiles,
+  type ResolvedConfiguredHook,
   type ResolvedConfiguredMcpServer,
   type ResolvedConfiguredPack,
   type ResolvedConfiguredRule,

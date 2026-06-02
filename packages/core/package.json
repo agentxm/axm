@@ -155,6 +155,10 @@
       "types": "./dist/src/unstable/rules/index.d.ts",
       "default": "./dist/src/unstable/rules/index.js"
     },
+    "./unstable/hooks": {
+      "types": "./dist/src/unstable/hooks/index.d.ts",
+      "default": "./dist/src/unstable/hooks/index.js"
+    },
     "./unstable/managed-files": {
       "types": "./dist/src/unstable/managed-files/index.d.ts",
       "default": "./dist/src/unstable/managed-files/index.js"

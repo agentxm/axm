@@ -28,6 +28,7 @@ import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
+import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -45,6 +46,8 @@ import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/instal
 import { UninstallCommandCommandWorkflowActionsLive } from "./root/commands/uninstall/command-actions.js";
 import { InstallFilesCommandWorkflowActionsLive } from "./root/files/install/command-actions.js";
 import { UninstallFilesCommandWorkflowActionsLive } from "./root/files/uninstall/command-actions.js";
+import { InstallHookCommandWorkflowActionsLive } from "./root/hooks/install/command-actions.js";
+import { UninstallHookCommandWorkflowActionsLive } from "./root/hooks/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/install/command-actions.js";
 import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/uninstall/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
@@ -222,6 +225,10 @@ const makeWorkspaceProgramLayer = (
     Layer.mergeAll(InstallRuleCommandWorkflowActionsLive, UninstallRuleCommandWorkflowActionsLive),
     RuleManagerLive,
   );
+  const hooksLayer = Layer.provideMerge(
+    Layer.mergeAll(InstallHookCommandWorkflowActionsLive, UninstallHookCommandWorkflowActionsLive),
+    HookManagerLive,
+  );
   const mcpServersLayer = Layer.provideMerge(
     Layer.mergeAll(
       InstallMcpServerCommandWorkflowActionsLive,
@@ -251,6 +258,7 @@ const makeWorkspaceProgramLayer = (
     commandsLayer,
     filesLayer,
     rulesLayer,
+    hooksLayer,
     mcpServersLayer,
     skillsLayer,
     subagentsLayer,

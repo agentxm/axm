@@ -14,6 +14,7 @@ import {
   WorkspaceMutations,
   resolveConfiguredCommand,
   resolveConfiguredFiles,
+  resolveConfiguredHook,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredRule,
@@ -31,6 +32,8 @@ import { InstallCommandCommandWorkflowActions } from "../commands/install/comman
 import type { InstallCommandCommandIntent } from "../commands/install/intent.js";
 import { InstallFilesCommandWorkflowActions } from "../files/install/command-actions.js";
 import type { InstallFilesCommandIntent } from "../files/install/intent.js";
+import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
+import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
 import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
@@ -66,6 +69,7 @@ type WorkspaceUpdateCollectorContext =
   | InstallSkillCommandWorkflowActions
   | InstallCommandCommandWorkflowActions
   | InstallFilesCommandWorkflowActions
+  | InstallHookCommandWorkflowActions
   | InstallRuleCommandWorkflowActions
   | InstallSubagentCommandWorkflowActions
   | InstallMcpServerCommandWorkflowActions
@@ -223,6 +227,16 @@ const resolveRuleIntent = (name: string, source: string) =>
     ),
   );
 
+const resolveHookIntent = (name: string, source: string) =>
+  resolveConfiguredHook(name, source).pipe(
+    Effect.map(
+      ({ ref, versionRange }) =>
+        ({
+          refs: [{ ref, versionRange }],
+        }) satisfies InstallHookCommandIntent,
+    ),
+  );
+
 const resolveMcpServerIntent = (name: string, source: string) =>
   resolveConfiguredMcpServer(name, source).pipe(
     Effect.map(
@@ -322,6 +336,25 @@ const collectRulePlans = () =>
     return toCollectedWorkspaceUpdatePlans({ plans });
   });
 
+const collectHookPlans = () =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const actions = yield* InstallHookCommandWorkflowActions;
+    const configured = yield* ws.getConfiguredHookEntries();
+    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+
+    const plans = yield* Effect.forEach(
+      entries,
+      ([name, entry]) =>
+        resolveHookIntent(name, entry.source).pipe(
+          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        ),
+      { concurrency: "unbounded" },
+    );
+
+    return toCollectedWorkspaceUpdatePlans({ plans });
+  });
+
 const collectSubagentPlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -387,6 +420,7 @@ const workspaceUpdateCollectors: ReadonlyArray<WorkspaceUpdateCollector> = [
   { type: "command" as const, collect: collectCommandPlans },
   { type: "files" as const, collect: collectFilePlans },
   { type: "rule" as const, collect: collectRulePlans },
+  { type: "hook" as const, collect: collectHookPlans },
   { type: "subagent" as const, collect: collectSubagentPlans },
   { type: "mcp-server" as const, collect: collectMcpServerPlans },
   { type: "pack" as const, collect: collectPackPlans },

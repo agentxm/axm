@@ -295,6 +295,7 @@ type FilesEntryCanonical = EnabledEntry & {
 };
 
 type RuleEntryCanonical = EnabledEntry;
+type HookEntryCanonical = EnabledEntry;
 
 const compactOrVerboseEntry = <
   ObjectEntry extends AuthoredEntryObject,
@@ -680,6 +681,83 @@ export const RulesMapSchema = Schema.Record(ExtensionMapKeySchema, RuleEntrySche
 
 /** @experimental */
 export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
+
+// -----------------------------------------------------------------------------
+// Hook Entry Schemas
+// -----------------------------------------------------------------------------
+
+/**
+ * Managed hook with source and optional config flags.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const HookEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("hook", "hooks"),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
+}).annotate({
+  title: "Hook Entry Object",
+  description: "A hook entry with source and optional enabled/authored flags.",
+});
+
+/**
+ * Union of hook entry forms: plain source string or object with source + enabled + authored.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const HookEntrySchema = compactOrVerboseEntry(
+  HookEntryObjectSchema,
+  Schema.Struct({
+    source: Schema.String,
+    enabled: Schema.Boolean,
+    authored: Schema.Boolean,
+  }),
+  {
+    decode: (entry: string | EnabledEntryObject): HookEntryCanonical =>
+      typeof entry === "string"
+        ? { source: entry, enabled: true, authored: false }
+        : {
+            source: entry.source,
+            enabled: entry.enabled ?? true,
+            authored: entry.authored ?? false,
+          },
+    encode: (entry: HookEntryCanonical): string | EnabledEntryObject => {
+      if (entry.enabled && !entry.authored) return entry.source;
+      const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+        source: entry.source,
+      };
+      if (!entry.enabled) obj.enabled = false;
+      if (entry.authored) obj.authored = true;
+      return obj;
+    },
+  },
+  {
+    identifier: "HookEntry",
+    title: "Hook Entry",
+    description: "A hook entry: a source string, or an object with source plus optional flags.",
+    examples: [
+      "@acme/hooks/block-secrets@^1.0.0",
+      { source: "@acme/hooks/block-secrets@^1.0.0", enabled: false },
+    ],
+  },
+);
+
+/** @experimental */
+export type HookEntry = Schema.Schema.Type<typeof HookEntrySchema>;
+
+/**
+ * Hooks map - maps hook names to hook entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const HooksMapSchema = Schema.Record(ExtensionMapKeySchema, HookEntrySchema).annotate({
+  identifier: "HooksMap",
+  title: "Hooks Map",
+  description: "A map of hook names to hook entries.",
+});
+
+/** @experimental */
+export type HooksMap = Schema.Schema.Type<typeof HooksMapSchema>;
 
 // -----------------------------------------------------------------------------
 // MCP Server Entry Schemas
@@ -1183,6 +1261,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "commandsConfig",
   "files",
   "rules",
+  "hooks",
   "subagents",
   "subagentsConfig",
   "packs",
@@ -1207,6 +1286,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - commandsConfig: Feature-level configuration for commands
  * - files: Desired Context Files packages by name to source string or input config
  * - rules: Desired rules by name to source string
+ * - hooks: Desired hooks by name to source string
  * - subagents: Desired subagents by name to version specifier
  * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
@@ -1289,6 +1369,12 @@ export const SettingsSchema = Schema.Struct({
     Schema.Union([RulesMapSchema]).annotate({
       description:
         "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`.",
+    }),
+  ),
+  hooks: Schema.optionalKey(
+    Schema.Union([HooksMapSchema]).annotate({
+      description:
+        "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`.",
     }),
   ),
   subagents: Schema.optionalKey(

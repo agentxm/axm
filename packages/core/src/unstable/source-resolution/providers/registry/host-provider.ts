@@ -287,6 +287,14 @@ const toExtensionRef = (
         source,
         ...details,
       });
+    case "hook":
+      return Option.some({
+        type: "hook",
+        refType: "registry" as const,
+        hook: { name: entry.name },
+        source,
+        ...details,
+      });
     case "pack":
       return Option.some({
         type: "pack",
@@ -315,6 +323,8 @@ const refName = (ref: ExtensionRef): ExtensionName => {
       return ref.file.name;
     case "rule":
       return ref.rule.name;
+    case "hook":
+      return ref.hook.name;
   }
 };
 

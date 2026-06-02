@@ -531,6 +531,35 @@ export const ConfigFileLocationSchema = Schema.Struct({
 export type ConfigFileLocation = Schema.Schema.Type<typeof ConfigFileLocationSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
+export const HooksSerializerSchema = Schema.Literals(["claude-code-settings"]).annotate({
+  identifier: "HooksSerializer",
+  title: "Hooks Serializer",
+  description: "Native settings serializer AXM uses for managed hook declarations.",
+  examples: ["claude-code-settings"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HooksSerializer = Schema.Schema.Type<typeof HooksSerializerSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HooksCapabilitySchema = Schema.Struct({
+  ...ScopedCapabilityBaseFields,
+  configFiles: Schema.Array(ConfigFileLocationSchema).pipe(
+    Schema.annotateKey({ messageMissingKey: "hook config files are required" }),
+  ),
+  serializer: HooksSerializerSchema.pipe(
+    Schema.annotateKey({ messageMissingKey: "hook serializer is required" }),
+  ),
+}).annotate({
+  identifier: "HooksCapability",
+  title: "Hooks Capability",
+  description: "Agent support for lifecycle hook extensions.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HooksCapability = Schema.Schema.Type<typeof HooksCapabilitySchema>;
+
+/** @experimental This API is unstable and may change without notice. */
 export const PermissionGrammarSchema = Schema.Struct({
   style: PermissionGrammarStyleSchema,
   example: Schema.NonEmptyString,
@@ -616,6 +645,7 @@ export type AgentCapability =
   | SubagentsCapability
   | InstructionsCapability
   | RulesCapability
+  | HooksCapability
   | PermissionsCapability;
 
 /** @experimental This API is unstable and may change without notice. */
@@ -644,6 +674,7 @@ export const AgentSchema = Schema.Struct({
   subagents: Schema.optional(SubagentsCapabilitySchema),
   instructions: Schema.optional(InstructionsCapabilitySchema),
   rules: Schema.optional(RulesCapabilitySchema),
+  hooks: Schema.optional(HooksCapabilitySchema),
   permissions: Schema.optional(PermissionsCapabilitySchema),
 }).annotate({
   identifier: "Agent",

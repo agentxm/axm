@@ -1,3 +1,13 @@
+## 0.15.0 (2026-06-03)
+
+### 🚀 Features
+
+- Add extension type capability catalog and align rule/files modeling ([f8c44cb2](https://github.com/agentxm/axm/commit/f8c44cb2))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.14.1 (2026-06-03)
 
 ### 🩹 Fixes

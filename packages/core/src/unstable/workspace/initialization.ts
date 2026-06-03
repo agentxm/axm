@@ -454,6 +454,18 @@ const configureProjectWorkspace = (args: {
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const workspaceRoot = path.dirname(args.localDir);
+    const nonInteractive = yield* isNonInteractive;
+    const requestedAgents = args.options.agents ?? [];
+    const shouldReuseExistingSettings =
+      args.settingsAction === "update" &&
+      requestedAgents.length === 0 &&
+      args.options.force !== true &&
+      args.options.preview !== true &&
+      (args.options.yes === true || nonInteractive);
+    if (shouldReuseExistingSettings) {
+      return args.existingSettings;
+    }
+
     const selectedAgents = yield* selectSetupAgents({
       options: args.options,
       existingSettings: args.existingSettings,
@@ -511,7 +523,6 @@ const configureProjectWorkspace = (args: {
       },
       ...planRows,
     ]);
-    const nonInteractive = yield* isNonInteractive;
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const confirmed =
       args.options.preview === true ||

@@ -13,7 +13,8 @@ import * as Schema from "effect/Schema";
 import * as YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { BRANDING } from "@agentxm/client-core/unstable/branding";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
@@ -33,13 +34,15 @@ const makeSetupTestContext = (opts?: {
   readonly flags?: {
     verbose?: boolean;
     debug?: boolean;
+    json?: boolean;
     nonInteractive?: boolean;
   };
   readonly selectAgents?: ReadonlyArray<string>;
   readonly scope?: "project" | "user";
   readonly installer?: "stub" | "live";
+  readonly renderer?: "text" | "machine";
 }) => {
-  const renderer = TestRenderer.make();
+  const renderer = opts?.renderer === "machine" ? TestMachineRenderer.make() : TestRenderer.make();
   const installCalls: Array<{
     readonly scope: "project" | "user";
     readonly yes: boolean;
@@ -289,7 +292,7 @@ describe("setup.handler", () => {
           const infoMessages = rendererState.logs
             .filter((entry) => entry._tag === "info")
             .map((entry) => entry.message);
-          expect(infoMessages).toContain("Telemetry is enabled to help improve axm. To disable:");
+          expect(infoMessages).toContain("Telemetry is enabled to help improve AXM. To disable:");
         }),
       );
     });
@@ -307,7 +310,7 @@ describe("setup.handler", () => {
             .filter((entry) => entry._tag === "info")
             .map((entry) => entry.message);
           expect(infoMessages).not.toContain(
-            "Telemetry is enabled to help improve axm. To disable:",
+            "Telemetry is enabled to help improve AXM. To disable:",
           );
         }).pipe(
           Effect.ensuring(
@@ -320,6 +323,42 @@ describe("setup.handler", () => {
             }),
           ),
         ),
+      );
+    });
+  });
+
+  describe("branding", () => {
+    it.effect("shows AXM branding at the start of text setup", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: false },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project" });
+
+          expect(rendererState.logs.slice(0, 3)).toEqual([
+            { _tag: "message", message: "" },
+            { _tag: "message", message: BRANDING },
+            { _tag: "message", message: "" },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("does not emit branding in JSON mode", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { json: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project" });
+
+          const messageLogs = rendererState.logs.filter((entry) => entry._tag === "message");
+          expect(messageLogs).toEqual([]);
+        }),
       );
     });
   });

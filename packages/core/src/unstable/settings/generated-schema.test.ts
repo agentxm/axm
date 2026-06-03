@@ -22,6 +22,20 @@ const readGeneratedSchema = (name: string): Record<string, unknown> => {
 const readGeneratedSettingsSchema = (): Record<string, unknown> =>
   readGeneratedSchema("settings.schema.json");
 
+const generatedSchemaNames = [
+  "axm-lock.schema.json",
+  "settings.schema.json",
+  "skill.schema.json",
+  "command.schema.json",
+  "mcp-server.schema.json",
+  "subagent.schema.json",
+  "pack.schema.json",
+  "files.schema.json",
+  "rule.schema.json",
+  "hook.schema.json",
+  "axm-package-meta.schema.json",
+] as const;
+
 const getRecord = (record: Record<string, unknown>, key: string): Record<string, unknown> => {
   const value = record[key];
   if (!isRecord(value)) {
@@ -115,6 +129,12 @@ const getOptionalFieldExamplesRecord = (
 };
 
 describe("generated schemas", () => {
+  it("omits generation comments from public schema documents", () => {
+    for (const name of generatedSchemaNames) {
+      expect(readGeneratedSchema(name)).not.toHaveProperty("$comment");
+    }
+  });
+
   it("includes the lint configuration surface", () => {
     const schema = readGeneratedSettingsSchema();
     const definitions = schema["definitions"];

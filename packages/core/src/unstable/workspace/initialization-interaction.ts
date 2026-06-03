@@ -4,10 +4,9 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Terminal from "effect/Terminal";
-import { Prompt } from "effect/unstable/cli";
 import type { AgentDescriptor } from "../agents/index.js";
 import type { AppError } from "../app-error/index.js";
-import { requireInteractive } from "../cli/prompt/index.js";
+import { autocompleteMultiselect, requireInteractive } from "../cli/prompt/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 
 const selectAgentsMessage = "Select agents to configure";
@@ -41,7 +40,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
     return {
       selectAgents: ({ allAgents, detectedIds }) =>
         requireInteractive(
-          Prompt.multiSelect({
+          autocompleteMultiselect({
             message: selectAgentsMessage,
             choices: allAgents.map((agent) => ({
               title: agent.name,

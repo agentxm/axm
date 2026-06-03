@@ -2,6 +2,7 @@ import { AGENTS, CodingAgentRepository } from "@agentxm/client-core/unstable/age
 import type { AgentId } from "@agentxm/client-core/unstable/agents";
 import {
   forceFlag,
+  jsonFlag,
   nonInteractiveFlag,
   previewFlag,
   yesFlag,
@@ -233,6 +234,17 @@ const renderSubagentSummary = (
       }
     }
   });
+
+const renderSetupBranding = (renderer: ServiceMap.Service.Shape<typeof CliRenderer>) =>
+  Effect.gen(function* () {
+    const json = yield* jsonFlag;
+    if (Option.getOrElse(json, () => false)) return;
+
+    yield* renderer.message("");
+    yield* renderer.message(BRANDING);
+    yield* renderer.message("");
+  });
+
 export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   readonly scope: WorkspaceScope;
   readonly agents?: ReadonlyArray<string>;
@@ -242,6 +254,8 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
 }) {
   const renderer = yield* CliRenderer;
   const path = yield* Path.Path;
+  yield* renderSetupBranding(renderer);
+
   const { settings, location, initialized } = yield* bootstrapWorkspace(
     args.agents !== undefined && args.agents.length > 0
       ? ({ scope: args.scope, agents: args.agents } satisfies WorkspaceMutationsOptions)
@@ -298,11 +312,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     return;
   }
 
-  // Show intro
-  yield* renderer.message("");
-  yield* renderer.message(BRANDING);
-  yield* renderer.message("");
-  yield* renderer.info(`axm setup (${location.scope})`);
+  yield* renderer.info(`AXM setup (${location.scope})`);
   if (allAgents.length > 0) {
     yield* renderer.info(`Agents: ${agentNames}`);
   }
@@ -318,7 +328,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   // Show telemetry notice (unless telemetry is off)
   if (telemetryMode !== "off") {
     yield* renderer.info("");
-    yield* renderer.info("Telemetry is enabled to help improve axm. To disable:");
+    yield* renderer.info("Telemetry is enabled to help improve AXM. To disable:");
     yield* renderer.info('  AXM_TELEMETRY=0 or set "telemetry": false in settings');
   }
 }, Effect.asVoid);
@@ -347,7 +357,7 @@ export const setupCommand = Command.make(
     }).pipe(Effect.provide(SetupSkillInstallerLive), withRuntime("setup")),
 ).pipe(
   withArgvTracking(setupConfig),
-  Command.withDescription("Set up axm in the current project"),
+  Command.withDescription("Set up AXM in the current project"),
   Command.withExamples([
     { command: "axm setup", description: "Detect installed agents and create .axm/settings.json" },
     {

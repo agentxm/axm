@@ -5,7 +5,7 @@ description: |
 invocable: true
 ---
 
-# /axm - Agent Extension Manager Command
+# /axm - Agent Extension Manager
 
 ## Agent Invariants
 

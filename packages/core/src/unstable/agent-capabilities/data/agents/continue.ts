@@ -1,0 +1,80 @@
+import type { Agent } from "../../schema.js";
+
+export const continueAgent = {
+  id: "continue",
+  name: "Continue",
+  vendor: "Continue",
+  homepage: "https://www.continue.dev",
+  interfaces: ["ide-extension"],
+  family: null,
+  rootDir: ".continue",
+  detection: {
+    projectDirs: [],
+    userDirs: [],
+  },
+  docs: [
+    {
+      label: "Continue documentation",
+      url: "https://docs.continue.dev",
+    },
+  ],
+  skills: {
+    lifecycle: "available",
+    notes: null,
+    docs: [],
+    sources: ["https://docs.continue.dev"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    standardsCompliance: "full",
+    convention: "vendor",
+    directory: ".continue/skills",
+  },
+  commands: {
+    lifecycle: "available",
+    notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: ["https://docs.continue.dev/customize/deep-dives/prompt-files"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    directory: ".continue/commands",
+  },
+  mcp: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  subagents: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  instructions: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  rules: {
+    lifecycle: "available",
+    notes: "No industry spec for rule files yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: ["https://docs.continue.dev/guides/configuring-models-rules-tools"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    directory: ".continue/rules",
+  },
+  hooks: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  permissions: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+} as const satisfies Agent;

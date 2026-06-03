@@ -10,6 +10,10 @@ const stdioCapability = {
   standardsCompliance: "full",
   convention: "universal",
   lifecycle: "available",
+  notes: null,
+  docs: [],
+  sources: ["https://example.com/mcp"],
+  lastVerified: "2026-05-16",
   scopes: ["project"],
   transports: ["stdio"],
   config: {
@@ -17,9 +21,12 @@ const stdioCapability = {
     nativeEnabled: true,
     targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
     stdio: {
+      typeField: null,
       command: "split",
       envKey: "env",
     },
+    remote: null,
+    transform: null,
   },
 } satisfies McpCapability;
 
@@ -27,6 +34,10 @@ const remoteCapability = {
   standardsCompliance: "full",
   convention: "universal",
   lifecycle: "available",
+  notes: null,
+  docs: [],
+  sources: ["https://example.com/mcp"],
+  lastVerified: "2026-05-16",
   scopes: ["project"],
   transports: ["http", "stdio"],
   config: {
@@ -34,6 +45,7 @@ const remoteCapability = {
     nativeEnabled: true,
     targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
     stdio: {
+      typeField: null,
       command: "array",
       envKey: "env",
     },
@@ -45,6 +57,7 @@ const remoteCapability = {
       urlKey: { "streamable-http": "url", sse: "url" },
       headersKey: "headers",
     },
+    transform: null,
   },
 } satisfies McpCapability;
 

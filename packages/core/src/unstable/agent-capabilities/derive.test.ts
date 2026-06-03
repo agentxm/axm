@@ -18,13 +18,28 @@ const baseAgent = {
   vendor: "Example",
   homepage: "https://example.com",
   interfaces: ["cli"],
+  family: null,
+  rootDir: ".sample",
+  detection: { projectDirs: [], userDirs: [] },
+  docs: [],
   skills: {
     standardsCompliance: "full",
     convention: "vendor",
     lifecycle: "available",
+    notes: null,
+    docs: [],
+    sources: ["https://example.com/skills"],
+    lastVerified: "2026-05-16",
     scopes: ["project"],
     directory: ".sample/skills",
   },
+  commands: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  mcp: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  subagents: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  instructions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  rules: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  hooks: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  permissions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
 } satisfies Agent;
 
 describe("agent capability derivation", () => {
@@ -135,11 +150,19 @@ describe("agent capability derivation", () => {
         rootDir: ".sample-root",
         commands: {
           lifecycle: "available",
+          notes: null,
+          docs: [],
+          sources: ["https://example.com/commands"],
+          lastVerified: "2026-05-16",
           scopes: ["project"],
           directory: ".sample/commands",
         },
         subagents: {
           lifecycle: "available",
+          notes: null,
+          docs: [],
+          sources: ["https://example.com/subagents"],
+          lastVerified: "2026-05-16",
           scopes: ["project"],
           directory: ".sample/agents",
           layout: "directory",
@@ -148,6 +171,10 @@ describe("agent capability derivation", () => {
           standardsCompliance: "parity",
           convention: "vendor",
           lifecycle: "available",
+          notes: null,
+          docs: [],
+          sources: ["https://example.com/instructions"],
+          lastVerified: "2026-05-16",
           scopes: ["project"],
           kind: "own-file",
           files: ["SAMPLE.md"],
@@ -173,6 +200,10 @@ describe("agent capability derivation", () => {
         rootDir: null,
         subagents: {
           lifecycle: "available",
+          notes: null,
+          docs: [],
+          sources: ["https://example.com/subagents"],
+          lastVerified: "2026-05-16",
           scopes: ["project"],
           directory: ".sample-modes.yaml",
           layout: "file",
@@ -187,7 +218,7 @@ describe("agent capability derivation", () => {
     });
   });
 
-  it("derives omitted rootDir from the skills directory first segment", () => {
+  it("derives explicit rootDir", () => {
     expect(deriveAgentDescriptor(baseAgent).rootDir).toBe(".sample");
   });
 
@@ -214,10 +245,15 @@ describe("agent capability derivation", () => {
           standardsCompliance: "full",
           convention: "universal",
           lifecycle: "available",
+          notes: null,
+          docs: [],
+          sources: ["https://example.com/instructions"],
+          lastVerified: "2026-05-16",
           scopes: ["project"],
           kind: "agents-md",
           files: ["AGENTS.md"],
           nestedDiscovery: true,
+          importSyntax: null,
         },
       }).instructions,
     ).toEqual({ kind: "agents-md" });
@@ -229,13 +265,22 @@ describe("agent capability derivation", () => {
           standardsCompliance: "partial",
           convention: "vendor",
           lifecycle: "available",
+          notes: null,
+          docs: [],
+          sources: ["https://example.com/instructions"],
+          lastVerified: "2026-05-16",
           scopes: ["project"],
           kind: "rules-dir",
           files: ["RULES.md"],
           nestedDiscovery: false,
+          importSyntax: null,
         },
         rules: {
           lifecycle: "available",
+          notes: null,
+          docs: [],
+          sources: ["https://example.com/rules"],
+          lastVerified: "2026-05-16",
           scopes: ["project"],
           directory: ".sample/rules",
         },

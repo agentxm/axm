@@ -8,7 +8,7 @@
  */
 
 import * as Record from "effect/Record";
-import { AGENTS_BY_ID } from "../agent-capabilities/__generated__/catalog.js";
+import { AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
 import { deriveAgentDescriptor } from "../agent-capabilities/derive.js";
 import { UNIVERSAL_SKILLS_DIR } from "../extensions/universal-skills-dir.js";
 import { AGENT_IDS, type AgentDescriptor, type AgentId, type AgentRegistry } from "./types.js";

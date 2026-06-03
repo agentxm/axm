@@ -4,12 +4,35 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { ExtensionTypeSchema } from "../extensions/common.js";
 
 const AGENT_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const isUrl = (value: string): boolean => {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** @experimental This API is unstable and may change without notice. */
+export const UrlSchema = Schema.NonEmptyString.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) => (isUrl(value) ? undefined : `Expected URL, got ${value}`)),
+  ),
+).annotate({
+  identifier: "Url",
+  title: "URL",
+  description: "Absolute URL string.",
+  examples: ["https://example.com/docs"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type Url = Schema.Schema.Type<typeof UrlSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const AgentIdFromYamlSchema = Schema.NonEmptyString.pipe(
@@ -19,7 +42,7 @@ export const AgentIdFromYamlSchema = Schema.NonEmptyString.pipe(
     }),
   ),
 ).annotate({
-  identifier: "AgentIdFromYaml",
+  identifier: "AgentId",
   title: "Agent ID",
   description: "Lowercase kebab-case coding agent identifier.",
   examples: ["claude-code", "codex", "cursor"],
@@ -43,6 +66,8 @@ export const StandardsComplianceSchema = Schema.Literals([
 
 /** @experimental This API is unstable and may change without notice. */
 export type StandardsCompliance = Schema.Schema.Type<typeof StandardsComplianceSchema>;
+
+const ActiveMcpNonFullStandardsComplianceSchema = Schema.Literals(["parity", "partial"]);
 
 /** @experimental This API is unstable and may change without notice. */
 export const ConventionSchema = Schema.Literals(["universal", "vendor"]).annotate({
@@ -73,6 +98,28 @@ export const CapabilityLifecycleSchema = Schema.Literals([
 export type CapabilityLifecycle = Schema.Schema.Type<typeof CapabilityLifecycleSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
+export const ActiveLifecycleSchema = Schema.Literals(["available", "planned"]).annotate({
+  identifier: "ActiveLifecycle",
+  title: "Active Lifecycle",
+  description: "Capability lifecycle values that carry a concrete capability claim.",
+  examples: ["available", "planned"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type ActiveLifecycle = Schema.Schema.Type<typeof ActiveLifecycleSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const InactiveLifecycleSchema = Schema.Literals(["unsupported", "unknown"]).annotate({
+  identifier: "InactiveLifecycle",
+  title: "Inactive Lifecycle",
+  description: "Capability lifecycle values without active extension support.",
+  examples: ["unsupported", "unknown"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type InactiveLifecycle = Schema.Schema.Type<typeof InactiveLifecycleSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
 export const ScopeSchema = Schema.Literals(["user", "project"]).annotate({
   identifier: "Scope",
   title: "Scope",
@@ -82,6 +129,10 @@ export const ScopeSchema = Schema.Literals(["user", "project"]).annotate({
 
 /** @experimental This API is unstable and may change without notice. */
 export type Scope = Schema.Schema.Type<typeof ScopeSchema>;
+
+const NonEmptyScopesSchema = Schema.NonEmptyArray(ScopeSchema).pipe(
+  Schema.check(Schema.isUnique()),
+);
 
 /** @experimental This API is unstable and may change without notice. */
 export const AgentInterfaceSchema = Schema.Literals(["cli", "ide-extension"]).annotate({
@@ -105,11 +156,15 @@ export const McpTransportSchema = Schema.Literals(["stdio", "http", "sse"]).anno
 /** @experimental This API is unstable and may change without notice. */
 export type McpTransport = Schema.Schema.Type<typeof McpTransportSchema>;
 
+const NonEmptyMcpTransportsSchema = Schema.NonEmptyArray(McpTransportSchema).pipe(
+  Schema.check(Schema.isUnique()),
+);
+
 /** @experimental This API is unstable and may change without notice. */
 export const StandardSchema = Schema.Struct({
   id: Schema.NonEmptyString,
   name: Schema.NonEmptyString,
-  url: Schema.NonEmptyString,
+  url: UrlSchema,
 }).annotate({
   identifier: "Standard",
   title: "Standard",
@@ -122,7 +177,7 @@ export type Standard = Schema.Schema.Type<typeof StandardSchema>;
 /** @experimental This API is unstable and may change without notice. */
 export const DocLinkSchema = Schema.Struct({
   label: Schema.NonEmptyString,
-  url: Schema.NonEmptyString,
+  url: UrlSchema,
 }).annotate({
   identifier: "DocLink",
   title: "Documentation Link",
@@ -134,12 +189,8 @@ export type DocLink = Schema.Schema.Type<typeof DocLinkSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const DetectionSchema = Schema.Struct({
-  projectDirs: Schema.optional(
-    Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
-  ),
-  userDirs: Schema.optional(
-    Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
-  ),
+  projectDirs: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
+  userDirs: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
 }).annotate({
   identifier: "Detection",
   title: "Detection",
@@ -167,18 +218,41 @@ export const LastVerifiedDateSchema = Schema.NonEmptyString.pipe(
 /** @experimental This API is unstable and may change without notice. */
 export type LastVerifiedDate = Schema.Schema.Type<typeof LastVerifiedDateSchema>;
 
-const CapabilityBaseFields = {
-  lifecycle: CapabilityLifecycleSchema.pipe(
-    Schema.withDecodingDefaultType(Effect.succeed("available")),
-  ),
-  notes: Schema.optional(Schema.NonEmptyString),
-  docs: Schema.optional(Schema.Array(DocLinkSchema)),
-  sources: Schema.optional(Schema.Array(Schema.NonEmptyString)),
-  lastVerified: Schema.optional(LastVerifiedDateSchema),
+const CapabilityNotesSchema = Schema.NullOr(Schema.NonEmptyString);
+const CapabilityDocsSchema = Schema.Array(DocLinkSchema);
+const ActiveSourcesSchema = Schema.NonEmptyArray(UrlSchema);
+const InactiveSourcesSchema = Schema.Array(UrlSchema);
+
+const InactiveCapabilitySchema = Schema.Struct({
+  lifecycle: InactiveLifecycleSchema,
+  notes: CapabilityNotesSchema,
+  docs: CapabilityDocsSchema,
+  sources: InactiveSourcesSchema,
+}).annotate({
+  identifier: "InactiveCapability",
+  title: "Inactive Capability",
+  description: "Capability slot with no active extension support.",
+});
+
+const ActiveCapabilityBaseFields = {
+  lifecycle: ActiveLifecycleSchema,
+  notes: CapabilityNotesSchema,
+  docs: CapabilityDocsSchema,
+  sources: ActiveSourcesSchema,
+  lastVerified: LastVerifiedDateSchema,
+  scopes: NonEmptyScopesSchema,
+};
+
+const SpecTrackedCapabilityFields = {
+  standardsCompliance: StandardsComplianceSchema,
+  convention: ConventionSchema,
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const CapabilityBaseSchema = Schema.Struct(CapabilityBaseFields).annotate({
+export const CapabilityBaseSchema = Schema.Union([
+  Schema.Struct(ActiveCapabilityBaseFields),
+  InactiveCapabilitySchema,
+]).annotate({
   identifier: "CapabilityBase",
   title: "Capability Base",
   description: "Fields shared by all agent capabilities.",
@@ -187,39 +261,29 @@ export const CapabilityBaseSchema = Schema.Struct(CapabilityBaseFields).annotate
 /** @experimental This API is unstable and may change without notice. */
 export type CapabilityBase = Schema.Schema.Type<typeof CapabilityBaseSchema>;
 
-const ScopedCapabilityBaseFields = {
-  ...CapabilityBaseFields,
-  scopes: Schema.Array(ScopeSchema).pipe(
-    Schema.annotateKey({ messageMissingKey: "capability scopes are required" }),
-    Schema.check(Schema.isUnique()),
-  ),
-};
-
-const SpecTrackedCapabilityFields = {
-  standardsCompliance: StandardsComplianceSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "standardsCompliance is required" }),
-  ),
-  convention: ConventionSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "convention is required" }),
-  ),
-};
-
 /** @experimental This API is unstable and may change without notice. */
-export const ScopedCapabilityBaseSchema = Schema.Struct(ScopedCapabilityBaseFields).annotate({
+export const ScopedCapabilityBaseSchema = Schema.Struct(ActiveCapabilityBaseFields).annotate({
   identifier: "ScopedCapabilityBase",
   title: "Scoped Capability Base",
-  description: "Capability fields shared by extension-backed capabilities.",
+  description: "Capability fields shared by extension-backed active capabilities.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
 export type ScopedCapabilityBase = Schema.Schema.Type<typeof ScopedCapabilityBaseSchema>;
 
-/** @experimental This API is unstable and may change without notice. */
-export const SkillsCapabilitySchema = Schema.Struct({
-  ...ScopedCapabilityBaseFields,
+const ActiveSpecTrackedCapabilityFields = {
+  ...ActiveCapabilityBaseFields,
   ...SpecTrackedCapabilityFields,
-  directory: Schema.optional(Schema.NonEmptyString),
-}).annotate({
+};
+
+/** @experimental This API is unstable and may change without notice. */
+export const SkillsCapabilitySchema = Schema.Union([
+  Schema.Struct({
+    ...ActiveSpecTrackedCapabilityFields,
+    directory: Schema.NonEmptyString,
+  }),
+  InactiveCapabilitySchema,
+]).annotate({
   identifier: "SkillsCapability",
   title: "Skills Capability",
   description: "Agent support for Agent Skills-style extensions.",
@@ -229,10 +293,13 @@ export const SkillsCapabilitySchema = Schema.Struct({
 export type SkillsCapability = Schema.Schema.Type<typeof SkillsCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const CommandsCapabilitySchema = Schema.Struct({
-  ...ScopedCapabilityBaseFields,
-  directory: Schema.optional(Schema.NonEmptyString),
-}).annotate({
+export const CommandsCapabilitySchema = Schema.Union([
+  Schema.Struct({
+    ...ActiveCapabilityBaseFields,
+    directory: Schema.NonEmptyString,
+  }),
+  InactiveCapabilitySchema,
+]).annotate({
   identifier: "CommandsCapability",
   title: "Commands Capability",
   description: "Agent support for command extensions.",
@@ -253,11 +320,14 @@ export const SubagentsLayoutSchema = Schema.Literals(["file", "directory"]).anno
 export type SubagentsLayout = Schema.Schema.Type<typeof SubagentsLayoutSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const SubagentsCapabilitySchema = Schema.Struct({
-  ...ScopedCapabilityBaseFields,
-  directory: Schema.optional(Schema.NonEmptyString),
-  layout: SubagentsLayoutSchema.pipe(Schema.withDecodingDefaultType(Effect.succeed("directory"))),
-}).annotate({
+export const SubagentsCapabilitySchema = Schema.Union([
+  Schema.Struct({
+    ...ActiveCapabilityBaseFields,
+    directory: Schema.NonEmptyString,
+    layout: SubagentsLayoutSchema,
+  }),
+  InactiveCapabilitySchema,
+]).annotate({
   identifier: "SubagentsCapability",
   title: "Subagents Capability",
   description: "Agent support for subagent extensions.",
@@ -292,22 +362,37 @@ export const InstructionsImportSyntaxSchema = Schema.Literals(["at-path"]).annot
 /** @experimental This API is unstable and may change without notice. */
 export type InstructionsImportSyntax = Schema.Schema.Type<typeof InstructionsImportSyntaxSchema>;
 
+const AgentsMdInstructionsCapabilitySchema = Schema.Struct({
+  ...ActiveSpecTrackedCapabilityFields,
+  kind: Schema.Literal("agents-md"),
+  files: Schema.Tuple([Schema.Literal("AGENTS.md")]),
+  nestedDiscovery: Schema.Boolean,
+  importSyntax: Schema.NullOr(InstructionsImportSyntaxSchema),
+});
+
+const OwnFileInstructionsCapabilitySchema = Schema.Struct({
+  ...ActiveSpecTrackedCapabilityFields,
+  kind: Schema.Literal("own-file"),
+  files: Schema.Tuple([Schema.NonEmptyString]),
+  nestedDiscovery: Schema.Boolean,
+  importSyntax: Schema.NullOr(InstructionsImportSyntaxSchema),
+});
+
+const RulesDirInstructionsCapabilitySchema = Schema.Struct({
+  ...ActiveSpecTrackedCapabilityFields,
+  kind: Schema.Literal("rules-dir"),
+  files: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
+  nestedDiscovery: Schema.Boolean,
+  importSyntax: Schema.NullOr(InstructionsImportSyntaxSchema),
+});
+
 /** @experimental This API is unstable and may change without notice. */
-export const InstructionsCapabilitySchema = Schema.Struct({
-  ...ScopedCapabilityBaseFields,
-  ...SpecTrackedCapabilityFields,
-  kind: InstructionsKindSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "instruction kind is required" }),
-  ),
-  files: Schema.Array(Schema.NonEmptyString).pipe(
-    Schema.annotateKey({ messageMissingKey: "instruction files are required" }),
-    Schema.check(Schema.isUnique()),
-  ),
-  nestedDiscovery: Schema.Boolean.pipe(
-    Schema.annotateKey({ messageMissingKey: "nestedDiscovery is required" }),
-  ),
-  importSyntax: Schema.optional(InstructionsImportSyntaxSchema),
-}).annotate({
+export const InstructionsCapabilitySchema = Schema.Union([
+  AgentsMdInstructionsCapabilitySchema,
+  OwnFileInstructionsCapabilitySchema,
+  RulesDirInstructionsCapabilitySchema,
+  InactiveCapabilitySchema,
+]).annotate({
   identifier: "InstructionsCapability",
   title: "Instructions Capability",
   description: "Agent support for plain prose instruction files.",
@@ -317,10 +402,13 @@ export const InstructionsCapabilitySchema = Schema.Struct({
 export type InstructionsCapability = Schema.Schema.Type<typeof InstructionsCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const RulesCapabilitySchema = Schema.Struct({
-  ...ScopedCapabilityBaseFields,
-  directory: Schema.optional(Schema.NonEmptyString),
-}).annotate({
+export const RulesCapabilitySchema = Schema.Union([
+  Schema.Struct({
+    ...ActiveCapabilityBaseFields,
+    directory: Schema.NonEmptyString,
+  }),
+  InactiveCapabilitySchema,
+]).annotate({
   identifier: "RulesCapability",
   title: "Rules Capability",
   description: "Agent support for structured rule files.",
@@ -405,9 +493,9 @@ export type McpTypeField = Schema.Schema.Type<typeof McpTypeFieldSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpStdioDialectSchema = Schema.Struct({
-  typeField: Schema.optional(McpTypeFieldSchema),
+  typeField: Schema.NullOr(McpTypeFieldSchema),
   command: Schema.Literals(["split", "array"]),
-  envKey: Schema.optional(Schema.NonEmptyString),
+  envKey: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
   identifier: "McpStdioDialect",
   title: "MCP Stdio Dialect",
@@ -432,9 +520,9 @@ export type McpUrlKeyMap = Schema.Schema.Type<typeof McpUrlKeyMapSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpRemoteDialectSchema = Schema.Struct({
-  typeField: Schema.optional(McpTypeFieldSchema),
+  typeField: Schema.NullOr(McpTypeFieldSchema),
   urlKey: McpUrlKeyMapSchema,
-  headersKey: Schema.optional(Schema.NonEmptyString),
+  headersKey: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
   identifier: "McpRemoteDialect",
   title: "MCP Remote Dialect",
@@ -448,12 +536,10 @@ export type McpRemoteDialect = Schema.Schema.Type<typeof McpRemoteDialectSchema>
 export const McpConfigSchema = Schema.Struct({
   serversKey: McpServersKeySchema,
   nativeEnabled: Schema.Boolean,
-  targets: Schema.Array(McpConfigTargetSchema).pipe(
-    Schema.annotateKey({ messageMissingKey: "MCP config targets are required" }),
-  ),
-  stdio: Schema.optional(McpStdioDialectSchema),
-  remote: Schema.optional(McpRemoteDialectSchema),
-  transform: Schema.optional(Schema.NonEmptyString),
+  targets: Schema.Array(McpConfigTargetSchema),
+  stdio: Schema.NullOr(McpStdioDialectSchema),
+  remote: Schema.NullOr(McpRemoteDialectSchema),
+  transform: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
   identifier: "McpConfig",
   title: "MCP Config",
@@ -463,16 +549,51 @@ export const McpConfigSchema = Schema.Struct({
 /** @experimental This API is unstable and may change without notice. */
 export type McpConfig = Schema.Schema.Type<typeof McpConfigSchema>;
 
-/** @experimental This API is unstable and may change without notice. */
-export const McpCapabilitySchema = Schema.Struct({
-  ...ScopedCapabilityBaseFields,
-  ...SpecTrackedCapabilityFields,
-  transports: Schema.Array(McpTransportSchema).pipe(
-    Schema.annotateKey({ messageMissingKey: "MCP transports are required" }),
-    Schema.check(Schema.isUnique()),
+const McpFullCapabilityStruct = Schema.Struct({
+  ...ActiveCapabilityBaseFields,
+  standardsCompliance: Schema.Literal("full"),
+  convention: ConventionSchema,
+  transports: NonEmptyMcpTransportsSchema,
+  config: McpConfigSchema,
+});
+
+const McpFullCapabilitySchema = McpFullCapabilityStruct.pipe(
+  Schema.check(
+    Schema.makeFilter((capability: Schema.Schema.Type<typeof McpFullCapabilityStruct>) => {
+      const issues: Array<Schema.FilterIssue> = [];
+      if (capability.transports.includes("stdio") && capability.config.stdio === null) {
+        issues.push({
+          path: ["config", "stdio"],
+          issue: "MCP stdio config is required when stdio transport is supported.",
+        });
+      }
+      if (
+        (capability.transports.includes("http") || capability.transports.includes("sse")) &&
+        capability.config.remote === null
+      ) {
+        issues.push({
+          path: ["config", "remote"],
+          issue: "MCP remote config is required when http or sse transport is supported.",
+        });
+      }
+      return issues;
+    }),
   ),
-  config: Schema.optional(McpConfigSchema),
-}).annotate({
+);
+
+const McpNonFullCapabilitySchema = Schema.Struct({
+  ...ActiveCapabilityBaseFields,
+  standardsCompliance: ActiveMcpNonFullStandardsComplianceSchema,
+  convention: ConventionSchema,
+  transports: NonEmptyMcpTransportsSchema,
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpCapabilitySchema = Schema.Union([
+  McpFullCapabilitySchema,
+  McpNonFullCapabilitySchema,
+  InactiveCapabilitySchema,
+]).annotate({
   identifier: "McpCapability",
   title: "MCP Capability",
   description: "Agent support for MCP server extensions.",
@@ -496,6 +617,10 @@ export const PermissionMechanismSchema = Schema.Literals([
 /** @experimental This API is unstable and may change without notice. */
 export type PermissionMechanism = Schema.Schema.Type<typeof PermissionMechanismSchema>;
 
+const NonEmptyPermissionMechanismsSchema = Schema.NonEmptyArray(PermissionMechanismSchema).pipe(
+  Schema.check(Schema.isUnique()),
+);
+
 /** @experimental This API is unstable and may change without notice. */
 export const PermissionGrammarStyleSchema = Schema.Literals([
   "tool-call",
@@ -518,9 +643,7 @@ export const ConfigFileLocationSchema = Schema.Struct({
   scope: ScopeSchema,
   path: Schema.NonEmptyString,
   format: ConfigFileFormatSchema,
-  gitignored: Schema.Boolean.pipe(
-    Schema.annotateKey({ messageMissingKey: "gitignored is required" }),
-  ),
+  gitignored: Schema.Boolean,
 }).annotate({
   identifier: "ConfigFileLocation",
   title: "Config File Location",
@@ -542,15 +665,14 @@ export const HooksSerializerSchema = Schema.Literals(["claude-code-settings"]).a
 export type HooksSerializer = Schema.Schema.Type<typeof HooksSerializerSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HooksCapabilitySchema = Schema.Struct({
-  ...ScopedCapabilityBaseFields,
-  configFiles: Schema.Array(ConfigFileLocationSchema).pipe(
-    Schema.annotateKey({ messageMissingKey: "hook config files are required" }),
-  ),
-  serializer: HooksSerializerSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "hook serializer is required" }),
-  ),
-}).annotate({
+export const HooksCapabilitySchema = Schema.Union([
+  Schema.Struct({
+    ...ActiveCapabilityBaseFields,
+    configFiles: Schema.Array(ConfigFileLocationSchema),
+    serializer: HooksSerializerSchema,
+  }),
+  InactiveCapabilitySchema,
+]).annotate({
   identifier: "HooksCapability",
   title: "Hooks Capability",
   description: "Agent support for lifecycle hook extensions.",
@@ -563,7 +685,7 @@ export type HooksCapability = Schema.Schema.Type<typeof HooksCapabilitySchema>;
 export const PermissionGrammarSchema = Schema.Struct({
   style: PermissionGrammarStyleSchema,
   example: Schema.NonEmptyString,
-  notes: Schema.optional(Schema.NonEmptyString),
+  notes: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
   identifier: "PermissionGrammar",
   title: "Permission Grammar",
@@ -578,7 +700,7 @@ export const PermissionPrerequisiteSchema = Schema.Struct({
   key: Schema.NonEmptyString,
   value: Schema.NonEmptyString,
   scope: ScopeSchema,
-  note: Schema.optional(Schema.NonEmptyString),
+  note: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
   identifier: "PermissionPrerequisite",
   title: "Permission Prerequisite",
@@ -591,7 +713,7 @@ export type PermissionPrerequisite = Schema.Schema.Type<typeof PermissionPrerequ
 /** @experimental This API is unstable and may change without notice. */
 export const PermissionCliFlagSchema = Schema.Struct({
   flag: Schema.NonEmptyString,
-  note: Schema.optional(Schema.NonEmptyString),
+  note: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
   identifier: "PermissionCliFlag",
   title: "Permission CLI Flag",
@@ -601,12 +723,22 @@ export const PermissionCliFlagSchema = Schema.Struct({
 /** @experimental This API is unstable and may change without notice. */
 export type PermissionCliFlag = Schema.Schema.Type<typeof PermissionCliFlagSchema>;
 
-/** @experimental This API is unstable and may change without notice. */
-export const PermissionGrantSchema = Schema.Struct({
+const PermissionGrantStruct = Schema.Struct({
   target: Schema.NonEmptyString,
-  patch: Schema.optional(Schema.Unknown),
-  template: Schema.optional(Schema.NonEmptyString),
-}).annotate({
+  patch: Schema.NullOr(Schema.Unknown),
+  template: Schema.NullOr(Schema.NonEmptyString),
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export const PermissionGrantSchema = PermissionGrantStruct.pipe(
+  Schema.check(
+    Schema.makeFilter((grant: Schema.Schema.Type<typeof PermissionGrantStruct>) =>
+      grant.patch === null && grant.template === null
+        ? "Permission grants require patch or template."
+        : undefined,
+    ),
+  ),
+).annotate({
   identifier: "PermissionGrant",
   title: "Permission Grant",
   description:
@@ -617,18 +749,18 @@ export const PermissionGrantSchema = Schema.Struct({
 export type PermissionGrant = Schema.Schema.Type<typeof PermissionGrantSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const PermissionsCapabilitySchema = Schema.Struct({
-  ...ScopedCapabilityBaseFields,
-  mechanism: Schema.Array(PermissionMechanismSchema).pipe(
-    Schema.annotateKey({ messageMissingKey: "permission mechanisms are required" }),
-    Schema.check(Schema.isUnique()),
-  ),
-  configFiles: Schema.optional(Schema.Array(ConfigFileLocationSchema)),
-  grammar: Schema.optional(PermissionGrammarSchema),
-  prerequisites: Schema.optional(Schema.Array(PermissionPrerequisiteSchema)),
-  cliFlags: Schema.optional(Schema.Array(PermissionCliFlagSchema)),
-  grants: Schema.optional(Schema.Record(Schema.String, PermissionGrantSchema)),
-}).annotate({
+export const PermissionsCapabilitySchema = Schema.Union([
+  Schema.Struct({
+    ...ActiveCapabilityBaseFields,
+    mechanism: NonEmptyPermissionMechanismsSchema,
+    configFiles: Schema.Array(ConfigFileLocationSchema),
+    grammar: Schema.NullOr(PermissionGrammarSchema),
+    prerequisites: Schema.Array(PermissionPrerequisiteSchema),
+    cliFlags: Schema.Array(PermissionCliFlagSchema),
+    grants: Schema.Record(Schema.String, PermissionGrantSchema),
+  }),
+  InactiveCapabilitySchema,
+]).annotate({
   identifier: "PermissionsCapability",
   title: "Permissions Capability",
   description: "How an agent grants tool execution and filesystem access without per-call prompts.",
@@ -648,35 +780,44 @@ export type AgentCapability =
   | HooksCapability
   | PermissionsCapability;
 
+const AgentStruct = Schema.Struct({
+  id: AgentIdFromYamlSchema,
+  name: Schema.NonEmptyString,
+  vendor: Schema.NonEmptyString,
+  homepage: UrlSchema,
+  interfaces: Schema.NonEmptyArray(AgentInterfaceSchema).pipe(Schema.check(Schema.isUnique())),
+  family: Schema.NullOr(Schema.NonEmptyString),
+  rootDir: Schema.NullOr(Schema.NonEmptyString),
+  detection: DetectionSchema,
+  docs: Schema.Array(DocLinkSchema),
+  skills: SkillsCapabilitySchema,
+  commands: CommandsCapabilitySchema,
+  mcp: McpCapabilitySchema,
+  subagents: SubagentsCapabilitySchema,
+  instructions: InstructionsCapabilitySchema,
+  rules: RulesCapabilitySchema,
+  hooks: HooksCapabilitySchema,
+  permissions: PermissionsCapabilitySchema,
+});
+
 /** @experimental This API is unstable and may change without notice. */
-export const AgentSchema = Schema.Struct({
-  id: AgentIdFromYamlSchema.pipe(Schema.annotateKey({ messageMissingKey: "agent id is required" })),
-  name: Schema.NonEmptyString.pipe(
-    Schema.annotateKey({ messageMissingKey: "agent name is required" }),
+export const AgentSchema = AgentStruct.pipe(
+  Schema.check(
+    Schema.makeFilter((agent: Schema.Schema.Type<typeof AgentStruct>) => {
+      if (
+        "kind" in agent.instructions &&
+        agent.instructions.kind === "rules-dir" &&
+        !("directory" in agent.rules)
+      ) {
+        return {
+          path: ["instructions", "kind"],
+          issue: 'instructions.kind "rules-dir" requires rules.directory.',
+        };
+      }
+      return undefined;
+    }),
   ),
-  vendor: Schema.NonEmptyString.pipe(
-    Schema.annotateKey({ messageMissingKey: "agent vendor is required" }),
-  ),
-  homepage: Schema.NonEmptyString.pipe(
-    Schema.annotateKey({ messageMissingKey: "agent homepage is required" }),
-  ),
-  interfaces: Schema.Array(AgentInterfaceSchema).pipe(
-    Schema.annotateKey({ messageMissingKey: "agent interfaces are required" }),
-    Schema.check(Schema.isUnique()),
-  ),
-  family: Schema.optional(Schema.NonEmptyString),
-  rootDir: Schema.optional(Schema.NullOr(Schema.NonEmptyString)),
-  detection: Schema.optional(DetectionSchema),
-  docs: Schema.optional(Schema.Array(DocLinkSchema)),
-  skills: Schema.optional(SkillsCapabilitySchema),
-  commands: Schema.optional(CommandsCapabilitySchema),
-  mcp: Schema.optional(McpCapabilitySchema),
-  subagents: Schema.optional(SubagentsCapabilitySchema),
-  instructions: Schema.optional(InstructionsCapabilitySchema),
-  rules: Schema.optional(RulesCapabilitySchema),
-  hooks: Schema.optional(HooksCapabilitySchema),
-  permissions: Schema.optional(PermissionsCapabilitySchema),
-}).annotate({
+).annotate({
   identifier: "Agent",
   title: "Agent",
   description: "AI coding agent and its verified extension capability claims.",

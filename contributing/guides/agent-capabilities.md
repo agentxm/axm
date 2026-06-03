@@ -23,8 +23,8 @@ entry.
 - [Model Context Protocol](https://modelcontextprotocol.io) — MCP spec
 - [`schema.ts`](../../packages/core/src/unstable/agent-capabilities/schema.ts) — Source of truth for capability and axis types
 - [`standards.ts`](../../packages/core/src/unstable/agent-capabilities/standards.ts) — Named spec registry referenced by spec-tracked capabilities
-- [`data/agents/`](../../packages/core/src/unstable/agent-capabilities/data/agents/) — One YAML per agent; catalog is generated from these
-- [`validate.ts`](../../packages/core/src/unstable/agent-capabilities/validate.ts) — Per-kind constraints applied on top of the schema
+- [`data/agents/`](../../packages/core/src/unstable/agent-capabilities/data/agents/) — One typed TypeScript module per agent
+- [`catalog.ts`](../../packages/core/src/unstable/agent-capabilities/catalog.ts) — Id-keyed catalog assembly and derived catalog exports
 
 ---
 
@@ -32,35 +32,35 @@ entry.
 
 Claude Code's capability claims show every axis in use:
 
-```yaml
+```typescript
 skills:
-  standardsCompliance: full # SKILL.md shape per spec
-  convention: vendor # but at .claude/skills, not .agents/skills
-  scopes: [user, project]
-  directory: .claude/skills
+  standardsCompliance: "full" // SKILL.md shape per spec
+  convention: "vendor" // but at .claude/skills, not .agents/skills
+  scopes: ["user", "project"]
+  directory: ".claude/skills"
 
 instructions:
-  standardsCompliance: parity # CLAUDE.md ≈ AGENTS.md behaviorally
-  convention: vendor # different filename
-  scopes: [user, project]
-  files: [CLAUDE.md]
-  kind: own-file
+  standardsCompliance: "parity" // CLAUDE.md is behaviorally equivalent
+  convention: "vendor" // different filename
+  scopes: ["user", "project"]
+  files: ["CLAUDE.md"]
+  kind: "own-file"
 
 mcp:
-  standardsCompliance: full
-  convention: universal # standard `mcpServers` key
-  scopes: [user, project]
-  transports: [stdio, http, sse]
+  standardsCompliance: "full"
+  convention: "universal" // standard `mcpServers` key
+  scopes: ["user", "project"]
+  transports: ["stdio", "http", "sse"]
   # config: {...}
 
 subagents:
-  scopes: [user, project]
-  directory: .claude/agents
+  scopes: ["user", "project"]
+  directory: ".claude/agents"
   # no standardsCompliance / convention — no industry spec exists
 
 permissions:
-  scopes: [user, project]
-  mechanism: [config-file]
+  scopes: ["user", "project"]
+  mechanism: ["config-file"]
   # no axes — permissions are vendor-defined by nature
 ```
 
@@ -128,18 +128,19 @@ Format is graded by `standardsCompliance`.
 
 ### Lifecycle _(all capabilities)_
 
-| Value         | Meaning                                                                              | Works? |
-| ------------- | ------------------------------------------------------------------------------------ | :----: |
-| `available`   | Implemented and verified — the default; usually elided in YAML                       |  yes¹  |
-| `planned`     | AXM intends to support this but does not yet                                         |   no   |
-| `unsupported` | Authoritative source confirms the agent lacks this capability                        |   no   |
-| `unknown`     | Not verified — express by omitting the capability section, not by claiming `unknown` |   no   |
+| Value         | Meaning                                                       | Works? |
+| ------------- | ------------------------------------------------------------- | :----: |
+| `available`   | Implemented and verified                                      |  yes¹  |
+| `planned`     | AXM intends to support this but does not yet                  |   no   |
+| `unsupported` | Authoritative source confirms the agent lacks this capability |   no   |
+| `unknown`     | Not verified                                                  |   no   |
 
 ¹ Spec-tracked capabilities additionally require `standardsCompliance` better
 than `none`.
 
-Any non-`unknown` claim must cite at least one `sources[]` URL and an ISO
-`lastVerified` date. Enforced by `validate.ts`.
+Any active claim (`available` or `planned`) must cite at least one `sources[]`
+URL and an ISO `lastVerified` date. Inactive claims (`unsupported` or
+`unknown`) omit active-only fields.
 
 ---
 
@@ -156,8 +157,8 @@ Any non-`unknown` claim must cite at least one `sources[]` URL and an ISO
    community-standard one.
    - Match → `universal`
    - Differs → `vendor`
-3. **Set lifecycle.** Default `available`. Use `planned`, `unsupported`, or omit
-   the section entirely (instead of `unknown`) as appropriate.
+3. **Set lifecycle.** Use `available`, `planned`, `unsupported`, or `unknown`
+   explicitly.
 
 Add a `notes` field for any `parity` or `partial` claim explaining the
 divergence.
@@ -173,7 +174,7 @@ divergence.
 
 ## Worked Examples
 
-**Antigravity** — universal across the board ([yaml](../../packages/core/src/unstable/agent-capabilities/data/agents/antigravity.yaml))
+**Antigravity** — universal across the board ([source](../../packages/core/src/unstable/agent-capabilities/data/agents/antigravity.ts))
 
 | Kind           | compliance | convention  | lifecycle   | Why                                             |
 | -------------- | ---------- | ----------- | ----------- | ----------------------------------------------- |
@@ -182,7 +183,7 @@ divergence.
 | `mcp`          | `full`     | `universal` | `available` | Standard `mcpServers` key                       |
 | `commands`     | —          | —           | `available` | No industry spec                                |
 
-**Claude Code** — spec-compliant formats at vendor locations ([yaml](../../packages/core/src/unstable/agent-capabilities/data/agents/claude-code.yaml))
+**Claude Code** — spec-compliant formats at vendor locations ([source](../../packages/core/src/unstable/agent-capabilities/data/agents/claude-code.ts))
 
 | Kind           | compliance | convention  | lifecycle   | Why                                                                       |
 | -------------- | ---------- | ----------- | ----------- | ------------------------------------------------------------------------- |
@@ -193,7 +194,7 @@ divergence.
 | `subagents`    | —          | —           | `available` | No industry spec                                                          |
 | `permissions`  | —          | —           | `available` | Vendor-defined by nature                                                  |
 
-**OpenCode** ([yaml](../../packages/core/src/unstable/agent-capabilities/data/agents/opencode.yaml))
+**OpenCode** ([source](../../packages/core/src/unstable/agent-capabilities/data/agents/opencode.ts))
 
 | Kind        | compliance | convention | lifecycle   | Why                                             |
 | ----------- | ---------- | ---------- | ----------- | ----------------------------------------------- |
@@ -208,12 +209,12 @@ divergence.
 
 When you add or change a capability claim:
 
-- update the agent's YAML in `data/agents/`
-- set `sources` and `lastVerified` together — partial claims fail validation
+- update the agent's TypeScript module in `data/agents/`
+- set `sources` and `lastVerified` together for active claims
 - for spec-tracked kinds, set both `standardsCompliance` and `convention`
-- for non-spec kinds, omit both — schema rejects them
+- for non-spec active kinds, omit both — the type system rejects them
 - add a `notes` field for any `parity` or `partial` compliance claim explaining the divergence
-- regenerate the catalog with `pnpm generate`
+- keep all eight capability slots explicit
 
 When you propose a new capability kind:
 

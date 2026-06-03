@@ -28,8 +28,8 @@ const matchingProjectConfig = (
 };
 
 const preferredTarget = (permissions: PermissionsCapability): ConfigFileLocation | undefined => {
-  const configFiles = permissions.configFiles ?? [];
-  const shellTarget = permissions.grants?.["shell"]?.target;
+  const configFiles = "configFiles" in permissions ? permissions.configFiles : [];
+  const shellTarget = "grants" in permissions ? permissions.grants["shell"]?.target : undefined;
 
   return (
     matchingProjectConfig(shellTarget, configFiles) ??
@@ -51,11 +51,11 @@ export const buildPermissionSuggestions = (
       onSome: (agentId) => {
         const agent = agentById(agentId);
         const permissions = agent.permissions;
-        if (permissions === undefined || permissions.lifecycle === "unsupported") return [];
+        if (permissions.lifecycle !== "available") return [];
 
         const target = preferredTarget(permissions);
         const example = permissions.grammar?.example;
-        const docUrl = permissions.sources?.[0];
+        const docUrl = permissions.sources[0];
 
         const description =
           target === undefined

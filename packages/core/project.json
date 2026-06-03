@@ -7,12 +7,7 @@
   "tags": ["type:lib", "scope:core"],
   "targets": {
     "generate": {
-      "dependsOn": [
-        "generate:schemas",
-        "generate:agent-catalog",
-        "generate:registry-client",
-        "generate:telemetry-client"
-      ],
+      "dependsOn": ["generate:schemas", "generate:registry-client", "generate:telemetry-client"],
       "executor": "nx:run-commands",
       "options": {
         "command": "echo core generated output is up to date"
@@ -30,27 +25,6 @@
       "executor": "nx:run-commands",
       "options": {
         "command": ["bun", "../cli/scripts/generate-schemas.ts"],
-        "cwd": "packages/core"
-      }
-    },
-    "generate:agent-catalog": {
-      "cache": true,
-      "inputs": [
-        "production",
-        "^production",
-        "{workspaceRoot}/packages/cli/scripts/generate-agent-catalog.ts",
-        "{projectRoot}/src/unstable/agent-capabilities/data/agents/*.yaml",
-        "{projectRoot}/src/unstable/agent-capabilities/schema.ts",
-        "{projectRoot}/src/unstable/agent-capabilities/validate.ts",
-        "{workspaceRoot}/.prettierrc.json"
-      ],
-      "outputs": [
-        "{projectRoot}/src/unstable/agent-capabilities/__generated__/catalog.ts",
-        "{projectRoot}/src/unstable/agent-capabilities/__generated__/agent.schema.json"
-      ],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "../cli/scripts/generate-agent-catalog.ts"],
         "cwd": "packages/core"
       }
     },

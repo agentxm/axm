@@ -10,7 +10,7 @@ import type {
   AgentInstructionsDescriptor,
   AgentSubagentsDescriptor,
 } from "../agents/types.js";
-import { AGENT_IDS, type AgentId } from "./__generated__/catalog.js";
+import { AGENT_IDS, type AgentId } from "./catalog.js";
 import type { Agent, AgentCapability } from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */
@@ -62,7 +62,7 @@ export const EXTENSION_TYPE_CAPABILITY = {
   files: (agent: Agent) => agent.instructions,
   rule: (agent: Agent) => agent.rules,
   hook: (agent: Agent) => agent.hooks,
-} satisfies Record<LeafExtensionType, (agent: Agent) => AgentCapability | undefined>;
+} satisfies Record<LeafExtensionType, (agent: Agent) => AgentCapability>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const isLeafExtensionType = (value: ExtensionType): value is LeafExtensionType =>
@@ -70,7 +70,7 @@ export const isLeafExtensionType = (value: ExtensionType): value is LeafExtensio
 
 /** @experimental This API is unstable and may change without notice. */
 export const capabilityWorks = (capability: AgentCapability): boolean => {
-  if (capability.lifecycle !== undefined && capability.lifecycle !== "available") return false;
+  if (capability.lifecycle !== "available") return false;
   if ("standardsCompliance" in capability) return capability.standardsCompliance !== "none";
   return true;
 };
@@ -89,12 +89,13 @@ const firstPathSegment = (path: string): string | undefined => path.split("/")[0
 const deriveRootDir = (agent: Agent): string | undefined =>
   agent.rootDir === null
     ? undefined
-    : (agent.rootDir ?? firstPathSegment(agent.skills?.directory ?? ""));
+    : agent.rootDir ||
+      ("directory" in agent.skills ? firstPathSegment(agent.skills.directory) : undefined);
 
 const deriveSubagentsDescriptor = (agent: Agent): AgentSubagentsDescriptor | undefined => {
   const subagents = agent.subagents;
-  if (subagents === undefined || !capabilityWorks(subagents)) return undefined;
-  if (subagents.directory === undefined) return undefined;
+  if (!capabilityWorks(subagents)) return undefined;
+  if (!("directory" in subagents)) return undefined;
   return {
     dir: subagents.directory,
     ...(subagents.layout === "file" ? { isFile: true } : {}),
@@ -103,7 +104,7 @@ const deriveSubagentsDescriptor = (agent: Agent): AgentSubagentsDescriptor | und
 
 const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor | undefined => {
   const instructions = agent.instructions;
-  if (instructions === undefined || !capabilityWorks(instructions)) return undefined;
+  if (!capabilityWorks(instructions) || !("kind" in instructions)) return undefined;
 
   switch (instructions.kind) {
     case "agents-md":
@@ -114,27 +115,23 @@ const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor
       return {
         kind: "own-file",
         file,
-        ...(instructions.importSyntax === undefined
-          ? {}
-          : { importSyntax: instructions.importSyntax }),
+        ...(instructions.importSyntax === null ? {} : { importSyntax: instructions.importSyntax }),
       };
     }
     case "rules-dir": {
-      const dir = agent.rules?.directory;
-      if (dir === undefined) return undefined;
-      return { kind: "rules-dir", dir, format: "frontmatter" };
+      if (!("directory" in agent.rules)) return undefined;
+      return { kind: "rules-dir", dir: agent.rules.directory, format: "frontmatter" };
     }
-    default:
-      return instructions.kind satisfies never;
   }
 };
+
+const hasDetectionMarkers = (agent: Agent): boolean =>
+  agent.detection.projectDirs.length > 0 || agent.detection.userDirs.length > 0;
 
 /** @experimental This API is unstable and may change without notice. */
 export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
   const commands =
-    agent.commands !== undefined &&
-    capabilityWorks(agent.commands) &&
-    agent.commands.directory !== undefined
+    capabilityWorks(agent.commands) && "directory" in agent.commands
       ? { dir: agent.commands.directory }
       : undefined;
   const subagents = deriveSubagentsDescriptor(agent);
@@ -145,9 +142,9 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
     name: agent.name,
     rootDir: deriveRootDir(agent),
     skills: {
-      dir: agent.skills?.directory ?? "",
+      dir: "directory" in agent.skills ? agent.skills.directory : "",
     },
-    ...(agent.detection === undefined ? {} : { detection: agent.detection }),
+    ...(hasDetectionMarkers(agent) ? { detection: agent.detection } : {}),
     ...(commands === undefined ? {} : { commands }),
     ...(subagents === undefined ? {} : { subagents }),
     ...(instructions === undefined ? {} : { instructions }),
@@ -160,7 +157,12 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
 
   for (const type of LEAF_EXTENSION_TYPES) {
     const capability = EXTENSION_TYPE_CAPABILITY[type](agent);
-    if (capability !== undefined) {
+    if (
+      capability.lifecycle !== "unsupported" ||
+      capability.sources.length > 0 ||
+      capability.docs.length > 0 ||
+      capability.notes !== null
+    ) {
       capabilities.push({ type, capability });
     }
   }
@@ -171,7 +173,7 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
 /** @experimental This API is unstable and may change without notice. */
 export const agentSupportsType = (agent: Agent, type: LeafExtensionType): boolean => {
   const capability = EXTENSION_TYPE_CAPABILITY[type](agent);
-  return capability !== undefined && capabilityWorks(capability);
+  return capabilityWorks(capability);
 };
 
 /** @experimental This API is unstable and may change without notice. */

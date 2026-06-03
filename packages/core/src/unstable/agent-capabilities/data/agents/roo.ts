@@ -1,0 +1,125 @@
+import type { Agent } from "../../schema.js";
+
+export const rooAgent = {
+  id: "roo",
+  name: "Roo Code",
+  vendor: "Roo Code",
+  homepage: "https://roocode.com",
+  interfaces: ["ide-extension"],
+  family: null,
+  rootDir: ".roo",
+  detection: {
+    projectDirs: [],
+    userDirs: [],
+  },
+  docs: [
+    {
+      label: "Roo Code documentation",
+      url: "https://docs.roocode.com",
+    },
+  ],
+  skills: {
+    lifecycle: "available",
+    notes: null,
+    docs: [],
+    sources: ["https://docs.roocode.com/features/skills"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    standardsCompliance: "full",
+    convention: "vendor",
+    directory: ".roo/skills",
+  },
+  commands: {
+    lifecycle: "available",
+    notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: ["https://docs.roocode.com"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    directory: ".roo/commands",
+  },
+  mcp: {
+    lifecycle: "available",
+    notes: null,
+    docs: [],
+    sources: ["https://docs.roocode.com/features/mcp/using-mcp-in-roo"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    standardsCompliance: "full",
+    convention: "universal",
+    transports: ["stdio", "http"],
+    config: {
+      serversKey: "mcpServers",
+      nativeEnabled: true,
+      targets: [
+        {
+          scope: "project",
+          path: ".roo/mcp.json",
+          format: "json",
+        },
+        {
+          scope: "user",
+          path: "~/.roo/mcp.json",
+          format: "json",
+        },
+      ],
+      stdio: {
+        typeField: null,
+        command: "split",
+        envKey: "env",
+      },
+      remote: {
+        typeField: {
+          name: "type",
+          value: {
+            "streamable-http": "http",
+            sse: "http",
+          },
+        },
+        urlKey: {
+          "streamable-http": "url",
+          sse: "url",
+        },
+        headersKey: "headers",
+      },
+      transform: null,
+    },
+  },
+  subagents: {
+    lifecycle: "available",
+    notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: ["https://docs.roocode.com/features/custom-modes"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    directory: ".roomodes",
+    layout: "file",
+  },
+  instructions: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  rules: {
+    lifecycle: "available",
+    notes: "No industry spec for rule files yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: ["https://docs.roocode.com/features/rules"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    directory: ".roo/rules",
+  },
+  hooks: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  permissions: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+} as const satisfies Agent;

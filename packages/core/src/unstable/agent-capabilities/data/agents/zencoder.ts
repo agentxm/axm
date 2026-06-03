@@ -1,0 +1,112 @@
+import type { Agent } from "../../schema.js";
+
+export const zencoderAgent = {
+  id: "zencoder",
+  name: "Zencoder",
+  vendor: "Zencoder",
+  homepage: "https://zencoder.ai",
+  interfaces: ["ide-extension"],
+  family: null,
+  rootDir: ".zencoder",
+  detection: {
+    projectDirs: [],
+    userDirs: [],
+  },
+  docs: [
+    {
+      label: "Zencoder documentation",
+      url: "https://docs.zencoder.ai",
+    },
+  ],
+  skills: {
+    lifecycle: "available",
+    notes: null,
+    docs: [],
+    sources: ["https://docs.zencoder.ai/features/agent-skills"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    standardsCompliance: "full",
+    convention: "vendor",
+    directory: ".zencoder/skills",
+  },
+  commands: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  mcp: {
+    lifecycle: "available",
+    notes: null,
+    docs: [],
+    sources: ["https://docs.zencoder.ai/features/integrations-and-mcp"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    standardsCompliance: "full",
+    convention: "universal",
+    transports: ["stdio"],
+    config: {
+      serversKey: "mcpServers",
+      nativeEnabled: true,
+      targets: [
+        {
+          scope: "user",
+          path: "~/.zencoder/mcp.json",
+          format: "json",
+        },
+        {
+          scope: "project",
+          path: ".zencoder/mcp.json",
+          format: "json",
+        },
+      ],
+      stdio: {
+        typeField: null,
+        command: "split",
+        envKey: "env",
+      },
+      remote: null,
+      transform: null,
+    },
+  },
+  subagents: {
+    lifecycle: "available",
+    notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: ["https://docs.zencoder.ai/features/agents-overview"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    directory: ".zencoder/agents",
+    layout: "directory",
+  },
+  instructions: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  rules: {
+    lifecycle: "available",
+    notes: "No industry spec for rule files yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: [
+      "https://docs.zencoder.ai/features/agents-overview",
+      "https://docs.zencoder.ai/learn/10x-engineer/module-03",
+    ],
+    lastVerified: "2026-05-20",
+    scopes: ["project"],
+    directory: ".zencoder/rules",
+  },
+  hooks: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  permissions: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+} as const satisfies Agent;

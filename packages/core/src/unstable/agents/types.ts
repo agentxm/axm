@@ -9,7 +9,7 @@ import type { Record } from "effect";
 import {
   AGENT_IDS as CONFIGURABLE_AGENT_IDS,
   type AgentId as ConfigurableAgentId,
-} from "../agent-capabilities/__generated__/catalog.js";
+} from "../agent-capabilities/catalog.js";
 
 // -----------------------------------------------------------------------------
 // Agent Skills Configuration

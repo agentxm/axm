@@ -50,6 +50,7 @@ export interface CliInvocationResult {
 
 type NodePlatform = NodeJS.Platform;
 type InlineRemoteTransport = "streamable-http" | "sse";
+type FullMcpCapability = Extract<Agent["mcp"], { readonly standardsCompliance: "full" }>;
 
 const DEFAULT_SUPPORTED_PLATFORMS = ["darwin", "linux", "win32"] as const;
 
@@ -66,6 +67,9 @@ const emptyJsonMcpConfig: JsonMcpConfig = { servers: {} };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const hasFullMcpConfig = (capability: Agent["mcp"]): capability is FullMcpCapability =>
+  "config" in capability && capability.standardsCompliance === "full";
 
 const redactSecrets = (value: string): string =>
   value
@@ -488,7 +492,7 @@ const addInlineTypeField = (
   typeField: McpStdioDialect["typeField"] | McpRemoteDialect["typeField"],
   transport: "stdio" | InlineRemoteTransport,
 ): void => {
-  if (typeField === undefined) return;
+  if (typeField === null) return;
   if (typeof typeField.value === "string") {
     entry[typeField.name] = typeField.value;
     return;
@@ -516,7 +520,7 @@ const projectInlineStdio = (args: {
     entry["command"] = args.command;
     if (args.commandArgs.length > 0) entry["args"] = args.commandArgs;
   }
-  if (Object.keys(args.env).length > 0 && args.dialect.envKey !== undefined) {
+  if (Object.keys(args.env).length > 0 && args.dialect.envKey !== null) {
     entry[args.dialect.envKey] = args.env;
   }
   return entry;
@@ -537,7 +541,7 @@ const projectInlineRemote = (args: {
   addInlineTypeField(entry, args.dialect.typeField, transport);
   if (args.nativeEnabled) entry["enabled"] = args.enabled;
   entry[args.dialect.urlKey[transport]] = args.url;
-  if (Object.keys(args.headers).length > 0 && args.dialect.headersKey !== undefined) {
+  if (Object.keys(args.headers).length > 0 && args.dialect.headersKey !== null) {
     entry[args.dialect.headersKey] = args.headers;
   }
   return entry;
@@ -570,11 +574,7 @@ export const syncInlineMcpServerToAgent = (
 
     const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.mcp;
-    if (
-      capability === undefined ||
-      capability.standardsCompliance !== "full" ||
-      capability.config === undefined
-    ) {
+    if (!hasFullMcpConfig(capability)) {
       return {
         _tag: "unsupported",
         reason: `${agentId} does not have full MCP config support`,
@@ -584,7 +584,7 @@ export const syncInlineMcpServerToAgent = (
     const config = capability.config;
     const projected =
       args.entry.command !== undefined
-        ? config.stdio === undefined
+        ? config.stdio === null
           ? Option.none<Readonly<Record<string, unknown>>>()
           : Option.some(
               projectInlineStdio({
@@ -597,7 +597,7 @@ export const syncInlineMcpServerToAgent = (
               }),
             )
         : args.entry.url !== undefined
-          ? config.remote === undefined
+          ? config.remote === null
             ? Option.none<Readonly<Record<string, unknown>>>()
             : Option.some(
                 projectInlineRemote({
@@ -647,11 +647,7 @@ export const pruneManagedMcpServersForAgent = (
 
     const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.mcp;
-    if (
-      capability === undefined ||
-      capability.standardsCompliance !== "full" ||
-      capability.config === undefined
-    ) {
+    if (!hasFullMcpConfig(capability)) {
       return {
         _tag: "unsupported",
         reason: `${agentId} does not have full MCP config support`,
@@ -952,11 +948,7 @@ export const addMcpServerFromManifest = (
 
     const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.mcp;
-    if (
-      capability === undefined ||
-      capability.standardsCompliance !== "full" ||
-      capability.config === undefined
-    ) {
+    if (!hasFullMcpConfig(capability)) {
       return {
         _tag: "unsupported",
         reason: `${agentId} does not have full MCP config support`,
@@ -1028,11 +1020,7 @@ export const removeMcpServerFromManifest = (
 
     const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.mcp;
-    if (
-      capability === undefined ||
-      capability.standardsCompliance !== "full" ||
-      capability.config === undefined
-    ) {
+    if (!hasFullMcpConfig(capability)) {
       return {
         _tag: "unsupported",
         reason: `${agentId} does not have full MCP config support`,

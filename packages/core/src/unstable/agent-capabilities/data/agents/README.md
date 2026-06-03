@@ -4,25 +4,30 @@ Community-editable source of truth for agent extension capability discovery.
 
 Owner: AgentXM Marketplace maintainers.
 
-Add one `*.yaml` file per agent. File name must match `id`.
+Add one `*.ts` file per agent. File name must match `id`, and each module
+exports `<camelCaseId>Agent` as `as const satisfies Agent`.
 
 Capability claims require:
 
 - `sources` with authoritative URLs
 - `lastVerified` in `YYYY-MM-DD`
 
-Use `unknown` by omitting a capability. Use `unsupported` only when an
-authoritative source verifies lack of support.
+Every agent declares every capability slot. Use an inactive capability for
+unsupported or unknown support:
 
-All capabilities have `lifecycle`, defaulting to `available`.
+```ts
+{ lifecycle: "unsupported", notes: null, docs: [], sources: [] }
+```
+
+All values are explicit. Do not rely on optional fields or schema defaults.
 
 Spec-tracked capabilities (`skills`, `instructions`, `mcp`) also require:
 
 - `standardsCompliance`: `full`, `parity`, `partial`, or `none`
 - `convention`: `universal` or `vendor`
 
-Non-spec capabilities (`commands`, `subagents`, `rules`, `permissions`) omit
-those spec axes.
+Non-spec active capabilities (`commands`, `subagents`, `rules`, `permissions`)
+omit those spec axes.
 
 Permissions capability:
 

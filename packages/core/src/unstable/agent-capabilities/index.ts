@@ -9,6 +9,7 @@ export {
   AgentIdFromYamlSchema,
   AgentInterfaceSchema,
   AgentSchema,
+  ActiveLifecycleSchema,
   CapabilityBaseSchema,
   CapabilityLifecycleSchema,
   CatalogExtensionTypeSchema,
@@ -21,6 +22,7 @@ export {
   InstructionsCapabilitySchema,
   InstructionsImportSyntaxSchema,
   InstructionsKindSchema,
+  InactiveLifecycleSchema,
   LastVerifiedDateSchema,
   McpCapabilitySchema,
   McpTransportSchema,
@@ -39,8 +41,10 @@ export {
   StandardsComplianceSchema,
   SubagentsCapabilitySchema,
   SubagentsLayoutSchema,
+  UrlSchema,
   type Agent,
   type AgentCapability,
+  type ActiveLifecycle,
   type AgentIdFromYaml,
   type AgentInterface,
   type CapabilityBase,
@@ -54,6 +58,7 @@ export {
   type InstructionsCapability,
   type InstructionsImportSyntax,
   type InstructionsKind,
+  type InactiveLifecycle,
   type LastVerifiedDate,
   type McpCapability,
   type McpConfig,
@@ -77,6 +82,7 @@ export {
   type StandardsCompliance,
   type SubagentsCapability,
   type SubagentsLayout,
+  type Url,
 } from "./schema.js";
 export { STANDARDS } from "./standards.js";
 export {
@@ -97,16 +103,5 @@ export {
   type ExtensionCompatibilityInput,
   type LeafExtensionType,
 } from "./derive.js";
-export {
-  validateCatalogSources,
-  type CatalogSource,
-  type CatalogValidationIssue,
-} from "./validate.js";
-export {
-  AGENTS,
-  AGENTS_BY_ID,
-  AGENT_IDS,
-  AgentIdSchema,
-  type AgentId,
-} from "./__generated__/catalog.js";
+export { AGENTS, AGENTS_BY_ID, AGENT_IDS, AgentIdSchema, type AgentId } from "./catalog.js";
 export { agentById } from "./lookup.js";

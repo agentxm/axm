@@ -52,6 +52,8 @@ export interface ResolveMcpServerArgs {
   readonly enabled: boolean;
 }
 
+type FullMcpCapability = Extract<McpCapability, { readonly standardsCompliance: "full" }>;
+
 type Candidate =
   | {
       readonly kind: "remote";
@@ -78,12 +80,15 @@ const capabilitySupportsUpstream = (
   transport: UpstreamRemoteTransport,
 ): boolean => transports.includes(transport === "streamable-http" ? "http" : transport);
 
+const hasFullMcpConfig = (capability: McpCapability): capability is FullMcpCapability =>
+  "config" in capability && capability.standardsCompliance === "full";
+
 const isRemoteTransport = (transport: string): transport is UpstreamRemoteTransport =>
   transport === "streamable-http" || transport === "sse";
 
 const selectCandidate = (
   manifest: McpServerManifest,
-  capability: McpCapability,
+  capability: FullMcpCapability,
 ): Candidate | undefined => {
   const candidates: Array<Candidate> = [];
   const remotes = manifest.server.remotes ?? [];
@@ -232,7 +237,7 @@ const addTypeField = (
   typeField: McpStdioDialect["typeField"] | McpRemoteDialect["typeField"],
   transport: "stdio" | UpstreamRemoteTransport,
 ): void => {
-  if (typeField === undefined) return;
+  if (typeField === null) return;
   if (typeof typeField.value === "string") {
     entry[typeField.name] = typeField.value;
     return;
@@ -259,7 +264,7 @@ const projectStdio = (args: {
     entry["command"] = command ?? "";
     if (rest.length > 0) entry["args"] = rest;
   }
-  if (Object.keys(args.env).length > 0 && args.dialect.envKey !== undefined) {
+  if (Object.keys(args.env).length > 0 && args.dialect.envKey !== null) {
     entry[args.dialect.envKey] = args.env;
   }
   return entry;
@@ -277,7 +282,7 @@ const projectRemote = (args: {
   addTypeField(entry, args.dialect.typeField, args.remote.type);
   if (args.nativeEnabled) entry["enabled"] = args.enabled;
   entry[args.dialect.urlKey[args.remote.type]] = substituteVariables(args.remote.url, args.values);
-  if (Object.keys(args.headers).length > 0 && args.dialect.headersKey !== undefined) {
+  if (Object.keys(args.headers).length > 0 && args.dialect.headersKey !== null) {
     entry[args.dialect.headersKey] = args.headers;
   }
   return entry;
@@ -300,7 +305,7 @@ const resolvePackage = (
   values: Readonly<Record<string, string>>,
   enabled: boolean,
 ): McpResolution => {
-  if (config.stdio === undefined) {
+  if (config.stdio === null) {
     return { _tag: "no-distribution", reason: "agent has no stdio MCP config dialect" };
   }
 
@@ -356,7 +361,7 @@ const resolveRemote = (
   const headers = materializeHeaders(remote.headers, values);
   const missing = [...headers.missing, ...resolveRemoteVariables(remote, values)];
   if (shimmed) {
-    if (config.stdio === undefined) {
+    if (config.stdio === null) {
       return { _tag: "no-distribution", reason: "agent has no stdio MCP config dialect" };
     }
     const command = [
@@ -394,7 +399,7 @@ const resolveRemote = (
         };
   }
 
-  if (config.remote === undefined) {
+  if (config.remote === null) {
     return { _tag: "no-distribution", reason: "agent has no remote MCP config dialect" };
   }
   const entry = projectRemote({
@@ -418,10 +423,11 @@ const resolveRemote = (
 };
 
 export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
-  const config = args.capability.config;
-  if (args.capability.standardsCompliance !== "full" || config === undefined) {
+  if (!hasFullMcpConfig(args.capability)) {
     return { _tag: "no-distribution", reason: "agent does not have full MCP config support" };
   }
+  const capability = args.capability;
+  const config = capability.config;
 
   const hasPackages = (args.manifest.server.packages ?? []).length > 0;
   const hasRemotes = (args.manifest.server.remotes ?? []).length > 0;
@@ -432,7 +438,7 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
     };
   }
 
-  const candidate = selectCandidate(args.manifest, args.capability);
+  const candidate = selectCandidate(args.manifest, capability);
   if (candidate === undefined) {
     return {
       _tag: "no-distribution",

@@ -1,0 +1,120 @@
+import type { Agent } from "../../schema.js";
+
+export const junieAgent = {
+  id: "junie",
+  name: "Junie",
+  vendor: "JetBrains",
+  homepage: "https://www.jetbrains.com/junie",
+  interfaces: ["ide-extension"],
+  family: "jetbrains",
+  rootDir: ".junie",
+  detection: {
+    projectDirs: [],
+    userDirs: [],
+  },
+  docs: [
+    {
+      label: "Junie documentation",
+      url: "https://www.jetbrains.com/help/junie",
+    },
+  ],
+  skills: {
+    lifecycle: "available",
+    notes: null,
+    docs: [],
+    sources: ["https://www.jetbrains.com/help/junie"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    standardsCompliance: "full",
+    convention: "vendor",
+    directory: ".junie/skills",
+  },
+  commands: {
+    lifecycle: "available",
+    notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: ["https://www.jetbrains.com/help/junie"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    directory: ".junie/commands",
+  },
+  mcp: {
+    lifecycle: "available",
+    notes: null,
+    docs: [],
+    sources: ["https://www.jetbrains.com/help/junie/mcp.html"],
+    lastVerified: "2026-05-20",
+    scopes: ["user"],
+    standardsCompliance: "full",
+    convention: "universal",
+    transports: ["stdio", "http", "sse"],
+    config: {
+      serversKey: "mcpServers",
+      nativeEnabled: true,
+      targets: [
+        {
+          scope: "user",
+          path: "~/.junie/mcp.json",
+          format: "json",
+        },
+      ],
+      stdio: {
+        typeField: null,
+        command: "split",
+        envKey: "env",
+      },
+      remote: {
+        typeField: {
+          name: "type",
+          value: {
+            "streamable-http": "http",
+            sse: "sse",
+          },
+        },
+        urlKey: {
+          "streamable-http": "url",
+          sse: "url",
+        },
+        headersKey: "headers",
+      },
+      transform: null,
+    },
+  },
+  subagents: {
+    lifecycle: "available",
+    notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: ["https://www.jetbrains.com/help/junie"],
+    lastVerified: "2026-05-20",
+    scopes: ["user", "project"],
+    directory: ".junie/agents",
+    layout: "directory",
+  },
+  instructions: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  rules: {
+    lifecycle: "available",
+    notes: "No industry spec for rule files yet; AXM bridges to the agent's native layout.",
+    docs: [],
+    sources: ["https://www.jetbrains.com/help/junie/customize-guidelines.html"],
+    lastVerified: "2026-05-20",
+    scopes: ["project"],
+    directory: ".junie/guidelines.md",
+  },
+  hooks: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  permissions: {
+    lifecycle: "unsupported",
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+} as const satisfies Agent;

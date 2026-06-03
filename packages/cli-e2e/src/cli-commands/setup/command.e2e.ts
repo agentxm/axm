@@ -138,7 +138,7 @@ describe("axm setup", () => {
       const result = await runCli(["setup", "--help"]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Set up axm in the current project");
+      expect(result.stdout).toContain("Set up AXM in the current project");
       expect(result.stdout).toContain("--scope");
       expect(result.stdout).toContain("--yes");
     });

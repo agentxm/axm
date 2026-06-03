@@ -1,3 +1,13 @@
+## 0.14.1 (2026-06-03)
+
+### 🩹 Fixes
+
+- Migrate the agent capability catalog from YAML generation to typed TypeScript modules. ([9d2d94f5](https://github.com/agentxm/axm/commit/9d2d94f5))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.14.0 (2026-06-02)
 
 ### 🚀 Features

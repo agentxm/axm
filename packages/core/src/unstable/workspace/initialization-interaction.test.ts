@@ -65,6 +65,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
         return yield* interaction.selectAgents({
           allAgents: [AGENTS["claude-code"], AGENTS["codex"]],
           detectedIds: ["claude-code"],
+          configuredIds: [],
         });
       }).pipe(Effect.provide(harness.layer));
 
@@ -74,6 +75,24 @@ describe("WorkspaceInitializationInteractionLive", () => {
       expect(rendered).toContain("Select agents to configure");
       expect(rendered).toContain("[x] Claude Code");
       expect(rendered).not.toContain("Inverse Selection");
+    }),
+  );
+
+  it.effect("preselects configured setup agents", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      yield* Queue.offer(harness.queue, makeInput("enter"));
+
+      const selected = yield* Effect.gen(function* () {
+        const interaction = yield* WorkspaceInitializationInteraction;
+        return yield* interaction.selectAgents({
+          allAgents: [AGENTS["claude-code"], AGENTS["codex"]],
+          detectedIds: [],
+          configuredIds: ["codex"],
+        });
+      }).pipe(Effect.provide(harness.layer));
+
+      expect(selected).toEqual(["codex"]);
     }),
   );
 });

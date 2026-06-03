@@ -18,117 +18,119 @@ export const codexAgent = {
       url: "https://developers.openai.com/codex",
     },
   ],
-  skills: {
-    lifecycle: "available",
-    notes:
-      "Reads SKILL.md skills from repository (.agents/skills) and user (~/.agents/skills) locations with progressive disclosure, using the cross-tool Agent Skills convention rather than a .codex/ path.\n",
-    docs: [],
-    sources: ["https://developers.openai.com/codex/skills"],
-    lastVerified: "2026-05-18",
-    scopes: ["user", "project"],
-    standardsCompliance: "full",
-    convention: "vendor",
-    directory: ".codex/skills",
-  },
-  commands: {
-    lifecycle: "available",
-    notes:
-      "Custom prompts are user-scope Markdown slash commands in ~/.codex/prompts. Deprecated by OpenAI in favor of skills for reusable instructions, and there is no project-scoped command directory.\n",
-    docs: [],
-    sources: [
-      "https://developers.openai.com/codex/custom-prompts",
-      "https://developers.openai.com/codex/cli/slash-commands",
-    ],
-    lastVerified: "2026-05-18",
-    scopes: ["user"],
-    directory: ".codex/prompts",
-  },
-  mcp: {
-    lifecycle: "available",
-    notes: null,
-    docs: [],
-    sources: ["https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers"],
-    lastVerified: "2026-05-16",
-    scopes: ["user", "project"],
-    standardsCompliance: "full",
-    convention: "vendor",
-    transports: ["stdio", "http"],
-    config: {
-      serversKey: "mcp_servers",
-      nativeEnabled: true,
-      targets: [
-        {
-          scope: "project",
-          path: ".codex/config.toml",
-          format: "toml",
-        },
-        {
-          scope: "user",
-          path: "~/.codex/config.toml",
-          format: "toml",
-        },
+  capabilities: {
+    skill: {
+      lifecycle: "supported",
+      notes:
+        "Reads SKILL.md skills from repository (.agents/skills) and user (~/.agents/skills) locations with progressive disclosure, using the cross-tool Agent Skills convention rather than a .codex/ path.\n",
+      docs: [],
+      sources: ["https://developers.openai.com/codex/skills"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "vendor",
+      directory: ".codex/skills",
+    },
+    command: {
+      lifecycle: "supported",
+      notes:
+        "Custom prompts are user-scope Markdown slash commands in ~/.codex/prompts. Deprecated by OpenAI in favor of skills for reusable instructions, and there is no project-scoped command directory.\n",
+      docs: [],
+      sources: [
+        "https://developers.openai.com/codex/custom-prompts",
+        "https://developers.openai.com/codex/cli/slash-commands",
       ],
-      stdio: {
-        typeField: null,
-        command: "split",
-        envKey: "env",
-      },
-      remote: {
-        typeField: {
-          name: "type",
-          value: {
-            "streamable-http": "streamable-http",
-            sse: "sse",
+      lastVerified: "2026-05-18",
+      scopes: ["user"],
+      directory: ".codex/prompts",
+    },
+    "mcp-server": {
+      lifecycle: "supported",
+      notes: null,
+      docs: [],
+      sources: ["https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers"],
+      lastVerified: "2026-05-16",
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "vendor",
+      transports: ["stdio", "http"],
+      config: {
+        serversKey: "mcp_servers",
+        nativeEnabled: true,
+        targets: [
+          {
+            scope: "project",
+            path: ".codex/config.toml",
+            format: "toml",
           },
+          {
+            scope: "user",
+            path: "~/.codex/config.toml",
+            format: "toml",
+          },
+        ],
+        stdio: {
+          typeField: null,
+          command: "split",
+          envKey: "env",
         },
-        urlKey: {
-          "streamable-http": "url",
-          sse: "url",
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "streamable-http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "http_headers",
         },
-        headersKey: "http_headers",
+        transform: "codex-toml",
       },
-      transform: "codex-toml",
+    },
+    subagent: {
+      lifecycle: "supported",
+      notes:
+        "Custom agents are standalone TOML files under .codex/agents (project) or ~/.codex/agents (user); a custom agent overrides a built-in of the same name.\n",
+      docs: [],
+      sources: ["https://developers.openai.com/codex/subagents"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".codex/agents",
+      layout: "directory",
+    },
+    files: {
+      lifecycle: "unsupported",
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    rule: {
+      lifecycle: "supported",
+      notes: null,
+      docs: [],
+      sources: ["https://github.com/openai/codex/blob/main/docs/agents_md.md"],
+      lastVerified: "2026-05-16",
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    hook: {
+      lifecycle: "unsupported",
+      notes: null,
+      docs: [],
+      sources: [],
     },
   },
-  subagents: {
-    lifecycle: "available",
-    notes:
-      "Custom agents are standalone TOML files under .codex/agents (project) or ~/.codex/agents (user); a custom agent overrides a built-in of the same name.\n",
-    docs: [],
-    sources: ["https://developers.openai.com/codex/subagents"],
-    lastVerified: "2026-05-18",
-    scopes: ["user", "project"],
-    directory: ".codex/agents",
-    layout: "directory",
-  },
-  instructions: {
-    lifecycle: "available",
-    notes: null,
-    docs: [],
-    sources: ["https://github.com/openai/codex/blob/main/docs/agents_md.md"],
-    lastVerified: "2026-05-16",
-    scopes: ["user", "project"],
-    standardsCompliance: "full",
-    convention: "universal",
-    kind: "agents-md",
-    files: ["AGENTS.md"],
-    nestedDiscovery: true,
-    importSyntax: null,
-  },
-  rules: {
-    lifecycle: "unsupported",
-    notes: null,
-    docs: [],
-    sources: [],
-  },
-  hooks: {
-    lifecycle: "unsupported",
-    notes: null,
-    docs: [],
-    sources: [],
-  },
   permissions: {
-    lifecycle: "available",
+    lifecycle: "supported",
     notes: null,
     docs: [],
     sources: [

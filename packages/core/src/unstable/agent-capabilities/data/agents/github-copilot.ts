@@ -18,116 +18,118 @@ export const githubCopilotAgent = {
       url: "https://docs.github.com/en/copilot",
     },
   ],
-  skills: {
-    lifecycle: "available",
-    notes:
-      "VS Code agent mode, the Copilot CLI, and the cloud agent read SKILL.md skills from .github/skills (project) and ~/.copilot/skills (user); .claude/skills is also recognized.\n",
-    docs: [],
-    sources: [
-      "https://code.visualstudio.com/docs/copilot/customization/agent-skills",
-      "https://docs.github.com/en/copilot/concepts/agents/about-agent-skills",
-    ],
-    lastVerified: "2026-05-18",
-    scopes: ["user", "project"],
-    standardsCompliance: "full",
-    convention: "vendor",
-    directory: ".github/skills",
-  },
-  commands: {
-    lifecycle: "available",
-    notes:
-      "VS Code Copilot prompt files (.prompt.md) act as slash commands under .github/prompts; the Copilot CLI does not yet support custom commands.\n",
-    docs: [],
-    sources: ["https://code.visualstudio.com/docs/copilot/customization/prompt-files"],
-    lastVerified: "2026-05-18",
-    scopes: ["user", "project"],
-    directory: ".github/prompts",
-  },
-  mcp: {
-    lifecycle: "available",
-    notes: null,
-    docs: [],
-    sources: [
-      "https://docs.github.com/en/copilot/concepts/agents/coding-agent/mcp-and-coding-agent",
-    ],
-    lastVerified: "2026-05-16",
-    scopes: ["user", "project"],
-    standardsCompliance: "full",
-    convention: "vendor",
-    transports: ["stdio", "http", "sse"],
-    config: {
-      serversKey: "servers",
-      nativeEnabled: false,
-      targets: [
-        {
-          scope: "project",
-          path: ".vscode/mcp.json",
-          format: "json",
-        },
+  capabilities: {
+    skill: {
+      lifecycle: "supported",
+      notes:
+        "VS Code agent mode, the Copilot CLI, and the cloud agent read SKILL.md skills from .github/skills (project) and ~/.copilot/skills (user); .claude/skills is also recognized.\n",
+      docs: [],
+      sources: [
+        "https://code.visualstudio.com/docs/copilot/customization/agent-skills",
+        "https://docs.github.com/en/copilot/concepts/agents/about-agent-skills",
       ],
-      stdio: {
-        typeField: {
-          name: "type",
-          value: "stdio",
-        },
-        command: "split",
-        envKey: "env",
-      },
-      remote: {
-        typeField: {
-          name: "type",
-          value: {
-            "streamable-http": "http",
-            sse: "sse",
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "vendor",
+      directory: ".github/skills",
+    },
+    command: {
+      lifecycle: "supported",
+      notes:
+        "VS Code Copilot prompt files (.prompt.md) act as slash commands under .github/prompts; the Copilot CLI does not yet support custom commands.\n",
+      docs: [],
+      sources: ["https://code.visualstudio.com/docs/copilot/customization/prompt-files"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".github/prompts",
+    },
+    "mcp-server": {
+      lifecycle: "supported",
+      notes: null,
+      docs: [],
+      sources: [
+        "https://docs.github.com/en/copilot/concepts/agents/coding-agent/mcp-and-coding-agent",
+      ],
+      lastVerified: "2026-05-16",
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "vendor",
+      transports: ["stdio", "http", "sse"],
+      config: {
+        serversKey: "servers",
+        nativeEnabled: false,
+        targets: [
+          {
+            scope: "project",
+            path: ".vscode/mcp.json",
+            format: "json",
           },
+        ],
+        stdio: {
+          typeField: {
+            name: "type",
+            value: "stdio",
+          },
+          command: "split",
+          envKey: "env",
         },
-        urlKey: {
-          "streamable-http": "url",
-          sse: "url",
+        remote: {
+          typeField: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
+          },
+          urlKey: {
+            "streamable-http": "url",
+            sse: "url",
+          },
+          headersKey: "headers",
         },
-        headersKey: "headers",
+        transform: null,
       },
-      transform: null,
+    },
+    subagent: {
+      lifecycle: "supported",
+      notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
+      docs: [],
+      sources: ["https://docs.github.com/en/copilot/reference/custom-agents-configuration"],
+      lastVerified: "2026-05-16",
+      scopes: ["user", "project"],
+      directory: ".github/agents",
+      layout: "directory",
+    },
+    files: {
+      lifecycle: "unsupported",
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    rule: {
+      lifecycle: "supported",
+      notes: null,
+      docs: [],
+      sources: ["https://code.visualstudio.com/docs/copilot/customization/custom-instructions"],
+      lastVerified: "2026-05-16",
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    hook: {
+      lifecycle: "unsupported",
+      notes: null,
+      docs: [],
+      sources: [],
     },
   },
-  subagents: {
-    lifecycle: "available",
-    notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
-    docs: [],
-    sources: ["https://docs.github.com/en/copilot/reference/custom-agents-configuration"],
-    lastVerified: "2026-05-16",
-    scopes: ["user", "project"],
-    directory: ".github/agents",
-    layout: "directory",
-  },
-  instructions: {
-    lifecycle: "available",
-    notes: null,
-    docs: [],
-    sources: ["https://code.visualstudio.com/docs/copilot/customization/custom-instructions"],
-    lastVerified: "2026-05-16",
-    scopes: ["project"],
-    standardsCompliance: "full",
-    convention: "universal",
-    kind: "agents-md",
-    files: ["AGENTS.md"],
-    nestedDiscovery: false,
-    importSyntax: null,
-  },
-  rules: {
-    lifecycle: "unsupported",
-    notes: null,
-    docs: [],
-    sources: [],
-  },
-  hooks: {
-    lifecycle: "unsupported",
-    notes: null,
-    docs: [],
-    sources: [],
-  },
   permissions: {
-    lifecycle: "available",
+    lifecycle: "supported",
     notes: null,
     docs: [],
     sources: [

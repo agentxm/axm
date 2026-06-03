@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import type { McpCapability } from "../agent-capabilities/index.js";
+import type { McpExtensionCapability } from "../agent-capabilities/index.js";
 import { McpServerManifestSchema } from "./manifest-schema.js";
 import { resolveMcpServer } from "./resolution.js";
 
@@ -9,7 +9,7 @@ const decodeManifest = Schema.decodeUnknownSync(McpServerManifestSchema);
 const stdioCapability = {
   standardsCompliance: "full",
   convention: "universal",
-  lifecycle: "available",
+  lifecycle: "supported",
   notes: null,
   docs: [],
   sources: ["https://example.com/mcp"],
@@ -28,12 +28,12 @@ const stdioCapability = {
     remote: null,
     transform: null,
   },
-} satisfies McpCapability;
+} satisfies McpExtensionCapability;
 
 const remoteCapability = {
   standardsCompliance: "full",
   convention: "universal",
-  lifecycle: "available",
+  lifecycle: "supported",
   notes: null,
   docs: [],
   sources: ["https://example.com/mcp"],
@@ -59,7 +59,7 @@ const remoteCapability = {
     },
     transform: null,
   },
-} satisfies McpCapability;
+} satisfies McpExtensionCapability;
 
 const manifest = (server: Record<string, unknown>) =>
   decodeManifest({

@@ -8,6 +8,27 @@ import { AgentSchema, type Agent } from "./schema.js";
 const decodeAgent = (input: unknown): Agent =>
   Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
 
+const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
+  skill: {
+    lifecycle: "supported",
+    notes: null,
+    docs: [],
+    sources: ["https://example.com/skills"],
+    lastVerified: "2026-05-16",
+    scopes: ["project"],
+    standardsCompliance: "full",
+    convention: "vendor",
+    directory: ".sample/skills",
+  },
+  command: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  "mcp-server": { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  subagent: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  files: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  rule: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  hook: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  ...overrides,
+});
+
 const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   id: "sample-agent",
   name: "Sample Agent",
@@ -18,23 +39,7 @@ const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   rootDir: ".sample",
   detection: { projectDirs: [], userDirs: [] },
   docs: [],
-  skills: {
-    lifecycle: "available",
-    notes: null,
-    docs: [],
-    sources: ["https://example.com/skills"],
-    lastVerified: "2026-05-16",
-    scopes: ["project"],
-    standardsCompliance: "full",
-    convention: "vendor",
-    directory: ".sample/skills",
-  },
-  commands: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  mcp: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  subagents: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  instructions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  rules: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  hooks: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  capabilities: makeCapabilitiesInput(),
   permissions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
   ...overrides,
 });
@@ -59,30 +64,48 @@ describe("agent capability catalog", () => {
   });
 
   it("rejects invalid URLs on catalog URL fields", () => {
-    expect(() =>
-      decodeAgent(
-        makeAgentInput({
-          homepage: "not-a-url",
-        }),
-      ),
-    ).toThrow("Expected URL");
+    expect(() => decodeAgent(makeAgentInput({ homepage: "not-a-url" }))).toThrow("Expected URL");
   });
 
   it("rejects spec axes on non-spec capabilities", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          commands: {
-            lifecycle: "available",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/docs"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            standardsCompliance: "full",
-            convention: "vendor",
-            directory: ".sample/commands",
-          },
+          capabilities: makeCapabilitiesInput({
+            command: {
+              lifecycle: "supported",
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              lastVerified: "2026-05-16",
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "vendor",
+              directory: ".sample/commands",
+            },
+          }),
+        }),
+      ),
+    ).toThrow("standardsCompliance");
+
+    expect(() =>
+      decodeAgent(
+        makeAgentInput({
+          capabilities: makeCapabilitiesInput({
+            files: {
+              lifecycle: "supported",
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              lastVerified: "2026-05-16",
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "vendor",
+              directory: ".sample/context",
+              files: ["NOTES.md"],
+              naming: null,
+            },
+          }),
         }),
       ),
     ).toThrow("standardsCompliance");
@@ -92,15 +115,17 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          skills: {
-            lifecycle: "available",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/docs"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            directory: ".sample/skills",
-          },
+          capabilities: makeCapabilitiesInput({
+            skill: {
+              lifecycle: "supported",
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              lastVerified: "2026-05-16",
+              scopes: ["project"],
+              directory: ".sample/skills",
+            },
+          }),
         }),
       ),
     ).toThrow("standardsCompliance");
@@ -110,20 +135,22 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          instructions: {
-            lifecycle: "available",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/docs"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            standardsCompliance: "full",
-            convention: "universal",
-            kind: "agents-md",
-            files: ["SAMPLE.md"],
-            nestedDiscovery: false,
-            importSyntax: null,
-          },
+          capabilities: makeCapabilitiesInput({
+            rule: {
+              lifecycle: "supported",
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              lastVerified: "2026-05-16",
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "universal",
+              kind: "agents-md",
+              files: ["SAMPLE.md"],
+              nestedDiscovery: false,
+              importSyntax: null,
+            },
+          }),
         }),
       ),
     ).toThrow("AGENTS.md");
@@ -133,17 +160,19 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          skills: {
-            lifecycle: "available",
-            notes: null,
-            docs: [],
-            sources: [],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            standardsCompliance: "full",
-            convention: "vendor",
-            directory: ".sample/skills",
-          },
+          capabilities: makeCapabilitiesInput({
+            skill: {
+              lifecycle: "supported",
+              notes: null,
+              docs: [],
+              sources: [],
+              lastVerified: "2026-05-16",
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "vendor",
+              directory: ".sample/skills",
+            },
+          }),
         }),
       ),
     ).toThrow("sources");
@@ -153,40 +182,44 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          instructions: {
-            lifecycle: "available",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/docs"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            standardsCompliance: "partial",
-            convention: "vendor",
-            kind: "rules-dir",
-            files: ["RULES.md"],
-            nestedDiscovery: false,
-            importSyntax: null,
-          },
+          capabilities: makeCapabilitiesInput({
+            rule: {
+              lifecycle: "supported",
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              lastVerified: "2026-05-16",
+              scopes: ["project"],
+              standardsCompliance: "partial",
+              convention: "vendor",
+              kind: "rules-dir",
+              files: ["RULES.md"],
+              nestedDiscovery: false,
+              importSyntax: null,
+            },
+          }),
         }),
       ),
-    ).toThrow('instructions.kind "rules-dir" requires rules.directory');
+    ).toThrow("directory");
   });
 
   it("requires config for full MCP standards compliance", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          mcp: {
-            lifecycle: "available",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/docs"],
-            lastVerified: "2026-05-18",
-            scopes: ["project"],
-            standardsCompliance: "full",
-            convention: "universal",
-            transports: ["stdio"],
-          },
+          capabilities: makeCapabilitiesInput({
+            "mcp-server": {
+              lifecycle: "supported",
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              lastVerified: "2026-05-18",
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "universal",
+              transports: ["stdio"],
+            },
+          }),
         }),
       ),
     ).toThrow("config");
@@ -196,25 +229,27 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          mcp: {
-            lifecycle: "available",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/docs"],
-            lastVerified: "2026-05-18",
-            scopes: ["project"],
-            standardsCompliance: "full",
-            convention: "universal",
-            transports: ["stdio", "http"],
-            config: {
-              serversKey: "mcpServers",
-              nativeEnabled: false,
-              targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
-              stdio: null,
-              remote: null,
-              transform: null,
+          capabilities: makeCapabilitiesInput({
+            "mcp-server": {
+              lifecycle: "supported",
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              lastVerified: "2026-05-18",
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "universal",
+              transports: ["stdio", "http"],
+              config: {
+                serversKey: "mcpServers",
+                nativeEnabled: false,
+                targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+                stdio: null,
+                remote: null,
+                transform: null,
+              },
             },
-          },
+          }),
         }),
       ),
     ).toThrow("MCP stdio config is required");

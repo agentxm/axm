@@ -17,6 +17,11 @@ import * as Option from "effect/Option";
 import { detectAgents } from "../agents/index.js";
 import { AGENTS } from "../agents/registry.js";
 import {
+  resolveInstructionMechanism,
+  syncInstructions,
+  type InstructionMechanism,
+} from "../agents/instructions.js";
+import {
   isConfigurableAgentId,
   type AgentDescriptor,
   type AgentId,
@@ -45,17 +50,359 @@ const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   suggestions: [{ description: "Provide WorkspaceInitializationInteraction in the runtime." }],
 });
 
+const SETUP_PHASES = "Detect · Agents · Instructions · Review";
+const DEFAULT_INSTRUCTIONS_FILE = "AGENTS.md";
+const DEFAULT_INSTRUCTIONS_GITIGNORE = true;
+const POPULAR_AGENT_IDS = [
+  "claude-code",
+  "codex",
+  "cursor",
+  "github-copilot",
+  "gemini-cli",
+  "opencode",
+] as const;
+const INSTRUCTION_SOURCE_CANDIDATES = [
+  DEFAULT_INSTRUCTIONS_FILE,
+  "CLAUDE.md",
+  "GEMINI.md",
+  "QWEN.md",
+  "replit.md",
+  ".cursorrules",
+] as const;
+
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 const isKnownConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
   isKnownAgentId(id) && isConfigurableAgentId(id);
 
-const allAgentDescriptors = (): ReadonlyArray<AgentDescriptor> =>
-  Object.values(AGENTS).filter((agent) => isConfigurableAgentId(agent.id));
+const allAgentDescriptors = (
+  preferredIds: ReadonlyArray<string>,
+): ReadonlyArray<AgentDescriptor> => {
+  const preferred = preferredIds.flatMap((id) =>
+    isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
+  );
+  const preferredSet = new Set(preferred.map((agent) => agent.id));
+  const remaining = Object.values(AGENTS).filter(
+    (agent) => isConfigurableAgentId(agent.id) && !preferredSet.has(agent.id),
+  );
+  return [...preferred, ...remaining];
+};
 
 const DEFAULT_SETUP_SKILLS = {
   axm: { source: "@agentxm/skills/axm", enabled: true, authored: false },
 } as const satisfies NonNullable<Settings["skills"]>;
+
+interface SetupInstructionSourceChoice {
+  readonly fileName: string;
+  readonly exists: boolean;
+  readonly lines: number;
+  readonly content: Option.Option<string>;
+}
+
+interface SetupPlanRow {
+  readonly target: string;
+  readonly action: string;
+  readonly detail: string;
+}
+
+const instructionValueFromSettings = (settings: Settings) => settings.rulesConfig?.instructions;
+
+const currentInstructionFileName = (settings: Settings): string => {
+  const value = instructionValueFromSettings(settings);
+  if (value === undefined || value === false) return DEFAULT_INSTRUCTIONS_FILE;
+  return value.fileName ?? DEFAULT_INSTRUCTIONS_FILE;
+};
+
+const currentInstructionSyncEnabled = (settings: Settings): boolean => {
+  const value = instructionValueFromSettings(settings);
+  return value !== false;
+};
+
+const readFileOption = (filePath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    return yield* fs.readFileString(filePath).pipe(Effect.option);
+  });
+
+const fileExists = (filePath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    return yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
+  });
+
+const lineCount = (content: string): number => {
+  if (content.length === 0) return 0;
+  return content.split(/\r\n|\r|\n/).length;
+};
+
+const instructionSourceChoices = (workspaceRoot: string, defaultFileName: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const names = [
+      defaultFileName,
+      ...INSTRUCTION_SOURCE_CANDIDATES.filter((candidate) => candidate !== defaultFileName),
+    ];
+    const uniqueNames = [...new Set(names)];
+    return yield* Effect.forEach(
+      uniqueNames,
+      (fileName) =>
+        Effect.gen(function* () {
+          const content = yield* readFileOption(path.join(workspaceRoot, fileName));
+          return {
+            fileName,
+            exists: Option.isSome(content),
+            lines: Option.match(content, { onNone: () => 0, onSome: lineCount }),
+            content,
+          } satisfies SetupInstructionSourceChoice;
+        }),
+      { concurrency: "unbounded" },
+    );
+  });
+
+const richestExistingInstructionFile = (
+  choices: ReadonlyArray<SetupInstructionSourceChoice>,
+): Option.Option<SetupInstructionSourceChoice> => {
+  const existing = choices.filter((choice) => Option.isSome(choice.content));
+  if (existing.length === 0) return Option.none<SetupInstructionSourceChoice>();
+  const ranked = [...existing].sort((a, b) => b.lines - a.lines);
+  const first = ranked[0];
+  return first === undefined ? Option.none<SetupInstructionSourceChoice>() : Option.some(first);
+};
+
+const sourceContentForApply = (args: {
+  readonly selectedFileName: string;
+  readonly choices: ReadonlyArray<SetupInstructionSourceChoice>;
+}): Option.Option<string> => {
+  const selected = args.choices.find((choice) => choice.fileName === args.selectedFileName);
+  if (selected !== undefined && Option.isSome(selected.content)) return Option.none<string>();
+  const richest = richestExistingInstructionFile(args.choices);
+  return Option.match(richest, {
+    onNone: () => Option.some(""),
+    onSome: (choice) => choice.content,
+  });
+};
+
+const writeSourceFileIfMissing = (args: {
+  readonly workspaceRoot: string;
+  readonly fileName: string;
+  readonly content: Option.Option<string>;
+  readonly dryRun: boolean;
+}) =>
+  Effect.gen(function* () {
+    if (Option.isNone(args.content)) return Option.none<string>();
+    const path = yield* Path.Path;
+    const fs = yield* FileSystem.FileSystem;
+    const filePath = path.join(args.workspaceRoot, args.fileName);
+    const exists = yield* fileExists(filePath);
+    if (exists) return Option.none<string>();
+    if (!args.dryRun) {
+      yield* fs.makeDirectory(path.dirname(filePath), { recursive: true }).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to create instruction source directory: ${path.dirname(filePath)}`,
+            cause: error,
+          }),
+        ),
+      );
+      yield* fs.writeFileString(filePath, args.content.value).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to write instruction source file: ${filePath}`,
+            cause: error,
+          }),
+        ),
+      );
+    }
+    return Option.some(filePath);
+  });
+
+const instructionMechanismLabel = (mechanism: InstructionMechanism): string => {
+  switch (mechanism) {
+    case "native":
+      return "in sync (native)";
+    case "symlink":
+      return "write ← symlink";
+    case "copy":
+      return "write ← copy";
+    case "adapter":
+      return "unsupported";
+  }
+};
+
+const instructionPlanRows = (args: {
+  readonly selectedAgents: ReadonlyArray<AgentDescriptor>;
+  readonly sourceFileName: string;
+  readonly sourceWillBeCreated: boolean;
+  readonly sourceSeed: Option.Option<SetupInstructionSourceChoice>;
+}): ReadonlyArray<SetupPlanRow> => [
+  {
+    target: args.sourceFileName,
+    action: args.sourceWillBeCreated ? "create" : "in sync",
+    detail: Option.match(args.sourceSeed, {
+      onNone: () => "source",
+      onSome: (choice) => `seeded from ${choice.fileName}`,
+    }),
+  },
+  ...args.selectedAgents.map((agent) => {
+    if (agent.instructions === undefined) {
+      return {
+        target: agent.name,
+        action: "skip",
+        detail: "no instruction convention",
+      } satisfies SetupPlanRow;
+    }
+    const mechanism = resolveInstructionMechanism(agent.instructions, true);
+    return {
+      target:
+        agent.instructions.kind === "own-file"
+          ? agent.instructions.file
+          : agent.instructions.kind === "rules-dir"
+            ? agent.instructions.dir
+            : agent.name,
+      action: instructionMechanismLabel(mechanism),
+      detail: agent.name,
+    } satisfies SetupPlanRow;
+  }),
+  {
+    target: ".gitignore",
+    action: "update",
+    detail: "axm:instructions markers",
+  },
+];
+
+const renderSetupPlan = (rows: ReadonlyArray<SetupPlanRow>) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    yield* renderer.info(`Plan ·Review·`);
+    for (const row of rows) {
+      yield* renderer.info(`  ${row.target}  ${row.action}  ${row.detail}`);
+    }
+  });
+
+const selectSetupAgents = (args: {
+  readonly options: WorkspaceMutationsOptions;
+  readonly existingSettings: Settings;
+  readonly workspaceRoot: string;
+}) =>
+  Effect.gen(function* () {
+    const nonInteractive = yield* isNonInteractive;
+    const renderer = yield* CliRenderer;
+    const requested = args.options.agents;
+    if (requested !== undefined && requested.length > 0) {
+      const selected = requested.flatMap((id) =>
+        isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
+      );
+      const unrecognized = requested.filter((id) => !isKnownConfigurableAgentId(id));
+      if (unrecognized.length > 0) {
+        yield* renderer.warn(
+          `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm setup --help' to see available agents.`,
+        );
+      }
+      return selected;
+    }
+
+    const detectedAgents = yield* detectAgents(args.workspaceRoot).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to detect agents: ${error.message}`,
+          cause: error,
+        }),
+      ),
+    );
+    const detectedIds = Array.map(detectedAgents, (agent) => agent.id);
+    yield* renderer.info(
+      `Scanned this repo and your machine - found ${String(detectedIds.length)} agents.`,
+    );
+    yield* renderer.info(SETUP_PHASES);
+
+    if (nonInteractive || args.options.yes === true) return detectedAgents;
+
+    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+    const configuredIds = args.existingSettings.agents ?? [];
+    const preferredIds =
+      detectedIds.length === 0 && configuredIds.length === 0
+        ? POPULAR_AGENT_IDS
+        : [...configuredIds, ...detectedIds];
+    const selectedIds = Option.isSome(interaction)
+      ? yield* interaction.value.selectAgents({
+          allAgents: allAgentDescriptors(preferredIds),
+          detectedIds,
+          configuredIds,
+        })
+      : yield* SELECT_AGENTS_PROMPT_MISSING;
+
+    return selectedIds.flatMap((id) => (isKnownConfigurableAgentId(id) ? [AGENTS[id]] : []));
+  });
+
+const resolveInstructionSetup = (args: {
+  readonly options: WorkspaceMutationsOptions;
+  readonly existingSettings: Settings;
+  readonly workspaceRoot: string;
+}) =>
+  Effect.gen(function* () {
+    const nonInteractive = yield* isNonInteractive;
+    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+    const defaultSyncEnabled = currentInstructionSyncEnabled(args.existingSettings);
+    const syncEnabled =
+      nonInteractive || args.options.yes === true
+        ? true
+        : Option.isSome(interaction)
+          ? yield* interaction.value.confirmInstructionSync({ enabled: defaultSyncEnabled })
+          : defaultSyncEnabled;
+    const defaultFileName = currentInstructionFileName(args.existingSettings);
+    const choices = yield* instructionSourceChoices(args.workspaceRoot, defaultFileName);
+    const selectedFileName =
+      syncEnabled && !nonInteractive && args.options.yes !== true && Option.isSome(interaction)
+        ? yield* interaction.value.selectInstructionSource({
+            defaultFileName,
+            choices: choices.map(({ fileName, exists, lines }) => ({ fileName, exists, lines })),
+          })
+        : defaultFileName;
+
+    return {
+      enabled: syncEnabled,
+      fileName: selectedFileName.trim().length > 0 ? selectedFileName.trim() : defaultFileName,
+      choices,
+    };
+  });
+
+const applyProjectSetup = (args: {
+  readonly localDir: string;
+  readonly workspaceRoot: string;
+  readonly settings: Settings;
+  readonly sourceFileName: string;
+  readonly sourceContent: Option.Option<string>;
+  readonly syncInstructions: boolean;
+  readonly force: boolean;
+  readonly dryRun: boolean;
+}) =>
+  Effect.gen(function* () {
+    if (args.dryRun) return;
+    const path = yield* Path.Path;
+    yield* writeSettings(args.localDir, args.settings);
+    const lockfilePath = path.join(args.localDir, LOCKFILE_NAME);
+    const lockfileExists = yield* fileExists(lockfilePath);
+    if (!lockfileExists) {
+      yield* writeLockfile(args.localDir, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
+    }
+    if (!args.syncInstructions) return;
+    yield* writeSourceFileIfMissing({
+      workspaceRoot: args.workspaceRoot,
+      fileName: args.sourceFileName,
+      content: args.sourceContent,
+      dryRun: args.dryRun,
+    });
+    yield* syncInstructions({
+      workspaceRoot: args.workspaceRoot,
+      configuredAgents: args.settings.agents ?? [],
+      config: { fileName: args.sourceFileName, gitignore: DEFAULT_INSTRUCTIONS_GITIGNORE },
+      force: args.force,
+      dryRun: args.dryRun,
+    });
+  });
 
 const readSettingsFromReadModel = (
   scope: "project" | "user",
@@ -98,74 +445,103 @@ const readSettingsFromReadModel = (
  * @param options - WorkspaceMutations options
  * @returns Effect yielding selected agent IDs
  */
-export const initializeProjectWorkspace = (localDir: string, options: WorkspaceMutationsOptions) =>
+const configureProjectWorkspace = (args: {
+  readonly localDir: string;
+  readonly options: WorkspaceMutationsOptions;
+  readonly existingSettings: Settings;
+  readonly settingsAction: "create" | "update";
+}) =>
   Effect.gen(function* () {
-    const nonInteractive = yield* isNonInteractive;
-
-    // Select agents based on options
-    let selectedAgents: ReadonlyArray<AgentDescriptor>;
-
-    // If explicit agents are provided, use those (no detection needed)
-    const agents = options.agents;
-    if (agents !== undefined && agents.length > 0) {
-      const renderer = yield* CliRenderer;
-      const requestedIds = [...agents];
-      selectedAgents = requestedIds.flatMap((id) => {
-        return isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [];
-      });
-      const unrecognized = requestedIds.filter((id) => !isKnownConfigurableAgentId(id));
-      if (unrecognized.length > 0) {
-        yield* renderer.warn(
-          `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm setup --help' to see available agents.`,
-        );
-      }
-    } else {
-      // Detect installed agents
-      const detectedAgents = yield* detectAgents(options.projectRoot ?? process.cwd()).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to detect agents: ${error.message}`,
-            cause: error,
-          }),
-        ),
-      );
-
-      if (nonInteractive) {
-        // Non-interactive mode: auto-select all detected agents
-        selectedAgents = detectedAgents;
-      } else {
-        // Interactive mode — single multiselect with detected agents pre-selected
-        const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
-        const allAgents = allAgentDescriptors();
-        const detectedIds = Array.map(detectedAgents, (a) => a.id);
-
-        const selectedIds = Option.isSome(interaction)
-          ? yield* interaction.value.selectAgents({
-              allAgents,
-              detectedIds,
-            })
-          : yield* SELECT_AGENTS_PROMPT_MISSING;
-
-        selectedAgents = [...selectedIds].flatMap((id) => {
-          return isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [];
-        });
-      }
-    }
-
-    // Extract agent IDs for settings
+    const path = yield* Path.Path;
+    const workspaceRoot = path.dirname(args.localDir);
+    const selectedAgents = yield* selectSetupAgents({
+      options: args.options,
+      existingSettings: args.existingSettings,
+      workspaceRoot,
+    });
+    const instructionSetup = yield* resolveInstructionSetup({
+      options: args.options,
+      existingSettings: args.existingSettings,
+      workspaceRoot,
+    });
     const agentIds = selectedAgents.flatMap((agent) =>
       isConfigurableAgentId(agent.id) ? [agent.id] : [],
     );
-
-    // Create settings with selected agents and the default setup skill.
-    const settings: Settings = { agents: agentIds, skills: DEFAULT_SETUP_SKILLS };
-    yield* writeSettings(localDir, settings);
-
-    // Create empty lockfile
-    yield* writeLockfile(localDir, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
-
+    const settings: Settings = {
+      ...args.existingSettings,
+      agents: agentIds,
+      skills: args.existingSettings.skills ?? DEFAULT_SETUP_SKILLS,
+      rulesConfig: {
+        ...(args.existingSettings.rulesConfig ?? {}),
+        instructions: instructionSetup.enabled
+          ? {
+              fileName: instructionSetup.fileName,
+              gitignore: DEFAULT_INSTRUCTIONS_GITIGNORE,
+            }
+          : false,
+      },
+    };
+    const sourceContent = sourceContentForApply({
+      selectedFileName: instructionSetup.fileName,
+      choices: instructionSetup.choices,
+    });
+    const sourceSeed = Option.isSome(sourceContent)
+      ? richestExistingInstructionFile(instructionSetup.choices)
+      : Option.none<SetupInstructionSourceChoice>();
+    const sourceWillBeCreated = Option.isSome(sourceContent);
+    const planRows = instructionSetup.enabled
+      ? instructionPlanRows({
+          selectedAgents,
+          sourceFileName: instructionSetup.fileName,
+          sourceWillBeCreated,
+          sourceSeed,
+        })
+      : [
+          {
+            target: "rulesConfig",
+            action: "skip",
+            detail: "instructions disabled",
+          } satisfies SetupPlanRow,
+        ];
+    yield* renderSetupPlan([
+      {
+        target: SETTINGS_FILENAME,
+        action: args.settingsAction,
+        detail: `agents: ${agentIds.join(", ")}`,
+      },
+      ...planRows,
+    ]);
+    const nonInteractive = yield* isNonInteractive;
+    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+    const confirmed =
+      args.options.preview === true ||
+      args.options.yes === true ||
+      nonInteractive ||
+      Option.isNone(interaction)
+        ? true
+        : yield* interaction.value.confirmSetupPlan();
+    if (!confirmed) {
+      return args.existingSettings;
+    }
+    yield* applyProjectSetup({
+      localDir: args.localDir,
+      workspaceRoot,
+      settings,
+      sourceFileName: instructionSetup.fileName,
+      sourceContent,
+      syncInstructions: instructionSetup.enabled,
+      force: args.options.force ?? false,
+      dryRun: args.options.preview ?? false,
+    });
     return settings;
+  });
+
+export const initializeProjectWorkspace = (localDir: string, options: WorkspaceMutationsOptions) =>
+  configureProjectWorkspace({
+    localDir,
+    options,
+    existingSettings: createDefaultSettings(),
+    settingsAction: "create",
   });
 
 /**
@@ -249,7 +625,13 @@ export const ensureProjectWorkspaceInitialized = (
       return { settings, initialized: true as const };
     }
 
-    return { settings: localSettingsResult.settings, initialized: false as const };
+    const settings = yield* configureProjectWorkspace({
+      localDir,
+      options,
+      existingSettings: localSettingsResult.settings,
+      settingsAction: "update",
+    });
+    return { settings, initialized: false as const };
   });
 
 export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
@@ -259,6 +641,15 @@ export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
     const workspaceDir = location.path;
 
     if (options.scope === "user") {
+      if (options.preview === true) {
+        const localDir = yield* getAxmDir("project", options.projectRoot);
+        const settings = yield* readSettingsFromReadModel(
+          "user",
+          path.dirname(localDir),
+          path.dirname(workspaceDir),
+        ).pipe(Effect.map(Option.getOrElse(() => createDefaultSettings())));
+        return { settings, location, initialized: false };
+      }
       const initialized = yield* ensureGlobalWorkspaceInitialized(workspaceDir);
       const localDir = yield* getAxmDir("project", options.projectRoot);
       const settings = yield* readSettingsFromReadModel(

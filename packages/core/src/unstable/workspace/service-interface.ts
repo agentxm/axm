@@ -649,6 +649,12 @@ export interface WorkspaceMutationsOptions {
   readonly projectRoot?: string;
   /** Explicit agent IDs to use during initialization (overrides detection and prompting) */
   readonly agents?: ReadonlyArray<string>;
+  /** Auto-accept setup defaults and confirmations */
+  readonly yes?: boolean;
+  /** Overwrite drifted managed instruction targets */
+  readonly force?: boolean;
+  /** Compute the setup plan without writing files */
+  readonly preview?: boolean;
   /** Built-in source host configs (defaults to git forges only when not provided) */
   readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
 }

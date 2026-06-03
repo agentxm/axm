@@ -49,9 +49,14 @@ const makeSetupTestContext = (opts?: {
     readonly force: boolean;
     readonly preview: boolean;
   }> = [];
-  const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
-    selectAgents: () => Effect.succeed(opts?.selectAgents ?? []),
-  });
+  const selectAgentsOverride = opts?.selectAgents;
+  const workspaceInitInteraction = WorkspaceInitializationInteractionTest(
+    selectAgentsOverride === undefined
+      ? undefined
+      : {
+          selectAgents: () => Effect.succeed(selectAgentsOverride),
+        },
+  );
   const baseLayer = Layer.mergeAll(
     NodeServices.layer,
     renderer.layer,
@@ -111,7 +116,9 @@ describe("setup.handler", () => {
 
   describe("workspace initialization", () => {
     it.effect("creates .axm, settings.json, and lockfile", () => {
-      const { provide, installCalls } = makeSetupTestContext();
+      const { provide, installCalls } = makeSetupTestContext({
+        flags: { nonInteractive: false },
+      });
 
       return provide(
         Effect.gen(function* () {
@@ -178,7 +185,9 @@ describe("setup.handler", () => {
     });
 
     it.effect("preserves existing settings", () => {
-      const { provide, installCalls } = makeSetupTestContext();
+      const { provide, installCalls } = makeSetupTestContext({
+        flags: { nonInteractive: false },
+      });
 
       return provide(
         Effect.gen(function* () {
@@ -200,6 +209,64 @@ describe("setup.handler", () => {
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
           expect(settings.skills?.["commit"]).toBe("^1.0.0");
           expect(settings.owner).toBe("@myorg");
+          expect(installCalls).toEqual([]);
+        }),
+      );
+    });
+
+    it.effect("enables instruction sync and writes the shared source", () => {
+      const { provide } = makeSetupTestContext();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"], yes: true });
+
+          const settings = readJson(path.join(tempDir, ".axm", "settings.json"));
+          expect(settings.agents).toEqual(["claude-code"]);
+          expect(settings.rulesConfig?.instructions).toEqual({
+            fileName: "AGENTS.md",
+            gitignore: true,
+          });
+          expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(true);
+          expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(true);
+          expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
+            "**/CLAUDE.md",
+          );
+        }),
+      );
+    });
+
+    it.effect("seeds AGENTS.md from the richest existing instruction file", () => {
+      const { provide } = makeSetupTestContext();
+
+      return provide(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Existing\n\nKeep this.\n");
+
+          yield* handleSetup({ scope: "project", agents: ["claude-code"], yes: true });
+
+          expect(fs.readFileSync(path.join(tempDir, "AGENTS.md"), "utf-8")).toBe(
+            "# Existing\n\nKeep this.\n",
+          );
+        }),
+      );
+    });
+
+    it.effect("preview renders the setup plan without writing workspace files", () => {
+      const { provide, installCalls } = makeSetupTestContext();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({
+            scope: "project",
+            agents: ["claude-code"],
+            yes: true,
+            preview: true,
+          });
+
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
           expect(installCalls).toEqual([]);
         }),
       );

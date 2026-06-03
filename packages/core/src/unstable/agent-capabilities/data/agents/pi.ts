@@ -18,68 +18,70 @@ export const piAgent = {
       url: "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md",
     },
   ],
-  skills: {
-    lifecycle: "available",
-    notes:
-      "Skills follow the Agent Skills SKILL.md standard and are invoked via /skill:name. Pi discovers them from .pi/skills and .agents/skills (project, searched up through parent directories) and ~/.pi/agent/skills and ~/.agents/skills (user).\n",
-    docs: [],
-    sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
-    lastVerified: "2026-05-18",
-    scopes: ["user", "project"],
-    standardsCompliance: "full",
-    convention: "vendor",
-    directory: ".pi/skills",
-  },
-  commands: {
-    lifecycle: "available",
-    notes:
-      "Custom slash commands are Markdown prompt templates with {{variable}} interpolation, expanded via /templatename. Stored in .pi/prompts (project) or ~/.pi/agent/prompts (user). Prompt templates have no industry spec yet.\n",
-    docs: [],
-    sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
-    lastVerified: "2026-05-18",
-    scopes: ["user", "project"],
-    directory: ".pi/prompts",
-  },
-  mcp: {
-    lifecycle: "unsupported",
-    notes:
-      'Pi ships a deliberate "no MCP" core with only four built-in tools (read, write, edit, bash). MCP can only be added by installing or building a TypeScript extension; there is no native MCP server configuration.\n',
-    docs: [],
-    sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
-  },
-  subagents: {
-    lifecycle: "unsupported",
-    notes:
-      "Pi has no built-in subagent system by design. Multi-agent workflows are expected to be composed externally (e.g. spawning pi instances under tmux) or via a TypeScript extension.\n",
-    docs: [],
-    sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
-  },
-  instructions: {
-    lifecycle: "available",
-    notes:
-      "AGENTS.md and CLAUDE.md context load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
-    docs: [],
-    sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
-    lastVerified: "2026-05-18",
-    scopes: ["user", "project"],
-    standardsCompliance: "full",
-    convention: "universal",
-    kind: "agents-md",
-    files: ["AGENTS.md"],
-    nestedDiscovery: true,
-    importSyntax: null,
-  },
-  rules: {
-    lifecycle: "unsupported",
-    notes: null,
-    docs: [],
-    sources: [],
-  },
-  hooks: {
-    lifecycle: "unsupported",
-    notes: null,
-    docs: [],
-    sources: [],
+  capabilities: {
+    skill: {
+      lifecycle: "supported",
+      notes:
+        "Skills follow the Agent Skills SKILL.md standard and are invoked via /skill:name. Pi discovers them from .pi/skills and .agents/skills (project, searched up through parent directories) and ~/.pi/agent/skills and ~/.agents/skills (user).\n",
+      docs: [],
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "vendor",
+      directory: ".pi/skills",
+    },
+    command: {
+      lifecycle: "supported",
+      notes:
+        "Custom slash commands are Markdown prompt templates with {{variable}} interpolation, expanded via /templatename. Stored in .pi/prompts (project) or ~/.pi/agent/prompts (user). Prompt templates have no industry spec yet.\n",
+      docs: [],
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      directory: ".pi/prompts",
+    },
+    "mcp-server": {
+      lifecycle: "unsupported",
+      notes:
+        'Pi ships a deliberate "no MCP" core with only four built-in tools (read, write, edit, bash). MCP can only be added by installing or building a TypeScript extension; there is no native MCP server configuration.\n',
+      docs: [],
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+    },
+    subagent: {
+      lifecycle: "unsupported",
+      notes:
+        "Pi has no built-in subagent system by design. Multi-agent workflows are expected to be composed externally (e.g. spawning pi instances under tmux) or via a TypeScript extension.\n",
+      docs: [],
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+    },
+    files: {
+      lifecycle: "unsupported",
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    rule: {
+      lifecycle: "supported",
+      notes:
+        "AGENTS.md and CLAUDE.md context load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
+      docs: [],
+      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      lastVerified: "2026-05-18",
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    hook: {
+      lifecycle: "unsupported",
+      notes: null,
+      docs: [],
+      sources: [],
+    },
   },
   permissions: {
     lifecycle: "unsupported",

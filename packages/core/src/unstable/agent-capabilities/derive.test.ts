@@ -4,11 +4,11 @@ import {
   agentById,
   agentSupportsType,
   deriveAgentDescriptor,
+  getSupportedAgentsForExtension,
+  getSupportedAgentsForExtensionType,
+  getSupportedAgentsForExtensionTypes,
+  getSupportedExtensionTypesForAgent,
   listCapabilities,
-  supportedTypes,
-  worksOn,
-  worksOnAll,
-  worksOnExtension,
 } from "./index.js";
 import type { Agent } from "./schema.js";
 
@@ -22,61 +22,104 @@ const baseAgent = {
   rootDir: ".sample",
   detection: { projectDirs: [], userDirs: [] },
   docs: [],
-  skills: {
-    standardsCompliance: "full",
-    convention: "vendor",
-    lifecycle: "available",
-    notes: null,
-    docs: [],
-    sources: ["https://example.com/skills"],
-    lastVerified: "2026-05-16",
-    scopes: ["project"],
-    directory: ".sample/skills",
+  capabilities: {
+    skill: {
+      standardsCompliance: "full",
+      convention: "vendor",
+      lifecycle: "supported",
+      notes: null,
+      docs: [],
+      sources: ["https://example.com/skills"],
+      lastVerified: "2026-05-16",
+      scopes: ["project"],
+      directory: ".sample/skills",
+    },
+    command: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+    "mcp-server": { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+    subagent: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+    files: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+    rule: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+    hook: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
   },
-  commands: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  mcp: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  subagents: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  instructions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  rules: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  hooks: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
   permissions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
 } satisfies Agent;
 
+const supportedSkillWithNoStandardsCompliance = {
+  ...baseAgent.capabilities.skill,
+  standardsCompliance: "none",
+} satisfies Agent["capabilities"]["skill"];
+
 describe("agent capability derivation", () => {
   it("lists supported leaf extension types for an agent", () => {
-    expect(supportedTypes(agentById("claude-code"))).toEqual([
+    expect(getSupportedExtensionTypesForAgent(agentById("claude-code"))).toEqual([
       "skill",
       "command",
       "mcp-server",
       "subagent",
-      "files",
+      "rule",
       "hook",
     ]);
   });
 
-  it("counts available compliant capabilities as works-with support", () => {
-    expect(agentSupportsType(agentById("claude-code"), "files")).toBe(true);
+  it("counts supported capabilities as support", () => {
+    expect(agentSupportsType(agentById("claude-code"), "rule")).toBe(true);
+    expect(agentSupportsType(agentById("claude-code"), "files")).toBe(false);
     expect(agentSupportsType(agentById("cursor"), "rule")).toBe(true);
   });
 
-  it("does not infer support for omitted capabilities", () => {
-    expect(agentSupportsType(agentById("codex"), "rule")).toBe(false);
-    expect(agentSupportsType(agentById("github-copilot"), "rule")).toBe(false);
+  it("determines support from lifecycle only", () => {
+    expect(
+      agentSupportsType(
+        {
+          ...baseAgent,
+          capabilities: {
+            ...baseAgent.capabilities,
+            skill: supportedSkillWithNoStandardsCompliance,
+          },
+        },
+        "skill",
+      ),
+    ).toBe(true);
   });
 
-  it("does not count explicit unsupported as works-with support", () => {
+  it("does not infer support for omitted capabilities", () => {
+    expect(agentSupportsType(agentById("codex"), "files")).toBe(false);
+    expect(agentSupportsType(agentById("github-copilot"), "files")).toBe(false);
+  });
+
+  it("does not count explicit unsupported as support", () => {
     expect(agentSupportsType(agentById("windsurf"), "subagent")).toBe(false);
   });
 
-  it("finds agents that work with one extension type", () => {
-    expect(worksOn("rule", AGENTS).map((agent) => agent.id)).toEqual([
+  it("finds agents that support one extension type", () => {
+    expect(getSupportedAgentsForExtensionType("rule", AGENTS).map((agent) => agent.id)).toEqual([
+      "adal",
+      "amp",
       "antigravity",
+      "augment",
+      "claude-code",
       "cline",
+      "codex",
       "continue",
+      "crush",
       "cursor",
+      "devin",
+      "droid",
+      "forgecode",
+      "gemini-cli",
+      "github-copilot",
+      "grok-cli",
+      "hermes",
       "ibm-bob",
       "junie",
+      "kilo",
       "kiro-cli",
+      "kode",
+      "mistral-vibe",
+      "mux",
+      "openhands",
+      "pi",
+      "qoder",
       "roo",
       "trae-cn",
       "trae",
@@ -85,12 +128,29 @@ describe("agent capability derivation", () => {
     ]);
   });
 
+  it("defaults single-type support lookup to the full catalog", () => {
+    expect(getSupportedAgentsForExtensionType("skill").map((agent) => agent.id)).toContain("codex");
+  });
+
   it("requires every requested type for multi-type compatibility", () => {
-    expect(worksOnAll(["rule", "subagent"], AGENTS).map((agent) => agent.id)).toEqual([
+    expect(
+      getSupportedAgentsForExtensionTypes(["rule", "subagent"], AGENTS).map((agent) => agent.id),
+    ).toEqual([
+      "amp",
+      "augment",
+      "claude-code",
+      "codex",
       "cursor",
+      "gemini-cli",
+      "github-copilot",
       "ibm-bob",
       "junie",
+      "kilo",
       "kiro-cli",
+      "kode",
+      "mistral-vibe",
+      "mux",
+      "qoder",
       "roo",
       "zencoder",
     ]);
@@ -98,9 +158,10 @@ describe("agent capability derivation", () => {
 
   it("derives pack compatibility from all member types", () => {
     expect(
-      worksOnExtension({ type: "pack", memberTypes: ["mcp-server", "files"] }, AGENTS).map(
-        (agent) => agent.id,
-      ),
+      getSupportedAgentsForExtension(
+        { type: "pack", memberTypes: ["mcp-server", "rule"] },
+        AGENTS,
+      ).map((agent) => agent.id),
     ).toEqual([
       "antigravity",
       "claude-code",
@@ -112,17 +173,22 @@ describe("agent capability derivation", () => {
       "grok-cli",
       "hermes",
       "ibm-bob",
+      "junie",
       "kilo",
       "kiro-cli",
       "mistral-vibe",
       "openhands",
       "qoder",
+      "roo",
+      "trae-cn",
+      "trae",
       "windsurf",
+      "zencoder",
     ]);
   });
 
   it("does not treat empty packs as vacuously compatible", () => {
-    expect(worksOnExtension({ type: "pack", memberTypes: [] }, AGENTS)).toEqual([]);
+    expect(getSupportedAgentsForExtension({ type: "pack", memberTypes: [] }, AGENTS)).toEqual([]);
   });
 
   it("lists present capability details for support views", () => {
@@ -135,11 +201,11 @@ describe("agent capability derivation", () => {
           : {}),
       })),
     ).toEqual([
-      { type: "skill", lifecycle: "available", standardsCompliance: "full" },
-      { type: "command", lifecycle: "available" },
-      { type: "mcp-server", lifecycle: "available", standardsCompliance: "full" },
-      { type: "subagent", lifecycle: "available" },
-      { type: "files", lifecycle: "available", standardsCompliance: "full" },
+      { type: "skill", lifecycle: "supported", standardsCompliance: "full" },
+      { type: "command", lifecycle: "supported" },
+      { type: "mcp-server", lifecycle: "supported", standardsCompliance: "full" },
+      { type: "subagent", lifecycle: "supported" },
+      { type: "rule", lifecycle: "supported", standardsCompliance: "full" },
     ]);
   });
 
@@ -148,38 +214,41 @@ describe("agent capability derivation", () => {
       deriveAgentDescriptor({
         ...baseAgent,
         rootDir: ".sample-root",
-        commands: {
-          lifecycle: "available",
-          notes: null,
-          docs: [],
-          sources: ["https://example.com/commands"],
-          lastVerified: "2026-05-16",
-          scopes: ["project"],
-          directory: ".sample/commands",
-        },
-        subagents: {
-          lifecycle: "available",
-          notes: null,
-          docs: [],
-          sources: ["https://example.com/subagents"],
-          lastVerified: "2026-05-16",
-          scopes: ["project"],
-          directory: ".sample/agents",
-          layout: "directory",
-        },
-        instructions: {
-          standardsCompliance: "parity",
-          convention: "vendor",
-          lifecycle: "available",
-          notes: null,
-          docs: [],
-          sources: ["https://example.com/instructions"],
-          lastVerified: "2026-05-16",
-          scopes: ["project"],
-          kind: "own-file",
-          files: ["SAMPLE.md"],
-          nestedDiscovery: true,
-          importSyntax: "at-path",
+        capabilities: {
+          ...baseAgent.capabilities,
+          command: {
+            lifecycle: "supported",
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/commands"],
+            lastVerified: "2026-05-16",
+            scopes: ["project"],
+            directory: ".sample/commands",
+          },
+          subagent: {
+            lifecycle: "supported",
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/subagents"],
+            lastVerified: "2026-05-16",
+            scopes: ["project"],
+            directory: ".sample/agents",
+            layout: "directory",
+          },
+          rule: {
+            standardsCompliance: "parity",
+            convention: "vendor",
+            lifecycle: "supported",
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/instructions"],
+            lastVerified: "2026-05-16",
+            scopes: ["project"],
+            kind: "own-file",
+            files: ["SAMPLE.md"],
+            nestedDiscovery: true,
+            importSyntax: "at-path",
+          },
         },
       }),
     ).toEqual({
@@ -198,15 +267,18 @@ describe("agent capability derivation", () => {
       deriveAgentDescriptor({
         ...baseAgent,
         rootDir: null,
-        subagents: {
-          lifecycle: "available",
-          notes: null,
-          docs: [],
-          sources: ["https://example.com/subagents"],
-          lastVerified: "2026-05-16",
-          scopes: ["project"],
-          directory: ".sample-modes.yaml",
-          layout: "file",
+        capabilities: {
+          ...baseAgent.capabilities,
+          subagent: {
+            lifecycle: "supported",
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/subagents"],
+            lastVerified: "2026-05-16",
+            scopes: ["project"],
+            directory: ".sample-modes.yaml",
+            layout: "file",
+          },
         },
       }),
     ).toEqual({
@@ -241,19 +313,22 @@ describe("agent capability derivation", () => {
     expect(
       deriveAgentDescriptor({
         ...baseAgent,
-        instructions: {
-          standardsCompliance: "full",
-          convention: "universal",
-          lifecycle: "available",
-          notes: null,
-          docs: [],
-          sources: ["https://example.com/instructions"],
-          lastVerified: "2026-05-16",
-          scopes: ["project"],
-          kind: "agents-md",
-          files: ["AGENTS.md"],
-          nestedDiscovery: true,
-          importSyntax: null,
+        capabilities: {
+          ...baseAgent.capabilities,
+          rule: {
+            standardsCompliance: "full",
+            convention: "universal",
+            lifecycle: "supported",
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/instructions"],
+            lastVerified: "2026-05-16",
+            scopes: ["project"],
+            kind: "agents-md",
+            files: ["AGENTS.md"],
+            nestedDiscovery: true,
+            importSyntax: null,
+          },
         },
       }).instructions,
     ).toEqual({ kind: "agents-md" });
@@ -261,28 +336,23 @@ describe("agent capability derivation", () => {
     expect(
       deriveAgentDescriptor({
         ...baseAgent,
-        instructions: {
-          standardsCompliance: "partial",
-          convention: "vendor",
-          lifecycle: "available",
-          notes: null,
-          docs: [],
-          sources: ["https://example.com/instructions"],
-          lastVerified: "2026-05-16",
-          scopes: ["project"],
-          kind: "rules-dir",
-          files: ["RULES.md"],
-          nestedDiscovery: false,
-          importSyntax: null,
-        },
-        rules: {
-          lifecycle: "available",
-          notes: null,
-          docs: [],
-          sources: ["https://example.com/rules"],
-          lastVerified: "2026-05-16",
-          scopes: ["project"],
-          directory: ".sample/rules",
+        capabilities: {
+          ...baseAgent.capabilities,
+          rule: {
+            standardsCompliance: "partial",
+            convention: "vendor",
+            lifecycle: "supported",
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/instructions"],
+            lastVerified: "2026-05-16",
+            scopes: ["project"],
+            kind: "rules-dir",
+            files: ["RULES.md"],
+            nestedDiscovery: false,
+            importSyntax: null,
+            directory: ".sample/rules",
+          },
         },
       }).instructions,
     ).toEqual({ kind: "rules-dir", dir: ".sample/rules", format: "frontmatter" });

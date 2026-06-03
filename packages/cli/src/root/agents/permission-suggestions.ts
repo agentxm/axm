@@ -2,10 +2,11 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
   AgentIdSchema,
+  SUPPORTED_LIFECYCLE,
   agentById,
   type AgentId,
   type ConfigFileLocation,
-  type PermissionsCapability,
+  type PermissionsExtensionCapability,
 } from "@agentxm/client-core/unstable/agent-capabilities";
 import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
 
@@ -27,7 +28,9 @@ const matchingProjectConfig = (
   );
 };
 
-const preferredTarget = (permissions: PermissionsCapability): ConfigFileLocation | undefined => {
+const preferredTarget = (
+  permissions: PermissionsExtensionCapability,
+): ConfigFileLocation | undefined => {
   const configFiles = "configFiles" in permissions ? permissions.configFiles : [];
   const shellTarget = "grants" in permissions ? permissions.grants["shell"]?.target : undefined;
 
@@ -51,7 +54,7 @@ export const buildPermissionSuggestions = (
       onSome: (agentId) => {
         const agent = agentById(agentId);
         const permissions = agent.permissions;
-        if (permissions.lifecycle !== "available") return [];
+        if (permissions.lifecycle !== SUPPORTED_LIFECYCLE) return [];
 
         const target = preferredTarget(permissions);
         const example = permissions.grammar?.example;

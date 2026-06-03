@@ -50,7 +50,8 @@ export interface CliInvocationResult {
 
 type NodePlatform = NodeJS.Platform;
 type InlineRemoteTransport = "streamable-http" | "sse";
-type FullMcpCapability = Extract<Agent["mcp"], { readonly standardsCompliance: "full" }>;
+type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
+type FullMcpCapability = Extract<AgentMcpCapability, { readonly standardsCompliance: "full" }>;
 
 const DEFAULT_SUPPORTED_PLATFORMS = ["darwin", "linux", "win32"] as const;
 
@@ -68,7 +69,7 @@ const emptyJsonMcpConfig: JsonMcpConfig = { servers: {} };
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const hasFullMcpConfig = (capability: Agent["mcp"]): capability is FullMcpCapability =>
+const hasFullMcpConfig = (capability: AgentMcpCapability): capability is FullMcpCapability =>
   "config" in capability && capability.standardsCompliance === "full";
 
 const redactSecrets = (value: string): string =>
@@ -573,7 +574,7 @@ export const syncInlineMcpServerToAgent = (
     }
 
     const agent: Agent = AGENTS_BY_ID[agentId];
-    const capability = agent.mcp;
+    const capability = agent.capabilities["mcp-server"];
     if (!hasFullMcpConfig(capability)) {
       return {
         _tag: "unsupported",
@@ -646,7 +647,7 @@ export const pruneManagedMcpServersForAgent = (
     }
 
     const agent: Agent = AGENTS_BY_ID[agentId];
-    const capability = agent.mcp;
+    const capability = agent.capabilities["mcp-server"];
     if (!hasFullMcpConfig(capability)) {
       return {
         _tag: "unsupported",
@@ -947,7 +948,7 @@ export const addMcpServerFromManifest = (
     }
 
     const agent: Agent = AGENTS_BY_ID[agentId];
-    const capability = agent.mcp;
+    const capability = agent.capabilities["mcp-server"];
     if (!hasFullMcpConfig(capability)) {
       return {
         _tag: "unsupported",
@@ -1019,7 +1020,7 @@ export const removeMcpServerFromManifest = (
     }
 
     const agent: Agent = AGENTS_BY_ID[agentId];
-    const capability = agent.mcp;
+    const capability = agent.capabilities["mcp-server"];
     if (!hasFullMcpConfig(capability)) {
       return {
         _tag: "unsupported",

@@ -9,7 +9,7 @@
  */
 
 import type {
-  McpCapability,
+  McpExtensionCapability,
   McpConfig,
   McpRemoteDialect,
   McpStdioDialect,
@@ -47,12 +47,12 @@ export type McpResolution =
 
 export interface ResolveMcpServerArgs {
   readonly manifest: McpServerManifest;
-  readonly capability: McpCapability;
+  readonly capability: McpExtensionCapability;
   readonly values: Readonly<Record<string, string>>;
   readonly enabled: boolean;
 }
 
-type FullMcpCapability = Extract<McpCapability, { readonly standardsCompliance: "full" }>;
+type FullMcpCapability = Extract<McpExtensionCapability, { readonly standardsCompliance: "full" }>;
 
 type Candidate =
   | {
@@ -80,7 +80,7 @@ const capabilitySupportsUpstream = (
   transport: UpstreamRemoteTransport,
 ): boolean => transports.includes(transport === "streamable-http" ? "http" : transport);
 
-const hasFullMcpConfig = (capability: McpCapability): capability is FullMcpCapability =>
+const hasFullMcpConfig = (capability: McpExtensionCapability): capability is FullMcpCapability =>
   "config" in capability && capability.standardsCompliance === "full";
 
 const isRemoteTransport = (transport: string): transport is UpstreamRemoteTransport =>

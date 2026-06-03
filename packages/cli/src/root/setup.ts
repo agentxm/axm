@@ -71,6 +71,13 @@ const SetupResultSchema = Schema.Struct({
     }),
   ),
   settingsPath: Schema.String,
+  instructions: Schema.optional(
+    Schema.Struct({
+      enabled: Schema.Boolean,
+      fileName: Schema.optional(Schema.String),
+      gitignore: Schema.optional(Schema.Boolean),
+    }),
+  ),
   telemetryEnabled: Schema.Boolean,
   subagentFiles: Schema.optional(Schema.Array(SubagentSummarySchema)),
 });
@@ -256,12 +263,15 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const path = yield* Path.Path;
   yield* renderSetupBranding(renderer);
 
-  const { settings, location, initialized } = yield* bootstrapWorkspace(
-    args.agents !== undefined && args.agents.length > 0
-      ? ({ scope: args.scope, agents: args.agents } satisfies WorkspaceMutationsOptions)
-      : ({ scope: args.scope } satisfies WorkspaceMutationsOptions),
-  );
-  if (initialized) {
+  const workspaceOptions: WorkspaceMutationsOptions = {
+    scope: args.scope,
+    ...(args.agents !== undefined && args.agents.length > 0 ? { agents: args.agents } : {}),
+    ...(args.yes !== undefined ? { yes: args.yes } : {}),
+    ...(args.force !== undefined ? { force: args.force } : {}),
+    ...(args.preview !== undefined ? { preview: args.preview } : {}),
+  };
+  const { settings, location, initialized } = yield* bootstrapWorkspace(workspaceOptions);
+  if (initialized && args.preview !== true) {
     const installer = yield* SetupSkillInstaller;
     yield* installer.installDefaultSkill({
       scope: args.scope,
@@ -290,6 +300,21 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const agentNames = allAgents.map((agent) => agent.name).join(", ");
   const telemetryEnabled = telemetryMode !== "off";
   const settingsPath = joinDisplayPath(path, location.path, "settings.json");
+  const instructionsValue = settings.rulesConfig?.instructions;
+  const instructions =
+    instructionsValue === undefined
+      ? undefined
+      : instructionsValue === false
+        ? { enabled: false }
+        : {
+            enabled: true,
+            ...(instructionsValue.fileName !== undefined && {
+              fileName: instructionsValue.fileName,
+            }),
+            ...(instructionsValue.gitignore !== undefined && {
+              gitignore: instructionsValue.gitignore,
+            }),
+          };
 
   // Scan subagent directories for existing files
   const subagentSummaries: ReadonlyArray<AgentSubagentSummary> =
@@ -302,6 +327,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
           scope: location.scope,
           agents: allAgents,
           settingsPath,
+          ...(instructions !== undefined ? { instructions } : {}),
           telemetryEnabled,
           ...(subagentSummaries.length > 0 ? { subagentFiles: [...subagentSummaries] } : {}),
         },
@@ -317,12 +343,23 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     yield* renderer.info(`Agents: ${agentNames}`);
   }
   yield* renderer.info(`Settings: ${settingsPath}`);
+  if (instructions !== undefined) {
+    yield* renderer.info(
+      instructions.enabled
+        ? `Instructions: ${instructions.fileName ?? "AGENTS.md"}`
+        : "Instructions: disabled",
+    );
+  }
 
   // Show subagent file summary
   yield* renderSubagentSummary(renderer, path, subagentSummaries);
 
   yield* renderer.success(
-    allAgents.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
+    args.preview === true
+      ? "Setup plan ready"
+      : allAgents.length > 0
+        ? `Initialized with agents: ${agentNames}`
+        : "Workspace initialized",
   );
 
   // Show telemetry notice (unless telemetry is off)

@@ -4,48 +4,25 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { ExtensionType } from "../extensions/common.js";
 import type {
   AgentDescriptor,
   AgentInstructionsDescriptor,
   AgentSubagentsDescriptor,
 } from "../agents/types.js";
-import { AGENT_IDS, type AgentId } from "./catalog.js";
-import type { Agent, AgentCapability } from "./schema.js";
-
-/** @experimental This API is unstable and may change without notice. */
-export const LEAF_EXTENSION_TYPES = [
-  "skill",
-  "command",
-  "mcp-server",
-  "subagent",
-  "files",
-  "rule",
-  "hook",
-] as const satisfies ReadonlyArray<ExtensionType>;
-
-/** @experimental This API is unstable and may change without notice. */
-export type LeafExtensionType = (typeof LEAF_EXTENSION_TYPES)[number];
-
-/** @experimental This API is unstable and may change without notice. */
-export const capabilityKinds = [
-  "skills",
-  "commands",
-  "mcp",
-  "subagents",
-  "instructions",
-  "rules",
-  "hooks",
-  "permissions",
-] as const;
-
-/** @experimental This API is unstable and may change without notice. */
-export type CapabilityKind = (typeof capabilityKinds)[number];
+import type { ExtensionType } from "../extensions/common.js";
+import { AGENTS, AGENT_IDS, type AgentId } from "./catalog.js";
+import {
+  LEAF_EXTENSION_TYPES,
+  SUPPORTED_LIFECYCLE,
+  type Agent,
+  type AgentExtensionCapability,
+  type LeafExtensionType,
+} from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */
 export interface CapabilityListing {
   readonly type: LeafExtensionType;
-  readonly capability: AgentCapability;
+  readonly capability: AgentExtensionCapability;
 }
 
 /** @experimental This API is unstable and may change without notice. */
@@ -54,26 +31,12 @@ export type ExtensionCompatibilityInput =
   | { readonly type: "pack"; readonly memberTypes: ReadonlyArray<LeafExtensionType> };
 
 /** @experimental This API is unstable and may change without notice. */
-export const EXTENSION_TYPE_CAPABILITY = {
-  skill: (agent: Agent) => agent.skills,
-  command: (agent: Agent) => agent.commands,
-  "mcp-server": (agent: Agent) => agent.mcp,
-  subagent: (agent: Agent) => agent.subagents,
-  files: (agent: Agent) => agent.instructions,
-  rule: (agent: Agent) => agent.rules,
-  hook: (agent: Agent) => agent.hooks,
-} satisfies Record<LeafExtensionType, (agent: Agent) => AgentCapability>;
-
-/** @experimental This API is unstable and may change without notice. */
 export const isLeafExtensionType = (value: ExtensionType): value is LeafExtensionType =>
   value !== "pack";
 
 /** @experimental This API is unstable and may change without notice. */
-export const capabilityWorks = (capability: AgentCapability): boolean => {
-  if (capability.lifecycle !== "available") return false;
-  if ("standardsCompliance" in capability) return capability.standardsCompliance !== "none";
-  return true;
-};
+export const isCapabilitySupported = (capability: AgentExtensionCapability): boolean =>
+  capability.lifecycle === SUPPORTED_LIFECYCLE;
 
 const catalogAgentIds = new Set<string>(AGENT_IDS);
 
@@ -90,11 +53,13 @@ const deriveRootDir = (agent: Agent): string | undefined =>
   agent.rootDir === null
     ? undefined
     : agent.rootDir ||
-      ("directory" in agent.skills ? firstPathSegment(agent.skills.directory) : undefined);
+      ("directory" in agent.capabilities.skill
+        ? firstPathSegment(agent.capabilities.skill.directory)
+        : undefined);
 
 const deriveSubagentsDescriptor = (agent: Agent): AgentSubagentsDescriptor | undefined => {
-  const subagents = agent.subagents;
-  if (!capabilityWorks(subagents)) return undefined;
+  const subagents = agent.capabilities.subagent;
+  if (!isCapabilitySupported(subagents)) return undefined;
   if (!("directory" in subagents)) return undefined;
   return {
     dir: subagents.directory,
@@ -103,8 +68,8 @@ const deriveSubagentsDescriptor = (agent: Agent): AgentSubagentsDescriptor | und
 };
 
 const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor | undefined => {
-  const instructions = agent.instructions;
-  if (!capabilityWorks(instructions) || !("kind" in instructions)) return undefined;
+  const instructions = agent.capabilities.rule;
+  if (!isCapabilitySupported(instructions) || !("kind" in instructions)) return undefined;
 
   switch (instructions.kind) {
     case "agents-md":
@@ -119,8 +84,7 @@ const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor
       };
     }
     case "rules-dir": {
-      if (!("directory" in agent.rules)) return undefined;
-      return { kind: "rules-dir", dir: agent.rules.directory, format: "frontmatter" };
+      return { kind: "rules-dir", dir: instructions.directory, format: "frontmatter" };
     }
   }
 };
@@ -130,9 +94,11 @@ const hasDetectionMarkers = (agent: Agent): boolean =>
 
 /** @experimental This API is unstable and may change without notice. */
 export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
+  const skill = agent.capabilities.skill;
+  const command = agent.capabilities.command;
   const commands =
-    capabilityWorks(agent.commands) && "directory" in agent.commands
-      ? { dir: agent.commands.directory }
+    isCapabilitySupported(command) && "directory" in command
+      ? { dir: command.directory }
       : undefined;
   const subagents = deriveSubagentsDescriptor(agent);
   const instructions = deriveInstructionsDescriptor(agent);
@@ -142,7 +108,7 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
     name: agent.name,
     rootDir: deriveRootDir(agent),
     skills: {
-      dir: "directory" in agent.skills ? agent.skills.directory : "",
+      dir: "directory" in skill ? skill.directory : "",
     },
     ...(hasDetectionMarkers(agent) ? { detection: agent.detection } : {}),
     ...(commands === undefined ? {} : { commands }),
@@ -156,7 +122,7 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
   const capabilities: Array<CapabilityListing> = [];
 
   for (const type of LEAF_EXTENSION_TYPES) {
-    const capability = EXTENSION_TYPE_CAPABILITY[type](agent);
+    const capability = agent.capabilities[type];
     if (
       capability.lifecycle !== "unsupported" ||
       capability.sources.length > 0 ||
@@ -172,34 +138,36 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
 
 /** @experimental This API is unstable and may change without notice. */
 export const agentSupportsType = (agent: Agent, type: LeafExtensionType): boolean => {
-  const capability = EXTENSION_TYPE_CAPABILITY[type](agent);
-  return capabilityWorks(capability);
+  const capability = agent.capabilities[type];
+  return isCapabilitySupported(capability);
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const supportedTypes = (agent: Agent): ReadonlyArray<LeafExtensionType> =>
+export const getSupportedExtensionTypesForAgent = (
+  agent: Agent,
+): ReadonlyArray<LeafExtensionType> =>
   LEAF_EXTENSION_TYPES.filter((type) => agentSupportsType(agent, type));
 
 /** @experimental This API is unstable and may change without notice. */
-export const worksOnAll = (
+export const getSupportedAgentsForExtensionTypes = (
   types: ReadonlyArray<LeafExtensionType>,
-  catalog: ReadonlyArray<Agent>,
+  catalog: ReadonlyArray<Agent> = AGENTS,
 ): ReadonlyArray<Agent> => {
   if (types.length === 0) return [];
   return catalog.filter((agent) => types.every((type) => agentSupportsType(agent, type)));
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const worksOn = (
+export const getSupportedAgentsForExtensionType = (
   type: LeafExtensionType,
-  catalog: ReadonlyArray<Agent>,
-): ReadonlyArray<Agent> => worksOnAll([type], catalog);
+  catalog: ReadonlyArray<Agent> = AGENTS,
+): ReadonlyArray<Agent> => getSupportedAgentsForExtensionTypes([type], catalog);
 
 /** @experimental This API is unstable and may change without notice. */
-export const worksOnExtension = (
+export const getSupportedAgentsForExtension = (
   extension: ExtensionCompatibilityInput,
-  catalog: ReadonlyArray<Agent>,
+  catalog: ReadonlyArray<Agent> = AGENTS,
 ): ReadonlyArray<Agent> =>
   extension.type === "pack"
-    ? worksOnAll(extension.memberTypes, catalog)
-    : worksOn(extension.type, catalog);
+    ? getSupportedAgentsForExtensionTypes(extension.memberTypes, catalog)
+    : getSupportedAgentsForExtensionType(extension.type, catalog);

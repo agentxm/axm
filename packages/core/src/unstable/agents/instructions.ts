@@ -86,6 +86,52 @@ export const resolveInstructionMechanism = (
   }
 };
 
+/** Reason an agent is excluded from instruction-file sync. */
+export type InstructionSkipReason = "no-convention";
+
+/**
+ * A single, branch-exhaustive answer to the three questions both the sync
+ * engine and the `axm setup` plan preview ask about a configured agent:
+ * is it syncable, what file/dir does it target, and by what mechanism.
+ *
+ * `relativeTarget` is relative to an instruction root so this stays free of
+ * the FileSystem/Path services and is trivially fixture-testable across the
+ * whole registry. The `action` discriminant maps 1:1 to a plan-preview row:
+ *
+ * - `native`  — agent reads the source file itself (`AGENTS.md`); no write.
+ * - `write`   — propagate the source to a distinct native file via symlink or
+ *               copy (e.g. `CLAUDE.md`, `GEMINI.md`).
+ * - `adapter` — convert the source into a native rules directory.
+ * - `skip`    — agent has no encoded instruction-file convention.
+ */
+export type InstructionTargetResolution =
+  | {
+      readonly action: "native" | "write" | "adapter";
+      readonly mechanism: InstructionMechanism;
+      readonly relativeTarget: string;
+    }
+  | { readonly action: "skip"; readonly reason: InstructionSkipReason };
+
+export const resolveInstructionTarget = (args: {
+  readonly instructions: AgentInstructionsDescriptor | undefined;
+  readonly sourceFileName: string;
+  readonly symlinkSupported: boolean;
+}): InstructionTargetResolution => {
+  const { instructions, sourceFileName, symlinkSupported } = args;
+  if (instructions === undefined) {
+    return { action: "skip", reason: "no-convention" };
+  }
+  const mechanism = resolveInstructionMechanism(instructions, symlinkSupported);
+  switch (instructions.kind) {
+    case "agents-md":
+      return { action: "native", mechanism, relativeTarget: sourceFileName };
+    case "own-file":
+      return { action: "write", mechanism, relativeTarget: instructions.file };
+    case "rules-dir":
+      return { action: "adapter", mechanism, relativeTarget: instructions.dir };
+  }
+};
+
 export const normalizeMarkdownBody = (content: string): string => {
   const normalized = content.replace(/\r\n?/g, "\n");
   const lines = normalized.split("\n");
@@ -219,16 +265,14 @@ const targetForDescriptor = (
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    switch (descriptor.kind) {
-      case "agents-md":
-        return path.join(root, sourceFile);
-      case "own-file":
-        return path.join(root, descriptor.file);
-      case "rules-dir":
-        return mechanism === "adapter"
-          ? path.join(root, descriptor.dir)
-          : path.join(root, sourceFile);
-    }
+    const resolution = resolveInstructionTarget({
+      instructions: descriptor,
+      sourceFileName: sourceFile,
+      symlinkSupported: mechanism === "symlink",
+    });
+    // `descriptor` is always defined here, so the resolution is never a skip.
+    const relativeTarget = resolution.action === "skip" ? sourceFile : resolution.relativeTarget;
+    return path.join(root, relativeTarget);
   });
 
 const inspectTarget = (args: {

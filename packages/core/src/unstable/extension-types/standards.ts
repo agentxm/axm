@@ -1,5 +1,5 @@
 /**
- * Standards referenced by the agent capability catalog.
+ * Open standards referenced by the extension type catalog.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -18,7 +18,7 @@ export const STANDARDS = {
     name: "Model Context Protocol",
     url: "https://modelcontextprotocol.io",
   },
-  instructions: {
+  rules: {
     id: "agents-md",
     name: "AGENTS.md",
     url: "https://agents.md",

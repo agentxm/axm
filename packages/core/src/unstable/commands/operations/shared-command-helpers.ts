@@ -16,6 +16,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
 import type { AllAgentOverrides } from "../../extensions/agent-overrides.js";
 import { warnOnOrphanOverrides } from "../../extensions/agent-overrides.js";
 import { validateCommandManifestHasNoAgentOverridesField } from "../../publish/manifest-policy.js";
@@ -265,32 +266,61 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
       r.outcome._tag === "success" ? [{ agentId: r.agentId, outcome: r.outcome }] : [],
     );
     const successfulAgents = successOutcomes.map((r) => r.agentId);
-    const renderedFileEntries = yield* Effect.forEach(
-      successOutcomes,
-      (r) => {
-        const relativePath = makeWorkspaceRelativePath(
-          path,
-          args.workspaceRoot,
-          r.outcome.renderedFilePath,
-        );
-        if (Option.isNone(relativePath)) {
-          return Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: `Rendered command path escapes workspace root: ${r.outcome.renderedFilePath}`,
-            }),
-          );
-        }
-        const entries: Array<{ path: string }> = [{ path: relativePath.value }];
-        return Effect.succeed([r.agentId, entries] as const);
-      },
-      { concurrency: "unbounded" },
-    );
+    const renderedFileEntries = successOutcomes.flatMap((r) => {
+      const relativePath = makeWorkspaceRelativePath(
+        path,
+        args.workspaceRoot,
+        r.outcome.renderedFilePath,
+      );
+      // User-scope renders (e.g. Codex's ~/.codex/prompts) resolve outside the
+      // workspace root. Lockfiles only track workspace-relative paths, so we
+      // skip recording these entries rather than failing. The agent surfaces a
+      // warning about the user-scope fallback.
+      if (Option.isNone(relativePath)) return [];
+      const entries: Array<{ path: string }> = [{ path: relativePath.value }];
+      return [[r.agentId, entries] as const];
+    });
     const rawRenderedFiles: Record<string, Array<{ path: string }>> = Object.fromEntries(
       renderedFileEntries,
     );
 
     return { outcomes, successfulAgents, rawRenderedFiles } satisfies RenderToAgentsResult;
+  });
+
+/**
+ * Surface per-agent rendering warnings (lossy renders, user-scope fallbacks,
+ * conflicts) grouped by agent. No-op when there are no warnings.
+ */
+export const reportRenderingWarnings = (
+  outcomes: ReadonlyArray<AgentRenderOutcome>,
+): Effect.Effect<void, never, CliRenderer> =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const warningsByAgent: Record<string, Array<string>> = Object.fromEntries(
+      outcomes
+        .map(({ agentId, outcome, warnings }) => {
+          const agentWarnings: Array<string> = [
+            ...(outcome._tag === "success" ? Array.from(outcome.warnings) : []),
+            ...(outcome._tag === "conflict" ? [`conflict - ${outcome.reason}`] : []),
+            ...warnings
+              .filter((w) => w.feature && w.message)
+              .map((w) => `${w.feature} - ${w.message}`),
+          ];
+          return [agentId, agentWarnings] as const;
+        })
+        .filter(([, ws]) => ws.length > 0),
+    );
+
+    const agentIds = Object.keys(warningsByAgent);
+    if (agentIds.length === 0) return;
+
+    const grouped = agentIds
+      .map((id) => {
+        const agentWarnings = warningsByAgent[id] ?? [];
+        return `  ${id}:\n${agentWarnings.map((w) => `    - ${w}`).join("\n")}`;
+      })
+      .join("\n");
+    yield* renderer.warn(`Rendering warnings:\n${grouped}`);
   });
 
 // -----------------------------------------------------------------------------

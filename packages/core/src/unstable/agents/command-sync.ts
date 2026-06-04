@@ -216,7 +216,16 @@ export const addCommandViaResolve = (
     if (dirOutcome._tag !== "supported") {
       return dirOutcomeToSyncOutcome(dirOutcome);
     }
-    return yield* writeCommandFile(dirOutcome.dir, args, config);
+    const outcome = yield* writeCommandFile(dirOutcome.dir, args, config);
+    // Surface directory-resolution warnings (e.g. an agent falling back to a
+    // user-scope directory) alongside any renderer warnings.
+    if (outcome._tag === "success" && dirOutcome.warnings.length > 0) {
+      return {
+        ...outcome,
+        warnings: [...dirOutcome.warnings, ...outcome.warnings],
+      };
+    }
+    return outcome;
   });
 
 /**

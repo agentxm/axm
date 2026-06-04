@@ -34,7 +34,8 @@ import { decodeVersionSync } from "../../version-constraints/version-constraints
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../../utils/path-types.js";
 import { parseCommandMd } from "../command-content.js";
-import { renderToAgents } from "./shared-command-helpers.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
+import { renderToAgents, reportRenderingWarnings } from "./shared-command-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -93,7 +94,7 @@ const INITIAL_COMMAND_VERSION = decodeVersionSync("0.1.0");
  */
 export const newCommand: OperationHandler<
   NewCommandOperation,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository | CliRenderer
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -185,7 +186,7 @@ export const newCommand: OperationHandler<
     }
 
     const { frontmatter, agentOverrides, body } = yield* parseCommandMd(commandMdContent);
-    const { successfulAgents, rawRenderedFiles } = yield* renderToAgents({
+    const { outcomes, successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: name,
       editSourcePath: editSourcePath.value,
       frontmatter,
@@ -196,6 +197,10 @@ export const newCommand: OperationHandler<
       workspaceRoot: ws.baseDir,
       force,
     });
+
+    // Surface per-agent rendering warnings (e.g. Codex falling back to
+    // user-scope ~/.codex/prompts because it has no project commands dir).
+    yield* reportRenderingWarnings(outcomes);
 
     const fqn = `${owner}/commands/${name}`;
     yield* ws.setCommandEntry(name, {

@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepository } from "../../agents/index.js";
+import { TestRenderer } from "../../cli-renderer/index.js";
 import { normalizeHandle } from "../../extensions/index.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
@@ -59,6 +60,7 @@ describe("new-command operation", () => {
   const testLayer = () =>
     Layer.mergeAll(
       NodeServices.layer,
+      TestRenderer.make().layer,
       Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(path.join(tempDir, ".axm"))),
       Layer.succeed(CodingAgentRepository, {
         get: () => Effect.die(new Error("not used")),

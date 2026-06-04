@@ -42,7 +42,11 @@ import type {
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { buildLockEntryFromRef } from "../manager.js";
-import { readCommandContent, renderToAgents } from "./shared-command-helpers.js";
+import {
+  readCommandContent,
+  renderToAgents,
+  reportRenderingWarnings,
+} from "./shared-command-helpers.js";
 
 const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
 
@@ -332,31 +336,7 @@ export const installCommand: (
     });
 
     // --- Report lossy rendering warnings grouped by agent ---
-    const warningsByAgent: Record<string, Array<string>> = Object.fromEntries(
-      outcomes
-        .map(({ agentId, outcome, warnings }) => {
-          const agentWarnings: Array<string> = [
-            ...(outcome._tag === "success" ? Array.from(outcome.warnings) : []),
-            ...(outcome._tag === "conflict" ? [`conflict - ${outcome.reason}`] : []),
-            ...warnings
-              .filter((w) => w.feature && w.message)
-              .map((w) => `${w.feature} - ${w.message}`),
-          ];
-          return [agentId, agentWarnings] as const;
-        })
-        .filter(([, ws]) => ws.length > 0),
-    );
-
-    const agentIds = Object.keys(warningsByAgent);
-    if (agentIds.length > 0) {
-      const grouped = agentIds
-        .map((id) => {
-          const agentWarnings = warningsByAgent[id] ?? [];
-          return `  ${id}:\n${agentWarnings.map((w) => `    - ${w}`).join("\n")}`;
-        })
-        .join("\n");
-      yield* renderer.warn(`Rendering warnings:\n${grouped}`);
-    }
+    yield* reportRenderingWarnings(outcomes);
 
     // --- Compute source hash ---
     const sourceHash = computeSourceHash(body);

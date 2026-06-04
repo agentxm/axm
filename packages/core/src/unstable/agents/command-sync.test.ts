@@ -18,7 +18,7 @@ import { rooCodingAgent } from "./roo/service.js";
 import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import * as Option from "effect/Option";
 import type { AddCommandArgs, CodingAgent, RemoveCommandArgs } from "./coding-agent.js";
-import { writeCommandFile } from "./command-sync.js";
+import { addCommandViaResolve, writeCommandFile } from "./command-sync.js";
 
 const TestLayer = NodeServices.layer;
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -524,6 +524,32 @@ describe("addCommand", () => {
             { agentId: "github-copilot-cli" },
           );
           expect(outcome._tag).toBe("unsupported");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("addCommandViaResolve preserves resolve-dir warnings on the success outcome", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-warn-cmd-"));
+        try {
+          const outcome = yield* addCommandViaResolve(
+            Effect.succeed({
+              _tag: "supported" as const,
+              dir: nodePath.join(workspaceRoot, ".codex/prompts"),
+              warnings: ["Codex only supports user-scope commands; using ~/.codex/prompts/"],
+            }),
+            makeAddArgs(workspaceRoot),
+          );
+          expect(outcome._tag).toBe("success");
+          if (outcome._tag === "success") {
+            expect(outcome.warnings).toContain(
+              "Codex only supports user-scope commands; using ~/.codex/prompts/",
+            );
+          }
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

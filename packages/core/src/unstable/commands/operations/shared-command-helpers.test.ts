@@ -51,6 +51,17 @@ const makeCapturingAgent = (id: AgentId, calls: Array<AddCommandArgs>): CodingAg
       }),
   });
 
+/** Stub agent that renders to a user-scope path outside the workspace (like Codex). */
+const makeUserScopeAgent = (id: AgentId, renderedFilePath: string, warning: string): CodingAgent =>
+  makeCodingAgentStub(id, {
+    addCommand: () =>
+      Effect.succeed({
+        _tag: "success" as const,
+        renderedFilePath,
+        warnings: [warning],
+      }),
+  });
+
 const withServices = (repo: CodingAgentRepositoryService, workspaceRoot: string) =>
   Layer.mergeAll(
     NodeServices.layer,
@@ -112,6 +123,45 @@ Deploy the app.`);
       });
       expect(Option.getOrThrow(codexArgs.agentOverrides)).toEqual({ model: "o3" });
     }),
+  );
+
+  it.effect(
+    "skips lockfile recording for user-scope renders that escape the workspace root and preserves warnings",
+    () =>
+      Effect.gen(function* () {
+        const warning = "Codex only supports user-scope commands; using ~/.codex/prompts/";
+        const result = yield* renderToAgents({
+          commandName: "deploy",
+          editSourcePath: ".axm/extensions/@acme/commands/deploy/src/deploy.md",
+          frontmatter: Option.none(),
+          agentOverrides: undefined,
+          body: "Deploy the app.",
+          manifest: undefined,
+          owner: "@acme",
+          workspaceRoot: "/workspace",
+          force: false,
+        }).pipe(
+          Effect.provide(
+            withServices(
+              makeRepo([
+                makeUserScopeAgent("codex", "/home/user/.codex/prompts/deploy.md", warning),
+              ]),
+              "/workspace",
+            ),
+          ),
+        );
+
+        // Render succeeds and the agent is recorded, but the out-of-workspace
+        // path is not persisted to the lockfile's workspace-relative map.
+        expect(result.successfulAgents).toContain("codex");
+        expect(Object.prototype.hasOwnProperty.call(result.rawRenderedFiles, "codex")).toBe(false);
+
+        const codexOutcome = result.outcomes.find((o) => o.agentId === "codex");
+        if (codexOutcome === undefined || codexOutcome.outcome._tag !== "success") {
+          throw new Error("Expected codex render to succeed");
+        }
+        expect(codexOutcome.outcome.warnings).toContain(warning);
+      }),
   );
 
   it.effect("does not warn for agentOverrides-only frontmatter on lossy plain-text renderers", () =>

@@ -115,6 +115,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
       Effect.provideService(Path.Path, path),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(CodingAgentRepository, agentRepo),
+      Effect.provideService(CliRenderer, renderer),
     ),
   };
 

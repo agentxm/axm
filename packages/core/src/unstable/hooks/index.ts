@@ -30,3 +30,5 @@ export {
 export { HookManager, HookManagerLive } from "./manager.js";
 export type { PublishHookOperation, PublishHookOperationArgs } from "./operations/publish.js";
 export { publishHook } from "./operations/publish.js";
+export type { NewHookOperation, NewHookOperationArgs } from "./operations/new-hook.js";
+export { newHook } from "./operations/new-hook.js";

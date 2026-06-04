@@ -28,11 +28,15 @@ import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolu
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { SkillPathSource } from "@agentxm/client-core/unstable/workspace";
-import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import {
+  computeSkillSourceHash,
+  SkillManager,
+  type SkillExtensionRef,
+} from "@agentxm/client-core/unstable/skills";
+import { buildInstallOperation, sanitizeName } from "@agentxm/client-core/unstable/extensions";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { JobStepArtifact } from "@agentxm/client-core/unstable/plan";
+import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/client-core/unstable/plan";
 import type { Plan, PlanSection } from "@agentxm/client-core/unstable/plan";
 import {
   formatPackageDisplay,
@@ -163,6 +167,33 @@ const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
   }
 };
 
+const previousResolvedVersion = (entry: unknown): string | undefined => {
+  if (typeof entry !== "object" || entry === null) return undefined;
+  if (!("type" in entry) || entry.type !== "registry") return undefined;
+  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") {
+    return undefined;
+  }
+  return entry.resolvedVersion;
+};
+
+const previousSourceHash = (entry: unknown): string | undefined => {
+  if (typeof entry !== "object" || entry === null) return undefined;
+  if (!("sourceHash" in entry) || typeof entry.sourceHash !== "string") return undefined;
+  return entry.sourceHash;
+};
+
+const artifactChangeFromTargets = (
+  fallback: JobStepArtifact["change"],
+  targets: ReadonlyArray<{ readonly change?: JobStepArtifact["change"] }>,
+): JobStepArtifact["change"] => {
+  if (targets.length === 0) return fallback;
+  if (targets.some((target) => target.change === "created")) return "created";
+  if (targets.some((target) => target.change === "updated" || target.change === undefined)) {
+    return "updated";
+  }
+  return fallback === "updated" ? "updated" : "unchanged";
+};
+
 /**
  * Extract compatible packages from a skill ref.
  *
@@ -283,6 +314,47 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
       onNone: () => false,
       onSome: (verbosity) => verbosity.isAtLeast("verbose"),
     });
+    const computeExistingSourceHash = (ref: SkillExtensionRef) =>
+      Effect.gen(function* () {
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, skillPathSourceFor(ref));
+        const exists = yield* fsSvc
+          .exists(skillSrcPath)
+          .pipe(Effect.catch(() => Effect.succeed(false)));
+        if (!exists) return undefined;
+        return yield* computeSkillSourceHash(skillSrcPath).pipe(
+          Effect.provideService(FileSystem.FileSystem, fsSvc),
+          Effect.provideService(Path.Path, pathSvc),
+        );
+      });
+
+    const targetChangeBeforeInstall = ({
+      linkPath,
+      canonicalSkillSrcPath,
+    }: {
+      readonly linkPath: string;
+      readonly canonicalSkillSrcPath: string;
+    }) =>
+      Effect.gen(function* () {
+        const linkTarget = yield* fsSvc.readLink(linkPath).pipe(Effect.option);
+        if (Option.isSome(linkTarget)) {
+          const currentAbsoluteTarget = pathSvc.resolve(
+            pathSvc.dirname(linkPath),
+            linkTarget.value,
+          );
+          const resolvedCurrentTarget = yield* fsSvc
+            .realPath(currentAbsoluteTarget)
+            .pipe(Effect.catch(() => Effect.succeed(currentAbsoluteTarget)));
+          const resolvedExpectedTarget = yield* fsSvc
+            .realPath(canonicalSkillSrcPath)
+            .pipe(Effect.catch(() => Effect.succeed(canonicalSkillSrcPath)));
+          return resolvedCurrentTarget === resolvedExpectedTarget ? "unchanged" : "updated";
+        }
+
+        const exists = yield* fsSvc
+          .exists(linkPath)
+          .pipe(Effect.catch(() => Effect.succeed(false)));
+        return exists ? "updated" : "created";
+      });
 
     // Build a service layer providing all services needed by inner effects
     // (resolveSkillInstallSource, determineSkillsToInstall, etc.)
@@ -472,80 +544,135 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         }),
       );
 
-    const buildPlan = (intent: InstallSkillCommandIntent) => {
-      const compatSection = buildCompanionPackagesSection(
-        intent.skillsToInstall.map((entry) => entry.ref),
-      );
-      const sections = compatSection !== undefined ? [compatSection] : undefined;
-      const buildArtifact =
-        (ref: SkillExtensionRef) =>
-        ({
-          installedBefore,
-        }: {
-          readonly installedBefore: boolean;
-        }): Effect.Effect<JobStepArtifact, AppError> =>
-          Effect.gen(function* () {
-            const configuredAgents = yield* agentRepo
-              .getMaterializationAgents()
-              .pipe(Effect.provideService(WorkspaceMutations, ws));
-            const resolvedAgents = yield* Effect.forEach(
-              configuredAgents,
-              (agent) =>
-                agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
-                  Effect.provideService(FileSystem.FileSystem, fsSvc),
-                  Effect.provideService(Path.Path, pathSvc),
-                  Effect.map((outcome) => ({ agentId: agent.id, outcome })),
-                ),
-              { concurrency: "unbounded" },
-            );
-            const firstSupported = resolvedAgents.find(
-              (entry) => entry.outcome._tag === "supported",
-            );
-            const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, skillPathSourceFor(ref));
-            const rawDisplayPath =
-              firstSupported?.outcome._tag === "supported"
-                ? pathSvc.join(
-                    pathSvc.relative(ws.baseDir, firstSupported.outcome.dir),
-                    ref.skill.name,
-                  )
-                : pathSvc.relative(ws.baseDir, skillSrcPath);
-            const version = ref.refType === "registry" ? ref.version : undefined;
-            const fileCount = yield* countFiles(fsSvc, pathSvc, skillSrcPath);
+    const buildPlan = (intent: InstallSkillCommandIntent) =>
+      Effect.gen(function* () {
+        const compatSection = buildCompanionPackagesSection(
+          intent.skillsToInstall.map((entry) => entry.ref),
+        );
+        const sections = compatSection !== undefined ? [compatSection] : undefined;
+        const steps = yield* Effect.forEach(
+          intent.skillsToInstall,
+          (entry) =>
+            Effect.gen(function* () {
+              const ref = entry.ref;
+              const previousLockEntry = yield* ws
+                .getLockedSkill(ref.skill.name)
+                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+              const previousVersion = Option.match(previousLockEntry, {
+                onNone: () => undefined,
+                onSome: previousResolvedVersion,
+              });
+              const sourceHashBeforeInstall =
+                Option.match(previousLockEntry, {
+                  onNone: () => undefined,
+                  onSome: previousSourceHash,
+                }) ?? (yield* computeExistingSourceHash(ref));
+              const configuredAgents = yield* agentRepo
+                .getMaterializationAgents()
+                .pipe(Effect.provideService(WorkspaceMutations, ws));
+              const resolvedAgents = yield* Effect.forEach(
+                configuredAgents,
+                (agent) =>
+                  agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+                    Effect.provideService(FileSystem.FileSystem, fsSvc),
+                    Effect.provideService(Path.Path, pathSvc),
+                    Effect.map((outcome) => ({ agentId: agent.id, outcome })),
+                  ),
+                { concurrency: "unbounded" },
+              );
+              const { skillSrcPath } = yield* ws.getSkillDir(
+                ref.skill.name,
+                skillPathSourceFor(ref),
+              );
+              const sanitizedName = sanitizeName(ref.skill.name);
+              const targets = yield* Effect.forEach(
+                resolvedAgents,
+                ({ outcome }) => {
+                  if (outcome._tag !== "supported") {
+                    return Effect.succeed(Option.none<JobStepArtifactTarget>());
+                  }
+                  const linkPath = pathSvc.join(outcome.dir, sanitizedName);
+                  return targetChangeBeforeInstall({
+                    linkPath,
+                    canonicalSkillSrcPath: skillSrcPath,
+                  }).pipe(
+                    Effect.map((change) =>
+                      Option.some({
+                        path: pathSvc.relative(ws.baseDir, linkPath),
+                        change,
+                      }),
+                    ),
+                  );
+                },
+                { concurrency: "unbounded" },
+              ).pipe(Effect.map(Array.getSomes));
+              const firstTarget = targets[0];
+              const rawDisplayPath =
+                firstTarget === undefined
+                  ? pathSvc.relative(ws.baseDir, skillSrcPath)
+                  : firstTarget.path;
+              const version = ref.refType === "registry" ? ref.version : undefined;
+              const buildArtifact = ({
+                installedBefore,
+              }: {
+                readonly installedBefore: boolean;
+              }): Effect.Effect<JobStepArtifact, AppError> =>
+                Effect.gen(function* () {
+                  const fileCount = yield* countFiles(fsSvc, pathSvc, skillSrcPath);
+                  const currentSourceHash = yield* computeSkillSourceHash(skillSrcPath).pipe(
+                    Effect.provideService(FileSystem.FileSystem, fsSvc),
+                    Effect.provideService(Path.Path, pathSvc),
+                  );
+                  const sameVersion = previousVersion === version;
+                  const sameSource = sourceHashBeforeInstall === currentSourceHash;
+                  const fallbackChange: JobStepArtifact["change"] = !installedBefore
+                    ? "created"
+                    : sameVersion && sameSource
+                      ? "unchanged"
+                      : "updated";
+                  const artifactChange = artifactChangeFromTargets(fallbackChange, targets);
 
-            return {
-              path: rawDisplayPath.length === 0 ? "." : rawDisplayPath,
-              scope: ws.scope,
-              ...(version !== undefined ? { version } : {}),
-              change: installedBefore ? "updated" : "created",
-              fileCount,
-            } satisfies JobStepArtifact;
-          });
+                  return {
+                    path: rawDisplayPath.length === 0 ? "." : rawDisplayPath,
+                    scope: ws.scope,
+                    ...(version !== undefined ? { version } : {}),
+                    change: artifactChange,
+                    ...(previousVersion !== undefined && previousVersion !== version
+                      ? { previousVersion }
+                      : {}),
+                    fileCount,
+                    ...(targets.length > 0 ? { targets } : {}),
+                  } satisfies JobStepArtifact;
+                });
 
-      return Effect.succeed<Plan>({
-        _tag: "Plan",
-        name:
-          intent.skillsToInstall.length === 1
-            ? "Install skill"
-            : `Install ${count(intent.skillsToInstall.length, "skill")}`,
-        description: Option.none(),
-        jobs: [
-          {
-            concurrency: 1 as const,
-            steps: intent.skillsToInstall.map((entry) =>
-              buildInstallOperation(skillMgr, {
-                ref: entry.ref,
+              return buildInstallOperation(skillMgr, {
+                ref,
                 versionRange: entry.versionRange,
                 installedBefore: skillMgr
-                  .isInstalled({ target: { type: "skill", name: entry.ref.skill.name } })
+                  .isInstalled({ target: { type: "skill", name: ref.skill.name } })
                   .pipe(Effect.catch(() => Effect.succeed(false))),
-                buildArtifact: buildArtifact(entry.ref),
-              }),
-            ),
-          },
-        ],
-        ...(sections !== undefined && { sections }),
-      } satisfies Plan);
-    };
+                buildArtifact,
+              });
+            }),
+          { concurrency: 1 },
+        );
+
+        return {
+          _tag: "Plan",
+          name:
+            intent.skillsToInstall.length === 1
+              ? "Install skill"
+              : `Install ${count(intent.skillsToInstall.length, "skill")}`,
+          description: Option.none(),
+          jobs: [
+            {
+              concurrency: 1 as const,
+              steps,
+            },
+          ],
+          ...(sections !== undefined && { sections }),
+        } satisfies Plan;
+      });
 
     return {
       parseArgs,

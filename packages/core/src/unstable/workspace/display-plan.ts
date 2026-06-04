@@ -279,9 +279,11 @@ const singleArtifactHeadline = (
   type: string,
   step: CompletedJobStep,
   artifact: JobStepArtifact,
+  options?: { readonly configured: boolean },
 ): string => {
   const targetPhrase = artifactTargetPhrase(artifact) ?? `to ${scopePhrase(artifact.scope)}`;
-  return `${verb} ${type} ${cleanStepLabel(step.label)} ${targetPhrase}`;
+  const configuredPrefix = options?.configured === true ? "configured " : "";
+  return `${verb} ${configuredPrefix}${type} ${cleanStepLabel(step.label)} ${targetPhrase}`;
 };
 
 const renderExecutedOutcome = (
@@ -299,6 +301,7 @@ const renderExecutedOutcome = (
     );
     const verb = operationVerb(plan.name);
     const type = artifactType(plan.name);
+    const configured = plan.name.toLowerCase().includes("configured");
 
     if (successes.length === 0) {
       yield* renderer.success(`${verb} 0 ${artifactPluralType(type)}`);
@@ -315,7 +318,7 @@ const renderExecutedOutcome = (
 
         const suggestions = singleArtifactSuggestions(type, first.step.label);
         yield* renderer.success(
-          singleArtifactHeadline(verb, type, first.step, first.artifact),
+          singleArtifactHeadline(verb, type, first.step, first.artifact, { configured }),
           verbosity.quiet
             ? undefined
             : {
@@ -348,7 +351,12 @@ const renderExecutedOutcome = (
       firstArtifact === undefined
         ? ""
         : ` to ${scopePhrase(firstArtifact.scope)} (${firstArtifact.path})`;
-    const headline = `${verb} ${count(successes.length, type, artifactPluralType(type))}${target}`;
+    const configuredPrefix = configured ? "configured " : "";
+    const headline = `${verb} ${configuredPrefix}${count(
+      successes.length,
+      type,
+      artifactPluralType(type),
+    )}${target}`;
     const summary =
       artifacts.length > 0
         ? artifacts.map(({ step, artifact }) => formatArtifactRow(step, artifact)).join("\n")

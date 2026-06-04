@@ -612,6 +612,43 @@ describe("displayPlan", () => {
     ),
   );
 
+  it.effect("preserves configured scope in single artifact install headlines", () =>
+    withOutput((state) =>
+      Effect.gen(function* () {
+        yield* displayPlan(
+          makeExecutedPlan({
+            name: "Install configured skills",
+            jobs: [
+              {
+                concurrency: "unbounded",
+                steps: [
+                  {
+                    label: "axm",
+                    result: {
+                      result: "success",
+                      message: "Applied install operation",
+                      artifact: {
+                        path: ".agents/skills/axm",
+                        scope: "project",
+                        version: "0.2.2",
+                        change: "created",
+                        fileCount: 1,
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        );
+
+        expect(logsByTag(state).success).toContain(
+          "Installed configured skill axm to this project",
+        );
+      }),
+    ),
+  );
+
   it.effect("uses clean skill names for single artifact suggestions", () =>
     withOutput((state) =>
       Effect.gen(function* () {

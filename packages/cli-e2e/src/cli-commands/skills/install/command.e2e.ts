@@ -116,8 +116,8 @@ describe("axm skills install", () => {
 
         expect(result.exitCode).toBe(0);
         const output = getOutput(result);
-        expect(output).toContain("Installed my-skill (skill) to this project");
-        expect(output).toContain("-> .agents/skills/my-skill");
+        expect(output).toContain("Installed skill my-skill for 2 agents");
+        expect(output).toContain("-> 2 agent targets");
         expect(output).toContain("1 file");
         expect(output).not.toContain("Source:");
         expect(output).not.toContain("Resolution:");

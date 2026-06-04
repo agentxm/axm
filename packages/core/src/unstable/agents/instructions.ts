@@ -207,7 +207,8 @@ export const probeSymlinkSupport = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const probeDir = path.join(workspaceRoot, ".axm", "tmp", "instructions-symlink-probe");
+    const tmpDir = path.join(workspaceRoot, ".axm", "tmp");
+    const probeDir = path.join(tmpDir, "instructions-symlink-probe");
     const target = path.join(probeDir, "target");
     const link = path.join(probeDir, "link");
     yield* fs.remove(probeDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
@@ -219,6 +220,14 @@ export const probeSymlinkSupport = (workspaceRoot: string) =>
       return content === "ok\n";
     }).pipe(Effect.catch(() => Effect.succeed(false)));
     yield* fs.remove(probeDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
+    // Remove the tmp dir only if the probe left it empty, so we don't strip out
+    // unrelated content that another flow may have placed there.
+    yield* fs.readDirectory(tmpDir).pipe(
+      Effect.flatMap((entries) =>
+        entries.length === 0 ? fs.remove(tmpDir, { recursive: true }) : Effect.void,
+      ),
+      Effect.catch(() => Effect.void),
+    );
     return result;
   });
 

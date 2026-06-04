@@ -115,7 +115,9 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(skillMdPath)).toBe(true);
           const skillMd = fs.readFileSync(skillMdPath, "utf-8");
           expect(skillMd).toContain("name: my-skill");
-          expect(skillMd).toContain("description: A new skill");
+          expect(skillMd).toContain(
+            "description: Describe when this skill should be triggered by the agent",
+          );
 
           // Verify settings registration
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
@@ -144,14 +146,12 @@ describe("skills-new.handler", () => {
           expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
 
           expect(logs.success.some((m) => m.includes("@acme/skills/my-skill"))).toBe(true);
+          // Skills are symlinked into every agent dir on creation, so edits to
+          // the canonical SKILL.md propagate automatically — no `axm sync` hint.
           expect(rendererState.suggestions).toEqual([
             {
               description:
                 "Edit `.axm/extensions/@acme/skills/my-skill/src/SKILL.md` to fill in instructions",
-            },
-            {
-              description: "Apply changes to your workspace",
-              cmd: "axm sync",
             },
           ]);
         }),
@@ -318,7 +318,9 @@ describe("skills-new.handler", () => {
           // Check frontmatter
           expect(content).toMatch(/^---\n/);
           expect(content).toContain("name: my-tool");
-          expect(content).toContain("description: A new skill");
+          expect(content).toContain(
+            "description: Describe when this skill should be triggered by the agent",
+          );
           // Check body
           expect(content).toContain("Describe what this skill does");
         }),

@@ -56,7 +56,7 @@ export type NewSkillOperation = Operation<"new-skill", NewSkillOperationArgs>;
 const makeSkillMd = (name: string) =>
   `---
 name: ${name}
-description: A new skill
+description: Describe when this skill should be triggered by the agent
 ---
 
 Describe what this skill does and when to use it.

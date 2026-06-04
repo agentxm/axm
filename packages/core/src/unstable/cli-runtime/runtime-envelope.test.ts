@@ -9,7 +9,8 @@ import { CliRenderer } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
-import { makeFoundationLayer, writeDefect } from "./runtime-envelope.js";
+import { makeAppError } from "../app-error/index.js";
+import { makeFoundationLayer, writeDefect, writeExpectedCliError } from "./runtime-envelope.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -162,11 +163,12 @@ describe("writeDefect", () => {
     expect(stderrWrites).toHaveLength(1);
     for (const line of stderrWrites) {
       const event: unknown = JSON.parse(line.trim());
-      expect(event).toMatchObject({
+      // Schema-conformant ErrorEvent: { type, code, message } — full detail
+      // (title/detail/suggestions) lives in the stdout envelope.
+      expect(event).toEqual({
         type: "error",
         code: "internal",
-        title: "Internal Error",
-        detail: "boom",
+        message: "boom",
       });
     }
   });
@@ -181,6 +183,87 @@ describe("writeDefect", () => {
       code: "internal",
       title: "Internal Error",
       detail: "kaboom",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// writeExpectedCliError — suggestions rendered once per channel
+// ---------------------------------------------------------------------------
+
+describe("writeExpectedCliError", () => {
+  let stdoutWrites: Array<string>;
+  let stderrWrites: Array<string>;
+  let stdoutWriteSpy: MockInstance;
+  let stderrWriteSpy: MockInstance;
+
+  beforeEach(() => {
+    stdoutWrites = [];
+    stderrWrites = [];
+    stdoutWriteSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((...args: Array<unknown>) => {
+        stdoutWrites.push(String(args[0]));
+        return true;
+      });
+    stderrWriteSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((...args: Array<unknown>) => {
+        stderrWrites.push(String(args[0]));
+        return true;
+      });
+  });
+
+  afterEach(() => {
+    stdoutWriteSpy.mockRestore();
+    stderrWriteSpy.mockRestore();
+  });
+
+  const conflictError = makeAppError({
+    code: "conflict",
+    detail: "Skill 'test' already exists in settings",
+    recover: "Choose a different name or remove the existing skill first",
+  });
+
+  it("text mode: renders the suggestion exactly once (no duplicate block)", async () => {
+    await Effect.runPromise(writeExpectedCliError(conflictError, "text"));
+
+    const stderr = stderrWrites.join("");
+    // renderAppError owns the single suggestions block.
+    expect(stderr).toContain("Next steps:");
+    // The separate "Next:" block must not be re-emitted.
+    expect(stderr).not.toContain("Next:\n");
+    // The suggestion text appears once across the whole stderr output.
+    const occurrences =
+      stderr.split("Choose a different name or remove the existing skill first").length - 1;
+    expect(occurrences).toBe(1);
+  });
+
+  it("json mode: streams suggestion + error events on stderr and one envelope on stdout", async () => {
+    await Effect.runPromise(writeExpectedCliError(conflictError, "json"));
+
+    // stderr is the live event stream: suggestion(s) first, then the error.
+    const events = stderrWrites.map((line) => JSON.parse(line.trim()) as unknown);
+    expect(events).toEqual([
+      {
+        type: "suggestion",
+        description: "Choose a different name or remove the existing skill first",
+      },
+      {
+        type: "error",
+        code: "conflict",
+        message: "Skill 'test' already exists in settings",
+      },
+    ]);
+
+    // stdout is the final document; it also carries the suggestions. The two
+    // surfaces are distinct — not a doubled block on one channel.
+    expect(stdoutWrites).toHaveLength(1);
+    const envelope: unknown = JSON.parse(stdoutWrites[0] ?? "");
+    expect(envelope).toMatchObject({
+      ok: false,
+      code: "conflict",
+      suggestions: [{ description: "Choose a different name or remove the existing skill first" }],
     });
   });
 });

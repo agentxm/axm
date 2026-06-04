@@ -5,6 +5,10 @@ import { handleError } from "./handle-error.js";
 import { effectCliExit } from "./effect-cli-exit.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
 
+/** Parse the NDJSON stderr lines a classification would write, in order. */
+const stderrEvents = (lines: ReadonlyArray<string> | undefined): ReadonlyArray<unknown> =>
+  (lines ?? []).map((line) => JSON.parse(line) as unknown);
+
 // ---------------------------------------------------------------------------
 // classifyError — pure classification tests
 // ---------------------------------------------------------------------------
@@ -19,7 +23,8 @@ describe("classifyError — ShowHelp", () => {
     const result = classifyError(showHelp, "text");
 
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.output).toBeUndefined();
+    expect(result.stderr).toBeUndefined();
+    expect(result.stdout).toBeUndefined();
   });
 
   it("returns ExitCode.Usage for ShowHelp with errors", () => {
@@ -36,7 +41,8 @@ describe("classifyError — ShowHelp", () => {
     const result = classifyError(showHelp, "text");
 
     expect(result.exitCode).toBe(ExitCode.Usage);
-    expect(result.output).toBeUndefined();
+    expect(result.stderr).toBeUndefined();
+    expect(result.stdout).toBeUndefined();
   });
 
   it("never emits output for ShowHelp even in json format", () => {
@@ -48,7 +54,8 @@ describe("classifyError — ShowHelp", () => {
     const result = classifyError(showHelp, "json");
 
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.output).toBeUndefined();
+    expect(result.stderr).toBeUndefined();
+    expect(result.stdout).toBeUndefined();
   });
 });
 
@@ -59,7 +66,8 @@ describe("classifyError — CliError (non-ShowHelp)", () => {
     const result = classifyError(error, "text");
 
     expect(result.exitCode).toBe(ExitCode.Usage);
-    expect(result.output).toBeUndefined();
+    expect(result.stderr).toBeUndefined();
+    expect(result.stdout).toBeUndefined();
   });
 
   it("returns ExitCode.Usage with JSON stdout output for json format", () => {
@@ -68,13 +76,14 @@ describe("classifyError — CliError (non-ShowHelp)", () => {
     const result = classifyError(error, "json");
 
     expect(result.exitCode).toBe(ExitCode.Usage);
-    expect(result.output).toBeDefined();
-    expect(result.output?.channel).toBe("stdout");
-    const parsed: unknown = JSON.parse(result.output?.content ?? "");
+    const parsed: unknown = JSON.parse(result.stdout ?? "");
     expect(parsed).toMatchObject({
       ok: false,
       code: "usage",
     });
+    expect(stderrEvents(result.stderr)).toContainEqual(
+      expect.objectContaining({ type: "error", code: "usage" }),
+    );
   });
 });
 
@@ -85,7 +94,8 @@ describe("classifyError — EffectCliExit", () => {
     const result = classifyError(cliExit, "text");
 
     expect(result.exitCode).toBe(42);
-    expect(result.output).toBeUndefined();
+    expect(result.stderr).toBeUndefined();
+    expect(result.stdout).toBeUndefined();
   });
 });
 
@@ -99,13 +109,72 @@ describe("classifyError — AppError", () => {
     const result = classifyError(error, "json");
 
     expect(result.exitCode).toBe(ExitCode.Auth);
-    const parsed: unknown = JSON.parse(result.output?.content ?? "");
+    const parsed: unknown = JSON.parse(result.stdout ?? "");
     expect(parsed).toMatchObject({
       ok: false,
       code: "auth",
       title: "Unauthorized",
       detail: "Authentication required",
     });
+  });
+
+  it("emits a schema-conformant NDJSON error event with a meaningful message", () => {
+    const error = makeAppError({
+      code: "auth",
+      detail: "Authentication required",
+    });
+
+    const result = classifyError(error, "json");
+
+    // AppError.message is empty; the event must carry `detail` as its message
+    // so the stderr stream is not `{ message: "" }`.
+    expect(stderrEvents(result.stderr)).toContainEqual({
+      type: "error",
+      code: "auth",
+      message: "Authentication required",
+    });
+  });
+
+  it("streams suggestion events on stderr ahead of the error event in json mode", () => {
+    const error = makeAppError({
+      code: "conflict",
+      detail: "Skill 'test' already exists in settings",
+      recover: "Choose a different name or remove the existing skill first",
+    });
+
+    const events = stderrEvents(classifyError(error, "json").stderr);
+
+    // Suggestions stream live on stderr (matching the success renderer), and
+    // the error event comes last.
+    expect(events).toEqual([
+      {
+        type: "suggestion",
+        description: "Choose a different name or remove the existing skill first",
+      },
+      {
+        type: "error",
+        code: "conflict",
+        message: "Skill 'test' already exists in settings",
+      },
+    ]);
+  });
+
+  it("renders only the human-readable error to stderr in text format", () => {
+    const error = makeAppError({
+      code: "conflict",
+      detail: "Skill 'test' already exists in settings",
+      recover: "Choose a different name or remove the existing skill first",
+    });
+
+    const result = classifyError(error, "text");
+
+    expect(result.stdout).toBeUndefined();
+    expect(result.stderr).toHaveLength(1);
+    const content = result.stderr?.[0] ?? "";
+    expect(content).toContain("already exists in settings");
+    // Suggestions render once, via renderAppError's "Next steps:" block.
+    expect(content).toContain("Next steps:");
+    expect(content).not.toContain("Next:\n");
   });
 });
 
@@ -114,23 +183,25 @@ describe("classifyError — generic errors", () => {
     const result = classifyError(new Error("boom"), "text");
 
     expect(result.exitCode).toBe(ExitCode.Internal);
-    expect(result.output).toBeDefined();
-    expect(result.output?.channel).toBe("stderr");
-    expect(result.output?.content).toContain("boom");
+    expect(result.stdout).toBeUndefined();
+    expect(result.stderr?.[0]).toContain("boom");
   });
 
   it("returns ExitCode.Internal with JSON stdout output for json format", () => {
     const result = classifyError(new Error("boom"), "json");
 
     expect(result.exitCode).toBe(ExitCode.Internal);
-    expect(result.output).toBeDefined();
-    expect(result.output?.channel).toBe("stdout");
-    const parsed: unknown = JSON.parse(result.output?.content ?? "");
+    const parsed: unknown = JSON.parse(result.stdout ?? "");
     expect(parsed).toMatchObject({
       ok: false,
       code: "internal",
       title: "Internal Error",
       detail: "boom",
+    });
+    expect(stderrEvents(result.stderr)).toContainEqual({
+      type: "error",
+      code: "internal",
+      message: "boom",
     });
   });
 });

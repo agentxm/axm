@@ -5,9 +5,11 @@ import * as Option from "effect/Option";
 
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
+import { makeErrorEvent } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
-import { ExitCode, exitCodeFor, renderAppError } from "../app-error/index.js";
+import { ExitCode, exitCodeFor } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
+import { renderAppErrorChannels } from "./handle-error.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
 import { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
@@ -24,60 +26,10 @@ import { CommandArgv, serializeArgv } from "./command-argv.js";
 
 import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-renderer/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
-import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
-import type { SuggestedAction } from "./suggested-action.js";
+import { makeJsonErrorEnvelope } from "./json-envelope.js";
 
 const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
-};
-
-const formatSuggestedActionAction = (suggestion: SuggestedAction): string => {
-  if (suggestion.cmd !== undefined) {
-    return ` · ${suggestion.cmd}`;
-  }
-  if (suggestion.url !== undefined) {
-    return ` · ${suggestion.url}`;
-  }
-  return "";
-};
-
-const writeTextSuggestions = (suggestions: ReadonlyArray<SuggestedAction>): void => {
-  if (suggestions.length === 0) {
-    return;
-  }
-
-  writeStderr(
-    [
-      "Next:",
-      ...suggestions.map((suggestion) => {
-        return `  ${suggestion.description}${formatSuggestedActionAction(suggestion)}`;
-      }),
-    ].join("\n"),
-  );
-};
-
-const writeMachineSuggestions = (suggestions: ReadonlyArray<SuggestedAction>): void => {
-  for (const suggestion of suggestions) {
-    writeStderr(
-      JSON.stringify({
-        type: "suggestion",
-        description: suggestion.description,
-        ...(suggestion.cmd !== undefined ? { cmd: suggestion.cmd } : {}),
-        ...(suggestion.url !== undefined ? { url: suggestion.url } : {}),
-      }),
-    );
-  }
-};
-
-const writeMachineError = (error: AppError): void => {
-  writeStderr(
-    JSON.stringify({
-      type: "error",
-      code: error.code,
-      title: error.title,
-      detail: error.detail,
-    }),
-  );
 };
 
 const defectMessage = (cause: Cause.Cause<unknown>): string => {
@@ -101,14 +53,7 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat): 
     return;
   }
 
-  writeStderr(
-    JSON.stringify({
-      type: "error",
-      code: "internal",
-      title: "Internal Error",
-      detail: message,
-    }),
-  );
+  writeStderr(JSON.stringify(makeErrorEvent("internal", message)));
   process.stdout.write(
     JSON.stringify(
       makeJsonErrorEnvelope({
@@ -128,7 +73,19 @@ export type CliRuntimeFoundation = CliRenderer | Verbosity;
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
   error._tag === "PromptCancelled" ? ExitCode.Success : exitCodeFor(error.code);
 
-const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
+/**
+ * Emit an expected (handled) CLI error.
+ *
+ * Rendering is delegated to `renderAppErrorChannels` — the single source of
+ * truth shared with the outer `classifyError`/`handleError` path — so the two
+ * error paths cannot diverge. Suggestions appear once per channel: a single
+ * `Next steps:` block in text mode, and the stderr suggestion stream plus the
+ * stdout envelope (distinct surfaces) in json mode. The earlier bug emitted a
+ * second `Next:` block on the same stderr channel in text mode.
+ *
+ * Exported for tests; production callers route through `withCliErrorHandling`.
+ */
+export const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
   Effect.gen(function* () {
     if (error._tag === "PromptCancelled") {
       return;
@@ -143,15 +100,14 @@ const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
       }),
     });
 
-    if (format === "text") {
-      writeStderr(renderAppError(error, { verbose, debug }));
-      writeTextSuggestions(error.suggestions ?? []);
-      return;
-    }
+    const { stderr, stdout } = renderAppErrorChannels(error, format, { verbose, debug });
 
-    writeMachineSuggestions(error.suggestions ?? []);
-    writeMachineError(error);
-    process.stdout.write(JSON.stringify(makeJsonErrorEnvelopeFromAppError(error), null, 2) + "\n");
+    for (const line of stderr) {
+      writeStderr(line);
+    }
+    if (stdout !== undefined) {
+      process.stdout.write(stdout);
+    }
   });
 
 // ---------------------------------------------------------------------------

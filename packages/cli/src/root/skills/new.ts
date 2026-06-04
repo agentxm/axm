@@ -119,13 +119,15 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
+  // The newSkill operation symlinks the canonical skill into every configured
+  // agent dir (and aborts if any symlink fails), so a successful run leaves all
+  // agent targets already in sync. Edits to the canonical SKILL.md propagate
+  // automatically through the symlinks — there is nothing for `axm sync` to do,
+  // so we omit the sync suggestion here. (Commands/subagents render per-agent
+  // copies and packs only write a manifest, so those flows keep the hint.)
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "skills", args.name, "src", "SKILL.md")}\` to fill in instructions`,
-    },
-    {
-      description: "Apply changes to your workspace",
-      cmd: "axm sync",
     },
   ];
 

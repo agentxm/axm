@@ -1,5 +1,6 @@
 import * as Console from "effect/Console";
 import * as Schema from "effect/Schema";
+import type { SuggestedAction } from "./suggested-action.js";
 
 // ---------------------------------------------------------------------------
 // Output format
@@ -58,6 +59,18 @@ export const ErrorEventSchema = Schema.Struct({
 });
 export type ErrorEvent = typeof ErrorEventSchema.Type;
 
+/**
+ * Construct an NDJSON `error` event — the single source of truth for the
+ * machine-mode error event shape. The full structured detail (title, metadata,
+ * suggestions) lives in the stdout envelope; the stream event carries only the
+ * stable `code` and a human `message`.
+ */
+export const makeErrorEvent = (code: string, message: string): ErrorEvent => ({
+  type: "error",
+  code,
+  message,
+});
+
 export const SuggestionEventSchema = Schema.Struct({
   type: Schema.Literal("suggestion"),
   description: Schema.String,
@@ -69,6 +82,17 @@ export const SuggestionEventSchema = Schema.Struct({
   description: "NDJSON suggestion event with a suggested follow-up.",
 });
 export type SuggestionEvent = typeof SuggestionEventSchema.Type;
+
+/**
+ * Construct an NDJSON `suggestion` event — the single source of truth for the
+ * machine-mode suggestion event shape, shared by the renderer and error paths.
+ */
+export const makeSuggestionEvent = (suggestion: SuggestedAction): SuggestionEvent => ({
+  type: "suggestion",
+  description: suggestion.description,
+  ...(suggestion.cmd !== undefined ? { cmd: suggestion.cmd } : {}),
+  ...(suggestion.url !== undefined ? { url: suggestion.url } : {}),
+});
 
 export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent | SuggestionEvent;
 

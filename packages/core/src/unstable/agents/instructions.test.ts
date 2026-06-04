@@ -9,6 +9,7 @@ import {
   getInstructionsStatus,
   listInstructionAliases,
   normalizeMarkdownBody,
+  probeSymlinkSupport,
   resolveInstructionMechanism,
   syncInstructions,
 } from "./instructions.js";
@@ -53,6 +54,30 @@ describe("agent instructions", () => {
       ),
     ).toEqual(["CLAUDE.md", "GEMINI.md"]);
   });
+
+  it.effect("does not leave a .axm/tmp directory behind after probing symlinks", () =>
+    run(
+      Effect.gen(function* () {
+        const supported = yield* probeSymlinkSupport(tempDir);
+        expect(typeof supported).toBe("boolean");
+        expect(fs.existsSync(path.join(tempDir, ".axm", "tmp"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("preserves pre-existing .axm/tmp contents when probing symlinks", () =>
+    run(
+      Effect.gen(function* () {
+        const tmpDir = path.join(tempDir, ".axm", "tmp");
+        fs.mkdirSync(tmpDir, { recursive: true });
+        fs.writeFileSync(path.join(tmpDir, "keep.txt"), "keep\n");
+
+        yield* probeSymlinkSupport(tempDir);
+
+        expect(fs.readFileSync(path.join(tmpDir, "keep.txt"), "utf-8")).toBe("keep\n");
+      }),
+    ),
+  );
 
   it.effect("syncs configured own-file agents from AGENTS.md as symlinks", () =>
     run(

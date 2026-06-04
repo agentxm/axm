@@ -158,10 +158,10 @@ describe("makeAxmFormatter", () => {
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
       expect(output).toContain("USAGE\n  axm <command> [flags]");
-      expect(output).toMatch(/CORE\n {2}skills\s+Manage agent skills/);
-      expect(output).toMatch(/ {2}files\s+Manage Context Files packages/);
-      expect(output).toMatch(/ {2}mcps, mcps\s+Manage MCP server extensions/);
-      expect(output).toMatch(/ {2}agents\s+Configure coding-agent targets/);
+      expect(output).toMatch(/CORE\n {2}agents\s+Manage target coding agents/);
+      expect(output).toMatch(/ {2}skills\s+Manage agent skills/);
+      expect(output).toMatch(/ {2}files\s+Manage context file utility extensions/);
+      expect(output).toMatch(/ {2}mcps, mcps\s+Manage MCP server configuration and extensions/);
       expect(output).toContain("START HERE\n  help, setup");
       expect(output).toContain("AUTH\n  login");
       expect(output).toContain("GLOBAL FLAGS\n  --verbose, --json");

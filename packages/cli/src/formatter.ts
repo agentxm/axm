@@ -211,7 +211,17 @@ const groupLabel = (group: string | undefined): string => {
 };
 
 /** Core capability commands, rendered with descriptions at the top of root help. */
-const CORE_COMMANDS = ["skills", "commands", "files", "mcps", "subagents", "packs", "agents"];
+const CORE_COMMANDS = [
+  "agents",
+  "commands",
+  "files",
+  "hooks",
+  "mcps",
+  "packs",
+  "rules",
+  "skills",
+  "subagents",
+];
 const CORE_GROUP_LABEL = "CORE";
 
 /** Compact group that should render above the descriptive Core block. */
@@ -273,20 +283,21 @@ const wrapCommandRows = (
 };
 
 const ROOT_COMMAND_DESCRIPTIONS: Record<string, string> = {
-  agents: "Configure coding-agent targets",
+  agents: "Manage target coding agents",
   auth: "Manage registry authentication",
   commands: "Manage slash-command extensions",
   discover: "Find extensions for this project",
-  files: "Manage Context Files packages",
+  files: "Manage context file utility extensions",
   help: "Show topic and command help",
   install: "Install extensions from the registry",
   lint: "Check workspace configuration",
   login: "Sign in to a registry",
   logout: "Sign out of a registry",
-  mcps: "Manage MCP server extensions",
+  mcps: "Manage MCP server configuration and extensions",
   outdated: "Show extensions with updates",
   packs: "Manage extension bundles",
   prune: "Remove unmanaged extension files",
+  rules: "Manage instruction files and rule extensions",
   setup: "Set up AXM in this project",
   skills: "Manage agent skills",
   subagents: "Manage subagent extensions",

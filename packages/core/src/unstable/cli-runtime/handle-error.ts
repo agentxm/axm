@@ -1,9 +1,15 @@
 import { CliError } from "effect/unstable/cli";
-import { AppError, ExitCode, exitCodeFor, renderAppError } from "../app-error/index.js";
+import {
+  AppError,
+  ExitCode,
+  exitCodeFor,
+  effectiveSuggestionsFor,
+  renderAppError,
+} from "../app-error/index.js";
 import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
-import type { ErrorEvent } from "./output-mode.js";
+import { makeErrorEvent, makeSuggestionEvent } from "./output-mode.js";
 
 const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
@@ -11,15 +17,49 @@ const writeStderr = (message: string): void => {
 
 /**
  * Classified error result — pure data describing what handleError should do.
+ *
+ * `stderr` holds the lines to write to stderr in order (human text in text
+ * mode; NDJSON event lines in json mode). `stdout` is the final structured
+ * document (json mode only). Both are optional — usage/help-only errors emit
+ * neither.
  */
 export interface ErrorClassification {
   readonly exitCode: number;
-  readonly errorEvent?: ErrorEvent;
-  readonly output?: {
-    readonly channel: "stdout" | "stderr";
-    readonly content: string;
-  };
+  readonly stderr?: ReadonlyArray<string>;
+  readonly stdout?: string;
 }
+
+/**
+ * Channel outputs for a handled `AppError` — the single source of truth for how
+ * an AppError appears across surfaces, shared by the outer
+ * (`classifyError`/`handleError`) and inner (`writeExpectedCliError`) error
+ * paths so the two cannot drift:
+ * - text: human-readable `renderAppError` (including its single `Next steps:`
+ *   block) on stderr.
+ * - json: NDJSON `suggestion` events followed by the `error` event on stderr
+ *   (the live stream, mirroring the success renderer), plus the structured
+ *   envelope (which also carries the suggestions) on stdout.
+ *
+ * Suggestions appear once per channel: the stderr stream and the stdout
+ * envelope are distinct surfaces, never a doubled block on the same one.
+ */
+export const renderAppErrorChannels = (
+  error: AppError,
+  format: OutputFormat,
+  options: { readonly verbose: boolean; readonly debug: boolean } = {
+    verbose: false,
+    debug: false,
+  },
+): { readonly stderr: ReadonlyArray<string>; readonly stdout?: string } =>
+  format === "text"
+    ? { stderr: [renderAppError(error, options)] }
+    : {
+        stderr: [
+          ...effectiveSuggestionsFor(error).map((s) => JSON.stringify(makeSuggestionEvent(s))),
+          JSON.stringify(makeErrorEvent(error.code, error.detail)),
+        ],
+        stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error), null, 2) + "\n",
+      };
 
 /**
  * Pure error classification — determines exit code and output without side effects.
@@ -40,26 +80,9 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
   }
 
   if (error instanceof AppError) {
-    const exitCode = exitCodeFor(error.code);
-
-    if (format === "text") {
-      return {
-        exitCode,
-        output: { channel: "stderr", content: renderAppError(error) },
-      };
-    }
-
     return {
-      exitCode,
-      errorEvent: {
-        type: "error",
-        code: error.code,
-        message: error.message,
-      },
-      output: {
-        channel: "stdout",
-        content: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error), null, 2) + "\n",
-      },
+      exitCode: exitCodeFor(error.code),
+      ...renderAppErrorChannels(error, format),
     };
   }
 
@@ -75,24 +98,17 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
           : error.message;
       return {
         exitCode: ExitCode.Usage,
-        errorEvent: {
-          type: "error",
-          code: "usage",
-          message,
-        },
-        output: {
-          channel: "stdout",
-          content:
-            JSON.stringify(
-              makeJsonErrorEnvelope({
-                code: "usage",
-                title: "Usage Error",
-                detail: message,
-              }),
-              null,
-              2,
-            ) + "\n",
-        },
+        stderr: [JSON.stringify(makeErrorEvent("usage", message))],
+        stdout:
+          JSON.stringify(
+            makeJsonErrorEnvelope({
+              code: "usage",
+              title: "Usage Error",
+              detail: message,
+            }),
+            null,
+            2,
+          ) + "\n",
       };
     }
 
@@ -105,51 +121,41 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
   if (format === "text") {
     return {
       exitCode: ExitCode.Internal,
-      output: { channel: "stderr", content: `\u2717 ${message}` },
+      stderr: [`\u2717 ${message}`],
     };
   }
 
   return {
     exitCode: ExitCode.Internal,
-    errorEvent: {
-      type: "error",
-      code,
-      message,
-    },
-    output: {
-      channel: "stdout",
-      content:
-        JSON.stringify(
-          makeJsonErrorEnvelope({
-            code,
-            title: "Internal Error",
-            detail: message,
-          }),
-          null,
-          2,
-        ) + "\n",
-    },
+    stderr: [JSON.stringify(makeErrorEvent(code, message))],
+    stdout:
+      JSON.stringify(
+        makeJsonErrorEnvelope({
+          code,
+          title: "Internal Error",
+          detail: message,
+        }),
+        null,
+        2,
+      ) + "\n",
   };
 };
 
 /**
  * Error routing based on output mode.
  *
- * Classifies the error, writes output to the appropriate channel, and exits.
+ * Classifies the error, writes its stderr lines and optional stdout document,
+ * and exits.
  */
 export const handleError = (error: unknown, format: OutputFormat): never => {
-  const result = classifyError(error, format);
+  const { exitCode, stderr, stdout } = classifyError(error, format);
 
-  if (result.output) {
-    if (result.output.channel === "stdout") {
-      if (format !== "text" && result.errorEvent !== undefined) {
-        writeStderr(JSON.stringify(result.errorEvent));
-      }
-      process.stdout.write(result.output.content);
-    } else {
-      writeStderr(result.output.content);
-    }
+  for (const line of stderr ?? []) {
+    writeStderr(line);
+  }
+  if (stdout !== undefined) {
+    process.stdout.write(stdout);
   }
 
-  process.exit(result.exitCode);
+  process.exit(exitCode);
 };

@@ -124,6 +124,7 @@ export {
   isUniversalSkillsDir,
   isUniversalSkillsRelativeDir,
   resolveUniversalDirPresence,
+  stripTrailingSeparators,
 } from "./universal-skills-dir.js";
 
 // Ref base types

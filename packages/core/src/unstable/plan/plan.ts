@@ -39,6 +39,7 @@ export interface Operation<TName extends string, TArgs> {
 export interface JobStepArtifact {
   readonly path: string;
   readonly scope: "project" | "user";
+  readonly agents?: ReadonlyArray<string>;
   readonly version?: string;
   readonly change: "created" | "updated" | "unchanged";
   readonly previousVersion?: string;
@@ -49,6 +50,7 @@ export interface JobStepArtifact {
 export interface JobStepArtifactTarget {
   readonly path: string;
   readonly change: "created" | "updated" | "unchanged";
+  readonly agentIds?: ReadonlyArray<string>;
 }
 
 export type JobStepResult =

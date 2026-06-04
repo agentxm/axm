@@ -26,7 +26,7 @@ export const UNIVERSAL_SKILLS_DIR_SEGMENT: string = UNIVERSAL_SKILLS_DIR.split("
 /**
  * Strips trailing path separators from a path string.
  */
-const stripTrailingSeparators = (p: string): string =>
+export const stripTrailingSeparators = (p: string): string =>
   p.length > 1 ? p.replace(/[/\\]+$/, "") : p;
 
 /**

@@ -219,9 +219,11 @@ const scopePhrase = (scope: JobStepArtifact["scope"]): string =>
   scope === "project" ? "this project" : "user scope";
 
 const artifactTargetPhrase = (artifact: JobStepArtifact): string | undefined =>
-  artifact.targets === undefined || artifact.targets.length === 0
-    ? undefined
-    : `for ${count(artifact.targets.length, "agent")}`;
+  artifact.agents !== undefined && artifact.agents.length > 0
+    ? `for ${count(artifact.agents.length, "agent")}`
+    : artifact.targets === undefined || artifact.targets.length === 0
+      ? undefined
+      : `for ${count(artifact.targets.length, "location")}`;
 
 const formatArtifactSummary = (artifact: JobStepArtifact, verbose: boolean): string => {
   const details = [
@@ -231,10 +233,18 @@ const formatArtifactSummary = (artifact: JobStepArtifact, verbose: boolean): str
   if (artifact.targets !== undefined && artifact.targets.length > 0) {
     const summary =
       details.length === 0
-        ? `-> ${count(artifact.targets.length, "agent target")}`
-        : `-> ${count(artifact.targets.length, "agent target")}   ${details.join(" | ")}`;
+        ? `-> ${count(artifact.targets.length, "location")}`
+        : `-> ${count(artifact.targets.length, "location")}   ${details.join(" | ")}`;
     if (!verbose) return summary;
-    const rows = artifact.targets.map((target) => `   -> ${target.path}   ${target.change}`);
+    const rows = artifact.targets.map((target) => {
+      const agents =
+        target.agentIds === undefined || target.agentIds.length === 0
+          ? undefined
+          : target.agentIds.join(", ");
+      return agents === undefined
+        ? `   -> ${target.path}   ${target.change}`
+        : `   -> ${target.path}   ${target.change}   ${agents}`;
+    });
     return [summary, ...rows].join("\n");
   }
   return details.length === 0

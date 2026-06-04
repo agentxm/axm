@@ -34,6 +34,7 @@ const StepStatusSchema = Schema.Literals([
 const StepArtifactTargetSchema = Schema.Struct({
   path: Schema.String,
   change: Schema.Literals(["created", "updated", "unchanged"] as const),
+  agentIds: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({
   identifier: "StepArtifactTarget",
   title: "Plan Step Artifact Target",
@@ -43,6 +44,7 @@ const StepArtifactTargetSchema = Schema.Struct({
 const StepArtifactSchema = Schema.Struct({
   path: Schema.String,
   scope: Schema.Literals(["project", "user"] as const),
+  agents: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.optional(Schema.String),
   change: Schema.Literals(["created", "updated", "unchanged"] as const),
   previousVersion: Schema.optional(Schema.String),

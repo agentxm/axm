@@ -30,6 +30,8 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { SkillPathSource } from "@agentxm/client-core/unstable/workspace";
 import {
   computeSkillSourceHash,
+  groupInstallTargetsByDirectory,
+  type InstallableSkillTarget,
   SkillManager,
   type SkillExtensionRef,
 } from "@agentxm/client-core/unstable/skills";
@@ -193,6 +195,19 @@ const artifactChangeFromTargets = (
   }
   return fallback === "updated" ? "updated" : "unchanged";
 };
+
+const UNIVERSAL_AGENT_ID = "universal";
+
+const artifactAgentIdsFromTargets = (
+  targets: ReadonlyArray<InstallableSkillTarget>,
+): ReadonlyArray<string> =>
+  Array.dedupe(
+    targets.map((target) => target.agentId).filter((agentId) => agentId !== UNIVERSAL_AGENT_ID),
+  );
+
+const artifactTargetAgentIds = (
+  agentIds: ReadonlyArray<InstallableSkillTarget["agentId"]>,
+): ReadonlyArray<string> => agentIds.filter((agentId) => agentId !== UNIVERSAL_AGENT_ID);
 
 /**
  * Extract compatible packages from a skill ref.
@@ -585,27 +600,40 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 skillPathSourceFor(ref),
               );
               const sanitizedName = sanitizeName(ref.skill.name);
+              const installableTargets = resolvedAgents.flatMap(
+                ({ agentId, outcome }): ReadonlyArray<InstallableSkillTarget> =>
+                  outcome._tag === "supported"
+                    ? [{ agentId, targetDir: pathSvc.normalize(outcome.dir) }]
+                    : [],
+              );
+              const targetLocations = yield* groupInstallTargetsByDirectory(
+                installableTargets,
+                ws.baseDir,
+              ).pipe(
+                Effect.provideService(FileSystem.FileSystem, fsSvc),
+                Effect.provideService(Path.Path, pathSvc),
+              );
+              const artifactAgents = artifactAgentIdsFromTargets(installableTargets);
               const targets = yield* Effect.forEach(
-                resolvedAgents,
-                ({ outcome }) => {
-                  if (outcome._tag !== "supported") {
-                    return Effect.succeed(Option.none<JobStepArtifactTarget>());
-                  }
-                  const linkPath = pathSvc.join(outcome.dir, sanitizedName);
+                targetLocations,
+                (location) => {
+                  const linkPath = pathSvc.join(location.targetDir, sanitizedName);
                   return targetChangeBeforeInstall({
                     linkPath,
                     canonicalSkillSrcPath: skillSrcPath,
                   }).pipe(
-                    Effect.map((change) =>
-                      Option.some({
+                    Effect.map((change) => {
+                      const agentIds = artifactTargetAgentIds(location.agentIds);
+                      return {
                         path: pathSvc.relative(ws.baseDir, linkPath),
                         change,
-                      }),
-                    ),
+                        ...(agentIds.length > 0 ? { agentIds } : {}),
+                      } satisfies JobStepArtifactTarget;
+                    }),
                   );
                 },
                 { concurrency: "unbounded" },
-              ).pipe(Effect.map(Array.getSomes));
+              );
               const firstTarget = targets[0];
               const rawDisplayPath =
                 firstTarget === undefined
@@ -635,6 +663,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                   return {
                     path: rawDisplayPath.length === 0 ? "." : rawDisplayPath,
                     scope: ws.scope,
+                    ...(artifactAgents.length > 0 ? { agents: artifactAgents } : {}),
                     ...(version !== undefined ? { version } : {}),
                     change: artifactChange,
                     ...(previousVersion !== undefined && previousVersion !== version

@@ -546,12 +546,21 @@ describe("displayPlan", () => {
                       artifact: {
                         path: ".claude/skills/code-review",
                         scope: "project",
+                        agents: ["antigravity", "claude-code"],
                         version: "1.2.3",
                         change: "created",
                         fileCount: 4,
                         targets: [
-                          { path: ".agents/skills/code-review", change: "created" },
-                          { path: ".claude/skills/code-review", change: "created" },
+                          {
+                            path: ".agents/skills/code-review",
+                            change: "created",
+                            agentIds: ["antigravity"],
+                          },
+                          {
+                            path: ".claude/skills/code-review",
+                            change: "created",
+                            agentIds: ["claude-code"],
+                          },
                         ],
                       },
                     },
@@ -567,7 +576,7 @@ describe("displayPlan", () => {
             m.includes("Installed skill code-review for 2 agents"),
           ),
         ).toBe(true);
-        expect(state.summaries).toEqual(["-> 2 agent targets   1.2.3 | 4 files"]);
+        expect(state.summaries).toEqual(["-> 2 locations   1.2.3 | 4 files"]);
         expect(state.suggestions.map((suggestion) => suggestion.description)).toEqual([
           "Inspect installed skills",
           "Undo",
@@ -708,10 +717,17 @@ describe("displayPlan", () => {
                         artifact: {
                           path: ".claude/skills/code-review",
                           scope: "project",
+                          agents: ["claude-code"],
                           version: "1.2.3",
                           change: "created",
                           fileCount: 4,
-                          targets: [{ path: ".claude/skills/code-review", change: "created" }],
+                          targets: [
+                            {
+                              path: ".claude/skills/code-review",
+                              change: "created",
+                              agentIds: ["claude-code"],
+                            },
+                          ],
                         },
                       },
                     },
@@ -748,12 +764,21 @@ describe("displayPlan", () => {
                         artifact: {
                           path: ".claude/skills/code-review",
                           scope: "project",
+                          agents: ["antigravity", "claude-code"],
                           version: "1.2.3",
                           change: "created",
                           fileCount: 4,
                           targets: [
-                            { path: ".agents/skills/code-review", change: "created" },
-                            { path: ".claude/skills/code-review", change: "created" },
+                            {
+                              path: ".agents/skills/code-review",
+                              change: "created",
+                              agentIds: ["antigravity"],
+                            },
+                            {
+                              path: ".claude/skills/code-review",
+                              change: "created",
+                              agentIds: ["claude-code"],
+                            },
                           ],
                         },
                       },
@@ -774,9 +799,9 @@ describe("displayPlan", () => {
           ).toBe(true);
           expect(state.summaries).toEqual([
             [
-              "-> 2 agent targets   1.2.3 | 4 files",
-              "   -> .agents/skills/code-review   created",
-              "   -> .claude/skills/code-review   created",
+              "-> 2 locations   1.2.3 | 4 files",
+              "   -> .agents/skills/code-review   created   antigravity",
+              "   -> .claude/skills/code-review   created   claude-code",
             ].join("\n"),
           ]);
           expect(state.suggestions.map((suggestion) => suggestion.description)).toEqual([

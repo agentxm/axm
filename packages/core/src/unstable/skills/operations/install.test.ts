@@ -417,7 +417,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("reports every materialized agent target in the artifact", () =>
+    it.effect("reports recipient agents and materialized locations in the artifact", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
@@ -428,12 +428,35 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
         if (result.result === "success") {
+          expect(result.artifact?.agents).toEqual(["claude-code", "cursor"]);
           expect(result.artifact?.targets).toEqual([
             { path: ".agents/skills/my-skill", change: "created" },
-            { path: ".claude/skills/my-skill", change: "created" },
-            { path: ".cursor/skills/my-skill", change: "created" },
+            { path: ".claude/skills/my-skill", change: "created", agentIds: ["claude-code"] },
+            { path: ".cursor/skills/my-skill", change: "created", agentIds: ["cursor"] },
           ]);
           expect(result.artifact?.change).toBe("created");
+        }
+      }),
+    );
+
+    it.effect("dedupes shared universal target locations in the artifact", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(
+            withServices(axmDir, { configuredAgents: ["antigravity", "claude-code"] }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+        if (result.result === "success") {
+          expect(result.artifact?.agents).toEqual(["antigravity", "claude-code"]);
+          expect(result.artifact?.targets).toEqual([
+            { path: ".agents/skills/my-skill", change: "created", agentIds: ["antigravity"] },
+            { path: ".claude/skills/my-skill", change: "created", agentIds: ["claude-code"] },
+          ]);
         }
       }),
     );
@@ -454,9 +477,10 @@ describe("installSkill", () => {
         expect(second.result).toBe("success");
         if (second.result === "success") {
           expect(second.artifact?.change).toBe("unchanged");
+          expect(second.artifact?.agents).toEqual(["claude-code"]);
           expect(second.artifact?.targets).toEqual([
             { path: ".agents/skills/my-skill", change: "unchanged" },
-            { path: ".claude/skills/my-skill", change: "unchanged" },
+            { path: ".claude/skills/my-skill", change: "unchanged", agentIds: ["claude-code"] },
           ]);
         }
       }),
@@ -483,7 +507,7 @@ describe("installSkill", () => {
             expect(second.artifact?.change).toBe("updated");
             expect(second.artifact?.targets).toEqual([
               { path: ".agents/skills/my-skill", change: "unchanged" },
-              { path: ".claude/skills/my-skill", change: "unchanged" },
+              { path: ".claude/skills/my-skill", change: "unchanged", agentIds: ["claude-code"] },
             ]);
           }
         }),

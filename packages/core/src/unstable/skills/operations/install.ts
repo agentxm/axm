@@ -15,9 +15,12 @@ import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/index.js";
 import { sourceToLockEntry } from "../../sources/index.js";
 import {
+  UNIVERSAL_SKILLS_DIR,
   type RenderedFilePath,
   type RenderedFilesMap,
   RenderedFilePathSchema,
+  isUniversalSkillsDir,
+  stripTrailingSeparators,
 } from "../../extensions/index.js";
 import * as Schema from "effect/Schema";
 import type {
@@ -86,6 +89,91 @@ type MaterializedSkill = {
   readonly skillSrcPath: string;
   readonly versionRange: Option.Option<string>;
 };
+
+export type InstallableSkillTarget = {
+  readonly agentId: AgentId;
+  readonly targetDir: string;
+};
+
+export type InstallableSkillTargetLocation = {
+  readonly targetDir: string;
+  readonly agentIds: ReadonlyArray<AgentId>;
+};
+
+const UNIVERSAL_AGENT_ID = "universal";
+
+const artifactAgentIdsFromTargets = (
+  targets: ReadonlyArray<InstallableSkillTarget>,
+): ReadonlyArray<string> =>
+  Array.dedupe(
+    targets.map((target) => target.agentId).filter((agentId) => agentId !== UNIVERSAL_AGENT_ID),
+  );
+
+const artifactTargetAgentIds = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> =>
+  agentIds.filter((agentId) => agentId !== UNIVERSAL_AGENT_ID);
+
+const normalizedTargetDir = (path: Path.Path, targetDir: string): string =>
+  stripTrailingSeparators(path.normalize(targetDir));
+
+const targetLocationKey = (
+  targetDir: string,
+  workspaceRoot: string,
+): Effect.Effect<string, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const normalizedDir = normalizedTargetDir(path, targetDir);
+    const normalizedWorkspaceRoot = normalizedTargetDir(path, workspaceRoot);
+    const realWorkspaceRoot = yield* fs.realPath(workspaceRoot).pipe(
+      Effect.map((realPath) => normalizedTargetDir(path, realPath)),
+      Effect.catch(() => Effect.succeed(normalizedWorkspaceRoot)),
+    );
+
+    if (
+      isUniversalSkillsDir(normalizedDir, normalizedWorkspaceRoot) ||
+      isUniversalSkillsDir(normalizedDir, realWorkspaceRoot)
+    ) {
+      return normalizedTargetDir(path, path.join(realWorkspaceRoot, UNIVERSAL_SKILLS_DIR));
+    }
+
+    const parentDir = path.dirname(normalizedDir);
+    const realParentDir = yield* fs.realPath(parentDir).pipe(
+      Effect.map((realPath) => normalizedTargetDir(path, realPath)),
+      Effect.catch(() => Effect.succeed(parentDir)),
+    );
+    return normalizedTargetDir(path, path.join(realParentDir, path.basename(normalizedDir)));
+  });
+
+export const groupInstallTargetsByDirectory = (
+  targets: ReadonlyArray<InstallableSkillTarget>,
+  workspaceRoot: string,
+): Effect.Effect<
+  ReadonlyArray<InstallableSkillTargetLocation>,
+  never,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const keyedTargets = yield* Effect.forEach(
+      targets,
+      (target) =>
+        targetLocationKey(target.targetDir, workspaceRoot).pipe(
+          Effect.map((key) => ({ key, target })),
+        ),
+      { concurrency: "unbounded" },
+    );
+    const locationsByKey = new Map<string, { targetDir: string; agentIds: Array<AgentId> }>();
+    for (const { key, target } of keyedTargets) {
+      const existing = locationsByKey.get(key);
+      if (existing === undefined) {
+        locationsByKey.set(key, { targetDir: target.targetDir, agentIds: [target.agentId] });
+        continue;
+      }
+      if (!existing.agentIds.includes(target.agentId)) {
+        existing.agentIds.push(target.agentId);
+      }
+    }
+    return [...locationsByKey.values()];
+  });
 
 const countFiles = (dir: string): Effect.Effect<number, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
@@ -539,7 +627,7 @@ export const installSkill: OperationHandler<
       yield* renderer.warn(`Skipping non-installable configured agents: ${skippedMessage}`);
     }
 
-    const installableTargets: Array<{ agentId: AgentId; targetDir: string }> = [];
+    const installableTargets: Array<InstallableSkillTarget> = [];
     for (const { agentId, outcome } of resolvedAgents) {
       if (outcome._tag === "supported") {
         installableTargets.push({
@@ -548,21 +636,23 @@ export const installSkill: OperationHandler<
         });
       }
     }
-    const distinctDirs = Array.dedupe(installableTargets.map((target) => target.targetDir));
-    const displayTargetDir = distinctDirs[0];
+    const targetLocations = yield* groupInstallTargetsByDirectory(installableTargets, ws.baseDir);
+    const displayTargetDir = targetLocations[0]?.targetDir;
     const perDirectoryResults = yield* Effect.forEach(
-      distinctDirs,
-      (targetDir) =>
+      targetLocations,
+      (location) =>
         installForDirectory({
-          targetDir,
+          targetDir: location.targetDir,
           canonicalSkillSrcPath: materialized.skillSrcPath,
           sanitizedName,
-        }).pipe(Effect.map((result) => ({ targetDir, result }))),
+        }).pipe(Effect.map((result) => ({ location, result }))),
       { concurrency: "unbounded" },
     );
 
     const agentResults: ReadonlyArray<InstallResult> = installableTargets.map((target) => {
-      const matched = perDirectoryResults.find((item) => item.targetDir === target.targetDir);
+      const matched = perDirectoryResults.find((item) =>
+        item.location.agentIds.includes(target.agentId),
+      );
       if (matched === undefined) {
         return {
           success: false,
@@ -639,10 +729,15 @@ export const installSkill: OperationHandler<
       displayTargetDir === undefined
         ? path.relative(ws.baseDir, materialized.skillSrcPath)
         : path.join(path.relative(ws.baseDir, displayTargetDir), sanitizedName);
-    const artifactTargets = perDirectoryResults.map(({ result }) => ({
-      path: path.relative(ws.baseDir, result.path),
-      change: result.change ?? "updated",
-    }));
+    const artifactAgents = artifactAgentIdsFromTargets(installableTargets);
+    const artifactTargets = perDirectoryResults.map(({ location, result }) => {
+      const agentIds = artifactTargetAgentIds(location.agentIds);
+      return {
+        path: path.relative(ws.baseDir, result.path),
+        change: result.change ?? "updated",
+        ...(agentIds.length > 0 ? { agentIds } : {}),
+      };
+    });
     const version =
       lockEntry.type === "registry"
         ? lockEntry.resolvedVersion
@@ -677,6 +772,7 @@ export const installSkill: OperationHandler<
       artifact: {
         path: displayPath.length === 0 ? "." : displayPath,
         scope: ws.scope,
+        ...(artifactAgents.length > 0 ? { agents: artifactAgents } : {}),
         ...(version !== undefined ? { version } : {}),
         change: artifactChange,
         ...(previousVersion !== undefined && previousVersion !== version

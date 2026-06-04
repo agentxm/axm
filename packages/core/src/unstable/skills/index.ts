@@ -44,8 +44,17 @@ export { skillReconciliationAdapter, assertSkillAdapterLoaded } from "./reconcil
 export { buildRegistrySkillRef } from "./registry-ref-builder.js";
 
 // Operations
-export type { InstallSkillOperationArgs, InstallSkillOperation } from "./operations/install.js";
-export { computeSkillSourceHash, installSkill } from "./operations/install.js";
+export type {
+  InstallSkillOperationArgs,
+  InstallSkillOperation,
+  InstallableSkillTarget,
+  InstallableSkillTargetLocation,
+} from "./operations/install.js";
+export {
+  computeSkillSourceHash,
+  groupInstallTargetsByDirectory,
+  installSkill,
+} from "./operations/install.js";
 export type { InstallResult } from "./operations/install-result.js";
 export type {
   UninstallSkillOperationArgs,

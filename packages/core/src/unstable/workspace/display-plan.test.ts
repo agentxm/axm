@@ -43,7 +43,7 @@ const makeExecutedPlan = (overrides: Partial<ExecutedPlan> = {}): ExecutedPlan =
 /** Creates a fresh renderer + Verbosity test layer and runs the effect, returning the state for inspection. */
 const withOutput = <A, E>(
   fn: (state: TestRendererState) => Effect.Effect<A, E, CliRenderer | Verbosity>,
-  flagsOverrides?: { verbose?: boolean; debug?: boolean },
+  flagsOverrides?: { verbose?: boolean; debug?: boolean; quiet?: boolean },
 ): Effect.Effect<A, E> => {
   const { layer, state } = TestRenderer.make();
   return fn(state).pipe(Effect.provide(Layer.mergeAll(layer, TestFlagsLayer(flagsOverrides))));
@@ -569,6 +569,170 @@ describe("displayPlan", () => {
           "Undo",
         ]);
       }),
+    ),
+  );
+
+  it.effect("renders unchanged single artifact as already up to date", () =>
+    withOutput((state) =>
+      Effect.gen(function* () {
+        yield* displayPlan(
+          makeExecutedPlan({
+            name: "Install skill",
+            jobs: [
+              {
+                concurrency: "unbounded",
+                steps: [
+                  {
+                    label: "code-review",
+                    result: {
+                      result: "success",
+                      message: "code-review already installed",
+                      artifact: {
+                        path: ".claude/skills/code-review",
+                        scope: "project",
+                        version: "1.2.3",
+                        change: "unchanged",
+                        fileCount: 4,
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        );
+
+        expect(logsByTag(state).success).toEqual(["Already up to date — code-review 1.2.3"]);
+        expect(state.summaries).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("uses clean skill names for single artifact suggestions", () =>
+    withOutput((state) =>
+      Effect.gen(function* () {
+        yield* displayPlan(
+          makeExecutedPlan({
+            name: "Install skill",
+            jobs: [
+              {
+                concurrency: "unbounded",
+                steps: [
+                  {
+                    label: "cpp-conan-tinyflags-add-flag (pkg:conan/agentxm-example-tinyflags)",
+                    result: {
+                      result: "success",
+                      message: "Installed cpp-conan-tinyflags-add-flag",
+                      artifact: {
+                        path: ".claude/skills/cpp-conan-tinyflags-add-flag",
+                        scope: "project",
+                        version: "0.1.3",
+                        change: "created",
+                        fileCount: 1,
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        );
+
+        expect(state.suggestions).toContainEqual({
+          description: "Undo",
+          cmd: "axm skills uninstall cpp-conan-tinyflags-add-flag",
+        });
+      }),
+    ),
+  );
+
+  it.effect("quiet output suppresses summaries and suggestions but keeps outcome", () =>
+    withOutput(
+      (state) =>
+        Effect.gen(function* () {
+          yield* displayPlan(
+            makeExecutedPlan({
+              name: "Install skill",
+              jobs: [
+                {
+                  concurrency: "unbounded",
+                  steps: [
+                    {
+                      label: "code-review",
+                      result: {
+                        result: "success",
+                        message: "Applied install operation",
+                        artifact: {
+                          path: ".claude/skills/code-review",
+                          scope: "project",
+                          version: "1.2.3",
+                          change: "created",
+                          fileCount: 4,
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+
+          expect(logsByTag(state).success).toEqual([
+            "Installed code-review (skill) to this project",
+          ]);
+          expect(state.summaries).toEqual([]);
+          expect(state.suggestions).toEqual([]);
+        }),
+      { quiet: true },
+    ),
+  );
+
+  it.effect("verbose output keeps outcome and affordances plus step detail", () =>
+    withOutput(
+      (state) =>
+        Effect.gen(function* () {
+          yield* displayPlan(
+            makeExecutedPlan({
+              name: "Install skill",
+              jobs: [
+                {
+                  concurrency: "unbounded",
+                  steps: [
+                    {
+                      label: "code-review",
+                      result: {
+                        result: "success",
+                        message: "Applied install operation",
+                        artifact: {
+                          path: ".claude/skills/code-review",
+                          scope: "project",
+                          version: "1.2.3",
+                          change: "created",
+                          fileCount: 4,
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+
+          expect(
+            logsByTag(state).success.some((m) =>
+              m.includes("Installed code-review (skill) to this project"),
+            ),
+          ).toBe(true);
+          expect(
+            logsByTag(state).success.some((m) => m.includes("Applied install operation")),
+          ).toBe(true);
+          expect(state.summaries).toEqual(["-> .claude/skills/code-review   1.2.3 | 4 files"]);
+          expect(state.suggestions.map((suggestion) => suggestion.description)).toEqual([
+            "Inspect installed skills",
+            "Undo",
+          ]);
+        }),
+      { verbose: true },
     ),
   );
 

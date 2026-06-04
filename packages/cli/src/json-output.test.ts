@@ -247,6 +247,61 @@ describe("toPlanResolutionResult", () => {
       },
     ]);
   });
+
+  it("maps unchanged artifacts to no-op outcome without applied count", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "code-review",
+              result: {
+                result: "success",
+                message: "code-review already installed",
+                artifact: {
+                  path: ".claude/skills/code-review",
+                  scope: "project",
+                  version: "1.2.3",
+                  change: "unchanged",
+                  fileCount: 4,
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution)).toEqual({
+      outcome: "no-op",
+      planName: "Install skill",
+      totalSteps: 1,
+      readyCount: 0,
+      warningCount: 0,
+      errorCount: 0,
+      appliedCount: 0,
+      failedCount: 0,
+      blockedCount: 0,
+      steps: [
+        {
+          label: "code-review",
+          status: "unchanged",
+          message: "code-review already installed",
+          artifact: {
+            path: ".claude/skills/code-review",
+            scope: "project",
+            version: "1.2.3",
+            change: "unchanged",
+            fileCount: 4,
+          },
+        },
+      ],
+    });
+  });
 });
 
 describe("planResolutionToSummary", () => {

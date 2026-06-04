@@ -35,9 +35,14 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const v = yield* Verbosity;
-    const verbosity: { readonly verbose: boolean; readonly debug: boolean } = {
+    const verbosity: {
+      readonly verbose: boolean;
+      readonly debug: boolean;
+      readonly quiet: boolean;
+    } = {
       verbose: v.isAtLeast("verbose"),
       debug: v.isAtLeast("debug"),
+      quiet: v.level === "quiet",
     };
 
     const renderHeading = Option.match(plan.description, {
@@ -57,9 +62,11 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
       const hasLegacySuccessDetail = allSteps.some(
         (step) => step.result.result === "success" && step.result.artifact === undefined,
       );
-      if (!verbosity.verbose && !hasFailures && !hasLegacySuccessDetail) {
-        yield* renderExecutedOutcome(plan, allSteps, renderer);
-        return;
+      if (!hasFailures && !hasLegacySuccessDetail) {
+        yield* renderExecutedOutcome(plan, allSteps, renderer, verbosity);
+        if (!verbosity.verbose) {
+          return;
+        }
       }
 
       yield* renderer.info(renderHeading);
@@ -113,7 +120,7 @@ const renderPlannedStep = (
 const renderCompletedStep = (
   step: CompletedJobStep,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
-  verbosity: { readonly verbose: boolean; readonly debug: boolean },
+  verbosity: { readonly verbose: boolean; readonly debug: boolean; readonly quiet: boolean },
 ) => {
   switch (step.result.result) {
     case "success": {
@@ -124,7 +131,7 @@ const renderCompletedStep = (
       const renderedLines = renderAppError(step.result.error, verbosity).split("\n");
       const [firstLine, ...rest] = renderedLines;
       const first = firstLine ?? step.result.message;
-      const headline = first.startsWith("\u2717 ") ? first.slice(2) : first;
+      const headline = first.startsWith("\u2716 ") ? first.slice(2) : first;
 
       return Effect.gen(function* () {
         yield* renderer.error(`  ${step.label}: ${headline}`);
@@ -160,11 +167,19 @@ const renderCompletedSummary = (
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
 ) =>
   Effect.gen(function* () {
-    const successCount = allSteps.filter((s) => s.result.result === "success").length;
+    const appliedCount = allSteps.filter(
+      (s) =>
+        s.result.result === "success" &&
+        (s.result.artifact === undefined || s.result.artifact.change !== "unchanged"),
+    ).length;
+    const unchangedCount = allSteps.filter(
+      (s) => s.result.result === "success" && s.result.artifact?.change === "unchanged",
+    ).length;
     const failCount = allSteps.filter((s) => s.result.result === "error").length;
 
     const parts: string[] = [];
-    if (successCount > 0) parts.push(`${successCount} applied`);
+    if (appliedCount > 0) parts.push(`${appliedCount} applied`);
+    if (unchangedCount > 0) parts.push(`${unchangedCount} unchanged`);
     if (failCount > 0) parts.push(`${failCount} failed`);
 
     if (parts.length > 0) {
@@ -228,16 +243,24 @@ const singleArtifactSuggestions = (
   label: string,
 ): ReadonlyArray<{ readonly description: string; readonly cmd: string }> | undefined => {
   if (type !== "skill") return undefined;
+  const parenIndex = label.indexOf(" (");
+  const target = parenIndex === -1 ? label : label.slice(0, parenIndex);
   return [
     { description: "Inspect installed skills", cmd: "axm skills list" },
-    { description: "Undo", cmd: `axm skills uninstall ${label}` },
+    { description: "Undo", cmd: `axm skills uninstall ${target}` },
   ];
+};
+
+const unchangedHeadline = (step: CompletedJobStep, artifact: JobStepArtifact): string => {
+  const version = artifact.version === undefined ? "" : ` ${artifact.version}`;
+  return `Already up to date — ${step.label}${version}`;
 };
 
 const renderExecutedOutcome = (
   plan: ExecutedPlan,
   allSteps: ReadonlyArray<CompletedJobStep>,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+  verbosity: { readonly quiet: boolean },
 ) =>
   Effect.gen(function* () {
     const successes = allSteps.filter((step) => step.result.result === "success");
@@ -257,19 +280,42 @@ const renderExecutedOutcome = (
     if (artifacts.length === 1 && successes.length === 1) {
       const first = artifacts[0];
       if (first !== undefined) {
+        if (first.artifact.change === "unchanged") {
+          yield* renderer.success(unchangedHeadline(first.step, first.artifact));
+          return;
+        }
+
         const suggestions = singleArtifactSuggestions(type, first.step.label);
         yield* renderer.success(
           `${verb} ${first.step.label} (${type}) to ${scopePhrase(first.artifact.scope)}`,
-          {
-            summary: formatArtifactSummary(first.artifact),
-            ...(suggestions === undefined ? {} : { suggestions }),
-          },
+          verbosity.quiet
+            ? undefined
+            : {
+                summary: formatArtifactSummary(first.artifact),
+                ...(suggestions === undefined ? {} : { suggestions }),
+              },
         );
       }
       return;
     }
 
     const firstArtifact = artifacts[0]?.artifact;
+    const allUnchanged =
+      artifacts.length > 0 && artifacts.every(({ artifact }) => artifact.change === "unchanged");
+    if (allUnchanged) {
+      yield* renderer.success(
+        `Already up to date — ${count(successes.length, type, artifactPluralType(type))}`,
+        verbosity.quiet
+          ? undefined
+          : {
+              summary: artifacts
+                .map(({ step, artifact }) => formatArtifactRow(step, artifact))
+                .join("\n"),
+            },
+      );
+      return;
+    }
+
     const target =
       firstArtifact === undefined
         ? ""
@@ -279,5 +325,8 @@ const renderExecutedOutcome = (
       artifacts.length > 0
         ? artifacts.map(({ step, artifact }) => formatArtifactRow(step, artifact)).join("\n")
         : undefined;
-    yield* renderer.success(headline, summary === undefined ? undefined : { summary });
+    yield* renderer.success(
+      headline,
+      verbosity.quiet || summary === undefined ? undefined : { summary },
+    );
   });

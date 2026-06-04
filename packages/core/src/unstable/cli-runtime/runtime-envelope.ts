@@ -49,7 +49,7 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat): 
   const message = defectMessage(cause);
 
   if (format === "text") {
-    writeStderr(`✗ ${message}`);
+    writeStderr(`✖ ${message}`);
     return;
   }
 

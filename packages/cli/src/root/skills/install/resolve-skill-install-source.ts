@@ -174,7 +174,7 @@ const resolveRegistrySource = (
       const skillName = options.skillName.value;
       return yield* makeAppError({
         code: "not_found",
-        detail: `Skill "${owner}/${skillName}" was not found in configured registries`,
+        detail: `Skill "${owner}/skills/${skillName}" was not found in configured registries`,
         recover: registryLookupHowToFix({
           issues,
           fallback:
@@ -223,7 +223,7 @@ const resolveSkillRegistrySourceByName = (
         if (error.code !== "not_found") return error;
         const label = Option.match(maybeProfile, {
           onNone: () => name,
-          onSome: (owner) => `${owner}/${name}`,
+          onSome: (owner) => `${owner}/skills/${name}`,
         });
         return makeAppError({
           code: "not_found",

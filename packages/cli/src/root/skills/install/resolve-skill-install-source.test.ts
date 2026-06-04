@@ -300,7 +300,7 @@ describe("resolveSkillInstallSource", () => {
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
       expect(error._tag).toBe("AppError");
       expect(error.code).toBe("not_found");
-      expect(error.detail).toContain("@acme/my-skill");
+      expect(error.detail).toContain("@acme/skills/my-skill");
       expect(error.detail).toContain("not found");
     });
   });
@@ -435,7 +435,7 @@ describe("resolveSkillRegistrySourceByName", () => {
         );
         expect(error._tag).toBe("AppError");
         expect(error.code).toBe("not_found");
-        expect(error.detail).toContain("@myns/missing-skill");
+        expect(error.detail).toContain("@myns/skills/missing-skill");
         expect(error.detail).toContain("not found");
       });
     },

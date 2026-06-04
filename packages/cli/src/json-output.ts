@@ -21,13 +21,14 @@ const StepStatusSchema = Schema.Literals([
   "warning",
   "error",
   "applied",
+  "unchanged",
   "failed",
   "blocked",
 ] as const).annotate({
   identifier: "StepStatus",
   title: "Step Status",
   description:
-    "Execution status of a plan step: ready, warning, error, applied, failed, or blocked.",
+    "Execution status of a plan step: ready, warning, error, applied, unchanged, failed, or blocked.",
 });
 
 const StepArtifactSchema = Schema.Struct({
@@ -112,9 +113,10 @@ const plannedStepToStep = (step: PlannedJobStep): Step => {
 
 const completedStepToStep = (step: CompletedJobStep): Step => {
   if (step.result.result === "success") {
+    const status = step.result.artifact?.change === "unchanged" ? "unchanged" : "applied";
     return {
       label: step.label,
-      status: "applied",
+      status,
       ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
       ...(step.result.artifact !== undefined ? { artifact: step.result.artifact } : {}),
       ...(step.result.links !== undefined ? { links: step.result.links } : {}),
@@ -166,9 +168,11 @@ export const toPlanResolutionResult = (resolution: PlanResolution): PlanResoluti
       const failedCount = steps.filter((step) => step.status === "failed").length;
       const blockedCount = steps.filter((step) => step.status === "blocked").length;
       const description = planDescription(resolution);
+      const outcome =
+        appliedCount === 0 && failedCount === 0 && blockedCount === 0 ? "no-op" : "applied";
 
       return {
-        outcome: "applied",
+        outcome,
         planName: resolution.name,
         ...(description !== undefined ? { planDescription: description } : {}),
         totalSteps: steps.length,

@@ -114,7 +114,7 @@ export const renderAppError = (
 ): string => {
   const lines: Array<string> = [];
 
-  lines.push(`\u2717 ${error.detail} (${error.code})`);
+  lines.push(`\u2716 ${error.detail} (${error.code})`);
 
   const requestId = getRequestId(error);
   const registryUrl = getRegistryUrl(error);
@@ -162,7 +162,7 @@ export const renderAppError = (
 export const renderDefect = (error: unknown): string => {
   const lines: Array<string> = [];
 
-  lines.push("\u2717 An unexpected error occurred");
+  lines.push("\u2716 An unexpected error occurred");
   lines.push("  This is a bug. Please report it at https://github.com/agentxm/axm/issues");
 
   if (error instanceof Error) {

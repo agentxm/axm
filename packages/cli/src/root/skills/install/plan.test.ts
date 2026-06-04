@@ -177,6 +177,13 @@ describe("buildSkillInstallPlan", () => {
         const result = yield* step.run;
         expect(result.result).toBe("success");
         expect(result.message).toContain("already installed");
+        if (result.result === "success") {
+          expect(result.artifact).toEqual({
+            path: "commit",
+            scope: "project",
+            change: "unchanged",
+          });
+        }
       }
     }),
   );

@@ -14,16 +14,14 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { isNonInteractive } from "../cli-flags/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
-import { makeAppError } from "../app-error/index.js";
-import type { AppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import { createDefaultSettings, type Settings } from "../settings/index.js";
 import { applyPlan } from "./apply-plan.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
 import { ReconciliationAdapters } from "../workspace/reconciliation.js";
-import type { CancelledPlan, ExecutedPlan, Plan, PlannedJobStep, PreviewedPlan } from "./plan.js";
+import type { ExecutedPlan, Plan, PlannedJobStep, PreviewedPlan } from "./plan.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { getAxmDir } from "../workspace/paths.js";
 import { AgentRootResolverLive } from "../workspace/read-model/agent-root-resolver.js";
@@ -37,14 +35,7 @@ import { mcpServerReconciliationAdapter } from "../mcps/reconciliation-adapter.j
 import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "../workspace/display-plan.js";
-import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
-
-const APPLY_CHANGES_PROMPT_MISSING = makeAppError({
-  code: "usage",
-  detail: "Interactive prompt required: Apply changes?",
-  suggestions: [{ description: "Provide ResolvePlanInteraction in the runtime." }],
-});
 
 const reconciliationAdapters = [
   skillReconciliationAdapter,
@@ -75,9 +66,6 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
 ) {
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
-  const interaction = yield* Effect.serviceOption(ResolvePlanInteraction);
-  const nonInteractive = yield* isNonInteractive;
-  const resolvedYes = flags.yes || nonInteractive;
 
   // Capture FS layer for augmentPlan
   const fs = yield* FileSystem.FileSystem;
@@ -164,31 +152,12 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     yield* renderer.info("Previewing changes...");
     yield* showPlan(augmentedPlan);
 
-    // In non-interactive mode without explicit --yes, preview is display-only (dry-run)
-    if (nonInteractive && !flags.yes) {
-      return {
-        _tag: "PreviewedPlan",
-        name: augmentedPlan.name,
-        description: augmentedPlan.description,
-        jobs: augmentedPlan.jobs,
-      } satisfies PreviewedPlan;
-    }
-
-    if (!resolvedYes) {
-      const confirmed =
-        interaction._tag === "Some"
-          ? yield* interaction.value.confirmApplyChanges()
-          : yield* APPLY_CHANGES_PROMPT_MISSING;
-      if (!confirmed) {
-        yield* renderer.success("Cancelled.");
-        return {
-          _tag: "CancelledPlan",
-          name: augmentedPlan.name,
-          description: augmentedPlan.description,
-          jobs: augmentedPlan.jobs,
-        } satisfies CancelledPlan;
-      }
-    }
+    return {
+      _tag: "PreviewedPlan",
+      name: augmentedPlan.name,
+      description: augmentedPlan.description,
+      jobs: augmentedPlan.jobs,
+    } satisfies PreviewedPlan;
   }
 
   // Step 6: Apply and display

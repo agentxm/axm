@@ -77,12 +77,19 @@ export const buildSkillInstallPlan = ({
       };
 
       if (installed && !force) {
+        const version = ref.refType === "registry" ? ref.version : undefined;
         return {
           readiness: "ready",
           label: ref.skill.name,
           run: Effect.succeed<JobStepResult>({
             result: "success",
             message: `${ref.skill.name} already installed`,
+            artifact: {
+              path: ref.skill.name,
+              scope: workspace.scope,
+              change: "unchanged",
+              ...(version !== undefined ? { version } : {}),
+            },
           }),
         } satisfies PlannedJobStep;
       }

@@ -13,4 +13,15 @@ describe("SuggestedActionSchema", () => {
       cmd: "axm skills list",
     });
   });
+
+  it("rejects axm commands with shell grouping metacharacters", () => {
+    const decode = Schema.decodeUnknownSync(SuggestedActionSchema);
+
+    expect(() =>
+      decode({
+        description: "Undo",
+        cmd: "axm skills uninstall cpp-conan-tinyflags-add-flag (pkg:conan/agentxm-example-tinyflags)",
+      }),
+    ).toThrow();
+  });
 });

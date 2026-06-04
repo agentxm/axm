@@ -2,7 +2,7 @@
  * Unit tests for the hooks new handler.
  *
  * Tests owner resolution, name validation, manifest creation, entrypoint,
- * settings registration, the `axm sync` suggestion, and error paths.
+ * settings registration, eager materialization, and error paths.
  */
 
 import * as fs from "node:fs";
@@ -10,11 +10,18 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/client-core/unstable/extensions";
+import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { handleHooksNew, type HooksNewHandlerArgs } from "./new.js";
 
 // -----------------------------------------------------------------------------
@@ -62,10 +69,20 @@ describe("hooks-new.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => makeWorkspaceHandlerTestContext();
+  const makeLayers = () => {
+    const ctx = makeWorkspaceHandlerTestContext();
+    const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
+    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, sourceLayer);
+    const fullLayer = Layer.provideMerge(HookManagerLive, workspaceServiceLayer);
+    return {
+      ...ctx,
+      fullLayer,
+      provide: makeEffectProvide(fullLayer),
+    };
+  };
 
   describe("success", () => {
-    it.effect("creates manifest, entrypoint, settings entry, and sync hint", () => {
+    it.effect("creates manifest, entrypoint, settings entry, and materialized hook config", () => {
       const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
@@ -96,13 +113,21 @@ describe("hooks-new.handler", () => {
             authored: true,
           });
 
+          const lockfile = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          expect(lockfile).toContain("tool-audit:");
+          expect(lockfile).toContain("resolvedVersion: 0.1.0");
+
+          const claudeSettingsPath = path.join(tempDir, ".claude", "settings.json");
+          expect(fs.existsSync(claudeSettingsPath)).toBe(true);
+          const claudeSettings = fs.readFileSync(claudeSettingsPath, "utf-8");
+          expect(claudeSettings).toContain(".axm/extensions/@acme/hooks/tool-audit/src/hook.sh");
+
           expect(logs.success.some((m) => m.includes("@acme/hooks/tool-audit"))).toBe(true);
           expect(rendererState.suggestions).toEqual([
             {
               description:
                 "Edit `.axm/extensions/@acme/hooks/tool-audit/src/hook.sh` to implement the hook",
             },
-            { description: "Apply changes to your workspace", cmd: "axm sync" },
           ]);
         }),
       );

@@ -2,33 +2,26 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  buildNewExtensionStep,
   decodeExtensionNameSync,
+  formatFqn,
   normalizeHandle,
   type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
-import {
-  computeSourceHash,
-  RenderedFilesMapSchema,
 } from "@agentxm/client-core/unstable/extensions";
 import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
   computeSubagentPaths,
-  subagentContentFilename,
   subagentContentPath,
+  SubagentManager,
   type SubagentManifest,
+  type RegistrySubagentRef,
 } from "@agentxm/client-core/unstable/subagents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  ignoreMalformedWorkspaceLockfileRead,
-  WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { makeWorkspaceRelativePath } from "@agentxm/client-core/unstable/utils";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { joinDisplayPath } from "../../shared/display-path.js";
@@ -55,8 +48,6 @@ const STARTER_BODY = "Describe what this subagent does and when to delegate work
 const makeSubagentMd = (name: string) =>
   ["---", `name: ${name}`, "---", "", STARTER_BODY].join("\n");
 
-const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
-
 export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   args: SubagentsNewHandlerArgs,
 ) {
@@ -64,7 +55,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const agentRepo = yield* CodingAgentRepository;
+  const manager = yield* SubagentManager;
 
   yield* renderer.info("axm subagents new");
 
@@ -105,17 +96,35 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     });
   }
 
-  // 4. Resolve agents
-  const agents = Option.isSome(args.agents) ? args.agents.value : yield* ws.getConfiguredAgents();
-
-  // 5. Build the scaffold operation as a plan step
-  const fqn = `${owner}/subagents/${args.name}`;
+  // 4. Build the scaffold operation as a plan step
+  const fqn = formatFqn({ owner, type: "subagent", name: args.name });
   const base = ws.baseDir;
+  const ref: RegistrySubagentRef = {
+    type: "subagent",
+    refType: "registry",
+    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    owner,
+    name: args.name,
+    version: INITIAL_VERSION,
+    integrity: Option.none(),
+    packages: [],
+    subagent: {
+      name: args.name,
+      description: Option.none(),
+    },
+  };
 
-  const step: PlannedJobStep = {
-    readiness: "ready",
+  const step = buildNewExtensionStep(manager, {
+    ref,
+    versionRange: Option.none(),
     label: fqn,
-    run: Effect.gen(function* () {
+    message: `Created subagent ${fqn}`,
+    markAuthored: ws.setSubagentEntry(args.name, {
+      source: fqn,
+      enabled: true,
+      authored: true,
+    }),
+    scaffold: Effect.gen(function* () {
       const extensionName = decodeExtensionNameSync(args.name);
 
       // Compute paths
@@ -163,112 +172,23 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
 
       // Write starter content file
       const subagentMdContent = makeSubagentMd(args.name);
-      const contentFilename = subagentContentFilename(args.name);
       const contentPath = subagentContentPath(path.join, subagentSrcPath, args.name);
 
       yield* fs.writeFileString(contentPath, subagentMdContent).pipe(
         Effect.mapError((e) =>
           makeAppError({
             code: "validation",
-            detail: `Failed to write ${contentFilename}`,
+            detail: `Failed to write subagent content`,
             cause: e,
           }),
         ),
       );
-      const editSourcePath = makeWorkspaceRelativePath(path, base, contentPath);
-      if (Option.isNone(editSourcePath)) {
-        return yield* makeAppError({
-          code: "internal",
-          detail: `Subagent source path escapes workspace root: ${contentPath}`,
-        });
-      }
-
-      // Register in settings
-      yield* ws.setSubagentEntry(args.name, {
-        source: fqn,
-        enabled: true,
-        authored: true,
-      });
-
-      // Render to configured agents
-      const configuredAgents = yield* agentRepo.getConfiguredAgents();
-
-      const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
-
-      yield* Effect.forEach(
-        configuredAgents,
-        (agent) =>
-          agent
-            .addSubagent({
-              workspaceRoot: base,
-              scope: "project",
-              editSourcePath: editSourcePath.value,
-              input: {
-                agentId: agent.id,
-                name: args.name,
-                body: STARTER_BODY,
-                frontmatter: { name: args.name },
-                agentOverrides: undefined,
-              },
-              force: args.force,
-            })
-            .pipe(
-              Effect.flatMap((outcome) => {
-                if (outcome._tag !== "success") return Effect.void;
-                return Effect.forEach(outcome.renderedFilePaths, (p) => {
-                  const relativePath = makeWorkspaceRelativePath(path, base, p);
-                  if (Option.isNone(relativePath)) {
-                    return Effect.fail(
-                      makeAppError({
-                        code: "internal",
-                        detail: `Rendered subagent path escapes workspace root: ${p}`,
-                      }),
-                    );
-                  }
-                  return Effect.succeed({ path: relativePath.value });
-                }).pipe(
-                  Effect.map((entries) => {
-                    renderedFilesMap[agent.id] = entries;
-                  }),
-                );
-              }),
-            ),
-        { concurrency: "unbounded" },
-      );
-
-      // Update lockfile
-      const now = new Date();
-      const sourceHash = computeSourceHash(subagentMdContent);
-
-      yield* ignoreMalformedWorkspaceLockfileRead(
-        ws.setSubagentLock({
-          name: args.name,
-          lockEntry: {
-            type: "registry",
-            owner,
-            name: extensionName,
-            resolvedVersion: INITIAL_VERSION,
-            integrity: "",
-            sourceName: "local",
-            agents: [...agents],
-            installedAt: now,
-            updatedAt: now,
-            sourceHash,
-            renderedFiles: decodeRenderedFiles(renderedFilesMap),
-          },
-        }),
-      );
-
-      return {
-        result: "success",
-        message: `Created subagent ${fqn}`,
-      } satisfies JobStepResult;
     }).pipe(
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),
-  };
+  });
 
   const plan: Plan = {
     _tag: "Plan",
@@ -282,10 +202,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "subagents", args.name, "src", `${args.name}.md`)}\` to fill in instructions`,
-    },
-    {
-      description: "Apply changes to your workspace",
-      cmd: "axm sync",
     },
   ];
 

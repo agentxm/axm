@@ -112,11 +112,11 @@ describe("buildSkillUninstallPlan", () => {
       const plan = yield* runBuildPlan(
         [makeOp("commit")],
         installedWith("commit"),
-        "Uninstall skill(s)",
+        "Uninstall skill",
         Option.some("Uninstall skills from workspace"),
       );
 
-      expect(plan.name).toBe("Uninstall skill(s)");
+      expect(plan.name).toBe("Uninstall skill");
       expect(plan.description).toEqual(Option.some("Uninstall skills from workspace"));
     }),
   );

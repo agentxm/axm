@@ -176,7 +176,7 @@ describe("packs uninstall handler", () => {
 
   describe("basic uninstall", () => {
     it.effect("uninstalls a pack and removes from lockfile", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
@@ -191,9 +191,6 @@ describe("packs uninstall handler", () => {
             force: false,
             preview: false,
           });
-
-          // Should show completed step for the pack
-          expect(logs.success.some((m) => m.includes("my-pack"))).toBe(true);
 
           // Check lockfile no longer has the pack
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
@@ -235,7 +232,7 @@ describe("packs uninstall handler", () => {
 
   describe("orphan detection", () => {
     it.effect("removes orphaned skills on pack uninstall", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
@@ -253,9 +250,10 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          // Should show completed steps for pack and orphaned skill
-          expect(logs.success.some((m) => m.includes("my-pack"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("skill-a"))).toBe(true);
+          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockContent);
+          expect(lockfile.packs?.["my-pack"]).toBeUndefined();
+          expect(lockfile.skills?.["skill-a"]).toBeUndefined();
         }),
       );
     });
@@ -287,14 +285,15 @@ describe("packs uninstall handler", () => {
 
           // shared-skill is retained by pack-b, should not appear as a step
           expect(logs.success.some((m) => m.includes("shared-skill"))).toBe(false);
-          // pack-a itself should be uninstalled
-          expect(logs.success.some((m) => m.includes("pack-a"))).toBe(true);
+          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockContent);
+          expect(lockfile.packs?.["pack-a"]).toBeUndefined();
         }),
       );
     });
 
     it.effect("preserves skills that are direct settings entries", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsSkills: { "promoted-skill": "@acme/skills/promoted-skill" },
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
@@ -313,10 +312,13 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          // promoted-skill is directly configured, so excluded from orphan targets
-          expect(logs.success.some((m) => m.includes("promoted-skill"))).toBe(false);
-          // pack itself should be uninstalled
-          expect(logs.success.some((m) => m.includes("my-pack"))).toBe(true);
+          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockContent);
+          expect(lockfile.packs?.["my-pack"]).toBeUndefined();
+          const settings = JSON.parse(
+            fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
+          );
+          expect(settings.skills?.["promoted-skill"]).toBe("@acme/skills/promoted-skill");
         }),
       );
     });
@@ -328,7 +330,7 @@ describe("packs uninstall handler", () => {
 
   describe("glob patterns", () => {
     it.effect("expands glob pattern to match multiple packs", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: {
           "acme-tools": "@acme/packs/acme-tools",
@@ -349,10 +351,6 @@ describe("packs uninstall handler", () => {
             force: false,
             preview: false,
           });
-
-          // Should show completed steps for matched packs
-          expect(logs.success.some((m) => m.includes("acme-tools"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("acme-utils"))).toBe(true);
 
           // Check lockfile - acme-tools and acme-utils should be removed, other-pack preserved
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");

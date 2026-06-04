@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { AppError } from "../app-error/index.js";
-import type { JobStepResult, PlannedJobStep } from "../plan/plan.js";
+import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "../plan/plan.js";
 import type { ExtensionRef } from "./refs.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 import type {
@@ -122,6 +122,21 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
   readonly skipSettings?: boolean;
   /** When true, mark the lock entry as retained by an installed pack. */
   readonly retainedByPack?: boolean;
+  /** Optional pre-install state probe for artifact change labels. */
+  readonly installedBefore?: Effect.Effect<boolean, AppError, never>;
+  /** Optional presenter metadata computed after materialization/settings writes. */
+  readonly buildArtifact?: (args: {
+    readonly installedBefore: boolean;
+  }) => Effect.Effect<JobStepArtifact, AppError, never>;
+}
+
+export interface NewExtensionOperationArgs<
+  TRef extends ExtensionRef,
+> extends InstallOperationArgs<TRef> {
+  readonly scaffold: Effect.Effect<unknown, AppError, never>;
+  readonly markAuthored: Effect.Effect<void, AppError, never>;
+  readonly message: string;
+  readonly label?: string;
 }
 
 /**
@@ -132,6 +147,8 @@ const runInstallOperation = <TRef extends ExtensionRef>(
   args: InstallOperationArgs<TRef>,
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
+    const installedBefore =
+      args.installedBefore === undefined ? false : yield* args.installedBefore;
     yield* manager.materializeInstall({ ref: args.ref });
     yield* manager.upsertLockfileEntry({
       ref: args.ref,
@@ -143,9 +160,12 @@ const runInstallOperation = <TRef extends ExtensionRef>(
         versionRange: args.versionRange,
       });
     }
+    const artifact =
+      args.buildArtifact === undefined ? undefined : yield* args.buildArtifact({ installedBefore });
     return {
       result: "success" as const,
       message: "Applied install operation",
+      ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
   });
 
@@ -167,6 +187,36 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
     label: toLabelWithCompanions(target, companionPkgs),
     readiness: "ready",
     run: runInstallOperation(manager, args),
+  } satisfies PlannedJobStep;
+};
+
+/**
+ * Build a PlannedJobStep for `new` commands.
+ *
+ * The scaffold runs first, then an authored settings entry is seeded so the
+ * canonical install sequence preserves `authored: true` while materializing,
+ * writing the lockfile, and normalizing the final settings entry.
+ */
+export const buildNewExtensionStep = <TRef extends ExtensionRef>(
+  manager: ExtensionManager<TRef>,
+  args: NewExtensionOperationArgs<TRef>,
+): PlannedJobStep => {
+  const target = targetFromRef(args.ref);
+  const companionPkgs = args.ref.refType === "registry" ? args.ref.packages : [];
+
+  return {
+    key: toStepKey(target),
+    label: args.label ?? toLabelWithCompanions(target, companionPkgs),
+    readiness: "ready",
+    run: Effect.gen(function* () {
+      yield* args.scaffold;
+      yield* args.markAuthored;
+      yield* runInstallOperation(manager, args);
+      return {
+        result: "success" as const,
+        message: args.message,
+      } satisfies JobStepResult;
+    }),
   } satisfies PlannedJobStep;
 };
 

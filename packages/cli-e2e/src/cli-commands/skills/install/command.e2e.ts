@@ -99,6 +99,34 @@ describe("axm skills install", () => {
         temp.cleanup();
       }
     });
+
+    it("prints outcome-first output for a single skill install", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["setup", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        const result = await runCli(
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
+          {
+            cwd: temp.path,
+          },
+        );
+
+        expect(result.exitCode).toBe(0);
+        const output = getOutput(result);
+        expect(output).toContain("Installed my-skill (skill) to this project");
+        expect(output).toContain("-> .agents/skills/my-skill");
+        expect(output).toContain("1 file");
+        expect(output).not.toContain("Source:");
+        expect(output).not.toContain("Resolution:");
+        expect(output).not.toContain("skill(s)");
+        expect(output).not.toContain("https://");
+      } finally {
+        temp.cleanup();
+      }
+    });
   });
 
   describe("with invalid source", () => {

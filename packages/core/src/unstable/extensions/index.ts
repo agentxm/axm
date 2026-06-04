@@ -151,10 +151,12 @@ export { readAndDecodeManifest } from "./reconciliation-utils.js";
 export {
   type InstallOperationArgs,
   type MaterializeOperationArgs,
+  type NewExtensionOperationArgs,
   type UninstallOperationArgs,
   type UninstallRetentionPolicy,
   buildInstallOperation,
   buildMaterializeOperation,
+  buildNewExtensionStep,
   buildUninstallOperation,
   formatPackageUrlParts,
   targetFromRef,

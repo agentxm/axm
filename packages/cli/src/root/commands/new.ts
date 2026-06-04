@@ -5,28 +5,33 @@ import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  buildNewExtensionStep,
   decodeExtensionNameSync,
+  formatFqn,
   normalizeHandle,
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
-import type { NewCommandOperation } from "@agentxm/client-core/unstable/commands";
-import { newCommand as newCommandOp } from "@agentxm/client-core/unstable/commands";
+import type {
+  NewCommandOperation,
+  RegistryCommandRef,
+} from "@agentxm/client-core/unstable/commands";
+import { CommandManager, newCommand as newCommandOp } from "@agentxm/client-core/unstable/commands";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { toJobStepResult } from "./job-step-result.js";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -75,14 +80,8 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const ws = yield* WorkspaceMutations;
-  const agentRepo = yield* CodingAgentRepository;
-  const targetDir = path.join(
-    path.resolve("."),
-    REGISTRY_EXTENSIONS_DIR,
-    owner,
-    "commands",
-    args.name,
-  );
+  const manager = yield* CommandManager;
+  const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, "commands", args.name);
   const dirExists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
 
   if (dirExists) {
@@ -105,19 +104,37 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
 
   // 5. Build plan with inline run closure
   const fqn = `${owner}/commands/${args.name}`;
+  const version = decodeVersionSync("0.1.0");
+  const ref: RegistryCommandRef = {
+    type: "command",
+    refType: "registry",
+    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    owner,
+    name: args.name,
+    version,
+    integrity: Option.none(),
+    packages: [],
+    command: { name: args.name },
+  };
 
-  const step: PlannedJobStep = {
-    readiness: "ready",
+  const step = buildNewExtensionStep(manager, {
+    ref,
+    versionRange: Option.none(),
     label: fqn,
-    run: newCommandOp(op).pipe(
+    message: `Created command ${fqn}`,
+    markAuthored: ws.setCommandEntry(args.name, {
+      source: formatFqn({ owner, type: "command", name: args.name }),
+      enabled: true,
+      authored: true,
+    }),
+    scaffold: newCommandOp(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(WorkspaceMutations, ws),
-      Effect.provideService(CodingAgentRepository, agentRepo),
       Effect.provideService(CliRenderer, renderer),
     ),
-  };
+  });
 
   const plan: Plan = {
     _tag: "Plan",
@@ -131,10 +148,6 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "commands", args.name, "src", `${args.name}.md`)}\` to fill in instructions`,
-    },
-    {
-      description: "Apply changes to your workspace",
-      cmd: "axm sync",
     },
   ];
 

@@ -14,6 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import type { ExtensionName } from "@agentxm/client-core/unstable/extensions";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import { makeEffectProvide } from "../../test-helpers.js";
@@ -73,7 +74,8 @@ describe("commands-new.handler", () => {
     nonInteractive?: boolean;
   }) => {
     const ctx = makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
-    const fullLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive);
+    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive);
+    const fullLayer = Layer.provideMerge(CommandManagerLive, workspaceServiceLayer);
 
     return {
       ...ctx,
@@ -139,7 +141,7 @@ describe("commands-new.handler", () => {
 
           const lockfile = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
           expect(lockfile).toContain("my-command:");
-          expect(lockfile).toContain("sourceName: local");
+          expect(lockfile).toContain("sourceName: default");
           expect(lockfile).toContain("claude-code");
           expect(lockfile).toContain(".claude/commands/my-command.md");
 
@@ -148,10 +150,6 @@ describe("commands-new.handler", () => {
             {
               description:
                 "Edit `.axm/extensions/@acme/commands/my-command/src/my-command.md` to fill in instructions",
-            },
-            {
-              description: "Apply changes to your workspace",
-              cmd: "axm sync",
             },
           ]);
         }),

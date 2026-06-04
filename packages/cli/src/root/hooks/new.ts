@@ -5,12 +5,18 @@ import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  buildNewExtensionStep,
   decodeExtensionNameSync,
   normalizeHandle,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
-import type { HookEvent, HookRuntime, NewHookOperation } from "@agentxm/client-core/unstable/hooks";
-import { newHook } from "@agentxm/client-core/unstable/hooks";
+import type {
+  HookEvent,
+  HookRuntime,
+  NewHookOperation,
+  RegistryHookRef,
+} from "@agentxm/client-core/unstable/hooks";
+import { HookManager, newHook } from "@agentxm/client-core/unstable/hooks";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -24,6 +30,7 @@ import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -101,6 +108,7 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const ws = yield* WorkspaceMutations;
+  const manager = yield* HookManager;
 
   const configuredHooks = yield* ws.getConfiguredHookEntries();
   if (!args.force && args.name in configuredHooks) {
@@ -133,17 +141,35 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
 
   // 6. Build plan with inline run closure
   const fqn = `${owner}/hooks/${args.name}`;
+  const ref: RegistryHookRef = {
+    type: "hook",
+    refType: "registry",
+    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    owner,
+    name: args.name,
+    version: decodeVersionSync("0.1.0"),
+    integrity: Option.none(),
+    packages: [],
+    hook: { name: args.name },
+  };
 
-  const step: PlannedJobStep = {
-    readiness: "ready",
+  const step: PlannedJobStep = buildNewExtensionStep(manager, {
+    ref,
+    versionRange: Option.none(),
     label: fqn,
-    run: newHook(op).pipe(
+    message: `Created hook ${fqn}`,
+    markAuthored: ws.setHookEntry(args.name, {
+      source: fqn,
+      enabled: true,
+      authored: true,
+    }),
+    scaffold: newHook(op).pipe(
       Effect.map(toJobStepResult),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(WorkspaceMutations, ws),
     ),
-  };
+  });
 
   const plan: Plan = {
     _tag: "Plan",
@@ -159,7 +185,6 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "hooks", args.name, "src", entrypoint)}\` to implement the hook`,
     },
-    { description: "Apply changes to your workspace", cmd: "axm sync" },
   ];
 
   const emitted = yield* emitPlanResolutionResult(

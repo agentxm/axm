@@ -5,24 +5,27 @@ import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  buildNewExtensionStep,
   decodeExtensionNameSync,
+  formatFqn,
   normalizeHandle,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
-import type { NewSkillOperation } from "@agentxm/client-core/unstable/skills";
-import { newSkill } from "@agentxm/client-core/unstable/skills";
+import type { NewSkillOperation, RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
+import { newSkill, SkillManager, uninstallSkill } from "@agentxm/client-core/unstable/skills";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { SKILL_NAME_RULES } from "../suggested-actions.js";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -43,6 +46,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 ) {
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
+  const manager = yield* SkillManager;
 
   yield* renderer.info("axm skills new");
 
@@ -75,7 +79,8 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   }
 
   // 4. Resolve agents
-  const agents = Option.isSome(args.agents) ? args.agents.value : yield* ws.getConfiguredAgents();
+  const requestedAgents = Option.getOrUndefined(args.agents);
+  const agents = requestedAgents ?? (yield* ws.getConfiguredAgents());
 
   // 5. Capture services for run closure
   const fs = yield* FileSystem.FileSystem;
@@ -89,42 +94,92 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   // 7. Build plan with inline run closure
   const fqn = `${owner}/skills/${args.name}`;
+  const version = decodeVersionSync("0.0.1");
+  const ref: RegistrySkillRef = {
+    type: "skill",
+    refType: "registry",
+    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    owner,
+    name: args.name,
+    version,
+    integrity: Option.none(),
+    packages: [],
+    skill: {
+      name: args.name,
+      description: Option.none(),
+      metadata: Option.none(),
+    },
+  };
 
-  const toJobStepResult = (result: {
-    readonly result: string;
-    readonly message: string;
-    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
-  }): JobStepResult =>
-    result.result === "error" && result.error != null
-      ? { result: "error", message: result.message, error: result.error }
-      : { result: "success", message: result.message };
-
-  const step: PlannedJobStep = {
-    readiness: "ready",
+  const step = buildNewExtensionStep(manager, {
+    ref,
+    versionRange: Option.none(),
     label: fqn,
-    run: newSkill(op).pipe(
-      Effect.map(toJobStepResult),
+    message: `Created skill ${fqn}`,
+    markAuthored: ws.setSkillEntry(args.name, {
+      source: formatFqn({ owner, type: "skill", name: args.name }),
+      enabled: true,
+      authored: true,
+    }),
+    scaffold: newSkill(op).pipe(
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),
-  };
+  });
+
+  const steps: PlannedJobStep[] = [step];
+  if (requestedAgents !== undefined) {
+    const requestedAgentSet = new Set(requestedAgents);
+    steps.push({
+      key: `skill-agent-scope:${args.name}`,
+      label: `${fqn} agent scope`,
+      readiness: "ready",
+      run: Effect.gen(function* () {
+        const lockedSkill = yield* ws.getLockedSkill(args.name);
+        if (Option.isNone(lockedSkill)) {
+          return {
+            result: "success" as const,
+            message: `Scoped skill ${fqn}`,
+          };
+        }
+
+        const agentsToRemove = lockedSkill.value.agents.filter(
+          (agent) => !requestedAgentSet.has(agent),
+        );
+        if (agentsToRemove.length === 0) {
+          return {
+            result: "success" as const,
+            message: `Scoped skill ${fqn}`,
+          };
+        }
+
+        yield* uninstallSkill({
+          name: "uninstall-skill",
+          args: { skillName: args.name, agents: agentsToRemove },
+        }).pipe(
+          Effect.provideService(WorkspaceMutations, ws),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+
+        return {
+          result: "success" as const,
+          message: `Scoped skill ${fqn}`,
+        };
+      }),
+    });
+  }
 
   const plan: Plan = {
     _tag: "Plan",
     name: "New skill",
     description: Option.some(`Create ${fqn}`),
-    jobs: [{ concurrency: 1 as const, steps: [step] }],
+    jobs: [{ concurrency: 1 as const, steps }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
 
-  // The newSkill operation symlinks the canonical skill into every configured
-  // agent dir (and aborts if any symlink fails), so a successful run leaves all
-  // agent targets already in sync. Edits to the canonical SKILL.md propagate
-  // automatically through the symlinks — there is nothing for `axm sync` to do,
-  // so we omit the sync suggestion here. (Commands/subagents render per-agent
-  // copies and packs only write a manifest, so those flows keep the hint.)
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "skills", args.name, "src", "SKILL.md")}\` to fill in instructions`,

@@ -6,26 +6,36 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   decodeExtensionNameSync,
+  formatFqn,
   normalizeHandle,
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+import {
+  DEFAULT_WORKSPACE_SCOPE,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import {
   previewOrApplyPlan,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
+  installMcpServer,
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
+  type McpServerManifest,
+  type RegistryMcpServerRef,
 } from "@agentxm/client-core/unstable/mcps";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -44,9 +54,13 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
   const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const ws = yield* WorkspaceMutations;
+  const agentRepo = yield* CodingAgentRepository;
   const owner = Option.isSome(args.owner)
     ? normalizeOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("MCP server creation");
+  const version = decodeVersionSync("0.1.0");
+  const fqn = formatFqn({ owner, type: "mcp-server", name: args.name });
 
   if (
     args.name.length === 0 ||
@@ -59,7 +73,7 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     });
   }
 
-  const targetDir = path.join(path.resolve("."), REGISTRY_EXTENSIONS_DIR, owner, "mcps", args.name);
+  const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, "mcps", args.name);
   const manifestPath = path.join(targetDir, MCP_SERVER_MANIFEST_FILENAME);
   const exists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
   if (exists && !args.force) {
@@ -69,33 +83,44 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     });
   }
 
-  const manifest = {
+  const manifest: McpServerManifest = {
     $schema: MCP_SERVER_MANIFEST_SCHEMA_URL,
     owner,
     type: "mcp-server",
     name: args.name,
-    version: "0.1.0",
+    version,
     description: args.description || `MCP server ${args.name}`,
     license: "MIT",
     server: {
       $schema: MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
       name: `io.github.example/${args.name}`,
       description: args.description || `MCP server ${args.name}`,
-      version: "0.1.0",
+      version,
       packages: [
         {
           registryType: "npm",
           identifier: args.name,
-          version: "0.1.0",
+          version,
           transport: { type: "stdio" },
         },
       ],
     },
   };
+  const ref: RegistryMcpServerRef = {
+    type: "mcp-server",
+    refType: "registry",
+    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    owner,
+    name: args.name,
+    version,
+    integrity: Option.none(),
+    packages: [],
+    server: { name: args.name },
+  };
 
   const step: PlannedJobStep = {
     readiness: "ready",
-    label: `${owner}/mcps/${args.name}`,
+    label: fqn,
     run: Effect.gen(function* () {
       yield* fs.makeDirectory(targetDir, { recursive: true }).pipe(
         Effect.mapError((error) =>
@@ -115,13 +140,36 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
           }),
         ),
       );
-      return { result: "success" as const, message: `Created ${manifestPath}` };
+      yield* ws.setMcpServerEntry(args.name, {
+        source: fqn,
+        enabled: true,
+        authored: true,
+        env: {},
+      });
+      yield* installMcpServer({
+        name: "install-mcp-server",
+        args: {
+          ref,
+          force: args.force,
+          versionRange: Option.none(),
+          skipSettings: Option.none(),
+          env: Option.none(),
+          nonInteractive: Option.some(true),
+        },
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(WorkspaceMutations, ws),
+        Effect.provideService(CliRenderer, renderer),
+        Effect.provideService(CodingAgentRepository, agentRepo),
+      );
+      return { result: "success" as const, message: `Created ${fqn}` };
     }),
   };
   const plan: Plan = {
     _tag: "Plan",
     name: "New MCP server",
-    description: Option.some(`Create ${owner}/mcps/${args.name}`),
+    description: Option.some(`Create ${fqn}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
   const resolution = yield* previewOrApplyPlan(plan, {
@@ -129,9 +177,18 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     force: args.force,
     preview: args.preview,
   });
-  yield* emitPlanResolutionResult("mcps.new", resolution);
+  const suggestions = [
+    {
+      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name, MCP_SERVER_MANIFEST_FILENAME)}\` to configure the MCP server`,
+    },
+  ];
+  const emitted = yield* emitPlanResolutionResult(
+    "mcps.new",
+    resolution,
+    resolution._tag === "ExecutedPlan" ? { summary: `Created ${fqn}`, suggestions } : undefined,
+  );
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created ${owner}/mcps/${args.name}`);
+    yield* renderer.success(`Created ${fqn}`, { suggestions, withoutSuggestions: emitted });
   }
 });
 

@@ -87,6 +87,32 @@ type MaterializedSkill = {
   readonly versionRange: Option.Option<string>;
 };
 
+const countFiles = (dir: string): Effect.Effect<number, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const entries = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
+    let total = 0;
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry);
+      const statOption = yield* fs.stat(fullPath).pipe(Effect.option);
+      if (Option.isNone(statOption)) continue;
+      if (statOption.value.type === "Directory") {
+        total += yield* countFiles(fullPath);
+      } else {
+        total += 1;
+      }
+    }
+    return total;
+  });
+
+const previousResolvedVersion = (entry: unknown): string | undefined => {
+  if (typeof entry !== "object" || entry === null) return undefined;
+  if (!("type" in entry) || entry.type !== "registry") return undefined;
+  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") return undefined;
+  return entry.resolvedVersion;
+};
+
 // -----------------------------------------------------------------------------
 // Shared helpers
 // -----------------------------------------------------------------------------
@@ -364,6 +390,13 @@ export const installSkill: OperationHandler<
     const { ref } = op.args;
     const sanitizedName = sanitizeName(ref.skill.name);
     const strictUnknownAgents = Option.getOrElse(op.args.strictUnknownAgents, () => false);
+    const previousLockEntry = yield* ws
+      .getLockedSkill(ref.skill.name)
+      .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+    const previousVersion = Option.match(previousLockEntry, {
+      onNone: () => undefined,
+      onSome: previousResolvedVersion,
+    });
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
     const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionRange);
@@ -445,6 +478,7 @@ export const installSkill: OperationHandler<
       }
     }
     const distinctDirs = Array.dedupe(installableTargets.map((target) => target.targetDir));
+    const displayTargetDir = distinctDirs[0];
     const perDirectoryResults = yield* Effect.forEach(
       distinctDirs,
       (targetDir) =>
@@ -527,6 +561,15 @@ export const installSkill: OperationHandler<
 
     // ── Shared: compute result ──────────────────────────────────────
     const anyFailed = agentResults.some((r) => !r.success);
+    const fileCount = yield* countFiles(materialized.skillSrcPath);
+    const displayPath =
+      displayTargetDir === undefined
+        ? path.relative(ws.baseDir, materialized.skillSrcPath)
+        : path.join(path.relative(ws.baseDir, displayTargetDir), sanitizedName);
+    const version =
+      lockEntry.type === "registry"
+        ? lockEntry.resolvedVersion
+        : Option.getOrUndefined(op.args.versionRange);
 
     if (anyFailed) {
       const failedAgents = agentResults
@@ -546,5 +589,19 @@ export const installSkill: OperationHandler<
     return {
       result: "success",
       message: `Installed ${ref.skill.name}`,
+      artifact: {
+        path: displayPath.length === 0 ? "." : displayPath,
+        scope: ws.scope,
+        ...(version !== undefined ? { version } : {}),
+        change: Option.isNone(previousLockEntry)
+          ? "created"
+          : previousVersion === version
+            ? "unchanged"
+            : "updated",
+        ...(previousVersion !== undefined && previousVersion !== version
+          ? { previousVersion }
+          : {}),
+        fileCount,
+      },
     } satisfies JobStepResult;
   });

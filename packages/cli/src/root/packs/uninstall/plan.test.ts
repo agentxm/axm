@@ -206,12 +206,12 @@ describe("buildUninstallPlan", () => {
         makePlanArgs({
           ops: [makeOp("my-pack")],
           lockfile: emptyLockfile,
-          name: "Uninstall pack(s)",
+          name: "Uninstall packs",
           description: Option.some("Uninstall packs from workspace"),
         }),
       );
 
-      expect(plan.name).toBe("Uninstall pack(s)");
+      expect(plan.name).toBe("Uninstall packs");
       expect(plan.description).toEqual(Option.some("Uninstall packs from workspace"));
     }),
   );

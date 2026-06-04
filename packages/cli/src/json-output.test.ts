@@ -203,6 +203,50 @@ describe("toPlanResolutionResult", () => {
       },
     ]);
   });
+
+  it("includes artifact metadata on successful executed steps", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "code-review",
+              result: {
+                result: "success",
+                message: "Installed code-review",
+                artifact: {
+                  path: ".claude/skills/code-review",
+                  scope: "project",
+                  version: "1.2.3",
+                  change: "created",
+                  fileCount: 4,
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution).steps).toEqual([
+      {
+        label: "code-review",
+        status: "applied",
+        message: "Installed code-review",
+        artifact: {
+          path: ".claude/skills/code-review",
+          scope: "project",
+          version: "1.2.3",
+          change: "created",
+          fileCount: 4,
+        },
+      },
+    ]);
+  });
 });
 
 describe("planResolutionToSummary", () => {

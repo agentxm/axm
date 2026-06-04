@@ -35,6 +35,12 @@ const MAX_PROGRESS_BAR_WIDTH = 40;
 const annotate = (text: string, styles: ReadonlyArray<string>): string =>
   styles.length === 0 ? text : `${styles.join("")}${text}${ANSI_RESET}`;
 
+/**
+ * Canonical CLI status glyph vocabulary.
+ *
+ * Log levels own glyph rendering. Call sites should pass plain text to the
+ * renderer and must not prefix messages with status glyphs.
+ */
 export const Symbols = {
   intro: "◇",
   outro: "◇",

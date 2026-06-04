@@ -10,11 +10,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import { CliRenderer } from "../cli-renderer/index.js";
+import { count } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { renderAppError } from "../app-error/index.js";
 import type {
   CompletedJobStep,
   ExecutedPlan,
+  JobStepArtifact,
   Plan,
   PlanSection,
   PlannedJobStep,
@@ -38,12 +40,10 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
       debug: v.isAtLeast("debug"),
     };
 
-    // Heading
-    const heading = Option.match(plan.description, {
+    const renderHeading = Option.match(plan.description, {
       onNone: () => plan.name,
       onSome: (desc) => `${plan.name}\n${desc}`,
     });
-    yield* renderer.info(heading);
 
     // Determine if this is an executed plan using _tag discriminant
     const firstJob = plan.jobs[0];
@@ -53,11 +53,22 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
 
     if (plan._tag === "ExecutedPlan") {
       const allSteps = plan.jobs.flatMap((job) => [...job.steps]);
+      const hasFailures = allSteps.some((step) => step.result.result === "error");
+      const hasLegacySuccessDetail = allSteps.some(
+        (step) => step.result.result === "success" && step.result.artifact === undefined,
+      );
+      if (!verbosity.verbose && !hasFailures && !hasLegacySuccessDetail) {
+        yield* renderExecutedOutcome(plan, allSteps, renderer);
+        return;
+      }
+
+      yield* renderer.info(renderHeading);
       for (const step of allSteps) {
         yield* renderCompletedStep(step, renderer, verbosity);
       }
       yield* renderCompletedSummary(allSteps, renderer);
     } else {
+      yield* renderer.info(renderHeading);
       const allSteps = plan.jobs.flatMap((job) => [...job.steps]);
       for (const step of allSteps) {
         yield* renderPlannedStep(step, renderer);
@@ -93,9 +104,9 @@ const renderPlannedStep = (
     case "ready":
       return renderer.success(`  + ${step.label}`);
     case "warn":
-      return renderer.warn(`  \u26A0 ${step.label} (${step.warnMessage})`);
+      return renderer.warn(`  ${step.label} (${step.warnMessage})`);
     case "error":
-      return renderer.error(`  \u2717 ${step.label} (${step.errorMessage})`);
+      return renderer.error(`  ${step.label} (${step.errorMessage})`);
   }
 };
 
@@ -107,7 +118,7 @@ const renderCompletedStep = (
   switch (step.result.result) {
     case "success": {
       const suffix = step.result.message.length > 0 ? ` (${step.result.message})` : "";
-      return renderer.success(`  \u2713 ${step.label}${suffix}`);
+      return renderer.success(`  ${step.label}${suffix}`);
     }
     case "error": {
       const renderedLines = renderAppError(step.result.error, verbosity).split("\n");
@@ -116,7 +127,7 @@ const renderCompletedStep = (
       const headline = first.startsWith("\u2717 ") ? first.slice(2) : first;
 
       return Effect.gen(function* () {
-        yield* renderer.error(`  \u2717 ${step.label}: ${headline}`);
+        yield* renderer.error(`  ${step.label}: ${headline}`);
         for (const line of rest) {
           yield* renderer.error(`    ${line.trimStart()}`);
         }
@@ -136,8 +147,8 @@ const renderPlannedSummary = (
 
     const parts: string[] = [];
     if (readyCount > 0) parts.push(`${readyCount} to apply`);
-    if (errorCount > 0) parts.push(`${errorCount} error${errorCount > 1 ? "s" : ""}`);
-    if (warnCount > 0) parts.push(`${warnCount} warning${warnCount > 1 ? "s" : ""}`);
+    if (errorCount > 0) parts.push(count(errorCount, "error"));
+    if (warnCount > 0) parts.push(count(warnCount, "warning", "warnings"));
 
     if (parts.length > 0) {
       yield* renderer.message(parts.join(", "));
@@ -159,4 +170,114 @@ const renderCompletedSummary = (
     if (parts.length > 0) {
       yield* renderer.message(parts.join(", "));
     }
+  });
+
+const operationVerb = (planName: string): string => {
+  const lower = planName.toLowerCase();
+  if (lower.includes("install")) return "Installed";
+  if (lower.includes("uninstall") || lower.includes("remove")) return "Uninstalled";
+  if (lower.includes("update")) return "Updated";
+  if (lower.includes("publish")) return "Published";
+  if (lower.includes("create") || lower.includes("new")) return "Created";
+  return "Applied";
+};
+
+const artifactType = (planName: string): string => {
+  const lower = planName.toLowerCase();
+  if (lower.includes("skill")) return "skill";
+  if (lower.includes("command")) return "command";
+  if (lower.includes("subagent")) return "subagent";
+  if (lower.includes("mcp")) return "MCP server";
+  if (lower.includes("file")) return "files package";
+  if (lower.includes("hook")) return "hook";
+  if (lower.includes("pack")) return "pack";
+  return "step";
+};
+
+const artifactPluralType = (type: string): string => {
+  if (type === "MCP server") return "MCP servers";
+  if (type === "files package") return "files packages";
+  return `${type}s`;
+};
+
+const scopePhrase = (scope: JobStepArtifact["scope"]): string =>
+  scope === "project" ? "this project" : "user scope";
+
+const formatArtifactSummary = (artifact: JobStepArtifact): string => {
+  const details = [
+    artifact.version,
+    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+  return details.length === 0
+    ? `-> ${artifact.path}`
+    : `-> ${artifact.path}   ${details.join(" | ")}`;
+};
+
+const formatArtifactRow = (step: CompletedJobStep, artifact: JobStepArtifact): string => {
+  const details = [
+    artifact.version,
+    artifact.change,
+    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
+    artifact.path,
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+  return `${step.label}   ${details.join("   ")}`;
+};
+
+const singleArtifactSuggestions = (
+  type: string,
+  label: string,
+): ReadonlyArray<{ readonly description: string; readonly cmd: string }> | undefined => {
+  if (type !== "skill") return undefined;
+  return [
+    { description: "Inspect installed skills", cmd: "axm skills list" },
+    { description: "Undo", cmd: `axm skills uninstall ${label}` },
+  ];
+};
+
+const renderExecutedOutcome = (
+  plan: ExecutedPlan,
+  allSteps: ReadonlyArray<CompletedJobStep>,
+  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+) =>
+  Effect.gen(function* () {
+    const successes = allSteps.filter((step) => step.result.result === "success");
+    const artifacts = successes.flatMap((step) =>
+      step.result.result === "success" && step.result.artifact !== undefined
+        ? [{ step, artifact: step.result.artifact }]
+        : [],
+    );
+    const verb = operationVerb(plan.name);
+    const type = artifactType(plan.name);
+
+    if (successes.length === 0) {
+      yield* renderer.success(`${verb} 0 ${artifactPluralType(type)}`);
+      return;
+    }
+
+    if (artifacts.length === 1 && successes.length === 1) {
+      const first = artifacts[0];
+      if (first !== undefined) {
+        const suggestions = singleArtifactSuggestions(type, first.step.label);
+        yield* renderer.success(
+          `${verb} ${first.step.label} (${type}) to ${scopePhrase(first.artifact.scope)}`,
+          {
+            summary: formatArtifactSummary(first.artifact),
+            ...(suggestions === undefined ? {} : { suggestions }),
+          },
+        );
+      }
+      return;
+    }
+
+    const firstArtifact = artifacts[0]?.artifact;
+    const target =
+      firstArtifact === undefined
+        ? ""
+        : ` to ${scopePhrase(firstArtifact.scope)} (${firstArtifact.path})`;
+    const headline = `${verb} ${count(successes.length, type, artifactPluralType(type))}${target}`;
+    const summary =
+      artifacts.length > 0
+        ? artifacts.map(({ step, artifact }) => formatArtifactRow(step, artifact)).join("\n")
+        : undefined;
+    yield* renderer.success(headline, summary === undefined ? undefined : { summary });
   });

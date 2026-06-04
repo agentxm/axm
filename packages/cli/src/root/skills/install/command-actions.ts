@@ -18,18 +18,21 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Terminal from "effect/Terminal";
-import { nonInteractiveFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { nonInteractiveFlag, Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 import type { Source, InputParseResult } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import type { SkillPathSource } from "@agentxm/client-core/unstable/workspace";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import type { JobStepArtifact } from "@agentxm/client-core/unstable/plan";
 import type { Plan, PlanSection } from "@agentxm/client-core/unstable/plan";
 import {
   formatPackageDisplay,
@@ -127,6 +130,38 @@ const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
 };
 
 const decodePackageUrlParts = Schema.decodeUnknownResult(Schema.toType(PackageUrlPartsSchema));
+
+const countFiles = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  dir: string,
+): Effect.Effect<number> =>
+  Effect.gen(function* () {
+    const entries = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
+    let total = 0;
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry);
+      const statOption = yield* fs.stat(fullPath).pipe(Effect.option);
+      if (Option.isNone(statOption)) continue;
+      if (statOption.value.type === "Directory") {
+        total += yield* countFiles(fs, path, fullPath);
+      } else {
+        total += 1;
+      }
+    }
+    return total;
+  });
+
+const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
+  switch (ref.refType) {
+    case "registry":
+      return { refType: "registry", owner: ref.owner };
+    case "git-hosted":
+      return { refType: "git-hosted" };
+    case "local":
+      return { refType: "local" };
+  }
+};
 
 /**
  * Extract compatible packages from a skill ref.
@@ -242,6 +277,12 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const fsSvc = yield* FileSystem.FileSystem;
     const terminal = yield* Terminal.Terminal;
     const nonInteractive = yield* nonInteractiveFlag;
+    const verbosityOption = yield* Effect.serviceOption(Verbosity);
+    const agentRepo = yield* CodingAgentRepository;
+    const verbose = Option.match(verbosityOption, {
+      onNone: () => false,
+      onSome: (verbosity) => verbosity.isAtLeast("verbose"),
+    });
 
     // Build a service layer providing all services needed by inner effects
     // (resolveSkillInstallSource, determineSkillsToInstall, etc.)
@@ -264,55 +305,57 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (args: SkillsInstallHandlerArgs) =>
       provide(
         Effect.gen(function* () {
-          yield* renderer.info(`axm skills install (${ws.scope})`);
+          if (verbose) {
+            yield* renderer.info(`axm skills install (${ws.scope})`);
+          }
 
-          const parsed = yield* renderer.withSpinner(
-            "Parsing source...",
-            () =>
-              Effect.gen(function* () {
-                const parsedSourceOption = parseInputPattern(args.source.trim());
-                if (Option.isNone(parsedSourceOption)) {
-                  return yield* makeAppError({
-                    code: "validation",
-                    detail: "Invalid source: Unable to parse source",
-                    recover:
-                      "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-                  });
-                }
+          const parseSource = Effect.gen(function* () {
+            const parsedSourceOption = parseInputPattern(args.source.trim());
+            if (Option.isNone(parsedSourceOption)) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: "Invalid source: Unable to parse source",
+                recover:
+                  "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+              });
+            }
 
-                const parsedSource = parsedSourceOption.value;
-                const versionRange =
-                  parsedSource.pattern.pattern === "registry-pattern-input"
-                    ? parsedSource.pattern.versionRange
-                    : Option.none<VersionRange>();
+            const parsedSource = parsedSourceOption.value;
+            const versionRange =
+              parsedSource.pattern.pattern === "registry-pattern-input"
+                ? parsedSource.pattern.versionRange
+                : Option.none<VersionRange>();
 
-                const resolutionProbes: RegistryLookupProbe[] = [];
-                const source = yield* resolveSkillInstallSource(parsedSource, {
-                  onRegistryProbe: (probe) => {
-                    resolutionProbes.push(probe);
-                  },
-                });
+            const resolutionProbes: RegistryLookupProbe[] = [];
+            const source = yield* resolveSkillInstallSource(parsedSource, {
+              onRegistryProbe: (probe) => {
+                resolutionProbes.push(probe);
+              },
+            });
 
-                const requestedSkills = extractRequestedSkills(args.skills, parsedSource);
-                const requestedOwner = extractRequestedOwner(parsedSource, source);
+            const requestedSkills = extractRequestedSkills(args.skills, parsedSource);
+            const requestedOwner = extractRequestedOwner(parsedSource, source);
 
-                return {
-                  source,
-                  versionRange,
-                  requestedSkills,
-                  requestedOwner,
-                  resolutionProbes,
-                };
-              }),
-            {
-              successMessage: ({ source }) => `Source: ${sources.origin(source)} (${source.type})`,
-            },
-          );
+            return {
+              source,
+              versionRange,
+              requestedSkills,
+              requestedOwner,
+              resolutionProbes,
+            };
+          });
+
+          const parsed = verbose
+            ? yield* renderer.withSpinner("Parsing source...", () => parseSource, {
+                successMessage: ({ source }) =>
+                  `Source: ${sources.origin(source)} (${source.type})`,
+              })
+            : yield* parseSource;
 
           const { source, versionRange, requestedSkills, requestedOwner, resolutionProbes } =
             parsed;
 
-          if (resolutionProbes.length > 0) {
+          if (verbose && resolutionProbes.length > 0) {
             yield* renderer.message(
               `Resolution: ${resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
             );
@@ -350,44 +393,42 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
               });
             }
 
-            return yield* renderer.withSpinner(
-              "Discovering skills...",
-              () =>
-                sources
-                  .find(req.source, {
-                    names: req.requestedSkills,
-                    type: "skill" as const,
-                    owner: req.requestedOwner,
-                    versionRange: req.versionRange,
-                  })
-                  .pipe(
-                    Effect.map(
-                      Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill"),
-                    ),
-                    Effect.mapError((error) => {
-                      return makeAppError({
-                        code: "usage",
-                        detail: "Failed to discover skills from source",
-                        recover: discoverHowToFix(req.source, error),
-                        cause: error,
-                      });
-                    }),
-                    Effect.flatMap((discoveredSkills) =>
-                      !Array.isReadonlyArrayEmpty(discoveredSkills)
-                        ? Effect.succeed(discoveredSkills)
-                        : Effect.fail(
-                            makeAppError({
-                              code: "not_found",
-                              detail: "No skills found in source",
-                              recover: noSkillsFoundHowToFix(req.source),
-                            }),
-                          ),
-                    ),
-                  ),
-              {
-                successMessage: (discoveredSkills) => `Found ${discoveredSkills.length} skill(s)`,
-              },
-            );
+            const discover = sources
+              .find(req.source, {
+                names: req.requestedSkills,
+                type: "skill" as const,
+                owner: req.requestedOwner,
+                versionRange: req.versionRange,
+              })
+              .pipe(
+                Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
+                Effect.mapError((error) => {
+                  return makeAppError({
+                    code: "usage",
+                    detail: "Failed to discover skills from source",
+                    recover: discoverHowToFix(req.source, error),
+                    cause: error,
+                  });
+                }),
+                Effect.flatMap((discoveredSkills) =>
+                  !Array.isReadonlyArrayEmpty(discoveredSkills)
+                    ? Effect.succeed(discoveredSkills)
+                    : Effect.fail(
+                        makeAppError({
+                          code: "not_found",
+                          detail: "No skills found in source",
+                          recover: noSkillsFoundHowToFix(req.source),
+                        }),
+                      ),
+                ),
+              );
+
+            return verbose
+              ? yield* renderer.withSpinner("Discovering skills...", () => discover, {
+                  successMessage: (discoveredSkills) =>
+                    `Found ${count(discoveredSkills.length, "skill")}`,
+                })
+              : yield* discover;
           }),
         ),
       );
@@ -436,10 +477,56 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         intent.skillsToInstall.map((entry) => entry.ref),
       );
       const sections = compatSection !== undefined ? [compatSection] : undefined;
+      const buildArtifact =
+        (ref: SkillExtensionRef) =>
+        ({
+          installedBefore,
+        }: {
+          readonly installedBefore: boolean;
+        }): Effect.Effect<JobStepArtifact, AppError> =>
+          Effect.gen(function* () {
+            const configuredAgents = yield* agentRepo
+              .getMaterializationAgents()
+              .pipe(Effect.provideService(WorkspaceMutations, ws));
+            const resolvedAgents = yield* Effect.forEach(
+              configuredAgents,
+              (agent) =>
+                agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+                  Effect.provideService(FileSystem.FileSystem, fsSvc),
+                  Effect.provideService(Path.Path, pathSvc),
+                  Effect.map((outcome) => ({ agentId: agent.id, outcome })),
+                ),
+              { concurrency: "unbounded" },
+            );
+            const firstSupported = resolvedAgents.find(
+              (entry) => entry.outcome._tag === "supported",
+            );
+            const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, skillPathSourceFor(ref));
+            const rawDisplayPath =
+              firstSupported?.outcome._tag === "supported"
+                ? pathSvc.join(
+                    pathSvc.relative(ws.baseDir, firstSupported.outcome.dir),
+                    ref.skill.name,
+                  )
+                : pathSvc.relative(ws.baseDir, skillSrcPath);
+            const version = ref.refType === "registry" ? ref.version : undefined;
+            const fileCount = yield* countFiles(fsSvc, pathSvc, skillSrcPath);
+
+            return {
+              path: rawDisplayPath.length === 0 ? "." : rawDisplayPath,
+              scope: ws.scope,
+              ...(version !== undefined ? { version } : {}),
+              change: installedBefore ? "updated" : "created",
+              fileCount,
+            } satisfies JobStepArtifact;
+          });
 
       return Effect.succeed<Plan>({
         _tag: "Plan",
-        name: "Install skill(s)",
+        name:
+          intent.skillsToInstall.length === 1
+            ? "Install skill"
+            : `Install ${count(intent.skillsToInstall.length, "skill")}`,
         description: Option.none(),
         jobs: [
           {
@@ -448,6 +535,10 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
               buildInstallOperation(skillMgr, {
                 ref: entry.ref,
                 versionRange: entry.versionRange,
+                installedBefore: skillMgr
+                  .isInstalled({ target: { type: "skill", name: entry.ref.skill.name } })
+                  .pipe(Effect.catch(() => Effect.succeed(false))),
+                buildArtifact: buildArtifact(entry.ref),
               }),
             ),
           },

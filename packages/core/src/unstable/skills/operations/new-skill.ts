@@ -1,6 +1,5 @@
 /**
- * New skill operation — scaffolds a new skill directory with manifest, SKILL.md,
- * agent symlinks, and settings entry.
+ * New skill operation — scaffolds a new skill directory with manifest and SKILL.md.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -8,24 +7,16 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import { AGENTS } from "../../agents/registry.js";
-import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
-import { createSymlink } from "../../utils/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { ignoreMalformedWorkspaceLockfileRead } from "../../workspace/lockfile-update-policy.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL, type SkillManifest } from "../manifest-schema.js";
 import { computeSkillPaths } from "../paths.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
-
-// -----------------------------------------------------------------------------
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 // Operation types
 // -----------------------------------------------------------------------------
@@ -38,7 +29,7 @@ export interface NewSkillOperationArgs {
   readonly name: string;
   /** Profile (e.g., "@myorg"). */
   readonly owner: Handle;
-  /** Agent IDs to create symlinks for. */
+  /** Agent IDs selected by the CLI. Install/materialization consumes workspace configuration. */
   readonly agents: ReadonlyArray<string>;
 }
 
@@ -76,8 +67,6 @@ const INITIAL_SKILL_VERSION = decodeVersionSync("0.0.1");
  * 3. Create skill directory (src/)
  * 4. Write skill.json manifest
  * 5. Write starter SKILL.md
- * 6. Register in settings via ws.setSkillEntry
- * 7. Create agent symlinks (concurrent)
  */
 export const newSkill: OperationHandler<
   NewSkillOperation,
@@ -89,8 +78,7 @@ export const newSkill: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const { name, owner, agents } = op.args;
-    const extensionName = decodeExtensionNameSync(name);
+    const { name, owner } = op.args;
     const fqn = `${owner}/skills/${name}`;
 
     // 1. Check if skill already exists in settings
@@ -114,6 +102,18 @@ export const newSkill: OperationHandler<
       { refType: "registry", owner },
       name,
     );
+    const dirExists = yield* fs.exists(canonicalPath).pipe(Effect.orElseSucceed(() => false));
+    if (dirExists) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Directory "${name}" already exists`,
+        suggestions: [
+          {
+            description: "Choose a different name or remove the existing directory first",
+          },
+        ],
+      });
+    }
 
     // 3. Create skill directory (src/ implies canonicalPath is also created)
     yield* fs.makeDirectory(skillSrcPath, { recursive: true }).pipe(
@@ -159,45 +159,6 @@ export const newSkill: OperationHandler<
           cause: e,
         }),
       ),
-    );
-
-    // 6. Register in settings
-    yield* ws.setSkillEntry(name, {
-      source: fqn,
-      enabled: true,
-      authored: true,
-    });
-
-    // 7. Create agent symlinks (concurrent)
-    yield* Effect.forEach(
-      agents,
-      (agentId) =>
-        Effect.gen(function* () {
-          if (!isKnownAgentId(agentId)) return;
-          const agent = AGENTS[agentId];
-          const link = path.join(base, agent.skills.dir, name);
-          yield* createSymlink({ target: skillSrcPath, link });
-        }),
-      { concurrency: "unbounded" },
-    );
-
-    const now = new Date();
-    yield* ignoreMalformedWorkspaceLockfileRead(
-      ws.setSkillLock({
-        name,
-        versionRange: Option.none(),
-        lockEntry: {
-          type: "registry",
-          owner,
-          name: extensionName,
-          resolvedVersion: INITIAL_SKILL_VERSION,
-          integrity: "",
-          sourceName: "local",
-          agents,
-          installedAt: now,
-          updatedAt: now,
-        },
-      }),
     );
 
     return {

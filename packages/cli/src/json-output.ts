@@ -30,11 +30,25 @@ const StepStatusSchema = Schema.Literals([
     "Execution status of a plan step: ready, warning, error, applied, failed, or blocked.",
 });
 
+const StepArtifactSchema = Schema.Struct({
+  path: Schema.String,
+  scope: Schema.Literals(["project", "user"] as const),
+  version: Schema.optional(Schema.String),
+  change: Schema.Literals(["created", "updated", "unchanged"] as const),
+  previousVersion: Schema.optional(Schema.String),
+  fileCount: Schema.optional(Schema.Number),
+}).annotate({
+  identifier: "StepArtifact",
+  title: "Plan Step Artifact",
+  description: "Optional artifact metadata describing what changed and where.",
+});
+
 const StepSchema = Schema.Struct({
   label: Schema.String,
   status: StepStatusSchema,
   message: Schema.optional(Schema.String),
   code: Schema.optional(Schema.String),
+  artifact: Schema.optional(StepArtifactSchema),
   links: Schema.optional(
     Schema.Struct({
       html: Schema.String,
@@ -102,6 +116,7 @@ const completedStepToStep = (step: CompletedJobStep): Step => {
       label: step.label,
       status: "applied",
       ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
+      ...(step.result.artifact !== undefined ? { artifact: step.result.artifact } : {}),
       ...(step.result.links !== undefined ? { links: step.result.links } : {}),
     };
   }

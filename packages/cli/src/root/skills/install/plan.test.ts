@@ -143,7 +143,7 @@ describe("buildSkillInstallPlan", () => {
         lockedSkills: {},
       });
 
-      expect(plan.name).toBe("Install skill(s)");
+      expect(plan.name).toBe("Install skill");
       expect(plan.description).toEqual(Option.some("Install skills from /fake"));
     }),
   );

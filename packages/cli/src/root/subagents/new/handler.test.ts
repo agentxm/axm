@@ -16,8 +16,13 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/client-core/unstable/extensions";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { extensionName, writeWorkspaceFiles } from "../../../test-stubs.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import {
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 import { handleSubagentsNew, type SubagentsNewHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -79,15 +84,12 @@ describe("subagents-new.handler", () => {
     nonInteractive?: boolean;
   }) => {
     const ctx = makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
-    // Add CodingAgentRepositoryLive to the layer stack
-    const fullLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive);
+    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive);
+    const fullLayer = Layer.provideMerge(SubagentManagerLive, workspaceServiceLayer);
     return {
       ...ctx,
       fullLayer,
-      provide: <A, E>(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-        effect: Effect.Effect<A, E, any>,
-      ) => effect.pipe(Effect.provide(fullLayer)),
+      provide: makeEffectProvide(fullLayer),
     };
   };
 
@@ -150,7 +152,7 @@ describe("subagents-new.handler", () => {
             owner: "@acme",
             name: "my-subagent",
             resolvedVersion: "0.0.1",
-            sourceName: "local",
+            sourceName: "default",
             agents: ["claude-code"],
           });
 
@@ -159,10 +161,6 @@ describe("subagents-new.handler", () => {
             {
               description:
                 "Edit `.axm/extensions/@acme/subagents/my-subagent/src/my-subagent.md` to fill in instructions",
-            },
-            {
-              description: "Apply changes to your workspace",
-              cmd: "axm sync",
             },
           ]);
         }),

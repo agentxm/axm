@@ -38,7 +38,7 @@ import {
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
@@ -318,7 +318,10 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
         return {
           _tag: "Plan",
-          name: intent.packsToUninstall.length > 1 ? "Uninstall pack(s)" : "Uninstall pack",
+          name:
+            intent.packsToUninstall.length === 1
+              ? "Uninstall pack"
+              : `Uninstall ${count(intent.packsToUninstall.length, "pack")}`,
           description: Option.none(),
           jobs: [{ concurrency: 1 as const, steps }],
         } satisfies Plan;

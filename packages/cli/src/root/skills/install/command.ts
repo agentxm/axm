@@ -17,7 +17,7 @@ const installConfig = {
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
   skill: Flag.string("skill").pipe(
-    Flag.withDescription("Cherry-pick specific skill(s) from a multi-skill source"),
+    Flag.withDescription("Cherry-pick specific skills from a multi-skill source"),
     Flag.atLeast(0),
   ),
   all: Flag.boolean("all").pipe(

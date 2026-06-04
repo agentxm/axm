@@ -9,7 +9,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 import { isNonInteractive } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
@@ -82,7 +82,7 @@ export const determineSkillsToInstall = (
 
     // 2. --all / --non-interactive -> return all
     if (args.all || nonInteractive) {
-      if (args.all) yield* renderer.info(`Installing all ${skills.length} skill(s)`);
+      if (args.all) yield* renderer.info(`Installing all ${count(skills.length, "skill")}`);
       return skills;
     }
 

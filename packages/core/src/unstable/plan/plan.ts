@@ -36,11 +36,21 @@ export interface Operation<TName extends string, TArgs> {
 // Step result types
 // -----------------------------------------------------------------------------
 
+export interface JobStepArtifact {
+  readonly path: string;
+  readonly scope: "project" | "user";
+  readonly version?: string;
+  readonly change: "created" | "updated" | "unchanged";
+  readonly previousVersion?: string;
+  readonly fileCount?: number;
+}
+
 export type JobStepResult =
   | {
       readonly result: "success";
       readonly message: string;
       readonly links?: { readonly html: string };
+      readonly artifact?: JobStepArtifact;
     }
   | {
       readonly result: "error";

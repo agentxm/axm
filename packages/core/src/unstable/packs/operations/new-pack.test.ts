@@ -122,7 +122,7 @@ describe("newPack", () => {
       }),
     );
 
-    it.effect("registers pack in settings via setPack", () =>
+    it.effect("does not register pack settings in the scaffold operation", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
         const setPackFn = vi.fn<WorkspaceMutationsService["setPack"]>((_args) => Effect.void);
@@ -132,13 +132,7 @@ describe("newPack", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(setPackFn).toHaveBeenCalledOnce();
-        expect(setPackFn).toHaveBeenCalledWith(
-          expect.objectContaining({
-            owner: "@myorg",
-            name: "my-pack",
-          }),
-        );
+        expect(setPackFn).not.toHaveBeenCalled();
       }),
     );
   });

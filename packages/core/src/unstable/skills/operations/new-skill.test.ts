@@ -123,7 +123,7 @@ describe("newSkill", () => {
       }),
     );
 
-    it.effect("creates agent symlinks for configured agents", () =>
+    it.effect("does not materialize agent symlinks in the scaffold operation", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
@@ -133,13 +133,12 @@ describe("newSkill", () => {
 
         expect(result.result).toBe("success");
 
-        // Agent symlinks should exist
-        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(true);
-        expect(fs.existsSync(path.join(base, ".cursor", "skills", "my-skill"))).toBe(true);
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+        expect(fs.existsSync(path.join(base, ".cursor", "skills", "my-skill"))).toBe(false);
       }),
     );
 
-    it.effect("registers skill in settings via setSkillEntry", () =>
+    it.effect("does not register skill settings in the scaffold operation", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
         const setSkillEntryFn = vi.fn<WorkspaceMutationsService["setSkillEntry"]>(
@@ -151,14 +150,7 @@ describe("newSkill", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(setSkillEntryFn).toHaveBeenCalledOnce();
-        expect(setSkillEntryFn).toHaveBeenCalledWith(
-          "my-skill",
-          expect.objectContaining({
-            source: "@myorg/skills/my-skill",
-            enabled: true,
-          }),
-        );
+        expect(setSkillEntryFn).not.toHaveBeenCalled();
       }),
     );
 

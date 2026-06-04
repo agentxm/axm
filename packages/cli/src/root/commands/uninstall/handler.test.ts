@@ -87,8 +87,8 @@ describe("commands uninstall.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
-    const ctx = makeWorkspaceHandlerTestContext();
+  const makeLayers = (flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean }) => {
+    const ctx = makeWorkspaceHandlerTestContext({ flags });
     const agentRepoLayer = Layer.provide(CodingAgentRepositoryLive, ctx.fullLayer);
     const managerDeps = Layer.mergeAll(ctx.fullLayer, agentRepoLayer);
     const cmdMgrLayer = Layer.provide(CommandManagerLive, managerDeps);
@@ -169,7 +169,7 @@ describe("commands uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstallCommand(defaultArgs("my-cmd"), defaultFlags({ yes: true }));
+          yield* handleUninstallCommand(defaultArgs("my-cmd"), defaultFlags({ preview: true }));
 
           // The plan description should include affected agents
           const allMessages = [...logs.info, ...logs.success, ...logs.message];

@@ -138,6 +138,8 @@ export const PackManagerLive = Layer.effect(
       yield* validateExactResolvedVersion(`packs.${ref.pack.name}.resolvedVersion`, ref.version);
 
       const packDir = computePackPaths(path.join, baseDir, ref.owner, ref.pack.name).canonicalPath;
+      const canonicalExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
+      if (Option.isNone(ref.integrity) && canonicalExists) return;
 
       yield* Effect.scoped(
         Effect.gen(function* () {

@@ -12,7 +12,7 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
@@ -136,7 +136,10 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
 
           return {
             _tag: "Plan",
-            name: "Uninstall skill(s)",
+            name:
+              intent.skillsToUninstall.length === 1
+                ? "Uninstall skill"
+                : `Uninstall ${count(intent.skillsToUninstall.length, "skill")}`,
             description: Option.none(),
             jobs: [
               {

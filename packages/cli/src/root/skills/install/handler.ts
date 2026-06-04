@@ -47,7 +47,7 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
       return yield* handleWorkspaceInstall({
         command: "skills.install",
         type: Option.some("skill"),
-        planName: "Install skill(s)",
+        planName: "Install skills",
         planDescription: Option.some("Install configured skills"),
         flags,
       });

@@ -5,6 +5,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  buildNewExtensionStep,
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
@@ -12,12 +13,12 @@ import {
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
-import type { NewPackOperation } from "@agentxm/client-core/unstable/packs";
-import { newPack } from "@agentxm/client-core/unstable/packs";
+import type { NewPackOperation, RegistryPackRef } from "@agentxm/client-core/unstable/packs";
+import { newPack, PackManager } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
@@ -26,6 +27,7 @@ import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
@@ -40,6 +42,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const renderer = yield* CliRenderer;
+  const manager = yield* PackManager;
 
   yield* renderer.info("axm packs new");
 
@@ -82,29 +85,31 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     name: "new-pack",
     args: { name: args.name, owner },
   } satisfies NewPackOperation;
+  const version = decodeVersionSync("0.0.1");
+  const ref: RegistryPackRef = {
+    type: "pack",
+    refType: "registry",
+    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    owner,
+    name: args.name,
+    version,
+    integrity: Option.none(),
+    packages: [],
+    pack: { name: args.name, dependencies: {} },
+  };
 
-  // Build Plan directly with inline run closure
-  const provideServices = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
-  ): Effect.Effect<A, E, never> =>
-    effect.pipe(
+  const step = buildNewExtensionStep(manager, {
+    ref,
+    versionRange: Option.none(),
+    label: fqn,
+    message: `Created pack ${fqn}`,
+    markAuthored: ws.setPackEntry(args.name, { source: fqn, authored: true }),
+    scaffold: newPack(op).pipe(
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
-    );
-
-  const step: PlannedJobStep = {
-    readiness: "ready",
-    label: fqn,
-    run: provideServices(newPack(op)).pipe(
-      Effect.map(
-        (result): JobStepResult =>
-          result.result === "error"
-            ? { result: "error", message: result.message, error: result.error }
-            : { result: "success", message: result.message },
-      ),
     ),
-  };
+  });
 
   const plan: Plan = {
     _tag: "Plan",
@@ -118,10 +123,6 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "packs", args.name, PACK_MANIFEST_FILENAME)}\` to fill in pack contents`,
-    },
-    {
-      description: "Apply changes to your workspace",
-      cmd: "axm sync",
     },
   ];
 

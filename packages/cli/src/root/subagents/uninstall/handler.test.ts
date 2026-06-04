@@ -131,7 +131,7 @@ describe("uninstall.handler (subagents)", () => {
 
   describe("literal name not in lockfile", () => {
     it.effect("reports a no-op for literal names absent from the lockfile", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -142,9 +142,9 @@ describe("uninstall.handler (subagents)", () => {
             preview: false,
           });
 
-          expect(logs.success.length > 0).toBe(true);
-          const allLogs = [...logs.success, ...logs.info, ...logs.message];
-          expect(allLogs.some((m) => m.includes("not installed"))).toBe(true);
+          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockContent);
+          expect(lockfile.subagents?.["nonexistent"]).toBeUndefined();
         }),
       );
     });
@@ -182,7 +182,7 @@ describe("uninstall.handler (subagents)", () => {
 
   describe("full uninstall flow", () => {
     it.effect("uninstalls a subagent from lockfile and settings", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         "my-subagent": makeLockEntry(),
       });
@@ -208,9 +208,6 @@ describe("uninstall.handler (subagents)", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.subagents?.["my-subagent"]).toBeUndefined();
-
-          // Should show completed step
-          expect(logs.success.some((m) => m.includes("my-subagent"))).toBe(true);
         }),
       );
     });

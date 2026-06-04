@@ -27,6 +27,7 @@ export type {
   ExecutedJob,
   ExecutedPlan,
   Job,
+  JobStepArtifact,
   JobStepResult,
   Operation,
   Plan,

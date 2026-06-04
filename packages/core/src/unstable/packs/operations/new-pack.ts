@@ -1,6 +1,5 @@
 /**
- * New pack operation — scaffolds a new pack directory with manifest,
- * and registers in settings/lockfile.
+ * New pack operation — scaffolds a new pack directory with manifest.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -8,7 +7,6 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
 import { decodeExtensionNameSync, formatFqn } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
@@ -16,7 +14,6 @@ import { PACK_MANIFEST_FILENAME, PACK_MANIFEST_SCHEMA_URL } from "../manifest-sc
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { ignoreMalformedWorkspaceLockfileRead } from "../../workspace/lockfile-update-policy.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { computePackPaths } from "../paths.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
@@ -53,7 +50,6 @@ export type NewPackOperation = Operation<"new-pack", NewPackOperationArgs>;
  * 2. Check if pack manifest already exists
  * 3. Create pack directory
  * 4. Write pack.json manifest
- * 5. Register in settings via ws.setPack
  */
 export const newPack: OperationHandler<
   NewPackOperation,
@@ -126,27 +122,6 @@ export const newPack: OperationHandler<
           cause: e,
         }),
       ),
-    );
-
-    // 5. Register in settings.
-    // Mark authored first so the subsequent setPack preserves the flag.
-    yield* ws.setPackEntry(name, { source: fqn, authored: true });
-    const now = new Date();
-    yield* ignoreMalformedWorkspaceLockfileRead(
-      ws.setPack({
-        owner,
-        name: extensionName,
-        resolvedVersion: initialVersion,
-        integrity: "",
-        sourceName: "",
-        installedAt: now,
-        updatedAt: now,
-        resolvedSkills: {},
-        resolvedCommands: {},
-        resolvedMcpServers: {},
-        resolvedSubagents: {},
-        versionRange: Option.none(),
-      }),
     );
 
     return {

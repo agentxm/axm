@@ -9,11 +9,19 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
+import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { extensionName, handle, writeWorkspaceFiles } from "../../test-stubs.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { handlePacksNew, type PacksNewHandlerArgs } from "./new.js";
 
 // -----------------------------------------------------------------------------
@@ -70,7 +78,17 @@ describe("packs-new.handler", () => {
     verbose?: boolean;
     debug?: boolean;
     nonInteractive?: boolean;
-  }) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+  }) => {
+    const ctx = makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+    const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
+    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, sourceLayer);
+    const fullLayer = Layer.provideMerge(PackManagerLive, workspaceServiceLayer);
+    return {
+      ...ctx,
+      fullLayer,
+      provide: makeEffectProvide(fullLayer),
+    };
+  };
 
   describe("success", () => {
     it.effect("creates pack manifest and registers in settings", () => {
@@ -112,15 +130,22 @@ describe("packs-new.handler", () => {
             authored: true,
           });
 
+          const lockfile = YAML.parse(
+            fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
+          );
+          expect(lockfile.packs["frontend-tools"]).toMatchObject({
+            type: "registry",
+            owner: "@acme",
+            name: "frontend-tools",
+            resolvedVersion: "0.0.1",
+            sourceName: "default",
+          });
+
           expect(logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(true);
           expect(rendererState.suggestions).toEqual([
             {
               description:
                 "Edit `.axm/extensions/@acme/packs/frontend-tools/pack.json` to fill in pack contents",
-            },
-            {
-              description: "Apply changes to your workspace",
-              cmd: "axm sync",
             },
           ]);
         }),

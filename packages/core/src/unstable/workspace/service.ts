@@ -1369,8 +1369,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
-            const sourceInput = lockEntryToSourceParams(lockEntry);
-            const source = printSourceParams(sourceInput);
+            const source =
+              lockEntry.type === "registry"
+                ? formatFqn({
+                    owner: lockEntry.owner,
+                    type: "command",
+                    name: decodeExtensionNameSync(name),
+                  })
+                : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentCommands: CommandsMap = currentSettings.commands ?? {};
             const authored = currentCommands[name]?.authored ?? false;
@@ -1498,8 +1504,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
-            const sourceInput = lockEntryToSourceParams(lockEntry);
-            const source = printSourceParams(sourceInput);
+            const source =
+              lockEntry.type === "registry"
+                ? formatFqn({
+                    owner: lockEntry.owner,
+                    type: "subagent",
+                    name: decodeExtensionNameSync(name),
+                  })
+                : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
             const authored = currentSubagents[name]?.authored ?? false;
@@ -1666,7 +1678,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     env: env ?? currentEnv,
                   }
                 : {
-                    source: printSourceParams(lockEntryToSourceParams(lockEntry)),
+                    source:
+                      lockEntry.type === "registry"
+                        ? formatFqn({
+                            owner: lockEntry.owner,
+                            type: "mcp-server",
+                            name: decodeExtensionNameSync(name),
+                          })
+                        : printSourceParams(lockEntryToSourceParams(lockEntry)),
                     enabled: enabled ?? currentEnabled,
                     authored,
                     env: env ?? currentEnv,

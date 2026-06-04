@@ -191,12 +191,19 @@ describe("skills install handler — error propagation", () => {
     );
     const ActionsLayer = Layer.provide(
       InstallSkillCommandWorkflowActionsLive,
-      Layer.mergeAll(handlerTestContext.baseLayer, handlerTestContext.wsLayer, SPLayer, SMLayer),
+      Layer.mergeAll(
+        handlerTestContext.baseLayer,
+        handlerTestContext.wsLayer,
+        SPLayer,
+        SMLayer,
+        CodingAgentRepositoryLive,
+      ),
     );
     const FullLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       SPLayer,
+      CodingAgentRepositoryLive,
       ActionsLayer,
     );
     const provide = makeEffectProvide(FullLayer);
@@ -236,7 +243,7 @@ describe("skills install handler — error propagation", () => {
   );
 
   it.effect("returns INVALID_SOURCE for unparseable input", () => {
-    const { provide, rendererState } = makeLayers();
+    const { provide, rendererState } = makeLayers({ verbose: true });
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
@@ -310,7 +317,38 @@ describe("skills install handler — error propagation", () => {
         });
 
         expect(multiselectMock.multiselectCalls).toHaveLength(0);
+        expect(logs.message.some((line) => line.startsWith("Resolution:"))).toBe(false);
+      }),
+    );
+  });
+
+  it.effect("shows resolution plumbing for bare-name install in verbose mode", () => {
+    const { provide, logs, rendererState } = makeLayers({
+      nonInteractive: false,
+      verbose: true,
+    });
+
+    const registryDir = path.join(tempDir, "registry");
+    createRegistrySkill({ registryRoot: registryDir, owner: "@myorg", name: "effect-basics" });
+
+    initWorkspace(path.join(tempDir, ".axm"), {
+      owner: "@myorg",
+      sources: [
+        { type: "registry", name: "remote", location: getUnavailableRegistryLocation() },
+        { type: "registry", name: "local", location: `file://${registryDir}` },
+      ],
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("effect-basics"), {
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
         expect(logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
+        expect(rendererState.spinnerMessages.some((line) => line.startsWith("Source:"))).toBe(true);
       }),
     );
   });

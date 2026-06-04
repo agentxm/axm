@@ -1,9 +1,6 @@
 /**
  * New hook operation — scaffolds a new hook directory with the manifest and a
- * starter entrypoint, then registers an authored entry in settings.
- *
- * Materializing the native agent hook config (`.claude/settings.json`) is left
- * to `axm sync`, mirroring how authored commands/subagents defer rendering.
+ * starter entrypoint.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -137,7 +134,6 @@ sys.exit(0)
  * 3. Create the managed extension + src directories
  * 4. Write hook.json manifest
  * 5. Write starter entrypoint in src/
- * 6. Register an authored entry in settings (materialized later by `axm sync`)
  */
 export const newHook: OperationHandler<
   NewHookOperation,
@@ -227,14 +223,6 @@ export const newHook: OperationHandler<
         }),
       ),
     );
-
-    // 6. Register an authored settings entry. `axm sync` materializes the native
-    // agent hook config and writes the lockfile entry.
-    yield* ws.setHookEntry(name, {
-      source: fqn,
-      enabled: true,
-      authored: true,
-    });
 
     return {
       result: "success",

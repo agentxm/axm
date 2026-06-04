@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as fs from "node:fs";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -25,7 +26,7 @@ import type { Plan, ExecutedPlan } from "../plan/plan.js";
 
 const makePlan = (overrides: Partial<Plan> = {}): Plan => ({
   _tag: "Plan",
-  name: "Install skill(s)",
+  name: "Install skills",
   description: Option.none(),
   jobs: [],
   ...overrides,
@@ -33,7 +34,7 @@ const makePlan = (overrides: Partial<Plan> = {}): Plan => ({
 
 const makeExecutedPlan = (overrides: Partial<ExecutedPlan> = {}): ExecutedPlan => ({
   _tag: "ExecutedPlan",
-  name: "Install skill(s)",
+  name: "Install skills",
   description: Option.none(),
   jobs: [],
   ...overrides,
@@ -53,12 +54,20 @@ const withOutput = <A, E>(
 // -----------------------------------------------------------------------------
 
 describe("displayPlan", () => {
+  it("keeps hand-authored status glyphs out of plan rendering", () => {
+    const source = fs.readFileSync(new URL("./display-plan.ts", import.meta.url), "utf8");
+
+    expect(source).not.toContain("\u2713");
+    expect(source).not.toContain("\u2717");
+    expect(source).not.toContain("\u26A0");
+  });
+
   it.effect("uses plan name as heading", () =>
     withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
-            name: "Install skill(s)",
+            name: "Install skills",
             jobs: [
               {
                 concurrency: "unbounded",
@@ -74,7 +83,7 @@ describe("displayPlan", () => {
           }),
         );
 
-        expect(logsByTag(state).info.some((m) => m.includes("Install skill(s)"))).toBe(true);
+        expect(logsByTag(state).info.some((m) => m.includes("Install skills"))).toBe(true);
       }),
     ),
   );
@@ -142,7 +151,7 @@ describe("displayPlan", () => {
     ),
   );
 
-  it.effect("shows warn items with warning prefix and message", () =>
+  it.effect("shows warn items with warning level and message", () =>
     withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
@@ -165,14 +174,14 @@ describe("displayPlan", () => {
 
         expect(
           logsByTag(state).warn.some(
-            (m) => m.includes("\u26A0") && m.includes("commit") && m.includes("version mismatch"),
+            (m) => m.includes("commit") && m.includes("version mismatch") && !m.includes("\u26A0"),
           ),
         ).toBe(true);
       }),
     ),
   );
 
-  it.effect("shows error readiness items with error prefix and message", () =>
+  it.effect("shows error readiness items with error level and message", () =>
     withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
@@ -194,7 +203,8 @@ describe("displayPlan", () => {
 
         expect(
           logsByTag(state).error.some(
-            (m) => m.includes("\u2717") && m.includes("commit") && m.includes("dependency missing"),
+            (m) =>
+              m.includes("commit") && m.includes("dependency missing") && !m.includes("\u2717"),
           ),
         ).toBe(true);
       }),
@@ -301,7 +311,7 @@ describe("displayPlan", () => {
     ),
   );
 
-  it.effect("shows success items with checkmark for applied plan", () =>
+  it.effect("shows success detail for legacy successful applied plan by default", () =>
     withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
@@ -320,10 +330,37 @@ describe("displayPlan", () => {
           }),
         );
 
-        expect(
-          logsByTag(state).success.some((m) => m.includes("\u2713") && m.includes("commit")),
-        ).toBe(true);
+        expect(logsByTag(state).success.some((m) => m.includes("commit"))).toBe(true);
+        expect(logsByTag(state).message.some((m) => m.includes("1 applied"))).toBe(true);
+        expect(logsByTag(state).success.some((m) => m.includes("\u2713"))).toBe(false);
       }),
+    ),
+  );
+
+  it.effect("shows success step detail for applied plan in verbose mode", () =>
+    withOutput(
+      (state) =>
+        Effect.gen(function* () {
+          yield* displayPlan(
+            makeExecutedPlan({
+              jobs: [
+                {
+                  concurrency: "unbounded",
+                  steps: [
+                    {
+                      label: "commit",
+                      result: { result: "success", message: "Applied commit" },
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+
+          expect(logsByTag(state).success.some((m) => m.includes("commit"))).toBe(true);
+          expect(logsByTag(state).success.some((m) => m.includes("\u2713"))).toBe(false);
+        }),
+      { verbose: true },
     ),
   );
 
@@ -355,7 +392,7 @@ describe("displayPlan", () => {
 
         expect(
           logsByTag(state).error.some(
-            (m) => m.includes("\u2717") && m.includes("commit") && m.includes("failed to apply"),
+            (m) => m.includes("commit") && m.includes("failed to apply") && !m.includes("\u2717"),
           ),
         ).toBe(true);
         expect(logsByTag(state).error.some((m) => m.includes("commit: failed to apply"))).toBe(
@@ -468,7 +505,7 @@ describe("displayPlan", () => {
   it.effect("uses _tag discriminant to distinguish Plan from ExecutedPlan", () =>
     withOutput((state) =>
       Effect.gen(function* () {
-        // An ExecutedPlan with _tag should render completed steps (checkmarks)
+        // An ExecutedPlan with _tag should render completed steps, not planned steps.
         yield* displayPlan(
           makeExecutedPlan({
             jobs: [
@@ -485,10 +522,52 @@ describe("displayPlan", () => {
           }),
         );
 
-        // Should use executed-plan rendering (checkmarks) not planned-plan rendering (+)
+        expect(logsByTag(state).success.some((m) => m.includes("my-step"))).toBe(true);
+        expect(logsByTag(state).success.some((m) => m.includes("+"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("renders single artifact blast radius and suggestions", () =>
+    withOutput((state) =>
+      Effect.gen(function* () {
+        yield* displayPlan(
+          makeExecutedPlan({
+            name: "Install skill",
+            jobs: [
+              {
+                concurrency: "unbounded",
+                steps: [
+                  {
+                    label: "code-review",
+                    result: {
+                      result: "success",
+                      message: "Applied install operation",
+                      artifact: {
+                        path: ".claude/skills/code-review",
+                        scope: "project",
+                        version: "1.2.3",
+                        change: "created",
+                        fileCount: 4,
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        );
+
         expect(
-          logsByTag(state).success.some((m) => m.includes("\u2713") && m.includes("my-step")),
+          logsByTag(state).success.some((m) =>
+            m.includes("Installed code-review (skill) to this project"),
+          ),
         ).toBe(true);
+        expect(state.summaries).toEqual(["-> .claude/skills/code-review   1.2.3 | 4 files"]);
+        expect(state.suggestions.map((suggestion) => suggestion.description)).toEqual([
+          "Inspect installed skills",
+          "Undo",
+        ]);
       }),
     ),
   );

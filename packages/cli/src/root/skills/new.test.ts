@@ -10,12 +10,20 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
+import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import type { ExtensionName } from "@agentxm/client-core/unstable/extensions";
+import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./new.js";
 
 // -----------------------------------------------------------------------------
@@ -73,7 +81,21 @@ describe("skills-new.handler", () => {
     verbose?: boolean;
     debug?: boolean;
     nonInteractive?: boolean;
-  }) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+  }) => {
+    const ctx = makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+    const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
+    const workspaceServiceLayer = Layer.mergeAll(
+      ctx.fullLayer,
+      sourceLayer,
+      CodingAgentRepositoryLive,
+    );
+    const fullLayer = Layer.provideMerge(SkillManagerLive, workspaceServiceLayer);
+    return {
+      ...ctx,
+      fullLayer,
+      provide: makeEffectProvide(fullLayer),
+    };
+  };
 
   describe("success", () => {
     it.effect("creates skill with manifest, SKILL.md, settings, and symlinks", () => {
@@ -136,8 +158,8 @@ describe("skills-new.handler", () => {
             owner: "@acme",
             name: "my-skill",
             resolvedVersion: "0.0.1",
-            sourceName: "local",
-            agents: ["claude-code"],
+            sourceName: "default",
+            agents: ["universal", "claude-code"],
           });
 
           // Verify symlink
@@ -388,7 +410,7 @@ describe("skills-new.handler", () => {
       );
     });
 
-    it.effect("narrows symlinks to --agent flag agents only", () => {
+    it.effect("narrows manager materialization when --agent is provided", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         owner: "@acme",
@@ -404,8 +426,12 @@ describe("skills-new.handler", () => {
 
           expect(fs.existsSync(claudeLink)).toBe(true);
           expect(fs.lstatSync(claudeLink).isSymbolicLink()).toBe(true);
-          // cursor should NOT have a symlink
           expect(fs.existsSync(cursorLink)).toBe(false);
+
+          const lockfile = YAML.parse(
+            fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
+          );
+          expect(lockfile.skills["my-skill"].agents).toEqual(["claude-code"]);
         }),
       );
     });

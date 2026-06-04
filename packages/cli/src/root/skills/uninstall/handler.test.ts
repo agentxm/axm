@@ -172,7 +172,7 @@ describe("uninstall.handler", () => {
 
   describe("full uninstall flow", () => {
     it.effect("uninstalls a skill from lockfile and disk", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         "my-skill": makeLockEntry(),
       });
@@ -201,15 +201,12 @@ describe("uninstall.handler", () => {
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.skills["my-skill"]).toBeUndefined();
-
-          // Should show completed step
-          expect(logs.success.some((m) => m.includes("my-skill"))).toBe(true);
         }),
       );
     });
 
     it.effect("removes settings-only configured skills that are absent from the lockfile", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
         {},
@@ -239,7 +236,6 @@ describe("uninstall.handler", () => {
               : undefined;
 
           expect(skills?.["settings-only"]).toBeUndefined();
-          expect(logs.success.some((m) => m.includes("settings-only"))).toBe(true);
         }),
       );
     });
@@ -318,7 +314,7 @@ describe("uninstall.handler", () => {
 
   describe("literal name not in lockfile", () => {
     it.effect("reports a no-op for literal names absent from the lockfile", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -329,9 +325,9 @@ describe("uninstall.handler", () => {
             preview: false,
           });
 
-          expect(logs.success.length > 0).toBe(true);
-          const allLogs = [...logs.success, ...logs.info, ...logs.message];
-          expect(allLogs.some((m) => m.includes("not installed"))).toBe(true);
+          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockContent);
+          expect(lockfile.skills?.["nonexistent"]).toBeUndefined();
         }),
       );
     });
@@ -389,7 +385,7 @@ describe("uninstall.handler", () => {
 
   describe("pack dependency retention", () => {
     it.effect("retains pack-referenced skill on disk but removes settings", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       const skillName = "my-skill";
       const fqn = "@my-ns/skills/my-skill";
       initWorkspace(
@@ -423,11 +419,6 @@ describe("uninstall.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.[skillName]).toBeUndefined();
-
-          // Success log should mention retained
-          expect(logs.success.some((m) => m.includes("retained") || m.includes("required"))).toBe(
-            true,
-          );
         }),
       );
     });

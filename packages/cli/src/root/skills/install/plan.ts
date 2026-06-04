@@ -18,6 +18,7 @@ import type { Source } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { installSkill } from "@agentxm/client-core/unstable/skills";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
@@ -92,7 +93,7 @@ export const buildSkillInstallPlan = ({
           (result): JobStepResult =>
             result.result === "error"
               ? { result: "error", message: result.message, error: result.error }
-              : { result: "success", message: result.message },
+              : result,
         ),
         Effect.provideService(WorkspaceMutations, workspace),
         Effect.provideService(SourceHostProviders, sources),
@@ -111,7 +112,10 @@ export const buildSkillInstallPlan = ({
 
     return {
       _tag: "Plan",
-      name: "Install skill(s)",
+      name:
+        selectedSkills.length === 1
+          ? "Install skill"
+          : `Install ${count(selectedSkills.length, "skill")}`,
       description: Option.some(`Install skills from ${sources.origin(source)}`),
       jobs: [
         {

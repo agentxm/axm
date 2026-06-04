@@ -56,6 +56,7 @@ export interface TestRendererState {
   readonly introTitles: Array<string>;
   readonly outroMessages: Array<string>;
   readonly suggestions: Array<SuggestedAction>;
+  readonly summaries: Array<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +77,7 @@ const makeEmptyState = (): TestRendererState => ({
   introTitles: [],
   outroMessages: [],
   suggestions: [],
+  summaries: [],
 });
 
 const makeMockSpinnerHandle = (state: TestRendererState, _message: string): SpinnerHandle => ({
@@ -202,6 +204,9 @@ const makeTestRendererService = (
     success: (message: string, options?: SuccessOptions) =>
       Effect.sync(() => {
         state.logs.push({ _tag: "success", message });
+        if (options?.summary !== undefined) {
+          state.summaries.push(options.summary);
+        }
         if (options?.withoutSuggestions !== true && options?.suggestions !== undefined) {
           state.suggestions.push(...options.suggestions);
         }

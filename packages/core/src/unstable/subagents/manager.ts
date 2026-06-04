@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
+import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
 import type { SubagentExtensionRef, RegistrySubagentRef } from "./refs.js";
 import type { ExtensionManager, SubagentExtensionTarget } from "../workspace/service-interface.js";
@@ -24,6 +25,7 @@ import {
   removeFromAllCanonicalLocations,
   stripFileProtocol,
   makeWorkspaceRelativeSourcePath,
+  makeWorkspaceRelativePath,
   computeIntegrity,
 } from "../utils/index.js";
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "./paths.js";
@@ -34,6 +36,10 @@ import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
+import { computeSourceHash, RenderedFilesMapSchema } from "../extensions/index.js";
+import type { SubagentLockEntry } from "../lockfile/index.js";
+
+const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
@@ -78,6 +84,14 @@ export const SubagentManagerLive = Layer.effect(
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.provide(effect, fsPathLayer);
+    const lastInstallState = new Map<
+      string,
+      {
+        readonly agents: ReadonlyArray<string>;
+        readonly sourceHash: string;
+        readonly renderedFiles: SubagentLockEntry["renderedFiles"];
+      }
+    >();
 
     // Compute canonical paths for a subagent ref
     const getCanonicalPaths = (ref: SubagentExtensionRef) => {
@@ -279,7 +293,7 @@ export const SubagentManagerLive = Layer.effect(
         );
 
         // --- Render to all agents concurrently ---
-        yield* Effect.forEach(
+        const renderResults = yield* Effect.forEach(
           configuredAgents,
           (agent) =>
             agent
@@ -296,9 +310,39 @@ export const SubagentManagerLive = Layer.effect(
                 },
                 force: false,
               })
-              .pipe(Effect.provide(fsPathLayer), Effect.asVoid),
+              .pipe(
+                Effect.provide(fsPathLayer),
+                Effect.map((outcome) => ({ agentId: agent.id, outcome })),
+              ),
           { concurrency: "unbounded" },
         );
+        const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
+        const successfulAgents: string[] = [];
+        yield* Effect.forEach(renderResults, ({ agentId, outcome }) => {
+          if (outcome._tag !== "success") return Effect.void;
+          successfulAgents.push(agentId);
+          return Effect.forEach(outcome.renderedFilePaths, (p) => {
+            const relativePath = makeWorkspaceRelativePath(path, baseDir, p);
+            if (Option.isNone(relativePath)) {
+              return Effect.fail(
+                makeAppError({
+                  code: "internal",
+                  detail: `Rendered subagent path escapes workspace root: ${p}`,
+                }),
+              );
+            }
+            return Effect.succeed({ path: relativePath.value });
+          }).pipe(
+            Effect.map((entries) => {
+              renderedFilesMap[agentId] = entries;
+            }),
+          );
+        });
+        lastInstallState.set(ref.subagent.name, {
+          agents: successfulAgents,
+          sourceHash: computeSourceHash(parsed.body),
+          renderedFiles: decodeRenderedFiles(renderedFilesMap),
+        });
       });
 
     const materializeUninstall: ExtensionManager<SubagentExtensionRef>["materializeUninstall"] =
@@ -377,13 +421,26 @@ export const SubagentManagerLive = Layer.effect(
           new Date(),
           workspaceRelativeLocalSourcePath,
         );
-        if (lockEntry.type === "registry") {
+        const state = lastInstallState.get(ref.subagent.name);
+        const lockEntryWithMaterialization =
+          state === undefined
+            ? lockEntry
+            : {
+                ...lockEntry,
+                agents: [...state.agents],
+                sourceHash: state.sourceHash,
+                renderedFiles: state.renderedFiles,
+              };
+        if (lockEntryWithMaterialization.type === "registry") {
           yield* validateExactResolvedVersion(
             `subagents.${ref.subagent.name}.resolvedVersion`,
-            lockEntry.resolvedVersion,
+            lockEntryWithMaterialization.resolvedVersion,
           );
         }
-        return yield* ws.setSubagent({ name: ref.subagent.name, lockEntry });
+        return yield* ws.setSubagent({
+          name: ref.subagent.name,
+          lockEntry: lockEntryWithMaterialization,
+        });
       }),
 
       removeSettingsEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
@@ -412,13 +469,26 @@ export const SubagentManagerLive = Layer.effect(
           new Date(),
           workspaceRelativeLocalSourcePath,
         );
-        if (lockEntry.type === "registry") {
+        const state = lastInstallState.get(ref.subagent.name);
+        const lockEntryWithMaterialization =
+          state === undefined
+            ? lockEntry
+            : {
+                ...lockEntry,
+                agents: [...state.agents],
+                sourceHash: state.sourceHash,
+                renderedFiles: state.renderedFiles,
+              };
+        if (lockEntryWithMaterialization.type === "registry") {
           yield* validateExactResolvedVersion(
             `subagents.${ref.subagent.name}.resolvedVersion`,
-            lockEntry.resolvedVersion,
+            lockEntryWithMaterialization.resolvedVersion,
           );
         }
-        return yield* ws.setSubagentLock({ name: ref.subagent.name, lockEntry });
+        return yield* ws.setSubagentLock({
+          name: ref.subagent.name,
+          lockEntry: lockEntryWithMaterialization,
+        });
       }),
 
       removeLockfileEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>

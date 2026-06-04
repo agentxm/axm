@@ -395,6 +395,16 @@ export const InteractiveRenderer = (options?: {
     info: (message) => renderLogLine(outputPolicy, "info", message),
     success: (message, options?: SuccessOptions) =>
       renderLogLine(outputPolicy, "success", message).pipe(
+        Effect.andThen(
+          options?.summary !== undefined
+            ? writeStderrLine(
+                options.summary
+                  .split("\n")
+                  .map((line) => `  ${line}`)
+                  .join("\n"),
+              )
+            : Effect.void,
+        ),
         Effect.andThen(renderSuggestions(options?.suggestions ?? [], outputPolicy, options)),
       ),
     step: (message) => renderLogLine(outputPolicy, "step", message),

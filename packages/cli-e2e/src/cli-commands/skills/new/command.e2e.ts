@@ -158,6 +158,9 @@ describe("axm skills new", () => {
       // claude-code symlink should exist
       const claudeSymlink = path.join(temp.path, ".claude", "skills", "narrow-skill");
       expect(fs.existsSync(claudeSymlink)).toBe(true);
+
+      const universalSymlink = path.join(temp.path, ".agents", "skills", "narrow-skill");
+      expect(fs.existsSync(universalSymlink)).toBe(false);
     } finally {
       temp.cleanup();
     }

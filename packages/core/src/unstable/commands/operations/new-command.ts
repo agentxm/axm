@@ -8,22 +8,12 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
-import {
-  computeSourceHash,
-  decodeExtensionNameSync,
-  REGISTRY_EXTENSIONS_DIR,
-} from "../../extensions/index.js";
-import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
+import { decodeExtensionNameSync, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
-import type { CommandLockEntry } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
-import { ignoreMalformedWorkspaceLockfileRead } from "../../workspace/lockfile-update-policy.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   COMMAND_MANIFEST_FILENAME,
   COMMAND_MANIFEST_SCHEMA_URL,
@@ -31,17 +21,10 @@ import {
 } from "../manifest-schema.js";
 import { commandContentFilename } from "../paths.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
-import { CodingAgentRepository } from "../../agents/index.js";
-import { makeWorkspaceRelativeSourcePath } from "../../utils/path-types.js";
-import { parseCommandMd } from "../command-content.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
-import { renderToAgents, reportRenderingWarnings } from "./shared-command-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
 // -----------------------------------------------------------------------------
-
-const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
 
 /**
  * Args for the new-command operation.
@@ -94,14 +77,13 @@ const INITIAL_COMMAND_VERSION = decodeVersionSync("0.1.0");
  */
 export const newCommand: OperationHandler<
   NewCommandOperation,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository | CliRenderer
+  FileSystem.FileSystem | Path.Path
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
 
-    const { name, owner, description, force } = op.args;
+    const { name, owner, description } = op.args;
 
     // 1. Compute managed extension directory
     const targetDir = path.join(
@@ -177,53 +159,7 @@ export const newCommand: OperationHandler<
         }),
       ),
     );
-    const editSourcePath = makeWorkspaceRelativeSourcePath(path, ws.baseDir, contentPath);
-    if (Option.isNone(editSourcePath)) {
-      return yield* makeAppError({
-        code: "internal",
-        detail: `Command source path escapes workspace root: ${contentPath}`,
-      });
-    }
-
-    const { frontmatter, agentOverrides, body } = yield* parseCommandMd(commandMdContent);
-    const { outcomes, successfulAgents, rawRenderedFiles } = yield* renderToAgents({
-      commandName: name,
-      editSourcePath: editSourcePath.value,
-      frontmatter,
-      agentOverrides: Option.getOrUndefined(agentOverrides),
-      body,
-      manifest,
-      owner,
-      workspaceRoot: ws.baseDir,
-      force,
-    });
-
-    // Surface per-agent rendering warnings (e.g. Codex falling back to
-    // user-scope ~/.codex/prompts because it has no project commands dir).
-    yield* reportRenderingWarnings(outcomes);
-
     const fqn = `${owner}/commands/${name}`;
-    yield* ws.setCommandEntry(name, {
-      source: fqn,
-      enabled: true,
-      authored: true,
-    });
-
-    const now = new Date();
-    const lockEntry: CommandLockEntry = {
-      type: "registry",
-      owner,
-      name: decodeExtensionNameSync(name),
-      resolvedVersion: INITIAL_COMMAND_VERSION,
-      integrity: "",
-      sourceName: "local",
-      agents: successfulAgents,
-      installedAt: now,
-      updatedAt: now,
-      sourceHash: computeSourceHash(body),
-      renderedFiles: decodeRenderedFilesMap(rawRenderedFiles),
-    };
-    yield* ignoreMalformedWorkspaceLockfileRead(ws.setCommandLock({ name, lockEntry }));
 
     return {
       result: "success",

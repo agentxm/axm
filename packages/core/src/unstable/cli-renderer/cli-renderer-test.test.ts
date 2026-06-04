@@ -44,6 +44,7 @@ describe("TestRenderer", () => {
       expect(state.cancelMessages).toEqual([]);
       expect(state.introTitles).toEqual([]);
       expect(state.outroMessages).toEqual([]);
+      expect(state.summaries).toEqual([]);
     });
   });
 
@@ -115,6 +116,20 @@ describe("TestRenderer", () => {
           layer,
         );
         expect(state.logs).toEqual([{ _tag: "success", message: "All good" }]);
+      }),
+    );
+
+    it.effect("captures success summary", () =>
+      Effect.gen(function* () {
+        const { layer, state } = TestRenderer.make();
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.success("Installed", { summary: "-> .claude/skills/review" });
+          }),
+          layer,
+        );
+        expect(state.summaries).toEqual(["-> .claude/skills/review"]);
       }),
     );
 

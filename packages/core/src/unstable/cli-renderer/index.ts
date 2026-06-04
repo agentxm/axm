@@ -32,6 +32,7 @@ export { getEntityView, registerEntity, type EntityView } from "./entity-registr
 export { InteractiveRenderer } from "./cli-renderer-interactive.js";
 export { MachineRenderer } from "./cli-renderer-machine.js";
 export { formatMarkdown } from "./markdown-formatter.js";
+export { count } from "./count.js";
 export {
   resolveCliOutputPolicy,
   type CliOutputEnvironment,

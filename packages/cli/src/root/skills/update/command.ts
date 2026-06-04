@@ -15,11 +15,11 @@ const updateConfig = {
     Flag.withDescription("Update skills in project (default) or user-level configuration"),
   ),
   agent: Flag.string("agent").pipe(
-    Flag.withDescription("Update only skills installed for specific agent(s)"),
+    Flag.withDescription("Update only skills installed for specific agents"),
     Flag.atLeast(0),
   ),
   skill: Flag.string("skill").pipe(
-    Flag.withDescription("Update only specific skill(s) by name or glob pattern"),
+    Flag.withDescription("Update only specific skills by name or glob pattern"),
     Flag.atLeast(0),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),

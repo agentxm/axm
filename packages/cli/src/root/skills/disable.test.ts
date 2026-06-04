@@ -260,7 +260,8 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisable(defaultArgs("code-review"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should have a new direct entry with enabled: false
           const settingsContent = fs.readFileSync(
@@ -305,7 +306,8 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisable(defaultArgs("my-skill"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should show disabled
           const settingsContent = fs.readFileSync(
@@ -355,7 +357,8 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisable(defaultArgs("my-skill"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should show disabled
           const settingsContent = fs.readFileSync(

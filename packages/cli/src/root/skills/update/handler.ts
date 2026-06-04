@@ -63,8 +63,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const sources = yield* SourceHostProviders;
   const renderer = yield* CliRenderer;
 
-  yield* renderer.info(`axm skills update (${ws.scope})`);
-
   // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.records.getConfiguredSkills();
   const lockedSkills = yield* ws.getLockedSkills();
@@ -82,7 +80,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   if (skillEntries.length === 0) {
     if (
       yield* emitNoOpResult("skills.update", {
-        planName: "Update skill(s)",
+        planName: "Update skills",
         planDescription: "Update installed skills",
         message: "No skills installed. Nothing to update.",
         suggestions: [LIST_INSTALLED_SKILLS],
@@ -148,7 +146,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     if (filteredEntries.length === 0) {
       if (
         yield* emitNoOpResult("skills.update", {
-          planName: "Update skill(s)",
+          planName: "Update skills",
           planDescription: "Update installed skills",
           message: "No installed skills match the --skill filter. Nothing to update.",
           suggestions: [
@@ -441,7 +439,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const plan = buildUpdatePlan(
     ops,
     lockfile,
-    "Update skill(s)",
+    "Update skills",
     Option.some("Update installed skills"),
     makeRunClosure,
   );
@@ -453,8 +451,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("skills.update", resolution);
-
-  yield* renderer.success("Done");
 });
 
 /**

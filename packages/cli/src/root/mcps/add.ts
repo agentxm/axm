@@ -7,7 +7,7 @@ import { syncInlineMcpServerToAgent } from "@agentxm/client-core/unstable/agents
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   type JobStepResult,
@@ -148,8 +148,8 @@ const syncStep = (
       result: "success",
       message:
         warnings.length === 0
-          ? `Synced ${name} to ${agentIds.length} agent(s)`
-          : `Synced ${name} with ${warnings.length} warning(s)`,
+          ? `Synced ${name} to ${count(agentIds.length, "agent")}`
+          : `Synced ${name} with ${count(warnings.length, "warning")}`,
     } satisfies JobStepResult;
   }),
 });
@@ -178,7 +178,6 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const renderer = yield* CliRenderer;
   const env = parseEnv(args.env);
   const headers = yield* parseHeaders(args.header);
   const lockEntry = yield* makeInlineLockEntry(args, headers);
@@ -205,7 +204,6 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
 
   const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
   yield* emitPlanResolutionResult("mcps.add", resolution);
-  yield* renderer.success("Done");
 });
 
 const addConfig = {

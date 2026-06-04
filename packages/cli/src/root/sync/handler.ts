@@ -20,7 +20,7 @@ import {
   syncInstructionsGitignore,
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import {
   buildMaterializeOperation,
@@ -179,7 +179,7 @@ const buildInlineMcpServerSyncOperation = ({
         message:
           warnings.length === 0
             ? `Synced inline MCP server ${name}`
-            : `Synced inline MCP server ${name} with ${warnings.length} warning(s)`,
+            : `Synced inline MCP server ${name} with ${count(warnings.length, "warning")}`,
       };
     }),
   ),
@@ -222,7 +222,7 @@ const buildMcpServerPruneOperation = ({
         message:
           warnings.length === 0
             ? "Pruned stale managed MCP server entries"
-            : `Pruned stale managed MCP server entries with ${warnings.length} warning(s)`,
+            : `Pruned stale managed MCP server entries with ${count(warnings.length, "warning")}`,
       };
     }),
   ),

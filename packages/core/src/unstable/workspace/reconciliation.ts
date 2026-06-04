@@ -4,6 +4,7 @@ import * as Array from "effect/Array";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { count } from "../cli-renderer/index.js";
 import type {
   CommandLockEntry,
   Lockfile,
@@ -218,10 +219,10 @@ export const runReadRecoverOperation = (
     const unresolvedCount = snapshot.unresolved.length;
     const reconstructedCount = countReconstructedLockfileEntries(snapshot.lockfile);
 
-    const suffix = unresolvedCount > 0 ? `, ${unresolvedCount} unresolved` : "";
+    const suffix = unresolvedCount > 0 ? `, ${count(unresolvedCount, "unresolved entry")}` : "";
     return {
       result: "success",
-      message: `Recovered ${reconstructedCount} declaration(s)${suffix}`,
+      message: `Recovered ${count(reconstructedCount, "declaration")}${suffix}`,
     } satisfies JobStepResult;
   });
 
@@ -324,7 +325,7 @@ export const runReconcileMaterializeOperation = (
     if (hasUnresolved) {
       return {
         result: "success",
-        message: `Reconciled lockfile with ${snapshot.unresolved.length} missing declaration(s) deferred to install${backupNote}`,
+        message: `Reconciled lockfile with ${count(snapshot.unresolved.length, "missing declaration")} deferred to install${backupNote}`,
       } satisfies JobStepResult;
     }
 

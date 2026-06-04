@@ -41,7 +41,7 @@ export interface JobStepArtifact {
   readonly scope: "project" | "user";
   readonly agents?: ReadonlyArray<string>;
   readonly version?: string;
-  readonly change: "created" | "updated" | "unchanged";
+  readonly change: "created" | "updated" | "unchanged" | "removed";
   readonly previousVersion?: string;
   readonly fileCount?: number;
   readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
@@ -49,7 +49,7 @@ export interface JobStepArtifact {
 
 export interface JobStepArtifactTarget {
   readonly path: string;
-  readonly change: "created" | "updated" | "unchanged";
+  readonly change: "created" | "updated" | "unchanged" | "removed";
   readonly agentIds?: ReadonlyArray<string>;
 }
 

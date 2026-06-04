@@ -52,8 +52,6 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
 ) {
   const renderer = yield* CliRenderer;
 
-  yield* renderer.info("axm commands new");
-
   // 1. Resolve owner
   const owner = Option.isSome(args.owner)
     ? normalizeOwner(args.owner.value)

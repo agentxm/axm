@@ -31,8 +31,6 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  yield* renderer.info("axm skills enable");
-
   const skillName = yield* resolveInstalledIdentifierNameOrInput({
     input: args.name,
     resourceType: "skill",
@@ -75,20 +73,11 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
   } satisfies EnableSkillOperation;
 
   // Build plan with inline run closure
-  const toJobStepResult = (result: {
-    readonly result: string;
-    readonly message: string;
-    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
-  }): JobStepResult =>
-    result.result === "error" && result.error != null
-      ? { result: "error", message: result.message, error: result.error }
-      : { result: "success", message: result.message };
-
   const step: PlannedJobStep = {
     readiness: "ready",
     label: skillName,
     run: enableSkill(op).pipe(
-      Effect.map(toJobStepResult),
+      Effect.map((result): JobStepResult => result),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -108,8 +97,6 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("skills.enable", resolution);
-
-  yield* renderer.success("Done");
 });
 
 const enableConfig = {

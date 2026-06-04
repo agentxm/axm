@@ -445,9 +445,9 @@ describe("setup.handler", () => {
           const infoMessages = rendererState.logs
             .filter((entry) => entry._tag === "info")
             .map((entry) => entry.message);
-          expect(
-            infoMessages.some((message) => message.includes("existing subagent file(s)")),
-          ).toBe(true);
+          expect(infoMessages.some((message) => message.includes("existing subagent file"))).toBe(
+            true,
+          );
           expect(infoMessages.some((message) => message.includes("Claude Code"))).toBe(true);
         }),
       );

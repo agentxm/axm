@@ -364,12 +364,12 @@ describe("buildInstallPlan", () => {
         commandOps: [],
         mcpServerOps: [],
         lockfile: emptyLockfile,
-        name: "Install pack(s)",
+        name: "Install packs",
         description: Option.some("Install packs from registry"),
         versionRange: Option.none(),
       });
 
-      expect(plan.name).toBe("Install pack(s)");
+      expect(plan.name).toBe("Install packs");
       expect(plan.description).toEqual(Option.some("Install packs from registry"));
     }),
   );

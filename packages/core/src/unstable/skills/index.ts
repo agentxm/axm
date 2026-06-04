@@ -51,9 +51,12 @@ export type {
   InstallableSkillTargetLocation,
 } from "./operations/install.js";
 export {
+  artifactAgentIdsFromTargets,
+  artifactTargetAgentIds,
   computeSkillSourceHash,
   groupInstallTargetsByDirectory,
   installSkill,
+  skillArtifactFromTargets,
 } from "./operations/install.js";
 export type { InstallResult } from "./operations/install-result.js";
 export type {

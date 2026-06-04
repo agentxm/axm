@@ -115,7 +115,6 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
 
   if (items.length === 0) {
     yield* renderer.info("No coding agents configured or detected.");
-    yield* renderer.success("Nothing to show");
     return;
   }
 

@@ -189,8 +189,10 @@ const renderCompletedSummary = (
 
 const operationVerb = (planName: string): string => {
   const lower = planName.toLowerCase();
-  if (lower.includes("install")) return "Installed";
   if (lower.includes("uninstall") || lower.includes("remove")) return "Uninstalled";
+  if (lower.includes("disable")) return "Disabled";
+  if (lower.includes("enable")) return "Enabled";
+  if (lower.includes("install")) return "Installed";
   if (lower.includes("update")) return "Updated";
   if (lower.includes("publish")) return "Published";
   if (lower.includes("create") || lower.includes("new")) return "Created";
@@ -270,9 +272,20 @@ const cleanStepLabel = (label: string): string => {
 const singleArtifactSuggestions = (
   type: string,
   label: string,
+  artifact: JobStepArtifact,
+  verb: string,
 ): ReadonlyArray<{ readonly description: string; readonly cmd: string }> | undefined => {
   if (type !== "skill") return undefined;
   const target = cleanStepLabel(label);
+  if (artifact.change === "removed") {
+    return [{ description: "Inspect installed skills", cmd: "axm skills list" }];
+  }
+  if (verb === "Enabled") {
+    return [
+      { description: "Inspect installed skills", cmd: "axm skills list" },
+      { description: "Undo", cmd: `axm skills disable ${target}` },
+    ];
+  }
   return [
     { description: "Inspect installed skills", cmd: "axm skills list" },
     { description: "Undo", cmd: `axm skills uninstall ${target}` },
@@ -326,7 +339,7 @@ const renderExecutedOutcome = (
           return;
         }
 
-        const suggestions = singleArtifactSuggestions(type, first.step.label);
+        const suggestions = singleArtifactSuggestions(type, first.step.label, first.artifact, verb);
         yield* renderer.success(
           singleArtifactHeadline(verb, type, first.step, first.artifact, { configured }),
           verbosity.quiet

@@ -10,7 +10,7 @@ import {
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   applyPlan,
   type JobStepResult,
@@ -70,7 +70,7 @@ const cleanupStep = (
         (result) =>
           ({
             result: "success",
-            message: `Removed ${result.removedPaths.length} managed artifact(s)`,
+            message: `Removed ${count(result.removedPaths.length, "managed artifact")}`,
           }) satisfies JobStepResult,
       ),
     ),
@@ -139,12 +139,11 @@ export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: Ag
     : yield* applyPlan(plan).pipe(Effect.tap(displayPlan));
 
   yield* emitPlanResolutionResult("agents.remove", resolution);
-  yield* renderer.success("Done");
 });
 
 const removeConfig = {
   ids: Argument.string("id").pipe(
-    Argument.withDescription("Configured coding-agent ID(s) to remove"),
+    Argument.withDescription("Configured coding-agent IDs to remove"),
     Argument.atLeast(1),
   ),
   scope: scopeFlag.pipe(

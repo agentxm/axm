@@ -102,14 +102,14 @@ export type InstallableSkillTargetLocation = {
 
 const UNIVERSAL_AGENT_ID = "universal";
 
-const artifactAgentIdsFromTargets = (
+export const artifactAgentIdsFromTargets = (
   targets: ReadonlyArray<InstallableSkillTarget>,
 ): ReadonlyArray<string> =>
   Array.dedupe(
     targets.map((target) => target.agentId).filter((agentId) => agentId !== UNIVERSAL_AGENT_ID),
   );
 
-const artifactTargetAgentIds = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> =>
+export const artifactTargetAgentIds = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> =>
   agentIds.filter((agentId) => agentId !== UNIVERSAL_AGENT_ID);
 
 const normalizedTargetDir = (path: Path.Path, targetDir: string): string =>
@@ -173,6 +173,35 @@ export const groupInstallTargetsByDirectory = (
       }
     }
     return [...locationsByKey.values()];
+  });
+
+export const skillArtifactFromTargets = (args: {
+  readonly targets: ReadonlyArray<InstallableSkillTarget>;
+  readonly workspaceRoot: string;
+  readonly sanitizedName: string;
+  readonly scope: JobStepArtifact["scope"];
+  readonly change: JobStepArtifact["change"];
+}) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const targetLocations = yield* groupInstallTargetsByDirectory(args.targets, args.workspaceRoot);
+    const artifactTargets = targetLocations.map((location) => {
+      const agentIds = artifactTargetAgentIds(location.agentIds);
+      return {
+        path: path.relative(args.workspaceRoot, path.join(location.targetDir, args.sanitizedName)),
+        change: args.change,
+        ...(agentIds.length > 0 ? { agentIds } : {}),
+      };
+    });
+    const displayPath = artifactTargets[0]?.path ?? args.sanitizedName;
+    const artifactAgents = artifactAgentIdsFromTargets(args.targets);
+    return {
+      path: displayPath,
+      scope: args.scope,
+      ...(artifactAgents.length > 0 ? { agents: artifactAgents } : {}),
+      change: args.change,
+      ...(artifactTargets.length > 0 ? { targets: artifactTargets } : {}),
+    } satisfies JobStepArtifact;
   });
 
 const countFiles = (dir: string): Effect.Effect<number, never, FileSystem.FileSystem | Path.Path> =>

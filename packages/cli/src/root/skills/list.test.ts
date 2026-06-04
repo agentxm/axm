@@ -13,11 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-} from "@agentxm/client-core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
@@ -92,9 +88,7 @@ describe("list.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs, rendererState };
+    return { provide, rendererState };
   };
 
   // ---------------------------------------------------------------------------
@@ -112,13 +106,14 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: [] });
 
-        expect(rendererState.tables).toHaveLength(1);
-        expect(rendererState.tables[0]?.items).toEqual(
-          expect.arrayContaining([
+        expect(rendererState.results).toHaveLength(1);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 2,
+          items: expect.arrayContaining([
             expect.objectContaining({ name: "skill-one" }),
             expect.objectContaining({ name: "skill-two" }),
           ]),
-        );
+        });
       }),
     );
   });
@@ -128,14 +123,17 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("shows no skills message when lockfile is empty", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
       Effect.gen(function* () {
         yield* handleList({ agents: [] });
 
-        expect(logs.info.some((m) => m.includes("No skills installed"))).toBe(true);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 0,
+          items: [],
+        });
       }),
     );
   });
@@ -155,10 +153,10 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: ["claude-code"] });
 
-        expect(rendererState.tables).toHaveLength(1);
-        expect(rendererState.tables[0]?.items).toEqual([
-          expect.objectContaining({ name: "skill-claude", agents: ["claude-code"] }),
-        ]);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 1,
+          items: [expect.objectContaining({ name: "skill-claude", agents: ["claude-code"] })],
+        });
       }),
     );
   });
@@ -179,16 +177,16 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: ["claude-code", "cursor"] });
 
-        expect(rendererState.tables).toHaveLength(1);
-        expect(rendererState.tables[0]?.items).toEqual(
-          expect.arrayContaining([
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 2,
+          items: expect.arrayContaining([
             expect.objectContaining({ name: "skill-claude" }),
             expect.objectContaining({ name: "skill-cursor" }),
           ]),
-        );
-        expect(rendererState.tables[0]?.items).not.toEqual(
-          expect.arrayContaining([expect.objectContaining({ name: "skill-other" })]),
-        );
+        });
+        expect(rendererState.results[0]?.data).not.toMatchObject({
+          items: expect.arrayContaining([expect.objectContaining({ name: "skill-other" })]),
+        });
       }),
     );
   });
@@ -198,7 +196,7 @@ describe("list.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("shows empty message when agent filter matches nothing", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       "skill-one": makeLockEntry(["claude-code"]),
     });
@@ -207,7 +205,10 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: ["nonexistent-agent"] });
 
-        expect(logs.info).toContain("No skills matched the selected agent filter.");
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 0,
+          items: [],
+        });
       }),
     );
   });

@@ -48,8 +48,6 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   const renderer = yield* CliRenderer;
   const manager = yield* SkillManager;
 
-  yield* renderer.info("axm skills new");
-
   // 1. Resolve owner
   const owner = Option.isSome(args.owner)
     ? normalizeOwner(args.owner.value)

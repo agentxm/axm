@@ -621,6 +621,56 @@ describe("displayPlan", () => {
     ),
   );
 
+  it.effect("renders removed single artifact with removed target locations", () =>
+    withOutput((state) =>
+      Effect.gen(function* () {
+        yield* displayPlan(
+          makeExecutedPlan({
+            name: "Uninstall skill",
+            jobs: [
+              {
+                concurrency: "unbounded",
+                steps: [
+                  {
+                    label: "code-review",
+                    result: {
+                      result: "success",
+                      message: "Applied uninstall operation",
+                      artifact: {
+                        path: ".agents/skills/code-review",
+                        scope: "project",
+                        agents: ["antigravity", "claude-code"],
+                        change: "removed",
+                        targets: [
+                          {
+                            path: ".agents/skills/code-review",
+                            change: "removed",
+                            agentIds: ["antigravity"],
+                          },
+                          {
+                            path: ".claude/skills/code-review",
+                            change: "removed",
+                            agentIds: ["claude-code"],
+                          },
+                        ],
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        );
+
+        expect(logsByTag(state).success).toContain("Uninstalled skill code-review for 2 agents");
+        expect(state.summaries).toEqual(["-> 2 locations"]);
+        expect(state.suggestions).toEqual([
+          { description: "Inspect installed skills", cmd: "axm skills list" },
+        ]);
+      }),
+    ),
+  );
+
   it.effect("preserves configured scope in single artifact install headlines", () =>
     withOutput((state) =>
       Effect.gen(function* () {

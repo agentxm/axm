@@ -57,25 +57,18 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     agents: entry.agents,
   }));
 
-  if (
-    yield* renderer.list("skill", {
-      items,
-      count: items.length,
-      suggestions: items.length === 0 ? [INSTALL_SKILL_FROM_REGISTRY] : [],
-    })
-  ) {
-    return;
-  }
+  yield* renderer.list("skill", {
+    items,
+    count: items.length,
+    suggestions: items.length === 0 ? [INSTALL_SKILL_FROM_REGISTRY] : [],
+  });
 
-  if (filtered.length === 0) {
+  if (items.length === 0) {
     yield* renderer.info(
       args.agents.length === 0
         ? "No skills installed"
         : "No skills matched the selected agent filter.",
     );
-    yield* renderer.success("Nothing to show", {
-      suggestions: [INSTALL_SKILL_FROM_REGISTRY],
-    });
     return;
   }
 
@@ -87,7 +80,7 @@ const listConfig = {
     Flag.withDescription("List skills from project (default) or user-level configuration"),
   ),
   agent: Flag.string("agent").pipe(
-    Flag.withDescription("Show only skills installed for specific agent(s)"),
+    Flag.withDescription("Show only skills installed for specific agents"),
     Flag.atLeast(0),
   ),
 } as const;

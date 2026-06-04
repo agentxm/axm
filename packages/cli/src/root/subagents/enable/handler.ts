@@ -29,8 +29,6 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
 
-  yield* renderer.info("axm subagents enable");
-
   const subagentName = yield* resolveInstalledIdentifierNameOrInput({
     input: args.name,
     resourceType: "subagent",
@@ -112,6 +110,4 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("subagents.enable", resolution);
-
-  yield* renderer.success("Done");
 });

@@ -78,8 +78,6 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
       args: UninstallSubagentHandlerArgs,
     ): Effect.Effect<ParsedSubagentUninstallArgs, AppError> =>
       Effect.gen(function* () {
-        yield* renderer.info("axm subagents uninstall");
-
         // Load installed subagents for glob expansion
         const lockedSubagents = yield* ws.getLockedSubagents();
         const installedNames = Object.keys(lockedSubagents);
@@ -136,7 +134,7 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
           return {
             _tag: "Plan",
-            name: "Uninstall subagent(s)",
+            name: "Uninstall subagents",
             description: Option.none(),
             jobs: [
               {

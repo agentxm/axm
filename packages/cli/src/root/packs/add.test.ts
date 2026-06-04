@@ -140,7 +140,8 @@ describe("packs-add.handler", () => {
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBe("^1.2.0");
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
         }),
       );
     });

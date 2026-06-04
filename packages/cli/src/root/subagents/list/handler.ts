@@ -64,9 +64,7 @@ export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
     agents: lockedSubagents[name]?.agents ?? [],
   }));
 
-  if (yield* renderer.list("subagent", { items, count: items.length })) {
-    return;
-  }
+  if (yield* renderer.list("subagent", { items, count: items.length })) return;
 
   if (filteredEntries.length === 0) {
     yield* renderer.info(

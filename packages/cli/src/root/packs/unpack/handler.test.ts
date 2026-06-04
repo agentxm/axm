@@ -222,7 +222,8 @@ describe("packs unpack.handler", () => {
         Effect.gen(function* () {
           yield* handleUnpack(defaultArgs("frontend-tools"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Check settings: pack should be removed, skills should be added
           const settingsContent = JSON.parse(

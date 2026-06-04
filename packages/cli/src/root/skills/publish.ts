@@ -161,8 +161,6 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
 
   const base = ws.baseDir;
 
-  yield* renderer.info("axm skills publish");
-
   // Step 1: Separate glob patterns from literal inputs, expand globs
   const resolvedNames = yield* resolveExtensionInputs(args.extensions);
   if (resolvedNames.length === 0) {
@@ -275,7 +273,11 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
           });
         });
       }),
-    { successMessage: `Validated ${extensionNames.length} extension(s)` },
+    {
+      successMessage: `Validated ${extensionNames.length} ${
+        extensionNames.length === 1 ? "extension" : "extensions"
+      }`,
+    },
   );
 
   yield* renderer.withSpinner(

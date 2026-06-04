@@ -55,7 +55,7 @@ export const handleInstall = (args: InstallSubagentHandlerArgs, flags: InstallSu
       return yield* handleWorkspaceInstall({
         command: "subagents.install",
         type: Option.some("subagent"),
-        planName: "Install subagent(s)",
+        planName: "Install subagents",
         planDescription: Option.some("Install configured subagents"),
         flags,
       });

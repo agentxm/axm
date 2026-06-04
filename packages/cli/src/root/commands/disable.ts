@@ -40,8 +40,6 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
 
-  yield* renderer.info("axm commands disable");
-
   const commandName = yield* resolveInstalledIdentifierNameOrInput({
     input: args.name,
     resourceType: "command",
@@ -130,10 +128,6 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("commands.disable", resolution);
-
-  if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success("Done");
-  }
 });
 
 const disableConfig = {

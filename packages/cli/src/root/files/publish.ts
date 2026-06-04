@@ -6,7 +6,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -139,7 +138,6 @@ export const handleFilesPublish = Effect.fn("FilesPublish.handle")(function* (ar
   readonly force: boolean;
   readonly preview: boolean;
 }) {
-  const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -167,7 +165,6 @@ export const handleFilesPublish = Effect.fn("FilesPublish.handle")(function* (ar
     };
     const resolution = yield* previewOrApplyPlan(plan, args);
     yield* emitPlanResolutionResult("files.publish", resolution);
-    if (resolution._tag === "ExecutedPlan") yield* renderer.success("Done");
   });
 
   if (args.preview) {

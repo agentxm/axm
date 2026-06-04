@@ -15,7 +15,7 @@ import { removeFromPack } from "@agentxm/client-core/unstable/packs";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -41,9 +41,6 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const renderer = yield* CliRenderer;
-
-  yield* renderer.info("axm packs remove");
 
   // Step 1: Find the pack
   const configuredPacks = yield* ws.getConfiguredPackEntries();
@@ -200,14 +197,12 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const plan: Plan = {
     _tag: "Plan",
     name: "Remove from pack",
-    description: Option.some(`Remove ${matchedNames.length} extension(s) from ${args.pack}`),
+    description: Option.some(`Remove ${count(matchedNames.length, "extension")} from ${args.pack}`),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
   yield* emitPlanResolutionResult("packs.remove", resolution);
-
-  yield* renderer.success("Done");
 });
 
 const removeConfig = {

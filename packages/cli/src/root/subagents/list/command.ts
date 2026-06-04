@@ -9,7 +9,7 @@ const listConfig = {
     Flag.withDescription("List subagents from project (default) or user-level configuration"),
   ),
   agent: Flag.string("agent").pipe(
-    Flag.withDescription("Show only subagents installed for specific agent(s)"),
+    Flag.withDescription("Show only subagents installed for specific agents"),
     Flag.atLeast(0),
   ),
 } as const;

@@ -46,8 +46,6 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   const sources = yield* SourceHostProviders;
   const renderer = yield* CliRenderer;
 
-  yield* renderer.info(`axm subagents update (${ws.scope})`);
-
   // Step 1: Load configured subagents and filter to enabled
   const allSubagents = yield* ws.records.getConfiguredSubagents();
   const lockedSubagents = yield* ws.getLockedSubagents();
@@ -65,7 +63,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   if (subagentEntries.length === 0) {
     if (
       yield* emitNoOpResult("subagents.update", {
-        planName: "Update subagent(s)",
+        planName: "Update subagents",
         planDescription: "Update installed subagents",
         message: "No subagents installed. Nothing to update.",
       })
@@ -128,7 +126,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     if (filteredEntries.length === 0) {
       if (
         yield* emitNoOpResult("subagents.update", {
-          planName: "Update subagent(s)",
+          planName: "Update subagents",
           planDescription: "Update installed subagents",
           message: "No installed subagents match the --subagent filter. Nothing to update.",
         })
@@ -254,7 +252,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   const plan = buildUpdatePlan(
     ops,
     { lockfileVersion: LOCKFILE_VERSION, subagents: lockedSubagents },
-    "Update subagent(s)",
+    "Update subagents",
     Option.some("Update installed subagents"),
     makeRunClosure,
   );
@@ -266,6 +264,4 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("subagents.update", resolution);
-
-  yield* renderer.success("Done");
 });

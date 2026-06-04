@@ -7,7 +7,7 @@ import {
   previewFlag,
   yesFlag,
 } from "@agentxm/client-core/unstable/cli-flags";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import { envOption } from "@agentxm/client-core/unstable/utils";
@@ -236,7 +236,7 @@ const renderSubagentSummary = (
     for (const summary of summaries) {
       if (summary.files.length > 0) {
         yield* renderer.info(
-          `${summary.agentName}: ${String(summary.files.length)} existing subagent file(s) in ${formatDisplayPath(path, summary.subagentDir)}`,
+          `${summary.agentName}: ${count(summary.files.length, "existing subagent file")} in ${formatDisplayPath(path, summary.subagentDir)}`,
         );
       }
     }
@@ -373,7 +373,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
 const setupConfig = {
   scope: scopeFlag,
   agent: Flag.string("agent").pipe(
-    Flag.withDescription("Specify agent(s) to configure (skips auto-detection)"),
+    Flag.withDescription("Specify agents to configure (skips auto-detection)"),
     Flag.atLeast(0),
   ),
   yes: yesFlag,

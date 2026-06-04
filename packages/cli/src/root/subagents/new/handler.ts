@@ -57,8 +57,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   const path = yield* Path.Path;
   const manager = yield* SubagentManager;
 
-  yield* renderer.info("axm subagents new");
-
   // 1. Resolve owner
   const owner = Option.isSome(args.owner)
     ? normalizeOwner(args.owner.value)

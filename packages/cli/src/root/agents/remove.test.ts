@@ -107,9 +107,11 @@ describe("agents remove.handler", () => {
           preview: true,
         });
 
-        expect(rendererState.logs).toEqual(
-          expect.arrayContaining([expect.objectContaining({ _tag: "success", message: "Done" })]),
-        );
+        expect(
+          rendererState.logs.some(
+            (entry) => entry._tag === "success" && entry.message.includes("Done"),
+          ),
+        ).toBe(false);
       }),
     );
   });

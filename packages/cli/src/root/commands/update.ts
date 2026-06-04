@@ -6,7 +6,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { installCommand as installCommandOp } from "@agentxm/client-core/unstable/commands";
 import {
@@ -38,8 +38,6 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
 
-  yield* renderer.info(`axm commands update (${ws.scope})`);
-
   // Step 1: Load configured commands and filter to enabled
   const allCommands = yield* ws.records.getConfiguredCommands();
 
@@ -56,7 +54,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   if (commandEntries.length === 0) {
     if (
       yield* emitNoOpResult("commands.update", {
-        planName: "Update command(s)",
+        planName: "Update commands",
         planDescription: "Update installed commands",
         message: "No commands installed. Nothing to update.",
       })
@@ -85,7 +83,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   if (nameValue !== undefined && filteredEntries.length === 0) {
     if (
       yield* emitNoOpResult("commands.update", {
-        planName: "Update command(s)",
+        planName: "Update commands",
         planDescription: "Update installed commands",
         message: `Command "${nameValue}" is not installed or is disabled. Nothing to update.`,
       })
@@ -183,14 +181,14 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   }));
   const planSections = combinePlanSections(
     makeItemSection(
-      `Would update ${resolvedEntries.length} command(s)`,
+      `Would update ${count(resolvedEntries.length, "command")}`,
       resolvedEntries.map((entry) => entry.name),
     ),
   );
 
   const plan: Plan = {
     _tag: "Plan",
-    name: "Update command(s)",
+    name: "Update commands",
     description: Option.some("Update installed commands"),
     jobs: [{ concurrency: 1 as const, steps: [...steps] }],
     ...(planSections === undefined ? {} : { sections: planSections }),
@@ -203,10 +201,6 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("commands.update", resolution);
-
-  if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success("Done");
-  }
 });
 
 const updateConfig = {

@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
@@ -155,8 +155,6 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
 
   const base = ws.baseDir;
 
-  yield* renderer.info("axm subagents publish");
-
   // Step 1: Separate glob patterns from literal inputs, expand globs
   const resolvedNames = yield* resolveExtensionInputs(args.extensions);
   if (resolvedNames.length === 0) {
@@ -275,7 +273,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
           });
         });
       }),
-    { successMessage: `Validated ${extensionNames.length} extension(s)` },
+    { successMessage: `Validated ${count(extensionNames.length, "extension")}` },
   );
 
   yield* renderer.withSpinner(

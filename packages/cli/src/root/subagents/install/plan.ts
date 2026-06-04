@@ -104,7 +104,7 @@ export const buildSubagentInstallPlan = ({
 
     return {
       _tag: "Plan",
-      name: "Install subagent(s)",
+      name: "Install subagents",
       description: Option.some(`Install subagents from ${sources.origin(source)}`),
       jobs: [
         {

@@ -10,6 +10,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Layer from "effect/Layer";
@@ -21,6 +22,7 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { ensureSkillAgentArtifact } from "../materialization.js";
+import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
 
 // Operation types
 // -----------------------------------------------------------------------------
@@ -104,26 +106,33 @@ export const enableSkill: OperationHandler<
       });
     }
 
-    yield* Effect.forEach(
+    const installableTargets = yield* Effect.forEach(
       materializationAgents,
       (agent) =>
         agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
           Effect.provide(fsPathLayer),
           Effect.flatMap((outcome) =>
             outcome._tag === "supported"
-              ? ensureSkillAgentArtifact({
-                  canonicalSkillSrcPath: skillSrcPath,
-                  targetDir: path.normalize(outcome.dir),
-                  sanitizedName,
-                  pathService: path,
-                  baseDir: base,
-                  provide,
+              ? Effect.gen(function* () {
+                  const targetDir = path.normalize(outcome.dir);
+                  yield* ensureSkillAgentArtifact({
+                    canonicalSkillSrcPath: skillSrcPath,
+                    targetDir,
+                    sanitizedName,
+                    pathService: path,
+                    baseDir: base,
+                    provide,
+                  });
+                  return Option.some({
+                    agentId: agent.id,
+                    targetDir,
+                  } satisfies InstallableSkillTarget);
                 })
-              : Effect.void,
+              : Effect.succeed(Option.none<InstallableSkillTarget>()),
           ),
         ),
       { concurrency: "unbounded" },
-    );
+    ).pipe(Effect.map(Array.getSomes));
 
     yield* ws
       .setSkillLock({
@@ -140,8 +149,20 @@ export const enableSkill: OperationHandler<
       .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: true }))
       .pipe(Effect.catch(() => Effect.void));
 
+    const artifact = yield* skillArtifactFromTargets({
+      targets: installableTargets,
+      workspaceRoot: base,
+      sanitizedName,
+      scope: ws.scope,
+      change: "created",
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
+
     return {
       result: "success",
       message: `Enabled ${op.args.skillName}`,
+      artifact,
     } satisfies JobStepResult;
   });

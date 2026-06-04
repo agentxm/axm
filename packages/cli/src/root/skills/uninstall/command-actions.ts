@@ -10,21 +10,29 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import {
+  SkillManager,
+  skillArtifactFromTargets,
+  type InstallableSkillTarget,
+} from "@agentxm/client-core/unstable/skills";
 import {
   buildUninstallOperation,
+  sanitizeName,
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { SkillExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------
@@ -73,13 +81,14 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
     const ws = yield* WorkspaceMutations;
     const renderer = yield* CliRenderer;
     const skillMgr = yield* SkillManager;
+    const agentRepo = yield* CodingAgentRepository;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
 
     const parseArgs = (
       args: UninstallHandlerArgs,
     ): Effect.Effect<ParsedSkillUninstallArgs, AppError> =>
       Effect.gen(function* () {
-        yield* renderer.info("axm skills uninstall");
-
         // Load installed skills for glob expansion
         const installedSkills = yield* ws.records.getInstalledSkills();
         const installedNames = Object.keys(installedSkills);
@@ -131,7 +140,61 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
               type: "skill" as const,
               name: entry.skillName,
             };
-            return buildUninstallOperation(skillMgr, retentionPolicy, { target });
+            const step = buildUninstallOperation(skillMgr, retentionPolicy, { target });
+            if (step.readiness !== "ready") return step;
+
+            const run = Effect.gen(function* () {
+              const configuredAgents = yield* agentRepo
+                .getMaterializationAgents()
+                .pipe(Effect.provideService(WorkspaceMutations, ws));
+              const resolvedAgents = yield* Effect.forEach(
+                configuredAgents,
+                (agent) =>
+                  agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+                    Effect.provideService(FileSystem.FileSystem, fs),
+                    Effect.provideService(Path.Path, path),
+                    Effect.map((outcome) => ({ agentId: agent.id, outcome })),
+                  ),
+                { concurrency: "unbounded" },
+              );
+              const installableTargets: Array<InstallableSkillTarget> = [];
+              for (const { agentId, outcome } of resolvedAgents) {
+                if (outcome._tag === "supported") {
+                  installableTargets.push({
+                    agentId,
+                    targetDir: path.normalize(outcome.dir),
+                  });
+                }
+              }
+
+              const sanitizedName = sanitizeName(entry.skillName);
+              const artifact = yield* skillArtifactFromTargets({
+                targets: installableTargets,
+                workspaceRoot: ws.baseDir,
+                sanitizedName,
+                scope: ws.scope,
+                change: "removed",
+              }).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              );
+
+              const result = yield* step.run;
+              if (
+                result.result === "error" ||
+                result.message === "not installed" ||
+                result.message.includes("Kept on disk")
+              ) {
+                return result;
+              }
+
+              return {
+                ...result,
+                artifact,
+              } satisfies JobStepResult;
+            });
+
+            return { ...step, run } satisfies PlannedJobStep;
           });
 
           return {

@@ -34,8 +34,6 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
 
-  yield* renderer.info("axm packs unpack");
-
   // Validate pack exists in lockfile
   const entry = yield* renderer.withSpinner(
     "Checking pack...",
@@ -165,6 +163,4 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("packs.unpack", resolution);
-
-  yield* renderer.success("Done");
 });

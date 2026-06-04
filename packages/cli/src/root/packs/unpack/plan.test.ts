@@ -350,11 +350,11 @@ describe("buildUnpackPlan", () => {
         configuredSkillNames: [],
         configuredCommandNames: [],
         configuredMcpServerNames: [],
-        name: "Unpack pack(s)",
+        name: "Unpack packs",
         description: Option.some("Unpack pack into direct entries"),
       });
 
-      expect(plan.name).toBe("Unpack pack(s)");
+      expect(plan.name).toBe("Unpack packs");
       expect(plan.description).toEqual(Option.some("Unpack pack into direct entries"));
     }),
   );

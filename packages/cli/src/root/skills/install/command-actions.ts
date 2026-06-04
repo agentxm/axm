@@ -392,10 +392,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (args: SkillsInstallHandlerArgs) =>
       provide(
         Effect.gen(function* () {
-          if (verbose) {
-            yield* renderer.info(`axm skills install (${ws.scope})`);
-          }
-
           const parseSource = Effect.gen(function* () {
             const parsedSourceOption = parseInputPattern(args.source.trim());
             if (Option.isNone(parsedSourceOption)) {

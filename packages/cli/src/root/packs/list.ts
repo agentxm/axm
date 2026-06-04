@@ -58,9 +58,6 @@ export const handleList = Effect.fn("PacksList.handle")(function* () {
 
   if (items.length === 0) {
     yield* renderer.info("No packs installed");
-    yield* renderer.success("Nothing to show", {
-      suggestions: [INSTALL_PACK_FROM_REGISTRY],
-    });
     return;
   }
 

@@ -30,7 +30,7 @@ export const handleInstallMcpServer = (
       return yield* handleWorkspaceInstall({
         command: "mcps.install",
         type: Option.some("mcp-server"),
-        planName: "Install MCP server(s)",
+        planName: "Install MCP servers",
         planDescription: Option.some("Install configured MCP servers"),
         flags,
       });

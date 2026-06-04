@@ -17,7 +17,7 @@ import type { AddToPackOperation } from "@agentxm/client-core/unstable/packs";
 import { addToPack } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -48,8 +48,6 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const renderer = yield* CliRenderer;
-
-  yield* renderer.info("axm packs add");
 
   // Step 1: Find the pack
   const configuredPacks = yield* ws.records.getConfiguredPacks();
@@ -226,7 +224,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     if (
       yield* emitNoOpResult("packs.add", {
         planName: "Add to pack",
-        planDescription: `Add extension(s) to ${args.pack}`,
+        planDescription: `Add extensions to ${args.pack}`,
         message: "Nothing to do.",
       })
     ) {
@@ -274,7 +272,9 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const plan: Plan = {
     _tag: "Plan",
     name: "Add to pack",
-    description: Option.some(`Add ${Object.keys(additions).length} extension(s) to ${args.pack}`),
+    description: Option.some(
+      `Add ${count(Object.keys(additions).length, "extension")} to ${args.pack}`,
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
@@ -284,8 +284,6 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("packs.add", resolution);
-
-  yield* renderer.success("Done");
 });
 
 const addConfig = {

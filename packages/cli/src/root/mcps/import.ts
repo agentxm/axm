@@ -7,7 +7,7 @@ import { AGENTS_BY_ID, type AgentId } from "@agentxm/client-core/unstable/agent-
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   type JobStepResult,
@@ -244,7 +244,7 @@ const makePlan = (
 ): Plan => ({
   _tag: "Plan",
   name: "Import MCP servers",
-  description: Option.some(`Adopt ${servers.length} unmanaged MCP server(s)`),
+  description: Option.some(`Adopt ${count(servers.length, "unmanaged MCP server")}`),
   jobs: [
     {
       concurrency: 1,
@@ -284,7 +284,6 @@ export const handleMcpsImport = Effect.fn("Mcps.import")(function* (args: McpsIm
   const plan = makePlan(servers, ws);
   const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
   yield* emitPlanResolutionResult("mcps.import", resolution);
-  yield* renderer.success("Done");
 });
 
 const importConfig = {

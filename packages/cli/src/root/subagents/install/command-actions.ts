@@ -23,7 +23,7 @@ import type { VersionRange } from "@agentxm/client-core/unstable/version-constra
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 import type { Source, InputParseResult } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   SubagentManager,
@@ -198,8 +198,6 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (args: SubagentsInstallHandlerArgs) =>
       provide(
         Effect.gen(function* () {
-          yield* renderer.info(`axm subagents install (${ws.scope})`);
-
           const parsed = yield* renderer.withSpinner(
             "Parsing source...",
             () =>
@@ -328,7 +326,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                   ),
               {
                 successMessage: (discoveredSubagents) =>
-                  `Found ${discoveredSubagents.length} subagent(s)`,
+                  `Found ${count(discoveredSubagents.length, "subagent")}`,
               },
             );
           }),
@@ -376,7 +374,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
     const buildPlan = (intent: InstallSubagentCommandIntent) =>
       Effect.succeed<Plan>({
         _tag: "Plan",
-        name: "Install subagent(s)",
+        name: "Install subagents",
         description: Option.none(),
         jobs: [
           {

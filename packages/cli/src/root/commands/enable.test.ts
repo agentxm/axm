@@ -223,7 +223,8 @@ describe("commands enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableCommand(defaultArgs("my-cmd"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -266,7 +267,8 @@ describe("commands enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableCommand(defaultArgs("my-cmd"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(

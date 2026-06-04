@@ -356,8 +356,8 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
         return {
           _tag: "Plan",
-          name: "Install command(s)",
-          description: Option.some("Install command extension(s)"),
+          name: "Install commands",
+          description: Option.some("Install command extensions"),
           jobs: [
             {
               concurrency: 1 as const,

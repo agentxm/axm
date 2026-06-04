@@ -17,11 +17,11 @@ const updateConfig = {
     Flag.withDescription("Update subagents in project (default) or user-level configuration"),
   ),
   agent: Flag.string("agent").pipe(
-    Flag.withDescription("Update only subagents installed for specific agent(s)"),
+    Flag.withDescription("Update only subagents installed for specific agents"),
     Flag.atLeast(0),
   ),
   subagent: Flag.string("subagent").pipe(
-    Flag.withDescription("Update only specific subagent(s) by name or glob pattern"),
+    Flag.withDescription("Update only specific subagents by name or glob pattern"),
     Flag.atLeast(0),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),

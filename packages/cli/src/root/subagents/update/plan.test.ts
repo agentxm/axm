@@ -61,7 +61,7 @@ describe("buildUpdatePlan", () => {
     const plan = buildUpdatePlan(
       ops,
       { lockfileVersion: 1, subagents: { researcher: lockEntry } },
-      "Update subagent(s)",
+      "Update subagents",
       Option.none(),
       noopRunClosure,
     );
@@ -79,7 +79,7 @@ describe("buildUpdatePlan", () => {
     const plan = buildUpdatePlan(
       ops,
       { lockfileVersion: 1, subagents: { researcher: lockEntry } },
-      "Update subagent(s)",
+      "Update subagents",
       Option.none(),
       noopRunClosure,
     );
@@ -99,7 +99,7 @@ describe("buildUpdatePlan", () => {
     const plan = buildUpdatePlan(
       ops,
       { lockfileVersion: 1, subagents: { researcher: lockEntry } },
-      "Update subagent(s)",
+      "Update subagents",
       Option.none(),
       noopRunClosure,
     );
@@ -113,7 +113,7 @@ describe("buildUpdatePlan", () => {
     const plan = buildUpdatePlan(
       [],
       { lockfileVersion: 1, subagents: {} },
-      "Update subagent(s)",
+      "Update subagents",
       Option.none(),
       noopRunClosure,
     );

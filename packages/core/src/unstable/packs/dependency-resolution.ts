@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { count } from "../cli-renderer/index.js";
 import type { ExtensionRef, Handle, ExtensionName, ExtensionType } from "../extensions/index.js";
 import { formatFqn, parseFqnOrThrow } from "../extensions/index.js";
 import type { ResolvedExtensionMap } from "../lockfile/index.js";
@@ -192,7 +193,7 @@ export const resolvePackDependencies = (
     if (dependencies.unsupported.length > 0) {
       return yield* makeAppError({
         code: "usage",
-        detail: `Pack declares unsupported dependency type(s): ${dependencies.unsupported.join(", ")}`,
+        detail: `Pack declares ${count(dependencies.unsupported.length, "unsupported dependency type")}: ${dependencies.unsupported.join(", ")}`,
       });
     }
 

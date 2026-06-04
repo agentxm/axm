@@ -164,8 +164,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const renderer = yield* CliRenderer;
   const base = ws.baseDir;
 
-  yield* renderer.info("axm packs publish");
-
   // Capture services for run closures
   const provideServices = <A, E>(
     effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,

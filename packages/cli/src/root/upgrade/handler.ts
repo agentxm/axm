@@ -721,6 +721,6 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   }
 
   if (result.status === "delegated") {
-    yield* renderer.success("Done");
+    yield* renderer.success("Upgrade command delegated");
   }
 }, Effect.asVoid);

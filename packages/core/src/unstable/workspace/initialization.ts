@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 
 import { detectAgents } from "../agents/index.js";
 import { AGENTS } from "../agents/registry.js";
+import { count } from "../cli-renderer/index.js";
 import {
   resolveInstructionMechanism,
   syncInstructions,
@@ -297,7 +298,7 @@ const selectSetupAgents = (args: {
       const unrecognized = requested.filter((id) => !isKnownConfigurableAgentId(id));
       if (unrecognized.length > 0) {
         yield* renderer.warn(
-          `Unrecognized agent(s): ${unrecognized.join(", ")}. Use 'axm setup --help' to see available agents.`,
+          `Unrecognized ${count(unrecognized.length, "agent")}: ${unrecognized.join(", ")}. Use 'axm setup --help' to see available agents.`,
         );
       }
       return selected;

@@ -212,7 +212,8 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("code-review"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -250,7 +251,8 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -344,7 +346,8 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Verify agent symlink was created
           const agentSkillPath = path.join(tempDir, ".claude", "skills", "my-skill");

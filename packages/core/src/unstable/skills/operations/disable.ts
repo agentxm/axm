@@ -11,6 +11,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Layer from "effect/Layer";
@@ -24,6 +25,7 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
+import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
 
 // Helpers
 // -----------------------------------------------------------------------------
@@ -131,12 +133,20 @@ export const disableSkill: OperationHandler<
       // When renderedFiles are tracked (copy-mode), prefer tracked paths;
       // otherwise fall back to agent descriptor-based path resolution.
       const renderedFiles = lockEntry.renderedFiles;
-      yield* Effect.forEach(
+      const installableTargetOptions = yield* Effect.forEach(
         allAgents,
         (agentId) => {
           // Check renderedFiles for tracked copy-mode paths
           const tracked = renderedFiles?.[agentId];
           if (tracked !== undefined && tracked.length > 0) {
+            const firstTracked = tracked[0];
+            const targetDir =
+              firstTracked === undefined
+                ? base
+                : path.dirname(path.resolve(base, firstTracked.path));
+            const targetAgentId = isKnownAgentId(agentId)
+              ? Option.some(agentId)
+              : Option.none<AgentId>();
             return Effect.forEach(
               tracked,
               (entry) =>
@@ -144,6 +154,13 @@ export const disableSkill: OperationHandler<
                   .remove(path.resolve(base, entry.path), { recursive: true })
                   .pipe(Effect.catch(() => Effect.void)),
               { concurrency: "unbounded" },
+            ).pipe(
+              Effect.as(
+                Option.map(targetAgentId, (knownAgentId) => ({
+                  agentId: knownAgentId,
+                  targetDir,
+                })),
+              ),
             );
           }
 
@@ -158,27 +175,34 @@ export const disableSkill: OperationHandler<
           return agentEffect.pipe(
             Effect.flatMap((agentOption) => {
               if (Option.isNone(agentOption)) {
-                return Effect.succeed({
-                  _tag: "unsupported",
-                  reason: `Unknown coding agent: ${agentId}`,
-                } as const);
+                return Effect.succeed(Option.none<InstallableSkillTarget>());
               }
-              return agentOption.value.resolveEffectiveSkillsDir({ workspaceRoot: base });
+              const knownAgentId = agentOption.value.id;
+              return agentOption.value.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
+                Effect.provide(fsPathLayer),
+                Effect.flatMap((outcome) =>
+                  outcome._tag === "supported"
+                    ? Effect.gen(function* () {
+                        const targetDir = path.normalize(outcome.dir);
+                        yield* fs
+                          .remove(path.join(targetDir, sanitizedName), {
+                            recursive: true,
+                          })
+                          .pipe(Effect.catch(() => Effect.void));
+                        return Option.some({
+                          agentId: knownAgentId,
+                          targetDir,
+                        } satisfies InstallableSkillTarget);
+                      })
+                    : Effect.succeed(Option.none<InstallableSkillTarget>()),
+                ),
+              );
             }),
-            Effect.provide(fsPathLayer),
-            Effect.flatMap((outcome) =>
-              outcome._tag === "supported"
-                ? fs
-                    .remove(path.join(path.normalize(outcome.dir), sanitizedName), {
-                      recursive: true,
-                    })
-                    .pipe(Effect.catch(() => Effect.void))
-                : Effect.void,
-            ),
           );
         },
         { concurrency: "unbounded" },
       );
+      const installableTargets = Array.getSomes(installableTargetOptions);
 
       // Clear lock agents — state updates after files
       yield* ws
@@ -188,15 +212,39 @@ export const disableSkill: OperationHandler<
           versionRange: Option.none(),
         })
         .pipe(Effect.catch(() => Effect.void));
+
+      if (isImplicit) {
+        const source = Option.getOrElse(installed.source, () => deriveSourceString(lockEntry));
+        yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false, authored: false });
+      } else {
+        yield* ws
+          .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: false }))
+          .pipe(Effect.catch(() => Effect.void));
+      }
+
+      const artifact = yield* skillArtifactFromTargets({
+        targets: installableTargets,
+        workspaceRoot: base,
+        sanitizedName,
+        scope: ws.scope,
+        change: "removed",
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      );
+
+      return {
+        result: "success",
+        message: `Disabled ${op.args.skillName}`,
+        artifact,
+      } satisfies JobStepResult;
     }
 
     // State mutation: implicit promotion or configured toggle
     if (isImplicit) {
       // Implicit promotion: derive source via deterministic fallback order
       // 1. installed entry source  2. lock entry metadata  3. fail
-      const source = Option.getOrElse(installed.source, () =>
-        hasLockEntry ? deriveSourceString(lockEntryOption.value) : undefined,
-      );
+      const source = Option.getOrElse(installed.source, () => undefined);
       if (source === undefined) {
         return yield* makeAppError({
           code: "internal",

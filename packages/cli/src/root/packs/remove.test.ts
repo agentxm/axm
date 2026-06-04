@@ -122,7 +122,8 @@ describe("packs-remove.handler", () => {
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
           expect(manifest.dependencies["@acme/skills/linting"]).toBe("^2.0.0");
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.length).toBeGreaterThan(0);
+          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
         }),
       );
     });

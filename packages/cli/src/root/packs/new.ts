@@ -44,8 +44,6 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const renderer = yield* CliRenderer;
   const manager = yield* PackManager;
 
-  yield* renderer.info("axm packs new");
-
   // Resolve owner
   const owner = Option.isSome(args.owner)
     ? args.owner.value

@@ -662,12 +662,12 @@ describe("buildUpdatePlan", () => {
     const plan = buildUpdatePlan(
       [makeOp("commit")],
       emptyLockfile,
-      "Update skill(s)",
+      "Update skills",
       Option.some("Update skills from github:owner/repo"),
       stubRunClosure,
     );
 
-    expect(plan.name).toBe("Update skill(s)");
+    expect(plan.name).toBe("Update skills");
     expect(plan.description).toEqual(Option.some("Update skills from github:owner/repo"));
   });
 

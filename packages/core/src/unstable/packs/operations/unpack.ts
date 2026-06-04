@@ -11,6 +11,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
+import { count } from "../../cli-renderer/index.js";
 import type {
   SkillLockEntry,
   CommandLockEntry,
@@ -206,6 +207,6 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
     const totalCount = skillCount + commandCount + mcpServerCount + subagentCount;
     return {
       result: "success",
-      message: `Unpacked ${op.args.name}: ${totalCount} extension(s) promoted to direct entries`,
+      message: `Unpacked ${op.args.name}: ${count(totalCount, "extension")} promoted to direct entries`,
     } satisfies JobStepResult;
   });

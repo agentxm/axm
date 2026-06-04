@@ -5,7 +5,7 @@ import { detectAgents } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   type JobStepResult,
   type Plan,
@@ -112,15 +112,20 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
   const suggestions =
     resolution._tag === "ExecutedPlan" ? buildPermissionSuggestions(agentIds) : [];
   const emitted = yield* emitPlanResolutionResult("agents.add", resolution, {
-    summary: `Configured ${agentIds.join(", ")}`,
+    summary: `Configured ${count(agentIds.length, "agent")}: ${agentIds.join(", ")}`,
     suggestions,
   });
-  yield* renderer.success("Done", { suggestions, withoutSuggestions: emitted });
+  if (resolution._tag === "ExecutedPlan") {
+    yield* renderer.success(`Configured ${count(agentIds.length, "agent")}`, {
+      suggestions,
+      withoutSuggestions: emitted,
+    });
+  }
 });
 
 const addConfig = {
   ids: Argument.string("id").pipe(
-    Argument.withDescription("Coding-agent ID(s) to configure, such as claude-code or cursor"),
+    Argument.withDescription("Coding-agent IDs to configure, such as claude-code or cursor"),
     Argument.atLeast(0),
   ),
   scope: scopeFlag.pipe(

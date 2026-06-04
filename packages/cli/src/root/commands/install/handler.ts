@@ -23,7 +23,7 @@ export const handleInstallCommand = Effect.fn("InstallCommand.handle")(function*
     return yield* handleWorkspaceInstall({
       command: "commands.install",
       type: Option.some("command"),
-      planName: "Install command(s)",
+      planName: "Install commands",
       planDescription: Option.some("Install configured commands"),
       flags: args,
     });

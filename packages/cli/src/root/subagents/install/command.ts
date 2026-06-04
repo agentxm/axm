@@ -17,7 +17,7 @@ const installConfig = {
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
   subagent: Flag.string("subagent").pipe(
-    Flag.withDescription("Cherry-pick specific subagent(s) from a multi-subagent source"),
+    Flag.withDescription("Cherry-pick specific subagents from a multi-subagent source"),
     Flag.atLeast(0),
   ),
   all: Flag.boolean("all").pipe(

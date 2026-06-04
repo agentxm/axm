@@ -63,9 +63,7 @@ export const handleListCommands = Effect.fn("ListCommands.handle")(function* () 
 
   const items = [...installedItems, ...unmanagedItems];
 
-  if (yield* renderer.list("command", { items, count: items.length })) {
-    return;
-  }
+  if (yield* renderer.list("command", { items, count: items.length })) return;
 
   if (items.length === 0) {
     yield* renderer.info("No commands installed");

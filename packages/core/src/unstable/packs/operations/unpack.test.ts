@@ -77,7 +77,7 @@ describe("unpackPack", () => {
       const result = yield* unpackPack(makeOp("full-pack"));
 
       expect(result.result).toBe("success");
-      expect(result.message).toContain("3 extension(s)");
+      expect(result.message).toContain("3 extensions");
       expect(setSkill).toHaveBeenCalledTimes(1);
       expect(setCommand).toHaveBeenCalledTimes(1);
       expect(setMcpServer).toHaveBeenCalledTimes(1);

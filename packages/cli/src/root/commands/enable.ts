@@ -36,8 +36,6 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
 
-  yield* renderer.info("axm commands enable");
-
   const commandName = yield* resolveInstalledIdentifierNameOrInput({
     input: args.name,
     resourceType: "command",
@@ -129,10 +127,6 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("commands.enable", resolution);
-
-  if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success("Done");
-  }
 });
 
 const enableConfig = {

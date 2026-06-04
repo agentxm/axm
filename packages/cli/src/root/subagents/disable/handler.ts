@@ -29,8 +29,6 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
 
-  yield* renderer.info("axm subagents disable");
-
   const subagentName = yield* resolveInstalledIdentifierNameOrInput({
     input: args.name,
     resourceType: "subagent",
@@ -112,6 +110,4 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
     preview: args.preview,
   });
   yield* emitPlanResolutionResult("subagents.disable", resolution);
-
-  yield* renderer.success("Done");
 });

@@ -25,7 +25,7 @@ export const handleInstallPack = (args: PackInstallHandlerArgs, flags: InstallPa
       return yield* handleWorkspaceInstall({
         command: "packs.install",
         type: Option.some("pack"),
-        planName: "Install pack(s)",
+        planName: "Install packs",
         planDescription: Option.some("Install configured packs"),
         flags,
       });

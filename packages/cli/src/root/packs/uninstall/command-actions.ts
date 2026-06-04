@@ -105,8 +105,6 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
     const parseArgs = (args: UninstallPackHandlerArgs) =>
       Effect.gen(function* () {
-        yield* renderer.info("axm packs uninstall");
-
         const lockedPacks = yield* ws.getLockedPacks();
         const isGlob = args.name.includes("*");
         const packNames = expandGlob(args.name, Object.keys(lockedPacks));

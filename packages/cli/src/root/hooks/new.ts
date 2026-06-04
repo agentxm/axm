@@ -82,8 +82,6 @@ const toJobStepResult = (result: {
 export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: HooksNewHandlerArgs) {
   const renderer = yield* CliRenderer;
 
-  yield* renderer.info("axm hooks new");
-
   // 1. Resolve owner
   const owner = Option.isSome(args.owner)
     ? normalizeOwner(args.owner.value)

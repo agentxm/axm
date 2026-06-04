@@ -417,6 +417,78 @@ describe("installSkill", () => {
       }),
     );
 
+    it.effect("reports every materialized agent target in the artifact", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code", "cursor"] })),
+        );
+
+        expect(result.result).toBe("success");
+        if (result.result === "success") {
+          expect(result.artifact?.targets).toEqual([
+            { path: ".agents/skills/my-skill", change: "created" },
+            { path: ".claude/skills/my-skill", change: "created" },
+            { path: ".cursor/skills/my-skill", change: "created" },
+          ]);
+          expect(result.artifact?.change).toBe("created");
+        }
+      }),
+    );
+
+    it.effect("reports unchanged when reinstalling the same source and target symlinks", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+
+        yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+        );
+
+        const second = yield* installSkill(makeOp({ sourcePath: src, force: true })).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+        );
+
+        expect(second.result).toBe("success");
+        if (second.result === "success") {
+          expect(second.artifact?.change).toBe("unchanged");
+          expect(second.artifact?.targets).toEqual([
+            { path: ".agents/skills/my-skill", change: "unchanged" },
+            { path: ".claude/skills/my-skill", change: "unchanged" },
+          ]);
+        }
+      }),
+    );
+
+    it.effect(
+      "reports updated when the source content changes but target symlinks are unchanged",
+      () =>
+        Effect.gen(function* () {
+          const src = setupSource();
+          const { axmDir } = setupBase();
+
+          yield* installSkill(makeOp({ sourcePath: src })).pipe(
+            Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+          );
+          fs.writeFileSync(path.join(src, "prompt.md"), "changed prompt content");
+
+          const second = yield* installSkill(makeOp({ sourcePath: src, force: true })).pipe(
+            Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+          );
+
+          expect(second.result).toBe("success");
+          if (second.result === "success") {
+            expect(second.artifact?.change).toBe("updated");
+            expect(second.artifact?.targets).toEqual([
+              { path: ".agents/skills/my-skill", change: "unchanged" },
+              { path: ".claude/skills/my-skill", change: "unchanged" },
+            ]);
+          }
+        }),
+    );
+
     it.effect("sanitizes skill name for canonical directory", () =>
       Effect.gen(function* () {
         const src = setupSource("My Awesome Skill!!");

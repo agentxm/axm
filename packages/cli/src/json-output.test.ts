@@ -224,6 +224,10 @@ describe("toPlanResolutionResult", () => {
                   version: "1.2.3",
                   change: "created",
                   fileCount: 4,
+                  targets: [
+                    { path: ".agents/skills/code-review", change: "created" },
+                    { path: ".claude/skills/code-review", change: "created" },
+                  ],
                 },
               },
             },
@@ -243,6 +247,10 @@ describe("toPlanResolutionResult", () => {
           version: "1.2.3",
           change: "created",
           fileCount: 4,
+          targets: [
+            { path: ".agents/skills/code-review", change: "created" },
+            { path: ".claude/skills/code-review", change: "created" },
+          ],
         },
       },
     ]);

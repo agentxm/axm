@@ -43,7 +43,7 @@ import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
-import type { JobStepResult } from "../../plan/plan.js";
+import type { JobStepArtifact, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
@@ -111,6 +111,68 @@ const previousResolvedVersion = (entry: unknown): string | undefined => {
   if (!("type" in entry) || entry.type !== "registry") return undefined;
   if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") return undefined;
   return entry.resolvedVersion;
+};
+
+const previousSourceHash = (entry: unknown): string | undefined => {
+  if (typeof entry !== "object" || entry === null) return undefined;
+  if (!("sourceHash" in entry) || typeof entry.sourceHash !== "string") return undefined;
+  return entry.sourceHash;
+};
+
+const expectedSkillSrcPath = (ref: SkillExtensionRef) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    switch (ref.refType) {
+      case "registry": {
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
+          refType: "registry",
+          owner: ref.owner,
+        });
+        return skillSrcPath;
+      }
+      case "git-hosted":
+      case "local": {
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
+          refType: ref.refType,
+        });
+        return skillSrcPath;
+      }
+    }
+  });
+
+const existingSourceHash = (ref: SkillExtensionRef) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const previousPath = yield* expectedSkillSrcPath(ref);
+    const exists = yield* fs.exists(previousPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!exists) return undefined;
+    return yield* computeSkillSourceHash(previousPath);
+  });
+
+const symlinkResultToChange = (
+  result: "created" | "replaced" | "no-op" | "skipped",
+): "created" | "updated" | "unchanged" => {
+  switch (result) {
+    case "created":
+      return "created";
+    case "replaced":
+      return "updated";
+    case "no-op":
+    case "skipped":
+      return "unchanged";
+  }
+};
+
+const artifactChangeFromTargets = (
+  fallback: JobStepArtifact["change"],
+  targets: ReadonlyArray<{ readonly change?: JobStepArtifact["change"] }>,
+): JobStepArtifact["change"] => {
+  if (targets.length === 0) return fallback;
+  if (targets.some((target) => target.change === "created")) return "created";
+  if (targets.some((target) => target.change === "updated" || target.change === undefined)) {
+    return "updated";
+  }
+  return fallback === "updated" ? "updated" : "unchanged";
 };
 
 // -----------------------------------------------------------------------------
@@ -292,6 +354,7 @@ const installForDirectory = (opts: {
         error: Option.some(`Path traversal detected for target directory ${opts.targetDir}`),
         path: agentSkillPath,
         canonicalPath: opts.canonicalSkillSrcPath,
+        change: "updated",
       } satisfies InstallResult;
     }
 
@@ -301,7 +364,7 @@ const installForDirectory = (opts: {
       link: agentSkillPath,
     }).pipe(
       Effect.map(
-        () =>
+        (result) =>
           ({
             success: true,
             mode: "symlink",
@@ -309,6 +372,7 @@ const installForDirectory = (opts: {
             error: Option.none(),
             path: agentSkillPath,
             canonicalPath: opts.canonicalSkillSrcPath,
+            change: symlinkResultToChange(result),
           }) satisfies InstallResult,
       ),
       Effect.catch(() =>
@@ -324,6 +388,7 @@ const installForDirectory = (opts: {
                 error: Option.none(),
                 path: agentSkillPath,
                 canonicalPath: opts.canonicalSkillSrcPath,
+                change: "updated",
               }) satisfies InstallResult,
           ),
           Effect.catch((copyErr) =>
@@ -334,6 +399,7 @@ const installForDirectory = (opts: {
               error: Option.some(`Copy fallback failed: ${copyErr.message}`),
               path: agentSkillPath,
               canonicalPath: opts.canonicalSkillSrcPath,
+              change: "updated",
             } satisfies InstallResult),
           ),
         ),
@@ -397,6 +463,11 @@ export const installSkill: OperationHandler<
       onNone: () => undefined,
       onSome: previousResolvedVersion,
     });
+    const lockSourceHash = Option.match(previousLockEntry, {
+      onNone: () => undefined,
+      onSome: previousSourceHash,
+    });
+    const sourceHashBeforeInstall = lockSourceHash ?? (yield* existingSourceHash(ref));
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
     const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionRange);
@@ -500,6 +571,7 @@ export const installSkill: OperationHandler<
           error: Option.some(`No installation result for target directory ${target.targetDir}`),
           path: target.targetDir,
           canonicalPath: materialized.skillSrcPath,
+          change: "updated",
         } satisfies InstallResult;
       }
       return matched.result;
@@ -562,14 +634,27 @@ export const installSkill: OperationHandler<
     // ── Shared: compute result ──────────────────────────────────────
     const anyFailed = agentResults.some((r) => !r.success);
     const fileCount = yield* countFiles(materialized.skillSrcPath);
+    const currentSourceHash = yield* computeSkillSourceHash(materialized.skillSrcPath);
     const displayPath =
       displayTargetDir === undefined
         ? path.relative(ws.baseDir, materialized.skillSrcPath)
         : path.join(path.relative(ws.baseDir, displayTargetDir), sanitizedName);
+    const artifactTargets = perDirectoryResults.map(({ result }) => ({
+      path: path.relative(ws.baseDir, result.path),
+      change: result.change ?? "updated",
+    }));
     const version =
       lockEntry.type === "registry"
         ? lockEntry.resolvedVersion
         : Option.getOrUndefined(op.args.versionRange);
+    const sameVersion = previousVersion === version;
+    const sameSource = sourceHashBeforeInstall === currentSourceHash;
+    const fallbackChange: JobStepArtifact["change"] = Option.isNone(previousLockEntry)
+      ? "created"
+      : sameVersion && sameSource
+        ? "unchanged"
+        : "updated";
+    const artifactChange = artifactChangeFromTargets(fallbackChange, artifactTargets);
 
     if (anyFailed) {
       const failedAgents = agentResults
@@ -593,15 +678,12 @@ export const installSkill: OperationHandler<
         path: displayPath.length === 0 ? "." : displayPath,
         scope: ws.scope,
         ...(version !== undefined ? { version } : {}),
-        change: Option.isNone(previousLockEntry)
-          ? "created"
-          : previousVersion === version
-            ? "unchanged"
-            : "updated",
+        change: artifactChange,
         ...(previousVersion !== undefined && previousVersion !== version
           ? { previousVersion }
           : {}),
         fileCount,
+        ...(artifactTargets.length > 0 ? { targets: artifactTargets } : {}),
       },
     } satisfies JobStepResult;
   });

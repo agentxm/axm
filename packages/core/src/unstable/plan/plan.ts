@@ -43,6 +43,12 @@ export interface JobStepArtifact {
   readonly change: "created" | "updated" | "unchanged";
   readonly previousVersion?: string;
   readonly fileCount?: number;
+  readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
+}
+
+export interface JobStepArtifactTarget {
+  readonly path: string;
+  readonly change: "created" | "updated" | "unchanged";
 }
 
 export type JobStepResult =

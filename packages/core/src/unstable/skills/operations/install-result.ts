@@ -29,4 +29,6 @@ export interface InstallResult {
   readonly path: string;
   /** Canonical skill location (.axm/extensions/external/skills/<name> or .axm/extensions/<owner>/skills/<name>/src). */
   readonly canonicalPath: string;
+  /** User-visible change at the agent-specific skill path. */
+  readonly change?: "created" | "updated" | "unchanged";
 }

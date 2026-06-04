@@ -31,6 +31,15 @@ const StepStatusSchema = Schema.Literals([
     "Execution status of a plan step: ready, warning, error, applied, unchanged, failed, or blocked.",
 });
 
+const StepArtifactTargetSchema = Schema.Struct({
+  path: Schema.String,
+  change: Schema.Literals(["created", "updated", "unchanged"] as const),
+}).annotate({
+  identifier: "StepArtifactTarget",
+  title: "Plan Step Artifact Target",
+  description: "One materialized target surface for a plan step artifact.",
+});
+
 const StepArtifactSchema = Schema.Struct({
   path: Schema.String,
   scope: Schema.Literals(["project", "user"] as const),
@@ -38,6 +47,7 @@ const StepArtifactSchema = Schema.Struct({
   change: Schema.Literals(["created", "updated", "unchanged"] as const),
   previousVersion: Schema.optional(Schema.String),
   fileCount: Schema.optional(Schema.Number),
+  targets: Schema.optional(Schema.Array(StepArtifactTargetSchema)),
 }).annotate({
   identifier: "StepArtifact",
   title: "Plan Step Artifact",

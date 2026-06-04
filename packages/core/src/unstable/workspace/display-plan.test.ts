@@ -549,6 +549,10 @@ describe("displayPlan", () => {
                         version: "1.2.3",
                         change: "created",
                         fileCount: 4,
+                        targets: [
+                          { path: ".agents/skills/code-review", change: "created" },
+                          { path: ".claude/skills/code-review", change: "created" },
+                        ],
                       },
                     },
                   },
@@ -560,10 +564,10 @@ describe("displayPlan", () => {
 
         expect(
           logsByTag(state).success.some((m) =>
-            m.includes("Installed code-review (skill) to this project"),
+            m.includes("Installed skill code-review for 2 agents"),
           ),
         ).toBe(true);
-        expect(state.summaries).toEqual(["-> .claude/skills/code-review   1.2.3 | 4 files"]);
+        expect(state.summaries).toEqual(["-> 2 agent targets   1.2.3 | 4 files"]);
         expect(state.suggestions.map((suggestion) => suggestion.description)).toEqual([
           "Inspect installed skills",
           "Undo",
@@ -642,6 +646,8 @@ describe("displayPlan", () => {
           description: "Undo",
           cmd: "axm skills uninstall cpp-conan-tinyflags-add-flag",
         });
+        expect(logsByTag(state).success.join("\n")).not.toContain("pkg:");
+        expect(logsByTag(state).success.join("\n")).not.toContain("(skill)");
       }),
     ),
   );
@@ -668,6 +674,7 @@ describe("displayPlan", () => {
                           version: "1.2.3",
                           change: "created",
                           fileCount: 4,
+                          targets: [{ path: ".claude/skills/code-review", change: "created" }],
                         },
                       },
                     },
@@ -677,9 +684,7 @@ describe("displayPlan", () => {
             }),
           );
 
-          expect(logsByTag(state).success).toEqual([
-            "Installed code-review (skill) to this project",
-          ]);
+          expect(logsByTag(state).success).toEqual(["Installed skill code-review for 1 agent"]);
           expect(state.summaries).toEqual([]);
           expect(state.suggestions).toEqual([]);
         }),
@@ -709,6 +714,10 @@ describe("displayPlan", () => {
                           version: "1.2.3",
                           change: "created",
                           fileCount: 4,
+                          targets: [
+                            { path: ".agents/skills/code-review", change: "created" },
+                            { path: ".claude/skills/code-review", change: "created" },
+                          ],
                         },
                       },
                     },
@@ -720,13 +729,19 @@ describe("displayPlan", () => {
 
           expect(
             logsByTag(state).success.some((m) =>
-              m.includes("Installed code-review (skill) to this project"),
+              m.includes("Installed skill code-review for 2 agents"),
             ),
           ).toBe(true);
           expect(
             logsByTag(state).success.some((m) => m.includes("Applied install operation")),
           ).toBe(true);
-          expect(state.summaries).toEqual(["-> .claude/skills/code-review   1.2.3 | 4 files"]);
+          expect(state.summaries).toEqual([
+            [
+              "-> 2 agent targets   1.2.3 | 4 files",
+              "   -> .agents/skills/code-review   created",
+              "   -> .claude/skills/code-review   created",
+            ].join("\n"),
+          ]);
           expect(state.suggestions.map((suggestion) => suggestion.description)).toEqual([
             "Inspect installed skills",
             "Undo",

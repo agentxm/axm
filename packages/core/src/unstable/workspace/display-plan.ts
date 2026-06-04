@@ -218,11 +218,25 @@ const artifactPluralType = (type: string): string => {
 const scopePhrase = (scope: JobStepArtifact["scope"]): string =>
   scope === "project" ? "this project" : "user scope";
 
-const formatArtifactSummary = (artifact: JobStepArtifact): string => {
+const artifactTargetPhrase = (artifact: JobStepArtifact): string | undefined =>
+  artifact.targets === undefined || artifact.targets.length === 0
+    ? undefined
+    : `for ${count(artifact.targets.length, "agent")}`;
+
+const formatArtifactSummary = (artifact: JobStepArtifact, verbose: boolean): string => {
   const details = [
     artifact.version,
     artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
   ].filter((part): part is string => part !== undefined && part.length > 0);
+  if (artifact.targets !== undefined && artifact.targets.length > 0) {
+    const summary =
+      details.length === 0
+        ? `-> ${count(artifact.targets.length, "agent target")}`
+        : `-> ${count(artifact.targets.length, "agent target")}   ${details.join(" | ")}`;
+    if (!verbose) return summary;
+    const rows = artifact.targets.map((target) => `   -> ${target.path}   ${target.change}`);
+    return [summary, ...rows].join("\n");
+  }
   return details.length === 0
     ? `-> ${artifact.path}`
     : `-> ${artifact.path}   ${details.join(" | ")}`;
@@ -238,13 +252,17 @@ const formatArtifactRow = (step: CompletedJobStep, artifact: JobStepArtifact): s
   return `${step.label}   ${details.join("   ")}`;
 };
 
+const cleanStepLabel = (label: string): string => {
+  const parenIndex = label.indexOf(" (");
+  return parenIndex === -1 ? label : label.slice(0, parenIndex);
+};
+
 const singleArtifactSuggestions = (
   type: string,
   label: string,
 ): ReadonlyArray<{ readonly description: string; readonly cmd: string }> | undefined => {
   if (type !== "skill") return undefined;
-  const parenIndex = label.indexOf(" (");
-  const target = parenIndex === -1 ? label : label.slice(0, parenIndex);
+  const target = cleanStepLabel(label);
   return [
     { description: "Inspect installed skills", cmd: "axm skills list" },
     { description: "Undo", cmd: `axm skills uninstall ${target}` },
@@ -256,11 +274,21 @@ const unchangedHeadline = (step: CompletedJobStep, artifact: JobStepArtifact): s
   return `Already up to date — ${step.label}${version}`;
 };
 
+const singleArtifactHeadline = (
+  verb: string,
+  type: string,
+  step: CompletedJobStep,
+  artifact: JobStepArtifact,
+): string => {
+  const targetPhrase = artifactTargetPhrase(artifact) ?? `to ${scopePhrase(artifact.scope)}`;
+  return `${verb} ${type} ${cleanStepLabel(step.label)} ${targetPhrase}`;
+};
+
 const renderExecutedOutcome = (
   plan: ExecutedPlan,
   allSteps: ReadonlyArray<CompletedJobStep>,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
-  verbosity: { readonly quiet: boolean },
+  verbosity: { readonly quiet: boolean; readonly verbose: boolean },
 ) =>
   Effect.gen(function* () {
     const successes = allSteps.filter((step) => step.result.result === "success");
@@ -287,11 +315,11 @@ const renderExecutedOutcome = (
 
         const suggestions = singleArtifactSuggestions(type, first.step.label);
         yield* renderer.success(
-          `${verb} ${first.step.label} (${type}) to ${scopePhrase(first.artifact.scope)}`,
+          singleArtifactHeadline(verb, type, first.step, first.artifact),
           verbosity.quiet
             ? undefined
             : {
-                summary: formatArtifactSummary(first.artifact),
+                summary: formatArtifactSummary(first.artifact, verbosity.verbose),
                 ...(suggestions === undefined ? {} : { suggestions }),
               },
         );

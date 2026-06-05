@@ -8,6 +8,7 @@ export const geminiCliAgent = {
   interfaces: ["cli"],
   family: "google",
   rootDir: ".gemini",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: {

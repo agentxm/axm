@@ -8,6 +8,7 @@ export const traeAgent = {
   interfaces: ["ide-extension"],
   family: "bytedance",
   rootDir: null,
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

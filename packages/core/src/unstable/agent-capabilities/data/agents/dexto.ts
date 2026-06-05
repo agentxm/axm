@@ -8,6 +8,7 @@ export const dextoAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: null,
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [{ kind: "dir", path: "~/.dexto", signal: "definitive", note: null }] },

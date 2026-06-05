@@ -8,6 +8,7 @@ export const muxAgent = {
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".mux",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

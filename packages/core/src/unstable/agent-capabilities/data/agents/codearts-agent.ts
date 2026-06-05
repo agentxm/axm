@@ -8,6 +8,7 @@ export const codeartsAgentAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".codeartsdoer",
+  lifecycle: { state: "active" },
   detection: {
     project: {
       markers: [{ kind: "dir", path: ".codeartsdoer", signal: "definitive", note: null }],

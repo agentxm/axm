@@ -880,6 +880,60 @@ export type AgentCapabilities = Schema.Schema.Type<typeof AgentCapabilitiesSchem
 /** @experimental This API is unstable and may change without notice. */
 export type AgentExtensionCapability = AgentCapabilities[LeafExtensionType];
 
+/** @experimental This API is unstable and may change without notice. */
+export const AgentLifecycleStateSchema = Schema.Literals([
+  "active",
+  "deprecated",
+  "retired",
+]).annotate({
+  identifier: "AgentLifecycleState",
+  title: "Agent Lifecycle State",
+  description:
+    "Support status of the coding agent product itself. Distinct from CapabilityLifecycle, which tracks AXM's integration with a single capability.",
+  examples: ["active", "deprecated", "retired"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type AgentLifecycleState = Schema.Schema.Type<typeof AgentLifecycleStateSchema>;
+
+const AgentLifecycleSinceSchema = Schema.NonEmptyString.pipe(
+  Schema.check(
+    Schema.isPattern(ISO_DATE_PATTERN, {
+      message: "Expected an ISO 8601 date in YYYY-MM-DD form.",
+    }),
+  ),
+).annotate({
+  identifier: "AgentLifecycleSince",
+  title: "Agent Lifecycle Since",
+  description: "Date an agent entered its current lifecycle state.",
+  examples: ["2025-11-01"],
+});
+
+// Loose kebab id rather than the closed AgentIdSchema: that schema lives in
+// catalog.ts (which imports this module), so referencing it here would be a
+// cycle. Referential integrity (target exists, not self, no cycles) is enforced
+// by the catalog invariant test.
+const InactiveAgentLifecycleFields = {
+  since: Schema.NullOr(AgentLifecycleSinceSchema),
+  note: Schema.NullOr(Schema.NonEmptyString),
+  supersededBy: Schema.NullOr(AgentIdFromYamlSchema),
+};
+
+/** @experimental This API is unstable and may change without notice. */
+export const AgentLifecycleSchema = Schema.Union([
+  Schema.Struct({ state: Schema.Literal("active") }),
+  Schema.Struct({ state: Schema.Literal("deprecated"), ...InactiveAgentLifecycleFields }),
+  Schema.Struct({ state: Schema.Literal("retired"), ...InactiveAgentLifecycleFields }),
+]).annotate({
+  identifier: "AgentLifecycle",
+  title: "Agent Lifecycle",
+  description:
+    "Whether a catalog agent is active, deprecated, or retired, and which agent supersedes it.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type AgentLifecycle = Schema.Schema.Type<typeof AgentLifecycleSchema>;
+
 const AgentStruct = Schema.Struct({
   id: AgentIdFromYamlSchema,
   name: Schema.NonEmptyString,
@@ -888,6 +942,7 @@ const AgentStruct = Schema.Struct({
   interfaces: Schema.NonEmptyArray(AgentInterfaceSchema).pipe(Schema.check(Schema.isUnique())),
   family: Schema.NullOr(Schema.NonEmptyString),
   rootDir: Schema.NullOr(Schema.NonEmptyString),
+  lifecycle: AgentLifecycleSchema,
   detection: DetectionSchema,
   docs: Schema.Array(DocLinkSchema),
   capabilities: AgentCapabilitiesSchema,

@@ -8,6 +8,7 @@ export const rovodevAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".rovodev",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [{ kind: "dir", path: ".rovodev", signal: "definitive", note: null }] },
     user: { markers: [{ kind: "dir", path: "~/.rovodev", signal: "definitive", note: null }] },

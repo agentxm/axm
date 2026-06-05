@@ -8,6 +8,7 @@ export const zencoderAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".zencoder",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

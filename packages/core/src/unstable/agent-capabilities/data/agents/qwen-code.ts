@@ -8,6 +8,7 @@ export const qwenCodeAgent = {
   interfaces: ["cli"],
   family: "alibaba",
   rootDir: ".qwen",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

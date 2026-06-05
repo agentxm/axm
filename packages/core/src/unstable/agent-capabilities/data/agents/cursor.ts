@@ -8,6 +8,7 @@ export const cursorAgent = {
   interfaces: ["ide-extension", "cli"],
   family: "cursor",
   rootDir: ".cursor",
+  lifecycle: { state: "active" },
   detection: {
     project: {
       markers: [

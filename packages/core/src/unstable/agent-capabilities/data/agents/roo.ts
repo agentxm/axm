@@ -8,6 +8,7 @@ export const rooAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".roo",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

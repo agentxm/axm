@@ -2,8 +2,14 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
-import { AgentIdSchema, AGENTS } from "./catalog.js";
-import { AgentSchema, DetectionMarkerSchema, DetectionSchema, type Agent } from "./schema.js";
+import { AgentIdSchema, AGENTS, AGENT_IDS } from "./catalog.js";
+import {
+  AgentLifecycleSchema,
+  AgentSchema,
+  DetectionMarkerSchema,
+  DetectionSchema,
+  type Agent,
+} from "./schema.js";
 
 const decodeAgent = (input: unknown): Agent =>
   Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
@@ -37,6 +43,7 @@ const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   interfaces: ["cli"],
   family: null,
   rootDir: ".sample",
+  lifecycle: { state: "active" },
   detection: { project: { markers: [] }, user: { markers: [] } },
   docs: [],
   capabilities: makeCapabilitiesInput(),
@@ -294,5 +301,62 @@ describe("agent capability catalog", () => {
         }),
       ),
     ).toThrow("MCP stdio config is required");
+  });
+
+  it("defaults every catalog agent to an active lifecycle unless retired or deprecated", () => {
+    for (const agent of AGENTS) {
+      expect(["active", "deprecated", "retired"]).toContain(agent.lifecycle.state);
+    }
+  });
+
+  it("requires since, note, and supersededBy on inactive lifecycle states", () => {
+    const decode = (input: unknown) =>
+      Schema.decodeUnknownResult(AgentLifecycleSchema)(input, { onExcessProperty: "error" });
+    expect(Result.isSuccess(decode({ state: "active" }))).toBe(true);
+    expect(
+      Result.isSuccess(
+        decode({
+          state: "retired",
+          since: "2025-11-01",
+          note: "Merged into another agent.",
+          supersededBy: "cursor",
+        }),
+      ),
+    ).toBe(true);
+    // active carries no metadata
+    expect(Result.isFailure(decode({ state: "active", supersededBy: "cursor" }))).toBe(true);
+    // retired/deprecated must spell out the inactive fields
+    expect(Result.isFailure(decode({ state: "retired" }))).toBe(true);
+    expect(Result.isFailure(decode({ state: "deprecated", since: "2025-11-01" }))).toBe(true);
+  });
+
+  it("keeps supersededBy references valid: known agent, not self, no cycles", () => {
+    const agents = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS);
+    const byId = new Map(agents.map((agent) => [agent.id, agent]));
+    const ids = new Set<string>(AGENT_IDS);
+    const successorOf = (id: string): string | null => {
+      const lifecycle = byId.get(id)?.lifecycle;
+      return lifecycle === undefined || lifecycle.state === "active"
+        ? null
+        : lifecycle.supersededBy;
+    };
+
+    for (const agent of agents) {
+      if (agent.lifecycle.state === "active") continue;
+      const successor = agent.lifecycle.supersededBy;
+      if (successor === null) continue;
+
+      expect(ids, `${agent.id} supersededBy unknown agent ${successor}`).toContain(successor);
+      expect(successor, `${agent.id} supersededBy itself`).not.toBe(agent.id);
+
+      // Walk the successor chain; it must terminate without revisiting a node.
+      const seen = new Set<string>([agent.id]);
+      let cursor: string | null = successor;
+      while (cursor !== null) {
+        expect(seen, `supersededBy cycle through ${cursor}`).not.toContain(cursor);
+        seen.add(cursor);
+        cursor = successorOf(cursor);
+      }
+    }
   });
 });

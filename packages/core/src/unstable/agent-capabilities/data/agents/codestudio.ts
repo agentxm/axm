@@ -8,6 +8,7 @@ export const codestudioAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".codestudio",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [{ kind: "dir", path: ".codestudio", signal: "definitive", note: null }] },
     user: { markers: [{ kind: "dir", path: "~/.codestudio", signal: "definitive", note: null }] },

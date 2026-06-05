@@ -8,6 +8,7 @@ export const droidAgent = {
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".factory",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

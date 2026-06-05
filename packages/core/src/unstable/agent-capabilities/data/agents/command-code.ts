@@ -8,6 +8,7 @@ export const commandCodeAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".commandcode",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

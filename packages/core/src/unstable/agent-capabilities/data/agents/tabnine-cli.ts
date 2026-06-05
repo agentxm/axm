@@ -8,6 +8,7 @@ export const tabnineCliAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".tabnine",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [{ kind: "dir", path: ".tabnine", signal: "definitive", note: null }] },
     user: { markers: [{ kind: "dir", path: "~/.tabnine", signal: "definitive", note: null }] },

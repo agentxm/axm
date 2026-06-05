@@ -8,6 +8,7 @@ export const kimiCliAgent = {
   interfaces: ["cli"],
   family: "moonshot",
   rootDir: null,
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

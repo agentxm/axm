@@ -8,6 +8,7 @@ export const cortexAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".cortex",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [{ kind: "dir", path: ".cortex", signal: "definitive", note: null }] },
     user: {

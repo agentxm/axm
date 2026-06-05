@@ -8,6 +8,7 @@ export const deepagentsAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: null,
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [{ kind: "dir", path: "~/.deepagents", signal: "definitive", note: null }] },

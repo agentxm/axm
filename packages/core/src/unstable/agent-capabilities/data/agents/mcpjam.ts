@@ -8,6 +8,7 @@ export const mcpjamAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".mcpjam",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

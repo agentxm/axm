@@ -8,6 +8,7 @@ export const qoderAgent = {
   interfaces: ["cli", "ide-extension"],
   family: "alibaba",
   rootDir: ".qoder",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

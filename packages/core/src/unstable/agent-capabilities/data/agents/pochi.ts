@@ -8,6 +8,7 @@ export const pochiAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".pochi",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

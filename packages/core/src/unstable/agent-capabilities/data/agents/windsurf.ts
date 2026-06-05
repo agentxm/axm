@@ -8,6 +8,7 @@ export const windsurfAgent = {
   interfaces: ["ide-extension"],
   family: "cognition",
   rootDir: ".windsurf",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

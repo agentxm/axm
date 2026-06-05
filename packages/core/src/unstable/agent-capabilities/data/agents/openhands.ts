@@ -8,6 +8,7 @@ export const openhandsAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".openhands",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

@@ -8,6 +8,7 @@ export const githubCopilotCliAgent = {
   interfaces: ["cli"],
   family: "github",
   rootDir: ".copilot",
+  lifecycle: { state: "active" },
   detection: {
     project: {
       markers: [

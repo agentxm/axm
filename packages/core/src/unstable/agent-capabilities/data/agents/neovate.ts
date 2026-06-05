@@ -8,6 +8,7 @@ export const neovateAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".neovate",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

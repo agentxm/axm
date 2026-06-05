@@ -8,6 +8,7 @@ export const ibmBobAgent = {
   interfaces: ["ide-extension", "cli"],
   family: null,
   rootDir: ".bob",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

@@ -8,6 +8,7 @@ export const codexAgent = {
   interfaces: ["cli", "ide-extension"],
   family: "openai",
   rootDir: ".codex",
+  lifecycle: { state: "active" },
   detection: {
     project: {
       markers: [

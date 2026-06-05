@@ -8,6 +8,7 @@ export const piAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".pi",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

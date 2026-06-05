@@ -8,6 +8,7 @@ export const antigravityAgent = {
   interfaces: ["cli", "ide-extension"],
   family: "google",
   rootDir: null,
+  lifecycle: { state: "active" },
   detection: {
     project: {
       markers: [

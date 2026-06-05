@@ -8,6 +8,7 @@ export const augmentAgent = {
   interfaces: ["ide-extension", "cli"],
   family: null,
   rootDir: ".augment",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

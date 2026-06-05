@@ -8,6 +8,7 @@ export const mistralVibeAgent = {
   interfaces: ["cli"],
   family: "mistral",
   rootDir: ".vibe",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

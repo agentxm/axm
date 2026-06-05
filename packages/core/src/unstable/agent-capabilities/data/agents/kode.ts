@@ -8,6 +8,7 @@ export const kodeAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".kode",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

@@ -8,6 +8,7 @@ export const claudeCodeAgent = {
   interfaces: ["cli", "ide-extension"],
   family: "anthropic",
   rootDir: ".claude",
+  lifecycle: { state: "active" },
   detection: {
     project: {
       markers: [

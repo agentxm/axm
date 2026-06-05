@@ -8,6 +8,7 @@ export const crushAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".crush",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

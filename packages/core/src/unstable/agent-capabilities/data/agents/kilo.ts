@@ -8,6 +8,7 @@ export const kiloAgent = {
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".kilocode",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

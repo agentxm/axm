@@ -8,6 +8,7 @@ export const opencodeAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".opencode",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

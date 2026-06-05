@@ -8,6 +8,7 @@ export const junieAgent = {
   interfaces: ["ide-extension"],
   family: "jetbrains",
   rootDir: ".junie",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

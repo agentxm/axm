@@ -8,6 +8,7 @@ export const adalAgent = {
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".adal",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

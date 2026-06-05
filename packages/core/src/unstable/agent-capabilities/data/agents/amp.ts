@@ -8,6 +8,7 @@ export const ampAgent = {
   interfaces: ["cli", "ide-extension"],
   family: "sourcegraph",
   rootDir: null,
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

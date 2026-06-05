@@ -8,6 +8,7 @@ export const openclawAgent = {
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: null,
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

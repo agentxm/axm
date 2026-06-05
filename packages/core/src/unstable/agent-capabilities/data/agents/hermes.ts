@@ -8,6 +8,7 @@ export const hermesAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".hermes",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

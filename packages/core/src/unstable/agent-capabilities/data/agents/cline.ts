@@ -8,6 +8,7 @@ export const clineAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".cline",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

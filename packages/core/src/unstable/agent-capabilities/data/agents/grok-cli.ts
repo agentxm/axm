@@ -8,6 +8,7 @@ export const grokCliAgent = {
   interfaces: ["cli"],
   family: "xai",
   rootDir: ".grok",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

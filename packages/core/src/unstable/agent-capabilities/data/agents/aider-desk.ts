@@ -8,6 +8,7 @@ export const aiderDeskAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".aider-desk",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [{ kind: "dir", path: ".aider-desk", signal: "definitive", note: null }] },
     user: { markers: [{ kind: "dir", path: "~/.aider-desk", signal: "definitive", note: null }] },

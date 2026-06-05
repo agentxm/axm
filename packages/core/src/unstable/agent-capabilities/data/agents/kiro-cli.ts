@@ -8,6 +8,7 @@ export const kiroCliAgent = {
   interfaces: ["cli"],
   family: "amazon",
   rootDir: ".kiro",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

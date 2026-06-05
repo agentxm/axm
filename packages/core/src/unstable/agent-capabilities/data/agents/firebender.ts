@@ -8,6 +8,7 @@ export const firebenderAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: null,
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [{ kind: "dir", path: "~/.firebender", signal: "definitive", note: null }] },

@@ -20,6 +20,7 @@ const baseAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".sample",
+  lifecycle: { state: "active" },
   detection: { project: { markers: [] }, user: { markers: [] } },
   docs: [],
   capabilities: {

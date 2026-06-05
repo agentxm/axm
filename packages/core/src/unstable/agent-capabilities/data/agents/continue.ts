@@ -8,6 +8,7 @@ export const continueAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".continue",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

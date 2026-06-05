@@ -8,6 +8,7 @@ export const devinAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".devin",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [{ kind: "dir", path: ".devin", signal: "definitive", note: null }] },
     user: {

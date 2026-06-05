@@ -8,6 +8,7 @@ export const codebuddyAgent = {
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".codebuddy",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

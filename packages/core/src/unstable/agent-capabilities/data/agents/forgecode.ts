@@ -8,6 +8,7 @@ export const forgecodeAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".forge",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [{ kind: "dir", path: ".forge", signal: "definitive", note: null }] },
     user: {

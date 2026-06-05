@@ -21,6 +21,34 @@ unsupported or unknown support:
 
 All values are explicit. Do not rely on optional fields or schema defaults.
 
+## Agent lifecycle
+
+Every agent declares a `lifecycle` describing the support status of the product
+itself. This is the agent-level axis and is distinct from a capability's
+`lifecycle` (which tracks AXM's integration with one extension type).
+
+A current agent is simply:
+
+```ts
+lifecycle: { state: "active" },
+```
+
+A `deprecated` (still usable, discouraged) or `retired` (discontinued / EOL)
+agent spells out every field. Use `supersededBy` to point at the agent that
+replaced it (a catalog `id`), or `null` when there is no successor:
+
+```ts
+lifecycle: {
+  state: "retired",
+  since: "2025-11-01",        // YYYY-MM-DD, or null if unknown
+  note: "Merged into Cursor.", // user-facing reason, or null
+  supersededBy: "cursor",      // catalog id of the replacement, or null
+},
+```
+
+`supersededBy` must reference a known, non-self agent and must not form a cycle;
+the catalog invariant test enforces this.
+
 Spec-tracked capabilities (`skills`, `instructions`, `mcp`) also require:
 
 - `standardsCompliance`: `full`, `parity`, `partial`, or `none`

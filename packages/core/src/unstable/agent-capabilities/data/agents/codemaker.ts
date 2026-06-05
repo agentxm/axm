@@ -8,6 +8,7 @@ export const codemakerAgent = {
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".codemaker",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [{ kind: "dir", path: ".codemaker", signal: "definitive", note: null }] },
     user: { markers: [{ kind: "dir", path: "~/.codemaker", signal: "definitive", note: null }] },

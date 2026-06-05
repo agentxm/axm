@@ -8,6 +8,7 @@ export const gooseAgent = {
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".goose",
+  lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
     user: { markers: [] },

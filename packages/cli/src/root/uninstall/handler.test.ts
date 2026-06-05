@@ -40,6 +40,7 @@ import {
   type UninstallRuleHandlerArgs,
 } from "../rules/uninstall/command-actions.js";
 import {
+  expectAppliedPlanResult,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -89,8 +90,14 @@ describe("root uninstall handler", () => {
     ],
   });
 
-  const makeLayers = (calls: Array<UninstallCall>) => {
-    const ctx = makeWorkspaceHandlerTestContext({ flags: { nonInteractive: true } });
+  const makeLayers = (
+    calls: Array<UninstallCall>,
+    opts?: { readonly machine?: boolean | undefined },
+  ) => {
+    const ctx = makeWorkspaceHandlerTestContext({
+      flags: { nonInteractive: true },
+      machine: opts?.machine,
+    });
 
     const skillActions = {
       parseArgs: (args: UninstallHandlerArgs) =>
@@ -232,7 +239,11 @@ describe("root uninstall handler", () => {
       ),
     );
 
-    return { provide: makeEffectProvide(fullLayer) };
+    return {
+      provide: makeEffectProvide(fullLayer),
+      logs: ctx.logs,
+      rendererState: ctx.rendererState,
+    };
   };
 
   it.effect(
@@ -298,6 +309,38 @@ describe("root uninstall handler", () => {
 
       expect(appError.code).toBe("validation");
       expect(calls).toEqual([]);
+    }),
+  );
+
+  it.effect("emits plan-resolution JSON for root uninstall", () =>
+    Effect.gen(function* () {
+      const calls: Array<UninstallCall> = [];
+      const flags = {
+        yes: true,
+        force: false,
+        preview: false,
+      } satisfies RootUninstallFlags;
+      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+      });
+
+      yield* provide(handleUninstall({ source: "@acme/skills/code-review", ...flags }));
+
+      expect(calls).toEqual([{ type: "skill", name: "code-review" }]);
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Uninstall skill",
+      });
+      expect(result).toMatchObject({
+        steps: [
+          {
+            label: "skill",
+            status: "applied",
+            message: "Uninstalled skill",
+          },
+        ],
+      });
     }),
   );
 });

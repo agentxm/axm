@@ -409,7 +409,7 @@ describe("axm skills install", () => {
         expect(output).toContain("my-skill");
         expect(output).toContain("another-skill");
         expect(output).toMatch(/\+.*my-skill|\+.*another-skill/);
-        expect(output).toContain("Previewing changes...");
+        expect(output).toContain("Would install");
 
         // Verify no files were created
         const skillsDir = path.join(temp.path, ".axm", "skills");
@@ -482,7 +482,7 @@ describe("axm skills install", () => {
         const output = getOutput(result);
         expect(output).toContain("my-skill");
         expect(output).toMatch(/\+.*my-skill|to install/);
-        expect(output).toContain("Previewing changes...");
+        expect(output).toContain("Would install");
       } finally {
         temp.cleanup();
       }
@@ -823,7 +823,7 @@ describe("axm skills install", () => {
         expect(result.stdout).toContain("another-skill");
         // Should show + for install
         expect(result.stdout).toMatch(/\+.*my-skill|\+.*another-skill/);
-        expect(result.stdout).toContain("Previewing changes...");
+        expect(result.stdout).toContain("Would install");
       } finally {
         temp.cleanup();
       }

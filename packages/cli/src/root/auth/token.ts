@@ -21,7 +21,12 @@ import {
   type DetailView,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  OperationPlanFields,
+  makeSingleStepOperationPlan,
+  type SuggestedAction,
+  withArgvTracking,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { withAuthRuntime } from "../../runtime.js";
 
 const TokenDataSchema = Schema.Struct({
@@ -39,7 +44,15 @@ const CreatedTokenDataSchema = Schema.Struct({
   createdAt: Schema.String,
   expiresAt: Schema.String,
 });
+const CreatedTokenResultSchema = Schema.Struct({
+  ...OperationPlanFields,
+  status: Schema.Literal("created"),
+  tokenId: Schema.String,
+  name: Schema.String,
+  expiresAt: Schema.String,
+});
 const CreatedTokenDocumentFields = {
+  result: CreatedTokenResultSchema,
   data: CreatedTokenDataSchema,
 } satisfies Schema.Struct.Fields;
 
@@ -58,7 +71,22 @@ const TokenListDocumentFields = {
     hasMore: Schema.Boolean,
     cursor: Schema.NullOr(Schema.String),
   }),
+  count: Schema.Number,
 } satisfies Schema.Struct.Fields;
+
+const RevokeTokenResultSchema = Schema.Struct({
+  ...OperationPlanFields,
+  status: Schema.Literal("revoked"),
+  tokenId: Schema.String,
+  stepUpCompleted: Schema.Boolean,
+});
+const RevokeTokenDocumentFields = {
+  result: RevokeTokenResultSchema,
+} satisfies Schema.Struct.Fields;
+
+const RevokeTokenSuggestions = [
+  { description: "List remaining tokens", cmd: "axm token list" },
+] satisfies ReadonlyArray<SuggestedAction>;
 
 interface CreatedTokenDetailItem {
   readonly id: string;
@@ -66,6 +94,11 @@ interface CreatedTokenDetailItem {
   readonly token: string;
   readonly expiresAt: string;
 }
+
+const createTokenSuggestions = (tokenId: string): ReadonlyArray<SuggestedAction> => [
+  { description: "List tokens", cmd: "axm token list" },
+  { description: "Revoke this token", cmd: `axm token revoke ${tokenId}` },
+];
 
 const CreatedTokenDetail = {
   fields: {
@@ -212,10 +245,30 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
     expiresIn,
     permissions: compactPermissions(args),
   });
+  const suggestions = createTokenSuggestions(created.id);
 
   if (
     yield* renderer.result(
       {
+        result: {
+          ...makeSingleStepOperationPlan({
+            planName: "Create AXM access token",
+            planDescription: "Create a registry access token",
+            message: `Created token ${created.id}`,
+            stepLabel: "Registry access token",
+            stepStatus: "applied",
+            stepMessage: `Created token ${created.id}`,
+            artifact: {
+              path: created.id,
+              scope: "user",
+              change: "created",
+            },
+          }),
+          status: "created",
+          tokenId: created.id,
+          name: created.name,
+          expiresAt: created.expiresAt,
+        },
         data: {
           id: created.id,
           token: created.token,
@@ -226,6 +279,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
         },
       },
       Schema.Struct(CreatedTokenDocumentFields),
+      { suggestions },
     )
   ) {
     return;
@@ -241,6 +295,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
     CreatedTokenDetail,
     "Created token",
   );
+  yield* renderer.suggestions(suggestions);
 }, Effect.asVoid);
 
 export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
@@ -269,6 +324,7 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
           hasMore: result.hasMore,
           cursor: result.cursor,
         },
+        count: result.tokens.length,
       },
       Schema.Struct(TokenListDocumentFields),
     )
@@ -277,7 +333,11 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
   }
 
   if (result.tokens.length === 0) {
-    yield* renderer.info("No tokens found");
+    yield* renderer.list("token", {
+      items: [],
+      count: 0,
+      emptyMessage: "No tokens found",
+    });
     return;
   }
 
@@ -299,10 +359,12 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
   const authClient = yield* AuthClient;
   const interaction = yield* AuthLoginInteraction;
   const renderer = yield* CliRenderer;
+  const jsonMode = Option.getOrElse(yield* jsonFlag, () => false);
   const token = yield* resolveRequiredToken(registryUrl, {
     missingTokenError: errAuthRequired("Not authenticated"),
   });
 
+  let stepUpCompleted = false;
   const revokeResult = yield* Effect.result(authClient.deleteToken(token.token, tokenId));
   if (Result.isFailure(revokeResult)) {
     const stepUp = readStepUpRequired(revokeResult.failure);
@@ -311,20 +373,52 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
     }
 
     const opened = yield* interaction.openBrowser(stepUp.authUrl);
-    yield* renderer.step(
-      opened
-        ? "Opening browser to complete step-up authentication..."
-        : "Complete step-up authentication in your browser.",
-    );
-    yield* renderer.step(`Visit: ${stepUp.authUrl}`);
+    if (!jsonMode) {
+      yield* renderer.step(
+        opened
+          ? "Opening browser to complete step-up authentication..."
+          : "Complete step-up authentication in your browser.",
+      );
+      yield* renderer.step(`Visit: ${stepUp.authUrl}`);
+    }
 
-    const stepUpToken = yield* renderer.withSpinner("Waiting for step-up authentication...", () =>
-      authClient.pollStepUpChallenge(token.token, stepUp.doneUrl),
-    );
+    const stepUpToken = yield* authClient.pollStepUpChallenge(token.token, stepUp.doneUrl);
     yield* authClient.deleteToken(token.token, tokenId, { stepUpToken });
+    stepUpCompleted = true;
   }
 
-  yield* renderer.success(`Revoked token ${tokenId}.`);
+  if (
+    yield* renderer.result(
+      {
+        result: {
+          ...makeSingleStepOperationPlan({
+            planName: "Revoke AXM access token",
+            planDescription: "Revoke a registry access token",
+            message: `Revoked token ${tokenId}`,
+            stepLabel: "Registry access token",
+            stepStatus: "applied",
+            stepMessage: `Revoked token ${tokenId}`,
+            artifact: {
+              path: tokenId,
+              scope: "user",
+              change: "removed",
+            },
+          }),
+          status: "revoked",
+          tokenId,
+          stepUpCompleted,
+        },
+      },
+      Schema.Struct(RevokeTokenDocumentFields),
+      { suggestions: RevokeTokenSuggestions },
+    )
+  ) {
+    return;
+  }
+
+  yield* renderer.success(`Revoked token ${tokenId}.`, {
+    suggestions: RevokeTokenSuggestions,
+  });
 }, Effect.asVoid);
 
 const tokenConfig = {} as const;

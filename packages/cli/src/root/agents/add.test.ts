@@ -7,6 +7,7 @@ import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
@@ -15,7 +16,12 @@ import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleAgentsAdd } from "./add.js";
 
@@ -131,6 +137,17 @@ const emptyManagersLayer = Layer.mergeAll(
   Layer.succeed(PackManager, emptyPackManager),
 );
 
+const malformedLockfileSkillManager = {
+  ...emptySkillManager,
+  listMaterializable: () =>
+    Effect.fail(
+      makeAppError({
+        code: "validation",
+        detail: "Failed to read workspace lockfile",
+      }),
+    ),
+} satisfies ServiceMap.Service.Shape<typeof SkillManager>;
+
 describe("agents add.handler", () => {
   let tempDir: string;
   let homeDir: string;
@@ -157,16 +174,33 @@ describe("agents add.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: { readonly machine?: boolean }) => {
-    const context = makeWorkspaceHandlerTestContext({ machine: opts?.machine });
-    const fullLayer = Layer.mergeAll(
-      context.fullLayer,
-      emptyManagersLayer,
-      CodingAgentRepositoryLive,
-    );
+  const makeLayers = (opts?: {
+    readonly machine?: boolean;
+    readonly quiet?: boolean;
+    readonly malformedLockfile?: boolean;
+  }) => {
+    const context = makeWorkspaceHandlerTestContext({
+      machine: opts?.machine,
+      ...(opts?.quiet === undefined ? {} : { flags: { quiet: opts.quiet } }),
+    });
+    const managersLayer =
+      opts?.malformedLockfile === true
+        ? Layer.mergeAll(
+            Layer.succeed(SkillManager, malformedLockfileSkillManager),
+            Layer.succeed(CommandManager, emptyCommandManager),
+            Layer.succeed(McpServerManager, emptyMcpServerManager),
+            Layer.succeed(FilesManager, emptyFilesManager),
+            Layer.succeed(HookManager, emptyHookManager),
+            Layer.succeed(RuleManager, emptyRuleManager),
+            Layer.succeed(SubagentManager, emptySubagentManager),
+            Layer.succeed(PackManager, emptyPackManager),
+          )
+        : emptyManagersLayer;
+    const fullLayer = Layer.mergeAll(context.fullLayer, managersLayer, CodingAgentRepositoryLive);
 
     return {
       provide: makeEffectProvide(fullLayer),
+      logs: context.logs,
       rendererState: context.rendererState,
     };
   };
@@ -204,15 +238,111 @@ describe("agents add.handler", () => {
           preview: false,
         });
 
-        expect(rendererState.results[0]?.data).toEqual(
-          expect.objectContaining({
-            result: expect.objectContaining({
-              outcome: "applied",
-              appliedCount: 1,
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Add coding agents",
+        });
+        expect(result).toMatchObject({
+          steps: [
+            expect.objectContaining({
+              label: "Add cursor",
+              artifact: expect.objectContaining({
+                path: ".axm/settings.json",
+                scope: "project",
+                agents: ["cursor"],
+                change: "updated",
+                fileCount: 1,
+              }),
             }),
-          }),
-        );
+          ],
+        });
         expect(rendererState.suggestions).toEqual([cursorSuggestion]);
+      }),
+    );
+  });
+
+  it.effect("emits JSON no-op when all requested agents are already configured", () => {
+    const { provide, logs, rendererState } = makeLayers({ machine: true });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: ["cursor"] });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsAdd({
+          ids: ["cursor"],
+          detected: false,
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(logs.success).toEqual([]);
+        const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Add coding agents",
+          message: "All requested agents are already configured",
+        });
+        expect(result).toMatchObject({
+          planDescription: "Configure coding agents and materialize installed extensions",
+        });
+      }),
+    );
+  });
+
+  it.effect("reports skipped materialization in machine-mode plan output", () => {
+    const { provide, logs, rendererState } = makeLayers({
+      machine: true,
+      malformedLockfile: true,
+    });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsAdd({
+          ids: ["cursor"],
+          detected: false,
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(logs.warn).toEqual([]);
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Add coding agents",
+          totalSteps: 2,
+          appliedCount: 1,
+        });
+        expect(result).toMatchObject({
+          steps: [
+            {
+              label: "Add cursor",
+              status: "applied",
+              message: "Configured cursor",
+              artifact: {
+                path: ".axm/settings.json",
+                scope: "project",
+                agents: ["cursor"],
+                change: "updated",
+                fileCount: 1,
+                targets: [
+                  {
+                    path: ".axm/settings.json",
+                    change: "updated",
+                    agentIds: ["cursor"],
+                  },
+                ],
+              },
+            },
+            {
+              label: "Materialize installed extensions",
+              status: "unchanged",
+              message:
+                "Skipped installed extension materialization: Failed to read workspace lockfile. Run `axm sync` after fixing the workspace lockfile.",
+              artifact: {
+                scope: "project",
+                change: "unchanged",
+                targets: [{ path: ".axm/axm-lock.yaml", change: "unchanged" }],
+              },
+            },
+          ],
+        });
       }),
     );
   });
@@ -231,6 +361,26 @@ describe("agents add.handler", () => {
           preview: true,
         });
 
+        expect(rendererState.suggestions).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("keeps quiet output to the applied plan outcome", () => {
+    const { provide, rendererState } = makeLayers({ quiet: true });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsAdd({
+          ids: ["cursor"],
+          detected: false,
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(rendererState.logs).toEqual([{ _tag: "success", message: "Configured 1 agent" }]);
         expect(rendererState.suggestions).toEqual([]);
       }),
     );

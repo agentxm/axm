@@ -13,4 +13,5 @@ import type { VersionRange } from "@agentxm/client-core/unstable/version-constra
 export interface InstallPackCommandIntent {
   readonly packToInstall: PackRef;
   readonly versionRange: Option.Option<VersionRange>;
+  readonly diagnosticLines?: ReadonlyArray<string>;
 }

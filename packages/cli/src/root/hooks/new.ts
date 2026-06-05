@@ -4,9 +4,11 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   buildNewExtensionStep,
   decodeExtensionNameSync,
+  REGISTRY_EXTENSIONS_DIR,
   normalizeHandle,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
@@ -16,20 +18,28 @@ import type {
   NewHookOperation,
   RegistryHookRef,
 } from "@agentxm/client-core/unstable/hooks";
-import { HookManager, newHook } from "@agentxm/client-core/unstable/hooks";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { HOOK_EXTENSION_DIR, HookManager, newHook } from "@agentxm/client-core/unstable/hooks";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  JobStepResult,
+  Plan,
+  PlanResolution,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -45,6 +55,69 @@ const HOOK_EVENTS = [
   "SubagentStop",
   "PreCompact",
 ] as const satisfies readonly HookEvent[];
+
+const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
+  entry.type === "registry" ? entry.resolvedVersion : undefined;
+
+const hookNewArtifactTargets = (entry: HookLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
+  [...(entry.materializedTargets ?? [])]
+    .sort((left, right) => left.target.localeCompare(right.target))
+    .map((target) => ({
+      path: target.target,
+      change: "created",
+    }));
+
+const hookNewArtifact = (args: {
+  readonly lockEntry: HookLockEntry;
+  readonly canonicalPath: string;
+  readonly workspaceRoot: string;
+  readonly scope: JobStepArtifact["scope"];
+  readonly pathService: Path.Path;
+}): JobStepArtifact => {
+  const targets = hookNewArtifactTargets(args.lockEntry);
+  const version = hookLockEntryVersion(args.lockEntry);
+
+  return {
+    path: args.pathService.relative(args.workspaceRoot, args.canonicalPath),
+    scope: args.scope,
+    ...(version === undefined ? {} : { version }),
+    change: "created",
+    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+  };
+};
+
+const hookNewArtifactOutput = (
+  resolution: PlanResolution,
+): { readonly targetPhrase: string; readonly summary: string } | undefined => {
+  if (resolution._tag !== "ExecutedPlan") return undefined;
+
+  for (const job of resolution.jobs) {
+    for (const step of job.steps) {
+      if (step.result.result !== "success" || step.result.artifact === undefined) continue;
+
+      const artifact = step.result.artifact;
+      const targetPhrase =
+        artifact.targets !== undefined && artifact.targets.length > 0
+          ? ` with ${count(artifact.targets.length, "target")}`
+          : "";
+      const targetSummary =
+        artifact.targets !== undefined && artifact.targets.length > 0
+          ? `-> ${count(artifact.targets.length, "target")}`
+          : `-> ${artifact.path}`;
+      const details = [
+        artifact.version,
+        artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
+      ].filter((part): part is string => part !== undefined && part.length > 0);
+
+      return {
+        targetPhrase,
+        summary: details.length === 0 ? targetSummary : `${targetSummary}   ${details.join(" | ")}`,
+      };
+    }
+  }
+
+  return undefined;
+};
 
 const entrypointFilename = (runtime: HookRuntime): string => {
   switch (runtime) {
@@ -80,8 +153,6 @@ const toJobStepResult = (result: {
     : { result: "success", message: result.message };
 
 export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: HooksNewHandlerArgs) {
-  const renderer = yield* CliRenderer;
-
   // 1. Resolve owner
   const owner = Option.isSome(args.owner)
     ? normalizeOwner(args.owner.value)
@@ -139,6 +210,13 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
 
   // 6. Build plan with inline run closure
   const fqn = `${owner}/hooks/${args.name}`;
+  const targetDir = path.join(
+    ws.baseDir,
+    REGISTRY_EXTENSIONS_DIR,
+    owner,
+    HOOK_EXTENSION_DIR,
+    args.name,
+  );
   const ref: RegistryHookRef = {
     type: "hook",
     refType: "registry",
@@ -156,6 +234,25 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
     versionRange: Option.none(),
     label: fqn,
     message: `Created hook ${fqn}`,
+    buildArtifact: () =>
+      Effect.gen(function* () {
+        const currentLockEntry = yield* ws.getLockedHookEntry(args.name);
+        if (Option.isNone(currentLockEntry)) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Created hooks package ${fqn} but could not read its lockfile entry`,
+            suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
+          });
+        }
+
+        return hookNewArtifact({
+          lockEntry: currentLockEntry.value,
+          canonicalPath: targetDir,
+          workspaceRoot: ws.baseDir,
+          scope: ws.scope,
+          pathService: path,
+        });
+      }),
     markAuthored: ws.setHookEntry(args.name, {
       source: fqn,
       enabled: true,
@@ -176,7 +273,10 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    displayApplied: false,
+  });
 
   const entrypoint = entrypointFilename(args.runtime);
   const suggestions = [
@@ -184,17 +284,26 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "hooks", args.name, "src", entrypoint)}\` to implement the hook`,
     },
   ];
+  const artifactOutput = hookNewArtifactOutput(resolution);
 
   const emitted = yield* emitPlanResolutionResult(
     "hooks.new",
     resolution,
     resolution._tag === "ExecutedPlan"
-      ? { summary: `Created hook ${fqn}`, suggestions }
+      ? {
+          summary: `Created hooks package ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
+          suggestions,
+        }
       : undefined,
   );
 
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created hook ${fqn}`, { suggestions, withoutSuggestions: emitted });
+    yield* emitScaffoldSuccess({
+      message: `Created hooks package ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
+      ...(artifactOutput === undefined ? {} : { summary: artifactOutput.summary }),
+      suggestions,
+      withoutSuggestions: emitted,
+    });
   }
 });
 

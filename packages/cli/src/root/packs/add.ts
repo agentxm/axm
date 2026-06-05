@@ -12,20 +12,30 @@ import {
   parseRegistrySourcePatternParts,
   decodeExtensionNameSync,
 } from "@agentxm/client-core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
+import {
+  PACK_MANIFEST_FILENAME,
+  PackManifestSchema,
+  packManifestPath,
+} from "@agentxm/client-core/unstable/packs";
 import type { AddToPackOperation } from "@agentxm/client-core/unstable/packs";
 import { addToPack } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  forceFlag,
+  previewFlag,
+  Verbosity,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
+import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 export interface PacksAddHandlerArgs {
   readonly pack: string;
@@ -47,7 +57,6 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const renderer = yield* CliRenderer;
 
   // Step 1: Find the pack
   const configuredPacks = yield* ws.records.getConfiguredPacks();
@@ -59,7 +68,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       detail: `Pack '${args.pack}' not found`,
       suggestions: [
         {
-          description: "Run `axm packs new <name>` to create a pack first",
+          description: "Create a pack first",
           cmd: "axm packs new <name>",
         },
       ],
@@ -85,7 +94,8 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
                     suggestions: [
                       {
                         description:
-                          "Set `owner` in `.axm/settings.json` (run `axm setup`) before modifying this pack.",
+                          "Set `owner` in `.axm/settings.json` before modifying this pack.",
+                        cmd: "axm setup",
                       },
                     ],
                   }),
@@ -158,7 +168,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
         detail: `No managed, registry-sourced extensions match '${args.extension}'`,
         suggestions: [
           {
-            description: "Check installed extensions with `axm skills list`",
+            description: "Inspect installed skills",
             cmd: "axm skills list",
           },
         ],
@@ -183,7 +193,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       detail: `Extension '${args.extension}' not found in workspace`,
       suggestions: [
         {
-          description: "Install the extension first with `axm skills install`",
+          description: "Install the extension first",
           cmd: "axm skills install <source>",
         },
       ],
@@ -212,26 +222,18 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
     // Check if already in pack (by FQN)
     if (fqn in currentDependencies) {
-      yield* renderer.info(`Extension '${fqn}' already in pack`);
       continue;
     }
 
     additions[fqn] = version;
-    yield* renderer.info(`Adding ${fqn}@${version}`);
   }
 
   if (Object.keys(additions).length === 0) {
-    if (
-      yield* emitNoOpResult("packs.add", {
-        planName: "Add to pack",
-        planDescription: `Add extensions to ${args.pack}`,
-        message: "Nothing to do.",
-      })
-    ) {
-      return;
-    }
-
-    yield* renderer.success("Nothing to do.");
+    yield* emitNoOpOutcome("packs.add", {
+      planName: "Add to pack",
+      planDescription: `Add extensions to ${args.pack}`,
+      message: "No extensions added to pack.",
+    });
     return;
   }
 
@@ -259,14 +261,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const step: PlannedJobStep = {
     readiness: "ready",
     label: args.pack,
-    run: provideServices(addToPack(op)).pipe(
-      Effect.map(
-        (result): JobStepResult =>
-          result.result === "error"
-            ? { result: "error", message: result.message, error: result.error }
-            : { result: "success", message: result.message },
-      ),
-    ),
+    run: provideServices(addToPack(op)),
   };
 
   const plan: Plan = {
@@ -282,8 +277,36 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    displayApplied: false,
   });
-  yield* emitPlanResolutionResult("packs.add", resolution);
+  const suggestions = [
+    { description: "Inspect installed packs", cmd: "axm packs list" },
+    {
+      description: "Remove from pack",
+      cmd: `axm packs remove ${args.pack} ${args.extension}`,
+    },
+  ];
+  const summary = `-> ${packManifestPath(packOwner, args.pack)}   1 file`;
+  const emitted = yield* emitPlanResolutionResult(
+    "packs.add",
+    resolution,
+    resolution._tag === "ExecutedPlan" ? { summary, suggestions } : undefined,
+  );
+
+  if (resolution._tag === "ExecutedPlan") {
+    const renderer = yield* CliRenderer;
+    const verbosity = yield* Verbosity;
+    yield* renderer.success(
+      `Added ${count(Object.keys(additions).length, "extension")} to pack ${args.pack}`,
+      verbosity.level === "quiet"
+        ? undefined
+        : {
+            summary,
+            suggestions,
+            withoutSuggestions: emitted,
+          },
+    );
+  }
 });
 
 const addConfig = {

@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { TestRenderer } from "../../cli-renderer/index.js";
+import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionRef } from "../../extensions/index.js";
 import type { CommandExtensionRef, RegistryCommandRef } from "../refs.js";
@@ -81,8 +81,17 @@ const withServices = (
     setCommandFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
   },
   agents?: ReadonlyArray<CodingAgent>,
+) => makeServices(axmDir, wsOverrides, agents).layer;
+
+const makeServices = (
+  axmDir: string,
+  wsOverrides?: {
+    setCommandFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
+  },
+  agents?: ReadonlyArray<CodingAgent>,
 ) => {
   const mockWs = makeInstallWorkspaceMock(axmDir, wsOverrides);
+  const renderer = TestRenderer.make();
   const sourceProviders: SourceHostProvidersService = {
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: (ref) =>
@@ -99,13 +108,16 @@ const withServices = (
           ? source.path
           : source.type,
   };
-  return Layer.mergeAll(
-    NodeServices.layer,
-    WorkspaceMutations.layer(mockWs),
-    TestRenderer.make().layer,
-    Layer.succeed(SourceHostProviders, sourceProviders),
-    Layer.succeed(CodingAgentRepository, makeAgentRepoMock(agents ?? [])),
-  );
+  return {
+    layer: Layer.mergeAll(
+      NodeServices.layer,
+      WorkspaceMutations.layer(mockWs),
+      renderer.layer,
+      Layer.succeed(SourceHostProviders, sourceProviders),
+      Layer.succeed(CodingAgentRepository, makeAgentRepoMock(agents ?? [])),
+    ),
+    rendererState: renderer.state,
+  };
 };
 
 const makeRegistryRef = (
@@ -372,12 +384,14 @@ describe("installCommand", () => {
             }),
           ),
         );
+        const services = makeServices(axmDir, { setCommandFn });
 
         const result = yield* installCommand(
           makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
-        ).pipe(Effect.provide(withServices(axmDir, { setCommandFn })));
+        ).pipe(Effect.provide(services.layer));
 
         expect(result.result).toBe("error");
+        expect(logsByTag(services.rendererState).warn).toEqual([]);
       }),
     );
 
@@ -482,15 +496,60 @@ describe("installCommand", () => {
         const setCommandFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
         const agents = [makeStubAgent("claude-code")];
 
-        yield* installCommand(makeOp({ ref: makeRegistryRef({ integrity: "" }) })).pipe(
-          Effect.provide(withServices(axmDir, { setCommandFn }, agents)),
-        );
+        const result = yield* installCommand(
+          makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
+        ).pipe(Effect.provide(withServices(axmDir, { setCommandFn }, agents)));
 
+        expect(result.result).toBe("success");
+        if (result.result === "success") {
+          expect(result.artifact).toEqual({
+            path: ".claude-code/commands/my-command.md",
+            scope: "project",
+            agents: ["claude-code"],
+            version: "1.0.0",
+            change: "created",
+            fileCount: 1,
+            targets: [
+              {
+                path: ".claude-code/commands/my-command.md",
+                change: "created",
+                agentIds: ["claude-code"],
+              },
+            ],
+          });
+        }
         expect(setCommandFn).toHaveBeenCalledOnce();
         const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
         expect(lockEntry["agents"]).toEqual(["claude-code"]);
         expect(lockEntry["renderedFiles"]).toBeDefined();
         expect(lockEntry["sourceHash"]).toBeDefined();
+      }),
+    );
+
+    it.effect("reports unchanged artifact when the command is already installed", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        fs.writeFileSync(path.join(canonicalPath, "my-command.md"), "Hello world");
+        const agents = [makeStubAgent("claude-code")];
+        const layer = withServices(axmDir, undefined, agents);
+
+        yield* installCommand(makeOp({ ref: makeRegistryRef({ integrity: "" }) })).pipe(
+          Effect.provide(layer),
+        );
+        const lockfilePath = path.join(axmDir, "axm-lock.yaml");
+        const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
+        const result = yield* installCommand(
+          makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
+        ).pipe(Effect.provide(layer));
+        const lockfileAfter = fs.readFileSync(lockfilePath, "utf-8");
+
+        expect(result.result).toBe("success");
+        if (result.result === "success") {
+          expect(result.artifact?.change).toBe("unchanged");
+          expect(result.artifact?.targets?.[0]?.change).toBe("unchanged");
+        }
+        expect(lockfileAfter).toBe(lockfileBefore);
       }),
     );
 
@@ -519,6 +578,41 @@ describe("installCommand", () => {
 
         const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
         expect(lockEntry["agents"]).toEqual(["claude-code", "codex"]);
+      }),
+    );
+
+    it.effect("returns rendering warnings in the operation result without raw warning logs", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        fs.writeFileSync(path.join(canonicalPath, "my-command.md"), "Hello world");
+        const warningAgent: CodingAgent = {
+          ...makeStubAgent("claude-code"),
+          addCommand: ({ workspaceRoot, commandName }) =>
+            Effect.succeed({
+              _tag: "success",
+              renderedFilePath: path.join(
+                workspaceRoot,
+                ".claude-code",
+                "commands",
+                `${commandName}.md`,
+              ),
+              warnings: ["frontmatter - unsupported field omitted"],
+            }),
+        };
+        const services = makeServices(axmDir, undefined, [warningAgent]);
+
+        const result = yield* installCommand(
+          makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
+        ).pipe(Effect.provide(services.layer));
+
+        expect(result).toMatchObject({
+          result: "success",
+          message: expect.stringContaining(
+            "Rendering warnings: claude-code: frontmatter - unsupported field omitted",
+          ),
+        });
+        expect(logsByTag(services.rendererState).warn).toEqual([]);
       }),
     );
   });

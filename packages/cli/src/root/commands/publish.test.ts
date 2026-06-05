@@ -22,6 +22,8 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
   getErrorResult,
   getAppError,
   makeEffectProvide,
@@ -148,11 +150,15 @@ describe("commands-publish.handler", () => {
   const makeLayers = (options?: {
     wsOverrides?: Partial<WorkspaceMutationsOptions>;
     authCredentials?: Parameters<typeof CredentialStoreTest>[1] | null;
+    machine?: boolean;
+    quiet?: boolean;
   }) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
+      ...(options?.quiet === undefined ? {} : { flags: { quiet: options.quiet } }),
       prompt: {
         confirmResponses: [true],
       },
+      machine: options?.machine,
       wsOptions: options?.wsOverrides,
     });
     const authCredStoreLayer =
@@ -212,7 +218,7 @@ describe("commands-publish.handler", () => {
             defaultArgs(["@test/commands/my-cmd"], { registry: Option.some("local") }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Registry should have the published extension index
           const registryIndexPath = path.join(
@@ -249,7 +255,7 @@ describe("commands-publish.handler", () => {
           expect(error.code).toBe("conflict");
           expect(error.detail).toContain("version 1.0.0 is already published");
           expect(error.suggestions).toContainEqual({
-            description: "Bump the version with `axm version @test/commands/stale-cmd patch`",
+            description: "Bump the manifest version.",
             cmd: "axm version @test/commands/stale-cmd patch",
           });
         }),
@@ -276,7 +282,7 @@ describe("commands-publish.handler", () => {
             }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
         }),
       );
     });
@@ -333,7 +339,7 @@ describe("commands-publish.handler", () => {
             defaultArgs(["@test/commands/offline-cmd"], { registry: Option.some("local") }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(
@@ -346,6 +352,87 @@ describe("commands-publish.handler", () => {
               ),
             ),
           ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("emits publish plan JSON in machine mode without human success logs", () => {
+      const { provide, logs, rendererState } = makeLayers({
+        authCredentials: null,
+        machine: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedCommandExtension(tempDir, "@test", "machine-cmd", {
+        name: "@test/commands/machine-cmd",
+        version: "1.0.0",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleCommandsPublish(
+            defaultArgs(["@test/commands/machine-cmd"], { registry: Option.some("local") }),
+          );
+
+          expect(logs.success).toEqual([]);
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Publish command",
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "Publish @test/commands/machine-cmd",
+                status: "applied",
+                message: "Published @test/commands/machine-cmd@1.0.0",
+                artifact: {
+                  path: "@test/commands/machine-cmd@1.0.0",
+                  scope: "project",
+                  version: "1.0.0",
+                  change: "created",
+                  targets: [
+                    {
+                      path: "@test/commands/machine-cmd@1.0.0",
+                      change: "created",
+                    },
+                  ],
+                },
+              },
+            ],
+          });
+          expect(rendererState.suggestions).toEqual([
+            {
+              description: "View published metadata",
+              cmd: "axm view @test/commands/machine-cmd",
+            },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("suppresses publish suggestions in quiet mode", () => {
+      const { provide, logs, rendererState } = makeLayers({
+        authCredentials: null,
+        quiet: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedCommandExtension(tempDir, "@test", "quiet-cmd", {
+        name: "@test/commands/quiet-cmd",
+        version: "1.0.0",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleCommandsPublish(
+            defaultArgs(["@test/commands/quiet-cmd"], { registry: Option.some("local") }),
+          );
+
+          expect(logs.success).toEqual(["Published @test/commands/quiet-cmd@1.0.0"]);
+          expect(rendererState.suggestions).toEqual([]);
         }),
       );
     });
@@ -461,16 +548,17 @@ describe("commands-publish.handler", () => {
                 error: true,
                 message: e.detail,
                 guidance: (e.suggestions ?? [])
-                  .map((suggestion) => suggestion.description)
+                  .map((suggestion) => `${suggestion.description} · ${suggestion.cmd ?? ""}`)
                   .join("\n"),
               }),
             ),
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.message).toContain("Managed extension not found");
-          expect(errorResult.guidance).toContain("axm commands new");
-          expect(rendererState.spinnerMessages).toContain("Validating extensions...");
-          expect(rendererState.spinnerMessages).toContain("Failed");
+          expect(errorResult.guidance).toContain(
+            "Only managed extensions in `.axm/extensions/` can be published. · axm commands new <name>",
+          );
+          expect(rendererState.spinnerMessages).toEqual([]);
         }),
       );
     });
@@ -492,7 +580,7 @@ describe("commands-publish.handler", () => {
         Effect.gen(function* () {
           yield* handleCommandsPublish(defaultArgs(["@test/commands/my-cmd"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           const registryIndexPath = path.join(
             registryRoot,
@@ -503,6 +591,57 @@ describe("commands-publish.handler", () => {
             "index.json",
           );
           expect(fs.existsSync(registryIndexPath)).toBe(true);
+        }),
+      );
+    });
+  });
+
+  describe("glob expansion", () => {
+    it.effect("glob matching zero commands warns and exits cleanly", () => {
+      const { provide, logs } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          commit: "@test/commands/commit",
+        },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleCommandsPublish(defaultArgs(["nonexistent-*"]));
+
+          expect(logs.warn).toEqual([]);
+          expect(logs.success.some((m) => m.includes("No commands published"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("glob matching zero commands emits JSON no-op in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      const registryRoot = path.join(tempDir, "registry");
+
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          commit: "@test/commands/commit",
+        },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleCommandsPublish(defaultArgs(["nonexistent-*"]));
+
+          expect(logs.success).toEqual([]);
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Publish command",
+            message: "No commands published.",
+          });
         }),
       );
     });

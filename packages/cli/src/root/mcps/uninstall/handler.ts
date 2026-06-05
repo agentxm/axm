@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
 import {
   UninstallMcpServerCommandWorkflowActions,
   type UninstallMcpServerHandlerArgs,
@@ -13,6 +13,14 @@ export const handleUninstallMcpServer = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallMcpServerCommandWorkflowActions;
-    const resolution = yield* runUninstallCommandWorkflow(args, actions, flags);
-    yield* emitPlanResolutionResult("mcps.uninstall", resolution);
+    const resolution = yield* runUninstallCommandWorkflow(args, actions, {
+      ...flags,
+      displayApplied: false,
+    });
+    yield* emitAppliedPlanOutcome({
+      command: "mcps.uninstall",
+      headline: "Uninstalled MCP server " + args.serverName,
+      resolution,
+      suggestions: [{ description: "Inspect MCP servers", cmd: "axm mcps list" }],
+    });
   });

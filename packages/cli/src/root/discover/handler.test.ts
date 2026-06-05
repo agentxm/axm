@@ -11,7 +11,7 @@ import { PackageTypeSchema } from "@agentxm/client-core/unstable/packaging";
 import type { DiscoverPackageResult, DiscoverResult } from "@agentxm/client-core/unstable/discover";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
-import { makeCliTestContext } from "../../test-helpers.js";
+import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-helpers.js";
 import { formatPackageName, handleDiscoverWith, toDiscoverOutput } from "./handler.js";
 
 const packageType = Schema.decodeUnknownSync(PackageTypeSchema);
@@ -119,16 +119,18 @@ describe("toDiscoverOutput", () => {
 });
 
 describe("discover handler", () => {
-  it.effect("renders compatible extensions as a table in human mode", () => {
+  it.effect("renders compatible extensions as a single list payload in human mode", () => {
     const { baseLayer, rendererState } = makeCliTestContext();
 
     return handleDiscoverWith({ path: Option.none() }, () => Effect.succeed(sampleResult)).pipe(
       Effect.provide(baseLayer),
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(rendererState.tables).toHaveLength(1);
-          expect(rendererState.tables[0]?.items).toEqual(
-            expect.arrayContaining([
+          expect(rendererState.tables).toEqual([]);
+          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 2,
+            items: expect.arrayContaining([
               expect.objectContaining({
                 package: "react",
                 extension: "@acme/skills/react-testing",
@@ -140,7 +142,79 @@ describe("discover handler", () => {
                 official: "no",
               }),
             ]),
-          );
+            summary: "Found 2 companion extensions for 2 of 2 detected packages.",
+          });
+        }),
+      ),
+    );
+  });
+
+  it.effect("emits a structured empty list when no companion extensions are found", () => {
+    const { baseLayer, rendererState } = makeCliTestContext();
+    const emptyResult: DiscoverResult = {
+      totalDetected: 0,
+      registryAvailable: true,
+      packages: [],
+    };
+
+    return handleDiscoverWith({ path: Option.none() }, () => Effect.succeed(emptyResult)).pipe(
+      Effect.provide(baseLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(rendererState.tables).toEqual([]);
+          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 0,
+            items: [],
+            emptyMessage: "No companion extensions found.",
+          });
+        }),
+      ),
+    );
+  });
+
+  it.effect("keeps registry unavailable as warning context for empty results", () => {
+    const { baseLayer, rendererState } = makeCliTestContext();
+    const emptyResult: DiscoverResult = {
+      totalDetected: 1,
+      registryAvailable: false,
+      packages: [],
+    };
+
+    return handleDiscoverWith({ path: Option.none() }, () => Effect.succeed(emptyResult)).pipe(
+      Effect.provide(baseLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(rendererState.tables).toEqual([]);
+          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 0,
+            items: [],
+            emptyMessage:
+              "Registry unavailable. Showing local recommendations only. No companion extensions found.",
+          });
+        }),
+      ),
+    );
+  });
+
+  it.effect("keeps registry unavailable as summary context for non-empty results", () => {
+    const { baseLayer, rendererState } = makeCliTestContext();
+    const localOnlyResult: DiscoverResult = {
+      ...sampleResult,
+      registryAvailable: false,
+    };
+
+    return handleDiscoverWith({ path: Option.none() }, () => Effect.succeed(localOnlyResult)).pipe(
+      Effect.provide(baseLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 2,
+            summary:
+              "Registry unavailable. Showing local recommendations only. Found 2 companion extensions for 2 of 2 detected packages.",
+          });
         }),
       ),
     );
@@ -171,6 +245,7 @@ describe("discover handler", () => {
               ]),
             }),
           );
+          expectNoPlanEnvelope(rendererState.results[0]?.data);
         }),
       ),
     );

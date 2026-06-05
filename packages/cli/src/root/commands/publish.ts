@@ -6,8 +6,13 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  forceFlag,
+  previewFlag,
+  Verbosity,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
@@ -31,11 +36,8 @@ import {
   parseRegistrySourcePatternParts,
 } from "@agentxm/client-core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import {
-  emitNoOpResult,
-  emitPlanResolutionResult,
-  planResolutionToSummary,
-} from "../../json-output.js";
+import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
@@ -57,7 +59,6 @@ interface TargetRegistry {
 const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const renderer = yield* CliRenderer;
 
     const globPatterns = extensions.filter((e) => isGlobPattern(e));
     const literalInputs = extensions.filter((e) => !isGlobPattern(e));
@@ -69,8 +70,6 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
     const globMatches = expandGlobs(globPatterns, installedNames);
 
     if (globPatterns.length === extensions.length && globMatches.length === 0) {
-      yield* renderer.warn(`No commands matched pattern "${globPatterns.join(", ")}"`);
-      yield* renderer.success("Nothing to publish.");
       return [];
     }
 
@@ -162,21 +161,17 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const renderer = yield* CliRenderer;
+  const verbosity = yield* Verbosity;
 
   const base = ws.baseDir;
 
   // Step 1: Separate glob patterns from literal inputs, expand globs
   const resolvedNames = yield* resolveExtensionInputs(args.extensions);
   if (resolvedNames.length === 0) {
-    if (
-      yield* emitNoOpResult("commands.publish", {
-        planName: "Publish command",
-        message: "Nothing to publish.",
-      })
-    ) {
-      return;
-    }
-    yield* renderer.info("Nothing to publish.");
+    yield* emitNoOpOutcome("commands.publish", {
+      planName: "Publish command",
+      message: "No commands published.",
+    });
     return;
   }
 
@@ -194,8 +189,8 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
           detail: `Command "${name}" is not installed in this workspace`,
           suggestions: [
             {
-              description:
-                "Use the fully-qualified name `@owner/commands/name`, or run `axm commands new ${name}` to create it first.",
+              description: "Use a fully-qualified command name, or create the command first.",
+              cmd: `axm commands new ${name}`,
             },
           ],
         }),
@@ -221,108 +216,96 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
 
   // Step 3: Validate each extension (command.json and the command content file
   // (`${name}.md`) must both exist)
-  yield* renderer.withSpinner(
-    "Validating extensions...",
-    () =>
-      Effect.gen(function* () {
-        const fqns = yield* Effect.forEach(extensionNames, (extName) =>
-          Effect.fromResult(Result.mapError(parseFqn(extName), fqnInvalidErrorToAppError)),
-        );
+  yield* Effect.gen(function* () {
+    const fqns = yield* Effect.forEach(extensionNames, (extName) =>
+      Effect.fromResult(Result.mapError(parseFqn(extName), fqnInvalidErrorToAppError)),
+    );
 
-        yield* Effect.forEach(fqns, (fqn, i) => {
-          const extName = extensionNames[i];
-          if (extName === undefined) {
-            return Effect.fail(
-              makeAppError({
-                code: "not_found",
-                detail: `Missing extension name for parsed FQN ${fqn.owner}/commands/${fqn.name}`,
-              }),
-            );
-          }
-          const extensionDir = path.join(
-            base,
-            REGISTRY_EXTENSIONS_DIR,
-            fqn.owner,
-            "commands",
-            fqn.name,
-          );
-
-          return Effect.gen(function* () {
-            const extensionDirExists = yield* fs
-              .exists(extensionDir)
-              .pipe(Effect.orElseSucceed(() => false));
-
-            if (!extensionDirExists) {
-              return yield* makeAppError({
-                code: "not_found",
-                detail: `Managed extension not found: ${extName}`,
-                suggestions: [
-                  {
-                    description:
-                      "Only managed extensions (in .axm/extensions/) can be published. Create with `axm commands new` first.",
-                  },
-                ],
-              });
-            }
-
-            const manifestPath = path.join(extensionDir, COMMAND_MANIFEST_FILENAME);
-            const manifestExists = yield* fs
-              .exists(manifestPath)
-              .pipe(Effect.orElseSucceed(() => false));
-
-            if (!manifestExists) {
-              return yield* makeAppError({
-                code: "not_found",
-                detail: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
-                suggestions: [
-                  {
-                    description: `Ensure the extension has a valid ${COMMAND_MANIFEST_FILENAME} manifest.`,
-                  },
-                ],
-              });
-            }
-
-            const contentFilename = commandContentFilename(fqn.name);
-            const commandMdPath = path.join(extensionDir, "src", contentFilename);
-            const commandMdExists = yield* fs
-              .exists(commandMdPath)
-              .pipe(Effect.orElseSucceed(() => false));
-
-            if (!commandMdExists) {
-              return yield* makeAppError({
-                code: "not_found",
-                detail: `Missing ${contentFilename}`,
-                suggestions: [
-                  {
-                    description: `Ensure the extension has a ${contentFilename} in its src/ directory.`,
-                  },
-                ],
-              });
-            }
-          });
-        });
-      }),
-    {
-      successMessage: `Validated ${count(extensionNames.length, "extension")}`,
-    },
-  );
-
-  yield* renderer.withSpinner(
-    "Checking published versions...",
-    () =>
-      Effect.forEach(
-        extensionNames,
-        (extName) =>
-          checkPublishVersionPreflight({
-            fqn: extName,
-            type: "command",
-            registryName: targetRegistry.registryName,
-            registryUrl: targetRegistry.registryUrl,
-            force: args.force,
+    yield* Effect.forEach(fqns, (fqn, i) => {
+      const extName = extensionNames[i];
+      if (extName === undefined) {
+        return Effect.fail(
+          makeAppError({
+            code: "not_found",
+            detail: `Missing extension name for parsed FQN ${fqn.owner}/commands/${fqn.name}`,
           }),
-        { concurrency: "unbounded" },
-      ),
-    { successMessage: "Version check complete" },
+        );
+      }
+      const extensionDir = path.join(
+        base,
+        REGISTRY_EXTENSIONS_DIR,
+        fqn.owner,
+        "commands",
+        fqn.name,
+      );
+
+      return Effect.gen(function* () {
+        const extensionDirExists = yield* fs
+          .exists(extensionDir)
+          .pipe(Effect.orElseSucceed(() => false));
+
+        if (!extensionDirExists) {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: `Managed extension not found: ${extName}`,
+            suggestions: [
+              {
+                description: "Only managed extensions in `.axm/extensions/` can be published.",
+                cmd: "axm commands new <name>",
+              },
+            ],
+          });
+        }
+
+        const manifestPath = path.join(extensionDir, COMMAND_MANIFEST_FILENAME);
+        const manifestExists = yield* fs
+          .exists(manifestPath)
+          .pipe(Effect.orElseSucceed(() => false));
+
+        if (!manifestExists) {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: `Missing manifest: ${COMMAND_MANIFEST_FILENAME}`,
+            suggestions: [
+              {
+                description: `Ensure the extension has a valid ${COMMAND_MANIFEST_FILENAME} manifest.`,
+              },
+            ],
+          });
+        }
+
+        const contentFilename = commandContentFilename(fqn.name);
+        const commandMdPath = path.join(extensionDir, "src", contentFilename);
+        const commandMdExists = yield* fs
+          .exists(commandMdPath)
+          .pipe(Effect.orElseSucceed(() => false));
+
+        if (!commandMdExists) {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: `Missing ${contentFilename}`,
+            suggestions: [
+              {
+                description: `Ensure the extension has a ${contentFilename} in its src/ directory.`,
+              },
+            ],
+          });
+        }
+      });
+    });
+  });
+
+  yield* Effect.forEach(
+    extensionNames,
+    (extName) =>
+      checkPublishVersionPreflight({
+        fqn: extName,
+        type: "command",
+        registryName: targetRegistry.registryName,
+        registryUrl: targetRegistry.registryUrl,
+        force: args.force,
+      }),
+    { concurrency: "unbounded" },
   );
 
   // Step 4: Build multi-step plan with inline run closures
@@ -360,6 +343,7 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    displayApplied: false,
   });
 
   const failedStepErrors =
@@ -393,13 +377,24 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
       }),
     ),
   );
-  yield* emitPlanResolutionResult("commands.publish", resolvedPlan);
+  const success =
+    resolvedPlan._tag === "ExecutedPlan" ? publishSuccessRender(resolvedPlan) : undefined;
+  const emitted = yield* emitPlanResolutionResult("commands.publish", resolvedPlan, {
+    ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+  });
+  if (emitted) {
+    return;
+  }
 
-  if (resolvedPlan._tag === "ExecutedPlan") {
-    const success = publishSuccessRender(resolvedPlan);
-    yield* renderer.success(success.message, {
-      ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
-    });
+  if (success !== undefined) {
+    yield* renderer.success(
+      success.message,
+      verbosity.level === "quiet"
+        ? undefined
+        : {
+            ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+          },
+    );
   }
 });
 

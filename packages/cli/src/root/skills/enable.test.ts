@@ -11,7 +11,11 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectNoOpPlanResult,
+  getAppError,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { handleEnable, type EnableHandlerArgs } from "./enable.js";
 
 // -----------------------------------------------------------------------------
@@ -75,11 +79,8 @@ describe("enable.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (
-    wsOverrides?: Partial<
-      import("@agentxm/client-core/unstable/workspace").WorkspaceMutationsOptions
-    >,
-  ) => makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) =>
+    makeWorkspaceHandlerTestContext(opts);
 
   // ---------------------------------------------------------------------------
   // Validation: skill not found
@@ -122,8 +123,31 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(logs.info.some((m) => m.includes("already enabled"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("already enabled"))).toBe(false);
+          expect(logs.success.some((m) => m.includes("already enabled"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("emits JSON no-op when skill is already enabled", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        { "my-skill": "local" },
+        { "my-skill": makeLockEntry() },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleEnable(defaultArgs("my-skill"));
+
+          expect(logs.success).toEqual([]);
+          const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Enable skill",
+            message: "Skill 'my-skill' is already enabled",
+          });
+          expect(result).toMatchObject({ planDescription: "Enable my-skill" });
         }),
       );
     });
@@ -310,8 +334,8 @@ describe("enable.handler", () => {
           const agentSkillPath = path.join(tempDir, ".claude", "skills", "my-skill");
           expect(fs.existsSync(agentSkillPath)).toBe(false);
 
-          // Preview info should be displayed
-          expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
+          // Preview outcome should be displayed
+          expect(logs.info.some((m) => m.includes("Would enable 1 skill"))).toBe(true);
         }),
       );
     });

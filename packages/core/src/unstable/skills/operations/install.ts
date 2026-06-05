@@ -31,7 +31,6 @@ import type {
 } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
 import {
   computeIntegrity,
   createSymlink,
@@ -46,7 +45,7 @@ import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
-import type { JobStepArtifact, JobStepResult } from "../../plan/plan.js";
+import type { JobStepArtifact, JobStepArtifactTarget, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
@@ -181,18 +180,25 @@ export const skillArtifactFromTargets = (args: {
   readonly sanitizedName: string;
   readonly scope: JobStepArtifact["scope"];
   readonly change: JobStepArtifact["change"];
+  readonly workspaceTargets?: ReadonlyArray<JobStepArtifactTarget>;
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const targetLocations = yield* groupInstallTargetsByDirectory(args.targets, args.workspaceRoot);
-    const artifactTargets = targetLocations.map((location) => {
-      const agentIds = artifactTargetAgentIds(location.agentIds);
-      return {
-        path: path.relative(args.workspaceRoot, path.join(location.targetDir, args.sanitizedName)),
-        change: args.change,
-        ...(agentIds.length > 0 ? { agentIds } : {}),
-      };
-    });
+    const artifactTargets = [
+      ...(args.workspaceTargets ?? []),
+      ...targetLocations.map((location) => {
+        const agentIds = artifactTargetAgentIds(location.agentIds);
+        return {
+          path: path.relative(
+            args.workspaceRoot,
+            path.join(location.targetDir, args.sanitizedName),
+          ),
+          change: args.change,
+          ...(agentIds.length > 0 ? { agentIds } : {}),
+        };
+      }),
+    ];
     const displayPath = artifactTargets[0]?.path ?? args.sanitizedName;
     const artifactAgents = artifactAgentIdsFromTargets(args.targets);
     return {
@@ -543,6 +549,9 @@ const materializeSkill = (
   }
 };
 
+const appendWarningsToMessage = (message: string, warnings: ReadonlyArray<string>): string =>
+  warnings.length === 0 ? message : `${message}; ${warnings.join("; ")}`;
+
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
@@ -561,14 +570,12 @@ export const installSkill: OperationHandler<
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
-  | CliRenderer
   | SourceHostProviders
   | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
-    const renderer = yield* CliRenderer;
     const agentRepo = yield* CodingAgentRepository;
     const { ref } = op.args;
     const sanitizedName = sanitizeName(ref.skill.name);
@@ -610,11 +617,10 @@ export const installSkill: OperationHandler<
       } satisfies JobStepResult;
     }
 
-    if (unknownConfiguredAgentIds.length > 0) {
-      yield* renderer.warn(
-        `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
-      );
-    }
+    const unknownAgentWarning =
+      unknownConfiguredAgentIds.length === 0
+        ? undefined
+        : `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`;
 
     const resolvedAgents = yield* Effect.forEach(
       configuredAgents,
@@ -645,16 +651,16 @@ export const installSkill: OperationHandler<
       resolvedAgents,
       ({ outcome }) => outcome._tag === "unsupported" || outcome._tag === "disabled",
     );
-    if (skippedByOutcome.length > 0) {
-      const skippedMessage = skippedByOutcome
-        .map(({ agentId, outcome }) =>
-          outcome._tag === "supported"
-            ? `${agentId}: not skipped`
-            : `${agentId}: ${outcome.reason}`,
-        )
-        .join(", ");
-      yield* renderer.warn(`Skipping non-installable configured agents: ${skippedMessage}`);
-    }
+    const skippedOutcomeWarning =
+      skippedByOutcome.length === 0
+        ? undefined
+        : `Skipping non-installable configured agents: ${skippedByOutcome
+            .map(({ agentId, outcome }) =>
+              outcome._tag === "supported"
+                ? `${agentId}: not skipped`
+                : `${agentId}: ${outcome.reason}`,
+            )
+            .join(", ")}`;
 
     const installableTargets: Array<InstallableSkillTarget> = [];
     for (const { agentId, outcome } of resolvedAgents) {
@@ -746,8 +752,9 @@ export const installSkill: OperationHandler<
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setSkillLock(skillArgs)
       : ws.setSkill(skillArgs);
-    yield* writeEffect.pipe(
-      Effect.catch((e) => renderer.warn(`Skill update failed: ${String(e)}`)),
+    const writeWarning = yield* writeEffect.pipe(
+      Effect.as(undefined),
+      Effect.catch((e) => Effect.succeed(`Skill update failed: ${String(e)}`)),
     );
 
     // ── Shared: compute result ──────────────────────────────────────
@@ -795,9 +802,13 @@ export const installSkill: OperationHandler<
       } satisfies JobStepResult;
     }
 
+    const warnings = [unknownAgentWarning, skippedOutcomeWarning, writeWarning].filter(
+      (warning): warning is string => warning !== undefined,
+    );
+
     return {
       result: "success",
-      message: `Installed ${ref.skill.name}`,
+      message: appendWarningsToMessage(`Installed ${ref.skill.name}`, warnings),
       artifact: {
         path: displayPath.length === 0 ? "." : displayPath,
         scope: ws.scope,

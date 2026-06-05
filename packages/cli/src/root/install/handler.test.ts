@@ -40,6 +40,8 @@ import {
   type InstallSubagentSourceHandlerArgs,
 } from "../subagents/install/command-actions.js";
 import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -89,8 +91,14 @@ describe("root install handler", () => {
     ],
   });
 
-  const makeLayers = (calls: Array<InstallCall>) => {
-    const ctx = makeWorkspaceHandlerTestContext({ flags: { nonInteractive: true } });
+  const makeLayers = (
+    calls: Array<InstallCall>,
+    opts?: { readonly machine?: boolean | undefined },
+  ) => {
+    const ctx = makeWorkspaceHandlerTestContext({
+      flags: { nonInteractive: true },
+      machine: opts?.machine,
+    });
 
     const skillActions = {
       parseArgs: (args: InstallSkillSourceHandlerArgs) =>
@@ -296,7 +304,11 @@ describe("root install handler", () => {
       ),
     );
 
-    return { provide: makeEffectProvide(fullLayer) };
+    return {
+      provide: makeEffectProvide(fullLayer),
+      logs: ctx.logs,
+      rendererState: ctx.rendererState,
+    };
   };
 
   it.effect("dispatches each supported FQN to the matching install surface", () =>
@@ -338,6 +350,92 @@ describe("root install handler", () => {
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
       ]);
+    }),
+  );
+
+  it.effect("includes workspace generator writes in files install JSON output", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: [],
+        owner: "@axm",
+      });
+      fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(tempDir, "src", "index.ts"), "");
+      fs.writeFileSync(
+        path.join(tempDir, "README.md"),
+        [
+          "# Project",
+          "<!-- axm:start region=files generator=file-index -->",
+          "old",
+          "<!-- axm:end region=files generator=file-index -->",
+          "",
+        ].join("\n"),
+      );
+
+      yield* provide(
+        handleInstall({
+          source: Option.some("@ac/files/workspace-baseline"),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Install files",
+        totalSteps: 2,
+        appliedCount: 2,
+      });
+      expect(result).toMatchObject({
+        steps: [
+          {
+            label: "files",
+            status: "applied",
+          },
+          {
+            label: "workspace generator regions",
+            status: "applied",
+            artifact: {
+              scope: "project",
+              change: "updated",
+              fileCount: 1,
+              targets: [{ path: "workspace generator regions", change: "updated" }],
+            },
+          },
+        ],
+      });
+    }),
+  );
+
+  it.effect("emits JSON no-op when workspace has no configured extensions to install", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const { provide, logs, rendererState } = makeLayers(calls, { machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+      });
+
+      yield* provide(
+        handleInstall({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(calls).toEqual([]);
+      expect(logs.success).toEqual([]);
+      const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Install configured extensions",
+        message: "No configured extensions.",
+      });
+      expect(result).toMatchObject({
+        planDescription: "Install configured workspace extensions",
+      });
     }),
   );
 

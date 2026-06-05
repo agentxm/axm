@@ -1,13 +1,15 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
-import * as Array from "effect/Array";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "@agentxm/client-core/unstable/workspace";
 import { installCommand as installCommandOp } from "@agentxm/client-core/unstable/commands";
 import {
   resolveSource,
@@ -16,11 +18,12 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
+import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { toJobStepResult } from "./job-step-result.js";
 import { combinePlanSections, makeItemSection } from "./preview-sections.js";
@@ -32,6 +35,49 @@ export interface UpdateCommandHandlerArgs {
   readonly preview: boolean;
 }
 
+type ResolveOutcome =
+  | { readonly type: "match"; readonly name: string; readonly ref: CommandExtensionRef }
+  | {
+      readonly type: "skip";
+      readonly name: string;
+      readonly source: string;
+      readonly reason: string;
+    };
+
+const skippedCommandStep = (
+  ws: WorkspaceMutationsService,
+  outcome: Extract<ResolveOutcome, { readonly type: "skip" }>,
+): PlannedJobStep => ({
+  readiness: "ready",
+  label: `Skip ${outcome.name}`,
+  run: Effect.succeed({
+    result: "success",
+    message: outcome.reason,
+    artifact: {
+      path: outcome.source,
+      scope: ws.scope,
+      change: "unchanged",
+      targets: [{ path: outcome.source, change: "unchanged" }],
+    },
+  } satisfies JobStepResult),
+});
+
+const toUpdateStepResult =
+  (commandName: string) =>
+  (result: Parameters<typeof toJobStepResult>[0]): JobStepResult => {
+    const stepResult = toJobStepResult(result);
+    if (stepResult.result === "error") return stepResult;
+
+    switch (stepResult.artifact?.change) {
+      case "updated":
+        return { ...stepResult, message: `Updated ${commandName}` };
+      case "unchanged":
+        return { ...stepResult, message: `${commandName} already up to date` };
+      default:
+        return stepResult;
+    }
+  };
+
 export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   args: UpdateCommandHandlerArgs,
 ) {
@@ -41,28 +87,16 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   // Step 1: Load configured commands and filter to enabled
   const allCommands = yield* ws.records.getConfiguredCommands();
 
-  const commandEntries = yield* Effect.forEach(Object.entries(allCommands), ([name, entry]) =>
-    Effect.gen(function* () {
-      if (!entry.enabled) {
-        yield* renderer.info(`Skipping ${name} (disabled)`);
-        return Option.none<readonly [string, string]>();
-      }
-      return Option.some([name, entry.source] as const);
-    }),
-  ).pipe(Effect.map(Array.getSomes));
+  const commandEntries: ReadonlyArray<readonly [string, string]> = Object.entries(
+    allCommands,
+  ).flatMap(([name, entry]) => (entry.enabled ? [[name, entry.source]] : []));
 
   if (commandEntries.length === 0) {
-    if (
-      yield* emitNoOpResult("commands.update", {
-        planName: "Update commands",
-        planDescription: "Update installed commands",
-        message: "No commands installed. Nothing to update.",
-      })
-    ) {
-      return;
-    }
-
-    yield* renderer.info("No commands installed. Nothing to update.");
+    yield* emitNoOpOutcome("commands.update", {
+      planName: "Update commands",
+      planDescription: "Update installed commands",
+      message: "No commands installed.",
+    });
     return;
   }
 
@@ -81,75 +115,73 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
       : commandEntries;
 
   if (nameValue !== undefined && filteredEntries.length === 0) {
-    if (
-      yield* emitNoOpResult("commands.update", {
-        planName: "Update commands",
-        planDescription: "Update installed commands",
-        message: `Command "${nameValue}" is not installed or is disabled. Nothing to update.`,
-      })
-    ) {
-      return;
-    }
-
-    yield* renderer.warn(
-      `Command "${nameValue}" is not installed or is disabled. Nothing to update.`,
-    );
+    yield* emitNoOpOutcome("commands.update", {
+      planName: "Update commands",
+      planDescription: "Update installed commands",
+      message: `Command "${nameValue}" is not installed or is disabled.`,
+    });
     return;
   }
 
   // Step 3: Re-resolve each source and discover commands
   const sources = yield* SourceHostProviders;
   const agentRepo = yield* CodingAgentRepository;
-  const resolved = yield* renderer.withSpinner(
-    "Resolving sources...",
-    () =>
-      Effect.forEach(
-        filteredEntries,
-        ([name, sourceStr]) =>
-          Effect.gen(function* () {
-            const source = yield* resolveSource(sourceStr);
-            const refs = yield* sources
-              .find(source, {
-                names: [name],
-                type: "command",
-                owner: Option.none(),
-                versionRange: Option.none(),
-              })
-              .pipe(
-                Effect.map((refs) =>
-                  refs.filter((ref): ref is CommandExtensionRef => ref.type === "command"),
-                ),
-              );
-
-            const commandRef = refs.find((r) => r.command.name === name);
-            if (commandRef) {
-              return Option.some({ name, ref: commandRef });
-            }
-
-            yield* renderer.warn(`Command "${name}" not found in source ${sources.origin(source)}`);
-            return Option.none<{ readonly name: string; readonly ref: CommandExtensionRef }>();
-          }).pipe(
-            Effect.catchTag("AppError", (error) =>
-              renderer.warn(`Failed to resolve "${name}": ${String(error)}`).pipe(
-                Effect.map(() =>
-                  Option.none<{
-                    readonly name: string;
-                    readonly ref: CommandExtensionRef;
-                  }>(),
-                ),
-              ),
+  const resolved = yield* Effect.forEach(
+    filteredEntries,
+    ([name, sourceStr]) =>
+      Effect.gen(function* () {
+        const source = yield* resolveSource(sourceStr);
+        const refs = yield* sources
+          .find(source, {
+            names: [name],
+            type: "command",
+            owner: Option.none(),
+            versionRange: Option.none(),
+          })
+          .pipe(
+            Effect.map((refs) =>
+              refs.filter((ref): ref is CommandExtensionRef => ref.type === "command"),
             ),
-          ),
-        { concurrency: "unbounded" },
+          );
+
+        const commandRef = refs.find((r) => r.command.name === name);
+        if (commandRef) {
+          return {
+            type: "match",
+            name,
+            ref: commandRef,
+          } satisfies ResolveOutcome;
+        }
+
+        return {
+          type: "skip",
+          name,
+          source: sourceStr,
+          reason: `Command "${name}" not found in source ${sources.origin(source)}`,
+        } satisfies ResolveOutcome;
+      }).pipe(
+        Effect.catchTag("AppError", (error) =>
+          Effect.succeed({
+            type: "skip",
+            name,
+            source: sourceStr,
+            reason: `Failed to resolve "${name}": ${error.detail}`,
+          } satisfies ResolveOutcome),
+        ),
       ),
-    { successMessage: "Sources resolved" },
+    { concurrency: "unbounded" },
   );
 
-  const resolvedEntries = Array.getSomes(resolved);
+  const resolvedEntries = resolved.filter(
+    (entry): entry is Extract<ResolveOutcome, { readonly type: "match" }> => entry.type === "match",
+  );
+  const skippedEntries = resolved.filter(
+    (entry): entry is Extract<ResolveOutcome, { readonly type: "skip" }> => entry.type === "skip",
+  );
   if (resolvedEntries.length === 0) {
     return yield* makeAppError({
       code: "network",
-      detail: "All source re-resolutions failed. Nothing to update.",
+      detail: "All source re-resolutions failed.",
       suggestions: [{ description: "Verify the original source paths are still accessible." }],
     });
   }
@@ -170,7 +202,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
         skipSettings: Option.none(),
       },
     }).pipe(
-      Effect.map(toJobStepResult),
+      Effect.map(toUpdateStepResult(entry.name)),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -179,6 +211,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
       Effect.provideService(CodingAgentRepository, agentRepo),
     ),
   }));
+  const skippedSteps = skippedEntries.map((entry) => skippedCommandStep(ws, entry));
   const planSections = combinePlanSections(
     makeItemSection(
       `Would update ${count(resolvedEntries.length, "command")}`,
@@ -190,7 +223,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
     _tag: "Plan",
     name: "Update commands",
     description: Option.some("Update installed commands"),
-    jobs: [{ concurrency: 1 as const, steps: [...steps] }],
+    jobs: [{ concurrency: 1 as const, steps: [...steps, ...skippedSteps] }],
     ...(planSections === undefined ? {} : { sections: planSections }),
   };
 

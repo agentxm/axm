@@ -5,7 +5,8 @@ import * as Option from "effect/Option";
 import type { ExtensionCurrencyEntry } from "@agentxm/client-core/unstable/workspace";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
-import { makeCliTestContext } from "../../test-helpers.js";
+import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-helpers.js";
+import { INSTALL_EXTENSION_FROM_REGISTRY } from "../suggested-actions.js";
 import { handleOutdatedWith } from "./handler.js";
 
 // ---------------------------------------------------------------------------
@@ -67,7 +68,7 @@ const currentPack: ExtensionCurrencyEntry = makeEntry({
 // ---------------------------------------------------------------------------
 
 describe("outdated handler", () => {
-  it.effect("renders outdated extensions as a table in human mode", () => {
+  it.effect("renders outdated extensions as a single list payload in human mode", () => {
     const { baseLayer, rendererState } = makeCliTestContext();
 
     return handleOutdatedWith({ type: Option.none() }, () =>
@@ -76,9 +77,11 @@ describe("outdated handler", () => {
       Effect.provide(baseLayer),
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(rendererState.tables).toHaveLength(1);
-          expect(rendererState.tables[0]?.items).toEqual(
-            expect.arrayContaining([
+          expect(rendererState.tables).toEqual([]);
+          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 2,
+            items: expect.arrayContaining([
               expect.objectContaining({
                 extension: "@acme/skills/code-review",
                 installed: "1.0.0",
@@ -91,36 +94,50 @@ describe("outdated handler", () => {
                 latest: "2.0.0 (major)",
               }),
             ]),
-          );
+            summary: "2 extensions have updates available.",
+          });
           // current pack should not appear
-          expect(rendererState.tables[0]?.items).toHaveLength(2);
+          expect(JSON.stringify(rendererState.results[1]?.data)).not.toContain(
+            "@acme/packs/frontend",
+          );
         }),
       ),
     );
   });
 
-  it.effect("shows success message when all extensions are current", () => {
-    const { baseLayer, rendererState, logs } = makeCliTestContext();
+  it.effect("emits a single empty outdated list when all extensions are current", () => {
+    const { baseLayer, rendererState } = makeCliTestContext();
 
     return handleOutdatedWith({ type: Option.none() }, () => Effect.succeed([currentPack])).pipe(
       Effect.provide(baseLayer),
       Effect.tap(() =>
         Effect.sync(() => {
           expect(rendererState.tables).toHaveLength(0);
-          expect(logs.success).toContain("All extensions are up to date.");
+          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 0,
+            items: [],
+            emptyMessage: "All extensions are up to date.",
+          });
         }),
       ),
     );
   });
 
-  it.effect("shows info message when no configured extensions exist", () => {
-    const { baseLayer, logs } = makeCliTestContext();
+  it.effect("emits a single empty outdated list when no configured extensions exist", () => {
+    const { baseLayer, rendererState } = makeCliTestContext();
 
     return handleOutdatedWith({ type: Option.none() }, () => Effect.succeed([])).pipe(
       Effect.provide(baseLayer),
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(logs.info).toContain("No configured extensions.");
+          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 0,
+            items: [],
+            emptyMessage: "No configured extensions.",
+          });
+          expect(rendererState.suggestions).toEqual([INSTALL_EXTENSION_FROM_REGISTRY]);
         }),
       ),
     );
@@ -180,6 +197,7 @@ describe("outdated handler", () => {
               ]),
             }),
           );
+          expectNoPlanEnvelope(doc);
         }),
       ),
     );
@@ -197,19 +215,25 @@ describe("outdated handler", () => {
             count: 0,
             data: [],
           });
+          expectNoPlanEnvelope(rendererState.results[0]?.data);
+          expect(rendererState.suggestions).toEqual([INSTALL_EXTENSION_FROM_REGISTRY]);
         }),
       ),
     );
   });
 
-  it.effect("summary line shows correct count", () => {
-    const { baseLayer, logs } = makeCliTestContext();
+  it.effect("summary payload shows correct singular count", () => {
+    const { baseLayer, rendererState } = makeCliTestContext();
 
     return handleOutdatedWith({ type: Option.none() }, () => Effect.succeed([outdatedSkill])).pipe(
       Effect.provide(baseLayer),
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(logs.info).toContain("1 extension has updates available.");
+          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 1,
+            summary: "1 extension has updates available.",
+          });
         }),
       ),
     );

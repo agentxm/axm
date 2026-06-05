@@ -52,15 +52,20 @@ afterEach(() => {
 });
 
 const layer = InteractiveRenderer({
-  outputPolicy: { colors: true, interactiveActivity: true },
+  outputPolicy: { colors: true, interactiveActivity: true, quiet: false },
 });
 const plainLayer = InteractiveRenderer({
-  outputPolicy: { colors: false, interactiveActivity: false },
+  outputPolicy: { colors: false, interactiveActivity: false, quiet: false },
+});
+const quietLayer = InteractiveRenderer({
+  outputPolicy: { colors: false, interactiveActivity: false, quiet: true },
 });
 
 const run = <A, E>(effect: Effect.Effect<A, E, CliRenderer>) => Effect.provide(effect, layer);
 const runPlain = <A, E>(effect: Effect.Effect<A, E, CliRenderer>) =>
   Effect.provide(effect, plainLayer);
+const runQuiet = <A, E>(effect: Effect.Effect<A, E, CliRenderer>) =>
+  Effect.provide(effect, quietLayer);
 
 describe("InteractiveRenderer", () => {
   describe("chrome methods", () => {
@@ -375,6 +380,95 @@ describe("InteractiveRenderer", () => {
   });
 
   describe("table formatting", () => {
+    it.effect("renders empty list suggestions after the empty message", () =>
+      Effect.gen(function* () {
+        const result = yield* runPlain(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            return yield* renderer.list("command", {
+              items: [],
+              count: 0,
+              emptyMessage: "No commands installed",
+              suggestions: [
+                {
+                  description: "Install a command",
+                  cmd: "axm commands install <source>",
+                },
+              ],
+            });
+          }),
+        );
+
+        expect(result).toBe(true);
+        expect(stdoutWrites).toEqual(["No commands installed\n"]);
+        const output = stderrWrites.join("");
+        expect(output).toContain("Next:\n");
+        expect(output).toContain("  Install a command · axm commands install <source>\n");
+      }),
+    );
+
+    it.effect("renders non-empty lists with a count-aware outcome line", () =>
+      Effect.gen(function* () {
+        const result = yield* runPlain(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            return yield* renderer.list("command", {
+              items: [{ name: "example" }],
+              count: 1,
+            });
+          }),
+        );
+
+        expect(result).toBe(true);
+        expect(stdoutWrites[0]).toMatch(/^1 command\n/);
+        expect(stdoutWrites[0]).toContain("name");
+        expect(stdoutWrites[0]).toContain("example");
+      }),
+    );
+
+    it.effect("uses explicit list summaries as the outcome line", () =>
+      Effect.gen(function* () {
+        yield* runPlain(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.list("command", {
+              items: [{ name: "example" }],
+              count: 1,
+              summary: "1 installed command",
+            });
+          }),
+        );
+
+        expect(stdoutWrites[0]).toMatch(/^1 installed command\n/);
+      }),
+    );
+
+    it.effect("suppresses list and table output in quiet mode", () =>
+      Effect.gen(function* () {
+        const result = yield* runQuiet(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            const listRendered = yield* renderer.list("command", {
+              items: [{ name: "example" }],
+              count: 1,
+            });
+            yield* renderer.table(
+              [{ name: "example" }],
+              { columns: { name: { header: "Name" } } } as const satisfies TableView<{
+                readonly name: string;
+              }>,
+              "Commands",
+            );
+            return listRendered;
+          }),
+        );
+
+        expect(result).toBe(true);
+        expect(stdoutWrites).toEqual([]);
+        expect(stderrWrites).toEqual([]);
+      }),
+    );
+
     it.effect("writes a table to stdout without the guide prefix", () =>
       Effect.gen(function* () {
         const SkillTable = {

@@ -238,7 +238,7 @@ describe("renderFindingsText", () => {
     });
     const lines = renderFindingsText({ summary });
     expect(lines[0]).toBe("1 issue. 1 can be fixed automatically.");
-    expect(lines).toContain("Auto-fixable (run `axm lint --fix`)");
+    expect(lines).toContain("Auto-fixable (auto-fix available)");
     expect(lines).toContain("DRIFT: The registry will still block publish on these rules:");
     expect(lines).toContain("  - skill/manifest-schema-valid");
     expect(lines).toContain("  [error] .");
@@ -316,7 +316,7 @@ describe("toLintHumanBlocks", () => {
     expect(blocks[2]).toEqual({
       kind: "section",
       title: "Auto-fixable",
-      note: "run `axm lint --fix`",
+      note: "auto-fix available",
     });
     expect(blocks[3]).toEqual({
       kind: "diagnostic",
@@ -392,7 +392,7 @@ describe("toLintHumanBlocks", () => {
       kind: "overview",
       message: "Found 1 error and 1 warning in 2 locations. 1 finding can be auto-fixed.",
       counts: { total: 2, errors: 1, warnings: 1, infos: 0 },
-      notes: ["Next step: Run `axm lint --fix` for the auto-fixable findings."],
+      notes: ["Auto-fixable findings are available."],
     });
     expect(blocks[1]).toEqual({
       kind: "blank",

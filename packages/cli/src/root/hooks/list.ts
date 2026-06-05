@@ -9,6 +9,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { INSTALL_HOOK_FROM_REGISTRY } from "../suggested-actions.js";
 
 interface HookListItem {
   readonly name: string;
@@ -30,6 +31,8 @@ registerEntity<HookListItem>("hooks", {
   list: {
     columns: HookListTable.columns,
     emptyMessage: "No hooks packages installed",
+    singularLabel: "installed hooks package",
+    pluralLabel: "installed hooks packages",
   },
 });
 
@@ -46,11 +49,16 @@ export const handleListHook = Effect.fn("ListHook.handle")(function* () {
     locked: locked[name] !== undefined,
   }));
 
-  if (yield* renderer.list("hooks", { items, count: items.length })) return;
-  if (items.length === 0) {
-    yield* renderer.info("No hooks packages installed");
+  if (
+    yield* renderer.list("hooks", {
+      items,
+      count: items.length,
+      suggestions: items.length === 0 ? [INSTALL_HOOK_FROM_REGISTRY] : [],
+    })
+  ) {
     return;
   }
+  if (items.length === 0) return;
   yield* renderer.table(items, HookListTable, "Installed hooks packages");
 });
 

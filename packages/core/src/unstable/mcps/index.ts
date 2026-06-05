@@ -66,5 +66,6 @@ export type { EnableMcpServerOperation } from "./operations/enable.js";
 export { enableMcpServer } from "./operations/enable.js";
 export type { DisableMcpServerOperation } from "./operations/disable.js";
 export { disableMcpServer } from "./operations/disable.js";
+export { mcpServerArtifact, mcpSettingsTarget, mcpSourceTarget } from "./operations/artifact.js";
 export { resolveMcpServer, type McpResolution } from "./resolution.js";
 export { writeAgentMcpConfig, removeAgentMcpConfig } from "./config-writer.js";

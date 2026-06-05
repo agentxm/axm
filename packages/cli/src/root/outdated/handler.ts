@@ -9,7 +9,11 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  CliRenderer,
+  registerEntity,
+  type TableView,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import type { ExtensionType } from "@agentxm/client-core/unstable/extensions";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
 import type { Version } from "@agentxm/client-core/unstable/version-constraints";
@@ -22,6 +26,8 @@ import {
   collectSubagentCurrency,
   type ExtensionCurrencyEntry,
 } from "@agentxm/client-core/unstable/workspace";
+
+import { INSTALL_EXTENSION_FROM_REGISTRY } from "../suggested-actions.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,6 +75,14 @@ const OutdatedTable = {
     latest: { header: "Latest" },
   },
 } as const satisfies TableView<OutdatedTableRow>;
+
+registerEntity<OutdatedTableRow>("outdated-extension", {
+  list: {
+    columns: OutdatedTable.columns,
+    singularLabel: "outdated extension",
+    pluralLabel: "outdated extensions",
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Mapping helpers
@@ -166,10 +180,20 @@ export const handleOutdatedWith = <E, R>(
     const entries = yield* collect(args.type);
 
     if (entries.length === 0) {
-      if (yield* renderer.result({ data: [], count: 0 }, Schema.Struct(OutdatedDocumentFields))) {
+      const suggestions = [INSTALL_EXTENSION_FROM_REGISTRY];
+      if (
+        yield* renderer.result({ data: [], count: 0 }, Schema.Struct(OutdatedDocumentFields), {
+          suggestions,
+        })
+      ) {
         return;
       }
-      yield* renderer.info("No configured extensions.");
+      yield* renderer.list("outdated-extension", {
+        items: [],
+        count: 0,
+        emptyMessage: "No configured extensions.",
+        suggestions,
+      });
       return;
     }
 
@@ -186,13 +210,20 @@ export const handleOutdatedWith = <E, R>(
     }
 
     if (outdated.length === 0) {
-      yield* renderer.success("All extensions are up to date.");
+      yield* renderer.list("outdated-extension", {
+        items: [],
+        count: 0,
+        emptyMessage: "All extensions are up to date.",
+      });
       return;
     }
 
     const rows = outdated.map(entryToTableRow);
-    yield* renderer.table(rows, OutdatedTable, "Outdated extensions");
-    yield* renderer.info(formatSummary(outdated.length));
+    yield* renderer.list("outdated-extension", {
+      items: rows,
+      count: rows.length,
+      summary: formatSummary(outdated.length),
+    });
   });
 
 export const handleOutdated = (args: OutdatedHandlerArgs) =>

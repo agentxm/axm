@@ -27,6 +27,7 @@ import type { SubagentPathSource } from "../paths.js";
 import { parseSubagentMd } from "../subagent-content.js";
 import { warnOnOrphanOverrides } from "../rendering/overrides.js";
 import type { SubagentLockEntry } from "../../lockfile/index.js";
+import { subagentLifecycleArtifact } from "./artifact.js";
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
@@ -107,6 +108,11 @@ export const enableSubagent: OperationHandler<
       return {
         result: "success",
         message: `Enabled ${op.args.subagentName}`,
+        artifact: subagentLifecycleArtifact({
+          name: op.args.subagentName,
+          scope: ws.scope,
+          change: "updated",
+        }),
       } satisfies JobStepResult;
     }
 
@@ -127,7 +133,7 @@ export const enableSubagent: OperationHandler<
         detail: `Subagent files for "${op.args.subagentName}" not found at ${paths.subagentSrcPath}`,
         suggestions: [
           {
-            description: "Try reinstalling the subagent with `axm subagents install`",
+            description: "Try reinstalling the subagent.",
             cmd: "axm subagents install <source>",
           },
         ],
@@ -232,9 +238,19 @@ export const enableSubagent: OperationHandler<
     yield* ws
       .updateSubagentEntry(op.args.subagentName, (e) => ({ ...e, enabled: true }))
       .pipe(Effect.catch(() => Effect.void));
+    const version = lockEntry.type === "registry" ? lockEntry.resolvedVersion : undefined;
 
     return {
       result: "success",
       message: `Enabled ${op.args.subagentName}`,
+      artifact: subagentLifecycleArtifact({
+        name: op.args.subagentName,
+        scope: ws.scope,
+        agents: updatedLockEntry.agents,
+        ...(version === undefined ? {} : { version }),
+        change: "updated",
+        renderedFiles: updatedLockEntry.renderedFiles,
+        renderedChange: "updated",
+      }),
     } satisfies JobStepResult;
   });

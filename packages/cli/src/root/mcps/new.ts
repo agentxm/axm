@@ -11,8 +11,9 @@ import {
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { AGENTS_BY_ID } from "@agentxm/client-core/unstable/agent-capabilities";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -21,7 +22,11 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import {
   previewOrApplyPlan,
+  type JobStepArtifact,
+  type JobStepArtifactTarget,
+  type JobStepResult,
   type Plan,
+  type PlanResolution,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
@@ -37,11 +42,46 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
 
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
+
+const mcpNewArtifactOutput = (
+  resolution: PlanResolution,
+): { readonly targetPhrase: string; readonly summary: string } | undefined => {
+  if (resolution._tag !== "ExecutedPlan") return undefined;
+
+  for (const job of resolution.jobs) {
+    for (const step of job.steps) {
+      if (step.result.result !== "success" || step.result.artifact === undefined) continue;
+
+      const artifact = step.result.artifact;
+      const targets = artifact.targets ?? [];
+      const agentIds = new Set(targets.flatMap((target) => target.agentIds ?? []));
+      const targetPhrase =
+        agentIds.size > 0
+          ? ` for ${count(agentIds.size, "agent")}`
+          : targets.length > 0
+            ? ` with ${count(targets.length, "target")}`
+            : "";
+
+      return {
+        targetPhrase,
+        summary: mcpNewArtifactSummary(artifact),
+      };
+    }
+  }
+
+  return undefined;
+};
+
+const mcpNewArtifactSummary = (artifact: JobStepArtifact): string => {
+  const targets = artifact.targets ?? [];
+  return targets.length === 0 ? `-> ${artifact.path}` : `-> ${count(targets.length, "target")}`;
+};
 
 export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (args: {
   readonly name: ExtensionName;
@@ -75,11 +115,17 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
 
   const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, "mcps", args.name);
   const manifestPath = path.join(targetDir, MCP_SERVER_MANIFEST_FILENAME);
+  const sourcePath = joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name);
   const exists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
   if (exists && !args.force) {
     return yield* makeAppError({
       code: "conflict",
       detail: `Managed MCP server directory already exists: ${targetDir}`,
+      suggestions: [
+        {
+          description: "Choose a different name or remove the existing directory first",
+        },
+      ],
     });
   }
 
@@ -163,7 +209,54 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
         Effect.provideService(CliRenderer, renderer),
         Effect.provideService(CodingAgentRepository, agentRepo),
       );
-      return { result: "success" as const, message: `Created ${fqn}` };
+      const configuredAgentIds = yield* ws.getConfiguredAgents();
+      const agentsByConfigPath = new Map<string, Set<string>>();
+      const catalogAgents = Object.values(AGENTS_BY_ID);
+      for (const agentId of configuredAgentIds) {
+        const agent = catalogAgents.find((candidate) => candidate.id === agentId);
+        const capability = agent?.capabilities["mcp-server"];
+        if (capability === undefined || !("config" in capability)) {
+          continue;
+        }
+        for (const target of capability.config.targets) {
+          if (target.scope !== ws.scope) {
+            continue;
+          }
+          const configPath = path.relative(ws.baseDir, path.resolve(ws.baseDir, target.path));
+          const agentIds = agentsByConfigPath.get(configPath) ?? new Set<string>();
+          agentIds.add(agentId);
+          agentsByConfigPath.set(configPath, agentIds);
+        }
+      }
+      const agentConfigTargets: Array<JobStepArtifactTarget> = Array.from(
+        agentsByConfigPath.entries(),
+      )
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([configPath, agentIds]) => ({
+          path: configPath,
+          change: "created",
+          agentIds: Array.from(agentIds).sort(),
+        }));
+      return {
+        result: "success",
+        message: `Created ${fqn}`,
+        artifact: {
+          path: sourcePath,
+          scope: ws.scope,
+          change: "created",
+          targets: [
+            {
+              path: sourcePath,
+              change: "created",
+            },
+            {
+              path: ".axm (config/lockfile)",
+              change: "created",
+            },
+            ...agentConfigTargets,
+          ],
+        },
+      } satisfies JobStepResult;
     }),
   };
   const plan: Plan = {
@@ -176,19 +269,31 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    displayApplied: false,
   });
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name, MCP_SERVER_MANIFEST_FILENAME)}\` to configure the MCP server`,
     },
   ];
+  const artifactOutput = mcpNewArtifactOutput(resolution);
   const emitted = yield* emitPlanResolutionResult(
     "mcps.new",
     resolution,
-    resolution._tag === "ExecutedPlan" ? { summary: `Created ${fqn}`, suggestions } : undefined,
+    resolution._tag === "ExecutedPlan"
+      ? {
+          summary: `Created MCP server ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
+          suggestions,
+        }
+      : undefined,
   );
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created ${fqn}`, { suggestions, withoutSuggestions: emitted });
+    yield* emitScaffoldSuccess({
+      message: `Created MCP server ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
+      ...(artifactOutput === undefined ? {} : { summary: artifactOutput.summary }),
+      suggestions,
+      withoutSuggestions: emitted,
+    });
   }
 });
 

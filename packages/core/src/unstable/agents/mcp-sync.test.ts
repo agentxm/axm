@@ -291,7 +291,10 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          expect(outcome).toEqual({ _tag: "success" });
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: ".mcp.json", change: "created" }],
+          });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
           expect(config).toContain('"linear"');
@@ -325,7 +328,10 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          expect(outcome).toEqual({ _tag: "success" });
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: ".mcp.json", change: "created" }],
+          });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
           expect(config).toContain('"sentry"');

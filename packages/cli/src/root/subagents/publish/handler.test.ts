@@ -22,6 +22,8 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
   getAppError,
   getErrorResult,
   makeEffectProvide,
@@ -131,11 +133,15 @@ describe("subagents-publish.handler", () => {
   const makeLayers = (options?: {
     wsOverrides?: Partial<WorkspaceMutationsOptions>;
     authCredentials?: Parameters<typeof CredentialStoreTest>[1] | null;
+    machine?: boolean;
+    quiet?: boolean;
   }) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
+      ...(options?.quiet === undefined ? {} : { flags: { quiet: options.quiet } }),
       prompt: {
         confirmResponses: [true],
       },
+      machine: options?.machine,
       wsOptions: options?.wsOverrides,
     });
     const authCredStoreLayer =
@@ -196,7 +202,7 @@ describe("subagents-publish.handler", () => {
             defaultArgs(["@test/subagents/researcher"], { registry: Option.some("local") }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Registry should have the published extension index
           const registryIndexPath = path.join(
@@ -267,7 +273,7 @@ describe("subagents-publish.handler", () => {
             defaultArgs(["@test/subagents/offline-subagent"], { registry: Option.some("local") }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(
@@ -280,6 +286,77 @@ describe("subagents-publish.handler", () => {
               ),
             ),
           ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("emits publish plan JSON in machine mode without human success logs", () => {
+      const { provide, logs, rendererState } = makeLayers({
+        authCredentials: null,
+        machine: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedSubagent(tempDir, "@test", "machine-subagent", {
+        name: "@test/subagents/machine-subagent",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(
+            defaultArgs(["@test/subagents/machine-subagent"], { registry: Option.some("local") }),
+          );
+
+          expect(logs.success).toEqual([]);
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Publish subagent",
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "Publish @test/subagents/machine-subagent",
+                status: "applied",
+                message: "Published @test/subagents/machine-subagent@1.0.0",
+              },
+            ],
+          });
+          expect(rendererState.suggestions).toEqual([
+            {
+              description: "View published metadata",
+              cmd: "axm view @test/subagents/machine-subagent",
+            },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("suppresses publish suggestions in quiet mode", () => {
+      const { provide, logs, rendererState } = makeLayers({
+        authCredentials: null,
+        quiet: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedSubagent(tempDir, "@test", "quiet-subagent", {
+        name: "@test/subagents/quiet-subagent",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(
+            defaultArgs(["@test/subagents/quiet-subagent"], { registry: Option.some("local") }),
+          );
+
+          expect(logs.success).toEqual(["Published @test/subagents/quiet-subagent@1.0.0"]);
+          expect(rendererState.suggestions).toEqual([]);
         }),
       );
     });
@@ -332,7 +409,7 @@ describe("subagents-publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["@test/subagents/summarizer"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           const registryIndexPath = path.join(
             registryRoot,
@@ -372,7 +449,7 @@ describe("subagents-publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["researcher"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           const registryIndexPath = path.join(
             registryRoot,
@@ -434,16 +511,17 @@ describe("subagents-publish.handler", () => {
                 error: true,
                 message: e.detail,
                 guidance: (e.suggestions ?? [])
-                  .map((suggestion) => suggestion.description)
+                  .map((suggestion) => `${suggestion.description} · ${suggestion.cmd ?? ""}`)
                   .join("\n"),
               }),
             ),
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.message).toContain("Managed extension not found");
-          expect(errorResult.guidance).toContain("axm subagents new");
-          expect(rendererState.spinnerMessages).toContain("Validating extensions...");
-          expect(rendererState.spinnerMessages).toContain("Failed");
+          expect(errorResult.guidance).toContain(
+            "Only managed extensions in `.axm/extensions/` can be published. · axm subagents new <name>",
+          );
+          expect(rendererState.spinnerMessages).toEqual([]);
         }),
       );
     });
@@ -480,7 +558,7 @@ describe("subagents-publish.handler", () => {
             }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           const manifestPath = path.join(extDir, "subagent.json");
           const updatedManifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -632,7 +710,7 @@ describe("subagents-publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["research-*"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Both research- subagents should be published
           expect(
@@ -699,8 +777,40 @@ describe("subagents-publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["nonexistent-*"]));
 
-          expect(logs.warn.some((m) => m.includes("No subagents matched"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to publish"))).toBe(true);
+          expect(logs.warn).toEqual([]);
+          expect(logs.success.some((m) => m.includes("No subagents published"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("glob matching zero subagents emits JSON no-op in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      const registryRoot = path.join(tempDir, "registry");
+
+      const now = new Date().toISOString();
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
+        summarizer: {
+          type: "registry",
+          owner: "@test",
+          name: "summarizer",
+          resolvedVersion: "1.0.0",
+          integrity: "sha384-test",
+          sourceName: "local",
+          agents: ["claude-code"],
+          installedAt: now,
+          updatedAt: now,
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["nonexistent-*"]));
+
+          expect(logs.success).toEqual([]);
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Publish subagent",
+            message: "No subagents published.",
+          });
         }),
       );
     });

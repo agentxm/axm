@@ -1197,7 +1197,7 @@ const buildSectionedDiagnostics = (args: {
     args.blocks,
     "Auto-fixable",
     fixable.map(stripFixHelps),
-    "run `axm lint --fix`",
+    "auto-fix available",
   );
   appendDiagnosticSection(args.blocks, "Requires manual attention", manual);
   appendDiagnosticSection(args.blocks, "Warnings", warnings);
@@ -1241,7 +1241,7 @@ const toFullLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintHuma
       counts: summary.counts,
       notes:
         fixableCount > 0 && fixSummary === undefined
-          ? ["Next step: Run `axm lint --fix` for the auto-fixable findings."]
+          ? ["Auto-fixable findings are available."]
           : [],
     });
 
@@ -1371,7 +1371,7 @@ const toSummaryLintHumanBlocks = (args: RenderFindingsArgs): ReadonlyArray<LintH
       counts: summary.counts,
       notes:
         fixableCount > 0 && fixSummary === undefined
-          ? ["Run `axm lint --fix` to apply available fixes."]
+          ? ["Auto-fixable findings are available."]
           : [],
     });
 

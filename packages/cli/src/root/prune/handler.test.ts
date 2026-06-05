@@ -13,7 +13,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import { handleRootPrune } from "./handler.js";
-import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
+  expectPreviewedPlanResult,
+  makeWorkspaceHandlerTestContext,
+  planResultSteps,
+} from "../../test-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -203,7 +209,7 @@ describe("root.prune.handler", () => {
         Effect.gen(function* () {
           yield* handleRootPrune({ patterns: [] }, { yes: true });
 
-          expect(logs.success.some((m) => m.includes("Nothing to prune"))).toBe(true);
+          expect(logs.success).toEqual(["No unmanaged artifacts pruned."]);
         }),
       );
     });
@@ -216,7 +222,7 @@ describe("root.prune.handler", () => {
         Effect.gen(function* () {
           yield* handleRootPrune({ patterns: ["nonexistent-*"] }, { yes: true });
 
-          expect(logs.success.some((m) => m.includes("Nothing to prune"))).toBe(true);
+          expect(logs.success).toEqual(["No unmanaged artifacts pruned."]);
         }),
       );
     });
@@ -227,7 +233,7 @@ describe("root.prune.handler", () => {
   // -----------------------------------------------------------------------
 
   describe("JSON output", () => {
-    it.effect("--json alone is read-only inspection (no deletion)", () => {
+    it.effect("--json alone previews a prune plan without deletion", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
       createSkillOnDisk(tempDir, ".claude", "legacy-tool");
 
@@ -240,16 +246,18 @@ describe("root.prune.handler", () => {
           );
 
           expect(rendererState.results.length).toBe(1);
-          const result = rendererState.results[0];
-          expect(result).toBeDefined();
-          const data = result?.data as Record<string, unknown>;
-          expect(data["pruned"]).toBe(false);
-          expect(data["count"]).toBe(1);
+          const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+            planName: "Prune artifacts",
+            totalSteps: 1,
+          });
+          expect(planResultSteps(result)).toEqual([
+            expect.objectContaining({ label: "legacy-tool", status: "ready" }),
+          ]);
         }),
       );
     });
 
-    it.effect("--yes --json prunes and reports", () => {
+    it.effect("--yes --json prunes and reports a plan result", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
       createSkillOnDisk(tempDir, ".claude", "legacy-tool");
 
@@ -262,16 +270,27 @@ describe("root.prune.handler", () => {
           );
 
           expect(rendererState.results.length).toBe(1);
-          const result = rendererState.results[0];
-          expect(result).toBeDefined();
-          const data = result?.data as Record<string, unknown>;
-          expect(data["pruned"]).toBe(true);
-          expect(data["count"]).toBe(1);
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Prune artifacts",
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "legacy-tool",
+                status: "applied",
+                artifact: {
+                  path: ".claude/skills/legacy-tool",
+                  scope: "project",
+                  change: "removed",
+                },
+              },
+            ],
+          });
         }),
       );
     });
 
-    it.effect("--json with nothing to prune outputs empty list", () => {
+    it.effect("--json with nothing to prune outputs no-op result", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
 
       return provide(
@@ -281,9 +300,10 @@ describe("root.prune.handler", () => {
           expect(rendererState.results.length).toBe(1);
           const result = rendererState.results[0];
           expect(result).toBeDefined();
-          const data = result?.data as Record<string, unknown>;
-          expect(data["pruned"]).toBe(false);
-          expect(data["count"]).toBe(0);
+          expectNoOpPlanResult(result?.data, {
+            planName: "Prune artifacts",
+            message: "No unmanaged artifacts pruned.",
+          });
         }),
       );
     });

@@ -10,6 +10,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { ADD_INLINE_MCP_SERVER, INSTALL_MCP_FROM_REGISTRY } from "../suggested-actions.js";
 
 interface McpServerListItem {
   readonly name: string;
@@ -31,6 +32,8 @@ registerEntity<McpServerListItem>("mcp-server", {
   list: {
     columns: McpServerListTable.columns,
     emptyMessage: "No MCP servers installed",
+    singularLabel: "installed MCP server",
+    pluralLabel: "installed MCP servers",
   },
 });
 
@@ -64,11 +67,16 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
   }));
   const items = [...installedItems, ...unmanagedItems];
 
-  if (yield* renderer.list("mcp-server", { items, count: items.length })) return;
-  if (items.length === 0) {
-    yield* renderer.info("No MCP servers installed");
+  if (
+    yield* renderer.list("mcp-server", {
+      items,
+      count: items.length,
+      suggestions: items.length === 0 ? [INSTALL_MCP_FROM_REGISTRY, ADD_INLINE_MCP_SERVER] : [],
+    })
+  ) {
     return;
   }
+  if (items.length === 0) return;
   yield* renderer.table(items, McpServerListTable, "Installed MCP servers");
 });
 

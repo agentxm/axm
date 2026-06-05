@@ -51,7 +51,7 @@ const reconciliationAdapters = [
  * Steps:
  * 1. Augment plan with lockfile reconciliation if needed
  * 2. Scan for errors/warnings
- * 3. Handle errors (block unless --force) and warnings (display)
+ * 3. Handle errors (block unless --force)
  * 4. Preview if requested (with confirmation unless --yes)
  * 5. Apply and display results
  */
@@ -62,6 +62,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     force: boolean;
     preview: boolean;
     blockedByErrorsHowToFix?: string;
+    displayApplied?: boolean;
   },
 ) {
   const ws = yield* WorkspaceMutations;
@@ -115,10 +116,6 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     fsLayer,
   ).pipe(Effect.provide(reconciliationAdaptersLayer));
 
-  if (augmented.reconciliationTriggered && augmented.reason === "invalid") {
-    yield* renderer.warn("LOCKFILE_INVALID_RECONCILE");
-  }
-
   const augmentedPlan = augmented.plan;
 
   // Step 2: Scan readiness
@@ -127,7 +124,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   // Step 3: Handle errors
   if (readiness.hasErrors) {
     if (flags.force) {
-      yield* Effect.forEach(readiness.errorMessages, (msg) => renderer.warn(msg));
+      // Forced error steps are applied as structured failed step results.
     } else {
       yield* showPlan(augmentedPlan);
       return yield* makeAppError({
@@ -142,14 +139,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     }
   }
 
-  // Step 4: Handle warnings
-  if (readiness.hasWarnings) {
-    yield* Effect.forEach(readiness.warnMessages, (msg) => renderer.warn(msg));
-  }
-
   // Step 5: Preview
   if (flags.preview) {
-    yield* renderer.info("Previewing changes...");
     yield* showPlan(augmentedPlan);
 
     return {
@@ -162,7 +153,9 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
 
   // Step 6: Apply and display
   const executed = yield* applyPlan(augmentedPlan);
-  yield* showPlan(executed);
+  if (flags.displayApplied !== false) {
+    yield* showPlan(executed);
+  }
   return executed;
 });
 

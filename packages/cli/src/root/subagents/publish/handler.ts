@@ -5,7 +5,8 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
@@ -23,12 +24,9 @@ import {
   parseRegistrySourcePatternParts,
 } from "@agentxm/client-core/unstable/extensions";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import {
-  emitNoOpResult,
-  emitPlanResolutionResult,
-  planResolutionToSummary,
-} from "../../../json-output.js";
+import { emitPlanResolutionResult, planResolutionToSummary } from "../../../json-output.js";
 import { checkPublishVersionPreflight } from "../../shared/publish-preflight.js";
+import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { publishSuccessRender } from "../../shared/publish-success.js";
 
 export interface PublishHandlerArgs {
@@ -47,7 +45,6 @@ interface TargetRegistry {
 const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const renderer = yield* CliRenderer;
 
     const globPatterns = extensions.filter((e) => isGlobPattern(e));
     const literalInputs = extensions.filter((e) => !isGlobPattern(e));
@@ -59,8 +56,6 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
     const globMatches = expandGlobs(globPatterns, installedNames);
 
     if (globPatterns.length === extensions.length && globMatches.length === 0) {
-      yield* renderer.warn(`No subagents matched pattern "${globPatterns.join(", ")}"`);
-      yield* renderer.success("Nothing to publish.");
       return [];
     }
 
@@ -152,21 +147,17 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const renderer = yield* CliRenderer;
+  const verbosity = yield* Verbosity;
 
   const base = ws.baseDir;
 
   // Step 1: Separate glob patterns from literal inputs, expand globs
   const resolvedNames = yield* resolveExtensionInputs(args.extensions);
   if (resolvedNames.length === 0) {
-    if (
-      yield* emitNoOpResult("subagents.publish", {
-        planName: "Publish subagent",
-        message: "Nothing to publish.",
-      })
-    ) {
-      return;
-    }
-    yield* renderer.info("Nothing to publish.");
+    yield* emitNoOpOutcome("subagents.publish", {
+      planName: "Publish subagent",
+      message: "No subagents published.",
+    });
     return;
   }
 
@@ -184,8 +175,8 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
           detail: `Subagent "${name}" is not installed in this workspace`,
           suggestions: [
             {
-              description:
-                "Use the fully-qualified name `@owner/subagents/name`, or run `axm subagents new ${name}` to create it first.",
+              description: "Use a fully-qualified subagent name, or create the subagent first.",
+              cmd: `axm subagents new ${name}`,
             },
           ],
         }),
@@ -210,88 +201,78 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
   });
 
   // Step 3: Validate each extension
-  yield* renderer.withSpinner(
-    "Validating extensions...",
-    () =>
-      Effect.gen(function* () {
-        const fqns = yield* Effect.forEach(extensionNames, (extName) =>
-          Effect.fromResult(Result.mapError(parseFqn(extName), fqnInvalidErrorToAppError)),
-        );
+  yield* Effect.gen(function* () {
+    const fqns = yield* Effect.forEach(extensionNames, (extName) =>
+      Effect.fromResult(Result.mapError(parseFqn(extName), fqnInvalidErrorToAppError)),
+    );
 
-        yield* Effect.forEach(fqns, (fqn, i) => {
-          const extName = extensionNames[i];
-          if (extName === undefined) {
-            return Effect.fail(
-              makeAppError({
-                code: "not_found",
-                detail: `Missing extension name for parsed FQN ${fqn.owner}/subagents/${fqn.name}`,
-              }),
-            );
-          }
-          const extensionDir = path.join(
-            base,
-            REGISTRY_EXTENSIONS_DIR,
-            fqn.owner,
-            "subagents",
-            fqn.name,
-          );
-
-          return Effect.gen(function* () {
-            const extensionDirExists = yield* fs
-              .exists(extensionDir)
-              .pipe(Effect.orElseSucceed(() => false));
-
-            if (!extensionDirExists) {
-              return yield* makeAppError({
-                code: "not_found",
-                detail: `Managed extension not found: ${extName}`,
-                suggestions: [
-                  {
-                    description:
-                      "Only managed extensions (in .axm/extensions/) can be published. Scaffold a managed subagent with `axm subagents new` first.",
-                  },
-                ],
-              });
-            }
-
-            const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
-            const manifestExists = yield* fs
-              .exists(manifestPath)
-              .pipe(Effect.orElseSucceed(() => false));
-
-            if (!manifestExists) {
-              return yield* makeAppError({
-                code: "not_found",
-                detail: `Missing manifest: ${MANIFEST_FILENAME}`,
-                suggestions: [
-                  {
-                    description: `Ensure the extension has a valid ${MANIFEST_FILENAME} manifest.`,
-                  },
-                ],
-              });
-            }
-          });
-        });
-      }),
-    { successMessage: `Validated ${count(extensionNames.length, "extension")}` },
-  );
-
-  yield* renderer.withSpinner(
-    "Checking published versions...",
-    () =>
-      Effect.forEach(
-        extensionNames,
-        (extName) =>
-          checkPublishVersionPreflight({
-            fqn: extName,
-            type: "subagent",
-            registryName: targetRegistry.registryName,
-            registryUrl: targetRegistry.registryUrl,
-            force: args.force,
+    yield* Effect.forEach(fqns, (fqn, i) => {
+      const extName = extensionNames[i];
+      if (extName === undefined) {
+        return Effect.fail(
+          makeAppError({
+            code: "not_found",
+            detail: `Missing extension name for parsed FQN ${fqn.owner}/subagents/${fqn.name}`,
           }),
-        { concurrency: "unbounded" },
-      ),
-    { successMessage: "Version check complete" },
+        );
+      }
+      const extensionDir = path.join(
+        base,
+        REGISTRY_EXTENSIONS_DIR,
+        fqn.owner,
+        "subagents",
+        fqn.name,
+      );
+
+      return Effect.gen(function* () {
+        const extensionDirExists = yield* fs
+          .exists(extensionDir)
+          .pipe(Effect.orElseSucceed(() => false));
+
+        if (!extensionDirExists) {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: `Managed extension not found: ${extName}`,
+            suggestions: [
+              {
+                description: "Only managed extensions in `.axm/extensions/` can be published.",
+                cmd: "axm subagents new <name>",
+              },
+            ],
+          });
+        }
+
+        const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
+        const manifestExists = yield* fs
+          .exists(manifestPath)
+          .pipe(Effect.orElseSucceed(() => false));
+
+        if (!manifestExists) {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: `Missing manifest: ${MANIFEST_FILENAME}`,
+            suggestions: [
+              {
+                description: `Ensure the extension has a valid ${MANIFEST_FILENAME} manifest.`,
+              },
+            ],
+          });
+        }
+      });
+    });
+  });
+
+  yield* Effect.forEach(
+    extensionNames,
+    (extName) =>
+      checkPublishVersionPreflight({
+        fqn: extName,
+        type: "subagent",
+        registryName: targetRegistry.registryName,
+        registryUrl: targetRegistry.registryUrl,
+        force: args.force,
+      }),
+    { concurrency: "unbounded" },
   );
 
   // Step 4: Build multi-step plan with inline run closures
@@ -343,6 +324,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    displayApplied: false,
   });
 
   const failedStepErrors =
@@ -384,9 +366,22 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
       }),
     ),
   );
-  yield* emitPlanResolutionResult("subagents.publish", resolvedPlan);
-  const success = publishSuccessRender(resolvedPlan);
-  yield* renderer.success(success.message, {
-    ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+  const success =
+    resolvedPlan._tag === "ExecutedPlan" ? publishSuccessRender(resolvedPlan) : undefined;
+  const emitted = yield* emitPlanResolutionResult("subagents.publish", resolvedPlan, {
+    ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
   });
+  if (emitted) {
+    return;
+  }
+  if (success !== undefined) {
+    yield* renderer.success(
+      success.message,
+      verbosity.level === "quiet"
+        ? undefined
+        : {
+            ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+          },
+    );
+  }
 });

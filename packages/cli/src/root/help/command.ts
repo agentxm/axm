@@ -5,7 +5,7 @@ import { Argument, Command } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { type SuggestedAction, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   HELP_TOPICS,
   HELP_TOPIC_KINDS,
@@ -91,6 +91,17 @@ const HelpTopicTableView = {
   },
 } as const satisfies TableView<HelpTopicRow>;
 
+const HELP_INDEX_SUGGESTIONS = [
+  {
+    description: "Read a help topic",
+    cmd: "axm help <topic>",
+  },
+  {
+    description: "Show command help",
+    cmd: "axm <command> --help",
+  },
+] as const satisfies ReadonlyArray<SuggestedAction>;
+
 const writeHelpTopicIndex = () =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -104,14 +115,13 @@ const writeHelpTopicIndex = () =>
         topics: rows.map(({ topic, description }) => ({ name: topic, description })),
       },
       HelpIndexResultSchema,
+      { suggestions: HELP_INDEX_SUGGESTIONS },
     );
     if (emitted) return;
     // Render the index through the renderer's structured table so topics align
     // in columns and pick up the standard chrome — no Markdown reflow.
     yield* renderer.table(rows, HelpTopicTableView);
-    yield* renderer.message(
-      "Run 'axm help <topic>' to read a topic, or 'axm <command> --help' for command help.",
-    );
+    yield* renderer.suggestions(HELP_INDEX_SUGGESTIONS);
   });
 
 const writeHelpTopic = (name: HelpTopicName) =>
@@ -143,7 +153,7 @@ export const handleHelpTopic = (topic: Option.Option<string>) =>
           detail: `Unknown help topic '${rawName}'`,
           suggestions: [
             {
-              description: "Run 'axm help' to list commands or 'axm help basic-usage' to begin.",
+              description: "List available help topics.",
               cmd: "axm help",
             },
           ],

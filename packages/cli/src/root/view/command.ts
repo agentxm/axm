@@ -1,10 +1,12 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as Option from "effect/Option";
 
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
-import { handleView } from "./handler.js";
+import { handleDefaultRegistryFqnView, handleView } from "./handler.js";
 
 const viewConfig = {
   handle: Argument.string("handle").pipe(
@@ -24,12 +26,16 @@ const viewConfig = {
   ),
 } as const;
 
-export const viewCommand = Command.make("view", viewConfig, ({ handle, field, registry, type }) =>
-  handleView({ handle, field, registry, type }).pipe(
+export const viewCommand = Command.make("view", viewConfig, ({ handle, field, registry, type }) => {
+  const parts = parseExtensionFqnParts(handle);
+  if (Option.isNone(registry) && Option.isNone(type) && parts !== undefined) {
+    return handleDefaultRegistryFqnView({ handle, field, parts }).pipe(withAuthRuntime("view"));
+  }
+  return handleView({ handle, field, registry, type }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
     withAuthRuntime("view"),
-  ),
-).pipe(
+  );
+}).pipe(
   withArgvTracking(viewConfig),
   Command.withDescription("View published extension metadata"),
   Command.withExamples([

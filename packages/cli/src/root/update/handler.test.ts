@@ -40,6 +40,7 @@ import {
   type InstallSubagentSourceHandlerArgs,
 } from "../subagents/install/command-actions.js";
 import {
+  expectNoOpPlanResult,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -89,8 +90,14 @@ describe("root update handler", () => {
     ],
   });
 
-  const makeLayers = (calls: Array<UpdateCall>) => {
-    const ctx = makeWorkspaceHandlerTestContext({ flags: { nonInteractive: true } });
+  const makeLayers = (
+    calls: Array<UpdateCall>,
+    opts?: { readonly machine?: boolean | undefined },
+  ) => {
+    const ctx = makeWorkspaceHandlerTestContext({
+      flags: { nonInteractive: true },
+      machine: opts?.machine,
+    });
 
     const skillActions = {
       parseArgs: (args: InstallSkillSourceHandlerArgs) =>
@@ -296,7 +303,11 @@ describe("root update handler", () => {
       ),
     );
 
-    return { provide: makeEffectProvide(fullLayer) };
+    return {
+      provide: makeEffectProvide(fullLayer),
+      logs: ctx.logs,
+      rendererState: ctx.rendererState,
+    };
   };
 
   it.effect("dispatches each supported FQN to the matching update surface", () =>
@@ -362,6 +373,36 @@ describe("root update handler", () => {
 
       expect(appError.code).toBe("usage");
       expect(calls).toHaveLength(0);
+    }),
+  );
+
+  it.effect("emits JSON no-op when workspace has no configured extensions to update", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, logs, rendererState } = makeLayers(calls, { machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+      });
+
+      yield* provide(
+        handleUpdate({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(calls).toEqual([]);
+      expect(logs.success).toEqual([]);
+      const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Update configured extensions",
+        message: "No configured extensions.",
+      });
+      expect(result).toMatchObject({
+        planDescription: "Update configured workspace extensions",
+      });
     }),
   );
 

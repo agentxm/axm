@@ -5,7 +5,7 @@
  */
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
+import type { JobStepArtifact, JobStepResult } from "@agentxm/client-core/unstable/plan";
 
 /**
  * Maps an operation result to a {@link JobStepResult} discriminated union.
@@ -20,6 +20,7 @@ export const toJobStepResult = (result: {
   readonly message: string;
   readonly error?: AppError;
   readonly links?: { readonly html: string };
+  readonly artifact?: JobStepArtifact;
 }): JobStepResult =>
   result.result === "error" && result.error != null
     ? { result: "error", message: result.message, error: result.error }
@@ -27,4 +28,5 @@ export const toJobStepResult = (result: {
         result: "success",
         message: result.message,
         ...(result.links !== undefined ? { links: result.links } : {}),
+        ...(result.artifact !== undefined ? { artifact: result.artifact } : {}),
       };

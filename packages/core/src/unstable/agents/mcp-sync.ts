@@ -31,6 +31,7 @@ import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer
 import type {
   AddMcpServerArgs,
   McpServerSyncOutcome,
+  McpServerSyncTarget,
   RemoveMcpServerArgs,
 } from "./coding-agent.js";
 import type { McpServerEntry } from "../settings/index.js";
@@ -619,7 +620,7 @@ export const syncInlineMcpServerToAgent = (
     }
 
     const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
-    yield* Effect.forEach(
+    const writeResults = yield* Effect.forEach(
       targets,
       (target) =>
         writeAgentMcpConfig({
@@ -631,7 +632,8 @@ export const syncInlineMcpServerToAgent = (
         }),
       { concurrency: "unbounded" },
     );
-    return { _tag: "success" } as const;
+    const syncTargets = writeResults.flatMap((result) => result.targets);
+    return { _tag: "success", targets: syncTargets } satisfies McpServerSyncOutcome;
   });
 
 export const pruneManagedMcpServersForAgent = (
@@ -734,10 +736,12 @@ const decodeManifestAt = (
 const fallbackOutcome = (
   fallbackFrom: "unsupported" | "disabled",
   reason: string,
+  targets?: ReadonlyArray<McpServerSyncTarget>,
 ): McpServerSyncOutcome => ({
   _tag: "fallback",
   fallbackFrom,
   reason,
+  ...(targets === undefined ? {} : { targets }),
 });
 
 export const addMcpServerMixed = (
@@ -978,7 +982,7 @@ export const addMcpServerFromManifest = (
     }
 
     const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
-    yield* Effect.forEach(
+    const writeResults = yield* Effect.forEach(
       targets,
       (target) =>
         writeAgentMcpConfig({
@@ -990,6 +994,7 @@ export const addMcpServerFromManifest = (
         }),
       { concurrency: "unbounded" },
     );
+    const syncTargets = writeResults.flatMap((result) => result.targets);
 
     if (resolution._tag === "needs-input") {
       return {
@@ -1002,9 +1007,10 @@ export const addMcpServerFromManifest = (
         _tag: "fallback",
         fallbackFrom: "unsupported",
         reason: resolution.warnings.join("; "),
+        targets: syncTargets,
       } as const;
     }
-    return { _tag: "success" } as const;
+    return { _tag: "success", targets: syncTargets } as const;
   });
 
 export const removeMcpServerFromManifest = (
@@ -1030,7 +1036,7 @@ export const removeMcpServerFromManifest = (
     const config = capability.config;
 
     const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
-    yield* Effect.forEach(
+    const writeResults = yield* Effect.forEach(
       targets,
       (target) =>
         removeAgentMcpConfig({
@@ -1043,5 +1049,6 @@ export const removeMcpServerFromManifest = (
         }),
       { concurrency: "unbounded" },
     );
-    return { _tag: "success" } as const;
+    const syncTargets = writeResults.flatMap((result) => result.targets);
+    return { _tag: "success", targets: syncTargets } as const;
   });

@@ -63,7 +63,7 @@ export const validateAgentIds = (
           detail: `Unknown agent ID: ${id}`,
           suggestions: [
             nearest === undefined
-              ? { description: "Run `axm agents list --available` to see supported IDs." }
+              ? { description: "Inspect supported agent IDs.", cmd: "axm agents list --available" }
               : {
                   description: `Did you mean "${nearest}"?`,
                   cmd: `axm agents add ${nearest}`,

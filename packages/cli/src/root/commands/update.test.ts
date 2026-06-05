@@ -16,7 +16,12 @@ import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents"
 import type { RegistryCommandRef } from "@agentxm/client-core/unstable/commands";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import { exactVersion, extensionName, handle, writeWorkspaceFiles } from "../../test-stubs.js";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectNoOpPlanResult,
+  expectPreviewedPlanResult,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { handleUpdateCommand, type UpdateCommandHandlerArgs } from "./update.js";
 
 // -----------------------------------------------------------------------------
@@ -81,7 +86,8 @@ describe("commands update.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => makeWorkspaceHandlerTestContext();
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) =>
+    makeWorkspaceHandlerTestContext(opts);
 
   // ---------------------------------------------------------------------------
   // Empty state
@@ -95,7 +101,7 @@ describe("commands update.handler", () => {
       Effect.gen(function* () {
         yield* handleUpdateCommand(defaultArgs());
 
-        expect(logs.info.some((m) => m.includes("No commands installed"))).toBe(true);
+        expect(logs.success.some((m) => m.includes("No commands installed"))).toBe(true);
       }),
     );
   });
@@ -113,7 +119,9 @@ describe("commands update.handler", () => {
         yield* handleUpdateCommand(defaultArgs({ name: Option.some("nonexistent") }));
 
         expect(
-          logs.info.some((m) => m.includes("No commands installed") || m.includes("nonexistent")),
+          logs.success.some(
+            (m) => m.includes("No commands installed") || m.includes("nonexistent"),
+          ),
         ).toBe(true);
       }),
     );
@@ -150,12 +158,59 @@ describe("commands update.handler", () => {
     );
   });
 
+  it.effect("emits skipped unresolved commands as plan steps without warning logs", () => {
+    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
+    const sourcesLayer = Layer.succeed(SourceHostProviders, {
+      find: (_source, request) =>
+        Effect.succeed(request.names.includes("my-cmd") ? [makeRegistryRef("my-cmd")] : []),
+      fetch: () => Effect.die("unused"),
+      cloneUrl: () => Option.none(),
+      origin: () => "test",
+    });
+    const fullLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive, sourcesLayer);
+    const provide = makeEffectProvide(fullLayer);
+    const { logs, rendererState } = ctx;
+
+    initWorkspace(
+      path.join(tempDir, ".axm"),
+      {
+        "my-cmd": path.join(tempDir, "my-cmd"),
+        "missing-cmd": path.join(tempDir, "missing-cmd"),
+      },
+      {},
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdateCommand(defaultArgs({ preview: true }));
+
+        expect(logs.warn).toEqual([]);
+        const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+          planName: "Update commands",
+          totalSteps: 2,
+        });
+        expect(result).toMatchObject({
+          steps: [
+            {
+              label: "my-cmd",
+              status: "ready",
+            },
+            {
+              label: "Skip missing-cmd",
+              status: "ready",
+            },
+          ],
+        });
+      }),
+    );
+  });
+
   // ---------------------------------------------------------------------------
   // Disabled commands skipped
   // ---------------------------------------------------------------------------
 
   it.effect("skips disabled commands during update", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, logs, rendererState } = makeLayers();
     initWorkspace(
       path.join(tempDir, ".axm"),
       { "my-cmd": { source: "@acme/commands/my-cmd", enabled: false } },
@@ -166,9 +221,34 @@ describe("commands update.handler", () => {
       Effect.gen(function* () {
         yield* handleUpdateCommand(defaultArgs());
 
-        expect(logs.info.some((m) => m.includes("Skipping") || m.includes("No commands"))).toBe(
-          true,
-        );
+        expect(logs.info).toEqual([]);
+        expect(logs.success).toContain("No commands installed.");
+        expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Update commands",
+          message: "No commands installed.",
+        });
+      }),
+    );
+  });
+
+  it.effect("reports disabled-only command updates as JSON no-op without logs", () => {
+    const { provide, logs, rendererState } = makeLayers({ machine: true });
+    initWorkspace(
+      path.join(tempDir, ".axm"),
+      { "my-cmd": { source: "@acme/commands/my-cmd", enabled: false } },
+      {},
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdateCommand(defaultArgs());
+
+        expect(logs.info).toEqual([]);
+        expect(logs.success).toEqual([]);
+        expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Update commands",
+          message: "No commands installed.",
+        });
       }),
     );
   });

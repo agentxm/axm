@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
 import {
   UninstallHookCommandWorkflowActions,
   type UninstallHookHandlerArgs,
@@ -12,6 +12,14 @@ export const handleUninstallHook = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallHookCommandWorkflowActions;
-    const resolution = yield* runUninstallCommandWorkflow(args, actions, flags);
-    yield* emitPlanResolutionResult("hooks.uninstall", resolution);
+    const resolution = yield* runUninstallCommandWorkflow(args, actions, {
+      ...flags,
+      displayApplied: false,
+    });
+    yield* emitAppliedPlanOutcome({
+      command: "hooks.uninstall",
+      headline: "Uninstalled hooks package " + args.name,
+      resolution,
+      suggestions: [{ description: "Inspect installed hooks packages", cmd: "axm hooks list" }],
+    });
   });

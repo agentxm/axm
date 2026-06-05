@@ -144,6 +144,13 @@ describe("disableCommand", () => {
 
         expect(result.result).toBe("success");
         expect(result.message).toBe("Disabled my-command");
+        if (result.result === "success") {
+          expect(result.artifact).toEqual({
+            path: ".axm/settings.json",
+            scope: "project",
+            change: "updated",
+          });
+        }
         expect(updateCommandEntryFn).toHaveBeenCalledOnce();
       }),
     );
@@ -172,6 +179,23 @@ describe("disableCommand", () => {
         );
 
         expect(result.result).toBe("success");
+        if (result.result === "success") {
+          expect(result.artifact).toEqual({
+            path: ".claude-code/commands/my-command.md",
+            scope: "project",
+            agents: ["claude-code"],
+            version: "1.0.0",
+            change: "updated",
+            fileCount: 1,
+            targets: [
+              {
+                path: ".claude-code/commands/my-command.md",
+                change: "removed",
+                agentIds: ["claude-code"],
+              },
+            ],
+          });
+        }
         expect(fs.existsSync(renderedPath)).toBe(false);
       }),
     );

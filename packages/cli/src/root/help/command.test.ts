@@ -13,6 +13,17 @@ import { handleHelpTopic, ORDERED_TOPIC_NAMES } from "./command.js";
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`, "g");
 const stripAnsi = (value: string): string => value.replace(ansiPattern, "");
 
+const helpIndexSuggestions = [
+  {
+    description: "Read a help topic",
+    cmd: "axm help <topic>",
+  },
+  {
+    description: "Show command help",
+    cmd: "axm <command> --help",
+  },
+];
+
 describe("help topic command", () => {
   it.effect("renders the interactive help index as a structured table", () =>
     Effect.gen(function* () {
@@ -30,13 +41,24 @@ describe("help topic command", () => {
         ORDERED_TOPIC_NAMES.map((topic) => ({ topic, description: expect.any(String) })),
       );
 
-      expect(state.logs).toEqual([
-        {
-          _tag: "message",
-          message:
-            "Run 'axm help <topic>' to read a topic, or 'axm <command> --help' for command help.",
-        },
-      ]);
+      expect(state.logs).toEqual([]);
+      expect(state.suggestions).toEqual(helpIndexSuggestions);
+    }),
+  );
+
+  it.effect("keeps machine help index structured with suggestions", () =>
+    Effect.gen(function* () {
+      const { layer, state } = TestMachineRenderer.make();
+
+      yield* handleHelpTopic(Option.none()).pipe(Effect.provide(layer));
+
+      expect(state.tables).toEqual([]);
+      expect(state.logs).toEqual([]);
+      expect(state.results[0]?.data).toMatchObject({
+        usage: "axm help <topic>",
+        topics: expect.any(Array),
+      });
+      expect(state.suggestions).toEqual(helpIndexSuggestions);
     }),
   );
 

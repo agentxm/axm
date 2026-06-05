@@ -31,6 +31,8 @@ registerEntity<PackListItem>("pack", {
   list: {
     columns: PackListTable.columns,
     emptyMessage: "No packs installed",
+    singularLabel: "installed pack",
+    pluralLabel: "installed packs",
   },
 });
 
@@ -56,10 +58,7 @@ export const handleList = Effect.fn("PacksList.handle")(function* () {
     return;
   }
 
-  if (items.length === 0) {
-    yield* renderer.info("No packs installed");
-    return;
-  }
+  if (items.length === 0) return;
 
   yield* renderer.table(items, PackListTable, "Installed packs");
 });

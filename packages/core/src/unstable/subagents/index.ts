@@ -71,6 +71,16 @@ export { buildSubagentLockEntry } from "./lock-entry-builder.js";
 export { SubagentManager, SubagentManagerLive } from "./manager.js";
 
 // Operations
+export {
+  SUBAGENT_CONFIG_SURFACE,
+  renderedSubagentTargets,
+  subagentConfigTarget,
+  subagentContentSourcePath,
+  subagentLifecycleArtifact,
+  subagentManifestSourcePath,
+  subagentScaffoldArtifact,
+  subagentSourcePath,
+} from "./operations/artifact.js";
 export type {
   PublishSubagentOperationArgs,
   PublishSubagentOperation,

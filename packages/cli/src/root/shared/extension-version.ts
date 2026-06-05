@@ -143,7 +143,7 @@ export const resolveManifestVersionInfo = (
         detail: `Manifest not found: ${manifestPath}`,
         suggestions: [
           {
-            description: `Create the managed extension with \`axm ${extensionTypeToPlural[expectedType]} new\` before running \`axm ${extensionTypeToPlural[expectedType]} version\`.`,
+            description: "Create the managed extension first.",
             cmd: `axm ${extensionTypeToPlural[expectedType]} new`,
           },
         ],
@@ -190,7 +190,8 @@ export const bumpManifestVersion = (args: {
         ? yield* decodeExactVersion(args.targetVersion, info.manifestPath)
         : yield* bumpVersion(from, args.bump, info.manifestPath);
 
-    if (!args.preview) {
+    const changed = from !== to;
+    if (!args.preview && changed) {
       const updated = { ...manifest, version: to };
       const newline = content.endsWith("\n") ? "\n" : "";
       yield* fs.writeFileString(info.manifestPath, JSON.stringify(updated, null, 2) + newline).pipe(
@@ -208,6 +209,6 @@ export const bumpManifestVersion = (args: {
       ...info,
       from,
       to,
-      written: !args.preview,
+      written: !args.preview && changed,
     } satisfies BumpManifestVersionResult;
   });

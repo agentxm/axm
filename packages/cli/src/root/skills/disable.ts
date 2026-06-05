@@ -4,7 +4,6 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { DisableSkillOperation } from "@agentxm/client-core/unstable/skills";
@@ -13,9 +12,10 @@ import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/c
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
+import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
 
 export interface DisableHandlerArgs {
@@ -27,7 +27,6 @@ export interface DisableHandlerArgs {
 
 export const handleDisable = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
@@ -51,18 +50,11 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
   // Configured skill: check if already disabled (implicit skills are always enabled).
   if (installedEntry.lifecycle === "configured" && !installedEntry.enabled) {
-    if (
-      yield* emitNoOpResult("skills.disable", {
-        planName: "Disable skill",
-        planDescription: `Disable ${skillName}`,
-        message: `Skill '${skillName}' is already disabled`,
-      })
-    ) {
-      return;
-    }
-
-    yield* renderer.info(`Skill '${skillName}' is already disabled`);
-    yield* renderer.success("Nothing to do.");
+    yield* emitNoOpOutcome("skills.disable", {
+      planName: "Disable skill",
+      planDescription: `Disable ${skillName}`,
+      message: `Skill '${skillName}' is already disabled`,
+    });
     return;
   }
 
@@ -95,8 +87,17 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    displayApplied: false,
   });
-  yield* emitPlanResolutionResult("skills.disable", resolution);
+  yield* emitAppliedPlanOutcome({
+    command: "skills.disable",
+    headline: `Disabled skill ${skillName}`,
+    resolution,
+    suggestions: [
+      LIST_INSTALLED_SKILLS,
+      { description: "Undo", cmd: `axm skills enable ${skillName}` },
+    ],
+  });
 });
 
 const disableConfig = {

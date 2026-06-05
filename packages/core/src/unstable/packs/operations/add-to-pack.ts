@@ -19,6 +19,7 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
+import { packManifestArtifact } from "./artifact.js";
 import { hashContent } from "./hash-content.js";
 
 // -----------------------------------------------------------------------------
@@ -73,7 +74,7 @@ export const addToPack: OperationHandler<
 
     // 1. Short-circuit if nothing to add
     if (Object.keys(additions).length === 0) {
-      return { result: "success", message: "Nothing to add" } satisfies JobStepResult;
+      return { result: "success", message: "No pack entries added" } satisfies JobStepResult;
     }
 
     // 2. Read current manifest
@@ -153,5 +154,12 @@ export const addToPack: OperationHandler<
     return {
       result: "success",
       message: `Added ${count(Object.keys(additions).length, "extension")} to pack`,
+      artifact: packManifestArtifact({
+        owner: packOwner,
+        name: packName,
+        scope: ws.scope,
+        change: "updated",
+        fileCount: 1,
+      }),
     } satisfies JobStepResult;
   });

@@ -227,9 +227,10 @@ describe("resolveRequiredToken", () => {
     return Effect.gen(function* () {
       const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
       expect(error.code).toBe("auth");
-      expect(error.suggestions?.[0]?.description).toBe(
-        "Run `axm login` to sign in, or set the AXM_TOKEN environment variable.",
-      );
+      expect(error.suggestions?.[0]).toEqual({
+        description: "Sign in, or set the AXM_TOKEN environment variable.",
+        cmd: "axm login",
+      });
     }).pipe(Effect.provide(layer));
   });
 
@@ -239,7 +240,7 @@ describe("resolveRequiredToken", () => {
       const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
       expect(error.code).toBe("auth");
       expect(error.suggestions?.[0]?.description).toBe(
-        "Set the AXM_TOKEN environment variable instead of running `axm login`.",
+        "Set the AXM_TOKEN environment variable for non-interactive auth.",
       );
     }).pipe(Effect.provide(layer));
   });

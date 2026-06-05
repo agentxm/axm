@@ -81,6 +81,10 @@ const determineStatus = (
   const installedMajor = semver.major(installed);
   const availableMajor = semver.major(latestAvailable);
 
+  if (!semver.gt(latestAvailable, installed)) {
+    return "current";
+  }
+
   if (availableMajor > installedMajor) {
     return "major-update-available";
   }
@@ -90,9 +94,9 @@ const determineStatus = (
     return "update-available";
   }
 
-  if (latestMatching.value === installed) {
-    return "current";
+  if (semver.gt(latestMatching.value, installed)) {
+    return "update-available";
   }
 
-  return "update-available";
+  return "current";
 };

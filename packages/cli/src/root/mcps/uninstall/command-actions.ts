@@ -14,8 +14,13 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import {
+  McpServerManager,
+  mcpServerArtifact,
+  mcpSourceTarget,
+  type McpServerExtensionRef,
+} from "@agentxm/client-core/unstable/mcps";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type {
   ExtensionTarget,
   McpServerExtensionTarget,
@@ -103,9 +108,37 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           ws.markDependencyRetainedInLockfile(args.target),
       };
 
-      const steps = intent.targets.map((target) =>
-        buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, { target }),
-      );
+      const steps = intent.targets.map((target): PlannedJobStep => {
+        const step = buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
+          target,
+        });
+        if (step.readiness !== "ready") {
+          return step;
+        }
+        return {
+          ...step,
+          run: Effect.gen(function* () {
+            const lockEntry = Option.getOrUndefined(yield* ws.getLockedMcpServer(target.name));
+            const result = yield* step.run;
+            if (result.result !== "success") return result;
+            const sourceTarget =
+              lockEntry?.type === "registry" ? mcpSourceTarget(lockEntry, "removed") : undefined;
+            return {
+              ...result,
+              artifact: mcpServerArtifact({
+                lockEntry,
+                scope: ws.scope,
+                change: "removed",
+                targets: [
+                  { path: ".axm/axm-lock.yaml", change: "updated" },
+                  { path: ".axm/settings.json", change: "updated" },
+                  ...(sourceTarget === undefined ? [] : [sourceTarget]),
+                ],
+              }),
+            } satisfies JobStepResult;
+          }),
+        };
+      });
 
       return Effect.succeed({
         _tag: "Plan",

@@ -56,7 +56,7 @@ describe("publishSuccessRender", () => {
     });
   });
 
-  it("keeps the existing Done message when no links are available", () => {
+  it("renders publish success messages when no links are available", () => {
     const resolution: ExecutedPlan = {
       _tag: "ExecutedPlan",
       name: "Publish skill",
@@ -74,6 +74,14 @@ describe("publishSuccessRender", () => {
       ],
     };
 
-    expect(publishSuccessRender(resolution)).toEqual({ message: "Done" });
+    expect(publishSuccessRender(resolution)).toEqual({
+      message: "Published @acme/skills/review@1.0.0",
+      suggestions: [
+        {
+          description: "View published metadata",
+          cmd: "axm view @acme/skills/review",
+        },
+      ],
+    });
   });
 });

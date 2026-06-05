@@ -159,7 +159,7 @@ export const resolveSourcePattern = (
             detail: "No skills matched the given pattern",
             suggestions: [
               {
-                description: "Check installed skill names with `axm skills list`.",
+                description: "Inspect installed skills.",
                 cmd: "axm skills list",
               },
             ],

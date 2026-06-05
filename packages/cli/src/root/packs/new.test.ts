@@ -18,9 +18,14 @@ import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { extensionName, handle, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectRecord,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultSteps,
+  property,
 } from "../../test-helpers.js";
 import { handlePacksNew, type PacksNewHandlerArgs } from "./new.js";
 
@@ -142,12 +147,35 @@ describe("packs-new.handler", () => {
           });
 
           expect(logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(true);
+          expect(rendererState.summaries).toContain(
+            "-> .axm/extensions/@acme/packs/frontend-tools/pack.json   0.0.1 | 1 file",
+          );
           expect(rendererState.suggestions).toEqual([
             {
               description:
                 "Edit `.axm/extensions/@acme/packs/frontend-tools/pack.json` to fill in pack contents",
             },
           ]);
+          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+          const result = expectAppliedPlanResult(renderedResult.data, {
+            planName: "New pack",
+          });
+          const steps = planResultSteps(result);
+          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
+          const artifact = expectRecord(property(firstStep, "artifact"));
+          expect(artifact).toMatchObject({
+            path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
+            scope: "project",
+            version: "0.0.1",
+            change: "created",
+            fileCount: 1,
+            targets: [
+              {
+                path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
+                change: "created",
+              },
+            ],
+          });
         }),
       );
     });
@@ -179,8 +207,8 @@ describe("packs-new.handler", () => {
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.packs?.["frontend-tools"]).toBeUndefined();
 
-          // Preview log message should appear
-          expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          // Preview outcome should appear
+          expect(logs.info.some((m) => m.includes("Would create 1 pack"))).toBe(true);
         }),
       );
     });

@@ -22,6 +22,8 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
   getAppError,
   getErrorResult,
   makeEffectProvide,
@@ -125,11 +127,15 @@ describe("publish.handler", () => {
   const makeLayers = (options?: {
     wsOverrides?: Partial<WorkspaceMutationsOptions>;
     authCredentials?: Parameters<typeof CredentialStoreTest>[1] | null;
+    machine?: boolean;
+    quiet?: boolean;
   }) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
+      ...(options?.quiet === undefined ? {} : { flags: { quiet: options.quiet } }),
       prompt: {
         confirmResponses: [true],
       },
+      machine: options?.machine,
       wsOptions: options?.wsOverrides,
     });
     const authCredStoreLayer =
@@ -190,7 +196,7 @@ describe("publish.handler", () => {
             defaultArgs(["@test/skills/code-review"], { registry: Option.some("local") }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Registry should have the published extension index
           const registryIndexPath = path.join(
@@ -259,7 +265,7 @@ describe("publish.handler", () => {
             defaultArgs(["@test/skills/offline-skill"], { registry: Option.some("local") }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(
@@ -329,7 +335,7 @@ describe("publish.handler", () => {
           expect(appError.code).toBe("conflict");
           expect(appError.detail).toContain("version 1.0.0 is already published");
           expect(appError.suggestions).toContainEqual({
-            description: "Bump the version with `axm version @test/skills/preview-conflict patch`",
+            description: "Bump the manifest version.",
             cmd: "axm version @test/skills/preview-conflict patch",
           });
         }),
@@ -390,7 +396,78 @@ describe("publish.handler", () => {
 
           yield* handlePublish(defaultArgs(["@test/skills/force-older"], { force: true }));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("emits publish plan JSON in machine mode without human success logs", () => {
+      const { provide, logs, rendererState } = makeLayers({
+        authCredentials: null,
+        machine: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "machine-skill", {
+        name: "@test/skills/machine-skill",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(
+            defaultArgs(["@test/skills/machine-skill"], { registry: Option.some("local") }),
+          );
+
+          expect(logs.success).toEqual([]);
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Publish skill",
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "Publish @test/skills/machine-skill",
+                status: "applied",
+                message: "Published @test/skills/machine-skill@1.0.0",
+              },
+            ],
+          });
+          expect(rendererState.suggestions).toEqual([
+            {
+              description: "View published metadata",
+              cmd: "axm view @test/skills/machine-skill",
+            },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("suppresses publish suggestions in quiet mode", () => {
+      const { provide, logs, rendererState } = makeLayers({
+        authCredentials: null,
+        quiet: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "quiet-skill", {
+        name: "@test/skills/quiet-skill",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(
+            defaultArgs(["@test/skills/quiet-skill"], { registry: Option.some("local") }),
+          );
+
+          expect(logs.success).toEqual(["Published @test/skills/quiet-skill@1.0.0"]);
+          expect(rendererState.suggestions).toEqual([]);
         }),
       );
     });
@@ -413,7 +490,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["@test/skills/my-skill"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Registry should have the published extension
           const registryIndexPath = path.join(
@@ -456,7 +533,7 @@ describe("publish.handler", () => {
           // Pass bare name without owner
           yield* handlePublish(defaultArgs(["code-review"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Should have published under @test owner
           const registryIndexPath = path.join(
@@ -530,8 +607,7 @@ describe("publish.handler", () => {
           expect(errorResult.message).toContain("Managed extension not found");
           expect(errorResult.guidance).toContain("Scaffold a managed skill");
           expect(errorResult.guidance).toContain("axm skills new");
-          expect(rendererState.spinnerMessages).toContain("Validating extensions...");
-          expect(rendererState.spinnerMessages).toContain("Failed");
+          expect(rendererState.spinnerMessages).toEqual([]);
         }),
       );
     });
@@ -573,7 +649,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["effect-*"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Both effect- skills should be published
           expect(
@@ -633,7 +709,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["commit"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(registryRoot, "extensions", "@test", "skills", "commit", "index.json"),
@@ -673,7 +749,7 @@ describe("publish.handler", () => {
           // effect-basics matches both the glob and the literal
           yield* handlePublish(defaultArgs(["effect-*", "effect-basics", "commit"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(
@@ -712,8 +788,35 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["nonexistent-*"]));
 
-          expect(logs.warn.some((m) => m.includes("No skills matched"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to publish"))).toBe(true);
+          expect(logs.warn).toEqual([]);
+          expect(logs.success.some((m) => m.includes("No skills matched"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("No skills published"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("glob matching zero skills emits JSON no-op in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      const registryRoot = path.join(tempDir, "registry");
+
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          commit: "@test/skills/commit",
+        },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["nonexistent-*"]));
+
+          expect(logs.success).toEqual([]);
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Publish skill",
+            message: "No skills matched. No skills published.",
+          });
         }),
       );
     });
@@ -734,7 +837,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["@test/skills/code-review"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(registryRoot, "extensions", "@test", "skills", "code-review", "index.json"),
@@ -767,7 +870,7 @@ describe("publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublish(defaultArgs(["effect-*"]));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
           // Only configured skill should be published
           expect(
             fs.existsSync(

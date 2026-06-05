@@ -14,8 +14,14 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
+import type { CommandLockEntry } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { Operation, JobStepResult } from "../../plan/plan.js";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Operation,
+  JobStepResult,
+} from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
@@ -25,9 +31,67 @@ import {
 import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../../utils/path-types.js";
-import { readCommandContent, renderToAgents } from "./shared-command-helpers.js";
+import {
+  collectRenderingWarningSummaries,
+  readCommandContent,
+  renderToAgents,
+} from "./shared-command-helpers.js";
 
 const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
+
+const commandVersion = (entry: CommandLockEntry): string | undefined =>
+  entry.type === "registry" ? entry.resolvedVersion : undefined;
+
+const renderedFileTargets = (
+  renderedFiles: CommandLockEntry["renderedFiles"],
+): ReadonlyArray<JobStepArtifactTarget> => {
+  if (renderedFiles === undefined) return [];
+
+  const agentIdsByPath = new Map<string, Array<string>>();
+  for (const [agentId, files] of Object.entries(renderedFiles)) {
+    for (const file of files) {
+      const agentIds = agentIdsByPath.get(file.path) ?? [];
+      if (!agentIds.includes(agentId)) {
+        agentIds.push(agentId);
+      }
+      agentIdsByPath.set(file.path, agentIds);
+    }
+  }
+
+  return Array.from(agentIdsByPath.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(
+      ([targetPath, agentIds]): JobStepArtifactTarget => ({
+        path: targetPath,
+        change: "updated",
+        agentIds: [...agentIds].sort(),
+      }),
+    );
+};
+
+const commandArtifactFromLockEntry = (
+  lockEntry: CommandLockEntry,
+  scope: JobStepArtifact["scope"],
+): JobStepArtifact => {
+  const targets = renderedFileTargets(lockEntry.renderedFiles);
+  const firstTarget = targets[0];
+  const version = commandVersion(lockEntry);
+
+  return {
+    path: firstTarget?.path ?? ".axm/settings.json",
+    scope,
+    ...(lockEntry.agents.length === 0 ? {} : { agents: lockEntry.agents }),
+    ...(version === undefined ? {} : { version }),
+    change: "updated",
+    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+  };
+};
+
+const settingsOnlyCommandArtifact = (scope: JobStepArtifact["scope"]): JobStepArtifact => ({
+  path: ".axm/settings.json",
+  scope,
+  change: "updated",
+});
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -91,6 +155,7 @@ export const enableCommand: OperationHandler<
       return {
         result: "success",
         message: `Enabled ${op.args.commandName}`,
+        artifact: settingsOnlyCommandArtifact(ws.scope),
       } satisfies JobStepResult;
     }
 
@@ -118,7 +183,7 @@ export const enableCommand: OperationHandler<
         detail: `Command files for "${op.args.commandName}" not found at ${canonicalPath}`,
         suggestions: [
           {
-            description: "Try reinstalling the command with `axm commands install`",
+            description: "Try reinstalling the command.",
             cmd: "axm commands install <source>",
           },
         ],
@@ -165,7 +230,7 @@ export const enableCommand: OperationHandler<
           );
 
     // Render to agents concurrently
-    const { successfulAgents, rawRenderedFiles } = yield* renderToAgents({
+    const { outcomes, successfulAgents, rawRenderedFiles } = yield* renderToAgents({
       commandName: op.args.commandName,
       editSourcePath: editSourcePath.value,
       frontmatter,
@@ -176,6 +241,7 @@ export const enableCommand: OperationHandler<
       workspaceRoot: base,
       force: false,
     });
+    const renderingWarnings = collectRenderingWarningSummaries(outcomes);
 
     // Update lock entry with agents and renderedFiles
     const now = new Date();
@@ -204,5 +270,7 @@ export const enableCommand: OperationHandler<
     return {
       result: "success",
       message: `Enabled ${op.args.commandName}`,
+      ...(renderingWarnings.length === 0 ? {} : { warnings: renderingWarnings }),
+      artifact: commandArtifactFromLockEntry(updatedLockEntry, ws.scope),
     } satisfies JobStepResult;
   });

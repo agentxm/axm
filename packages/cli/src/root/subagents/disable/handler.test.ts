@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import { makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import { expectNoOpPlanResult, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
@@ -80,9 +80,10 @@ describe("subagents disable.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
     const ctx = makeWorkspaceHandlerTestContext({
-      flags: { nonInteractive: true },
+      ...opts,
+      flags: { ...opts?.flags, nonInteractive: true },
     });
     const agentRepoLayer = Layer.succeed(CodingAgentRepository, emptyAgentRepo);
     const fullLayer = Layer.mergeAll(ctx.fullLayer, agentRepoLayer);
@@ -143,7 +144,40 @@ describe("subagents disable.handler", () => {
           preview: false,
         });
 
-        expect(logs.info.some((m) => m.includes("already disabled"))).toBe(true);
+        expect(logs.info.some((m) => m.includes("already disabled"))).toBe(false);
+        expect(logs.success.some((m) => m.includes("already disabled"))).toBe(true);
+        expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(false);
+      }),
+    );
+  });
+
+  it.effect("emits JSON no-op when subagent is already disabled", () => {
+    const { provide, logs, rendererState } = makeLayers({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    initWorkspace(axmDir, {
+      subagents: {
+        "my-subagent": { source: "@acme/subagents/my-subagent", enabled: false },
+      },
+      lockfileSubagents: {
+        "my-subagent": makeLockEntry(),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleDisableSubagent({
+          name: "my-subagent",
+          yes: true,
+          force: false,
+          preview: false,
+        });
+
+        expect(logs.success).toEqual([]);
+        const planResult = expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Disable subagent",
+          message: "Subagent 'my-subagent' is already disabled",
+        });
+        expect(planResult).toMatchObject({ planDescription: "Disable my-subagent" });
       }),
     );
   });

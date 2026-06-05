@@ -3,15 +3,19 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import type {
-  SuggestedAction,
-  CommandOutcomeSummary,
-  SourceKind,
-  SubjectType,
+import {
+  type SuggestedAction,
+  type CommandOutcomeSummary,
+  type SourceKind,
+  type SubjectType,
+  getCommandSemanticProperties,
+  setCommandSemanticProperties,
+  summarizeCommandOutcome,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import type {
   CompletedJobStep,
   ExecutedPlan,
+  JobStepArtifact,
   PlanResolution,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
@@ -42,7 +46,7 @@ const StepArtifactTargetSchema = Schema.Struct({
 });
 
 const StepArtifactSchema = Schema.Struct({
-  path: Schema.String,
+  path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),
   agents: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.optional(Schema.String),
@@ -60,6 +64,7 @@ const StepSchema = Schema.Struct({
   label: Schema.String,
   status: StepStatusSchema,
   message: Schema.optional(Schema.String),
+  warnings: Schema.optional(Schema.Array(Schema.String)),
   code: Schema.optional(Schema.String),
   artifact: Schema.optional(StepArtifactSchema),
   links: Schema.optional(
@@ -74,6 +79,16 @@ const StepSchema = Schema.Struct({
     "A single step in a plan resolution result with label, status, and optional details.",
 });
 type Step = typeof StepSchema.Type;
+type StepArtifact = typeof StepArtifactSchema.Type;
+
+const artifactForJson = (artifact: JobStepArtifact): StepArtifact => {
+  const { targets, ...rest } = artifact;
+  if (targets === undefined) return rest;
+  const additionalTargets = artifact.targets?.filter((target) => target.path !== artifact.path);
+  return additionalTargets === undefined || additionalTargets.length === 0
+    ? rest
+    : { ...rest, targets: additionalTargets };
+};
 
 export const PlanResolutionResultSchema = Schema.Struct({
   outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const).annotate({
@@ -107,7 +122,11 @@ const PlanResolutionDocumentFields = {
 const plannedStepToStep = (step: PlannedJobStep): Step => {
   switch (step.readiness) {
     case "ready":
-      return { label: step.label, status: "ready" };
+      return {
+        label: step.label,
+        status: "ready",
+        ...(step.message !== undefined && step.message.length > 0 ? { message: step.message } : {}),
+      };
     case "warn":
       return {
         label: step.label,
@@ -130,7 +149,12 @@ const completedStepToStep = (step: CompletedJobStep): Step => {
       label: step.label,
       status,
       ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
-      ...(step.result.artifact !== undefined ? { artifact: step.result.artifact } : {}),
+      ...(step.result.warnings !== undefined && step.result.warnings.length > 0
+        ? { warnings: step.result.warnings }
+        : {}),
+      ...(step.result.artifact !== undefined
+        ? { artifact: artifactForJson(step.result.artifact) }
+        : {}),
       ...(step.result.links !== undefined ? { links: step.result.links } : {}),
     };
   }
@@ -179,6 +203,7 @@ export const toPlanResolutionResult = (resolution: PlanResolution): PlanResoluti
       const appliedCount = steps.filter((step) => step.status === "applied").length;
       const failedCount = steps.filter((step) => step.status === "failed").length;
       const blockedCount = steps.filter((step) => step.status === "blocked").length;
+      const warningCount = steps.reduce((total, step) => total + (step.warnings?.length ?? 0), 0);
       const description = planDescription(resolution);
       const outcome =
         appliedCount === 0 && failedCount === 0 && blockedCount === 0 ? "no-op" : "applied";
@@ -189,7 +214,7 @@ export const toPlanResolutionResult = (resolution: PlanResolution): PlanResoluti
         ...(description !== undefined ? { planDescription: description } : {}),
         totalSteps: steps.length,
         readyCount: 0,
-        warningCount: 0,
+        warningCount,
         errorCount: 0,
         appliedCount,
         failedCount,
@@ -211,6 +236,11 @@ export const emitPlanResolutionResult = <TCommand extends string>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const existingSemanticProperties = yield* getCommandSemanticProperties;
+    yield* setCommandSemanticProperties({
+      ...existingSemanticProperties,
+      ...summarizeCommandOutcome(planResolutionToSummary(resolution, {})),
+    });
     return yield* renderer.result(
       { result: toPlanResolutionResult(resolution) },
       Schema.Struct(PlanResolutionDocumentFields),

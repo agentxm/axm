@@ -413,7 +413,8 @@ export const routeNameInput = (
 
     return yield* makeAppError({
       code: "validation",
-      detail: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
+      detail: `Unknown skill "${name}".`,
+      suggestions: [{ description: "Inspect installed skills.", cmd: "axm skills list" }],
     });
   });
 

@@ -7,6 +7,7 @@ describe("resolveCliOutputPolicy", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: {} })).toEqual({
       colors: true,
       interactiveActivity: true,
+      quiet: false,
     });
   });
 
@@ -14,6 +15,7 @@ describe("resolveCliOutputPolicy", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: false, env: {} })).toEqual({
       colors: false,
       interactiveActivity: false,
+      quiet: false,
     });
   });
 
@@ -21,6 +23,7 @@ describe("resolveCliOutputPolicy", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { NO_COLOR: "1" } })).toEqual({
       colors: false,
       interactiveActivity: false,
+      quiet: false,
     });
   });
 
@@ -28,11 +31,13 @@ describe("resolveCliOutputPolicy", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { FORCE_COLOR: "0" } })).toEqual({
       colors: false,
       interactiveActivity: false,
+      quiet: false,
     });
 
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { FORCE_COLOR: "" } })).toEqual({
       colors: false,
       interactiveActivity: false,
+      quiet: false,
     });
   });
 
@@ -40,6 +45,15 @@ describe("resolveCliOutputPolicy", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { CI: "true" } })).toEqual({
       colors: false,
       interactiveActivity: false,
+      quiet: false,
+    });
+  });
+
+  it("records quiet output preference independently of color policy", () => {
+    expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: {}, quiet: true })).toEqual({
+      colors: true,
+      interactiveActivity: true,
+      quiet: true,
     });
   });
 });

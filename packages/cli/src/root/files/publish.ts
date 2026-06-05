@@ -6,11 +6,19 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  forceFlag,
+  previewFlag,
+  Verbosity,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   REGISTRY_EXTENSIONS_DIR,
   parseRegistrySourcePatternParts,
+  type ExtensionName,
+  type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import {
   FILES_EXTENSION_DIR,
@@ -18,7 +26,7 @@ import {
   FilesManifestSchema,
   type FilesManifest,
 } from "@agentxm/client-core/unstable/files";
-import type { JobStepResult, Plan } from "@agentxm/client-core/unstable/plan";
+import type { JobStepArtifact, JobStepResult, Plan } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { createRegistryClient, type VersionEntry } from "@agentxm/client-core/unstable/registry";
 import { buildZipArchive, computeIntegrity } from "@agentxm/client-core/unstable/utils";
@@ -26,8 +34,22 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
+import { publishSuccessRender } from "../shared/publish-success.js";
 
 const decodeManifest = Schema.decodeUnknownEffect(FilesManifestSchema);
+
+interface FilesPublishSubject {
+  readonly owner: Handle;
+  readonly name: ExtensionName;
+  readonly fqn: string;
+  readonly extensionDir: string;
+  readonly manifest: FilesManifest;
+}
+
+interface FilesPublishRegistry {
+  readonly name: string;
+  readonly url: string;
+}
 
 const isAppError = (error: unknown): error is AppError =>
   typeof error === "object" && error !== null && "_tag" in error && error._tag === "AppError";
@@ -41,19 +63,29 @@ const toAppError = (error: AppError | unknown): AppError =>
         cause: error,
       });
 
-const publishFiles = (args: {
-  readonly input: string;
-  readonly registry: Option.Option<string>;
-}): Effect.Effect<
-  JobStepResult,
-  AppError,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations
-> =>
+const isUnsupportedRegistryTypeError = (error: unknown): boolean =>
+  isAppError(error) &&
+  error.code === "internal" &&
+  error.detail.includes("Remote discovery response does not match expected schema");
+
+const publishArtifact = (args: {
+  readonly path: string;
+  readonly scope: JobStepArtifact["scope"];
+  readonly version: string;
+}): JobStepArtifact => ({
+  path: args.path,
+  scope: args.scope,
+  version: args.version,
+  change: "created",
+  targets: [{ path: args.path, change: "created" }],
+});
+
+const readFilesPublishSubject = (input: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const parsed = parseRegistrySourcePatternParts(args.input);
+    const parsed = parseRegistrySourcePatternParts(input);
     if (parsed === undefined || parsed.type !== "files" || parsed.name === undefined) {
       return yield* makeAppError({
         code: "validation",
@@ -98,10 +130,21 @@ const publishFiles = (args: {
         }),
       ),
     );
-    const archive = yield* buildZipArchive(extensionDir);
-    const integrity = yield* computeIntegrity(archive);
+
+    return {
+      owner: parsed.owner,
+      name: parsed.name,
+      fqn: `${parsed.owner}/files/${parsed.name}`,
+      extensionDir,
+      manifest,
+    } satisfies FilesPublishSubject;
+  });
+
+const resolveFilesPublishRegistry = (registry: Option.Option<string>) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
     const registrySources = yield* ws.getRegistrySourceHosts();
-    const targetName = Option.getOrElse(args.registry, () => registrySources[0]?.name ?? "default");
+    const targetName = Option.getOrElse(registry, () => registrySources[0]?.name ?? "default");
     const target = yield* ws.getConfiguredSourceByName(targetName);
     if (Option.isNone(target) || target.value.type !== "registry") {
       return yield* makeAppError({
@@ -109,24 +152,102 @@ const publishFiles = (args: {
         detail: `Registry source "${targetName}" not found`,
       });
     }
-    const client = yield* createRegistryClient(target.value.location.href);
+
+    return {
+      name: targetName,
+      url: target.value.location.href,
+    } satisfies FilesPublishRegistry;
+  });
+
+const checkFilesPublishVersionPreflight = (args: {
+  readonly subject: FilesPublishSubject;
+  readonly registry: FilesPublishRegistry;
+}) =>
+  Effect.gen(function* () {
+    const client = yield* createRegistryClient(args.registry.url);
+    const indexOption = yield* client
+      .getExtensionIndex({
+        owner: args.subject.owner,
+        type: "files",
+        name: args.subject.name,
+      })
+      .pipe(
+        Effect.catch((error) =>
+          isUnsupportedRegistryTypeError(error)
+            ? Effect.fail(
+                makeAppError({
+                  code: "unavailable",
+                  detail: `Registry source "${args.registry.name}" does not support files package publish checks.`,
+                  suggestions: [
+                    {
+                      description:
+                        "Use another registry source or retry after the registry supports files packages.",
+                    },
+                  ],
+                  cause: error,
+                }),
+              )
+            : Effect.fail(error),
+        ),
+      );
+
+    if (Option.isNone(indexOption)) return;
+
+    const existingVersion = indexOption.value.versions.find(
+      (entry) => entry.version === args.subject.manifest.version,
+    );
+    if (existingVersion === undefined) return;
+
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Cannot publish: version ${args.subject.manifest.version} is already published for ${args.subject.fqn}. Published versions are immutable.`,
+      suggestions: [
+        {
+          description: `Bump the version in \`.axm/extensions/${args.subject.owner}/files/${args.subject.name}/${FILES_MANIFEST_FILENAME}\`.`,
+        },
+      ],
+    });
+  });
+
+const publishFiles = (args: {
+  readonly subject: FilesPublishSubject;
+  readonly registry: FilesPublishRegistry;
+}): Effect.Effect<
+  JobStepResult,
+  AppError,
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
+> =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const archive = yield* buildZipArchive(args.subject.extensionDir);
+    const integrity = yield* computeIntegrity(archive);
+    const client = yield* createRegistryClient(args.registry.url);
     const metadata: VersionEntry = {
-      version: manifest.version,
+      version: args.subject.manifest.version,
       published: new Date().toISOString(),
       integrity,
-      ...(manifest.packages !== undefined ? { packages: manifest.packages } : {}),
+      ...(args.subject.manifest.packages !== undefined
+        ? { packages: args.subject.manifest.packages }
+        : {}),
     };
     const response = yield* client.publishExtension({
-      owner: parsed.owner,
+      owner: args.subject.owner,
       type: "files",
-      name: parsed.name,
-      version: manifest.version,
+      name: args.subject.name,
+      version: args.subject.manifest.version,
       archive,
       metadata,
     });
+    const publishedPath =
+      response.links?.html ?? `${args.subject.fqn}@${args.subject.manifest.version}`;
     return {
       result: "success",
-      message: `Published ${args.input}@${manifest.version}`,
+      message: `Published ${args.subject.fqn}@${args.subject.manifest.version}`,
+      artifact: publishArtifact({
+        path: publishedPath,
+        scope: ws.scope,
+        version: args.subject.manifest.version,
+      }),
       ...(response.links !== undefined ? { links: response.links } : {}),
     } satisfies JobStepResult;
   }).pipe(Effect.mapError(toAppError));
@@ -141,19 +262,31 @@ export const handleFilesPublish = Effect.fn("FilesPublish.handle")(function* (ar
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const renderer = yield* CliRenderer;
+  const verbosity = yield* Verbosity;
   const runPublishPlan = Effect.gen(function* () {
+    const subject = yield* readFilesPublishSubject(args.input).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.provideService(WorkspaceMutations, ws),
+    );
+    const registry = yield* resolveFilesPublishRegistry(args.registry).pipe(
+      Effect.provideService(WorkspaceMutations, ws),
+    );
+    yield* checkFilesPublishVersionPreflight({ subject, registry });
+
     const plan: Plan = {
       _tag: "Plan",
       name: "Publish files",
-      description: Option.some(`Publish ${args.input}`),
+      description: Option.some(`Publish ${subject.fqn} to registry "${registry.name}"`),
       jobs: [
         {
           concurrency: 1,
           steps: [
             {
               readiness: "ready",
-              label: args.input,
-              run: publishFiles({ input: args.input, registry: args.registry }).pipe(
+              label: `Publish ${subject.fqn}`,
+              run: publishFiles({ subject, registry }).pipe(
                 Effect.provideService(FileSystem.FileSystem, fs),
                 Effect.provideService(Path.Path, path),
                 Effect.provideService(WorkspaceMutations, ws),
@@ -163,8 +296,50 @@ export const handleFilesPublish = Effect.fn("FilesPublish.handle")(function* (ar
         },
       ],
     };
-    const resolution = yield* previewOrApplyPlan(plan, args);
-    yield* emitPlanResolutionResult("files.publish", resolution);
+    const resolution = yield* previewOrApplyPlan(plan, {
+      yes: args.yes,
+      force: args.force,
+      preview: args.preview,
+      displayApplied: false,
+    });
+
+    if (resolution._tag === "ExecutedPlan") {
+      const failedStepErrors = resolution.jobs
+        .flatMap((job) => job.steps)
+        .flatMap((step) => (step.result.result === "error" ? [step.result] : []));
+
+      if (failedStepErrors.length > 0) {
+        const [singleFailure] = failedStepErrors;
+        if (failedStepErrors.length === 1 && singleFailure !== undefined) {
+          return yield* singleFailure.error;
+        }
+
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Failed to publish ${failedStepErrors.length} files packages`,
+        });
+      }
+    }
+
+    const success =
+      resolution._tag === "ExecutedPlan" ? publishSuccessRender(resolution) : undefined;
+    const emitted = yield* emitPlanResolutionResult("files.publish", resolution, {
+      ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+    });
+    if (emitted) {
+      return;
+    }
+
+    if (success !== undefined) {
+      yield* renderer.success(
+        success.message,
+        verbosity.level === "quiet"
+          ? undefined
+          : {
+              ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+            },
+      );
+    }
   });
 
   if (args.preview) {
@@ -172,16 +347,9 @@ export const handleFilesPublish = Effect.fn("FilesPublish.handle")(function* (ar
     return;
   }
 
-  const registries = yield* ws.getRegistrySourceHosts();
-  const namedRegistry = Option.isSome(args.registry)
-    ? yield* ws.getConfiguredSourceByName(args.registry.value)
-    : Option.none();
-  const registryUrl =
-    Option.isSome(namedRegistry) && namedRegistry.value.type === "registry"
-      ? namedRegistry.value.location.href
-      : registries[0]?.location.href;
+  const registry = yield* resolveFilesPublishRegistry(args.registry);
   yield* withAuthGuard(runPublishPlan, {
-    registryUrl: registryUrl ?? "https://registry.agentxm.ai",
+    registryUrl: registry.url,
   });
 });
 

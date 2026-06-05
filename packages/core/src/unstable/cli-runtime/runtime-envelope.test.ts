@@ -9,8 +9,13 @@ import { CliRenderer } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
-import { makeAppError } from "../app-error/index.js";
-import { makeFoundationLayer, writeDefect, writeExpectedCliError } from "./runtime-envelope.js";
+import { ExitCode, makeAppError } from "../app-error/index.js";
+import {
+  exitCodeForSemanticProperties,
+  makeFoundationLayer,
+  writeDefect,
+  writeExpectedCliError,
+} from "./runtime-envelope.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -108,6 +113,27 @@ describe("makeFoundationLayer", () => {
   );
 });
 
+describe("exitCodeForSemanticProperties", () => {
+  it("returns issues when a command reports failed steps", () => {
+    expect(exitCodeForSemanticProperties({ "cli.failed_count": 1 })).toBe(ExitCode.Issues);
+  });
+
+  it("returns issues when a command reports blocked steps", () => {
+    expect(exitCodeForSemanticProperties({ "cli.blocked_count": 1 })).toBe(ExitCode.Issues);
+  });
+
+  it("returns undefined for successful or missing plan counts", () => {
+    expect(
+      exitCodeForSemanticProperties({
+        "cli.failed_count": 0,
+        "cli.blocked_count": 0,
+        "cli.outcome": "applied",
+      }),
+    ).toBeUndefined();
+    expect(exitCodeForSemanticProperties({})).toBeUndefined();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // writeDefect — JSON-mode channel contract for unhandled defects
 // ---------------------------------------------------------------------------
@@ -145,7 +171,7 @@ describe("writeDefect", () => {
 
     expect(stdoutWrites).toEqual([]);
     expect(stderrWrites).toHaveLength(1);
-    expect(stderrWrites[0]).toContain("✖ boom");
+    expect(stderrWrites[0]).toContain("✖  boom");
     expect(stderrWrites[0]).not.toContain("✗");
     expect(stderrWrites[0]).toContain("boom");
   });
@@ -232,9 +258,8 @@ describe("writeExpectedCliError", () => {
 
     const stderr = stderrWrites.join("");
     // renderAppError owns the single suggestions block.
-    expect(stderr).toContain("Next steps:");
-    // The separate "Next:" block must not be re-emitted.
-    expect(stderr).not.toContain("Next:\n");
+    expect(stderr).toContain("Next:");
+    expect(stderr.split("Next:").length - 1).toBe(1);
     // The suggestion text appears once across the whole stderr output.
     const occurrences =
       stderr.split("Choose a different name or remove the existing skill first").length - 1;

@@ -131,6 +131,145 @@ export const property = (value: unknown, key: string, message?: string): unknown
     message ?? `Expected property ${key}`,
   );
 
+export const planResultSteps = (result: unknown): ReadonlyArray<unknown> => {
+  const steps = property(result, "steps");
+
+  if (!Array.isArray(steps)) {
+    throw new Error("Expected result.steps array");
+  }
+
+  return steps;
+};
+
+export const expectAppliedPlanResult = (
+  value: unknown,
+  options: {
+    readonly planName: string;
+    readonly totalSteps?: number;
+    readonly appliedCount?: number;
+    readonly warningCount?: number;
+  },
+): Readonly<Record<string, unknown>> => {
+  const payload = expectRecord(value);
+  const result = expectRecord(property(payload, "result"));
+  const totalSteps = options.totalSteps ?? 1;
+  const appliedCount = options.appliedCount ?? totalSteps;
+  const expected = {
+    outcome: "applied",
+    planName: options.planName,
+    totalSteps,
+    readyCount: 0,
+    warningCount: options.warningCount ?? 0,
+    errorCount: 0,
+    appliedCount,
+    failedCount: 0,
+    blockedCount: 0,
+  };
+
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    const actual = property(result, key);
+    if (actual !== expectedValue) {
+      throw new Error(`Expected plan result ${key} to be ${String(expectedValue)}`);
+    }
+  }
+
+  planResultSteps(result);
+  return result;
+};
+
+export const expectNoOpPlanResult = (
+  value: unknown,
+  options: {
+    readonly planName: string;
+    readonly totalSteps?: number;
+    readonly message?: string;
+  },
+): Readonly<Record<string, unknown>> => {
+  const payload = expectRecord(value);
+  const result = expectRecord(property(payload, "result"));
+  const totalSteps = options.totalSteps ?? 0;
+  const expected = {
+    outcome: "no-op",
+    planName: options.planName,
+    totalSteps,
+    readyCount: 0,
+    warningCount: 0,
+    errorCount: 0,
+    appliedCount: 0,
+    failedCount: 0,
+    blockedCount: 0,
+  };
+
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    const actual = property(result, key);
+    if (actual !== expectedValue) {
+      throw new Error(`Expected no-op plan result ${key} to be ${String(expectedValue)}`);
+    }
+  }
+
+  if (options.message !== undefined && property(result, "message") !== options.message) {
+    throw new Error(`Expected no-op plan result message to be ${options.message}`);
+  }
+
+  const steps = planResultSteps(result);
+  if (steps.length !== totalSteps) {
+    throw new Error(`Expected no-op plan result to contain ${String(totalSteps)} steps`);
+  }
+
+  return result;
+};
+
+export const expectPreviewedPlanResult = (
+  value: unknown,
+  options: {
+    readonly planName: string;
+    readonly totalSteps: number;
+    readonly readyCount?: number;
+  },
+): Readonly<Record<string, unknown>> => {
+  const payload = expectRecord(value);
+  const result = expectRecord(property(payload, "result"));
+  const readyCount = options.readyCount ?? options.totalSteps;
+  const expected = {
+    outcome: "previewed",
+    planName: options.planName,
+    totalSteps: options.totalSteps,
+    readyCount,
+    warningCount: 0,
+    errorCount: 0,
+    appliedCount: 0,
+    failedCount: 0,
+    blockedCount: 0,
+  };
+
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    const actual = property(result, key);
+    if (actual !== expectedValue) {
+      throw new Error(`Expected previewed plan result ${key} to be ${String(expectedValue)}`);
+    }
+  }
+
+  const steps = planResultSteps(result);
+  if (steps.length !== options.totalSteps) {
+    throw new Error(
+      `Expected previewed plan result to contain ${String(options.totalSteps)} steps`,
+    );
+  }
+
+  return result;
+};
+
+export const expectNoPlanEnvelope = (value: unknown): void => {
+  const record = expectRecord(value);
+  const planFields = ["result", "outcome", "planName", "steps"];
+
+  for (const field of planFields) {
+    if (field in record) {
+      throw new Error(`Expected read/query output without plan field ${field}`);
+    }
+  }
+};
+
 export const stringProperty = (value: unknown, key: string, message?: string): string => {
   const field = property(value, key, message);
 
@@ -183,7 +322,15 @@ export const getErrorResult = (result: unknown): AppErrorResult => {
 
 export const makeCliTestContext = (opts?: {
   readonly prompt?: TestPromptConfig | undefined;
-  readonly flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean } | undefined;
+  readonly flags?:
+    | {
+        verbose?: boolean;
+        debug?: boolean;
+        quiet?: boolean;
+        nonInteractive?: boolean;
+        json?: boolean;
+      }
+    | undefined;
   readonly machine?: boolean | undefined;
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
@@ -278,7 +425,15 @@ const isRepositoryPath = (startDir: string): boolean => {
 
 export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly prompt?: TestPromptConfig | undefined;
-  readonly flags?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean } | undefined;
+  readonly flags?:
+    | {
+        verbose?: boolean;
+        debug?: boolean;
+        quiet?: boolean;
+        nonInteractive?: boolean;
+        json?: boolean;
+      }
+    | undefined;
   readonly machine?: boolean | undefined;
   readonly wsOptions?: Partial<WorkspaceMutationsOptions> | undefined;
 }) => {

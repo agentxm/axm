@@ -32,6 +32,15 @@ export interface RemoveAgentMcpConfigArgs {
   readonly disableOnly: boolean;
 }
 
+export interface AgentMcpConfigWriteTarget {
+  readonly path: string;
+  readonly change: "created" | "updated" | "unchanged" | "removed";
+}
+
+export interface AgentMcpConfigWriteResult {
+  readonly targets: ReadonlyArray<AgentMcpConfigWriteTarget>;
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -117,11 +126,12 @@ const readExisting = (configPath: string): Effect.Effect<string, AppError, FileS
 
 const writeIfChanged = (
   configPath: string,
+  targetPath: string,
   oldRaw: string,
   newRaw: string,
-): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<AgentMcpConfigWriteResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    if (oldRaw === newRaw) return;
+    if (oldRaw === newRaw) return { targets: [] };
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     yield* fs.makeDirectory(path.dirname(configPath), { recursive: true }).pipe(
@@ -133,6 +143,10 @@ const writeIfChanged = (
         }),
       ),
     );
+    const backupPath = `${configPath}.bak`;
+    const backupExists = yield* fs
+      .exists(backupPath)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
     yield* makeBackup(configPath, oldRaw, newRaw);
     yield* fs.writeFileString(configPath, newRaw).pipe(
       Effect.mapError((error) =>
@@ -143,6 +157,24 @@ const writeIfChanged = (
         }),
       ),
     );
+    const backupTarget =
+      oldRaw === ""
+        ? []
+        : [
+            {
+              path: `${targetPath}.bak`,
+              change: backupExists ? "updated" : "created",
+            } satisfies AgentMcpConfigWriteTarget,
+          ];
+    return {
+      targets: [
+        {
+          path: targetPath,
+          change: oldRaw === "" ? "created" : "updated",
+        },
+        ...backupTarget,
+      ],
+    };
   });
 
 const resolveTargetPath = (
@@ -260,7 +292,7 @@ const pickProjectTarget = (
 
 export const writeAgentMcpConfig = (
   args: WriteAgentMcpConfigArgs,
-): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<AgentMcpConfigWriteResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveTargetPath(args.workspaceRoot, target);
@@ -280,12 +312,12 @@ export const writeAgentMcpConfig = (
             serverName: args.serverName,
             entry: args.entry,
           });
-    yield* writeIfChanged(configPath, raw, next);
+    return yield* writeIfChanged(configPath, target.path, raw, next);
   });
 
 export const removeAgentMcpConfig = (
   args: RemoveAgentMcpConfigArgs,
-): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<AgentMcpConfigWriteResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveTargetPath(args.workspaceRoot, target);
@@ -306,5 +338,5 @@ export const removeAgentMcpConfig = (
             nativeEnabled: args.nativeEnabled,
             disableOnly: args.disableOnly,
           });
-    yield* writeIfChanged(configPath, raw, next);
+    return yield* writeIfChanged(configPath, target.path, raw, next);
   });

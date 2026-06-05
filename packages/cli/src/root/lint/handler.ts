@@ -31,7 +31,8 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { ExitCode, makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
+import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
+import { effectCliExit, type SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   CodingAgentRepository,
@@ -54,6 +55,7 @@ import {
   toLintHumanBlocks,
   toLintJsonDocument,
   type FixSummary,
+  type LintHumanBlock,
   type LintHumanDiagnostic,
   type LintJsonDocument,
   type LintSummary,
@@ -84,6 +86,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import type { Settings } from "@agentxm/client-core/unstable/settings";
 import * as os from "node:os";
+import { PlanResolutionResultSchema, toPlanResolutionResult } from "../../json-output.js";
 
 // -----------------------------------------------------------------------------
 // Handler args
@@ -711,14 +714,28 @@ const applyFixes = (args: {
 // Output
 // -----------------------------------------------------------------------------
 
-const JsonDocumentFields = {
+const LintJsonDocumentFields = {
   result: Schema.Any,
 } satisfies Schema.Struct.Fields;
 
-const emitJsonDocument = (doc: LintJsonDocument) =>
+const LintFixJsonDocumentFields = {
+  result: PlanResolutionResultSchema,
+  data: Schema.Any,
+} satisfies Schema.Struct.Fields;
+
+const emitJsonDocument = (
+  doc: LintJsonDocument,
+  fixResolution: Option.Option<typeof PlanResolutionResultSchema.Type>,
+) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    return yield* renderer.result({ result: doc }, Schema.Struct(JsonDocumentFields));
+    if (Option.isSome(fixResolution)) {
+      return yield* renderer.result(
+        { result: fixResolution.value, data: doc },
+        Schema.Struct(LintFixJsonDocumentFields),
+      );
+    }
+    return yield* renderer.result({ result: doc }, Schema.Struct(LintJsonDocumentFields));
   });
 
 const emitHumanOutput = (args: {
@@ -733,6 +750,12 @@ const emitHumanOutput = (args: {
       reporter: args.details ? "full" : "grouped",
       ...(Option.isSome(args.fixSummary) ? { fixSummary: args.fixSummary.value } : {}),
     });
+    const verbosity = yield* Verbosity;
+    if (!verbosity.isAtLeast("normal")) {
+      yield* emitQuietHumanOutput(renderer, blocks);
+      return;
+    }
+
     yield* Effect.forEach(
       blocks,
       (block) =>
@@ -740,16 +763,22 @@ const emitHumanOutput = (args: {
           switch (block.kind) {
             case "overview":
               yield* emitSummary(renderer, block.message, block.counts);
-              yield* Effect.forEach(block.notes, (note) => renderer.message(note), {
-                discard: true,
-              });
+              yield* Effect.forEach(
+                block.notes.filter((note) => !isLintCommandGuidance(note)),
+                (note) => renderer.message(note),
+                {
+                  discard: true,
+                },
+              );
               return;
             case "blank":
               yield* renderer.message("");
               return;
             case "section": {
               const label =
-                block.note !== undefined ? `${block.title} (${block.note})` : block.title;
+                block.note !== undefined && !isLintCommandGuidance(block.note)
+                  ? `${block.title} (${block.note})`
+                  : block.title;
               yield* renderer.step(label);
               return;
             }
@@ -776,21 +805,236 @@ const emitHumanOutput = (args: {
               yield* renderer.success(block.message);
               return;
             case "footer":
-              yield* renderer.message(block.message);
               return;
             case "fixSummary":
-              yield* block.summary.failed > 0
-                ? renderer.error(block.message)
-                : renderer.success(block.message);
-              yield* Effect.forEach(block.summary.warnings, (warning) => renderer.warn(warning), {
-                discard: true,
-              });
+              if (block.summary.failed > 0) {
+                yield* renderer.error(block.message);
+                yield* Effect.forEach(
+                  block.summary.warnings,
+                  (warning) => renderer.message(`  warning: ${warning}`),
+                  {
+                    discard: true,
+                  },
+                );
+                return;
+              }
+              yield* renderer.success(
+                block.message,
+                block.summary.warnings.length === 0
+                  ? undefined
+                  : {
+                      summary: block.summary.warnings
+                        .map((warning) => `warning: ${warning}`)
+                        .join("\n"),
+                    },
+              );
               return;
           }
         }),
       { discard: true },
     );
+    const suggestions = lintSuggestions({
+      summary: args.summary,
+      fixSummary: args.fixSummary,
+      details: args.details,
+      blocks,
+    });
+    if (suggestions.length > 0) {
+      yield* renderer.suggestions(suggestions);
+    }
   });
+
+const emitQuietHumanOutput = (
+  renderer: typeof CliRenderer.Service,
+  blocks: ReadonlyArray<LintHumanBlock>,
+) =>
+  Effect.forEach(
+    blocks,
+    (block) =>
+      Effect.gen(function* () {
+        switch (block.kind) {
+          case "overview":
+            yield* emitSummary(renderer, block.message, block.counts);
+            return;
+          case "driftBanner":
+            yield* renderer.warn(block.title);
+            return;
+          case "fixSummary":
+            if (block.summary.failed > 0) {
+              yield* renderer.error(block.message);
+              return;
+            }
+            yield* renderer.success(block.message);
+            return;
+          default:
+            return;
+        }
+      }),
+    { discard: true },
+  );
+
+const LINT_FIX_SUGGESTION = {
+  description: "Apply auto-fixable lint findings",
+  cmd: "axm lint --fix",
+} satisfies SuggestedAction;
+
+const LINT_DETAILS_SUGGESTION = {
+  description: "Show detailed lint output",
+  cmd: "axm lint --details",
+} satisfies SuggestedAction;
+
+const LINT_JSON_SUGGESTION = {
+  description: "Show machine-readable lint output",
+  cmd: "axm lint --json",
+} satisfies SuggestedAction;
+
+const BacktickedAxmCommandPattern = /`(axm [^`]+)`/g;
+
+const extractAxmCommands = (message: string): ReadonlyArray<string> => {
+  const commands: Array<string> = [];
+  for (const match of message.matchAll(BacktickedAxmCommandPattern)) {
+    const command = match[1];
+    if (command !== undefined) {
+      commands.push(command);
+    }
+  }
+  return commands;
+};
+
+const isLintCommandGuidance = (message: string): boolean =>
+  extractAxmCommands(message).length > 0 ||
+  message.includes("axm lint --details") ||
+  message.includes("axm lint --json");
+
+const hasAutofixableFindings = (summary: LintSummary): boolean =>
+  summary.findings.some((finding) => finding.finding.kind === "autofixable");
+
+const lintCommandSuggestion = (command: string): SuggestedAction | undefined => {
+  if (
+    command === LINT_FIX_SUGGESTION.cmd ||
+    command === LINT_DETAILS_SUGGESTION.cmd ||
+    command === LINT_JSON_SUGGESTION.cmd
+  ) {
+    return undefined;
+  }
+
+  if (command === "axm help skills") {
+    return {
+      description: "Open the skills decision guide",
+      cmd: command,
+    };
+  }
+
+  if (command === "axm prune") {
+    return {
+      description: "Prune unmanaged extension files",
+      cmd: command,
+    };
+  }
+
+  if (command.startsWith("axm skills install ")) {
+    return {
+      description: "Adopt an unmanaged skill",
+      cmd: command,
+    };
+  }
+
+  if (command.startsWith("axm install ")) {
+    return {
+      description: "Install configured missing content",
+      cmd: command,
+    };
+  }
+
+  return {
+    description: "Run suggested lint follow-up",
+    cmd: command,
+  };
+};
+
+const collectLintBlockCommands = (blocks: ReadonlyArray<LintHumanBlock>): ReadonlyArray<string> => {
+  const commands: Array<string> = [];
+  const collectDiagnostic = (diagnostic: LintHumanDiagnostic) => {
+    for (const value of [diagnostic.title, ...diagnostic.details, ...diagnostic.helps]) {
+      commands.push(...extractAxmCommands(value));
+    }
+  };
+
+  for (const block of blocks) {
+    switch (block.kind) {
+      case "overview":
+        for (const note of block.notes) {
+          commands.push(...extractAxmCommands(note));
+        }
+        break;
+      case "section":
+        if (block.note !== undefined) {
+          commands.push(...extractAxmCommands(block.note));
+        }
+        break;
+      case "diagnostic":
+        collectDiagnostic(block.diagnostic);
+        break;
+      case "pathGroup":
+        for (const diagnostic of block.diagnostics) {
+          collectDiagnostic(diagnostic);
+        }
+        break;
+      case "footer":
+        commands.push(...extractAxmCommands(block.message));
+        break;
+      case "fixSummary":
+        for (const warning of block.summary.warnings) {
+          commands.push(...extractAxmCommands(warning));
+        }
+        break;
+      case "driftBanner":
+      case "blank":
+      case "empty":
+        break;
+    }
+  }
+
+  return commands;
+};
+
+const lintSuggestions = (args: {
+  readonly summary: LintSummary;
+  readonly fixSummary: Option.Option<FixSummary>;
+  readonly details: boolean;
+  readonly blocks: ReadonlyArray<LintHumanBlock>;
+}): ReadonlyArray<SuggestedAction> => {
+  if (args.summary.findings.length === 0) {
+    return [];
+  }
+
+  const suggestions: Array<SuggestedAction> = [];
+  const seenCommands = new Set<string>();
+  const pushSuggestion = (suggestion: SuggestedAction) => {
+    const key = suggestion.cmd ?? suggestion.url ?? suggestion.description;
+    if (seenCommands.has(key)) {
+      return;
+    }
+    seenCommands.add(key);
+    suggestions.push(suggestion);
+  };
+
+  if (hasAutofixableFindings(args.summary) && Option.isNone(args.fixSummary)) {
+    pushSuggestion(LINT_FIX_SUGGESTION);
+  }
+  if (!args.details) {
+    pushSuggestion(LINT_DETAILS_SUGGESTION);
+  }
+  pushSuggestion(LINT_JSON_SUGGESTION);
+
+  for (const command of collectLintBlockCommands(args.blocks)) {
+    const suggestion = lintCommandSuggestion(command);
+    if (suggestion !== undefined) {
+      pushSuggestion(suggestion);
+    }
+  }
+  return suggestions;
+};
 
 const emitFullHumanDiagnostic = (
   renderer: typeof CliRenderer.Service,
@@ -812,9 +1056,13 @@ const emitFullHumanDiagnostic = (
     yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
       discard: true,
     });
-    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
-      discard: true,
-    });
+    yield* Effect.forEach(
+      diagnostic.helps.filter((help) => !isLintCommandGuidance(help)),
+      (help) => renderer.message(`  ${help}`),
+      {
+        discard: true,
+      },
+    );
   });
 
 const emitGroupedHumanDiagnostic = (
@@ -846,9 +1094,13 @@ const emitGroupedHumanDiagnostic = (
     yield* Effect.forEach(diagnostic.details, (detail) => renderer.message(`  - ${detail}`), {
       discard: true,
     });
-    yield* Effect.forEach(diagnostic.helps, (help) => renderer.message(`  ${help}`), {
-      discard: true,
-    });
+    yield* Effect.forEach(
+      diagnostic.helps.filter((help) => !isLintCommandGuidance(help)),
+      (help) => renderer.message(`  ${help}`),
+      {
+        discard: true,
+      },
+    );
   });
 
 const emitSummary = (
@@ -915,6 +1167,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
 
   // -- Apply fixes (optional) --
   let fixSummary: Option.Option<FixSummary> = Option.none();
+  let fixResolution = Option.none<typeof PlanResolutionResultSchema.Type>();
   if (args.fix) {
     const autofixable = collectAutofixableEntries(evaluations);
     const opsEffect = Effect.forEach(
@@ -935,8 +1188,9 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
         operations.push(op);
       }
     }
-    const { summary: fixResult } = yield* applyFixes({ operations, workspaceRoot });
+    const { summary: fixResult, executed } = yield* applyFixes({ operations, workspaceRoot });
     fixSummary = Option.some(fixResult);
+    fixResolution = Option.some(toPlanResolutionResult(executed));
   }
 
   // -- Emit output --
@@ -945,6 +1199,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       summary,
       ...(Option.isSome(fixSummary) ? { fixSummary: fixSummary.value } : {}),
     }),
+    fixResolution,
   );
   if (!handledByMachine) {
     yield* emitHumanOutput({

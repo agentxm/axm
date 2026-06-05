@@ -1,12 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { previewFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   extensionTypeSentenceLabels,
@@ -14,8 +14,20 @@ import {
   fqnInvalidErrorToAppError,
   parseFqn,
 } from "@agentxm/client-core/unstable/extensions";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+import {
+  DEFAULT_WORKSPACE_SCOPE,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
+import {
+  type CompletedJobStep,
+  type ExecutedPlan,
+  type JobStepArtifact,
+  type JobStepResult,
+  type Plan,
+  type PlanResolution,
+} from "@agentxm/client-core/unstable/plan";
 
+import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   bumpManifestVersion,
@@ -34,27 +46,96 @@ export interface VersionHandlerArgs {
   readonly preview: boolean;
 }
 
-const VersionResultSchema = Schema.Struct({
-  handle: Schema.String,
-  type: Schema.String,
-  manifestPath: Schema.String,
-  from: Schema.String,
-  to: Schema.String,
-  written: Schema.Boolean,
+const versionResultMessage = (
+  result: BumpManifestVersionResult,
+  verb: "Updated" | "Would update",
+): string => {
+  return `${verb} ${extensionTypeSentenceLabels[result.type]} ${result.fqn} ${result.from} -> ${result.to}`;
+};
+
+const versionNoOpMessage = (result: BumpManifestVersionResult): string =>
+  `Already up to date — ${extensionTypeSentenceLabels[result.type]} ${result.fqn} ${result.to}`;
+
+const versionResultSummary = (result: BumpManifestVersionResult) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const path = yield* Path.Path;
+    return `-> ${path.relative(ws.baseDir, result.manifestPath)}`;
+  });
+
+const versionArtifact = (result: BumpManifestVersionResult) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const path = yield* Path.Path;
+    const changed = result.from !== result.to;
+    return {
+      path: path.relative(ws.baseDir, result.manifestPath),
+      scope: ws.scope,
+      version: result.to,
+      previousVersion: result.from,
+      change: changed ? "updated" : "unchanged",
+      ...(changed ? { fileCount: 1 } : {}),
+    } satisfies JobStepArtifact;
+  });
+
+const noopStepResult = {
+  result: "success",
+  message: "",
+} satisfies JobStepResult;
+
+const makeVersionPlan = (result: BumpManifestVersionResult): Plan => ({
+  _tag: "Plan",
+  name: "Update extension version",
+  description: Option.none(),
+  jobs: [
+    {
+      concurrency: 1,
+      steps: [
+        {
+          label: result.fqn,
+          readiness: "ready",
+          message: `${result.from} -> ${result.to}`,
+          run: Effect.succeed(noopStepResult),
+        },
+      ],
+    },
+  ],
 });
 
-const VersionDocumentFields = {
-  result: VersionResultSchema,
-} satisfies Schema.Struct.Fields;
-
-const toVersionDocument = (result: BumpManifestVersionResult) => ({
-  handle: result.fqn,
-  type: result.type,
-  manifestPath: result.manifestPath,
-  from: result.from,
-  to: result.to,
-  written: result.written,
+const previewVersionPlan = (plan: Plan): PlanResolution => ({
+  _tag: "PreviewedPlan",
+  name: plan.name,
+  description: plan.description,
+  jobs: plan.jobs,
 });
+
+const executedVersionPlan = (
+  plan: Plan,
+  result: BumpManifestVersionResult,
+): Effect.Effect<ExecutedPlan, never, WorkspaceMutations | Path.Path> =>
+  Effect.gen(function* () {
+    const artifact = yield* versionArtifact(result);
+    const step = {
+      label: result.fqn,
+      result: {
+        result: "success",
+        message: `${result.from} -> ${result.to}`,
+        artifact,
+      },
+    } satisfies CompletedJobStep;
+
+    return {
+      _tag: "ExecutedPlan",
+      name: plan.name,
+      description: plan.description,
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [step],
+        },
+      ],
+    } satisfies ExecutedPlan;
+  });
 
 const parseBump = (bump: string) => {
   switch (bump) {
@@ -82,7 +163,7 @@ export const handleVersion = (args: VersionHandlerArgs) =>
         detail: "`set` requires an exact semver version",
         suggestions: [
           {
-            description: `Run \`axm ${extensionTypeToPlural[args.type]} version ${args.handle} set 1.2.3\`.`,
+            description: "Set an exact semver version.",
             cmd: `axm ${extensionTypeToPlural[args.type]} version ${args.handle} set 1.2.3`,
           },
         ],
@@ -97,24 +178,42 @@ export const handleVersion = (args: VersionHandlerArgs) =>
     }
 
     const targetVersion = Option.getOrUndefined(args.targetVersion);
-    const result = yield* bumpManifestVersion({
+    const versionArgs = {
       fqn: args.handle,
       type: args.type,
       bump,
       ...(targetVersion === undefined ? {} : { targetVersion }),
-      preview: args.preview,
+    };
+
+    const previewResult = yield* bumpManifestVersion({
+      ...versionArgs,
+      preview: true,
     });
+    const plan = makeVersionPlan(previewResult);
+    const resolution = args.preview
+      ? previewVersionPlan(plan)
+      : yield* bumpManifestVersion({
+          ...versionArgs,
+          preview: false,
+        }).pipe(Effect.flatMap((applied) => executedVersionPlan(plan, applied)));
 
     const renderer = yield* CliRenderer;
-    if (
-      yield* renderer.result(
-        { result: toVersionDocument(result) },
-        Schema.Struct(VersionDocumentFields),
-      )
-    ) {
+    if (yield* emitPlanResolutionResult("version", resolution)) {
       return;
     }
-    yield* renderer.raw(`${result.from} -> ${result.to}\n`);
+
+    const verbosity = yield* Verbosity;
+    const message =
+      !args.preview && previewResult.from === previewResult.to
+        ? versionNoOpMessage(previewResult)
+        : versionResultMessage(previewResult, args.preview ? "Would update" : "Updated");
+    const summary = yield* versionResultSummary(previewResult);
+    if (!args.preview) {
+      yield* renderer.success(message, verbosity.level === "quiet" ? undefined : { summary });
+      return;
+    }
+
+    yield* renderer.info(verbosity.level === "quiet" ? message : `${message}\n  ${summary}`);
   });
 
 const exampleNamesByType: Record<VersionableExtensionType, string> = {

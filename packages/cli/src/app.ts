@@ -11,6 +11,7 @@ import {
   MachineRenderer,
   resolveCliOutputPolicy,
 } from "@agentxm/client-core/unstable/cli-renderer";
+import { resolveVerbosityFromArgv } from "@agentxm/client-core/unstable/cli-flags";
 import { removeBuiltInFlag, runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
 import { InstallMethodLive } from "@agentxm/client-core/unstable/install-method";
 import { UpdateCheckLive } from "@agentxm/client-core/unstable/update-check";
@@ -140,7 +141,9 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
     (argv) => {
       const isJson = hasExplicitJsonFlag(argv);
       const commandProgram = Command.runWith(rootCommand, { version })(argv);
-      const outputPolicy = resolveCliOutputPolicy();
+      const outputPolicy = resolveCliOutputPolicy({
+        quiet: resolveVerbosityFromArgv(argv) === "quiet",
+      });
 
       const rendererLayer = isJson ? MachineRenderer() : InteractiveRenderer({ outputPolicy });
 

@@ -21,7 +21,11 @@ import {
   type UninstallHandlerArgs,
 } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import {
+  expectNoOpPlanResult,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -147,8 +151,14 @@ describe("uninstall.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceMutationsOptions>) => {
-    const handlerTestContext = makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
+  const makeLayers = (options?: {
+    readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
+    readonly machine?: boolean;
+  }) => {
+    const handlerTestContext = makeWorkspaceHandlerTestContext({
+      machine: options?.machine,
+      wsOptions: options?.wsOverrides,
+    });
     const BaseLayer = handlerTestContext.baseLayer;
     const WsLayer = handlerTestContext.wsLayer;
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
@@ -163,7 +173,11 @@ describe("uninstall.handler", () => {
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, ActionsLayer);
     const provide = makeEffectProvide(FullLayer);
 
-    return { provide, logs: handlerTestContext.logs };
+    return {
+      provide,
+      logs: handlerTestContext.logs,
+      rendererState: handlerTestContext.rendererState,
+    };
   };
 
   // ---------------------------------------------------------------------------
@@ -287,7 +301,7 @@ describe("uninstall.handler", () => {
       );
     });
 
-    it.effect("shows warning when glob matches no skills", () => {
+    it.effect("reports no-op when glob matches no skills", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         "my-skill": makeLockEntry(),
@@ -301,8 +315,32 @@ describe("uninstall.handler", () => {
             preview: false,
           });
 
-          expect(logs.warn.some((m) => m.includes("No skills matched"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
+          expect(logs.warn).toEqual([]);
+          expect(logs.success.some((m) => m.includes("No skills uninstalled"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("emits JSON no-op when glob matches no skills in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(path.join(tempDir, ".axm"), {
+        "my-skill": makeLockEntry(),
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstall(defaultArgs("nonexistent-*"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
+
+          expect(logs.success).toEqual([]);
+          expect(logs.warn).toEqual([]);
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Uninstall skills",
+            message: "No skills uninstalled.",
+          });
         }),
       );
     });
@@ -473,8 +511,8 @@ describe("uninstall.handler", () => {
             const settings = JSON.parse(settingsContent);
             expect(settings.skills?.["my-skill"]).toBeDefined();
 
-            // Preview info should be displayed
-            expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
+            // Preview outcome should be displayed
+            expect(logs.info.some((m) => m.includes("Would remove 1 skill"))).toBe(true);
           }),
         );
       },

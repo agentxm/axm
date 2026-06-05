@@ -14,11 +14,7 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import {
-  getAppError,
-  makeEffectProvide,
-  makeWorkspaceHandlerTestContext,
-} from "../../../test-helpers.js";
+import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleUninstallCommand } from "./handler.js";
 import {
   UninstallCommandCommandWorkflowActionsLive,
@@ -133,18 +129,53 @@ describe("commands uninstall.handler", () => {
       );
     });
 
-    it.effect("fails when command is not installed", () => {
-      const { provide } = makeLayers();
+    it.effect("previews a no-op when command is not installed", () => {
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleUninstallCommand(
+          yield* handleUninstallCommand(
             defaultArgs("nonexistent"),
             defaultFlags({ preview: true }),
-          ).pipe(Effect.flip);
+          );
 
-          expect(getAppError(error).detail).toContain("is not installed");
+          const allMessages = [...logs.info, ...logs.success, ...logs.message];
+          expect(allMessages.some((m) => m.includes("Uninstall command"))).toBe(true);
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Apply mode
+  // ---------------------------------------------------------------------------
+
+  describe("apply", () => {
+    it.effect("removes rendered command files recorded in the lockfile", () => {
+      const { provide, logs } = makeLayers();
+      const renderedPath = path.join(tempDir, ".claude", "commands", "my-cmd.md");
+      fs.mkdirSync(path.dirname(renderedPath), { recursive: true });
+      fs.writeFileSync(renderedPath, "rendered command");
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        { "my-cmd": "@acme/commands/my-cmd" },
+        {
+          "my-cmd": makeLockEntry({
+            agents: ["claude-code"],
+            renderedFiles: {
+              "claude-code": [{ path: ".claude/commands/my-cmd.md" }],
+            },
+          }),
+        },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallCommand(defaultArgs("my-cmd"), defaultFlags({ yes: true }));
+
+          expect(fs.existsSync(renderedPath)).toBe(false);
+          expect(logs.success.some((m) => m.includes("Uninstalled command my-cmd"))).toBe(true);
         }),
       );
     });

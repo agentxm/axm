@@ -170,7 +170,8 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                       suggestions: [
                         {
                           description:
-                            "Use the fully-qualified `@owner/mcps/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
+                            "Use the fully-qualified `@owner/mcps/name` form, set `owner` in settings, or sign in.",
+                          cmd: "axm login",
                         },
                       ],
                     }),

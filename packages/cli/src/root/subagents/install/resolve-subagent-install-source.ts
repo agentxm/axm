@@ -121,7 +121,7 @@ const resolveRegistrySource = (
         detail: `No registry source is configured for owner "${owner}"`,
         suggestions: [
           {
-            description: `Add a registry source for owner "${owner}" using "axm sources add"`,
+            description: `Add a registry source for owner "${owner}".`,
             cmd: "axm sources add",
           },
         ],

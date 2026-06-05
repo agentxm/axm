@@ -99,7 +99,7 @@ export const enableSkill: OperationHandler<
         detail: `Skill files for "${op.args.skillName}" not found at ${skillSrcPath}`,
         suggestions: [
           {
-            description: "Try reinstalling the skill with `axm skills install`",
+            description: "Try reinstalling the skill.",
             cmd: "axm skills install <source>",
           },
         ],
@@ -155,6 +155,10 @@ export const enableSkill: OperationHandler<
       sanitizedName,
       scope: ws.scope,
       change: "created",
+      workspaceTargets: [
+        { path: ".axm/axm-lock.yaml", change: "updated" },
+        { path: ".axm/settings.json", change: "updated" },
+      ],
     }).pipe(
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),

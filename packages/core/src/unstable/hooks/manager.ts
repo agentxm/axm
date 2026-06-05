@@ -706,6 +706,8 @@ export const HookManagerLive = Layer.effect(
       Effect.fn("HookManager.materializeUninstall")(function* ({ target }) {
         const locked = yield* ws.getLockedHookEntry(target.name);
         if (Option.isNone(locked)) return;
+        const configured = yield* ws.getConfiguredHookEntries();
+        const entryIsAuthored = configured[target.name]?.authored === true;
         yield* writeHooksConfig({ excludeName: target.name });
 
         const entry = locked.value;
@@ -719,7 +721,9 @@ export const HookManagerLive = Layer.effect(
                 entry.name,
               )
             : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, HOOK_EXTENSION_DIR, target.name);
-        yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
+        if (!entryIsAuthored) {
+          yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
+        }
       }, Effect.asVoid);
 
     return {
@@ -752,15 +756,17 @@ export const HookManagerLive = Layer.effect(
         versionRange,
       }) {
         const lockEntry = yield* buildLockEntry(ref);
-        const source =
-          ref.refType === "registry"
-            ? (() => {
-                const fqn = formatFqn({ owner: ref.owner, type: "hook", name: ref.hook.name });
-                return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
-              })()
-            : printSourceParams(lockEntryToSourceParams(lockEntry));
         const entries = yield* ws.getConfiguredHookEntries();
         const current = entries[ref.hook.name];
+        const source =
+          current?.authored === true
+            ? current.source
+            : ref.refType === "registry"
+              ? (() => {
+                  const fqn = formatFqn({ owner: ref.owner, type: "hook", name: ref.hook.name });
+                  return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                })()
+              : printSourceParams(lockEntryToSourceParams(lockEntry));
         yield* ws.setHookEntry(ref.hook.name, {
           source,
           enabled: true,

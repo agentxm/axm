@@ -16,7 +16,14 @@ import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { AXM_MANAGED_MARKER } from "@agentxm/client-core/unstable/workspace";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
+  expectPreviewedPlanResult,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+  planResultSteps,
+} from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleSync } from "./handler.js";
 
@@ -84,8 +91,8 @@ describe("root sync handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
-    const ctx = makeWorkspaceHandlerTestContext();
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
+    const ctx = makeWorkspaceHandlerTestContext(opts);
     const sourceProvidersLayer = Layer.provide(
       SourceHostProvidersLive,
       Layer.merge(ctx.baseLayer, ctx.wsLayer),
@@ -123,8 +130,40 @@ describe("root sync handler", () => {
           packManagerLayer,
         ),
       ),
+      logs: ctx.logs,
+      rendererState: ctx.rendererState,
     };
   };
+
+  it.effect("reports no-op when workspace materialization is already up to date", () =>
+    Effect.gen(function* () {
+      const { provide, logs } = makeLayers();
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: [],
+      });
+
+      yield* provide(handleSync({ dryRun: false }));
+
+      expect(logs.success).toEqual(["Workspace materialization is up to date"]);
+    }),
+  );
+
+  it.effect("emits JSON no-op when workspace materialization is already up to date", () =>
+    Effect.gen(function* () {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: [],
+      });
+
+      yield* provide(handleSync({ dryRun: false }));
+
+      expect(logs.success).toEqual([]);
+      expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
+    }),
+  );
 
   it.effect("renders settings-owned on-disk extensions while ignoring stale lockfile sources", () =>
     Effect.gen(function* () {
@@ -285,6 +324,47 @@ describe("root sync handler", () => {
       }),
   );
 
+  it.effect("emits JSON plan output for workspace-owned generator regions", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: [],
+      });
+      fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(tempDir, "src", "index.ts"), "");
+      fs.writeFileSync(
+        path.join(tempDir, "README.md"),
+        [
+          "# Project",
+          "<!-- axm:start region=files generator=file-index -->",
+          "old",
+          "<!-- axm:end region=files generator=file-index -->",
+          "",
+        ].join("\n"),
+      );
+
+      yield* provide(handleSync({ dryRun: false }));
+
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+      });
+      expect(result).toMatchObject({
+        steps: [
+          {
+            label: "workspace generator regions",
+            status: "applied",
+            artifact: {
+              scope: "project",
+              change: "updated",
+              fileCount: 1,
+              targets: [{ path: "workspace generator regions", change: "updated" }],
+            },
+          },
+        ],
+      });
+    }),
+  );
+
   it.effect("reports workspace generator dry-runs without writing files", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();
@@ -304,6 +384,35 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ dryRun: true }));
 
       expect(fs.readFileSync(readmePath, "utf-8")).toBe(original);
+    }),
+  );
+
+  it.effect("emits JSON preview for workspace generator dry-runs", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: [],
+      });
+      const readmePath = path.join(tempDir, "README.md");
+      const original = [
+        "# Project",
+        "<!-- axm:start region=files generator=file-index -->",
+        "old",
+        "<!-- axm:end region=files generator=file-index -->",
+        "",
+      ].join("\n");
+      fs.writeFileSync(readmePath, original);
+
+      yield* provide(handleSync({ dryRun: true }));
+
+      expect(fs.readFileSync(readmePath, "utf-8")).toBe(original);
+      const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 1,
+      });
+      expect(planResultSteps(result)).toEqual([
+        expect.objectContaining({ label: "workspace generator regions", status: "ready" }),
+      ]);
     }),
   );
 

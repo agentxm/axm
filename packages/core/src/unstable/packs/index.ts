@@ -36,6 +36,11 @@ export {
 export { packReconciliationAdapter } from "./reconciliation-adapter.js";
 
 // Operations
+export {
+  packManifestArtifact,
+  packManifestPath,
+  packManifestTarget,
+} from "./operations/artifact.js";
 export type { InstallPackOperationArgs, InstallPackOperation } from "./operations/install.js";
 export { installPack } from "./operations/install.js";
 export type { UninstallPackOperationArgs, UninstallPackOperation } from "./operations/uninstall.js";

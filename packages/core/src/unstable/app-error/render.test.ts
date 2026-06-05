@@ -3,7 +3,7 @@ import { AppError } from "./app-error.js";
 import { renderAppError, renderDefect } from "./render.js";
 
 describe("renderAppError", () => {
-  it("renders caller-supplied suggestions as a Next steps block", () => {
+  it("renders caller-supplied suggestions as a Next block", () => {
     const error = new AppError({
       code: "internal",
       title: "Internal Error",
@@ -16,14 +16,14 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 WorkspaceMutations not initialized (internal)",
-        "  Next steps:",
-        "    \u2022 Create a workspace to continue.",
+        "\u2716  WorkspaceMutations not initialized (internal)",
+        "Next:",
+        "  Create a workspace to continue.",
       ].join("\n"),
     );
   });
 
-  it("renders suggestion cmd and url on follow-on lines", () => {
+  it("renders suggestion cmd and url inline", () => {
     const error = new AppError({
       code: "network",
       title: "Network Error",
@@ -39,12 +39,10 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 Remote registry is unreachable (network)",
-        "  Next steps:",
-        "    \u2022 Sign in again.",
-        "      axm login",
-        "    \u2022 See the docs.",
-        "      https://axm.sh/docs",
+        "\u2716  Remote registry is unreachable (network)",
+        "Next:",
+        "  Sign in again. · axm login",
+        "  See the docs. · https://axm.sh/docs",
       ].join("\n"),
     );
   });
@@ -61,15 +59,14 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 Installation failed (internal)",
-        "  Next steps:",
-        "    \u2022 This looks like a bug. Please report it, including the request ID if one is shown.",
-        "      https://github.com/agentxm/axm/issues",
+        "\u2716  Installation failed (internal)",
+        "Next:",
+        "  This looks like a bug. Please report it, including the request ID if one is shown. · https://github.com/agentxm/axm/issues",
       ].join("\n"),
     );
   });
 
-  it("renders no Next steps block when the error code has no default suggestions", () => {
+  it("renders no Next block when the error code has no default suggestions", () => {
     const error = new AppError({
       code: "not_found",
       title: "Not Found",
@@ -79,7 +76,7 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error);
 
-    expect(result).toBe("\u2716 Resource missing (not_found)");
+    expect(result).toBe("\u2716  Resource missing (not_found)");
   });
 
   it("formats error with no optional fields", () => {
@@ -92,7 +89,7 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error);
 
-    expect(result).toBe("\u2716 Something went wrong (not_found)");
+    expect(result).toBe("\u2716  Something went wrong (not_found)");
   });
 
   it("renders registry origin in normal mode", () => {
@@ -165,9 +162,9 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 Could not resolve source (validation)",
-        "  Next steps:",
-        "    \u2022 Try a local path or GitHub shorthand.",
+        "\u2716  Could not resolve source (validation)",
+        "Next:",
+        "  Try a local path or GitHub shorthand.",
       ].join("\n"),
     );
   });
@@ -184,11 +181,10 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 Installation failed (internal)",
+        "\u2716  Installation failed (internal)",
         "  Title: Internal Error",
-        "  Next steps:",
-        "    \u2022 This looks like a bug. Please report it, including the request ID if one is shown.",
-        "      https://github.com/agentxm/axm/issues",
+        "Next:",
+        "  This looks like a bug. Please report it, including the request ID if one is shown. · https://github.com/agentxm/axm/issues",
         "  Cause: permission denied",
       ].join("\n"),
     );
@@ -236,7 +232,7 @@ describe("renderDefect", () => {
   it("formats Error instance with message", () => {
     const result = renderDefect(new Error("something broke"));
 
-    expect(result).toContain("\u2716 An unexpected error occurred");
+    expect(result).toContain("\u2716  An unexpected error occurred");
     expect(result).toContain("This is a bug");
     expect(result).toContain("something broke");
   });
@@ -244,19 +240,19 @@ describe("renderDefect", () => {
   it("formats string error", () => {
     const result = renderDefect("raw string error");
 
-    expect(result).toContain("\u2716 An unexpected error occurred");
+    expect(result).toContain("\u2716  An unexpected error occurred");
     expect(result).toContain("raw string error");
   });
 
   it("formats unknown error type", () => {
     const result = renderDefect(42);
 
-    expect(result).toContain("\u2716 An unexpected error occurred");
+    expect(result).toContain("\u2716  An unexpected error occurred");
     expect(result).toContain("This is a bug");
     // Should not include the number as a detail line
     expect(result).toBe(
       [
-        "\u2716 An unexpected error occurred",
+        "\u2716  An unexpected error occurred",
         "  This is a bug. Please report it at https://github.com/agentxm/axm/issues",
       ].join("\n"),
     );

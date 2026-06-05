@@ -16,7 +16,6 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
 import type { AllAgentOverrides } from "../../extensions/agent-overrides.js";
 import { warnOnOrphanOverrides } from "../../extensions/agent-overrides.js";
 import { validateCommandManifestHasNoAgentOverridesField } from "../../publish/manifest-policy.js";
@@ -288,39 +287,19 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
   });
 
 /**
- * Surface per-agent rendering warnings (lossy renders, user-scope fallbacks,
- * conflicts) grouped by agent. No-op when there are no warnings.
+ * Summarize per-agent rendering warnings (lossy renders, user-scope fallbacks,
+ * conflicts) so operation results can carry them through the plan model.
  */
-export const reportRenderingWarnings = (
+export const collectRenderingWarningSummaries = (
   outcomes: ReadonlyArray<AgentRenderOutcome>,
-): Effect.Effect<void, never, CliRenderer> =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    const warningsByAgent: Record<string, Array<string>> = Object.fromEntries(
-      outcomes
-        .map(({ agentId, outcome, warnings }) => {
-          const agentWarnings: Array<string> = [
-            ...(outcome._tag === "success" ? Array.from(outcome.warnings) : []),
-            ...(outcome._tag === "conflict" ? [`conflict - ${outcome.reason}`] : []),
-            ...warnings
-              .filter((w) => w.feature && w.message)
-              .map((w) => `${w.feature} - ${w.message}`),
-          ];
-          return [agentId, agentWarnings] as const;
-        })
-        .filter(([, ws]) => ws.length > 0),
-    );
-
-    const agentIds = Object.keys(warningsByAgent);
-    if (agentIds.length === 0) return;
-
-    const grouped = agentIds
-      .map((id) => {
-        const agentWarnings = warningsByAgent[id] ?? [];
-        return `  ${id}:\n${agentWarnings.map((w) => `    - ${w}`).join("\n")}`;
-      })
-      .join("\n");
-    yield* renderer.warn(`Rendering warnings:\n${grouped}`);
+): ReadonlyArray<string> =>
+  outcomes.flatMap(({ agentId, outcome, warnings }) => {
+    const agentWarnings: Array<string> = [
+      ...(outcome._tag === "success" ? Array.from(outcome.warnings) : []),
+      ...(outcome._tag === "conflict" ? [`conflict - ${outcome.reason}`] : []),
+      ...warnings.filter((w) => w.feature && w.message).map((w) => `${w.feature} - ${w.message}`),
+    ];
+    return agentWarnings.length === 0 ? [] : [`${agentId}: ${agentWarnings.join("; ")}`];
   });
 
 // -----------------------------------------------------------------------------

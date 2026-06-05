@@ -401,11 +401,7 @@ const makeTestRendererService = (
       }),
     list: <T extends object>(_entity: string, payload: ListPayload<T>) =>
       Effect.sync(() => {
-        if (
-          resultReturnValue &&
-          payload.withoutSuggestions !== true &&
-          payload.suggestions !== undefined
-        ) {
+        if (payload.withoutSuggestions !== true && payload.suggestions !== undefined) {
           state.suggestions.push(...payload.suggestions);
         }
         state.results.push({

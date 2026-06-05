@@ -4,6 +4,7 @@ import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
 } from "@agentxm/client-core/unstable/cli-runtime";
+import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
@@ -35,7 +36,10 @@ import { InstallSkillCommandWorkflowActions } from "../skills/install/command-ac
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./resolve-root-update-intent.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
-import { runFilesWorkspaceGeneratorPhase } from "../files/workspace-generator-phase.js";
+import {
+  mergePlanResolution,
+  runFilesWorkspaceGeneratorPhase,
+} from "../files/workspace-generator-phase.js";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
@@ -117,17 +121,21 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
       Effect.gen(function* () {
         const intent = yield* resolveRootUpdateIntent(source);
         const resolution = yield* runUpdateIntent(intent, args);
+        let outputResolution: PlanResolution = resolution;
         if (!args.preview && (intent.type === "files" || intent.type === "pack")) {
-          yield* runFilesWorkspaceGeneratorPhase({ dryRun: false });
+          const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
+            dryRun: false,
+          });
+          outputResolution = mergePlanResolution(resolution, workspaceGeneratorResolution);
         }
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
-            planResolutionToSummary(resolution, {
+            planResolutionToSummary(outputResolution, {
               subjectType: intent.type,
               sourceKind: "registry",
             }),
           ),
         );
-        yield* emitPlanResolutionResult("update", resolution);
+        yield* emitPlanResolutionResult("update", outputResolution);
       }),
   });

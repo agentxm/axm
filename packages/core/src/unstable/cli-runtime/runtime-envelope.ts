@@ -23,8 +23,14 @@ import {
   CommandSemanticPropertiesLive,
 } from "./telemetry.js";
 import { CommandArgv, serializeArgv } from "./command-argv.js";
+import type { TelemetryProperties } from "../telemetry/index.js";
 
-import { InteractiveRenderer, MachineRenderer, type CliRenderer } from "../cli-renderer/index.js";
+import {
+  InteractiveRenderer,
+  MachineRenderer,
+  resolveCliOutputPolicy,
+  type CliRenderer,
+} from "../cli-renderer/index.js";
 import { makeVerbosityLayer, Verbosity, type VerbosityLevel } from "../cli-flags/index.js";
 import { makeJsonErrorEnvelope } from "./json-envelope.js";
 
@@ -49,7 +55,7 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat): 
   const message = defectMessage(cause);
 
   if (format === "text") {
-    writeStderr(`✖ ${message}`);
+    writeStderr(`✖  ${message}`);
     return;
   }
 
@@ -73,13 +79,26 @@ export type CliRuntimeFoundation = CliRenderer | Verbosity;
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
   error._tag === "PromptCancelled" ? ExitCode.Success : exitCodeFor(error.code);
 
+const positiveNumericProperty = (properties: TelemetryProperties, key: string): boolean => {
+  const value = properties[key];
+  return typeof value === "number" && value > 0;
+};
+
+export const exitCodeForSemanticProperties = (
+  properties: TelemetryProperties,
+): number | undefined =>
+  positiveNumericProperty(properties, "cli.failed_count") ||
+  positiveNumericProperty(properties, "cli.blocked_count")
+    ? ExitCode.Issues
+    : undefined;
+
 /**
  * Emit an expected (handled) CLI error.
  *
  * Rendering is delegated to `renderAppErrorChannels` — the single source of
  * truth shared with the outer `classifyError`/`handleError` path — so the two
  * error paths cannot diverge. Suggestions appear once per channel: a single
- * `Next steps:` block in text mode, and the stderr suggestion stream plus the
+ * `Next:` block in text mode, and the stderr suggestion stream plus the
  * stdout envelope (distinct surfaces) in json mode. The earlier bug emitted a
  * second `Next:` block on the same stderr channel in text mode.
  *
@@ -129,8 +148,20 @@ export const makeFoundationLayer = (
   },
 ) => {
   // Json mode uses machine-readable output.
-  const rendererLayer: Layer.Layer<CliRenderer> =
-    format !== "text" ? MachineRenderer() : InteractiveRenderer();
+  const rendererLayer =
+    format !== "text"
+      ? MachineRenderer()
+      : Layer.unwrap(
+          Effect.gen(function* () {
+            const quiet =
+              options?.verbosityLevel === undefined
+                ? yield* quietFlag
+                : options.verbosityLevel === "quiet";
+            return InteractiveRenderer({
+              outputPolicy: resolveCliOutputPolicy({ quiet }),
+            });
+          }),
+        );
 
   // Verbosity: use explicit level if provided, otherwise derive from flags + env vars
   const verbosityLayer = options?.verbosityLevel
@@ -213,12 +244,20 @@ export const withCliErrorHandling = <A, R>(
       Effect.tap(() =>
         Effect.gen(function* () {
           const semanticProperties = yield* getCommandSemanticProperties;
+          const semanticExitCode = exitCodeForSemanticProperties(semanticProperties);
           yield* trackCliCommandCompleted({
             command,
-            result: "success",
+            result: semanticExitCode === undefined ? "success" : "error",
             durationMs: Date.now() - startTime,
+            ...(semanticExitCode !== undefined && {
+              errorCode: "issues",
+              errorCategory: "issues",
+            }),
             semanticProperties,
           });
+          if (semanticExitCode !== undefined) {
+            return yield* Effect.die(effectCliExit(semanticExitCode));
+          }
         }),
       ),
       Effect.catch((error: ExpectedCliError) => {

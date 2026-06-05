@@ -2,13 +2,15 @@ import { AGENTS, CodingAgentRepository } from "@agentxm/client-core/unstable/age
 import type { AgentId } from "@agentxm/client-core/unstable/agents";
 import {
   forceFlag,
+  isNonInteractive,
   jsonFlag,
   nonInteractiveFlag,
   previewFlag,
   yesFlag,
+  Verbosity,
 } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { type SuggestedAction, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import { envOption } from "@agentxm/client-core/unstable/utils";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
@@ -62,7 +64,54 @@ const SubagentSummarySchema = Schema.Struct({
   files: Schema.Array(SubagentFileSchema),
 });
 
+const SetupPlanStepArtifactTargetSchema = Schema.Struct({
+  path: Schema.String,
+  change: Schema.Literals(["created", "updated", "unchanged", "removed"] as const),
+  agentIds: Schema.optional(Schema.Array(Schema.String)),
+});
+
+const SetupPlanStepArtifactSchema = Schema.Struct({
+  path: Schema.optional(Schema.String),
+  scope: Schema.Literals(["project", "user"] as const),
+  agents: Schema.optional(Schema.Array(Schema.String)),
+  version: Schema.optional(Schema.String),
+  change: Schema.Literals(["created", "updated", "unchanged", "removed"] as const),
+  previousVersion: Schema.optional(Schema.String),
+  fileCount: Schema.optional(Schema.Number),
+  targets: Schema.optional(Schema.Array(SetupPlanStepArtifactTargetSchema)),
+});
+
+const SetupPlanStepSchema = Schema.Struct({
+  label: Schema.String,
+  status: Schema.Literals([
+    "ready",
+    "warning",
+    "error",
+    "applied",
+    "unchanged",
+    "failed",
+    "blocked",
+  ] as const),
+  message: Schema.optional(Schema.String),
+  artifact: Schema.optional(SetupPlanStepArtifactSchema),
+});
+
 const SetupResultSchema = Schema.Struct({
+  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const),
+  planName: Schema.String,
+  planDescription: Schema.optional(Schema.String),
+  message: Schema.optional(Schema.String),
+  totalSteps: Schema.Number,
+  readyCount: Schema.Number,
+  warningCount: Schema.Number,
+  errorCount: Schema.Number,
+  appliedCount: Schema.Number,
+  failedCount: Schema.Number,
+  blockedCount: Schema.Number,
+  steps: Schema.Array(SetupPlanStepSchema),
+  status: Schema.Literals(["initialized", "already-initialized", "preview"] as const),
+  changed: Schema.Boolean,
+  defaultSkillInstalled: Schema.Boolean,
   scope: Schema.String,
   agents: Schema.Array(
     Schema.Struct({
@@ -81,6 +130,10 @@ const SetupResultSchema = Schema.Struct({
   telemetryEnabled: Schema.Boolean,
   subagentFiles: Schema.optional(Schema.Array(SubagentSummarySchema)),
 });
+
+type SetupResult = typeof SetupResultSchema.Type;
+type SetupStatus = SetupResult["status"];
+type SetupPlanStep = typeof SetupPlanStepSchema.Type;
 
 const SetupDocumentFields = {
   result: SetupResultSchema,
@@ -246,11 +299,240 @@ const renderSetupBranding = (renderer: ServiceMap.Service.Shape<typeof CliRender
   Effect.gen(function* () {
     const json = yield* jsonFlag;
     if (Option.getOrElse(json, () => false)) return;
+    const nonInteractive = yield* isNonInteractive;
+    if (nonInteractive) return;
+    const verbosity = yield* Verbosity;
+    if (verbosity.level === "quiet") return;
 
     yield* renderer.message("");
     yield* renderer.message(BRANDING);
     yield* renderer.message("");
   });
+
+const setupSuggestions = (args: {
+  readonly status: "initialized" | "already-initialized" | "preview";
+  readonly agentCount: number;
+  readonly telemetryEnabled: boolean;
+}): ReadonlyArray<SuggestedAction> => {
+  if (args.status === "preview") {
+    return [{ description: "Apply setup", cmd: "axm setup --yes" }];
+  }
+
+  const suggestions: Array<SuggestedAction> = [
+    { description: "Inspect configured agents", cmd: "axm agents list" },
+    { description: "Inspect installed skills", cmd: "axm skills list" },
+  ];
+
+  if (args.agentCount > 0) {
+    suggestions.push({ description: "Discover recommended extensions", cmd: "axm discover" });
+  }
+
+  if (args.telemetryEnabled) {
+    suggestions.push({
+      description:
+        'Disable telemetry with AXM_TELEMETRY=0 or by setting "telemetry": false in settings',
+    });
+  }
+
+  return suggestions;
+};
+
+const setupMessage = (args: {
+  readonly preview: boolean;
+  readonly initialized: boolean;
+  readonly agentNames: string;
+  readonly agentCount: number;
+}): string => {
+  if (args.preview) return "Setup plan ready";
+  if (!args.initialized) {
+    return args.agentCount > 0
+      ? `Workspace already initialized with agents: ${args.agentNames}`
+      : "Workspace already initialized";
+  }
+  return args.agentCount > 0
+    ? `Initialized with agents: ${args.agentNames}`
+    : "Workspace initialized";
+};
+
+const setupStepStatus = (args: {
+  readonly status: SetupStatus;
+  readonly hasChange: boolean;
+}): SetupPlanStep["status"] => {
+  if (args.status === "preview") return "ready";
+  return args.hasChange ? "applied" : "unchanged";
+};
+
+const setupArtifactChange = (args: {
+  readonly status: SetupStatus;
+  readonly hasChange: boolean;
+}): "created" | "updated" | "unchanged" | "removed" => {
+  if (args.status === "preview") return "created";
+  return args.hasChange ? "created" : "unchanged";
+};
+
+const setupSkillTargetPath = (agentId: string): string => {
+  if (agentId === "claude-code") return ".claude/skills/axm";
+  return `${agentId} skill target`;
+};
+
+const setupSkillFootprint = (agentIds: ReadonlyArray<string>): string => {
+  const sourcePath = ".axm/extensions/@agentxm/skills/axm";
+  const targetPaths = agentIds.map(setupSkillTargetPath);
+  const paths = [sourcePath, ...targetPaths];
+
+  if (paths.length <= 3) {
+    return paths.join(", ");
+  }
+
+  return `${sourcePath}, ${targetPaths.length} agent targets`;
+};
+
+const setupPlanFields = (args: {
+  readonly status: SetupStatus;
+  readonly scope: WorkspaceScope;
+  readonly initialized: boolean;
+  readonly defaultSkillInstalled: boolean;
+  readonly settingsPath: string;
+  readonly instructions:
+    | {
+        readonly enabled: boolean;
+        readonly fileName?: string;
+        readonly gitignore?: boolean;
+      }
+    | undefined;
+  readonly agentIds: ReadonlyArray<string>;
+  readonly message: string;
+}): Pick<
+  SetupResult,
+  | "outcome"
+  | "planName"
+  | "planDescription"
+  | "message"
+  | "totalSteps"
+  | "readyCount"
+  | "warningCount"
+  | "errorCount"
+  | "appliedCount"
+  | "failedCount"
+  | "blockedCount"
+  | "steps"
+> => {
+  const workspaceStatus = setupStepStatus({
+    status: args.status,
+    hasChange: args.initialized,
+  });
+  const workspaceChange = setupArtifactChange({
+    status: args.status,
+    hasChange: args.initialized,
+  });
+  const steps: Array<SetupPlanStep> = [
+    {
+      label: "Workspace configuration",
+      status: workspaceStatus,
+      message:
+        args.status === "preview"
+          ? "Would initialize workspace configuration"
+          : args.initialized
+            ? "Initialized workspace configuration"
+            : "Workspace configuration already exists",
+      artifact: {
+        path: args.settingsPath,
+        scope: args.scope,
+        change: workspaceChange,
+        targets: [
+          { path: args.settingsPath, change: workspaceChange },
+          { path: ".axm/axm-lock.yaml", change: workspaceChange },
+        ],
+      },
+    },
+  ];
+
+  if (args.instructions !== undefined) {
+    const instructionsPath = args.instructions.enabled
+      ? (args.instructions.fileName ?? "AGENTS.md")
+      : "instructions";
+    steps.push({
+      label: "Instruction files",
+      status: workspaceStatus,
+      message:
+        args.status === "preview"
+          ? "Would configure instruction files"
+          : args.initialized
+            ? "Configured instruction files"
+            : "Instruction files already configured",
+      artifact: {
+        path: instructionsPath,
+        scope: args.scope,
+        change: workspaceChange,
+        targets: [
+          { path: instructionsPath, change: workspaceChange },
+          ...(args.instructions.enabled
+            ? [
+                { path: "CLAUDE.md", change: workspaceChange },
+                ...(args.instructions.gitignore === true
+                  ? [{ path: ".gitignore", change: workspaceChange }]
+                  : []),
+              ]
+            : []),
+        ],
+      },
+    });
+  }
+
+  if (args.defaultSkillInstalled || args.status === "preview") {
+    const skillStatus = setupStepStatus({
+      status: args.status,
+      hasChange: args.defaultSkillInstalled,
+    });
+    const skillChange = setupArtifactChange({
+      status: args.status,
+      hasChange: args.defaultSkillInstalled,
+    });
+    steps.push({
+      label: "@agentxm/skills/axm",
+      status: skillStatus,
+      message:
+        args.status === "preview"
+          ? "Would install the bundled AXM skill"
+          : "Installed the bundled AXM skill",
+      artifact: {
+        path: ".axm/extensions/@agentxm/skills/axm",
+        scope: args.scope,
+        agents: [...args.agentIds],
+        version: AXM_SKILL_VERSION,
+        change: skillChange,
+        targets: [
+          { path: ".axm/extensions/@agentxm/skills/axm", change: skillChange },
+          ...args.agentIds.map((agentId) => ({
+            path: setupSkillTargetPath(agentId),
+            change: skillChange,
+            agentIds: [agentId],
+          })),
+        ],
+      },
+    });
+  }
+
+  const readyCount = steps.filter((step) => step.status === "ready").length;
+  const appliedCount = steps.filter((step) => step.status === "applied").length;
+  const blockedCount = steps.filter((step) => step.status === "blocked").length;
+  const failedCount = steps.filter((step) => step.status === "failed").length;
+
+  return {
+    outcome: args.status === "preview" ? "previewed" : appliedCount > 0 ? "applied" : "no-op",
+    planName: "Set up AXM workspace",
+    planDescription: `Set up AXM (${args.scope})`,
+    message: args.message,
+    totalSteps: steps.length,
+    readyCount,
+    warningCount: 0,
+    errorCount: 0,
+    appliedCount,
+    failedCount,
+    blockedCount,
+    steps,
+  };
+};
 
 export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   readonly scope: WorkspaceScope;
@@ -271,7 +553,8 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     ...(args.preview !== undefined ? { preview: args.preview } : {}),
   };
   const { settings, location, initialized } = yield* bootstrapWorkspace(workspaceOptions);
-  if (initialized && args.preview !== true) {
+  const defaultSkillInstalled = initialized && args.preview !== true;
+  if (defaultSkillInstalled) {
     const installer = yield* SetupSkillInstaller;
     yield* installer.installDefaultSkill({
       scope: args.scope,
@@ -319,11 +602,38 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   // Scan subagent directories for existing files
   const subagentSummaries: ReadonlyArray<AgentSubagentSummary> =
     agentDescriptors.length > 0 ? yield* scanAllSubagentFiles(location.baseDir) : [];
+  const status =
+    args.preview === true ? "preview" : initialized ? "initialized" : "already-initialized";
+  const suggestions = setupSuggestions({
+    status,
+    agentCount: allAgents.length,
+    telemetryEnabled,
+  });
+  const message = setupMessage({
+    preview: args.preview === true,
+    initialized,
+    agentNames,
+    agentCount: allAgents.length,
+  });
+  const planFields = setupPlanFields({
+    status,
+    scope: location.scope,
+    initialized,
+    defaultSkillInstalled,
+    settingsPath,
+    instructions,
+    agentIds,
+    message,
+  });
 
   if (
     yield* renderer.result(
       {
         result: {
+          ...planFields,
+          status,
+          changed: initialized && args.preview !== true,
+          defaultSkillInstalled,
           scope: location.scope,
           agents: allAgents,
           settingsPath,
@@ -333,40 +643,44 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
         },
       },
       Schema.Struct(SetupDocumentFields),
+      { suggestions },
     )
   ) {
     return;
   }
 
-  yield* renderer.info(`AXM setup (${location.scope})`);
-  if (allAgents.length > 0) {
-    yield* renderer.info(`Agents: ${agentNames}`);
-  }
-  yield* renderer.info(`Settings: ${settingsPath}`);
-  if (instructions !== undefined) {
-    yield* renderer.info(
-      instructions.enabled
-        ? `Instructions: ${instructions.fileName ?? "AGENTS.md"}`
-        : "Instructions: disabled",
-    );
-  }
+  yield* renderer.success(message);
 
-  // Show subagent file summary
-  yield* renderSubagentSummary(renderer, path, subagentSummaries);
+  const verbosity = yield* Verbosity;
+  if (verbosity.level !== "quiet") {
+    yield* renderer.info(`AXM setup (${location.scope})`);
+    if (allAgents.length > 0) {
+      yield* renderer.info(`Agents: ${agentNames}`);
+    }
+    yield* renderer.info(`Settings: ${settingsPath}`);
+    if (instructions !== undefined) {
+      yield* renderer.info(
+        instructions.enabled
+          ? `Instructions: ${instructions.fileName ?? "AGENTS.md"}`
+          : "Instructions: disabled",
+      );
+    }
+    if (defaultSkillInstalled) {
+      yield* renderer.info(`Skill: @agentxm/skills/axm -> ${setupSkillFootprint(agentIds)}`);
+    }
 
-  yield* renderer.success(
-    args.preview === true
-      ? "Setup plan ready"
-      : allAgents.length > 0
-        ? `Initialized with agents: ${agentNames}`
-        : "Workspace initialized",
-  );
+    // Show subagent file summary
+    yield* renderSubagentSummary(renderer, path, subagentSummaries);
+  }
 
   // Show telemetry notice (unless telemetry is off)
-  if (telemetryMode !== "off") {
+  if (telemetryMode !== "off" && verbosity.level !== "quiet") {
     yield* renderer.info("");
-    yield* renderer.info("Telemetry is enabled to help improve AXM. To disable:");
-    yield* renderer.info('  AXM_TELEMETRY=0 or set "telemetry": false in settings');
+    yield* renderer.info("Telemetry is enabled to help improve AXM.");
+  }
+
+  if (verbosity.level !== "quiet") {
+    yield* renderer.suggestions(suggestions);
   }
 }, Effect.asVoid);
 

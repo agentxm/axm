@@ -19,7 +19,12 @@ import YAML from "yaml";
 import { AppError } from "../app-error/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/index.js";
+import type {
+  CommandLockEntry,
+  McpServerLockEntry,
+  SkillLockEntry,
+  SubagentLockEntry,
+} from "../lockfile/index.js";
 import {
   exactVersion,
   expectDefined,
@@ -28,6 +33,7 @@ import {
   handle,
   property,
   recordEntry,
+  renderedFilePath,
   stringProperty,
   versionRange,
 } from "../test-helpers.js";
@@ -451,6 +457,7 @@ describe("WorkspaceMutationsService", () => {
     packs?: Record<string, unknown>,
     commands?: Record<string, unknown>,
     mcpServers?: Record<string, unknown>,
+    subagents?: Record<string, unknown>,
   ) => {
     const axmDir = path.join(dir, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
@@ -464,6 +471,9 @@ describe("WorkspaceMutationsService", () => {
     if (mcpServers !== undefined) {
       lockfileData["mcpServers"] = mcpServers;
     }
+    if (subagents !== undefined) {
+      lockfileData["subagents"] = subagents;
+    }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfileData));
   };
 
@@ -473,6 +483,7 @@ describe("WorkspaceMutationsService", () => {
     readonly packs?: Record<string, unknown>;
     readonly commands?: Record<string, unknown>;
     readonly mcpServers?: Record<string, unknown>;
+    readonly subagents?: Record<string, unknown>;
   }
 
   /** Read lockfile from disk for verification. */
@@ -489,6 +500,21 @@ describe("WorkspaceMutationsService", () => {
     owner: "acme",
     repo: "code-review",
     agents: [...agents],
+    installedAt: new Date("2025-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+  });
+
+  const makeSampleSubagentLockEntry = (
+    agents: readonly string[] = ["claude-code"],
+  ): SubagentLockEntry => ({
+    type: "github" as const,
+    owner: "acme",
+    repo: "planner",
+    agents: [...agents],
+    sourceHash: "abc123",
+    renderedFiles: {
+      "claude-code": [{ path: renderedFilePath(".claude/agents/planner.md") }],
+    },
     installedAt: new Date("2025-01-01T00:00:00.000Z"),
     updatedAt: new Date("2025-01-01T00:00:00.000Z"),
   });
@@ -733,6 +759,43 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
+    it.effect("does not rewrite files when the skill entry is unchanged", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "code-review": "github:acme/code-review" },
+        });
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+        const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
+        const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setSkill({
+          name: "code-review",
+          lockEntry: {
+            ...makeSampleLockEntry(),
+            installedAt: new Date("2026-02-03T04:05:06.000Z"),
+            updatedAt: new Date("2026-02-03T04:05:06.000Z"),
+          },
+          versionRange: Option.none(),
+        });
+
+        expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
+        expect(fs.readFileSync(lockfilePath, "utf-8")).toBe(lockfileBefore);
+      }),
+    );
+
     it.effect("updates existing skill: replaces in settings and lockfile", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -866,6 +929,54 @@ describe("WorkspaceMutationsService", () => {
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills.tool).toBe("@acme/skills/tool@1.2.3");
+      }),
+    );
+  });
+
+  describe("setSubagent", () => {
+    it.effect("does not rewrite files when the subagent entry is unchanged", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          subagents: {
+            planner: {
+              source: "github:acme/planner",
+              enabled: true,
+              authored: false,
+            },
+          },
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, undefined, {
+          planner: {
+            type: "github",
+            owner: "acme",
+            repo: "planner",
+            agents: ["claude-code"],
+            sourceHash: "abc123",
+            renderedFiles: {
+              "claude-code": [{ path: ".claude/agents/planner.md" }],
+            },
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+        const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
+        const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setSubagent({
+          name: "planner",
+          lockEntry: {
+            ...makeSampleSubagentLockEntry(),
+            installedAt: new Date("2026-02-03T04:05:06.000Z"),
+            updatedAt: new Date("2026-02-03T04:05:06.000Z"),
+          },
+        });
+
+        expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
+        expect(fs.readFileSync(lockfilePath, "utf-8")).toBe(lockfileBefore);
       }),
     );
   });

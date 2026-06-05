@@ -1,4 +1,5 @@
 import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
 import type { CompletedJobStep, PlanResolution } from "@agentxm/client-core/unstable/plan";
 
 type LinkedSuccessStep = CompletedJobStep & {
@@ -25,11 +26,56 @@ const linkedSuccessfulSteps = (resolution: PlanResolution): ReadonlyArray<Linked
   return resolution.jobs.flatMap((job) => job.steps).filter(hasLinks);
 };
 
+const successfulMessages = (resolution: PlanResolution): ReadonlyArray<string> => {
+  if (resolution._tag !== "ExecutedPlan") {
+    return [];
+  }
+
+  return resolution.jobs
+    .flatMap((job) => job.steps)
+    .filter((step) => step.result.result === "success")
+    .map((step) => step.result.message);
+};
+
+const successfulSteps = (resolution: PlanResolution): ReadonlyArray<CompletedJobStep> => {
+  if (resolution._tag !== "ExecutedPlan") {
+    return [];
+  }
+
+  return resolution.jobs
+    .flatMap((job) => job.steps)
+    .filter((step) => step.result.result === "success");
+};
+
+const publishedFqnFromStep = (step: CompletedJobStep): string | undefined => {
+  const prefix = "Publish ";
+  if (!step.label.startsWith(prefix)) {
+    return undefined;
+  }
+
+  const fqn = step.label.slice(prefix.length);
+  return parseExtensionFqnParts(fqn) === undefined ? undefined : fqn;
+};
+
+const viewSuggestions = (steps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<SuggestedAction> =>
+  steps.flatMap((step) => {
+    const fqn = publishedFqnFromStep(step);
+    return fqn === undefined
+      ? []
+      : [{ description: "View published metadata", cmd: `axm view ${fqn}` }];
+  });
+
 export const publishSuccessRender = (resolution: PlanResolution): PublishSuccessRender => {
   const linkedSteps = linkedSuccessfulSteps(resolution);
 
   if (linkedSteps.length === 0) {
-    return { message: "Done" };
+    const messages = successfulMessages(resolution);
+    const suggestions = viewSuggestions(successfulSteps(resolution));
+
+    return {
+      message: messages.length === 0 ? "Publish complete" : messages.join("\n"),
+      ...(suggestions.length > 0 ? { suggestions } : {}),
+    };
   }
 
   return {

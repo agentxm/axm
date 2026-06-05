@@ -19,4 +19,5 @@ export type InstallSkillCommandIntent = {
     readonly ref: SkillExtensionRef;
     readonly versionRange: Option.Option<VersionRange>;
   }>;
+  readonly diagnosticLines?: ReadonlyArray<string>;
 };

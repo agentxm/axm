@@ -54,22 +54,31 @@ const formatResponseBody = (body: unknown): ReadonlyArray<string> => {
   }
 };
 
+const formatSuggestedActionTarget = (suggestion: SuggestedAction): string => {
+  if (suggestion.cmd !== undefined) {
+    return suggestion.cmd;
+  }
+  if (suggestion.url !== undefined) {
+    return suggestion.url;
+  }
+  return "";
+};
+
 /**
- * Render the suggested next actions as an indented `Next steps:` block. Each
- * suggestion is a bullet with its optional `cmd` / `url` on a follow-on line.
+ * Render suggested next actions with the same text shape as the CLI renderer's
+ * `Next:` block: one action per line, optional command/URL inline.
  */
 const formatSuggestions = (suggestions: ReadonlyArray<SuggestedAction>): ReadonlyArray<string> => {
   if (suggestions.length === 0) return [];
 
-  const lines: Array<string> = ["  Next steps:"];
+  const lines: Array<string> = ["Next:"];
   for (const suggestion of suggestions) {
-    lines.push(`    • ${suggestion.description}`);
-    if (suggestion.cmd !== undefined) {
-      lines.push(`      ${suggestion.cmd}`);
-    }
-    if (suggestion.url !== undefined) {
-      lines.push(`      ${suggestion.url}`);
-    }
+    const target = formatSuggestedActionTarget(suggestion);
+    lines.push(
+      target.length === 0
+        ? `  ${suggestion.description}`
+        : `  ${suggestion.description} · ${target}`,
+    );
   }
   return lines;
 };
@@ -114,7 +123,7 @@ export const renderAppError = (
 ): string => {
   const lines: Array<string> = [];
 
-  lines.push(`\u2716 ${error.detail} (${error.code})`);
+  lines.push(`\u2716  ${error.detail} (${error.code})`);
 
   const requestId = getRequestId(error);
   const registryUrl = getRegistryUrl(error);
@@ -162,7 +171,7 @@ export const renderAppError = (
 export const renderDefect = (error: unknown): string => {
   const lines: Array<string> = [];
 
-  lines.push("\u2716 An unexpected error occurred");
+  lines.push("\u2716  An unexpected error occurred");
   lines.push("  This is a bug. Please report it at https://github.com/agentxm/axm/issues");
 
   if (error instanceof Error) {

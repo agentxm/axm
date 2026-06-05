@@ -11,14 +11,16 @@ import {
   AuthClientTest,
   AuthLoginInteractionTest,
   type MeResponse,
+  LoopbackLoginFallback,
   RegistryUrl,
   CredentialStore,
   CredentialStoreTest,
 } from "@agentxm/client-core/unstable/auth";
-import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { expectAppliedPlanResult, expectNoOpPlanResult } from "../../test-helpers.js";
 import { handleLogin } from "./login.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -33,12 +35,17 @@ const makeLayers = (opts?: {
   confirmValue?: boolean;
   getMeFails?: boolean;
   allowsPersistedCredentials?: boolean;
+  machine?: boolean;
+  json?: boolean;
 }) => {
-  const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const rendererLayer = renderer.layer;
+  const rendererState = renderer.state;
   const interactionLayer = AuthLoginInteractionTest().layer;
 
   const flagsLayer = TestFlagsLayer({
     nonInteractive: opts?.nonInteractive ?? false,
+    json: opts?.json ?? false,
   });
   const credStoreLayer = opts?.existingCredentials
     ? CredentialStoreTest(
@@ -190,6 +197,91 @@ describe("auth login handler", () => {
     );
   });
 
+  it.effect("omits environment fallback prose in machine JSON mode", () => {
+    const previousCi = process.env["CI"];
+    process.env["CI"] = "1";
+    const { provide, rendererState } = makeLayers({ machine: true, json: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin({ yes: false, deviceCode: false, noBrowser: false, scopes: [] });
+
+        expect(rendererState.logs.filter((log) => log._tag === "info")).toEqual([]);
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Log in to AXM registry",
+        });
+        expect(result).toMatchObject({
+          steps: [
+            {
+              label: "Registry credentials",
+              status: "applied",
+              artifact: {
+                path: "registry.agentxm.ai",
+                scope: "user",
+                change: "created",
+              },
+            },
+          ],
+          status: "logged-in",
+          registryHost: "registry.agentxm.ai",
+          handle: ALICE,
+        });
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (previousCi === undefined) {
+              delete process.env["CI"];
+            } else {
+              process.env["CI"] = previousCi;
+            }
+          }),
+        ),
+      ),
+    );
+  });
+
+  it.effect("omits loopback fallback prose in machine JSON mode", () => {
+    const { provide, rendererState } = makeLayers({ machine: true, json: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin(
+          { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+          {
+            runLoopbackLogin: () =>
+              Effect.fail(
+                new LoopbackLoginFallback({
+                  reason: "bind_failed",
+                  message: "Loopback port unavailable.",
+                }),
+              ),
+          },
+        );
+
+        expect(rendererState.logs.filter((log) => log._tag === "info")).toEqual([]);
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Log in to AXM registry",
+        });
+        expect(result).toMatchObject({
+          steps: [
+            {
+              label: "Registry credentials",
+              status: "applied",
+              artifact: {
+                path: "registry.agentxm.ai",
+                scope: "user",
+                change: "created",
+              },
+            },
+          ],
+          status: "logged-in",
+          registryHost: "registry.agentxm.ai",
+          handle: ALICE,
+        });
+      }),
+    );
+  });
+
   it.effect("displays URL and code for manual entry", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
@@ -281,6 +373,60 @@ describe("auth login handler", () => {
             (l) => l._tag === "success" && l.message.includes("Logged in to"),
           ),
         ).toHaveLength(0);
+        expect(rendererState.logs).toContainEqual({
+          _tag: "success",
+          message: "Already logged in to registry.agentxm.ai as @alice.",
+        });
+        expect(rendererState.suggestions).toEqual([
+          { description: "Check active account", cmd: "axm whoami" },
+          { description: "Log out", cmd: "axm logout" },
+        ]);
+      }),
+    );
+  });
+
+  it.effect("emits structured no-op when user declines re-login in machine mode", () => {
+    const { provide, rendererState } = makeLayers({
+      existingCredentials: true,
+      machine: true,
+      json: true,
+    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin(
+          { yes: false, deviceCode: true, noBrowser: false, scopes: [] },
+          {
+            confirmRelogin: () => Effect.succeed(false),
+          },
+        );
+
+        expect(
+          rendererState.logs.filter((log) => log._tag === "info" || log._tag === "success"),
+        ).toEqual([]);
+        const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Log in to AXM registry",
+          totalSteps: 1,
+        });
+        expect(result).toMatchObject({
+          steps: [
+            {
+              label: "Registry credentials",
+              status: "unchanged",
+              artifact: {
+                path: "registry.agentxm.ai",
+                scope: "user",
+                change: "unchanged",
+              },
+            },
+          ],
+          status: "already-logged-in",
+          registryHost: "registry.agentxm.ai",
+          handle: ALICE,
+        });
+        expect(rendererState.suggestions).toEqual([
+          { description: "Check active account", cmd: "axm whoami" },
+          { description: "Log out", cmd: "axm logout" },
+        ]);
       }),
     );
   });

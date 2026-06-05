@@ -14,7 +14,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { CliRenderer } from "../../cli-renderer/index.js";
 import {
   computeIntegrity,
   isPathSafe,
@@ -24,7 +23,7 @@ import {
 import { errInstallFailed, makeAppError, type AppError } from "../../app-error/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
-import type { JobStepResult, Operation } from "../../plan/plan.js";
+import type { Operation, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
@@ -41,11 +40,12 @@ import type {
 } from "../refs.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
+import { commandInstallArtifact } from "../install-artifact.js";
 import { buildLockEntryFromRef } from "../manager.js";
 import {
+  collectRenderingWarningSummaries,
   readCommandContent,
   renderToAgents,
-  reportRenderingWarnings,
 } from "./shared-command-helpers.js";
 
 const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
@@ -272,13 +272,13 @@ export const installCommand: (
 ) => Effect.Effect<
   JobStepResult,
   AppError,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CliRenderer | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
-    const renderer = yield* CliRenderer;
     const { ref } = op.args;
+    const previousLockEntry = yield* ws.getLockedCommand(ref.command.name);
 
     // --- Materialize ---
     const canonicalPath = yield* materializeCommand(ref);
@@ -335,8 +335,7 @@ export const installCommand: (
       force: op.args.force,
     });
 
-    // --- Report lossy rendering warnings grouped by agent ---
-    yield* reportRenderingWarnings(outcomes);
+    const renderingWarnings = collectRenderingWarningSummaries(outcomes);
 
     // --- Compute source hash ---
     const sourceHash = computeSourceHash(body);
@@ -371,6 +370,24 @@ export const installCommand: (
       sourceHash,
       renderedFiles,
     };
+    const artifact = commandInstallArtifact({
+      lockEntry,
+      previousLockEntry,
+      versionRange: op.args.versionRange,
+      canonicalPath,
+      fallbackPath: ref.command.name,
+      scope: ws.scope,
+      workspaceRoot: ws.baseDir,
+      pathService: path,
+    });
+
+    if (artifact.change === "unchanged") {
+      return {
+        result: "success",
+        message: `${ref.command.name} already up to date`,
+        artifact,
+      } satisfies JobStepResult;
+    }
 
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setCommandLock({ name: ref.command.name, lockEntry })
@@ -378,9 +395,7 @@ export const installCommand: (
     const writeSucceeded = yield* writeEffect.pipe(
       Effect.as(true),
       Effect.tapError((e) => Effect.logWarning("Command write failed", { error: e })),
-      Effect.catch((e) =>
-        renderer.warn(`Command update failed (${e.code}): ${e.message}`).pipe(Effect.as(false)),
-      ),
+      Effect.catch(() => Effect.succeed(false)),
     );
 
     if (!writeSucceeded) {
@@ -390,13 +405,18 @@ export const installCommand: (
         error: makeAppError({
           code: "internal",
           detail: `Installed ${ref.command.name} but failed to persist lockfile/settings`,
-          suggestions: [{ description: "Try running the install again" }],
+          suggestions: [{ description: "Retry the install." }],
         }),
       } satisfies JobStepResult;
     }
 
     return {
       result: "success",
-      message: `Installed ${ref.command.name}`,
+      message:
+        renderingWarnings.length === 0
+          ? `Installed ${ref.command.name}`
+          : `Installed ${ref.command.name}; Rendering warnings: ${renderingWarnings.join("; ")}`,
+      ...(renderingWarnings.length === 0 ? {} : { warnings: renderingWarnings }),
+      artifact,
     } satisfies JobStepResult;
   });

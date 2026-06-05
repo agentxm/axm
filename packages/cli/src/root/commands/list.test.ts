@@ -10,17 +10,15 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-} from "@agentxm/client-core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Layer from "effect/Layer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { expectNoPlanEnvelope } from "../../test-helpers.js";
+import { INSTALL_COMMAND_FROM_REGISTRY } from "../suggested-actions.js";
 import { handleListCommands } from "./list.js";
 
 // -----------------------------------------------------------------------------
@@ -85,7 +83,6 @@ describe("commands list.handler", () => {
     return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper hides layer variance
       provide: <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(fullLayer)),
-      logs: logsByTag(rendererState),
       rendererState,
     };
   };
@@ -121,15 +118,21 @@ describe("commands list.handler", () => {
   // Empty state
   // ---------------------------------------------------------------------------
 
-  it.effect("shows no commands message when none are installed", () => {
-    const { provide, logs } = makeLayers();
+  it.effect("emits a single empty list payload when none are installed", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
       Effect.gen(function* () {
         yield* handleListCommands();
 
-        expect(logs.info.some((m) => m.includes("No commands installed"))).toBe(true);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 0,
+          items: [],
+        });
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
+        expect(rendererState.logs).toEqual([]);
+        expect(rendererState.suggestions).toEqual([INSTALL_COMMAND_FROM_REGISTRY]);
       }),
     );
   });
@@ -200,6 +203,7 @@ describe("commands list.handler", () => {
             },
           ],
         });
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
       }),
     );
   });

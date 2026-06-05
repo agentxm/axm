@@ -10,7 +10,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
 import type { CodingAgent } from "../../agents/coding-agent.js";
-import { TestRenderer } from "../../cli-renderer/index.js";
+import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
@@ -88,13 +88,28 @@ const withServices = (
     removeMcpServerFn?: (name: string) => Effect.Effect<void, AppError>;
   },
   agentRepo?: CodingAgentRepositoryService,
-) =>
-  Layer.mergeAll(
-    NodeServices.layer,
-    WorkspaceMutations.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
-    TestRenderer.make().layer,
-    Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
-  );
+) => makeServices(axmDir, lockfileMcpServers, wsOverrides, agentRepo).layer;
+
+const makeServices = (
+  axmDir: string,
+  lockfileMcpServers: Record<string, McpServerLockEntry> = {},
+  wsOverrides?: {
+    removeMcpServerFn?: (name: string) => Effect.Effect<void, AppError>;
+  },
+  agentRepo?: CodingAgentRepositoryService,
+) => {
+  const renderer = TestRenderer.make();
+
+  return {
+    layer: Layer.mergeAll(
+      NodeServices.layer,
+      WorkspaceMutations.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
+      renderer.layer,
+      Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
+    ),
+    rendererState: renderer.state,
+  };
+};
 
 const makeOp = (
   overrides: { serverName?: string; strictAgentSync?: boolean } = {},
@@ -179,7 +194,20 @@ describe("uninstallMcpServer", () => {
         );
 
         expect(result.result).toBe("success");
+        if (result.result !== "success") {
+          throw new Error("Expected successful uninstall result");
+        }
         expect(result.message).toContain("Uninstalled my-server");
+        expect(result.artifact).toMatchObject({
+          path: ".axm/extensions/@community/mcps/my-server",
+          scope: "project",
+          version: "1.0.0",
+          change: "removed",
+          targets: [
+            { path: ".axm/extensions/@community/mcps/my-server", change: "removed" },
+            { path: ".axm (config/lockfile)", change: "removed" },
+          ],
+        });
         expect(fs.existsSync(canonicalPath)).toBe(false);
       }),
     );
@@ -238,7 +266,7 @@ describe("uninstallMcpServer", () => {
   });
 
   describe("settings removal failure", () => {
-    it.effect("swallows removeMcpServer failure (warning, not error)", () =>
+    it.effect("returns removeMcpServer failure in result without raw warning", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileMcpServers } = setupWorkspace();
         const removeMcpServerFn = vi.fn(() =>
@@ -250,12 +278,14 @@ describe("uninstallMcpServer", () => {
             }),
           ),
         );
+        const services = makeServices(axmDir, lockfileMcpServers, { removeMcpServerFn });
 
-        const result = yield* uninstallMcpServer(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, lockfileMcpServers, { removeMcpServerFn })),
-        );
+        const result = yield* uninstallMcpServer(makeOp()).pipe(Effect.provide(services.layer));
 
         expect(result.result).toBe("success");
+        expect(result.message).toContain("MCP server removal from settings failed");
+        expect(result.message).toContain("write failed");
+        expect(logsByTag(services.rendererState).warn).toEqual([]);
       }),
     );
   });
@@ -480,12 +510,14 @@ describe("uninstallMcpServer", () => {
         getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed(["unknown-agent"]));
         getConfiguredAgentsMock.mockReturnValue(Effect.succeed([]));
 
-        const result = yield* uninstallMcpServer(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, lockfileMcpServers, undefined, mockAgentRepo)),
-        );
+        const services = makeServices(axmDir, lockfileMcpServers, undefined, mockAgentRepo);
+
+        const result = yield* uninstallMcpServer(makeOp()).pipe(Effect.provide(services.layer));
 
         expect(result.result).toBe("success");
         expect(result.message).toContain("agent-sync=green");
+        expect(result.message).toContain("Skipping unknown configured agents: unknown-agent");
+        expect(logsByTag(services.rendererState).warn).toEqual([]);
       }),
     );
 

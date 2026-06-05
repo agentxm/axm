@@ -1,19 +1,109 @@
+import { pathToFileURL } from "node:url";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import * as Path from "effect/Path";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
-import { FilesManager } from "@agentxm/client-core/unstable/files";
-import { previewOrApplyPlan, type Plan } from "@agentxm/client-core/unstable/plan";
+import {
+  buildInstallOperation,
+  REGISTRY_EXTENSIONS_DIR,
+} from "@agentxm/client-core/unstable/extensions";
+import {
+  FILES_EXTENSION_DIR,
+  FilesManager,
+  type LocalFilesRef,
+} from "@agentxm/client-core/unstable/files";
+import type { FilesLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import {
+  previewOrApplyPlan,
+  type JobStepArtifact,
+  type JobStepArtifactTarget,
+  type Plan,
+} from "@agentxm/client-core/unstable/plan";
 import {
   resolveConfiguredFiles,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
+
+const filesLockEntryVersion = (entry: FilesLockEntry): string | undefined =>
+  entry.type === "registry" ? entry.resolvedVersion : undefined;
+
+const filesEnableArtifactTargets = (entry: FilesLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
+  mergeTargets([
+    { path: ".axm/settings.json", change: "updated" },
+    { path: ".axm/axm-lock.yaml", change: "updated" },
+    ...(entry.materializedTargets ?? []).map((target) => ({
+      path: target.target,
+      change: target.mode === "sync-once" ? ("unchanged" as const) : ("updated" as const),
+    })),
+  ]);
+
+const mergeTargets = (
+  targets: ReadonlyArray<JobStepArtifactTarget>,
+): ReadonlyArray<JobStepArtifactTarget> => {
+  const order = { removed: 4, updated: 3, created: 2, unchanged: 1 } as const;
+  const merged = new Map<string, JobStepArtifactTarget>();
+  for (const target of targets) {
+    const current = merged.get(target.path);
+    if (current === undefined || order[target.change] > order[current.change]) {
+      merged.set(target.path, target);
+    }
+  }
+  return [...merged.values()].sort((left, right) => left.path.localeCompare(right.path));
+};
+
+const filesEnableArtifact = (args: {
+  readonly lockEntry: FilesLockEntry;
+  readonly scope: JobStepArtifact["scope"];
+}): JobStepArtifact => {
+  const targets = filesEnableArtifactTargets(args.lockEntry);
+  const version = filesLockEntryVersion(args.lockEntry);
+
+  return {
+    path: ".axm/settings.json",
+    scope: args.scope,
+    ...(version === undefined ? {} : { version }),
+    change: "updated",
+    ...(targets.length === 0 ? {} : { targets }),
+  };
+};
+
+const resolveAuthoredLocalFiles = (name: string, authored: boolean) =>
+  Effect.gen(function* () {
+    if (!authored) return Option.none<LocalFilesRef>();
+
+    const ws = yield* WorkspaceMutations;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const lockEntry = yield* ws.getLockedFilesEntry(name);
+    if (Option.isNone(lockEntry) || lockEntry.value.type !== "registry") {
+      return Option.none<LocalFilesRef>();
+    }
+
+    const packageRoot = path.join(
+      ws.baseDir,
+      REGISTRY_EXTENSIONS_DIR,
+      lockEntry.value.owner,
+      FILES_EXTENSION_DIR,
+      lockEntry.value.name,
+    );
+    const exists = yield* fs.exists(packageRoot).pipe(Effect.orElseSucceed(() => false));
+    if (!exists) return Option.none<LocalFilesRef>();
+
+    return Option.some({
+      type: "files",
+      refType: "local",
+      source: { type: "local", path: packageRoot },
+      location: pathToFileURL(packageRoot).href,
+      file: { name: lockEntry.value.name },
+    } satisfies LocalFilesRef);
+  });
 
 export const handleEnableFiles = Effect.fn("EnableFiles.handle")(function* (args: {
   readonly name: string;
@@ -22,23 +112,30 @@ export const handleEnableFiles = Effect.fn("EnableFiles.handle")(function* (args
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
   const filesManager = yield* FilesManager;
+  const scope = ws.scope;
   const configured = yield* ws.getConfiguredFilesEntries();
   const entry = configured[args.name];
   if (entry === undefined) {
-    yield* renderer.warn(`files package "${args.name}" is not configured`);
+    yield* emitNoOpOutcome("files.enable", {
+      planName: "Enable files",
+      message: `files package "${args.name}" is not configured`,
+    });
     return;
   }
   if (entry.enabled) {
-    yield* emitNoOpResult("files.enable", {
+    yield* emitNoOpOutcome("files.enable", {
       planName: "Enable files",
       message: `files package "${args.name}" is already enabled`,
     });
     return;
   }
 
-  const { ref, versionRange } = yield* resolveConfiguredFiles(args.name, entry.source);
+  const authoredLocalRef = yield* resolveAuthoredLocalFiles(args.name, entry.authored);
+  const resolved = Option.isSome(authoredLocalRef)
+    ? { ref: authoredLocalRef.value, versionRange: Option.none() }
+    : yield* resolveConfiguredFiles(args.name, entry.source);
+  const { ref, versionRange } = resolved;
   const plan: Plan = {
     _tag: "Plan",
     name: "Enable files",
@@ -50,13 +147,37 @@ export const handleEnableFiles = Effect.fn("EnableFiles.handle")(function* (args
           buildInstallOperation(filesManager, {
             ref,
             versionRange,
+            message: `Enabled ${args.name}`,
+            buildArtifact: () =>
+              Effect.gen(function* () {
+                const currentLockEntry = yield* ws.getLockedFilesEntry(args.name);
+                if (Option.isNone(currentLockEntry)) {
+                  return {
+                    path: ".axm/settings.json",
+                    scope,
+                    change: "updated",
+                  } satisfies JobStepArtifact;
+                }
+                return filesEnableArtifact({
+                  lockEntry: currentLockEntry.value,
+                  scope,
+                });
+              }),
           }),
         ],
       },
     ],
   };
-  const resolution = yield* previewOrApplyPlan(plan, args);
-  yield* emitPlanResolutionResult("files.enable", resolution);
+  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
+  yield* emitAppliedPlanOutcome({
+    command: "files.enable",
+    headline: `Enabled files package ${args.name}`,
+    resolution,
+    suggestions: [
+      { description: "Inspect installed files packages", cmd: "axm files list" },
+      { description: "Undo", cmd: `axm files disable ${args.name}` },
+    ],
+  });
 });
 
 const enableConfig = {

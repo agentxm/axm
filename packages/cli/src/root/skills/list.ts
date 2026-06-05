@@ -36,6 +36,8 @@ registerEntity<SkillListItem>("skill", {
   list: {
     columns: SkillListTable.columns,
     emptyMessage: "No skills installed",
+    singularLabel: "installed skill",
+    pluralLabel: "installed skills",
   },
 });
 
@@ -57,20 +59,20 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     agents: entry.agents,
   }));
 
-  yield* renderer.list("skill", {
-    items,
-    count: items.length,
-    suggestions: items.length === 0 ? [INSTALL_SKILL_FROM_REGISTRY] : [],
-  });
-
-  if (items.length === 0) {
-    yield* renderer.info(
-      args.agents.length === 0
-        ? "No skills installed"
-        : "No skills matched the selected agent filter.",
-    );
+  if (
+    yield* renderer.list("skill", {
+      items,
+      count: items.length,
+      emptyMessage:
+        args.agents.length === 0
+          ? "No skills installed"
+          : "No skills matched the selected agent filter.",
+      suggestions: items.length === 0 ? [INSTALL_SKILL_FROM_REGISTRY] : [],
+    })
+  ) {
     return;
   }
+  if (items.length === 0) return;
 
   yield* renderer.table(items, SkillListTable, "Installed skills");
 });

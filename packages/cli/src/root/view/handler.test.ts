@@ -3,10 +3,18 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
+import {
+  expectNoPlanEnvelope,
+  getAppError,
+  makeCliTestContext,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { handleView } from "./handler.js";
 
 const initWorkspace = (root: string, registryRoot: string) => {
@@ -103,6 +111,36 @@ describe("view handler", () => {
         });
 
         expect(rendererState.results[0]?.data).toEqual(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              handle: "@test/skills/code-review",
+              latest: { version: "1.2.3", published: "2026-01-01T00:00:00.000Z" },
+            }),
+          }),
+        );
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
+      }),
+    );
+  });
+
+  it.effect("uses the default registry URL without requiring workspace settings", () => {
+    fs.rmSync(path.join(tempDir, ".axm"), { recursive: true, force: true });
+    const ctx = makeCliTestContext({ machine: true });
+    const layer = Layer.mergeAll(
+      ctx.baseLayer,
+      Layer.succeed(RegistryUrl, `file://${registryRoot}`),
+    );
+    const provide = makeEffectProvide(layer);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleView({
+          handle: "@test/skills/code-review",
+          field: Option.none(),
+          registry: Option.none(),
+        });
+
+        expect(ctx.rendererState.results[0]?.data).toEqual(
           expect.objectContaining({
             data: expect.objectContaining({
               handle: "@test/skills/code-review",

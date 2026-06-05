@@ -6,9 +6,12 @@ describe("axm skills install output UX", () => {
   it("summarizes human output by recipient agents and distinct locations", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--agent", "antigravity", "--agent", "claude-code"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--agent", "antigravity", "--agent", "amp", "--agent", "claude-code"],
+        {
+          cwd: temp.path,
+        },
+      );
 
       const result = await runCli(
         ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
@@ -19,7 +22,7 @@ describe("axm skills install output UX", () => {
 
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
-      expect(output).toContain("Installed skill my-skill for 2 agents");
+      expect(output).toContain("Installed skill my-skill for 3 agents");
       expect(output).toContain("-> 2 locations");
       expect(output).toContain("1 file");
       expect(output).not.toContain("skill(s)");
@@ -64,9 +67,12 @@ describe("axm skills install output UX", () => {
   it("dedupes shared universal locations in JSON output", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["setup", "--yes", "--agent", "antigravity", "--agent", "claude-code"], {
-        cwd: temp.path,
-      });
+      await runCli(
+        ["setup", "--yes", "--agent", "antigravity", "--agent", "amp", "--agent", "claude-code"],
+        {
+          cwd: temp.path,
+        },
+      );
 
       const result = await runCli(
         ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--json"],
@@ -78,9 +84,9 @@ describe("axm skills install output UX", () => {
       expect(result.exitCode).toBe(0);
       const document = JSON.parse(result.stdout);
       const step = document.result.steps[0];
-      expect(step.artifact.agents).toEqual(["antigravity", "claude-code"]);
+      expect(step.artifact.agents).toEqual(["antigravity", "amp", "claude-code"]);
       expect(step.artifact.targets).toEqual([
-        { path: ".agents/skills/my-skill", change: "created", agentIds: ["antigravity"] },
+        { path: ".agents/skills/my-skill", change: "created", agentIds: ["antigravity", "amp"] },
         { path: ".claude/skills/my-skill", change: "created", agentIds: ["claude-code"] },
       ]);
     } finally {

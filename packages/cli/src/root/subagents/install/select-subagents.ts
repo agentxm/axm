@@ -9,7 +9,6 @@
 
 import * as FileSystem from "effect/FileSystem";
 import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 import { isNonInteractive } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
@@ -61,7 +60,6 @@ export const determineSubagentsToInstall = (
   interactions?: SelectSubagentsInteractions,
 ) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
     const nonInteractive = yield* isNonInteractive;
 
     // 1. --subagent specified -> glob-aware matching
@@ -82,7 +80,6 @@ export const determineSubagentsToInstall = (
 
     // 2. --all / --non-interactive -> return all
     if (args.all || nonInteractive) {
-      if (args.all) yield* renderer.info(`Installing all ${count(subagents.length, "subagent")}`);
       return subagents;
     }
 

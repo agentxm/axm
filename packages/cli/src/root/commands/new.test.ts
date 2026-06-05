@@ -17,8 +17,16 @@ import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents"
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import type { ExtensionName } from "@agentxm/client-core/unstable/extensions";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
-import { makeEffectProvide } from "../../test-helpers.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectRecord,
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+  planResultSteps,
+  property,
+} from "../../test-helpers.js";
 import { handleCommandsNew, type CommandsNewHandlerArgs } from "./new.js";
 
 // -----------------------------------------------------------------------------
@@ -29,9 +37,11 @@ const initWorkspace = (
   axmDir: string,
   opts: {
     owner?: string;
+    agents?: string[];
   } = {},
 ) => {
   writeWorkspaceFiles(axmDir, {
+    agents: opts.agents,
     owner: opts.owner,
   });
 };
@@ -151,6 +161,42 @@ describe("commands-new.handler", () => {
               description:
                 "Edit `.axm/extensions/@acme/commands/my-command/src/my-command.md` to fill in instructions",
             },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("emits JSON artifact targets for rendered command files", () => {
+      const { provide, logs, rendererState } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        owner: "@acme",
+        agents: ["claude-code", "cursor", "gemini-cli"],
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleCommandsNew(defaultArgs("my-command"));
+
+          expect(logs.success).toEqual(["Created command @acme/commands/my-command for 3 agents"]);
+          expect(rendererState.summaries).toEqual(["-> 3 locations   0.1.0 | 3 files"]);
+          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+          const result = expectAppliedPlanResult(renderedResult.data, {
+            planName: "New command",
+          });
+          const steps = planResultSteps(result);
+          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
+          const artifact = expectRecord(property(firstStep, "artifact"));
+          expect(property(artifact, "agents")).toEqual(["claude-code", "cursor", "gemini-cli"]);
+          expect(property(artifact, "fileCount")).toBe(3);
+          const targets = property(artifact, "targets");
+          if (!Array.isArray(targets)) {
+            throw new Error("Expected artifact.targets array");
+          }
+          const targetPaths = targets.map((target) => property(expectRecord(target), "path"));
+          expect(targetPaths).toEqual([
+            ".claude/commands/my-command.md",
+            ".cursor/commands/my-command.md",
+            ".gemini/commands/my-command.toml",
           ]);
         }),
       );
@@ -384,8 +430,8 @@ describe("commands-new.handler", () => {
           );
           expect(fs.existsSync(manifestPath)).toBe(false);
 
-          // Preview log message should appear
-          expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          // Preview outcome should appear
+          expect(logs.info.some((m) => m.includes("Would create 1 command"))).toBe(true);
         }),
       );
     });

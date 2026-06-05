@@ -3,21 +3,57 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
+import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { publishMcpServer } from "@agentxm/client-core/unstable/mcps";
 import {
   previewOrApplyPlan,
+  type JobStepArtifact,
+  type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
+import { resolveManifestVersionInfo } from "../shared/extension-version.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
-import { withAuthRuntime, withWorkspace } from "../../runtime.js";
+import { publishSuccessRender } from "../shared/publish-success.js";
+import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
+
+const publishArtifact = (args: {
+  readonly path: string;
+  readonly scope: JobStepArtifact["scope"];
+  readonly version: string;
+}): JobStepArtifact => ({
+  path: args.path,
+  scope: args.scope,
+  version: args.version,
+  change: "created",
+  targets: [{ path: args.path, change: "created" }],
+});
+
+const withPublishArtifact = (args: {
+  readonly result: JobStepResult;
+  readonly fqn: string;
+  readonly scope: JobStepArtifact["scope"];
+  readonly version: string;
+}): JobStepResult => {
+  if (args.result.result === "error") return args.result;
+
+  const publishedPath = args.result.links?.html ?? `${args.fqn}@${args.version}`;
+  return {
+    ...args.result,
+    artifact: publishArtifact({
+      path: publishedPath,
+      scope: args.scope,
+      version: args.version,
+    }),
+  } satisfies JobStepResult;
+};
 
 export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(function* (args: {
   readonly name: string;
@@ -29,6 +65,7 @@ export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(funct
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const renderer = yield* CliRenderer;
+  const verbosity = yield* Verbosity;
   const target = yield* ws.getConfiguredSourceByName(args.registry);
   if (Option.isNone(target)) {
     return yield* makeAppError({
@@ -43,42 +80,75 @@ export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(funct
       detail: `Registry source "${args.registry}" not found or not a registry source`,
     });
   }
-  yield* renderer.withSpinner(
-    "Checking published versions...",
-    () =>
-      checkPublishVersionPreflight({
-        fqn: args.name,
-        type: "mcp-server",
-        registryName: args.registry,
-        registryUrl: source.location.href,
-        force: false,
-      }),
-    { successMessage: "Version check complete" },
-  );
-  const step: PlannedJobStep = {
-    readiness: "ready",
-    label: args.name,
-    run: publishMcpServer({
-      name: "publish-mcp-server",
-      args: { name: args.name, registryName: args.registry },
-    }).pipe(
-      Effect.provideService(WorkspaceMutations, ws),
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    ),
-  };
-  const plan: Plan = {
-    _tag: "Plan",
-    name: "Publish MCP server",
-    description: Option.some(`Publish ${args.name}`),
-    jobs: [{ concurrency: 1 as const, steps: [step] }],
-  };
-  const resolution = yield* previewOrApplyPlan(plan, {
-    yes: args.yes,
+  yield* checkPublishVersionPreflight({
+    fqn: args.name,
+    type: "mcp-server",
+    registryName: args.registry,
+    registryUrl: source.location.href,
     force: false,
-    preview: args.preview,
   });
-  yield* emitPlanResolutionResult("mcps.publish", resolution);
+  const versionInfo = yield* resolveManifestVersionInfo(args.name, "mcp-server");
+
+  const runPublishPlan = Effect.gen(function* () {
+    const step: PlannedJobStep = {
+      readiness: "ready",
+      label: `Publish ${versionInfo.fqn}`,
+      run: publishMcpServer({
+        name: "publish-mcp-server",
+        args: { name: versionInfo.fqn, registryName: args.registry },
+      }).pipe(
+        Effect.map((result) =>
+          withPublishArtifact({
+            result,
+            fqn: versionInfo.fqn,
+            scope: ws.scope,
+            version: versionInfo.version,
+          }),
+        ),
+        Effect.provideService(WorkspaceMutations, ws),
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+    };
+    const plan: Plan = {
+      _tag: "Plan",
+      name: "Publish MCP server",
+      description: Option.some(`Publish ${versionInfo.fqn} to registry "${args.registry}"`),
+      jobs: [{ concurrency: 1 as const, steps: [step] }],
+    };
+    const resolution = yield* previewOrApplyPlan(plan, {
+      yes: args.yes,
+      force: false,
+      preview: args.preview,
+      displayApplied: false,
+    });
+    const success =
+      resolution._tag === "ExecutedPlan" ? publishSuccessRender(resolution) : undefined;
+    const emitted = yield* emitPlanResolutionResult("mcps.publish", resolution, {
+      ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+    });
+    if (emitted) return;
+
+    if (success !== undefined) {
+      yield* renderer.success(
+        success.message,
+        verbosity.level === "quiet"
+          ? undefined
+          : {
+              ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+            },
+      );
+    }
+  });
+
+  if (args.preview) {
+    yield* runPublishPlan;
+    return;
+  }
+
+  yield* withAuthGuard(runPublishPlan, {
+    registryUrl: source.location.href,
+  });
 });
 
 const publishConfig = {
@@ -98,7 +168,8 @@ export const publishCommand = Command.make(
   ({ name, registry, scope, yes, preview }) =>
     handlePublishMcpServer({ name, registry, yes, preview }).pipe(
       withWorkspace(scope),
-      withAuthRuntime("mcps publish"),
+      Effect.provide(AuthLayer),
+      withRuntime("mcps publish"),
     ),
 ).pipe(
   withArgvTracking(publishConfig),

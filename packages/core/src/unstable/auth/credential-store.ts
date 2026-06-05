@@ -178,8 +178,8 @@ const readCredentialFile = (
           detail: "Failed to parse credential file",
           suggestions: [
             {
-              description:
-                "The credential file may be corrupt. Delete it and re-authenticate with `axm login`.",
+              description: "The credential file may be corrupt. Delete it and sign in again.",
+              cmd: "axm login",
             },
           ],
           cause: error,

@@ -20,6 +20,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { SubagentLockEntry } from "../../lockfile/index.js";
+import { subagentLifecycleArtifact } from "./artifact.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -102,11 +103,11 @@ export const disableSubagent: OperationHandler<
         }),
       ),
     );
-    const hasLockEntry = Option.isSome(lockEntryOption);
+    const lockEntry = Option.getOrUndefined(lockEntryOption);
+    const hasLockEntry = lockEntry !== undefined;
 
     // Lock-backed file operations (when lock entry exists)
     if (hasLockEntry) {
-      const lockEntry = lockEntryOption.value;
       const renderedFiles = lockEntry.renderedFiles ?? {};
 
       // Remove rendered files via CodingAgent.removeSubagent()
@@ -131,7 +132,7 @@ export const disableSubagent: OperationHandler<
     if (isImplicit) {
       // Implicit promotion: derive source via deterministic fallback order
       // 1. lock entry metadata  2. fail
-      const source = hasLockEntry ? deriveSourceString(lockEntryOption.value) : undefined;
+      const source = hasLockEntry ? deriveSourceString(lockEntry) : undefined;
       if (source === undefined) {
         return yield* makeAppError({
           code: "internal",
@@ -151,8 +152,20 @@ export const disableSubagent: OperationHandler<
         .pipe(Effect.catch(() => Effect.void));
     }
 
+    const version =
+      hasLockEntry && lockEntry.type === "registry" ? lockEntry.resolvedVersion : undefined;
+
     return {
       result: "success",
       message: `Disabled ${op.args.subagentName}`,
+      artifact: subagentLifecycleArtifact({
+        name: op.args.subagentName,
+        scope: ws.scope,
+        ...(hasLockEntry ? { agents: lockEntry.agents } : {}),
+        ...(version === undefined ? {} : { version }),
+        change: "updated",
+        ...(hasLockEntry ? { renderedFiles: lockEntry.renderedFiles ?? {} } : {}),
+        renderedChange: "removed",
+      }),
     } satisfies JobStepResult;
   });

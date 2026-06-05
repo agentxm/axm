@@ -11,19 +11,37 @@ import {
   normalizeHandle,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
-import type { NewSkillOperation, RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
-import { newSkill, SkillManager, uninstallSkill } from "@agentxm/client-core/unstable/skills";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import type {
+  InstallableSkillTarget,
+  NewSkillOperation,
+  RegistrySkillRef,
+} from "@agentxm/client-core/unstable/skills";
+import {
+  artifactAgentIdsFromTargets,
+  artifactTargetAgentIds,
+  groupInstallTargetsByDirectory,
+  newSkill,
+  SkillManager,
+  uninstallSkill,
+} from "@agentxm/client-core/unstable/skills";
+import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { SKILL_NAME_RULES } from "../suggested-actions.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -45,8 +63,8 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   args: SkillsNewHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
   const manager = yield* SkillManager;
+  const agentRepo = yield* CodingAgentRepository;
 
   // 1. Resolve owner
   const owner = Option.isSome(args.owner)
@@ -124,6 +142,62 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     ),
+    buildArtifact: ({ installedBefore }) =>
+      Effect.gen(function* () {
+        const configuredAgents = yield* agentRepo
+          .getMaterializationAgents()
+          .pipe(Effect.provideService(WorkspaceMutations, ws));
+        const resolvedAgents = yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            agent
+              .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+              .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
+          { concurrency: "unbounded" },
+        );
+        const installableTargets: Array<InstallableSkillTarget> = [];
+        for (const { agentId, outcome } of resolvedAgents) {
+          if (outcome._tag === "supported") {
+            installableTargets.push({ agentId, targetDir: path.normalize(outcome.dir) });
+          }
+        }
+        const targetLocations = yield* groupInstallTargetsByDirectory(
+          installableTargets,
+          ws.baseDir,
+        );
+        const change = installedBefore ? "updated" : "created";
+        const sourceTarget: JobStepArtifactTarget = {
+          path: joinDisplayPath(path, ".axm", "extensions", owner, "skills", args.name),
+          change,
+        };
+        const configTarget: JobStepArtifactTarget = {
+          path: ".axm (config/lockfile)",
+          change,
+        };
+        const materializedTargets: Array<JobStepArtifactTarget> = targetLocations.map(
+          (location) => {
+            const agentIds = artifactTargetAgentIds(location.agentIds);
+            return {
+              path: path.relative(ws.baseDir, path.join(location.targetDir, args.name)),
+              change,
+              ...(agentIds.length > 0 ? { agentIds } : {}),
+            };
+          },
+        );
+        const agents = artifactAgentIdsFromTargets(installableTargets);
+        return {
+          path: sourceTarget.path,
+          scope: ws.scope,
+          ...(agents.length > 0 ? { agents } : {}),
+          version: "0.0.1",
+          change,
+          targets: [sourceTarget, configTarget, ...materializedTargets],
+        } satisfies JobStepArtifact;
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(WorkspaceMutations, ws),
+      ),
   });
 
   const steps: PlannedJobStep[] = [step];
@@ -176,24 +250,49 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    displayApplied: false,
+  });
 
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "skills", args.name, "src", "SKILL.md")}\` to fill in instructions`,
     },
   ];
+  const artifact =
+    resolution._tag === "ExecutedPlan"
+      ? resolution.jobs
+          .flatMap((job) => job.steps)
+          .flatMap((step) =>
+            step.result.result === "success" && step.result.artifact !== undefined
+              ? [step.result.artifact]
+              : [],
+          )
+          .at(0)
+      : undefined;
+  const summary =
+    artifact === undefined
+      ? undefined
+      : artifact.targets !== undefined && artifact.targets.length > 0
+        ? `-> ${count(artifact.targets.length, "location")}   ${artifact.version ?? "0.0.1"}`
+        : `-> ${artifact.path}   ${artifact.version ?? "0.0.1"}`;
 
   const emitted = yield* emitPlanResolutionResult(
     "skills.new",
     resolution,
     resolution._tag === "ExecutedPlan"
-      ? { summary: `Created skill ${fqn}`, suggestions }
+      ? { ...(summary === undefined ? {} : { summary }), suggestions }
       : undefined,
   );
 
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created skill ${fqn}`, { suggestions, withoutSuggestions: emitted });
+    yield* emitScaffoldSuccess({
+      message: `Created skill ${fqn}`,
+      ...(summary === undefined ? {} : { summary }),
+      suggestions,
+      withoutSuggestions: emitted,
+    });
   }
 });
 

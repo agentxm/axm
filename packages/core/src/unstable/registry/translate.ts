@@ -124,7 +124,7 @@ const scopeDeniedSuggestedAction = (body: unknown): SuggestedAction | undefined 
   return requiredScope === undefined
     ? undefined
     : {
-        description: `Re-authenticate with \`axm login --scope ${requiredScope}\``,
+        description: "Sign in with the required registry scope.",
         cmd: `axm login --scope ${requiredScope}`,
       };
 };

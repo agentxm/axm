@@ -20,9 +20,14 @@ import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectRecord,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultSteps,
+  property,
 } from "../../test-helpers.js";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./new.js";
 
@@ -176,6 +181,52 @@ describe("skills-new.handler", () => {
                 "Edit `.axm/extensions/@acme/skills/my-skill/src/SKILL.md` to fill in instructions",
             },
           ]);
+        }),
+      );
+    });
+
+    it.effect("emits one success line and JSON artifact targets for created surfaces", () => {
+      const { provide, logs, rendererState } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        owner: "@acme",
+        agents: ["antigravity", "amp", "claude-code"],
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSkillsNew(defaultArgs("audit-skill"));
+
+          expect(logs.success).toEqual(["Created skill @acme/skills/audit-skill"]);
+          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+          const result = expectAppliedPlanResult(renderedResult.data, {
+            planName: "New skill",
+          });
+          const steps = planResultSteps(result);
+          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
+          const artifact = expectRecord(property(firstStep, "artifact"));
+          const agents = property(artifact, "agents");
+          expect(agents).toEqual(["antigravity", "amp", "claude-code"]);
+          const targets = property(artifact, "targets");
+          if (!Array.isArray(targets)) {
+            throw new Error("Expected artifact.targets array");
+          }
+          const targetPaths = targets.map((target) => property(expectRecord(target), "path"));
+          expect(targetPaths).toEqual([
+            ".axm/extensions/@acme/skills/audit-skill",
+            ".axm (config/lockfile)",
+            ".agents/skills/audit-skill",
+            ".claude/skills/audit-skill",
+          ]);
+          expect(new Set(targetPaths).size).toBe(targetPaths.length);
+          const universalTarget = expectRecord(
+            expectDefined(
+              targets.find(
+                (target) => property(expectRecord(target), "path") === ".agents/skills/audit-skill",
+              ),
+              "Expected universal target",
+            ),
+          );
+          expect(property(universalTarget, "agentIds")).toEqual(["antigravity", "amp"]);
         }),
       );
     });
@@ -380,8 +431,8 @@ describe("skills-new.handler", () => {
           const symlinkPath = path.join(tempDir, ".claude", "skills", "my-skill");
           expect(fs.existsSync(symlinkPath)).toBe(false);
 
-          // Preview log message should appear
-          expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          // Preview outcome should appear
+          expect(logs.info.some((m) => m.includes("Would create 1 skill"))).toBe(true);
         }),
       );
     });

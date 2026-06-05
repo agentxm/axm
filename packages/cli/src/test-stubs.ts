@@ -300,6 +300,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly commands?: Record<string, unknown> | undefined;
   readonly files?: Record<string, unknown> | undefined;
   readonly rules?: Record<string, unknown> | undefined;
+  readonly hooks?: Record<string, unknown> | undefined;
   readonly mcps?: Record<string, unknown> | undefined;
   readonly packs?: Record<string, unknown> | undefined;
   readonly sources?: ReadonlyArray<unknown> | undefined;
@@ -307,6 +308,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfileCommands?: Record<string, unknown> | undefined;
   readonly lockfileFiles?: Record<string, unknown> | undefined;
   readonly lockfileRules?: Record<string, unknown> | undefined;
+  readonly lockfileHooks?: Record<string, unknown> | undefined;
   readonly lockfileMcpServers?: Record<string, unknown> | undefined;
   readonly lockfilePacks?: Record<string, unknown> | undefined;
   readonly subagents?: Record<string, unknown> | undefined;
@@ -321,6 +323,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.commands) && { commands: opts.commands }),
     ...(hasEntries(opts.files) && { files: opts.files }),
     ...(hasEntries(opts.rules) && { rules: opts.rules }),
+    ...(hasEntries(opts.hooks) && { hooks: opts.hooks }),
     ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
     ...(hasEntries(opts["mcps"]) && { mcps: opts["mcps"] }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
@@ -333,6 +336,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.lockfileCommands) && { commands: opts.lockfileCommands }),
     ...(hasEntries(opts.lockfileFiles) && { files: opts.lockfileFiles }),
     ...(hasEntries(opts.lockfileRules) && { rules: opts.lockfileRules }),
+    ...(hasEntries(opts.lockfileHooks) && { hooks: opts.lockfileHooks }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),

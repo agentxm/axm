@@ -204,7 +204,50 @@ describe("toPlanResolutionResult", () => {
     ]);
   });
 
-  it("includes artifact metadata on successful executed steps", () => {
+  it("includes structured warnings on successful executed steps", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Sync workspace",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "claude-code instruction file",
+              result: {
+                result: "success",
+                message: "Updated CLAUDE.md",
+                warnings: ["Overwriting drifted instruction file for claude-code"],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution)).toEqual({
+      outcome: "applied",
+      planName: "Sync workspace",
+      totalSteps: 1,
+      readyCount: 0,
+      warningCount: 1,
+      errorCount: 0,
+      appliedCount: 1,
+      failedCount: 0,
+      blockedCount: 0,
+      steps: [
+        {
+          label: "claude-code instruction file",
+          status: "applied",
+          message: "Updated CLAUDE.md",
+          warnings: ["Overwriting drifted instruction file for claude-code"],
+        },
+      ],
+    });
+  });
+
+  it("emits primary artifact path with additional target metadata", () => {
     const resolution: ExecutedPlan = {
       _tag: "ExecutedPlan",
       name: "Install skill",
@@ -225,7 +268,11 @@ describe("toPlanResolutionResult", () => {
                   change: "created",
                   fileCount: 4,
                   targets: [
-                    { path: ".agents/skills/code-review", change: "created" },
+                    {
+                      path: ".agents/skills/code-review",
+                      change: "created",
+                      agentIds: ["antigravity", "amp"],
+                    },
                     { path: ".claude/skills/code-review", change: "created" },
                   ],
                 },
@@ -248,8 +295,11 @@ describe("toPlanResolutionResult", () => {
           change: "created",
           fileCount: 4,
           targets: [
-            { path: ".agents/skills/code-review", change: "created" },
-            { path: ".claude/skills/code-review", change: "created" },
+            {
+              path: ".agents/skills/code-review",
+              change: "created",
+              agentIds: ["antigravity", "amp"],
+            },
           ],
         },
       },

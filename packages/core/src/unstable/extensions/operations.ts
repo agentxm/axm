@@ -128,6 +128,8 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
   readonly buildArtifact?: (args: {
     readonly installedBefore: boolean;
   }) => Effect.Effect<JobStepArtifact, AppError, never>;
+  /** Optional outcome message for type-specific install presenters. */
+  readonly message?: string;
 }
 
 export interface NewExtensionOperationArgs<
@@ -164,7 +166,7 @@ const runInstallOperation = <TRef extends ExtensionRef>(
       args.buildArtifact === undefined ? undefined : yield* args.buildArtifact({ installedBefore });
     return {
       result: "success" as const,
-      message: "Applied install operation",
+      message: args.message ?? "Applied install operation",
       ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
   });
@@ -211,8 +213,9 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
     run: Effect.gen(function* () {
       yield* args.scaffold;
       yield* args.markAuthored;
-      yield* runInstallOperation(manager, args);
+      const result = yield* runInstallOperation(manager, args);
       return {
+        ...result,
         result: "success" as const,
         message: args.message,
       } satisfies JobStepResult;
@@ -226,6 +229,8 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
 
 export interface MaterializeOperationArgs<TRef extends ExtensionRef> {
   readonly ref: TRef;
+  readonly buildArtifact?: () => Effect.Effect<JobStepArtifact, AppError, never>;
+  readonly message?: string;
 }
 
 const runMaterializeOperation = <TRef extends ExtensionRef>(
@@ -234,9 +239,11 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
     yield* manager.materializeInstall({ ref: args.ref });
+    const artifact = args.buildArtifact === undefined ? undefined : yield* args.buildArtifact();
     return {
       result: "success" as const,
-      message: "Applied materialize operation",
+      message: args.message ?? "Synced agent artifacts",
+      ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
   });
 
@@ -307,7 +314,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
     yield* manager.removeSettingsEntry({ target: args.target });
     return {
       result: "success" as const,
-      message: "Applied uninstall operation",
+      message: `Removed ${toLabel(args.target)}`,
     } satisfies JobStepResult;
   });
 

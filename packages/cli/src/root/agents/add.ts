@@ -1,12 +1,22 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { detectAgents } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  forceFlag,
+  previewFlag,
+  Verbosity,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
+  type CompletedJobStep,
+  type ExecutedPlan,
+  type JobStepArtifact,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
@@ -16,13 +26,16 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
+import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { dedupe, validateAgentIds } from "./shared.js";
+
+const AGENT_SETTINGS_PATH = ".axm/settings.json";
 
 export interface AgentsAddArgs {
   readonly ids: ReadonlyArray<string>;
@@ -39,8 +52,160 @@ const addAgentStep = (ws: WorkspaceMutationsService, agentId: string): PlannedJo
     Effect.as({
       result: "success",
       message: `Configured ${agentId}`,
+      artifact: {
+        path: AGENT_SETTINGS_PATH,
+        scope: ws.scope,
+        agents: [agentId],
+        change: "updated",
+        fileCount: 1,
+        targets: [{ path: AGENT_SETTINGS_PATH, change: "updated", agentIds: [agentId] }],
+      },
     } satisfies JobStepResult),
   ),
+});
+
+const materializationArtifact = (
+  ws: WorkspaceMutationsService,
+  agentIds: ReadonlyArray<string>,
+): JobStepArtifact => ({
+  path: "managed agent artifacts",
+  scope: ws.scope,
+  agents: agentIds,
+  change: "updated",
+  targets: agentIds.map((agentId) => ({
+    path: `${agentId} managed agent artifacts`,
+    change: "updated",
+    agentIds: [agentId],
+  })),
+});
+
+const collectWorkspacePathSet = (
+  baseDir: string,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+): Effect.Effect<Set<string>> =>
+  Effect.gen(function* () {
+    const paths = new Set<string>();
+    const visit = (absolutePath: string): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const relativePath = path.relative(baseDir, absolutePath);
+        if (relativePath.length > 0) {
+          paths.add(relativePath);
+        }
+        const linkTarget = yield* fs.readLink(absolutePath).pipe(Effect.option);
+        if (Option.isSome(linkTarget)) return;
+        const stat = yield* fs.stat(absolutePath).pipe(Effect.option);
+        if (Option.isNone(stat) || stat.value.type !== "Directory") return;
+        const entries = yield* fs
+          .readDirectory(absolutePath)
+          .pipe(Effect.catch(() => Effect.succeed([])));
+        for (const entry of entries) {
+          yield* visit(path.join(absolutePath, entry));
+        }
+      });
+    yield* visit(baseDir);
+    return paths;
+  });
+
+const targetMatchesAgents = (
+  targetAgents: ReadonlyArray<string> | undefined,
+  agentIds: ReadonlyArray<string>,
+): boolean =>
+  targetAgents === undefined ||
+  targetAgents.length === 0 ||
+  targetAgents.some((agentId) => agentIds.includes(agentId));
+
+const aggregateArtifactChange = (
+  targets: ReadonlyArray<{ readonly change: JobStepArtifact["change"] }>,
+  fallback: JobStepArtifact["change"],
+): JobStepArtifact["change"] => {
+  if (targets.length === 0) return fallback;
+  if (targets.some((target) => target.change === "created")) return "created";
+  if (targets.some((target) => target.change === "updated")) return "updated";
+  if (targets.some((target) => target.change === "removed")) return "removed";
+  return "unchanged";
+};
+
+const adjustMaterializationArtifact = (
+  artifact: JobStepArtifact,
+  agentIds: ReadonlyArray<string>,
+  beforePaths: ReadonlySet<string>,
+): JobStepArtifact => {
+  if (artifact.change === "unchanged") {
+    return artifact;
+  }
+  if (artifact.targets === undefined || artifact.targets.length === 0) {
+    return artifact;
+  }
+  const targets = artifact.targets
+    .filter((target) => targetMatchesAgents(target.agentIds, agentIds))
+    .map((target) => {
+      const change: JobStepArtifact["change"] = beforePaths.has(target.path)
+        ? "updated"
+        : "created";
+      return {
+        ...target,
+        change,
+      };
+    });
+  if (targets.length === 0) {
+    return artifact;
+  }
+  const agents = artifact.agents?.filter((agentId) => agentIds.includes(agentId));
+  return {
+    ...artifact,
+    path: targets[0]?.path ?? artifact.path,
+    ...(agents === undefined || agents.length === 0 ? {} : { agents }),
+    change: aggregateArtifactChange(targets, artifact.change),
+    targets,
+  };
+};
+
+const attachMaterializationArtifact = (
+  ws: WorkspaceMutationsService,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  agentIds: ReadonlyArray<string>,
+  step: PlannedJobStep,
+): PlannedJobStep => {
+  if (step.readiness === "error") return step;
+  return {
+    ...step,
+    run: Effect.gen(function* () {
+      const beforePaths = yield* collectWorkspacePathSet(ws.baseDir, fs, path);
+      const result = yield* step.run;
+      if (result.result === "error") return result;
+      if (result.artifact !== undefined) {
+        return {
+          ...result,
+          artifact: adjustMaterializationArtifact(result.artifact, agentIds, beforePaths),
+        };
+      }
+      return {
+        ...result,
+        artifact: materializationArtifact(ws, agentIds),
+      };
+    }),
+  };
+};
+
+const skipInstalledExtensionMaterializationStep = (
+  ws: WorkspaceMutationsService,
+  detail: string,
+): PlannedJobStep => ({
+  key: "installed-extension-materialization:skipped",
+  label: "Materialize installed extensions",
+  readiness: "ready",
+  run: Effect.succeed({
+    result: "success",
+    message: `Skipped installed extension materialization: ${detail}. Run \`axm sync\` after fixing the workspace lockfile.`,
+    artifact: {
+      path: ".axm/axm-lock.yaml",
+      scope: ws.scope,
+      change: "unchanged",
+      targets: [{ path: ".axm/axm-lock.yaml", change: "unchanged" }],
+    },
+  } satisfies JobStepResult),
 });
 
 const makePlan = (agentIds: ReadonlyArray<string>, steps: ReadonlyArray<PlannedJobStep>): Plan => ({
@@ -50,9 +215,47 @@ const makePlan = (agentIds: ReadonlyArray<string>, steps: ReadonlyArray<PlannedJ
   jobs: [{ concurrency: 1, steps }],
 });
 
+const formatArtifactTargets = (artifact: JobStepArtifact): string => {
+  if (artifact.targets === undefined || artifact.targets.length === 0) {
+    return artifact.path;
+  }
+  return artifact.targets
+    .map((target) => {
+      const agents =
+        target.agentIds === undefined || target.agentIds.length === 0
+          ? undefined
+          : ` [${target.agentIds.join(", ")}]`;
+      return `${target.path} (${target.change})${agents ?? ""}`;
+    })
+    .join(", ");
+};
+
+const formatCompletedArtifactStep = (step: CompletedJobStep): string | undefined => {
+  if (step.result.result !== "success" || step.result.artifact === undefined) return undefined;
+  const artifact = step.result.artifact;
+  const details = [
+    artifact.change,
+    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
+    formatArtifactTargets(artifact),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+  return `${step.label}   ${details.join("   ")}`;
+};
+
+const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
+  const rows = plan.jobs
+    .flatMap((job) => job.steps)
+    .flatMap((step) => {
+      const summary = formatCompletedArtifactStep(step);
+      return summary === undefined ? [] : [summary];
+    });
+  return rows.length === 0 ? undefined : rows.join("\n");
+};
+
 export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAddArgs) {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
 
   if (args.ids.length === 0 && !args.detected) {
     return yield* makeAppError({
@@ -77,49 +280,62 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
   );
 
   if (agentIds.length === 0) {
-    if (
-      yield* emitNoOpResult("agents.add", {
-        planName: "Add coding agents",
-        planDescription: "Configure coding agents and materialize installed extensions",
-        message: "All requested agents are already configured",
-      })
-    ) {
-      return;
-    }
-    yield* renderer.success("All requested agents are already configured.");
+    yield* emitNoOpOutcome("agents.add", {
+      planName: "Add coding agents",
+      planDescription: "Configure coding agents and materialize installed extensions",
+      message: "All requested agents are already configured",
+    });
     return;
   }
 
   const materialize = yield* collectMaterializeSteps().pipe(
     Effect.catchIf(isMalformedWorkspaceLockfileRead, (error) =>
-      Effect.gen(function* () {
-        yield* renderer.warn(
-          `Skipping installed extension materialization: ${error.detail}. Run \`axm sync\` after fixing the workspace lockfile.`,
-        );
-        return {
-          expectedSubagentNames: new Set<string>(),
-          steps: [],
-        };
+      Effect.succeed({
+        expectedSubagentNames: new Set<string>(),
+        steps: [skipInstalledExtensionMaterializationStep(ws, error.detail)],
       }),
     ),
   );
+  const materializeSteps = materialize.steps.map((step) =>
+    attachMaterializationArtifact(ws, fs, path, agentIds, step),
+  );
   const plan = makePlan(agentIds, [
     ...agentIds.map((agentId) => addAgentStep(ws, agentId)),
-    ...materialize.steps,
+    ...materializeSteps,
   ]);
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    displayApplied: false,
+  });
   const suggestions =
     resolution._tag === "ExecutedPlan" ? buildPermissionSuggestions(agentIds) : [];
+  const fallbackSummary = [
+    `-> ${AGENT_SETTINGS_PATH}   ${count(agentIds.length, "agent")}`,
+    ...(materializeSteps.length === 0
+      ? []
+      : [`-> managed agent artifacts   ${count(agentIds.length, "agent")}`]),
+  ].join("\n");
+  const summary =
+    resolution._tag === "ExecutedPlan"
+      ? (summarizeExecutedArtifacts(resolution) ?? fallbackSummary)
+      : fallbackSummary;
   const emitted = yield* emitPlanResolutionResult("agents.add", resolution, {
-    summary: `Configured ${count(agentIds.length, "agent")}: ${agentIds.join(", ")}`,
+    summary,
     suggestions,
   });
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Configured ${count(agentIds.length, "agent")}`, {
-      suggestions,
-      withoutSuggestions: emitted,
-    });
+    const verbosity = yield* Verbosity;
+    yield* renderer.success(
+      `Configured ${count(agentIds.length, "agent")}`,
+      verbosity.level === "quiet"
+        ? undefined
+        : {
+            summary,
+            suggestions,
+            withoutSuggestions: emitted,
+          },
+    );
   }
 });
 

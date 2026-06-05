@@ -26,6 +26,7 @@ import type {
   JobStepResult,
   Plan,
   PlannedJobStep,
+  WarnJobStep,
 } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -41,6 +42,19 @@ export type OperationHandler<Op, R = never> = (op: Op) => Effect.Effect<JobStepR
 // -----------------------------------------------------------------------------
 // Implementation
 // -----------------------------------------------------------------------------
+
+const appendReadinessWarning = (step: WarnJobStep, result: JobStepResult): JobStepResult => {
+  if (result.result === "error") {
+    return result;
+  }
+
+  return {
+    ...result,
+    warnings: [...(result.warnings ?? []), step.warnMessage],
+  };
+};
+
+const errorStepMessage = (error: AppError): string => `${error.detail} (${error.code})`;
 
 const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, never, never> => {
   switch (step.readiness) {
@@ -58,7 +72,6 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
       });
 
     case "ready":
-    case "warn":
       return step.run.pipe(
         Effect.map(
           (result): CompletedJobStep => ({
@@ -71,7 +84,27 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
             label: step.label,
             result: {
               result: "error",
-              message: `${error.message} (${error.code})`,
+              message: errorStepMessage(error),
+              error,
+            },
+          });
+        }),
+      );
+
+    case "warn":
+      return step.run.pipe(
+        Effect.map(
+          (result): CompletedJobStep => ({
+            label: step.label,
+            result: appendReadinessWarning(step, result),
+          }),
+        ),
+        Effect.catch((error): Effect.Effect<CompletedJobStep> => {
+          return Effect.succeed({
+            label: step.label,
+            result: {
+              result: "error",
+              message: errorStepMessage(error),
               error,
             },
           });

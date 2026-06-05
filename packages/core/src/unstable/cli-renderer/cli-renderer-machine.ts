@@ -245,7 +245,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     outro: () => Effect.void,
     message: () => Effect.void,
     info: () => Effect.void,
-    success: (_message, options?: SuccessOptions) => emitSuggestions(options?.suggestions, options),
+    success: () => Effect.void,
     step: () => Effect.void,
     warn: (message) => emitLogEvent("warn", message),
     error: (message, options?: SuggestionOptions) =>
@@ -355,12 +355,12 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       Effect.void,
     list: <T extends object>(_entity: string, payload: ListPayload<T>) =>
       Effect.succeed(payload).pipe(
-        Effect.tap(() => emitSuggestions(payload.suggestions, payload)),
         Effect.map(
           ({
             withoutSuggestions: _withoutSuggestions,
             suggestions: _suggestions,
             summary: _summary,
+            emptyMessage: _emptyMessage,
             ...data
           }) => makeSuccessEnvelope(data, payload),
         ),
@@ -375,7 +375,6 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         const options = third as DetailOptions | undefined;
         return Effect.succeed(second).pipe(
-          Effect.tap(() => emitSuggestions(options?.suggestions, options)),
           Effect.map((encoded) => makeSuccessEnvelope(encoded, options)),
           Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
           Effect.as(true),
@@ -391,7 +390,6 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         const payload = second as TreePayload<object>;
         return Effect.succeed(payload).pipe(
-          Effect.tap(() => emitSuggestions(payload.suggestions, payload)),
           Effect.map(
             ({
               withoutSuggestions: _withoutSuggestions,
@@ -414,7 +412,6 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       options?: SuccessOptions,
     ) =>
       encodeJson(data, schema).pipe(
-        Effect.tap(() => emitSuggestions(options?.suggestions, options)),
         Effect.map((encoded) => makeSuccessEnvelope(encoded, options)),
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
         Effect.as(true),

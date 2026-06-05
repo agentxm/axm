@@ -68,3 +68,12 @@ export {
   type SubjectType,
   type SourceKind,
 } from "./command-summary.js";
+export {
+  OperationPlanFields,
+  OperationPlanSchema,
+  makeOperationPlan,
+  makeSingleStepOperationPlan,
+  type OperationPlan,
+  type OperationPlanStep,
+  type OperationPlanStepArtifact,
+} from "./operation-plan.js";

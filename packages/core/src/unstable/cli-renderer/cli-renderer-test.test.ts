@@ -437,14 +437,22 @@ describe("TestRenderer", () => {
         const { layer, state } = TestRenderer.make();
         const result = yield* Effect.gen(function* () {
           const r = yield* CliRenderer;
-          return yield* r.list("skill", { items: [{ name: "test" }], count: 1 });
+          return yield* r.list("skill", {
+            items: [{ name: "test" }],
+            count: 1,
+            suggestions: [{ description: "Inspect skills", cmd: "axm skills list" }],
+          });
         }).pipe(Effect.provide(layer));
         expect(result).toBe(false);
         expect(state.results).toHaveLength(1);
         expect(state.results[0]?.data).toEqual({
           items: [{ name: "test" }],
           count: 1,
+          suggestions: [{ description: "Inspect skills", cmd: "axm skills list" }],
         });
+        expect(state.suggestions).toEqual([
+          { description: "Inspect skills", cmd: "axm skills list" },
+        ]);
       }),
     );
 

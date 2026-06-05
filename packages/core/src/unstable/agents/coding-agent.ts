@@ -190,12 +190,21 @@ export type SubagentSyncOutcome =
 
 export type McpServerSyncFallbackSource = "unsupported" | "disabled";
 
+export interface McpServerSyncTarget {
+  readonly path: string;
+  readonly change: "created" | "updated" | "unchanged" | "removed";
+}
+
 export type McpServerSyncOutcome =
-  | { readonly _tag: "success" }
+  | {
+      readonly _tag: "success";
+      readonly targets?: ReadonlyArray<McpServerSyncTarget>;
+    }
   | {
       readonly _tag: "fallback";
       readonly fallbackFrom: McpServerSyncFallbackSource;
       readonly reason: string;
+      readonly targets?: ReadonlyArray<McpServerSyncTarget>;
     }
   | { readonly _tag: "unsupported"; readonly reason: string }
   | { readonly _tag: "disabled"; readonly reason: string }

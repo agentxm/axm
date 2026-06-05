@@ -218,7 +218,7 @@ describe("lockfile rebuild on missing/invalid lockfile", () => {
       );
 
       expect(result.exitCode).toBe(0);
-      expect(getOutput(result)).toContain("Previewing changes...");
+      expect(getOutput(result)).toContain("Would install");
       expect(fs.readFileSync(lockfilePath, "utf-8")).toBe(invalidLockfile);
 
       const backupFiles = fs

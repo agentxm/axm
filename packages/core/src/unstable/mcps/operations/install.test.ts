@@ -11,7 +11,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
 import type { CodingAgent } from "../../agents/coding-agent.js";
-import { TestRenderer } from "../../cli-renderer/index.js";
+import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionRef } from "../../extensions/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
@@ -140,6 +140,14 @@ const withServices = (
     setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
   },
   agentRepo?: CodingAgentRepositoryService,
+) => makeServices(axmDir, wsOverrides, agentRepo).layer;
+
+const makeServices = (
+  axmDir: string,
+  wsOverrides?: {
+    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
+  },
+  agentRepo?: CodingAgentRepositoryService,
 ) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
   const sourceProviders: SourceHostProvidersService = {
@@ -158,13 +166,18 @@ const withServices = (
           ? source.path
           : source.type,
   };
-  return Layer.mergeAll(
-    NodeServices.layer,
-    WorkspaceMutations.layer(mockWs),
-    TestRenderer.make().layer,
-    Layer.succeed(SourceHostProviders, sourceProviders),
-    Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
-  );
+  const renderer = TestRenderer.make();
+
+  return {
+    layer: Layer.mergeAll(
+      NodeServices.layer,
+      WorkspaceMutations.layer(mockWs),
+      renderer.layer,
+      Layer.succeed(SourceHostProviders, sourceProviders),
+      Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
+    ),
+    rendererState: renderer.state,
+  };
 };
 
 const makeRegistryRef = (
@@ -490,7 +503,7 @@ describe("installMcpServer", () => {
       }),
     );
 
-    it.effect("swallows WorkspaceMutations.setMcpServer failure without failing installation", () =>
+    it.effect("returns WorkspaceMutations.setMcpServer failure in result without raw warning", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -503,12 +516,16 @@ describe("installMcpServer", () => {
             }),
           ),
         );
+        const services = makeServices(axmDir, { setMcpServerFn });
 
         const result = yield* installMcpServer(
           makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
-        ).pipe(Effect.provide(withServices(axmDir, { setMcpServerFn })));
+        ).pipe(Effect.provide(services.layer));
 
         expect(result.result).toBe("success");
+        expect(result.message).toContain("MCP server update failed");
+        expect(result.message).toContain("write failed");
+        expect(logsByTag(services.rendererState).warn).toEqual([]);
       }),
     );
 
@@ -727,7 +744,7 @@ describe("installMcpServer", () => {
       }),
     );
 
-    it.effect("warns without calling agents when manifest has no runnable distributions", () =>
+    it.effect("returns no-runnable sync context without calling agents or raw warning", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community", "metadata-only", false);
@@ -743,13 +760,16 @@ describe("installMcpServer", () => {
             }),
           ]),
         );
+        const services = makeServices(axmDir, undefined, mockAgentRepo);
 
         const result = yield* installMcpServer(
           makeOp({ ref: makeRegistryRef({ name: "metadata-only", integrity: "" }) }),
-        ).pipe(Effect.provide(withServices(axmDir, undefined, mockAgentRepo)));
+        ).pipe(Effect.provide(services.layer));
 
         expect(result.result).toBe("success");
         expect(result.message).toContain("agent-sync=green");
+        expect(result.message).toContain("manifest server has no packages or remotes");
+        expect(logsByTag(services.rendererState).warn).toEqual([]);
         expect(addSpy).not.toHaveBeenCalled();
       }),
     );

@@ -5,7 +5,6 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { EnableCommandOperation } from "@agentxm/client-core/unstable/commands";
@@ -14,9 +13,10 @@ import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/c
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
+import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { toJobStepResult } from "./job-step-result.js";
 import { combinePlanSections, makeAgentSection } from "./preview-sections.js";
 
@@ -31,7 +31,6 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
   args: EnableCommandHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
@@ -52,7 +51,7 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
       detail: `Command '${args.name}' is not installed`,
       suggestions: [
         {
-          description: "Run `axm commands list` to see available commands",
+          description: "Inspect installed commands",
           cmd: "axm commands list",
         },
       ],
@@ -61,18 +60,11 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
 
   // Validate: command is currently disabled
   if (entry.enabled) {
-    if (
-      yield* emitNoOpResult("commands.enable", {
-        planName: "Enable command",
-        planDescription: `Enable ${commandName}`,
-        message: `Command '${commandName}' is already enabled`,
-      })
-    ) {
-      return;
-    }
-
-    yield* renderer.info(`Command '${commandName}' is already enabled`);
-    yield* renderer.success("Nothing to do.");
+    yield* emitNoOpOutcome("commands.enable", {
+      planName: "Enable command",
+      planDescription: `Enable ${commandName}`,
+      message: `Command '${commandName}' is already enabled`,
+    });
     return;
   }
 
@@ -125,8 +117,17 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    displayApplied: false,
   });
-  yield* emitPlanResolutionResult("commands.enable", resolution);
+  yield* emitAppliedPlanOutcome({
+    command: "commands.enable",
+    headline: `Enabled command ${commandName}`,
+    resolution,
+    suggestions: [
+      { description: "Inspect installed commands", cmd: "axm commands list" },
+      { description: "Undo", cmd: `axm commands disable ${commandName}` },
+    ],
+  });
 });
 
 const enableConfig = {

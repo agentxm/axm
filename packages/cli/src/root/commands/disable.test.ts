@@ -14,6 +14,7 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
+  expectNoOpPlanResult,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -76,8 +77,8 @@ describe("commands disable.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
-    const ctx = makeWorkspaceHandlerTestContext();
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
+    const ctx = makeWorkspaceHandlerTestContext(opts);
     const fullLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive);
     return { ...ctx, fullLayer, provide: makeEffectProvide(fullLayer) };
   };
@@ -111,8 +112,31 @@ describe("commands disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisableCommand(defaultArgs("my-cmd"));
 
-          expect(logs.info.some((m) => m.includes("already disabled"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("already disabled"))).toBe(false);
+          expect(logs.success.some((m) => m.includes("already disabled"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("emits JSON no-op when command is already disabled", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        { "my-cmd": { source: "@acme/commands/my-cmd", enabled: false } },
+        { "my-cmd": makeLockEntry() },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleDisableCommand(defaultArgs("my-cmd"));
+
+          expect(logs.success).toEqual([]);
+          const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Disable command",
+            message: "Command 'my-cmd' is already disabled",
+          });
+          expect(result).toMatchObject({ planDescription: "Disable my-cmd" });
         }),
       );
     });

@@ -5,6 +5,7 @@ import {
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { INSTALL_SUBAGENT_FROM_REGISTRY } from "../../suggested-actions.js";
 
 export interface ListSubagentsHandlerArgs {
   readonly agents: readonly string[];
@@ -37,6 +38,8 @@ registerEntity<SubagentListItem>("subagent", {
   list: {
     columns: SubagentListTable.columns,
     emptyMessage: "No subagents installed",
+    singularLabel: "installed subagent",
+    pluralLabel: "installed subagents",
   },
 });
 
@@ -64,16 +67,22 @@ export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
     agents: lockedSubagents[name]?.agents ?? [],
   }));
 
-  if (yield* renderer.list("subagent", { items, count: items.length })) return;
-
-  if (filteredEntries.length === 0) {
-    yield* renderer.info(
-      args.agents.length === 0
-        ? "No subagents installed"
-        : "No subagents matched the selected agent filter.",
-    );
+  if (
+    yield* renderer.list("subagent", {
+      items,
+      count: items.length,
+      emptyMessage:
+        args.agents.length === 0
+          ? "No subagents installed"
+          : "No subagents matched the selected agent filter.",
+      suggestions:
+        items.length === 0 && args.agents.length === 0 ? [INSTALL_SUBAGENT_FROM_REGISTRY] : [],
+    })
+  ) {
     return;
   }
+
+  if (filteredEntries.length === 0) return;
 
   yield* renderer.table(items, SubagentListTable, "Installed subagents");
 });

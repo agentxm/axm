@@ -16,7 +16,6 @@ import * as Option from "effect/Option";
 
 import { detectAgents } from "../agents/index.js";
 import { AGENTS } from "../agents/registry.js";
-import { count } from "../cli-renderer/index.js";
 import {
   resolveInstructionMechanism,
   syncInstructions,
@@ -289,7 +288,6 @@ const selectSetupAgents = (args: {
 }) =>
   Effect.gen(function* () {
     const nonInteractive = yield* isNonInteractive;
-    const renderer = yield* CliRenderer;
     const requested = args.options.agents;
     if (requested !== undefined && requested.length > 0) {
       const selected = requested.flatMap((id) =>
@@ -297,13 +295,17 @@ const selectSetupAgents = (args: {
       );
       const unrecognized = requested.filter((id) => !isKnownConfigurableAgentId(id));
       if (unrecognized.length > 0) {
-        yield* renderer.warn(
-          `Unrecognized ${count(unrecognized.length, "agent")}: ${unrecognized.join(", ")}. Use 'axm setup --help' to see available agents.`,
-        );
+        const label = unrecognized.length === 1 ? "agent" : "agents";
+        return yield* makeAppError({
+          code: "validation",
+          detail: `Unrecognized setup ${label}: ${unrecognized.join(", ")}`,
+          suggestions: [{ description: "Show available setup agents.", cmd: "axm setup --help" }],
+        });
       }
       return selected;
     }
 
+    const renderer = yield* CliRenderer;
     const detectedAgents = yield* detectAgents(args.workspaceRoot).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -516,14 +518,16 @@ const configureProjectWorkspace = (args: {
             detail: "instructions disabled",
           } satisfies SetupPlanRow,
         ];
-    yield* renderSetupPlan([
-      {
-        target: SETTINGS_FILENAME,
-        action: args.settingsAction,
-        detail: `agents: ${agentIds.join(", ")}`,
-      },
-      ...planRows,
-    ]);
+    if (!nonInteractive || args.options.preview === true) {
+      yield* renderSetupPlan([
+        {
+          target: SETTINGS_FILENAME,
+          action: args.settingsAction,
+          detail: `agents: ${agentIds.join(", ")}`,
+        },
+        ...planRows,
+      ]);
+    }
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const confirmed =
       args.options.preview === true ||

@@ -12,19 +12,29 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import {
+  EXTERNAL_EXTENSIONS_DIR,
+  REGISTRY_EXTENSIONS_DIR,
   buildUninstallOperation,
+  sanitizeName,
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
+import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { SubagentExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import type { UninstallSubagentCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------
@@ -45,6 +55,90 @@ export interface UninstallSubagentHandlerArgs {
 export interface ParsedSubagentUninstallArgs {
   readonly subagents: ReadonlyArray<string>;
 }
+
+const resolvedVersion = (entry: unknown): string | undefined => {
+  if (typeof entry !== "object" || entry === null) return undefined;
+  if (!("type" in entry) || entry.type !== "registry") return undefined;
+  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") {
+    return undefined;
+  }
+  return entry.resolvedVersion;
+};
+
+const renderedFileTargets = (
+  renderedFiles: Readonly<Record<string, ReadonlyArray<{ readonly path: string }>>>,
+  change: JobStepArtifact["change"],
+): ReadonlyArray<JobStepArtifactTarget> => {
+  const byPath = new Map<string, Array<string>>();
+  for (const [agentId, files] of Object.entries(renderedFiles)) {
+    for (const file of files) {
+      const existing = byPath.get(file.path);
+      if (existing === undefined) {
+        byPath.set(file.path, [agentId]);
+        continue;
+      }
+      if (!existing.includes(agentId)) {
+        existing.push(agentId);
+      }
+    }
+  }
+
+  return [...byPath.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([path, agentIds]) => ({
+      path,
+      change,
+      ...(agentIds.length > 0 ? { agentIds } : {}),
+    }));
+};
+
+const subagentSourceTarget = (args: {
+  readonly name: string;
+  readonly lockEntry: SubagentLockEntry | undefined;
+  readonly change: JobStepArtifactTarget["change"];
+}): JobStepArtifactTarget => {
+  if (args.lockEntry?.type === "registry") {
+    return {
+      path: `${REGISTRY_EXTENSIONS_DIR}/${args.lockEntry.owner}/subagents/${args.lockEntry.name}`,
+      change: args.change,
+    };
+  }
+  return {
+    path: `${EXTERNAL_EXTENSIONS_DIR}/subagents/${sanitizeName(args.name)}`,
+    change: args.change,
+  };
+};
+
+const subagentArtifact = (args: {
+  readonly name: string;
+  readonly lockEntry: SubagentLockEntry | undefined;
+  readonly renderedFiles: Readonly<Record<string, ReadonlyArray<{ readonly path: string }>>>;
+  readonly agents: ReadonlyArray<string>;
+  readonly change: JobStepArtifact["change"];
+}): JobStepArtifact => {
+  const targetChange = args.change === "removed" ? "removed" : "unchanged";
+  const targets: ReadonlyArray<JobStepArtifactTarget> = [
+    { path: ".axm/axm-lock.yaml", change: "updated" },
+    { path: ".axm/settings.json", change: "updated" },
+    subagentSourceTarget({
+      name: args.name,
+      lockEntry: args.lockEntry,
+      change: targetChange,
+    }),
+    ...renderedFileTargets(args.renderedFiles, targetChange),
+  ];
+  const firstTarget = targets[0];
+  const version = resolvedVersion(args.lockEntry);
+  return {
+    path: firstTarget?.path ?? args.name,
+    scope: "project",
+    ...(args.agents.length > 0 ? { agents: args.agents } : {}),
+    ...(version !== undefined ? { version } : {}),
+    change: args.change,
+    fileCount: targets.length,
+    ...(targets.length > 0 ? { targets } : {}),
+  };
+};
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -71,7 +165,6 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
   UninstallSubagentCommandWorkflowActions,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const renderer = yield* CliRenderer;
     const subagentMgr = yield* SubagentManager;
 
     const parseArgs = (
@@ -87,20 +180,19 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
         // Handle glob matching zero subagents
         if (args.subagent.includes("*") && subagentNames.length === 0) {
-          yield* renderer.warn(`No subagents matched pattern "${args.subagent}"`);
-          yield* renderer.success("Nothing to uninstall.");
           return { subagents: [] } satisfies ParsedSubagentUninstallArgs;
         }
 
         const names =
           subagentNames.length > 0
             ? subagentNames
-            : [
-                yield* resolveInstalledIdentifierNameOrInput({
+            : yield* Effect.gen(function* () {
+                const resolvedName = yield* resolveInstalledIdentifierNameOrInput({
                   input: args.subagent,
                   resourceType: "subagent",
-                }).pipe(Effect.provideService(WorkspaceMutations, ws)),
-              ];
+                }).pipe(Effect.provideService(WorkspaceMutations, ws));
+                return lockedSubagents[resolvedName] === undefined ? [] : [resolvedName];
+              });
 
         return { subagents: names } satisfies ParsedSubagentUninstallArgs;
       });
@@ -129,12 +221,57 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
               type: "subagent" as const,
               name: entry.subagentName,
             };
-            return buildUninstallOperation(subagentMgr, retentionPolicy, { target });
+            const step = buildUninstallOperation(subagentMgr, retentionPolicy, { target });
+            if (step.readiness !== "ready") return step;
+
+            const run = Effect.gen(function* () {
+              const lockEntryOption = yield* ws.getLockedSubagent(entry.subagentName);
+              const lockEntry = Option.getOrUndefined(lockEntryOption);
+              const renderedFiles = lockEntry?.renderedFiles ?? {};
+              const agents = lockEntry?.agents ?? [];
+              const removedArtifact = subagentArtifact({
+                name: entry.subagentName,
+                lockEntry,
+                renderedFiles,
+                agents,
+                change: "removed",
+              });
+              const unchangedArtifact = subagentArtifact({
+                name: entry.subagentName,
+                lockEntry,
+                renderedFiles,
+                agents,
+                change: "unchanged",
+              });
+
+              const result = yield* step.run;
+              if (result.result === "error" || result.message.includes("Kept on disk")) {
+                return result;
+              }
+              if (result.message === "not installed") {
+                return {
+                  ...result,
+                  artifact: unchangedArtifact,
+                } satisfies JobStepResult;
+              }
+
+              return {
+                ...result,
+                artifact: removedArtifact,
+              } satisfies JobStepResult;
+            });
+
+            return { ...step, run } satisfies PlannedJobStep;
           });
 
           return {
             _tag: "Plan",
-            name: "Uninstall subagents",
+            name:
+              intent.subagentsToUninstall.length === 0
+                ? "Uninstall subagents"
+                : intent.subagentsToUninstall.length === 1
+                  ? "Uninstall subagent"
+                  : `Uninstall ${count(intent.subagentsToUninstall.length, "subagent")}`,
             description: Option.none(),
             jobs: [
               {

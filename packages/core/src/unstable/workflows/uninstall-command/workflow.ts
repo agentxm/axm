@@ -45,7 +45,7 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
   args: Args,
   actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent>,
-  flags: { yes: boolean; force: boolean; preview: boolean },
+  flags: { yes: boolean; force: boolean; preview: boolean; displayApplied?: boolean },
 ) =>
   Effect.gen(function* () {
     const parsed = yield* actions.parseArgs(args);

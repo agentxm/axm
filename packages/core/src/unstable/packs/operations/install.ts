@@ -23,7 +23,6 @@ import {
 import type { Version } from "../../version-constraints/version-constraints.js";
 import type { PackRef } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
@@ -108,11 +107,10 @@ const collectMissingResolvedDependencies = (
  */
 export const installPack: OperationHandler<
   InstallPackOperation,
-  WorkspaceMutations | CliRenderer | SourceHostProviders | FileSystem.FileSystem | Path.Path
+  WorkspaceMutations | SourceHostProviders | FileSystem.FileSystem | Path.Path
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const renderer = yield* CliRenderer;
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -226,7 +224,7 @@ export const installPack: OperationHandler<
     );
 
     // Write lockfile + settings
-    yield* ws
+    const metadataWarning = yield* ws
       .setPack({
         owner: op.args.owner,
         name: decodeExtensionNameSync(op.args.packName),
@@ -243,11 +241,17 @@ export const installPack: OperationHandler<
         resolvedHooks: op.args.resolvedHooks,
         versionRange: op.args.versionRange,
       })
-      .pipe(Effect.catch((e) => renderer.warn(`Pack metadata update failed: ${String(e)}`)));
+      .pipe(
+        Effect.as(undefined),
+        Effect.catch((e) => Effect.succeed(`Pack metadata update failed: ${String(e)}`)),
+      );
 
     return {
       result: "success",
-      message: `Installed pack ${op.args.packName}`,
+      message:
+        metadataWarning === undefined
+          ? `Installed pack ${op.args.packName}`
+          : `Installed pack ${op.args.packName}; ${metadataWarning}`,
     } satisfies JobStepResult;
   }).pipe(
     Effect.catch((error) =>

@@ -73,7 +73,7 @@ export const buildInstallCommandPlan = <Args, Parsed, Req, Ref, Intent>(
 export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
   args: Args,
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
-  flags: { yes: boolean; force: boolean; preview: boolean },
+  flags: { yes: boolean; force: boolean; preview: boolean; displayApplied?: boolean },
 ) =>
   Effect.gen(function* () {
     const plan = yield* buildInstallCommandPlan(args, actions);

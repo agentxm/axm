@@ -1,0 +1,83 @@
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+
+import { CliRenderer } from "../cli-renderer/index.js";
+import {
+  OperationPlanFields,
+  makeSingleStepOperationPlan,
+  type SuggestedAction,
+} from "../cli-runtime/index.js";
+import type { Handle } from "../extensions/handle.js";
+
+const LoginResultSchema = Schema.Struct({
+  ...OperationPlanFields,
+  status: Schema.Literal("logged-in"),
+  registryHost: Schema.String,
+  handle: Schema.optional(Schema.String),
+});
+
+const LoginDocumentFields = {
+  result: LoginResultSchema,
+} satisfies Schema.Struct.Fields;
+type LoginResult = typeof LoginResultSchema.Type;
+
+const LoginSuccessSuggestions = [
+  { description: "Check active account", cmd: "axm whoami" },
+  { description: "Create an API token", cmd: "axm token create --name <name>" },
+] satisfies ReadonlyArray<SuggestedAction>;
+
+export const emitLoginSuccess = (registryUrl: string, handle: Option.Option<Handle>) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const registryHost = new URL(registryUrl).host;
+    const message = Option.match(handle, {
+      onNone: () => `Logged in to ${registryHost}`,
+      onSome: (userHandle) => `Logged in to ${registryHost} as ${userHandle}`,
+    });
+    const plan = makeSingleStepOperationPlan({
+      planName: "Log in to AXM registry",
+      planDescription: "Persist registry credentials for this machine",
+      message,
+      stepLabel: "Registry credentials",
+      stepStatus: "applied",
+      stepMessage: message,
+      artifact: {
+        path: registryHost,
+        scope: "user",
+        change: "created",
+      },
+    });
+    const result: LoginResult = Option.match(handle, {
+      onNone: () => ({
+        ...plan,
+        status: "logged-in",
+        registryHost,
+      }),
+      onSome: (userHandle) => ({
+        ...plan,
+        status: "logged-in",
+        registryHost,
+        handle: userHandle,
+      }),
+    });
+
+    if (
+      yield* renderer.result({ result }, Schema.Struct(LoginDocumentFields), {
+        suggestions: LoginSuccessSuggestions,
+      })
+    ) {
+      return;
+    }
+
+    yield* Option.match(handle, {
+      onNone: () =>
+        renderer.success(`Logged in to ${registryHost}.`, {
+          suggestions: LoginSuccessSuggestions,
+        }),
+      onSome: (userHandle) =>
+        renderer.success(`Logged in to ${registryHost} as ${userHandle}.`, {
+          suggestions: LoginSuccessSuggestions,
+        }),
+    });
+  });

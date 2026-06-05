@@ -27,6 +27,7 @@ import {
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import * as chrome from "./ansi-chrome.js";
 import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
+import { count } from "./count.js";
 import { getEntityView } from "./entity-registry.js";
 import { formatMarkdown } from "./markdown-formatter.js";
 import { resolveCliOutputPolicy, type CliOutputPolicy } from "./output-policy.js";
@@ -297,6 +298,12 @@ const normalizeSuggestions = (
     ? []
     : suggestions;
 
+const formatListSummary = (
+  entity: string,
+  itemCount: number,
+  view: { readonly singularLabel?: string; readonly pluralLabel?: string } | undefined,
+): string => count(itemCount, view?.singularLabel ?? entity, view?.pluralLabel);
+
 const renderSuggestions = (
   suggestions: ReadonlyArray<SuggestedAction>,
   outputPolicy: CliOutputPolicy,
@@ -456,24 +463,36 @@ export const InteractiveRenderer = (options?: {
 
     // Data display (stdout)
     table: <T extends object>(items: ReadonlyArray<T>, view: TableView<T>, caption?: string) => {
+      if (outputPolicy.quiet) return Effect.void;
       const columns = resolveTableColumns(view);
       const output = formatTable(items, columns, caption);
       if (output) return writeStdoutLine(output);
       return Effect.void;
     },
     list: <T extends object>(entity: string, payload: ListPayload<T>) => {
+      if (outputPolicy.quiet) return Effect.succeed(true);
       const view = getEntityView<T>(entity)?.list;
       if (payload.items.length === 0) {
-        return view?.emptyMessage === undefined
-          ? Effect.succeed(false)
-          : writeStdoutLine(view.emptyMessage).pipe(Effect.as(false));
+        const emptyMessage = payload.emptyMessage ?? view?.emptyMessage;
+        const renderEmptyMessage =
+          emptyMessage === undefined ? Effect.void : writeStdoutLine(emptyMessage);
+        return renderEmptyMessage.pipe(
+          Effect.andThen(renderSuggestions(payload.suggestions ?? [], outputPolicy, payload)),
+          Effect.as(true),
+        );
       }
       const tableView =
         view === undefined ? makeGenericTableView(payload.items) : { columns: view.columns };
       const output = formatTable(payload.items, resolveTableColumns(tableView));
-      return (output ? writeStdoutLine(output) : Effect.void).pipe(
+      const summary =
+        payload.summary ?? formatListSummary(entity, payload.count ?? payload.items.length, view);
+      const content =
+        output.length === 0
+          ? summary
+          : [summary, output].filter((line) => line.length > 0).join("\n");
+      return writeStdoutLine(content).pipe(
         Effect.andThen(renderSuggestions(payload.suggestions ?? [], outputPolicy, payload)),
-        Effect.as(false),
+        Effect.as(true),
       );
     },
     // Assertion needed: function implements the service's overloaded detail signature.

@@ -22,6 +22,7 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
+  expectAppliedPlanResult,
   getErrorResult,
   getAppError,
   makeEffectProvide,
@@ -173,11 +174,15 @@ describe("packs publish.handler", () => {
   const makeLayers = (options?: {
     wsOverrides?: Partial<WorkspaceMutationsOptions>;
     authCredentials?: Parameters<typeof CredentialStoreTest>[1] | null;
+    machine?: boolean;
+    quiet?: boolean;
   }) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
+      ...(options?.quiet === undefined ? {} : { flags: { quiet: options.quiet } }),
       prompt: {
         confirmResponses: [true],
       },
+      machine: options?.machine,
       wsOptions: options?.wsOverrides,
     });
     const authCredStoreLayer =
@@ -238,7 +243,7 @@ describe("packs publish.handler", () => {
             defaultArgs("@test/packs/frontend-tools", { registry: Option.some("local") }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Registry should have the published pack index
           const registryIndexPath = path.join(
@@ -282,12 +287,83 @@ describe("packs publish.handler", () => {
             defaultArgs("@test/packs/offline-pack", { registry: Option.some("local") }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
           expect(
             fs.existsSync(
               path.join(registryRoot, "extensions", "@test", "packs", "offline-pack", "index.json"),
             ),
           ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("emits publish plan JSON in machine mode without human success logs", () => {
+      const { provide, logs, rendererState } = makeLayers({
+        authCredentials: null,
+        machine: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "machine-pack", {
+        name: "@test/packs/machine-pack",
+        version: "1.0.0",
+        dependencies: { "@test/skills/example": "^1.0.0" },
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/machine-pack", { registry: Option.some("local") }),
+          );
+
+          expect(logs.success).toEqual([]);
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Publish pack",
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "Publish @test/packs/machine-pack",
+                status: "applied",
+                message: "Published @test/packs/machine-pack@1.0.0",
+              },
+            ],
+          });
+          expect(rendererState.suggestions).toEqual([
+            {
+              description: "View published metadata",
+              cmd: "axm view @test/packs/machine-pack",
+            },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("suppresses publish suggestions in quiet mode", () => {
+      const { provide, logs, rendererState } = makeLayers({
+        authCredentials: null,
+        quiet: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "quiet-pack", {
+        name: "@test/packs/quiet-pack",
+        version: "1.0.0",
+        dependencies: { "@test/skills/example": "^1.0.0" },
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/quiet-pack", { registry: Option.some("local") }),
+          );
+
+          expect(logs.success).toEqual(["Published @test/packs/quiet-pack@1.0.0"]);
+          expect(rendererState.suggestions).toEqual([]);
         }),
       );
     });
@@ -338,7 +414,7 @@ describe("packs publish.handler", () => {
         Effect.gen(function* () {
           yield* handlePublishPack(defaultArgs("@test/packs/my-pack"));
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           const registryIndexPath = path.join(
             registryRoot,
@@ -526,16 +602,17 @@ describe("packs publish.handler", () => {
                 error: true,
                 message: e.detail,
                 guidance: (e.suggestions ?? [])
-                  .map((suggestion) => suggestion.description)
+                  .map((suggestion) => `${suggestion.description} · ${suggestion.cmd ?? ""}`)
                   .join("\n"),
               }),
             ),
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.message).toContain("Managed pack not found");
-          expect(errorResult.guidance).toContain("axm packs new");
-          expect(rendererState.spinnerMessages).toContain("Validating pack...");
-          expect(rendererState.spinnerMessages).toContain("Failed");
+          expect(errorResult.guidance).toContain(
+            "Only managed packs in `.axm/extensions/` can be published. · axm packs new <name>",
+          );
+          expect(rendererState.spinnerMessages).toEqual([]);
         }),
       );
     });
@@ -571,7 +648,7 @@ describe("packs publish.handler", () => {
               }),
             );
 
-            expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+            expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
             // Only the pack should be published, not the dependency
             const skillIndexPath = path.join(
@@ -622,7 +699,7 @@ describe("packs publish.handler", () => {
             }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Both dependencies should be published
           const skillIndex = path.join(
@@ -658,7 +735,7 @@ describe("packs publish.handler", () => {
       );
     });
 
-    it.effect("skips non-local dependencies with a warning", () => {
+    it.effect("skips non-local dependencies as unchanged plan steps", () => {
       const { provide, logs } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -688,7 +765,7 @@ describe("packs publish.handler", () => {
             }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           // Local dependency should be published
           const localSkillIndex = path.join(
@@ -701,8 +778,7 @@ describe("packs publish.handler", () => {
           );
           expect(fs.existsSync(localSkillIndex)).toBe(true);
 
-          // Non-local dependency should be skipped with a warning
-          expect(logs.warn.some((m) => m.includes("@external/skills/remote-skill"))).toBe(true);
+          expect(logs.warn).toEqual([]);
 
           // Pack should still be published
           const packIndex = path.join(
@@ -714,6 +790,78 @@ describe("packs publish.handler", () => {
             "index.json",
           );
           expect(fs.existsSync(packIndex)).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("emits skipped non-local dependencies as unchanged JSON plan steps", () => {
+      const { provide, logs, rendererState } = makeLayers({
+        authCredentials: null,
+        machine: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "mixed-machine-deps-pack", {
+        name: "@test/packs/mixed-machine-deps-pack",
+        version: "1.0.0",
+        dependencies: {
+          "@test/skills/local-machine-skill": "^1.0.0",
+          "@external/skills/remote-machine-skill": "^1.0.0",
+        },
+      });
+
+      createManagedExtension(tempDir, "@test", "skills", "local-machine-skill", {
+        name: "@test/skills/local-machine-skill",
+        version: "1.0.0",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/mixed-machine-deps-pack", {
+              registry: Option.some("local"),
+              includeDependencies: true,
+            }),
+          );
+
+          expect(logs.warn).toEqual([]);
+          expect(logs.success).toEqual([]);
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Publish pack",
+            totalSteps: 3,
+            appliedCount: 2,
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "Publish dependency @test/skills/local-machine-skill",
+                status: "applied",
+                message: "Published @test/skills/local-machine-skill@1.0.0",
+              },
+              {
+                label: "Skip @external/skills/remote-machine-skill",
+                status: "unchanged",
+                message: "Skipped non-local dependency: @external/skills/remote-machine-skill",
+                artifact: {
+                  scope: "project",
+                  change: "unchanged",
+                  targets: [
+                    {
+                      path: "@external/skills/remote-machine-skill",
+                      change: "unchanged",
+                    },
+                  ],
+                },
+              },
+              {
+                label: "Publish @test/packs/mixed-machine-deps-pack",
+                status: "applied",
+                message: "Published @test/packs/mixed-machine-deps-pack@1.0.0",
+              },
+            ],
+          });
         }),
       );
     });
@@ -744,7 +892,7 @@ describe("packs publish.handler", () => {
             }),
           );
 
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Published"))).toBe(true);
 
           const subagentIndex = path.join(
             registryRoot,

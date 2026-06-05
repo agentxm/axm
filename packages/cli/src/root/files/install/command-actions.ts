@@ -10,9 +10,15 @@ import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unsta
 import {
   buildInstallOperation,
   parseRegistrySourcePatternParts,
+  REGISTRY_EXTENSIONS_DIR,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import type { FilesLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+} from "@agentxm/client-core/unstable/plan";
 import {
   resolveSource,
   SourceHostProviders,
@@ -35,6 +41,47 @@ export interface ParsedFilesInstallArgs {
 }
 
 export type FilesInstallSourceRequest = ParsedFilesInstallArgs;
+
+const filesLockEntryVersion = (entry: FilesLockEntry): string | undefined =>
+  entry.type === "registry" ? entry.resolvedVersion : undefined;
+
+const filesInstallArtifactPath = (entry: FilesLockEntry): string => {
+  if (entry.type === "registry") {
+    return `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/files/${entry.name}`;
+  }
+  if (entry.type === "local") {
+    return entry.path;
+  }
+  return entry.path === undefined ? ".axm/extensions" : entry.path;
+};
+
+const filesInstallArtifactTargets = (args: {
+  readonly lockEntry: FilesLockEntry;
+  readonly installedBefore: boolean;
+}): ReadonlyArray<JobStepArtifactTarget> =>
+  [...(args.lockEntry.materializedTargets ?? [])]
+    .sort((left, right) => left.target.localeCompare(right.target))
+    .map((target) => ({
+      path: target.target,
+      change: args.installedBefore ? "unchanged" : "created",
+    }));
+
+const filesInstallArtifact = (args: {
+  readonly lockEntry: FilesLockEntry;
+  readonly installedBefore: boolean;
+  readonly scope: JobStepArtifact["scope"];
+}): JobStepArtifact => {
+  const targets = filesInstallArtifactTargets(args);
+  const version = filesLockEntryVersion(args.lockEntry);
+
+  return {
+    path: filesInstallArtifactPath(args.lockEntry),
+    scope: args.scope,
+    ...(version === undefined ? {} : { version }),
+    change: args.installedBefore ? "updated" : "created",
+    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+  };
+};
 
 export class InstallFilesCommandWorkflowActions extends ServiceMap.Service<
   InstallFilesCommandWorkflowActions,
@@ -154,7 +201,30 @@ export const InstallFilesCommandWorkflowActionsLive = Layer.effect(
           {
             concurrency: 1,
             steps: intent.refs.map(({ ref, versionRange }) =>
-              buildInstallOperation(filesManager, { ref, versionRange }),
+              buildInstallOperation(filesManager, {
+                ref,
+                versionRange,
+                installedBefore: filesManager.isInstalled({
+                  target: { type: "files", name: ref.file.name },
+                }),
+                message: `Installed ${ref.file.name}`,
+                buildArtifact: ({ installedBefore }) =>
+                  Effect.gen(function* () {
+                    const currentLockEntry = yield* ws.getLockedFilesEntry(ref.file.name);
+                    if (Option.isNone(currentLockEntry)) {
+                      return yield* makeAppError({
+                        code: "internal",
+                        detail: `Installed files package ${ref.file.name} but could not read its lockfile entry`,
+                        suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
+                      });
+                    }
+                    return filesInstallArtifact({
+                      lockEntry: currentLockEntry.value,
+                      installedBefore,
+                      scope: ws.scope,
+                    });
+                  }),
+              }),
             ),
           },
         ],

@@ -70,6 +70,7 @@ export interface ParsedSkillInstallArgs {
   readonly versionRange: Option.Option<VersionRange>;
   readonly requestedSkills: ReadonlyArray<string>;
   readonly requestedOwner: Option.Option<Handle>;
+  readonly resolutionProbes: ReadonlyArray<RegistryLookupProbe>;
   readonly all: boolean;
 }
 
@@ -428,27 +429,17 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             };
           });
 
-          const parsed = verbose
-            ? yield* renderer.withSpinner("Parsing source...", () => parseSource, {
-                successMessage: ({ source }) =>
-                  `Source: ${sources.origin(source)} (${source.type})`,
-              })
-            : yield* parseSource;
+          const parsed = yield* parseSource;
 
           const { source, versionRange, requestedSkills, requestedOwner, resolutionProbes } =
             parsed;
-
-          if (verbose && resolutionProbes.length > 0) {
-            yield* renderer.message(
-              `Resolution: ${resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
-            );
-          }
 
           return {
             source,
             versionRange,
             requestedSkills,
             requestedOwner,
+            resolutionProbes,
             all: args.all,
           } satisfies ParsedSkillInstallArgs;
         }),
@@ -506,12 +497,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 ),
               );
 
-            return verbose
-              ? yield* renderer.withSpinner("Discovering skills...", () => discover, {
-                  successMessage: (discoveredSkills) =>
-                    `Found ${count(discoveredSkills.length, "skill")}`,
-                })
-              : yield* discover;
+            return yield* discover;
           }),
         ),
       );
@@ -540,10 +526,20 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           });
 
           if (Array.isReadonlyArrayEmpty(selectedSkills)) {
-            yield* renderer.warn("No skills selected.");
-            yield* renderer.success("Nothing to install.");
             return { skillsToInstall: [] } satisfies InstallSkillCommandIntent;
           }
+
+          const diagnosticLines = verbose
+            ? [
+                `Source: ${sources.origin(parsed.source)} (${parsed.source.type})`,
+                ...(parsed.resolutionProbes.length > 0
+                  ? [
+                      `Resolution: ${parsed.resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
+                    ]
+                  : []),
+                `Found ${count(discoveredRefs.length, "skill")}`,
+              ]
+            : undefined;
 
           return {
             skillsToInstall: selectedSkills.map((ref) => ({
@@ -551,6 +547,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
               versionRange:
                 ref.refType === "registry" ? parsed.versionRange : Option.none<VersionRange>(),
             })),
+            ...(diagnosticLines !== undefined ? { diagnosticLines } : {}),
           } satisfies InstallSkillCommandIntent;
         }),
       );
@@ -685,10 +682,15 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         return {
           _tag: "Plan",
           name:
-            intent.skillsToInstall.length === 1
-              ? "Install skill"
-              : `Install ${count(intent.skillsToInstall.length, "skill")}`,
-          description: Option.none(),
+            intent.skillsToInstall.length === 0
+              ? "Install skills"
+              : intent.skillsToInstall.length === 1
+                ? "Install skill"
+                : `Install ${count(intent.skillsToInstall.length, "skill")}`,
+          description:
+            intent.diagnosticLines === undefined
+              ? Option.none()
+              : Option.some(intent.diagnosticLines.join("\n")),
           jobs: [
             {
               concurrency: 1 as const,

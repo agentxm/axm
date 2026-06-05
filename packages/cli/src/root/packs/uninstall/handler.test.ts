@@ -13,7 +13,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+  logsByTag,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import {
@@ -35,6 +39,7 @@ import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { expectNoOpPlanResult } from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -119,10 +124,12 @@ describe("packs uninstall handler", () => {
   const makeLayers = (
     tuiConfig?: {
       confirmValue?: boolean;
+      machine?: boolean;
     },
     wsOverrides?: Partial<WorkspaceMutationsOptions>,
   ) => {
-    const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+    const { layer: rendererLayer, state: rendererState } =
+      tuiConfig?.machine === true ? TestMachineRenderer.make() : TestRenderer.make();
     const resolvePlanInteraction = ResolvePlanInteractionTest({
       confirmApplyChanges: () => Effect.succeed(tuiConfig?.confirmValue ?? true),
     });
@@ -167,7 +174,7 @@ describe("packs uninstall handler", () => {
 
     const logs = logsByTag(rendererState);
 
-    return { provide, logs };
+    return { provide, logs, rendererState };
   };
 
   // ---------------------------------------------------------------------------
@@ -362,7 +369,7 @@ describe("packs uninstall handler", () => {
       );
     });
 
-    it.effect("warns when glob pattern matches nothing", () => {
+    it.effect("reports no-op when glob pattern matches nothing", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -374,8 +381,30 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          expect(logs.warn.some((m) => m.includes("No packs matched"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
+          expect(logs.warn).toEqual([]);
+          expect(logs.success.some((m) => m.includes("No packs uninstalled"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("emits JSON no-op when glob pattern matches nothing in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("nonexistent-*"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
+
+          expect(logs.success).toEqual([]);
+          expect(logs.warn).toEqual([]);
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Uninstall packs",
+            message: "No packs uninstalled.",
+          });
         }),
       );
     });

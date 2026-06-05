@@ -112,6 +112,12 @@ describe("augmentPlanWithReconciliation", () => {
       expect(result.reconciliationTriggered).toBe(true);
       expect(result.reason).toBe("invalid");
       expect(result.plan.jobs.length).toBeGreaterThan(basePlan.jobs.length);
+      expect(result.plan.jobs[0]?.steps[0]).toMatchObject({
+        readiness: "warn",
+        label: "Recover lockfile (invalid)",
+        warnMessage:
+          "Existing lockfile is invalid; AXM will recover installed extensions before applying this plan.",
+      });
     }).pipe(Effect.provide(testLayer)),
   );
 });

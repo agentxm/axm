@@ -12,12 +12,15 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { normalizeHandle, RenderedFilesMapSchema } from "@agentxm/client-core/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { exactVersion, extensionName, handle, makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { CommandManager, type RegistryCommandRef } from "@agentxm/client-core/unstable/commands";
+import type { CommandLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   InstallCommandCommandWorkflowActions,
@@ -55,12 +58,15 @@ const mockSourceHostProviders = {
   origin: vi.fn(() => "test"),
 } satisfies ServiceMap.Service.Shape<typeof SourceHostProviders>;
 
-const makeActionsLayer = (workspace = mockWorkspace) =>
+const makeActionsLayer = (
+  workspace = mockWorkspace,
+  commandManager: ServiceMap.Service.Shape<typeof CommandManager> = mockCommandManager,
+) =>
   Layer.provide(
     InstallCommandCommandWorkflowActionsLive,
     Layer.mergeAll(
       Layer.succeed(WorkspaceMutations, workspace),
-      Layer.succeed(CommandManager, mockCommandManager),
+      Layer.succeed(CommandManager, commandManager),
       Layer.succeed(SourceHostProviders, mockSourceHostProviders),
       NodeServices.layer,
       TestFlagsLayer(),
@@ -95,6 +101,29 @@ const makeRegistryRef = (name = "my-cmd"): RegistryCommandRef => ({
   integrity: Option.none(),
   packages: [],
 });
+
+const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
+
+const makeCommandLockEntry = (): CommandLockEntry => ({
+  type: "local",
+  path: "fixtures/my-cmd",
+  agents: ["claude-code"],
+  installedAt: new Date("2025-01-01T00:00:00.000Z"),
+  updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+  renderedFiles: decodeRenderedFilesMap({
+    "claude-code": [{ path: ".claude/commands/my-cmd.md" }],
+  }),
+});
+
+const expectReadyStep = (
+  plan: Plan,
+): Extract<Plan["jobs"][number]["steps"][number], { readiness: "ready" }> => {
+  const step = plan.jobs[0]?.steps[0];
+  if (step === undefined || step.readiness !== "ready") {
+    throw new Error("Expected a ready plan step");
+  }
+  return step;
+};
 
 describe("parseCommandInstallArgs", () => {
   it.effect("parses @owner/commands/name registry pattern", () =>
@@ -189,6 +218,103 @@ describe("parseCommandInstallArgs", () => {
 });
 
 describe("buildPlan", () => {
+  it.effect("returns command install artifacts from the applied workflow step", () =>
+    Effect.gen(function* () {
+      const lockEntry = makeCommandLockEntry();
+      const getLockedCommand = vi
+        .fn()
+        .mockReturnValueOnce(Effect.succeed(Option.none()))
+        .mockReturnValueOnce(Effect.succeed(Option.some(lockEntry)));
+      const workspace = makeBaseWorkspaceMock("/tmp/axm", {
+        getLockedCommand,
+      });
+      const commandManager = {
+        ...mockCommandManager,
+        materializeInstall: vi.fn(() => Effect.void),
+        upsertLockfileEntry: vi.fn(() => Effect.void),
+        upsertSettingsEntry: vi.fn(() => Effect.void),
+      } satisfies ServiceMap.Service.Shape<typeof CommandManager>;
+
+      const plan = yield* runWithActions(
+        (actions) =>
+          actions.buildPlan({
+            refs: [{ ref: makeRegistryRef(), versionRange: Option.none() }],
+            force: false,
+          }),
+        makeActionsLayer(workspace, commandManager),
+      );
+      const step = expectReadyStep(plan);
+      const result = yield* step.run;
+
+      expect(result).toEqual({
+        result: "success",
+        message: "Installed my-cmd",
+        artifact: {
+          path: ".claude/commands/my-cmd.md",
+          scope: "project",
+          agents: ["claude-code"],
+          change: "created",
+          fileCount: 1,
+          targets: [
+            {
+              path: ".claude/commands/my-cmd.md",
+              change: "created",
+              agentIds: ["claude-code"],
+            },
+          ],
+        },
+      });
+    }),
+  );
+
+  it.effect("returns an unchanged artifact without rewriting an installed command", () =>
+    Effect.gen(function* () {
+      const lockEntry = makeCommandLockEntry();
+      const workspace = makeBaseWorkspaceMock("/tmp/axm", {
+        getLockedCommand: () => Effect.succeed(Option.some(lockEntry)),
+      });
+      const commandManager = {
+        ...mockCommandManager,
+        materializeInstall: vi.fn(() => Effect.void),
+        upsertLockfileEntry: vi.fn(() => Effect.void),
+        upsertSettingsEntry: vi.fn(() => Effect.void),
+      } satisfies ServiceMap.Service.Shape<typeof CommandManager>;
+
+      const plan = yield* runWithActions(
+        (actions) =>
+          actions.buildPlan({
+            refs: [{ ref: makeRegistryRef(), versionRange: Option.none() }],
+            force: false,
+          }),
+        makeActionsLayer(workspace, commandManager),
+      );
+      const step = expectReadyStep(plan);
+      const result = yield* step.run;
+
+      expect(result).toEqual({
+        result: "success",
+        message: "my-cmd already installed",
+        artifact: {
+          path: ".claude/commands/my-cmd.md",
+          scope: "project",
+          agents: ["claude-code"],
+          change: "unchanged",
+          fileCount: 1,
+          targets: [
+            {
+              path: ".claude/commands/my-cmd.md",
+              change: "unchanged",
+              agentIds: ["claude-code"],
+            },
+          ],
+        },
+      });
+      expect(commandManager.materializeInstall).not.toHaveBeenCalled();
+      expect(commandManager.upsertLockfileEntry).not.toHaveBeenCalled();
+      expect(commandManager.upsertSettingsEntry).not.toHaveBeenCalled();
+    }),
+  );
+
   it.effect("includes a target agents section", () =>
     Effect.gen(function* () {
       const plan = yield* runWithActions((actions) =>

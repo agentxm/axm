@@ -12,7 +12,11 @@ import * as Effect from "effect/Effect";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectNoOpPlanResult,
+  getAppError,
+  makeWorkspaceHandlerTestContext,
+} from "../../test-helpers.js";
 import { handleDisable, type DisableHandlerArgs } from "./disable.js";
 
 // -----------------------------------------------------------------------------
@@ -76,11 +80,8 @@ describe("disable.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (
-    wsOverrides?: Partial<
-      import("@agentxm/client-core/unstable/workspace").WorkspaceMutationsOptions
-    >,
-  ) => makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) =>
+    makeWorkspaceHandlerTestContext(opts);
 
   // ---------------------------------------------------------------------------
   // Validation
@@ -123,8 +124,31 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           yield* handleDisable(defaultArgs("my-skill"));
 
-          expect(logs.info.some((m) => m.includes("already disabled"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("already disabled"))).toBe(false);
+          expect(logs.success.some((m) => m.includes("already disabled"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("emits JSON no-op when skill is already disabled", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        { "my-skill": { source: "local", enabled: false } },
+        { "my-skill": makeLockEntry() },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleDisable(defaultArgs("my-skill"));
+
+          expect(logs.success).toEqual([]);
+          const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Disable skill",
+            message: "Skill 'my-skill' is already disabled",
+          });
+          expect(result).toMatchObject({ planDescription: "Disable my-skill" });
         }),
       );
     });
@@ -222,8 +246,8 @@ describe("disable.handler", () => {
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.skills["my-skill"]).toBeDefined();
 
-          // Preview info should be displayed
-          expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
+          // Preview outcome should be displayed
+          expect(logs.info.some((m) => m.includes("Would disable 1 skill"))).toBe(true);
         }),
       );
     });

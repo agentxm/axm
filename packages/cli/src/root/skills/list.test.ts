@@ -17,6 +17,7 @@ import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
+import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { handleList } from "./list.js";
 
 // -----------------------------------------------------------------------------
@@ -133,7 +134,9 @@ describe("list.handler", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
+          emptyMessage: "No skills installed",
         });
+        expect(rendererState.logs).toEqual([]);
       }),
     );
   });
@@ -208,7 +211,9 @@ describe("list.handler", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
+          emptyMessage: "No skills matched the selected agent filter.",
         });
+        expect(rendererState.logs).toEqual([]);
       }),
     );
   });
@@ -232,6 +237,7 @@ describe("list.handler", () => {
             { name: "skill-two", agents: ["cursor"] },
           ],
         });
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
       }),
     );
   });

@@ -59,6 +59,7 @@ export type {
   CommandSyncOutcome,
   McpServerSyncFallbackSource,
   McpServerSyncOutcome,
+  McpServerSyncTarget,
   RemoveCommandArgs,
   RemoveMcpServerArgs,
   RemoveSubagentArgs,

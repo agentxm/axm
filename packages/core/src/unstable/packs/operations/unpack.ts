@@ -68,7 +68,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
         detail: `Pack "${op.args.name}" is not installed`,
         suggestions: [
           {
-            description: "Install the pack first with `axm packs install`.",
+            description: "Install the pack first.",
             cmd: "axm packs install <source>",
           },
         ],

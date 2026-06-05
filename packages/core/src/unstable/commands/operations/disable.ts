@@ -15,10 +15,70 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
+import type { CommandLockEntry } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { Operation, JobStepResult } from "../../plan/plan.js";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Operation,
+  JobStepResult,
+} from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
+
+const commandVersion = (entry: CommandLockEntry): string | undefined =>
+  entry.type === "registry" ? entry.resolvedVersion : undefined;
+
+const removedRenderedFileTargets = (
+  renderedFiles: CommandLockEntry["renderedFiles"],
+): ReadonlyArray<JobStepArtifactTarget> => {
+  if (renderedFiles === undefined) return [];
+
+  const agentIdsByPath = new Map<string, Array<string>>();
+  for (const [agentId, files] of Object.entries(renderedFiles)) {
+    for (const file of files) {
+      const agentIds = agentIdsByPath.get(file.path) ?? [];
+      if (!agentIds.includes(agentId)) {
+        agentIds.push(agentId);
+      }
+      agentIdsByPath.set(file.path, agentIds);
+    }
+  }
+
+  return Array.from(agentIdsByPath.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(
+      ([targetPath, agentIds]): JobStepArtifactTarget => ({
+        path: targetPath,
+        change: "removed",
+        agentIds: [...agentIds].sort(),
+      }),
+    );
+};
+
+const commandDisableArtifact = (
+  lockEntry: CommandLockEntry,
+  scope: JobStepArtifact["scope"],
+): JobStepArtifact => {
+  const targets = removedRenderedFileTargets(lockEntry.renderedFiles);
+  const firstTarget = targets[0];
+  const version = commandVersion(lockEntry);
+
+  return {
+    path: firstTarget?.path ?? ".axm/settings.json",
+    scope,
+    ...(lockEntry.agents.length === 0 ? {} : { agents: lockEntry.agents }),
+    ...(version === undefined ? {} : { version }),
+    change: "updated",
+    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+  };
+};
+
+const settingsOnlyCommandArtifact = (scope: JobStepArtifact["scope"]): JobStepArtifact => ({
+  path: ".axm/settings.json",
+  scope,
+  change: "updated",
+});
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -150,8 +210,14 @@ export const disableCommand: OperationHandler<
         .pipe(Effect.catch(() => Effect.void));
     }
 
+    const artifact = Option.match(lockEntryOption, {
+      onNone: () => settingsOnlyCommandArtifact(ws.scope),
+      onSome: (lockEntry) => commandDisableArtifact(lockEntry, ws.scope),
+    });
+
     return {
       result: "success",
       message: `Disabled ${op.args.commandName}`,
+      artifact,
     } satisfies JobStepResult;
   });

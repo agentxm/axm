@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Terminal from "effect/Terminal";
-import { nonInteractiveFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { nonInteractiveFlag, Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
@@ -31,7 +31,11 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+} from "@agentxm/client-core/unstable/plan";
 import type { InstallSubagentCommandIntent } from "./intent.js";
 import {
   resolveSubagentInstallSource,
@@ -57,6 +61,7 @@ export interface ParsedSubagentInstallArgs {
   readonly versionRange: Option.Option<VersionRange>;
   readonly requestedSubagents: ReadonlyArray<string>;
   readonly requestedOwner: Option.Option<Handle>;
+  readonly resolutionProbes: ReadonlyArray<RegistryLookupProbe>;
   readonly all: boolean;
 }
 
@@ -146,6 +151,64 @@ const extractRequestedOwner = (
       ? source.owner
       : Option.none<Handle>();
 
+const previousResolvedVersion = (entry: unknown): string | undefined => {
+  if (typeof entry !== "object" || entry === null) return undefined;
+  if (!("type" in entry) || entry.type !== "registry") return undefined;
+  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") {
+    return undefined;
+  }
+  return entry.resolvedVersion;
+};
+
+const previousSourceHash = (entry: unknown): string | undefined => {
+  if (typeof entry !== "object" || entry === null) return undefined;
+  if (!("sourceHash" in entry) || typeof entry.sourceHash !== "string") return undefined;
+  return entry.sourceHash;
+};
+
+const artifactChange = (args: {
+  readonly installedBefore: boolean;
+  readonly previousVersion: string | undefined;
+  readonly version: string | undefined;
+  readonly previousSourceHash: string | undefined;
+  readonly sourceHash: string | undefined;
+}): JobStepArtifact["change"] => {
+  if (!args.installedBefore) return "created";
+  const sameVersion = args.previousVersion === args.version;
+  const sameSource =
+    args.previousSourceHash === undefined ||
+    args.sourceHash === undefined ||
+    args.previousSourceHash === args.sourceHash;
+  return sameVersion && sameSource ? "unchanged" : "updated";
+};
+
+const renderedFileTargets = (
+  renderedFiles: Readonly<Record<string, ReadonlyArray<{ readonly path: string }>>>,
+  change: JobStepArtifact["change"],
+): ReadonlyArray<JobStepArtifactTarget> => {
+  const byPath = new Map<string, Array<string>>();
+  for (const [agentId, files] of Object.entries(renderedFiles)) {
+    for (const file of files) {
+      const existing = byPath.get(file.path);
+      if (existing === undefined) {
+        byPath.set(file.path, [agentId]);
+        continue;
+      }
+      if (!existing.includes(agentId)) {
+        existing.push(agentId);
+      }
+    }
+  }
+
+  return [...byPath.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([path, agentIds]) => ({
+      path,
+      change,
+      ...(agentIds.length > 0 ? { agentIds } : {}),
+    }));
+};
+
 // -----------------------------------------------------------------------------
 // Service Tag
 // -----------------------------------------------------------------------------
@@ -182,6 +245,11 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
     const fsSvc = yield* FileSystem.FileSystem;
     const terminal = yield* Terminal.Terminal;
     const nonInteractive = yield* nonInteractiveFlag;
+    const verbosityOption = yield* Effect.serviceOption(Verbosity);
+    const verbose = Option.match(verbosityOption, {
+      onNone: () => false,
+      onSome: (verbosity) => verbosity.isAtLeast("verbose"),
+    });
 
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
@@ -198,67 +266,42 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (args: SubagentsInstallHandlerArgs) =>
       provide(
         Effect.gen(function* () {
-          const parsed = yield* renderer.withSpinner(
-            "Parsing source...",
-            () =>
-              Effect.gen(function* () {
-                const parsedSourceOption = parseInputPattern(args.source.trim());
-                if (Option.isNone(parsedSourceOption)) {
-                  return yield* makeAppError({
-                    code: "validation",
-                    detail: "Invalid source: Unable to parse source",
-                    suggestions: [
-                      {
-                        description:
-                          "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-                      },
-                    ],
-                  });
-                }
-
-                const parsedSource = parsedSourceOption.value;
-                const versionRange =
-                  parsedSource.pattern.pattern === "registry-pattern-input"
-                    ? parsedSource.pattern.versionRange
-                    : Option.none<VersionRange>();
-
-                const resolutionProbes: RegistryLookupProbe[] = [];
-                const source = yield* resolveSubagentInstallSource(parsedSource, {
-                  onRegistryProbe: (probe) => {
-                    resolutionProbes.push(probe);
-                  },
-                });
-
-                const requestedSubagents = extractRequestedSubagents(args.subagents, parsedSource);
-                const requestedOwner = extractRequestedOwner(parsedSource, source);
-
-                return {
-                  source,
-                  versionRange,
-                  requestedSubagents,
-                  requestedOwner,
-                  resolutionProbes,
-                };
-              }),
-            {
-              successMessage: ({ source }) => `Source: ${sources.origin(source)} (${source.type})`,
-            },
-          );
-
-          const { source, versionRange, requestedSubagents, requestedOwner, resolutionProbes } =
-            parsed;
-
-          if (resolutionProbes.length > 0) {
-            yield* renderer.message(
-              `Resolution: ${resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
-            );
+          const parsedSourceOption = parseInputPattern(args.source.trim());
+          if (Option.isNone(parsedSourceOption)) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: "Invalid source: Unable to parse source",
+              suggestions: [
+                {
+                  description:
+                    "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+                },
+              ],
+            });
           }
+
+          const parsedSource = parsedSourceOption.value;
+          const versionRange =
+            parsedSource.pattern.pattern === "registry-pattern-input"
+              ? parsedSource.pattern.versionRange
+              : Option.none<VersionRange>();
+
+          const resolutionProbes: RegistryLookupProbe[] = [];
+          const source = yield* resolveSubagentInstallSource(parsedSource, {
+            onRegistryProbe: (probe) => {
+              resolutionProbes.push(probe);
+            },
+          });
+
+          const requestedSubagents = extractRequestedSubagents(args.subagents, parsedSource);
+          const requestedOwner = extractRequestedOwner(parsedSource, source);
 
           return {
             source,
             versionRange,
             requestedSubagents,
             requestedOwner,
+            resolutionProbes,
             all: args.all,
           } satisfies ParsedSubagentInstallArgs;
         }),
@@ -286,49 +329,41 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
               });
             }
 
-            return yield* renderer.withSpinner(
-              "Discovering subagents...",
-              () =>
-                sources
-                  .find(req.source, {
-                    names: req.requestedSubagents,
-                    type: "subagent" as const,
-                    owner: req.requestedOwner,
-                    versionRange: req.versionRange,
-                  })
-                  .pipe(
-                    Effect.map(
-                      Array.filter((ref): ref is SubagentExtensionRef => ref.type === "subagent"),
-                    ),
-                    Effect.mapError((error) => {
-                      return makeAppError({
-                        code: "usage",
-                        detail: "Failed to discover subagents from source",
-                        suggestions: [{ description: discoverHowToFix(req.source, error) }],
-                        cause: error,
-                      });
-                    }),
-                    Effect.flatMap((discoveredSubagents) =>
-                      !Array.isReadonlyArrayEmpty(discoveredSubagents)
-                        ? Effect.succeed(discoveredSubagents)
-                        : Effect.fail(
-                            makeAppError({
-                              code: "not_found",
-                              detail: "No subagents found in source",
-                              suggestions: [
-                                {
-                                  description: noSubagentsFoundHowToFix(req.source),
-                                },
-                              ],
-                            }),
-                          ),
-                    ),
-                  ),
-              {
-                successMessage: (discoveredSubagents) =>
-                  `Found ${count(discoveredSubagents.length, "subagent")}`,
-              },
-            );
+            return yield* sources
+              .find(req.source, {
+                names: req.requestedSubagents,
+                type: "subagent" as const,
+                owner: req.requestedOwner,
+                versionRange: req.versionRange,
+              })
+              .pipe(
+                Effect.map(
+                  Array.filter((ref): ref is SubagentExtensionRef => ref.type === "subagent"),
+                ),
+                Effect.mapError((error) => {
+                  return makeAppError({
+                    code: "usage",
+                    detail: "Failed to discover subagents from source",
+                    suggestions: [{ description: discoverHowToFix(req.source, error) }],
+                    cause: error,
+                  });
+                }),
+                Effect.flatMap((discoveredSubagents) =>
+                  !Array.isReadonlyArrayEmpty(discoveredSubagents)
+                    ? Effect.succeed(discoveredSubagents)
+                    : Effect.fail(
+                        makeAppError({
+                          code: "not_found",
+                          detail: "No subagents found in source",
+                          suggestions: [
+                            {
+                              description: noSubagentsFoundHowToFix(req.source),
+                            },
+                          ],
+                        }),
+                      ),
+                ),
+              );
           }),
         ),
       );
@@ -356,10 +391,20 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
           });
 
           if (Array.isReadonlyArrayEmpty(selectedSubagents)) {
-            yield* renderer.warn("No subagents selected.");
-            yield* renderer.success("Nothing to install.");
             return { subagentsToInstall: [] } satisfies InstallSubagentCommandIntent;
           }
+
+          const diagnosticLines = verbose
+            ? [
+                `Source: ${sources.origin(parsed.source)} (${parsed.source.type})`,
+                ...(parsed.resolutionProbes.length > 0
+                  ? [
+                      `Resolution: ${parsed.resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
+                    ]
+                  : []),
+                `Found ${count(discoveredRefs.length, "subagent")}`,
+              ]
+            : undefined;
 
           return {
             subagentsToInstall: selectedSubagents.map((ref) => ({
@@ -367,27 +412,93 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
               versionRange:
                 ref.refType === "registry" ? parsed.versionRange : Option.none<VersionRange>(),
             })),
+            ...(diagnosticLines !== undefined ? { diagnosticLines } : {}),
           } satisfies InstallSubagentCommandIntent;
         }),
       );
 
     const buildPlan = (intent: InstallSubagentCommandIntent) =>
-      Effect.succeed<Plan>({
-        _tag: "Plan",
-        name: "Install subagents",
-        description: Option.none(),
-        jobs: [
-          {
-            concurrency: 1 as const,
-            steps: intent.subagentsToInstall.map((entry) =>
-              buildInstallOperation(subagentMgr, {
-                ref: entry.ref,
+      Effect.gen(function* () {
+        const steps = yield* Effect.forEach(
+          intent.subagentsToInstall,
+          (entry) =>
+            Effect.gen(function* () {
+              const ref = entry.ref;
+              const previousLockEntry = yield* ws
+                .getLockedSubagent(ref.subagent.name)
+                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+              const previousVersion = Option.match(previousLockEntry, {
+                onNone: () => undefined,
+                onSome: previousResolvedVersion,
+              });
+              const sourceHashBeforeInstall = Option.match(previousLockEntry, {
+                onNone: () => undefined,
+                onSome: previousSourceHash,
+              });
+              const version = ref.refType === "registry" ? ref.version : undefined;
+              const buildArtifact = ({
+                installedBefore,
+              }: {
+                readonly installedBefore: boolean;
+              }): Effect.Effect<JobStepArtifact, AppError> =>
+                Effect.gen(function* () {
+                  const lockEntryOption = yield* ws.getLockedSubagent(ref.subagent.name);
+                  const lockEntry = Option.getOrUndefined(lockEntryOption);
+                  const renderedFiles = lockEntry?.renderedFiles ?? {};
+                  const sourceHash = lockEntry?.sourceHash;
+                  const change = artifactChange({
+                    installedBefore,
+                    previousVersion,
+                    version,
+                    previousSourceHash: sourceHashBeforeInstall,
+                    sourceHash,
+                  });
+                  const targets = renderedFileTargets(renderedFiles, change);
+                  const firstTarget = targets[0];
+
+                  return {
+                    path: firstTarget?.path ?? ref.subagent.name,
+                    scope: "project",
+                    ...(lockEntry !== undefined && lockEntry.agents.length > 0
+                      ? { agents: lockEntry.agents }
+                      : {}),
+                    ...(version !== undefined ? { version } : {}),
+                    change,
+                    ...(previousVersion !== undefined && previousVersion !== version
+                      ? { previousVersion }
+                      : {}),
+                    fileCount: targets.length,
+                    ...(targets.length > 0 ? { targets } : {}),
+                  } satisfies JobStepArtifact;
+                });
+
+              return buildInstallOperation(subagentMgr, {
+                ref,
                 versionRange: entry.versionRange,
-              }),
-            ),
-          },
-        ],
-      } satisfies Plan);
+                installedBefore: subagentMgr
+                  .isInstalled({ target: { type: "subagent", name: ref.subagent.name } })
+                  .pipe(Effect.catch(() => Effect.succeed(false))),
+                buildArtifact,
+              });
+            }),
+          { concurrency: 1 },
+        );
+
+        return {
+          _tag: "Plan",
+          name: intent.subagentsToInstall.length === 1 ? "Install subagent" : "Install subagents",
+          description:
+            intent.diagnosticLines === undefined
+              ? Option.none()
+              : Option.some(intent.diagnosticLines.join("\n")),
+          jobs: [
+            {
+              concurrency: 1 as const,
+              steps,
+            },
+          ],
+        } satisfies Plan;
+      });
 
     return {
       parseArgs,

@@ -2,11 +2,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
+  type ExtensionFqnParts,
 } from "@agentxm/client-core/unstable/extensions";
 import {
   resolveIdentifier,
@@ -68,6 +70,14 @@ const ViewTable = {
 
 const resolveTargetRegistry = (registry: Option.Option<string>) =>
   Effect.gen(function* () {
+    if (Option.isNone(registry)) {
+      const registryUrl = yield* RegistryUrl;
+      return {
+        registryName: "default",
+        registryUrl,
+      } satisfies TargetRegistry;
+    }
+
     const ws = yield* WorkspaceMutations;
     const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
@@ -84,15 +94,8 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         detail: "No registry sources configured",
-        suggestions: [{ description: "Run `axm setup` first.", cmd: "axm setup" }],
+        suggestions: [{ description: "Initialize this workspace first.", cmd: "axm setup" }],
       });
-    }
-
-    if (Option.isNone(registry)) {
-      return {
-        registryName: defaultRegistry.name,
-        registryUrl: defaultRegistry.location.href,
-      } satisfies TargetRegistry;
     }
 
     const namedRegistry = yield* ws.getConfiguredSourceByName(registry.value).pipe(
@@ -264,19 +267,52 @@ const emitFieldValue = (field: SupportedField, value: string | ReadonlyArray<str
 
 export const handleView = (args: ViewHandlerArgs) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
     const targetRegistry = yield* resolveTargetRegistry(args.registry);
     const parts = yield* parseHandle(args.handle, args.type ?? Option.none());
-    const client = yield* createRegistryClient(targetRegistry.registryUrl);
-    const indexOption = yield* client.getExtensionIndex(parts);
+    yield* handleResolvedView({
+      handle: args.handle,
+      field: args.field,
+      targetRegistry,
+      parts,
+    });
+  });
+
+export const handleDefaultRegistryFqnView = (args: {
+  readonly handle: string;
+  readonly field: Option.Option<string>;
+  readonly parts: ExtensionFqnParts;
+}) =>
+  Effect.gen(function* () {
+    const registryUrl = yield* RegistryUrl;
+    yield* handleResolvedView({
+      handle: args.handle,
+      field: args.field,
+      targetRegistry: {
+        registryName: "default",
+        registryUrl,
+      },
+      parts: args.parts,
+    });
+  });
+
+const handleResolvedView = (args: {
+  readonly handle: string;
+  readonly field: Option.Option<string>;
+  readonly targetRegistry: TargetRegistry;
+  readonly parts: ExtensionFqnParts;
+}) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const client = yield* createRegistryClient(args.targetRegistry.registryUrl);
+    const indexOption = yield* client.getExtensionIndex(args.parts);
 
     if (Option.isNone(indexOption)) {
       return yield* makeAppError({
         code: "not_found",
-        detail: `Extension ${args.handle} not found on registry "${targetRegistry.registryName}".`,
+        detail: `Extension ${args.handle} not found on registry "${args.targetRegistry.registryName}".`,
         suggestions: [
           {
-            description: `If this extension is private, run "axm login" and try again.`,
+            description: "Sign in if this extension is private.",
             cmd: "axm login",
           },
         ],

@@ -16,20 +16,25 @@ import type {
   NewCommandOperation,
   RegistryCommandRef,
 } from "@agentxm/client-core/unstable/commands";
-import { CommandManager, newCommand as newCommandOp } from "@agentxm/client-core/unstable/commands";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  CommandManager,
+  commandInstallArtifact,
+  newCommand as newCommandOp,
+} from "@agentxm/client-core/unstable/commands";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import type { JobStepArtifact, Plan, PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { toJobStepResult } from "./job-step-result.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -44,6 +49,48 @@ export interface CommandsNewHandlerArgs {
   readonly force: boolean;
   readonly preview: boolean;
 }
+
+const commandNewArtifactOutput = (
+  resolution: PlanResolution,
+): { readonly targetPhrase: string; readonly summary: string } | undefined => {
+  if (resolution._tag !== "ExecutedPlan") return undefined;
+
+  for (const job of resolution.jobs) {
+    for (const step of job.steps) {
+      if (step.result.result !== "success" || step.result.artifact === undefined) continue;
+
+      const artifact = step.result.artifact;
+      const targetPhrase = commandNewTargetPhrase(artifact);
+      const summary = commandNewArtifactSummary(artifact);
+      return { targetPhrase, summary };
+    }
+  }
+
+  return undefined;
+};
+
+const commandNewTargetPhrase = (artifact: JobStepArtifact): string => {
+  if (artifact.agents !== undefined && artifact.agents.length > 0) {
+    return ` for ${count(artifact.agents.length, "agent")}`;
+  }
+  if (artifact.targets !== undefined && artifact.targets.length > 0) {
+    return ` for ${count(artifact.targets.length, "location")}`;
+  }
+  return "";
+};
+
+const commandNewArtifactSummary = (artifact: JobStepArtifact): string => {
+  const targetSummary =
+    artifact.targets !== undefined && artifact.targets.length > 0
+      ? `-> ${count(artifact.targets.length, "location")}`
+      : `-> ${artifact.path}`;
+  const details = [
+    artifact.version,
+    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  return details.length === 0 ? targetSummary : `${targetSummary}   ${details.join(" | ")}`;
+};
 
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
 
@@ -132,6 +179,28 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(CliRenderer, renderer),
     ),
+    buildArtifact: () =>
+      Effect.gen(function* () {
+        const currentLockEntry = yield* ws.getLockedCommand(args.name);
+        if (Option.isNone(currentLockEntry)) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Created command ${fqn} but could not read its lockfile entry`,
+            suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
+          });
+        }
+
+        return commandInstallArtifact({
+          lockEntry: currentLockEntry.value,
+          previousLockEntry: Option.none(),
+          versionRange: Option.none(),
+          canonicalPath: targetDir,
+          fallbackPath: args.name,
+          scope: ws.scope,
+          workspaceRoot: ws.baseDir,
+          pathService: path,
+        });
+      }),
   });
 
   const plan: Plan = {
@@ -141,7 +210,10 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    displayApplied: false,
+  });
 
   const suggestions = [
     {
@@ -158,7 +230,13 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   );
 
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created command ${fqn}`, { suggestions, withoutSuggestions: emitted });
+    const artifactOutput = commandNewArtifactOutput(resolution);
+    yield* emitScaffoldSuccess({
+      message: `Created command ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
+      ...(artifactOutput === undefined ? {} : { summary: artifactOutput.summary }),
+      suggestions,
+      withoutSuggestions: emitted,
+    });
   }
 });
 

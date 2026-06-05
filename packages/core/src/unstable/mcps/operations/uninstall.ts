@@ -15,11 +15,16 @@ import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import {
+  agentConfigTarget,
+  mcpServerArtifact,
+  mcpSourceTarget,
+  mcpSettingsTarget,
+} from "./artifact.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -58,12 +63,34 @@ interface AgentOutcome {
   readonly outcome: McpServerSyncOutcome;
 }
 
-const summarizeAgentSync = (
-  outcomes: ReadonlyArray<AgentOutcome>,
-): {
+interface AgentSyncSummary {
   readonly status: "green" | "degraded";
   readonly details: ReadonlyArray<string>;
-} => {
+  readonly warnings: ReadonlyArray<string>;
+  readonly agentIds: ReadonlyArray<AgentId>;
+}
+
+const formatAgentSyncWarning = (
+  serverName: string,
+  outcomes: ReadonlyArray<AgentOutcome>,
+): string => {
+  const warningMessage = outcomes
+    .map(({ agentId, outcome }) =>
+      outcome._tag === "success"
+        ? `${agentId}:success`
+        : outcome._tag === "fallback"
+          ? `${agentId}:fallback(${outcome.fallbackFrom}):${outcome.reason}`
+          : `${agentId}:${outcome.reason}`,
+    )
+    .join(", ");
+
+  return `MCP agent sync warnings for ${serverName}: ${warningMessage}`;
+};
+
+const summarizeAgentSync = (
+  outcomes: ReadonlyArray<AgentOutcome>,
+  warnings: ReadonlyArray<string>,
+): AgentSyncSummary => {
   const degraded = outcomes.some(
     ({ outcome }) => outcome._tag === "failed" || outcome._tag === "fallback",
   );
@@ -78,8 +105,13 @@ const summarizeAgentSync = (
   return {
     status: degraded ? "degraded" : "green",
     details,
+    warnings,
+    agentIds: outcomes.map(({ agentId }) => agentId),
   };
 };
+
+const appendResultWarnings = (message: string, warnings: ReadonlyArray<string>): string =>
+  warnings.length === 0 ? message : `${message}; ${warnings.join("; ")}`;
 
 const syncConfiguredAgentsOnUninstall = (args: {
   readonly wsBaseDir: string;
@@ -88,8 +120,8 @@ const syncConfiguredAgentsOnUninstall = (args: {
   readonly serverName: string;
 }) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
     const agentRepo = yield* CodingAgentRepository;
+    const warnings: Array<string> = [];
 
     const unknownConfiguredAgentIds = yield* agentRepo.getUnknownConfiguredAgentIds();
     if (args.strict && unknownConfiguredAgentIds.length > 0) {
@@ -101,9 +133,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
     }
 
     if (unknownConfiguredAgentIds.length > 0) {
-      yield* renderer.warn(
-        `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
-      );
+      warnings.push(`Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`);
     }
 
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
@@ -162,19 +192,10 @@ const syncConfiguredAgentsOnUninstall = (args: {
         outcome._tag === "fallback",
     );
     if (warningOutcomes.length > 0) {
-      const warningMessage = warningOutcomes
-        .map(({ agentId, outcome }) =>
-          outcome._tag === "success"
-            ? `${agentId}:success`
-            : outcome._tag === "fallback"
-              ? `${agentId}:fallback(${outcome.fallbackFrom}):${outcome.reason}`
-              : `${agentId}:${outcome.reason}`,
-        )
-        .join(", ");
-      yield* renderer.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
+      warnings.push(formatAgentSyncWarning(args.serverName, warningOutcomes));
     }
 
-    return summarizeAgentSync(outcomes);
+    return summarizeAgentSync(outcomes, warnings);
   });
 
 // -----------------------------------------------------------------------------
@@ -193,7 +214,7 @@ export const uninstallMcpServer: (
 ) => Effect.Effect<
   JobStepResult,
   AppError,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CliRenderer | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -235,8 +256,13 @@ export const uninstallMcpServer: (
       yield* removeFromAllMcpServerLocations(fs, path, base, op.args.serverName);
     }
 
-    // Remove from settings + lockfile (swallow errors)
-    yield* ws.removeMcpServer(op.args.serverName).pipe(Effect.catch(() => Effect.void));
+    // Remove from settings + lockfile (best-effort; preserve warning in result).
+    const removeWarning = yield* ws.removeMcpServer(op.args.serverName).pipe(
+      Effect.as(Option.none<string>()),
+      Effect.catch((e) =>
+        Effect.succeed(Option.some(`MCP server removal from settings failed: ${e.detail}`)),
+      ),
+    );
 
     const agentSync = yield* syncConfiguredAgentsOnUninstall({
       wsBaseDir: ws.baseDir,
@@ -245,9 +271,30 @@ export const uninstallMcpServer: (
       serverName: op.args.serverName,
     });
 
+    const warnings = Option.match(removeWarning, {
+      onNone: () => agentSync.warnings,
+      onSome: (warning) => [warning, ...agentSync.warnings],
+    });
+    const agentTarget = agentConfigTarget("removed", agentSync.agentIds);
+    const sourceTarget =
+      lockEntry?.type === "registry" ? mcpSourceTarget(lockEntry, "removed") : undefined;
+
     return {
       result: "success",
-      message: `Uninstalled ${op.args.serverName} (canonical=success, agent-sync=${agentSync.status})`,
+      message: appendResultWarnings(
+        `Uninstalled ${op.args.serverName} (canonical=success, agent-sync=${agentSync.status})`,
+        warnings,
+      ),
+      artifact: mcpServerArtifact({
+        lockEntry,
+        scope: ws.scope,
+        change: "removed",
+        targets: [
+          ...(sourceTarget === undefined ? [] : [sourceTarget]),
+          mcpSettingsTarget("removed"),
+          ...(agentTarget === undefined ? [] : [agentTarget]),
+        ],
+      }),
     } satisfies JobStepResult;
   });
 

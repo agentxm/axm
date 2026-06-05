@@ -11,14 +11,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  TestMachineRenderer,
-  TestRenderer,
-  logsByTag,
-} from "@agentxm/client-core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
+import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { handleList } from "./list.js";
 
 // -----------------------------------------------------------------------------
@@ -88,9 +85,7 @@ describe("packs list.handler", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    const logs = logsByTag(rendererState);
-
-    return { provide, logs, rendererState };
+    return { provide, rendererState };
   };
 
   it.effect("displays all installed packs", () => {
@@ -130,15 +125,19 @@ describe("packs list.handler", () => {
     );
   });
 
-  it.effect("shows no packs message when lockfile is empty", () => {
-    const { provide, logs } = makeLayers();
+  it.effect("emits a single empty list payload when lockfile is empty", () => {
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
       Effect.gen(function* () {
         yield* handleList();
 
-        expect(logs.info.some((m) => m.includes("No packs installed"))).toBe(true);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 0,
+          items: [],
+        });
+        expect(rendererState.logs).toEqual([]);
       }),
     );
   });
@@ -165,6 +164,7 @@ describe("packs list.handler", () => {
             },
           ],
         });
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
       }),
     );
   });

@@ -6,6 +6,7 @@ import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { InstallMeta } from "@agentxm/client-core/unstable/install-meta";
 import {
@@ -23,7 +24,7 @@ export interface UpgradeHandlerArgs {
   readonly force: boolean;
 }
 
-const UpgradeResultSchema = Schema.Struct({
+const UpgradeCoreResultSchema = Schema.Struct({
   status: Schema.Literals([
     "already-up-to-date",
     "reinstalled",
@@ -36,12 +37,89 @@ const UpgradeResultSchema = Schema.Struct({
   targetVersion: Schema.optional(Schema.String),
   delegatedCommand: Schema.optional(Schema.String),
   force: Schema.Boolean,
+  warnings: Schema.optional(Schema.Array(Schema.String)),
+});
+type UpgradeCoreResult = typeof UpgradeCoreResultSchema.Type;
+
+const UpgradePlanStepArtifactSchema = Schema.Struct({
+  path: Schema.optional(Schema.String),
+  scope: Schema.Literals(["project", "user"] as const),
+  version: Schema.optional(Schema.String),
+  change: Schema.Literals(["created", "updated", "unchanged", "removed"] as const),
+  previousVersion: Schema.optional(Schema.String),
+});
+
+const UpgradePlanStepSchema = Schema.Struct({
+  label: Schema.String,
+  status: Schema.Literals([
+    "ready",
+    "warning",
+    "error",
+    "applied",
+    "unchanged",
+    "failed",
+    "blocked",
+  ] as const),
+  message: Schema.optional(Schema.String),
+  warnings: Schema.optional(Schema.Array(Schema.String)),
+  artifact: Schema.optional(UpgradePlanStepArtifactSchema),
+});
+
+const UpgradeResultSchema = Schema.Struct({
+  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const),
+  planName: Schema.String,
+  planDescription: Schema.optional(Schema.String),
+  message: Schema.optional(Schema.String),
+  totalSteps: Schema.Number,
+  readyCount: Schema.Number,
+  warningCount: Schema.Number,
+  errorCount: Schema.Number,
+  appliedCount: Schema.Number,
+  failedCount: Schema.Number,
+  blockedCount: Schema.Number,
+  steps: Schema.Array(UpgradePlanStepSchema),
+  status: UpgradeCoreResultSchema.fields.status,
+  installMethod: UpgradeCoreResultSchema.fields.installMethod,
+  localVersion: UpgradeCoreResultSchema.fields.localVersion,
+  targetVersion: UpgradeCoreResultSchema.fields.targetVersion,
+  delegatedCommand: UpgradeCoreResultSchema.fields.delegatedCommand,
+  force: UpgradeCoreResultSchema.fields.force,
+  warnings: UpgradeCoreResultSchema.fields.warnings,
 });
 type UpgradeResult = typeof UpgradeResultSchema.Type;
+type UpgradePlanStep = typeof UpgradePlanStepSchema.Type;
 
 const UpgradeDocumentFields = {
   result: UpgradeResultSchema,
 } satisfies Schema.Struct.Fields;
+
+const upgradeSuggestions = (result: UpgradeCoreResult): ReadonlyArray<SuggestedAction> => {
+  if (result.status === "delegated") {
+    return [
+      {
+        description: "Run the delegated install command",
+        cmd: result.delegatedCommand ?? "curl -fsSL https://axm.sh/install.sh | sh",
+      },
+      { description: "Verify installed version", cmd: "axm --version" },
+    ];
+  }
+
+  if (result.status === "already-up-to-date") {
+    return [
+      { description: "Verify installed version", cmd: "axm --version" },
+      { description: "Reinstall current version", cmd: "axm upgrade --force" },
+    ];
+  }
+
+  if (result.status === "upgrade-incomplete") {
+    return [
+      { description: "Verify installed version", cmd: "axm --version" },
+      { description: "Retry upgrade", cmd: "axm upgrade --force" },
+    ];
+  }
+
+  return [{ description: "Verify installed version", cmd: "axm --version" }];
+};
 
 const HOMEBREW_TAP = "agentxm/tap";
 const BREW_UPGRADE_COMMAND = "brew upgrade agentxm/tap/axm";
@@ -234,7 +312,7 @@ const verifyBinary = (binaryPath: string) =>
         detail: "Downloaded binary could not be verified",
         suggestions: [
           {
-            description: "The upgrade may have succeeded. Try running `axm --version` to check.",
+            description: "Check the installed version.",
             cmd: "axm --version",
           },
         ],
@@ -308,45 +386,126 @@ const checkUpgradedVersion = (
   );
 
 /**
- * Report the outcome of a delegated upgrade. The success line is printed only
- * after `axm --version` confirms the new version actually landed; a no-op or
- * mismatch is surfaced honestly instead of a false success. Returns whether the
- * upgrade genuinely landed so the caller can record an accurate status.
+ * Classify the outcome of a delegated upgrade. Human rendering is intentionally
+ * deferred until after the structured result path has had first refusal.
  */
 const finishUpgrade = (args: {
   readonly check: UpgradeCheck;
   readonly targetVersion: string;
-  readonly successMessage: string;
   readonly staleHint?: string;
-}): Effect.Effect<"complete" | "incomplete", never, CliRenderer> =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    switch (args.check._tag) {
-      case "Verified": {
-        yield* renderer.success(args.successMessage);
-        return "complete";
-      }
-      case "Unchanged": {
-        const hint = args.staleHint === undefined ? "" : ` ${args.staleHint}`;
-        yield* renderer.warn(
+}): {
+  readonly completion: "complete" | "incomplete";
+  readonly warnings: ReadonlyArray<string>;
+} => {
+  switch (args.check._tag) {
+    case "Verified":
+      return { completion: "complete", warnings: [] };
+    case "Unchanged": {
+      const hint = args.staleHint === undefined ? "" : ` ${args.staleHint}`;
+      return {
+        completion: "incomplete",
+        warnings: [
           `Upgrade completed, but axm still reports ${args.check.reported}, not ${args.targetVersion}.${hint}`,
-        );
-        return "incomplete";
-      }
-      case "Mismatch": {
-        yield* renderer.warn(
-          `Upgrade completed, but axm reports ${args.check.reported} instead of ${args.targetVersion}.`,
-        );
-        return "incomplete";
-      }
-      case "Unverifiable": {
-        yield* renderer.warn(
-          "Could not verify the upgraded binary. Try running `axm --version` to check.",
-        );
-        return "complete";
-      }
+        ],
+      };
     }
-  });
+    case "Mismatch":
+      return {
+        completion: "incomplete",
+        warnings: [
+          `Upgrade completed, but axm reports ${args.check.reported} instead of ${args.targetVersion}.`,
+        ],
+      };
+    case "Unverifiable":
+      return {
+        completion: "complete",
+        warnings: ["Could not verify the upgraded binary. Check the installed version."],
+      };
+  }
+};
+
+const withOptionalWarnings = <T extends UpgradeCoreResult>(
+  result: T,
+  warnings: ReadonlyArray<string>,
+): UpgradeCoreResult => (warnings.length === 0 ? result : { ...result, warnings });
+
+const upgradeMessage = (result: UpgradeCoreResult): string => {
+  switch (result.status) {
+    case "already-up-to-date":
+      return `AXM is already up to date (${result.localVersion})`;
+    case "reinstalled":
+      return `Reinstalled AXM ${result.targetVersion ?? result.localVersion}`;
+    case "upgraded":
+      return `Upgraded AXM to ${result.targetVersion ?? result.localVersion}`;
+    case "upgrade-incomplete":
+      return "AXM upgrade ran but could not be fully verified";
+    case "delegated":
+      return "AXM upgrade requires a delegated install command";
+  }
+};
+
+const upgradeArtifactPath = (result: UpgradeCoreResult): string => result.delegatedCommand ?? "axm";
+
+const upgradeArtifactChange = (
+  status: UpgradeCoreResult["status"],
+): "created" | "updated" | "unchanged" | "removed" => {
+  switch (status) {
+    case "upgraded":
+    case "reinstalled":
+    case "upgrade-incomplete":
+      return "updated";
+    case "already-up-to-date":
+    case "delegated":
+      return "unchanged";
+  }
+};
+
+const upgradeStepStatus = (status: UpgradeCoreResult["status"]): UpgradePlanStep["status"] => {
+  switch (status) {
+    case "upgraded":
+    case "reinstalled":
+    case "upgrade-incomplete":
+      return "applied";
+    case "already-up-to-date":
+    case "delegated":
+      return "unchanged";
+  }
+};
+
+const withUpgradePlanFields = (result: UpgradeCoreResult): UpgradeResult => {
+  const status = upgradeStepStatus(result.status);
+  const warnings = result.warnings ?? [];
+  const step: UpgradePlanStep = {
+    label: "AXM CLI",
+    status,
+    message: upgradeMessage(result),
+    ...(warnings.length > 0 ? { warnings } : {}),
+    artifact: {
+      path: upgradeArtifactPath(result),
+      scope: "user",
+      version: result.targetVersion ?? result.localVersion,
+      previousVersion: result.localVersion,
+      change: upgradeArtifactChange(result.status),
+    },
+  };
+  const appliedCount = status === "applied" ? 1 : 0;
+
+  return {
+    outcome: appliedCount > 0 ? "applied" : "no-op",
+    planName: "Upgrade AXM CLI",
+    planDescription: "Update the AXM CLI binary",
+    message: upgradeMessage(result),
+    totalSteps: 1,
+    readyCount: 0,
+    warningCount: warnings.length,
+    errorCount: 0,
+    appliedCount,
+    failedCount: 0,
+    blockedCount: 0,
+    steps: [step],
+    ...result,
+  };
+};
 
 /**
  * Refresh the local agentxm/tap clone before a Homebrew upgrade.
@@ -358,42 +517,31 @@ const finishUpgrade = (args: {
  * no repo-wide `brew update`. Failure is non-fatal: the upgrade proceeds
  * against the cached formula.
  */
-const refreshHomebrewTap: Effect.Effect<void, never, CliRenderer | Subprocess> = Effect.gen(
-  function* () {
-    const renderer = yield* CliRenderer;
-    const subprocess = yield* Subprocess;
+const refreshHomebrewTap: Effect.Effect<boolean, never, Subprocess> = Effect.gen(function* () {
+  const subprocess = yield* Subprocess;
 
-    const refresh = Effect.gen(function* () {
-      const repoResult = yield* subprocess.run("brew", ["--repository", HOMEBREW_TAP], {
-        env: HOMEBREW_ENV,
-      });
-      const tapPath = repoResult.stdout.trim();
-      if (repoResult.exitCode !== 0 || tapPath.length === 0) {
-        return yield* Effect.fail("refresh-failed" as const);
-      }
-      yield* renderer.withSpinner(
-        `Refreshing ${HOMEBREW_TAP}...`,
-        () =>
-          subprocess
-            .run("brew", ["update-reset", tapPath], { env: HOMEBREW_ENV })
-            .pipe(
-              Effect.flatMap((result) =>
-                result.exitCode === 0 ? Effect.void : Effect.fail("refresh-failed" as const),
-              ),
-            ),
-        { successMessage: `Refreshed ${HOMEBREW_TAP}` },
-      );
+  const refresh = Effect.gen(function* () {
+    const repoResult = yield* subprocess.run("brew", ["--repository", HOMEBREW_TAP], {
+      env: HOMEBREW_ENV,
     });
-
-    yield* refresh.pipe(
-      Effect.catch(() =>
-        renderer.warn(
-          `Could not refresh the ${HOMEBREW_TAP} tap; continuing with the cached formula.`,
+    const tapPath = repoResult.stdout.trim();
+    if (repoResult.exitCode !== 0 || tapPath.length === 0) {
+      return yield* Effect.fail("refresh-failed" as const);
+    }
+    yield* subprocess
+      .run("brew", ["update-reset", tapPath], { env: HOMEBREW_ENV })
+      .pipe(
+        Effect.flatMap((result) =>
+          result.exitCode === 0 ? Effect.void : Effect.fail("refresh-failed" as const),
         ),
-      ),
-    );
-  },
-);
+      );
+  });
+
+  return yield* refresh.pipe(
+    Effect.as(true),
+    Effect.catch(() => Effect.succeed(false)),
+  );
+});
 
 const homebrewTapIsPresent = (result: CommandResult): boolean =>
   result.stdout
@@ -411,7 +559,6 @@ const cleanupWindowsOld = (targetPath: string) =>
 
 const handleHomebrew = (force: boolean) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
     const httpClient = yield* HttpClient.HttpClient;
     const subprocess = yield* Subprocess;
     const localVersion = loadVersion();
@@ -419,31 +566,19 @@ const handleHomebrew = (force: boolean) =>
     const resolution = yield* resolveLatestVersion(httpClient, localVersion, repo);
     const targetVersion = resolution.remoteVersion;
 
-    yield* renderer.info("Installed via Homebrew");
-
     if (!resolution.isStale && !force) {
-      yield* renderer.info(`Already up to date (${localVersion})`);
       return {
         status: "already-up-to-date",
         installMethod: "homebrew",
         localVersion,
         targetVersion,
         force,
-      } satisfies UpgradeResult;
+      } satisfies UpgradeCoreResult;
     }
 
     const isReinstall = force && !resolution.isStale;
     const brewSubcommand = isReinstall ? "reinstall" : "upgrade";
     const delegatedCommand = isReinstall ? BREW_REINSTALL_COMMAND : BREW_UPGRADE_COMMAND;
-    const spinnerMessage = isReinstall
-      ? "Reinstalling via Homebrew..."
-      : "Upgrading via Homebrew...";
-    const spinnerDoneMessage = isReinstall
-      ? "Homebrew reinstall complete"
-      : "Homebrew upgrade complete";
-    const successMessage = isReinstall
-      ? `Reinstalled ${targetVersion}`
-      : `Upgraded to ${targetVersion}`;
 
     const tapList = yield* subprocess.run("brew", ["tap"], { env: HOMEBREW_ENV });
     if (tapList.exitCode !== 0) {
@@ -454,65 +589,60 @@ const handleHomebrew = (force: boolean) =>
       });
     }
 
-    if (homebrewTapIsPresent(tapList)) {
-      // A freshly tapped clone is already at origin HEAD, but an existing clone
-      // is not refreshed by `brew upgrade` (HOMEBREW_NO_AUTO_UPDATE is set), so
-      // reset it to origin first or `brew upgrade` may be a silent no-op.
-      yield* refreshHomebrewTap;
-    } else {
-      yield* renderer.withSpinner(
-        "Tapping Homebrew formula...",
-        () =>
-          subprocess
-            .run("brew", ["tap", HOMEBREW_TAP], { env: HOMEBREW_ENV })
-            .pipe(
-              Effect.flatMap((result) =>
-                failOnCommandError({ manager: "Homebrew", command: delegatedCommand, result }),
-              ),
-            ),
-        { successMessage: `Tapped ${HOMEBREW_TAP}` },
-      );
+    const tapRefreshed = homebrewTapIsPresent(tapList) ? yield* refreshHomebrewTap : undefined;
+
+    if (!homebrewTapIsPresent(tapList)) {
+      const tapResult = yield* subprocess.run("brew", ["tap", HOMEBREW_TAP], { env: HOMEBREW_ENV });
+      yield* failOnCommandError({
+        manager: "Homebrew",
+        command: delegatedCommand,
+        result: tapResult,
+      });
     }
 
-    yield* renderer.withSpinner(
-      spinnerMessage,
-      () =>
-        subprocess
-          .run("brew", [brewSubcommand, "agentxm/tap/axm"], { env: HOMEBREW_ENV })
-          .pipe(
-            Effect.flatMap((result) =>
-              failOnCommandError({ manager: "Homebrew", command: delegatedCommand, result }),
-            ),
-          ),
-      { successMessage: spinnerDoneMessage },
-    );
-
-    const check = yield* checkUpgradedVersion(targetVersion, localVersion);
-    const completion = yield* finishUpgrade({
-      check,
-      targetVersion,
-      successMessage,
-      staleHint: `The ${HOMEBREW_TAP} formula may not have published ${targetVersion} yet — try again shortly.`,
+    const upgradeResult = yield* subprocess.run("brew", [brewSubcommand, "agentxm/tap/axm"], {
+      env: HOMEBREW_ENV,
+    });
+    yield* failOnCommandError({
+      manager: "Homebrew",
+      command: delegatedCommand,
+      result: upgradeResult,
     });
 
-    return {
-      status:
-        completion === "incomplete"
-          ? "upgrade-incomplete"
-          : isReinstall
-            ? "reinstalled"
-            : "upgraded",
-      installMethod: "homebrew",
-      localVersion,
+    const check = yield* checkUpgradedVersion(targetVersion, localVersion);
+    const completion = finishUpgrade({
+      check,
       targetVersion,
-      delegatedCommand,
-      force,
-    } satisfies UpgradeResult;
+      staleHint: `The ${HOMEBREW_TAP} formula may not have published ${targetVersion} yet — try again shortly.`,
+    });
+    const warnings =
+      tapRefreshed === false
+        ? [
+            ...completion.warnings,
+            `Could not refresh the ${HOMEBREW_TAP} tap; the cached formula was used.`,
+          ]
+        : completion.warnings;
+
+    return withOptionalWarnings(
+      {
+        status:
+          completion.completion === "incomplete"
+            ? "upgrade-incomplete"
+            : isReinstall
+              ? "reinstalled"
+              : "upgraded",
+        installMethod: "homebrew",
+        localVersion,
+        targetVersion,
+        delegatedCommand,
+        force,
+      },
+      warnings,
+    );
   });
 
 const handleNpm = (force: boolean) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
     const httpClient = yield* HttpClient.HttpClient;
     const subprocess = yield* Subprocess;
     const localVersion = loadVersion();
@@ -521,79 +651,60 @@ const handleNpm = (force: boolean) =>
     const targetVersion = resolution.remoteVersion;
     const delegatedCommand = `npm install -g ${NPM_PACKAGE}@${targetVersion}`;
 
-    yield* renderer.info("Installed via npm");
-
     if (!resolution.isStale && !force) {
-      yield* renderer.info(`Already up to date (${localVersion})`);
       return {
         status: "already-up-to-date",
         installMethod: "npm",
         localVersion,
         targetVersion,
         force,
-      } satisfies UpgradeResult;
+      } satisfies UpgradeCoreResult;
     }
 
     const isReinstall = force && !resolution.isStale;
-    const spinnerMessage = isReinstall ? "Reinstalling via npm..." : "Upgrading via npm...";
-    const spinnerDoneMessage = isReinstall ? "npm reinstall complete" : "npm install complete";
-    const successMessage = isReinstall
-      ? `Reinstalled ${targetVersion}`
-      : `Upgraded to ${targetVersion}`;
 
-    yield* renderer.withSpinner(
-      spinnerMessage,
-      () =>
-        subprocess
-          .run("npm", ["install", "-g", `${NPM_PACKAGE}@${targetVersion}`])
-          .pipe(
-            Effect.flatMap((result) =>
-              failOnCommandError({ manager: "npm", command: delegatedCommand, result }),
-            ),
-          ),
-      { successMessage: spinnerDoneMessage },
-    );
+    const installResult = yield* subprocess.run("npm", [
+      "install",
+      "-g",
+      `${NPM_PACKAGE}@${targetVersion}`,
+    ]);
+    yield* failOnCommandError({ manager: "npm", command: delegatedCommand, result: installResult });
 
     const check = yield* checkUpgradedVersion(targetVersion, localVersion);
-    const completion = yield* finishUpgrade({ check, targetVersion, successMessage });
+    const completion = finishUpgrade({ check, targetVersion });
 
-    return {
-      status:
-        completion === "incomplete"
-          ? "upgrade-incomplete"
-          : isReinstall
-            ? "reinstalled"
-            : "upgraded",
-      installMethod: "npm",
-      localVersion,
-      targetVersion,
-      delegatedCommand,
-      force,
-    } satisfies UpgradeResult;
+    return withOptionalWarnings(
+      {
+        status:
+          completion.completion === "incomplete"
+            ? "upgrade-incomplete"
+            : isReinstall
+              ? "reinstalled"
+              : "upgraded",
+        installMethod: "npm",
+        localVersion,
+        targetVersion,
+        delegatedCommand,
+        force,
+      },
+      completion.warnings,
+    );
   });
 
 const handleUnknown = (force: boolean) =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+  Effect.sync(() => {
     const localVersion = loadVersion();
-    if (force) {
-      yield* renderer.info("--force has no effect for this install method.");
-    }
-    yield* renderer.info("Install method could not be determined.");
-    yield* renderer.info("To install or update, run:");
-    yield* renderer.info("  curl -fsSL https://axm.sh/install.sh | sh");
     return {
       status: "delegated",
       installMethod: "unknown",
       localVersion,
       delegatedCommand: "curl -fsSL https://axm.sh/install.sh | sh",
       force,
-    } satisfies UpgradeResult;
+    } satisfies UpgradeCoreResult;
   });
 
 const handleScript = (method: { readonly execPath: string }, force: boolean) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
     const httpClient = yield* HttpClient.HttpClient;
     const installMeta = yield* InstallMeta;
     const pathService = yield* Path.Path;
@@ -606,14 +717,13 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
 
     // Step 2: Check if up to date
     if (!resolution.isStale && !force) {
-      yield* renderer.info(`Already up to date (${resolution.localVersion})`);
       return {
         status: "already-up-to-date",
         installMethod: "script",
         localVersion,
         targetVersion: resolution.remoteVersion,
         force,
-      } satisfies UpgradeResult;
+      } satisfies UpgradeCoreResult;
     }
 
     // Step 3: Resolve platform binary
@@ -632,12 +742,6 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     const binaryInfo = binaryInfoOpt.value;
     const targetVersion = resolution.remoteVersion;
 
-    if (force && !resolution.isStale) {
-      yield* renderer.info(`Reinstalling ${localVersion}`);
-    } else {
-      yield* renderer.info(`Upgrading: ${localVersion} → ${targetVersion}`);
-    }
-
     // Step 4: Download
     const downloadUrl = makeDownloadUrl(repo, targetVersion, binaryInfo.binaryName);
     const targetDir = pathService.dirname(method.execPath);
@@ -645,13 +749,8 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
 
     const fs = yield* FileSystem.FileSystem;
 
-    yield* renderer.withSpinner(
-      `Downloading ${binaryInfo.binaryName}...`,
-      () =>
-        downloadBinary(httpClient, downloadUrl, tempPath).pipe(
-          Effect.onInterrupt(() => fs.remove(tempPath).pipe(Effect.catch(() => Effect.void))),
-        ),
-      { successMessage: `Downloaded ${binaryInfo.binaryName}` },
+    yield* downloadBinary(httpClient, downloadUrl, tempPath).pipe(
+      Effect.onInterrupt(() => fs.remove(tempPath).pipe(Effect.catch(() => Effect.void))),
     );
 
     // Step 5: Make executable
@@ -661,11 +760,13 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     yield* atomicReplace(tempPath, method.execPath, platform);
 
     // Step 7: Verify
-    yield* verifyBinary(method.execPath).pipe(
+    const verificationWarnings = yield* verifyBinary(method.execPath).pipe(
+      Effect.as<ReadonlyArray<string>>([]),
       Effect.catch(() =>
-        renderer.warn("Could not verify new binary. Try running `axm --version` to check."),
+        Effect.succeed<ReadonlyArray<string>>([
+          "Could not verify new binary. Check the installed version.",
+        ]),
       ),
-      Effect.asVoid,
     );
 
     // Step 8: Update install metadata
@@ -678,24 +779,64 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     yield* cleanupWindowsOld(method.execPath);
 
     if (force && !resolution.isStale) {
-      yield* renderer.success(`Reinstalled ${targetVersion}`);
-      return {
-        status: "reinstalled",
-        installMethod: "script",
-        localVersion,
-        targetVersion,
-        force,
-      } satisfies UpgradeResult;
+      return withOptionalWarnings(
+        {
+          status: "reinstalled",
+          installMethod: "script",
+          localVersion,
+          targetVersion,
+          force,
+        },
+        verificationWarnings,
+      );
     } else {
-      yield* renderer.success(`Upgraded to ${targetVersion}`);
-      return {
-        status: "upgraded",
-        installMethod: "script",
-        localVersion,
-        targetVersion,
-        force,
-      } satisfies UpgradeResult;
+      return withOptionalWarnings(
+        {
+          status: "upgraded",
+          installMethod: "script",
+          localVersion,
+          targetVersion,
+          force,
+        },
+        verificationWarnings,
+      );
     }
+  });
+
+const renderHumanUpgradeResult = (result: UpgradeCoreResult) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    switch (result.status) {
+      case "already-up-to-date": {
+        yield* renderer.success(`Already up to date (${result.localVersion})`);
+        break;
+      }
+      case "reinstalled": {
+        yield* renderer.success(`Reinstalled ${result.targetVersion ?? result.localVersion}`);
+        break;
+      }
+      case "upgraded": {
+        yield* renderer.success(`Upgraded to ${result.targetVersion ?? result.localVersion}`);
+        break;
+      }
+      case "upgrade-incomplete": {
+        yield* renderer.success("Upgrade incomplete");
+        break;
+      }
+      case "delegated": {
+        yield* renderer.success("Upgrade command delegated");
+        if (result.force) {
+          yield* renderer.info("--force has no effect for this install method.");
+        }
+        yield* renderer.info("Install method could not be determined.");
+        break;
+      }
+    }
+
+    yield* Effect.forEach(result.warnings ?? [], (warning) => renderer.warn(warning), {
+      concurrency: 1,
+    });
+    yield* renderer.suggestions(upgradeSuggestions(result));
   });
 
 export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: UpgradeHandlerArgs) {
@@ -716,11 +857,14 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     }
   })();
 
-  if (yield* renderer.result({ result }, Schema.Struct(UpgradeDocumentFields))) {
+  const machineResult = withUpgradePlanFields(result);
+  if (
+    yield* renderer.result({ result: machineResult }, Schema.Struct(UpgradeDocumentFields), {
+      suggestions: upgradeSuggestions(result),
+    })
+  ) {
     return;
   }
 
-  if (result.status === "delegated") {
-    yield* renderer.success("Upgrade command delegated");
-  }
+  yield* renderHumanUpgradeResult(result);
 }, Effect.asVoid);

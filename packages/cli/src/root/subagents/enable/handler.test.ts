@@ -12,7 +12,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import {
+  expectNoOpPlanResult,
+  getAppError,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
@@ -86,9 +90,10 @@ describe("subagents enable.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
     const ctx = makeWorkspaceHandlerTestContext({
-      flags: { nonInteractive: true },
+      ...opts,
+      flags: { ...opts?.flags, nonInteractive: true },
     });
     const agentRepoLayer = Layer.succeed(CodingAgentRepository, emptyAgentRepo);
     const fullLayer = Layer.mergeAll(ctx.fullLayer, agentRepoLayer);
@@ -129,8 +134,30 @@ describe("subagents enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableSubagent(defaultArgs("my-agent"));
 
-          expect(logs.info.some((m) => m.includes("already enabled"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("already enabled"))).toBe(false);
+          expect(logs.success.some((m) => m.includes("already enabled"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("emits JSON no-op when subagent is already enabled", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(path.join(tempDir, ".axm"), {
+        subagents: { "my-agent": "local" },
+        lockfileSubagents: { "my-agent": makeSubagentLockEntry() },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleEnableSubagent(defaultArgs("my-agent"));
+
+          expect(logs.success).toEqual([]);
+          const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Enable subagent",
+            message: "Subagent 'my-agent' is already enabled",
+          });
+          expect(result).toMatchObject({ planDescription: "Enable my-agent" });
         }),
       );
     });

@@ -21,11 +21,16 @@ import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
+import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";
 import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
+  expectPreviewedPlanResult,
   expectRecord,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultSteps,
   stringProperty,
 } from "../../../test-helpers.js";
 
@@ -37,7 +42,7 @@ import {
 const initWorkspace = (
   axmDir: string,
   opts?: {
-    skills?: Record<string, string>;
+    skills?: Record<string, unknown>;
     skillLocks?: Record<string, unknown>;
     packLocks?: Record<string, unknown>;
     sources?: ReadonlyArray<Record<string, unknown>>;
@@ -209,11 +214,12 @@ describe("update.handler — error recovery", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       prompt: {
         confirmResponses: [true],
       },
+      ...opts,
     });
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
@@ -234,7 +240,108 @@ describe("update.handler — error recovery", () => {
     };
   };
 
-  it.effect("emits warning when skill source resolution fails and reports UPDATE_FAILED", () => {
+  it.effect("reports no-op when no skills are installed", () => {
+    const { provide, logs, rendererState } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"));
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs());
+
+        expect(logs.success).toContain("No skills installed.");
+        expect(rendererState.suggestions).toEqual([LIST_INSTALLED_SKILLS]);
+      }),
+    );
+  });
+
+  it.effect("reports disabled-only skill updates as no-op without skip logs", () => {
+    const { provide, logs, rendererState } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"), {
+      skills: {
+        "code-review": { source: "@acme/skills/code-review", enabled: false },
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs());
+
+        expect(logs.info).toEqual([]);
+        expect(logs.success).toContain("No skills installed.");
+        expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Update skills",
+          message: "No skills installed.",
+        });
+      }),
+    );
+  });
+
+  it.effect("reports disabled-only skill updates as JSON no-op without logs", () => {
+    const { provide, logs, rendererState } = makeLayers({ machine: true });
+    initWorkspace(path.join(tempDir, ".axm"), {
+      skills: {
+        "code-review": { source: "@acme/skills/code-review", enabled: false },
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs());
+
+        expect(logs.info).toEqual([]);
+        expect(logs.success).toEqual([]);
+        expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Update skills",
+          message: "No skills installed.",
+        });
+      }),
+    );
+  });
+
+  it.effect("surfaces disabled skills as structured skip context during mixed updates", () => {
+    const { provide, logs } = makeLayers();
+    const registryRoot = path.join(tempDir, "registry");
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@acme",
+      name: "code-review",
+      versions: [
+        { version: "1.3.0", skillBody: "# code-review v1.3" },
+        { version: "1.0.0", skillBody: "# code-review v1.0" },
+      ],
+    });
+
+    initWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["claude-code"],
+      sources: [
+        {
+          name: "local-reg",
+          type: "registry",
+          location: pathToFileURL(registryRoot).href,
+        },
+      ],
+      skills: {
+        "code-review": "@acme/skills/code-review",
+        "my-skill": { source: "@acme/skills/my-skill", enabled: false },
+      },
+      skillLocks: {
+        "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs());
+
+        expect(logs.warn).toEqual([]);
+        expect(
+          logs.success.some((message) => message.includes("Skipping my-skill: disabled")),
+        ).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("reports network error without raw warning when skill source resolution fails", () => {
     const { provide, logs } = makeLayers();
     // Set up a workspace with one skill pointing to a nonexistent local path.
     // resolveSource will parse this as a local source, but sources.find will
@@ -249,10 +356,7 @@ describe("update.handler — error recovery", () => {
       Effect.gen(function* () {
         const error = yield* handleUpdate(defaultArgs()).pipe(Effect.flip);
 
-        // The catch path should have emitted a warning for the failed resolution
-        expect(logs.warn.some((m: string) => m.includes('Failed to resolve "broken-skill"'))).toBe(
-          true,
-        );
+        expect(logs.warn).toEqual([]);
 
         // Since all resolutions failed, the handler should fail with UPDATE_FAILED
         expect(getAppError(error).code).toBe("network");
@@ -319,8 +423,8 @@ describe("update.handler — error recovery", () => {
     },
   );
 
-  it.effect("warns when a pack constraint holds back a wildcard registry update", () => {
-    const { provide, logs } = makeLayers();
+  it.effect("surfaces pack constraint holdback as structured update context", () => {
+    const { provide, logs, rendererState } = makeLayers({ machine: true });
     const registryRoot = path.join(tempDir, "registry");
     writeRegistrySkill({
       registryRoot,
@@ -375,15 +479,19 @@ describe("update.handler — error recovery", () => {
           "Expected code-review lock entry",
         );
         expect(stringProperty(lockedSkill, "resolvedVersion")).toBe("1.3.0");
-        expect(
-          logs.warn.some(
-            (message: string) =>
-              message.includes("@acme/skills/code-review held at 1.3.0") &&
-              message.includes('pack "frontend-pack"') &&
-              message.includes("^1.0.0") &&
-              message.includes("latest is 2.0.0"),
-          ),
-        ).toBe(true);
+        expect(logs.warn).toEqual([]);
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Update skills",
+        });
+        expect(result).toMatchObject({
+          steps: [
+            {
+              label: "code-review",
+              status: "applied",
+              message: expect.stringContaining("@acme/skills/code-review held at 1.3.0"),
+            },
+          ],
+        });
       }),
     );
   });
@@ -408,11 +516,12 @@ describe("update.handler — preview flag", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       prompt: {
         confirmResponses: [true],
       },
+      ...opts,
     });
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
@@ -487,8 +596,8 @@ describe("update.handler — preview flag", () => {
         const skills = expectRecord(settings["skills"], "Expected settings.skills");
         expect(skills["code-review"]).toBe("@acme/skills/code-review@^1.0.0");
 
-        // Preview info should be displayed
-        expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
+        // Preview outcome should be displayed
+        expect(logs.info.some((m) => m.includes("Would update 1 skill"))).toBe(true);
       }),
     );
   });
@@ -554,8 +663,57 @@ describe("update.handler — preview flag", () => {
         const lockedTesting = expectRecord(lockedSkills["testing"], "Expected testing lock entry");
         expect(stringProperty(lockedTesting, "resolvedVersion")).toBe("1.0.0");
 
-        // Preview info should be displayed
-        expect(logs.info.some((m) => m.includes("Preview"))).toBe(true);
+        // Preview outcome should be displayed
+        expect(logs.info.some((m) => m.includes("Would update 2 skills"))).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("emits skipped unresolved skills as plan steps without warning logs", () => {
+    const { provide, logs, rendererState } = makeLayers({ machine: true });
+    const registryRoot = path.join(tempDir, "registry");
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@acme",
+      name: "code-review",
+      versions: [
+        { version: "2.0.0", skillBody: "# code-review v2" },
+        { version: "1.0.0", skillBody: "# code-review v1.0" },
+      ],
+    });
+
+    initWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["claude-code"],
+      sources: [
+        {
+          name: "local-reg",
+          type: "registry",
+          location: pathToFileURL(registryRoot).href,
+        },
+      ],
+      skills: {
+        "code-review": "@acme/skills/code-review",
+        missing: "@acme/skills/missing",
+      },
+      skillLocks: {
+        "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
+        missing: makeRegistryLockEntry("@acme", "missing", "1.0.0"),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs({ preview: true }));
+
+        expect(logs.warn).toEqual([]);
+        const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+          planName: "Update skills",
+          totalSteps: 2,
+        });
+        expect(planResultSteps(result)).toEqual([
+          expect.objectContaining({ label: "code-review", status: "ready" }),
+          expect.objectContaining({ label: "Skip missing", status: "ready" }),
+        ]);
       }),
     );
   });

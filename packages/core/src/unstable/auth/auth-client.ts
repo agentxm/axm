@@ -325,7 +325,7 @@ const mapAuthCodeExchangeError = (error: unknown) =>
   makeAppError({
     code: "auth",
     detail: "Authorization code exchange failed",
-    suggestions: [{ description: "Run `axm login` to try again.", cmd: "axm login" }],
+    suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
     cause: error,
   });
 
@@ -342,7 +342,7 @@ const makeTransientDevicePollAppError = (cause: unknown) =>
     detail: "Lost connection to the registry during login",
     suggestions: [
       {
-        description: "Verify the registry is running and reachable, then try `axm login` again.",
+        description: "Verify the registry is reachable, then try signing in again.",
         cmd: "axm login",
       },
     ],
@@ -375,7 +375,7 @@ const mapRegistryAuthError = (operation: string, error: unknown): AppError =>
         ...(HttpClientError.isHttpClientError(error)
           ? { metadata: registryHttpErrorMetadata(error) }
           : {}),
-        suggestions: [{ description: "Run `axm login` to re-authenticate.", cmd: "axm login" }],
+        suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
         cause: error,
       });
 
@@ -502,7 +502,7 @@ const pollOnceInternal = (
         makeAppError({
           code: "auth",
           detail: "Device token exchange failed with an unexpected error",
-          suggestions: [{ description: "Try running `axm login` again.", cmd: "axm login" }],
+          suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
           cause: error,
         }),
       );
@@ -636,13 +636,13 @@ export const AuthClientLive = Layer.effect(
             return yield* makeAppError({
               code: "auth",
               detail: "Login was denied or cancelled",
-              suggestions: [{ description: "Run `axm login` to try again.", cmd: "axm login" }],
+              suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
             });
           case "ExpiredToken":
             return yield* makeAppError({
               code: "auth",
               detail: "Login code expired",
-              suggestions: [{ description: "Run `axm login` to try again.", cmd: "axm login" }],
+              suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
             });
         }
       }
@@ -659,9 +659,7 @@ export const AuthClientLive = Layer.effect(
             makeAppError({
               code: "auth",
               detail: "Token refresh request failed",
-              suggestions: [
-                { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
-              ],
+              suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
               cause: error,
             }),
           ),
@@ -713,9 +711,7 @@ export const AuthClientLive = Layer.effect(
               return makeAppError({
                 code: "auth",
                 detail: "Not authenticated or token is invalid",
-                suggestions: [
-                  { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
-                ],
+                suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
                 cause: error,
               });
             }
@@ -723,9 +719,7 @@ export const AuthClientLive = Layer.effect(
               return makeAppError({
                 code: "auth",
                 detail: "Not authenticated or token is invalid",
-                suggestions: [
-                  { description: "Run `axm login` to re-authenticate.", cmd: "axm login" },
-                ],
+                suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
                 cause: error,
               });
             }

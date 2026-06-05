@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { toPlanResolutionResult } from "../../../json-output.js";
+import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
+import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
   InstallHookCommandWorkflowActions,
   type InstallHookHandlerArgs,
@@ -12,6 +14,25 @@ export const handleInstallHook = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* InstallHookCommandWorkflowActions;
-    const resolution = yield* runInstallCommandWorkflow(args, actions, flags);
-    yield* emitPlanResolutionResult("hooks.install", resolution);
+    const resolution = yield* runInstallCommandWorkflow(args, actions, {
+      ...flags,
+      displayApplied: false,
+    });
+    const result = toPlanResolutionResult(resolution);
+    if (result.outcome === "no-op" && result.totalSteps === 0) {
+      yield* emitNoOpOutcome("hooks.install", {
+        planName: result.planName,
+        message: "No hooks packages installed.",
+      });
+      return;
+    }
+    yield* emitAppliedPlanOutcome({
+      command: "hooks.install",
+      headline:
+        result.outcome === "no-op"
+          ? unchangedPlanHeadline(resolution, "No hooks packages installed.")
+          : "Installed hooks package " + args.source,
+      resolution,
+      suggestions: [{ description: "Inspect installed hooks packages", cmd: "axm hooks list" }],
+    });
   });

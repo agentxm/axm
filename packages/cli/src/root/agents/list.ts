@@ -11,6 +11,7 @@ import {
 } from "@agentxm/client-core/unstable/agents";
 import {
   CliRenderer,
+  count,
   registerEntity,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
@@ -18,6 +19,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 
 export interface AgentsListArgs {
   readonly detected: boolean;
@@ -62,6 +64,8 @@ registerEntity<AgentListItem>("agent", {
   list: {
     columns: AgentListTable.columns,
     emptyMessage: "No agents configured",
+    singularLabel: "coding agent",
+    pluralLabel: "coding agents",
   },
 });
 
@@ -109,16 +113,23 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
     count: items.length,
   };
 
-  if (yield* renderer.result(output, AgentsListOutputSchema)) {
+  const suggestions = items.length === 0 ? [SET_UP_AXM_WORKSPACE] : [];
+
+  if (yield* renderer.result(output, AgentsListOutputSchema, { suggestions })) {
     return;
   }
 
   if (items.length === 0) {
-    yield* renderer.info("No coding agents configured or detected.");
+    yield* renderer.list("agent", {
+      items,
+      count: items.length,
+      emptyMessage: "No coding agents configured or detected.",
+      suggestions,
+    });
     return;
   }
 
-  yield* renderer.table(items, AgentListTable, "Coding agents");
+  yield* renderer.table(items, AgentListTable, count(items.length, "coding agent"));
 });
 
 const listConfig = {

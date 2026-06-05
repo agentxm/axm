@@ -13,11 +13,24 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import {
+  SourceHostProviders,
+  SourceHostProvidersLive,
+} from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+import {
+  buildRegistrySubagentRef,
+  SubagentManagerLive,
+} from "@agentxm/client-core/unstable/subagents";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import {
+  expectNoOpPlanResult,
+  expectPreviewedPlanResult,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+  planResultSteps,
+} from "../../../test-helpers.js";
+import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -27,7 +40,7 @@ import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../tes
 const initWorkspace = (
   axmDir: string,
   opts?: {
-    subagents?: Record<string, string>;
+    subagents?: Record<string, unknown>;
     subagentLocks?: Record<string, unknown>;
     sources?: ReadonlyArray<Record<string, unknown>>;
     agents?: string[];
@@ -77,11 +90,12 @@ describe("subagents-update.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       prompt: {
         confirmResponses: [true],
       },
+      ...opts,
     });
     const BaseLayer = handlerTestContext.baseLayer;
     const WsLayer = handlerTestContext.wsLayer;
@@ -111,7 +125,53 @@ describe("subagents-update.handler", () => {
         Effect.gen(function* () {
           yield* handleUpdate(defaultArgs());
 
-          expect(logs.info.some((m) => m.includes("No subagents installed"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("No subagents installed"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("reports disabled-only subagent updates as no-op without skip logs", () => {
+      const { provide, logs, rendererState } = makeLayers();
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        subagents: {
+          researcher: { source: "@acme/subagents/researcher", enabled: false },
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpdate(defaultArgs());
+
+          expect(logs.info).toEqual([]);
+          expect(logs.success).toContain("No subagents installed.");
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Update subagents",
+            message: "No subagents installed.",
+          });
+        }),
+      );
+    });
+
+    it.effect("reports disabled-only subagent updates as JSON no-op without logs", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        subagents: {
+          researcher: { source: "@acme/subagents/researcher", enabled: false },
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpdate(defaultArgs());
+
+          expect(logs.info).toEqual([]);
+          expect(logs.success).toEqual([]);
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Update subagents",
+            message: "No subagents installed.",
+          });
         }),
       );
     });
@@ -151,7 +211,9 @@ describe("subagents-update.handler", () => {
           yield* handleUpdate(defaultArgs({ subagents: ["nonexistent-*"] }));
 
           expect(
-            logs.warn.some((m) => m.includes("No installed subagents match the --subagent filter")),
+            logs.success.some((m) =>
+              m.includes("No installed subagents match the --subagent filter"),
+            ),
           ).toBe(true);
         }),
       );
@@ -168,7 +230,103 @@ describe("subagents-update.handler", () => {
         Effect.gen(function* () {
           yield* handleUpdate(defaultArgs({ preview: true }));
 
-          expect(logs.info.some((m) => m.includes("No subagents installed"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("No subagents installed"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("emits skipped unresolved subagents as plan steps without warning logs", () => {
+      const ctx = makeWorkspaceHandlerTestContext({
+        machine: true,
+        prompt: {
+          confirmResponses: [true],
+        },
+      });
+      const source = {
+        type: "registry" as const,
+        location: new URL("file:///tmp/subagents-registry"),
+        owner: Option.some(handle("@acme")),
+        name: "test",
+      };
+      const sourcesLayer = Layer.succeed(SourceHostProviders, {
+        find: (_source, request) =>
+          Effect.succeed(
+            request.names.includes("researcher")
+              ? [
+                  buildRegistrySubagentRef(
+                    handle("@acme"),
+                    extensionName("researcher"),
+                    exactVersion("2.0.0"),
+                    source,
+                    [],
+                  ),
+                ]
+              : [],
+          ),
+        fetch: () => Effect.die("unused"),
+        cloneUrl: () => Option.none(),
+        origin: () => "test",
+      });
+      const BaseLayer = ctx.baseLayer;
+      const WsLayer = ctx.wsLayer;
+      const AgentRepoLayer = Layer.provide(CodingAgentRepositoryLive, WsLayer);
+      const SubagentMgrLayer = Layer.provide(
+        SubagentManagerLive,
+        Layer.mergeAll(WsLayer, AgentRepoLayer, BaseLayer),
+      );
+      const FullLayer = Layer.mergeAll(
+        BaseLayer,
+        WsLayer,
+        sourcesLayer,
+        AgentRepoLayer,
+        SubagentMgrLayer,
+      );
+      const provide = makeEffectProvide(FullLayer);
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        subagents: {
+          researcher: path.join(tempDir, "researcher-source"),
+          missing: path.join(tempDir, "missing-source"),
+        },
+        subagentLocks: {
+          researcher: {
+            type: "registry",
+            owner: "@acme",
+            name: "researcher",
+            resolvedVersion: "1.0.0",
+            integrity: "sha384-test",
+            sourceName: "test",
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          missing: {
+            type: "registry",
+            owner: "@acme",
+            name: "missing",
+            resolvedVersion: "1.0.0",
+            integrity: "sha384-test",
+            sourceName: "test",
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpdate(defaultArgs({ preview: true }));
+
+          expect(ctx.logs.warn).toEqual([]);
+          const result = expectPreviewedPlanResult(ctx.rendererState.results[0]?.data, {
+            planName: "Update subagents",
+            totalSteps: 2,
+          });
+          expect(planResultSteps(result)).toEqual([
+            expect.objectContaining({ label: "researcher", status: "ready" }),
+            expect.objectContaining({ label: "Skip missing", status: "ready" }),
+          ]);
         }),
       );
     });

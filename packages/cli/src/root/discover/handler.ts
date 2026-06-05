@@ -3,7 +3,11 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  CliRenderer,
+  registerEntity,
+  type TableView,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import {
   discover,
   type DiscoverPackageResult,
@@ -62,6 +66,15 @@ const DiscoverTable = {
     installVersion: { header: "Install" },
   },
 } as const satisfies TableView<DiscoverTableRow>;
+
+registerEntity<DiscoverTableRow>("discover-extension", {
+  list: {
+    columns: DiscoverTable.columns,
+    emptyMessage: "No companion extensions found.",
+    singularLabel: "companion extension",
+    pluralLabel: "companion extensions",
+  },
+});
 
 const defaultRunDiscover = (projectDir: string) =>
   Effect.gen(function* () {
@@ -125,6 +138,22 @@ const formatSummary = (
   return `Found ${extensionCount} companion ${extensionLabel} for ${args.count} of ${args.totalDetected} detected ${packageLabel}.`;
 };
 
+const registryUnavailableMessage = "Registry unavailable. Showing local recommendations only.";
+
+const formatDiscoverSummary = (
+  result: DiscoverResult,
+  output: Schema.Struct.Type<typeof DiscoverOutputFields>,
+  rowCount: number,
+): string =>
+  result.registryAvailable
+    ? formatSummary(output, rowCount)
+    : `${registryUnavailableMessage} ${formatSummary(output, rowCount)}`;
+
+const formatEmptyMessage = (result: DiscoverResult): string =>
+  result.registryAvailable
+    ? "No companion extensions found."
+    : `${registryUnavailableMessage} No companion extensions found.`;
+
 export const handleDiscoverWith = <E, R>(
   args: DiscoverHandlerArgs,
   runDiscover: (projectDir: string) => Effect.Effect<DiscoverResult, E, R>,
@@ -139,18 +168,21 @@ export const handleDiscoverWith = <E, R>(
       return;
     }
 
-    if (!result.registryAvailable) {
-      yield* renderer.warn("Registry unavailable. Showing local recommendations only.");
-    }
-
     if (output.items.length === 0) {
-      yield* renderer.info("No companion extensions found.");
+      yield* renderer.list("discover-extension", {
+        items: [],
+        count: 0,
+        emptyMessage: formatEmptyMessage(result),
+      });
       return;
     }
 
     const rows = toDiscoverTableRows(result);
-    yield* renderer.table(rows, DiscoverTable, "Companion extensions");
-    yield* renderer.success(formatSummary(output, rows.length));
+    yield* renderer.list("discover-extension", {
+      items: rows,
+      count: rows.length,
+      summary: formatDiscoverSummary(result, output, rows.length),
+    });
   });
 
 export const handleDiscover = (args: DiscoverHandlerArgs) =>

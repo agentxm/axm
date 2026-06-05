@@ -15,9 +15,7 @@ export const errAuthRequired = (message = "Authentication required", cause?: unk
   makeAppError({
     code: "auth",
     detail: message,
-    suggestions: [
-      BC.run("axm login", "Run `axm login` to sign in, or set the AXM_TOKEN environment variable."),
-    ],
+    suggestions: [BC.run("axm login", "Sign in, or set the AXM_TOKEN environment variable.")],
     cause,
   });
 
@@ -25,7 +23,7 @@ export const errAuthTokenRequired = (cause?: unknown) =>
   makeAppError({
     code: "auth",
     detail: "No authentication token is available.",
-    suggestions: [BC.do("Set the AXM_TOKEN environment variable instead of running `axm login`.")],
+    suggestions: [BC.do("Set the AXM_TOKEN environment variable for non-interactive auth.")],
     cause,
   });
 

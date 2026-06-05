@@ -1,10 +1,10 @@
 import * as Effect from "effect/Effect";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { applyPlan, type Plan, type PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { displayPlan } from "@agentxm/client-core/unstable/workspace";
 
 export interface LocalPlanFlags {
   readonly preview: boolean;
+  readonly displayApplied?: boolean;
 }
 
 const previewPlan = (plan: Plan): PlanResolution => ({
@@ -18,13 +18,14 @@ export const previewOrApplyLocalPlan = Effect.fn("previewOrApplyLocalPlan")(func
   plan: Plan,
   flags: LocalPlanFlags,
 ) {
-  const renderer = yield* CliRenderer;
-
   if (flags.preview) {
-    yield* renderer.info("Previewing changes...");
     yield* displayPlan(plan);
     return previewPlan(plan);
   }
 
-  return yield* applyPlan(plan).pipe(Effect.tap(displayPlan));
+  const resolution = yield* applyPlan(plan);
+  if (flags.displayApplied !== false) {
+    yield* displayPlan(resolution);
+  }
+  return resolution;
 });

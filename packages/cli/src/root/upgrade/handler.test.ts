@@ -16,7 +16,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach } from "vitest";
 
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+  logsByTag,
+} from "@agentxm/client-core/unstable/cli-renderer";
 import {
   InstallMethod,
   Script,
@@ -27,6 +31,7 @@ import {
 } from "@agentxm/client-core/unstable/install-method";
 import { InstallMeta, type InstallMetaData } from "@agentxm/client-core/unstable/install-meta";
 
+import { expectAppliedPlanResult, expectNoOpPlanResult } from "../../test-helpers.js";
 import { handleUpgrade, resolvePlatformBinary, makeDownloadUrl } from "./handler.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess.js";
 import { loadVersion } from "../../version.js";
@@ -93,6 +98,7 @@ interface TestLayersOptions {
   readonly httpHandler?: (url: string) => Response;
   readonly httpClient?: HttpClient.HttpClient;
   readonly subprocess?: ReturnType<typeof makeMockSubprocess>;
+  readonly machine?: boolean;
 }
 
 interface CommandInvocation {
@@ -130,7 +136,9 @@ const makeMockSubprocess = (
 };
 
 const makeTestLayers = (opts?: TestLayersOptions) => {
-  const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const rendererLayer = renderer.layer;
+  const rendererState = renderer.state;
   const logs = logsByTag(rendererState);
   const installMeta = makeMockInstallMeta();
   const subprocess = opts?.subprocess ?? makeMockSubprocess();
@@ -229,8 +237,6 @@ describe("handleUpgrade", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
-          expect(logs.info).toContain("Installed via Homebrew");
-          expect(rendererState.spinnerMessages).toContain("Upgrading via Homebrew...");
           expect(logs.success).toContain("Upgraded to 99.0.0");
           expect(
             subprocess.calls.some(
@@ -243,6 +249,9 @@ describe("handleUpgrade", () => {
               (call) => call.command === "axm" && call.args.join(" ") === "--version",
             ),
           ).toBe(true);
+          expect(rendererState.suggestions).toEqual([
+            { description: "Verify installed version", cmd: "axm --version" },
+          ]);
           // Regression: verify `axm` resolved on PATH, never the stale
           // `process.execPath` — `brew upgrade` removes the old Cellar
           // directory, so spawning that path fails on a successful upgrade.
@@ -258,14 +267,13 @@ describe("handleUpgrade", () => {
         }
         return commandResult();
       });
-      const { provide, rendererState } = makeTestLayers({
+      const { provide } = makeTestLayers({
         method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
         subprocess,
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
-          expect(rendererState.spinnerMessages).toContain("Tapping Homebrew formula...");
           expect(
             subprocess.calls.some(
               (call) => call.command === "brew" && call.args.join(" ") === "tap agentxm/tap",
@@ -315,7 +323,7 @@ describe("handleUpgrade", () => {
 
     it.effect("short-circuits when already up to date and force is not set", () => {
       const subprocess = makeMockSubprocess();
-      const { provide, logs, rendererState } = makeTestLayers({
+      const { provide, logs } = makeTestLayers({
         method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
         httpHandler: makeSuccessHandler(LOCAL_VERSION),
         subprocess,
@@ -323,9 +331,7 @@ describe("handleUpgrade", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
-          expect(logs.info).toContain("Installed via Homebrew");
-          expect(logs.info).toContain(`Already up to date (${LOCAL_VERSION})`);
-          expect(rendererState.spinnerMessages).not.toContain("Upgrading via Homebrew...");
+          expect(logs.success).toContain(`Already up to date (${LOCAL_VERSION})`);
           expect(subprocess.calls.some((call) => call.command === "brew")).toBe(false);
         }),
       );
@@ -338,7 +344,7 @@ describe("handleUpgrade", () => {
         }
         return commandResult({ stdout: `${LOCAL_VERSION}\n` });
       });
-      const { provide, logs, rendererState } = makeTestLayers({
+      const { provide, logs } = makeTestLayers({
         method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
         httpHandler: makeSuccessHandler(LOCAL_VERSION),
         subprocess,
@@ -346,8 +352,7 @@ describe("handleUpgrade", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
-          expect(logs.info).not.toContain(`Already up to date (${LOCAL_VERSION})`);
-          expect(rendererState.spinnerMessages).toContain("Reinstalling via Homebrew...");
+          expect(logs.success).not.toContain(`Already up to date (${LOCAL_VERSION})`);
           expect(logs.success).toContain(`Reinstalled ${LOCAL_VERSION}`);
           expect(
             subprocess.calls.some(
@@ -393,51 +398,88 @@ describe("handleUpgrade", () => {
       );
     });
 
-    it.effect(
-      "warns instead of claiming success when the binary still reports the old version",
-      () => {
-        const subprocess = makeMockSubprocess((invocation) => {
-          if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
-            return commandResult({ stdout: "agentxm/tap\n" });
-          }
-          // `axm --version` still reports the pre-upgrade version: brew was a no-op
-          if (invocation.command === "axm") {
-            return commandResult({ stdout: `${LOCAL_VERSION}\n` });
-          }
-          return commandResult();
-        });
-        const { provide, logs } = makeTestLayers({
-          method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
-          httpHandler: makeSuccessHandler("99.0.0"),
-          subprocess,
-        });
-        return provide(
-          Effect.gen(function* () {
-            yield* handleUpgrade({ force: false });
-            expect(logs.success).not.toContain("Upgraded to 99.0.0");
-            expect(
-              logs.warn.some(
-                (msg) => msg.includes(`still reports ${LOCAL_VERSION}`) && msg.includes("99.0.0"),
-              ),
-            ).toBe(true);
-          }),
-        );
-      },
-    );
+    it.effect("reports incomplete outcome when the binary still reports the old version", () => {
+      const subprocess = makeMockSubprocess((invocation) => {
+        if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
+          return commandResult({ stdout: "agentxm/tap\n" });
+        }
+        // `axm --version` still reports the pre-upgrade version: brew was a no-op
+        if (invocation.command === "axm") {
+          return commandResult({ stdout: `${LOCAL_VERSION}\n` });
+        }
+        return commandResult();
+      });
+      const { provide, logs } = makeTestLayers({
+        method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        httpHandler: makeSuccessHandler("99.0.0"),
+        subprocess,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          expect(logs.success).not.toContain("Upgraded to 99.0.0");
+          expect(logs.success).toContain("Upgrade incomplete");
+          expect(
+            logs.warn.some(
+              (msg) => msg.includes(`still reports ${LOCAL_VERSION}`) && msg.includes("99.0.0"),
+            ),
+          ).toBe(true);
+          expect(
+            logs.info.some(
+              (msg) => msg.includes(`still reports ${LOCAL_VERSION}`) && msg.includes("99.0.0"),
+            ),
+          ).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("emits incomplete JSON in machine mode without pre-result warnings", () => {
+      const subprocess = makeMockSubprocess((invocation) => {
+        if (invocation.command === "brew" && invocation.args.join(" ") === "tap") {
+          return commandResult({ stdout: "agentxm/tap\n" });
+        }
+        if (invocation.command === "axm") {
+          return commandResult({ stdout: `${LOCAL_VERSION}\n` });
+        }
+        return commandResult();
+      });
+      const { provide, rendererState, logs } = makeTestLayers({
+        method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
+        httpHandler: makeSuccessHandler("99.0.0"),
+        subprocess,
+        machine: true,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          expect(logs.success).toEqual([]);
+          expect(logs.warn).toEqual([]);
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              status: "upgrade-incomplete",
+              installMethod: "homebrew",
+              localVersion: LOCAL_VERSION,
+              targetVersion: "99.0.0",
+              delegatedCommand: "brew upgrade agentxm/tap/axm",
+              force: false,
+              warnings: [expect.stringContaining(`still reports ${LOCAL_VERSION}`)],
+            },
+          });
+        }),
+      );
+    });
   });
 
   describe("npm upgrades", () => {
     it.effect("runs pinned npm install and verifies the upgraded binary", () => {
       const subprocess = makeMockSubprocess();
-      const { provide, logs, rendererState } = makeTestLayers({
+      const { provide, logs } = makeTestLayers({
         method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
         subprocess,
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
-          expect(logs.info).toContain("Installed via npm");
-          expect(rendererState.spinnerMessages).toContain("Upgrading via npm...");
           expect(logs.success).toContain("Upgraded to 99.0.0");
           expect(
             subprocess.calls.some(
@@ -492,7 +534,7 @@ describe("handleUpgrade", () => {
 
     it.effect("short-circuits when already up to date and force is not set", () => {
       const subprocess = makeMockSubprocess();
-      const { provide, logs, rendererState } = makeTestLayers({
+      const { provide, logs } = makeTestLayers({
         method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
         httpHandler: makeSuccessHandler(LOCAL_VERSION),
         subprocess,
@@ -500,9 +542,52 @@ describe("handleUpgrade", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
-          expect(logs.info).toContain("Installed via npm");
-          expect(logs.info).toContain(`Already up to date (${LOCAL_VERSION})`);
-          expect(rendererState.spinnerMessages).not.toContain("Upgrading via npm...");
+          expect(logs.success).toContain(`Already up to date (${LOCAL_VERSION})`);
+          expect(subprocess.calls.some((call) => call.command === "npm")).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("emits already-up-to-date JSON in machine mode without human logs", () => {
+      const subprocess = makeMockSubprocess();
+      const { provide, rendererState, logs } = makeTestLayers({
+        method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
+        httpHandler: makeSuccessHandler(LOCAL_VERSION),
+        subprocess,
+        machine: true,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          expect(logs.success).toEqual([]);
+          expect(logs.info).toEqual([]);
+          const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Upgrade AXM CLI",
+            totalSteps: 1,
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "AXM CLI",
+                status: "unchanged",
+                artifact: {
+                  path: "axm",
+                  scope: "user",
+                  version: LOCAL_VERSION,
+                  change: "unchanged",
+                },
+              },
+            ],
+            status: "already-up-to-date",
+            installMethod: "npm",
+            localVersion: LOCAL_VERSION,
+            targetVersion: LOCAL_VERSION,
+            force: false,
+          });
+          expect(rendererState.suggestions).toEqual([
+            { description: "Verify installed version", cmd: "axm --version" },
+            { description: "Reinstall current version", cmd: "axm upgrade --force" },
+          ]);
           expect(subprocess.calls.some((call) => call.command === "npm")).toBe(false);
         }),
       );
@@ -514,7 +599,7 @@ describe("handleUpgrade", () => {
           ? commandResult()
           : commandResult({ stdout: `${LOCAL_VERSION}\n` }),
       );
-      const { provide, logs, rendererState } = makeTestLayers({
+      const { provide, logs } = makeTestLayers({
         method: new Npm({ importUrl: "file:///node_modules/axm.sh" }),
         httpHandler: makeSuccessHandler(LOCAL_VERSION),
         subprocess,
@@ -522,8 +607,7 @@ describe("handleUpgrade", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
-          expect(logs.info).not.toContain(`Already up to date (${LOCAL_VERSION})`);
-          expect(rendererState.spinnerMessages).toContain("Reinstalling via npm...");
+          expect(logs.success).not.toContain(`Already up to date (${LOCAL_VERSION})`);
           expect(logs.success).toContain(`Reinstalled ${LOCAL_VERSION}`);
           expect(
             subprocess.calls.some(
@@ -539,16 +623,24 @@ describe("handleUpgrade", () => {
 
   describe("unknown delegation", () => {
     it.effect("prints install script URL", () => {
-      const { provide, logs } = makeTestLayers({
+      const { provide, rendererState, logs } = makeTestLayers({
         method: new Unknown(),
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
+          expect(logs.success).toContain("Upgrade command delegated");
           expect(logs.info).toContain("Install method could not be determined.");
           expect(
             logs.info.some((msg) => msg.includes("curl -fsSL https://axm.sh/install.sh")),
-          ).toBe(true);
+          ).toBe(false);
+          expect(rendererState.suggestions).toEqual([
+            {
+              description: "Run the delegated install command",
+              cmd: "curl -fsSL https://axm.sh/install.sh | sh",
+            },
+            { description: "Verify installed version", cmd: "axm --version" },
+          ]);
         }),
       );
     });
@@ -561,6 +653,49 @@ describe("handleUpgrade", () => {
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
           expect(logs.info).toContain("--force has no effect for this install method.");
+        }),
+      );
+    });
+
+    it.effect("emits delegated JSON in machine mode without human logs", () => {
+      const { provide, rendererState, logs } = makeTestLayers({
+        method: new Unknown(),
+        machine: true,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: true });
+          expect(logs.success).toEqual([]);
+          expect(logs.info).toEqual([]);
+          const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Upgrade AXM CLI",
+            totalSteps: 1,
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "AXM CLI",
+                status: "unchanged",
+                artifact: {
+                  path: "curl -fsSL https://axm.sh/install.sh | sh",
+                  scope: "user",
+                  change: "unchanged",
+                },
+              },
+            ],
+            status: "delegated",
+            installMethod: "unknown",
+            localVersion: LOCAL_VERSION,
+            delegatedCommand: "curl -fsSL https://axm.sh/install.sh | sh",
+            force: true,
+          });
+          expect(rendererState.suggestions).toEqual([
+            {
+              description: "Run the delegated install command",
+              cmd: "curl -fsSL https://axm.sh/install.sh | sh",
+            },
+            { description: "Verify installed version", cmd: "axm --version" },
+          ]);
         }),
       );
     });
@@ -585,7 +720,12 @@ describe("handleUpgrade", () => {
 
     const makeScriptLayers = (
       dir: string,
-      opts?: { httpHandler?: (url: string) => Response; httpClient?: HttpClient.HttpClient },
+      opts?: {
+        readonly httpHandler?: (url: string) => Response;
+        readonly httpClient?: HttpClient.HttpClient;
+        readonly subprocess?: ReturnType<typeof makeMockSubprocess>;
+        readonly machine?: boolean;
+      },
     ) =>
       makeTestLayers({
         method: new Script({ execPath: path.join(dir, "axm") }),
@@ -593,16 +733,13 @@ describe("handleUpgrade", () => {
       });
 
     it.effect("downloads and replaces binary when stale", () => {
-      const { provide, rendererState, installMeta } = makeScriptLayers(tempDir, {
+      const { provide, logs, installMeta } = makeScriptLayers(tempDir, {
         httpHandler: makeSuccessHandler("99.0.0"),
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: false });
-          // Should have a spinner message about downloading
-          expect(rendererState.spinnerMessages.some((msg) => msg.includes("Downloading"))).toBe(
-            true,
-          );
+          expect(logs.success).toContain("Upgraded to 99.0.0");
           // Should have written install metadata
           expect(installMeta.written.length).toBeGreaterThan(0);
           expect(installMeta.written[0]?.method).toBe("script");
@@ -611,18 +748,108 @@ describe("handleUpgrade", () => {
     });
 
     it.effect("force flag re-downloads even when up to date", () => {
-      const { provide, rendererState, installMeta } = makeScriptLayers(tempDir, {
+      const { provide, logs, installMeta } = makeScriptLayers(tempDir, {
         httpHandler: makeSuccessHandler("99.0.0"),
       });
       return provide(
         Effect.gen(function* () {
           yield* handleUpgrade({ force: true });
-          // Should have a spinner message about downloading
-          expect(rendererState.spinnerMessages.some((msg) => msg.includes("Downloading"))).toBe(
-            true,
-          );
+          expect(logs.success).toContain("Upgraded to 99.0.0");
           // Should have written install metadata
           expect(installMeta.written.length).toBeGreaterThan(0);
+        }),
+      );
+    });
+
+    it.effect("emits upgraded JSON in machine mode without human logs", () => {
+      const subprocess = makeMockSubprocess();
+      const { provide, rendererState, logs } = makeScriptLayers(tempDir, {
+        httpHandler: makeSuccessHandler("99.0.0"),
+        subprocess,
+        machine: true,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          expect(logs.success).toEqual([]);
+          expect(logs.warn).toEqual([]);
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Upgrade AXM CLI",
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "AXM CLI",
+                status: "applied",
+                artifact: {
+                  path: "axm",
+                  scope: "user",
+                  version: "99.0.0",
+                  previousVersion: LOCAL_VERSION,
+                  change: "updated",
+                },
+              },
+            ],
+            status: "upgraded",
+            installMethod: "script",
+            localVersion: LOCAL_VERSION,
+            targetVersion: "99.0.0",
+            force: false,
+          });
+          expect(rendererState.suggestions).toEqual([
+            { description: "Verify installed version", cmd: "axm --version" },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("carries script verification warnings in machine output", () => {
+      const execPath = path.join(tempDir, "axm");
+      const subprocess = makeMockSubprocess((invocation) =>
+        invocation.command === execPath
+          ? commandResult({ exitCode: 1, stderr: "verify failed" })
+          : commandResult(),
+      );
+      const { provide, rendererState, logs } = makeScriptLayers(tempDir, {
+        httpHandler: makeSuccessHandler("99.0.0"),
+        subprocess,
+        machine: true,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          expect(logs.success).toEqual([]);
+          expect(logs.warn).toEqual([]);
+          expect(rendererState.results[0]?.data).toMatchObject({
+            result: {
+              status: "upgraded",
+              installMethod: "script",
+              warnings: ["Could not verify new binary. Check the installed version."],
+            },
+          });
+        }),
+      );
+    });
+
+    it.effect("renders script verification warnings as warning logs in human mode", () => {
+      const execPath = path.join(tempDir, "axm");
+      const subprocess = makeMockSubprocess((invocation) =>
+        invocation.command === execPath
+          ? commandResult({ exitCode: 1, stderr: "verify failed" })
+          : commandResult(),
+      );
+      const { provide, logs } = makeScriptLayers(tempDir, {
+        httpHandler: makeSuccessHandler("99.0.0"),
+        subprocess,
+      });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUpgrade({ force: false });
+          expect(logs.success).toContain("Upgraded to 99.0.0");
+          expect(logs.info).not.toContain(
+            "Could not verify new binary. Check the installed version.",
+          );
+          expect(logs.warn).toContain("Could not verify new binary. Check the installed version.");
         }),
       );
     });

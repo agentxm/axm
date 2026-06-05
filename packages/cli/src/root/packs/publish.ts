@@ -42,7 +42,12 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import { publishHook, type PublishHookOperation } from "@agentxm/client-core/unstable/hooks";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  forceFlag,
+  previewFlag,
+  Verbosity,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
@@ -162,6 +167,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const renderer = yield* CliRenderer;
+  const verbosity = yield* Verbosity;
   const base = ws.baseDir;
 
   // Capture services for run closures
@@ -203,8 +209,8 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
           detail: `Pack "${args.pack}" is not installed in this workspace`,
           suggestions: [
             {
-              description:
-                "Use the fully-qualified name `@owner/packs/name`, or run `axm packs new ${args.pack}` to create it first.",
+              description: "Use a fully-qualified pack name, or create the pack first.",
+              cmd: `axm packs new ${args.pack}`,
             },
           ],
         });
@@ -234,51 +240,44 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   const fqn = yield* Result.mapError(parseFqn(packName), fqnInvalidErrorToAppError);
 
   // Step 2: Validate managed pack exists
-  const manifestPath = yield* renderer.withSpinner(
-    "Validating pack...",
-    () =>
-      Effect.gen(function* () {
-        const packDir = computePackPaths(path.join, base, fqn.owner, fqn.name).canonicalPath;
-        const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
+  const manifestPath = yield* Effect.gen(function* () {
+    const packDir = computePackPaths(path.join, base, fqn.owner, fqn.name).canonicalPath;
+    const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
-        if (!packDirExists) {
-          return yield* makeAppError({
-            code: "not_found",
-            detail: `Managed pack not found: ${packName}`,
-            suggestions: [
-              {
-                description:
-                  "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
-              },
-            ],
-          });
-        }
+    if (!packDirExists) {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Managed pack not found: ${packName}`,
+        suggestions: [
+          {
+            description: "Only managed packs in `.axm/extensions/` can be published.",
+            cmd: "axm packs new <name>",
+          },
+        ],
+      });
+    }
 
-        // Validate manifest exists
-        const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
-        const manifestExists = yield* fs
-          .exists(manifestPath)
-          .pipe(Effect.orElseSucceed(() => false));
+    const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
+    const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
 
-        if (!manifestExists) {
-          return yield* makeAppError({
-            code: "not_found",
-            detail: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
-            suggestions: [
-              {
-                description: `Ensure the pack has a valid ${PACK_MANIFEST_FILENAME} manifest.`,
-              },
-            ],
-          });
-        }
+    if (!manifestExists) {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
+        suggestions: [
+          {
+            description: `Ensure the pack has a valid ${PACK_MANIFEST_FILENAME} manifest.`,
+          },
+        ],
+      });
+    }
 
-        return manifestPath;
-      }),
-    { successMessage: `Validated ${packName}` },
-  );
+    return manifestPath;
+  });
 
   // Step 3: Discover local dependencies (when --include-dependencies)
   const dependencySteps: PlannedJobStep[] = [];
+  const skippedDependencySteps: PlannedJobStep[] = [];
   const versionTargets: PublishVersionTarget[] = [{ fqn: packName, type: "pack" }];
 
   if (args.includeDependencies) {
@@ -355,29 +354,37 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
             );
             dependencySteps.push(step);
           } else {
-            yield* renderer.warn(`Skipping non-local dependency: ${depFqn}`);
+            skippedDependencySteps.push({
+              readiness: "ready",
+              label: `Skip ${depFqn}`,
+              run: Effect.succeed({
+                result: "success",
+                message: `Skipped non-local dependency: ${depFqn}`,
+                artifact: {
+                  path: depFqn,
+                  scope: ws.scope,
+                  change: "unchanged",
+                  targets: [{ path: depFqn, change: "unchanged" }],
+                },
+              } satisfies JobStepResult),
+            });
           }
         }),
       { concurrency: "unbounded" },
     );
   }
 
-  yield* renderer.withSpinner(
-    "Checking published versions...",
-    () =>
-      Effect.forEach(
-        versionTargets,
-        (target) =>
-          checkPublishVersionPreflight({
-            fqn: target.fqn,
-            type: target.type,
-            registryName: targetRegistry.registryName,
-            registryUrl: targetRegistry.registryUrl,
-            force: args.force,
-          }),
-        { concurrency: "unbounded" },
-      ),
-    { successMessage: "Version check complete" },
+  yield* Effect.forEach(
+    versionTargets,
+    (target) =>
+      checkPublishVersionPreflight({
+        fqn: target.fqn,
+        type: target.type,
+        registryName: targetRegistry.registryName,
+        registryUrl: targetRegistry.registryUrl,
+        force: args.force,
+      }),
+    { concurrency: "unbounded" },
   );
 
   // Step 4: Build plan with inline run closures
@@ -396,9 +403,9 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   };
 
   const jobs: ReadonlyArray<Job> =
-    dependencySteps.length > 0
+    dependencySteps.length > 0 || skippedDependencySteps.length > 0
       ? [
-          { steps: dependencySteps, concurrency: "unbounded" as const },
+          { steps: [...dependencySteps, ...skippedDependencySteps], concurrency: "unbounded" },
           { steps: [packStep], concurrency: 1 as const },
         ]
       : [{ steps: [packStep], concurrency: 1 as const }];
@@ -414,6 +421,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    displayApplied: false,
   });
 
   if (resolvedPlan._tag === "ExecutedPlan") {
@@ -446,12 +454,25 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       }),
     ),
   );
-  yield* emitPlanResolutionResult("packs.publish", resolvedPlan);
-
-  const success = publishSuccessRender(resolvedPlan);
-  yield* renderer.success(success.message, {
-    ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+  const success =
+    resolvedPlan._tag === "ExecutedPlan" ? publishSuccessRender(resolvedPlan) : undefined;
+  const emitted = yield* emitPlanResolutionResult("packs.publish", resolvedPlan, {
+    ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
   });
+  if (emitted) {
+    return;
+  }
+
+  if (success !== undefined) {
+    yield* renderer.success(
+      success.message,
+      verbosity.level === "quiet"
+        ? undefined
+        : {
+            ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+          },
+    );
+  }
 });
 
 /** Create a per-type publish dependency step from a parsed FQN. */

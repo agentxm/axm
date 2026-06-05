@@ -4,6 +4,8 @@ export interface EntityView<T extends object> {
   readonly list?: {
     readonly columns: TableView<T>["columns"];
     readonly emptyMessage?: string;
+    readonly singularLabel?: string;
+    readonly pluralLabel?: string;
   };
   readonly detail?: {
     readonly fields: DetailView<T>["fields"];

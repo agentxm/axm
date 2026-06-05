@@ -127,6 +127,7 @@ export interface TreeDef<T> {
 export interface ListPayload<T extends object> extends SuccessOptions {
   readonly items: ReadonlyArray<T>;
   readonly count?: number;
+  readonly emptyMessage?: string;
 }
 
 export interface DetailOptions extends SuggestionOptions {

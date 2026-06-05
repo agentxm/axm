@@ -5,6 +5,7 @@ import {
   summarizeCommandOutcome,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
@@ -40,7 +41,10 @@ import {
   type RootInstallableType,
 } from "./resolve-root-install-intent.js";
 import { handleWorkspaceInstall } from "./workspace-install-handler.js";
-import { runFilesWorkspaceGeneratorPhase } from "../files/workspace-generator-phase.js";
+import {
+  mergePlanResolution,
+  runFilesWorkspaceGeneratorPhase,
+} from "../files/workspace-generator-phase.js";
 
 export interface RootInstallFlags {
   readonly yes: boolean;
@@ -195,17 +199,21 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
           return;
         }
         const resolution = yield* runRegistryInstallIntent(intent, args);
+        let outputResolution: PlanResolution = resolution;
         if (!args.preview && (intent.type === "files" || intent.type === "pack")) {
-          yield* runFilesWorkspaceGeneratorPhase({ dryRun: false });
+          const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
+            dryRun: false,
+          });
+          outputResolution = mergePlanResolution(resolution, workspaceGeneratorResolution);
         }
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
-            planResolutionToSummary(resolution, {
+            planResolutionToSummary(outputResolution, {
               subjectType: intent.type,
               sourceKind: "registry",
             }),
           ),
         );
-        yield* emitPlanResolutionResult("install", resolution);
+        yield* emitPlanResolutionResult("install", outputResolution);
       }),
   });

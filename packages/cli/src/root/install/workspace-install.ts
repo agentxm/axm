@@ -96,9 +96,9 @@ export type WorkspaceInstallPlanResult =
 
 const noConfiguredMessage = (type: Option.Option<WorkspaceInstallableType>): string =>
   Option.match(type, {
-    onNone: () => "No configured extensions. Nothing to install.",
+    onNone: () => "No configured extensions.",
     onSome: (value) =>
-      `No configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(value)]}. Nothing to install.`,
+      `No configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(value)]}.`,
   });
 
 const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>

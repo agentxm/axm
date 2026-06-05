@@ -28,7 +28,7 @@ import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { JobStepResult, Operation } from "../../plan/plan.js";
+import type { JobStepArtifact, JobStepResult, Operation } from "../../plan/plan.js";
 import {
   validateCommandManifestHasNoAgentOverridesField,
   validateManifestHasNoAgentsField,
@@ -60,6 +60,18 @@ export type PublishCommandOperation = Operation<"publish-command", PublishComman
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
+
+const publishArtifact = (args: {
+  readonly path: string;
+  readonly scope: JobStepArtifact["scope"];
+  readonly version: string;
+}): JobStepArtifact => ({
+  path: args.path,
+  scope: args.scope,
+  version: args.version,
+  change: "created",
+  targets: [{ path: args.path, change: "created" }],
+});
 
 /**
  * Publish-command operation handler.
@@ -207,10 +219,16 @@ export const publishCommand: (
       archive,
       metadata: versionEntry,
     });
+    const publishedPath = response.links?.html ?? `${op.args.name}@${manifest.version}`;
 
     return {
       result: "success",
       message: `Published ${op.args.name}@${manifest.version}`,
+      artifact: publishArtifact({
+        path: publishedPath,
+        scope: ws.scope,
+        version: manifest.version,
+      }),
       ...(response.links !== undefined ? { links: response.links } : {}),
     } satisfies JobStepResult;
   });

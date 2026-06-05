@@ -3,8 +3,8 @@ import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -23,7 +23,13 @@ import {
   type RegistryFilesRef,
 } from "@agentxm/client-core/unstable/files";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+  PlanResolution,
+} from "@agentxm/client-core/unstable/plan";
+import type { FilesLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -33,6 +39,78 @@ import {
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { joinDisplayPath } from "../shared/display-path.js";
+import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
+
+const filesLockEntryVersion = (entry: FilesLockEntry): string | undefined =>
+  entry.type === "registry" ? entry.resolvedVersion : undefined;
+
+const filesNewArtifactTargets = (lockEntry: FilesLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
+  [...(lockEntry.materializedTargets ?? [])]
+    .sort((left, right) => left.target.localeCompare(right.target))
+    .map((target) => ({
+      path: target.target,
+      change: "created",
+    }));
+
+const filesNewArtifact = (args: {
+  readonly lockEntry: FilesLockEntry;
+  readonly canonicalPath: string;
+  readonly workspaceRoot: string;
+  readonly scope: JobStepArtifact["scope"];
+  readonly pathService: Path.Path;
+}): JobStepArtifact => {
+  const targets = filesNewArtifactTargets(args.lockEntry);
+  const version = filesLockEntryVersion(args.lockEntry);
+  const sourcePath = args.pathService.relative(args.workspaceRoot, args.canonicalPath);
+
+  return {
+    path: sourcePath,
+    scope: args.scope,
+    ...(version === undefined ? {} : { version }),
+    change: "created",
+    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+  };
+};
+
+const filesNewArtifactOutput = (
+  resolution: PlanResolution,
+): { readonly targetPhrase: string; readonly summary: string } | undefined => {
+  if (resolution._tag !== "ExecutedPlan") return undefined;
+
+  for (const job of resolution.jobs) {
+    for (const step of job.steps) {
+      if (step.result.result !== "success" || step.result.artifact === undefined) continue;
+
+      const artifact = step.result.artifact;
+      return {
+        targetPhrase: filesNewTargetPhrase(artifact),
+        summary: filesNewArtifactSummary(artifact),
+      };
+    }
+  }
+
+  return undefined;
+};
+
+const filesNewTargetPhrase = (artifact: JobStepArtifact): string => {
+  if (artifact.targets !== undefined && artifact.targets.length > 0) {
+    return ` with ${count(artifact.targets.length, "target")}`;
+  }
+  return "";
+};
+
+const filesNewArtifactSummary = (artifact: JobStepArtifact): string => {
+  const targetSummary =
+    artifact.targets !== undefined && artifact.targets.length > 0
+      ? `-> ${count(artifact.targets.length, "target")}`
+      : `-> ${artifact.path}`;
+  const details = [
+    artifact.version,
+    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  return details.length === 0 ? targetSummary : `${targetSummary}   ${details.join(" | ")}`;
+};
 
 export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
   readonly name: string;
@@ -41,7 +119,6 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
   readonly force: boolean;
   readonly preview: boolean;
 }) {
-  const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const ws = yield* WorkspaceMutations;
@@ -59,6 +136,20 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
     FILES_EXTENSION_DIR,
     name,
   );
+  const dirExists = yield* fs.exists(targetDir).pipe(Effect.orElseSucceed(() => false));
+
+  if (dirExists && !args.force) {
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Managed files package directory already exists: ${targetDir}`,
+      suggestions: [
+        {
+          description: "Choose a different name or remove the existing directory first",
+        },
+      ],
+    });
+  }
+
   const manifest: FilesManifest = {
     $schema: FILES_MANIFEST_SCHEMA_URL,
     owner,
@@ -98,6 +189,25 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
             versionRange: Option.none(),
             label: fqn,
             message: `Created ${fqn}`,
+            buildArtifact: () =>
+              Effect.gen(function* () {
+                const currentLockEntry = yield* ws.getLockedFilesEntry(name);
+                if (Option.isNone(currentLockEntry)) {
+                  return yield* makeAppError({
+                    code: "internal",
+                    detail: `Created files package ${fqn} but could not read its lockfile entry`,
+                    suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
+                  });
+                }
+
+                return filesNewArtifact({
+                  lockEntry: currentLockEntry.value,
+                  canonicalPath: targetDir,
+                  workspaceRoot: ws.baseDir,
+                  scope: ws.scope,
+                  pathService: path,
+                });
+              }),
             markAuthored: ws.setFilesEntry(name, {
               source: fqn,
               enabled: true,
@@ -153,19 +263,33 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
     ],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    displayApplied: false,
+  });
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "files", name, "src", "README.md")}\` to update files content`,
     },
   ];
+  const artifactOutput = filesNewArtifactOutput(resolution);
   const emitted = yield* emitPlanResolutionResult(
     "files.new",
     resolution,
-    resolution._tag === "ExecutedPlan" ? { summary: `Created ${fqn}`, suggestions } : undefined,
+    resolution._tag === "ExecutedPlan"
+      ? {
+          summary: `Created files package ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
+          suggestions,
+        }
+      : undefined,
   );
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created ${fqn}`, { suggestions, withoutSuggestions: emitted });
+    yield* emitScaffoldSuccess({
+      message: `Created files package ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
+      ...(artifactOutput === undefined ? {} : { summary: artifactOutput.summary }),
+      suggestions,
+      withoutSuggestions: emitted,
+    });
   }
 });
 

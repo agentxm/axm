@@ -456,7 +456,9 @@ describe("packs install handler", () => {
           options.type === "pack" ? Effect.succeed([packRef]) : Effect.succeed([]),
       };
 
-      const { provide, logs } = makeLayersWithMockSources(mockService);
+      const { provide, logs, rendererState } = makeLayersWithMockSources(mockService, {
+        verbose: true,
+      });
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [
           {
@@ -497,10 +499,12 @@ describe("packs install handler", () => {
             ...logs.warn,
             ...logs.success,
             ...logs.error,
+            ...rendererState.summaries,
+            JSON.stringify(rendererState.results.map((result) => result.data)),
           ].join("\n");
           // The shared workflow always builds install plan steps
           expect(allLogs).toContain("my-pack");
-          expect(allLogs).toMatch(/1 (to apply|applied|failed)/);
+          expect(allLogs).toContain('"totalSteps":1');
         }),
       );
     });
@@ -527,8 +531,7 @@ describe("packs install handler", () => {
             }).pipe(Effect.flip),
           );
           expect(error.code).toBe("validation");
-          expect(rendererState.spinnerMessages).toContain("Parsing source...");
-          expect(rendererState.spinnerMessages).toContain("Failed");
+          expect(rendererState.spinnerMessages).toEqual([]);
         }),
       );
     });
@@ -745,7 +748,7 @@ describe("packs install handler", () => {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
-      const { provide, logs } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService, { verbose: true });
 
       return provide(
         Effect.gen(function* () {
@@ -887,7 +890,9 @@ describe("packs install handler", () => {
         },
       });
 
-      const { provide, logs } = makeLayersWithMockSources(mockService);
+      const { provide, logs, rendererState } = makeLayersWithMockSources(mockService, {
+        verbose: true,
+      });
 
       return provide(
         Effect.gen(function* () {
@@ -903,10 +908,12 @@ describe("packs install handler", () => {
             ...logs.success,
             ...logs.warn,
             ...logs.error,
+            ...rendererState.summaries,
+            JSON.stringify(rendererState.results.map((result) => result.data)),
           ].join("\n");
           // New shared workflow always creates install steps
           expect(allLogs).toContain("test-pack");
-          expect(allLogs).toMatch(/1 (to apply|applied|failed)/);
+          expect(allLogs).toContain('"totalSteps":1');
         }),
       );
     });
@@ -975,7 +982,7 @@ describe("packs install handler", () => {
         ],
       });
 
-      const { provide, logs } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService, { verbose: true });
 
       return provide(
         Effect.gen(function* () {
@@ -986,7 +993,9 @@ describe("packs install handler", () => {
           });
           expect(attemptedRemote).toBe(true);
           expect(attemptedFile).toBe(true);
-          expect(logs.info).toContain("Registry source: local (file:///tmp/reg)");
+          expect(
+            logs.info.some((line) => line.includes("Registry source: local (file:///tmp/reg)")),
+          ).toBe(true);
         }),
       );
     });
@@ -1026,7 +1035,7 @@ describe("packs install handler", () => {
         ],
       });
 
-      const { provide, logs } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService, { verbose: true });
 
       return provide(
         Effect.gen(function* () {
@@ -1036,7 +1045,11 @@ describe("packs install handler", () => {
             preview: false,
           });
 
-          expect(logs.info).toContain("Source resolution: effect -> @axm/packs/effect");
+          expect(
+            logs.info.some((line) =>
+              line.includes("Source resolution: effect -> @axm/packs/effect"),
+            ),
+          ).toBe(true);
           expect(
             logs.info.some(
               (line) =>
@@ -1130,7 +1143,7 @@ describe("packs install handler", () => {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
-      const { provide, logs } = makeLayersWithMockSources(mockService);
+      const { provide, logs, rendererState } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
@@ -1146,6 +1159,8 @@ describe("packs install handler", () => {
             ...logs.success,
             ...logs.warn,
             ...logs.error,
+            ...rendererState.summaries,
+            JSON.stringify(rendererState.results.map((result) => result.data)),
           ].join("\n");
           // Plan should include the pack and all extension steps
           expect(allLogs).toContain("multi-pack");
@@ -1229,7 +1244,7 @@ describe("packs install handler", () => {
         },
       });
 
-      const { provide, logs } = makeLayersWithMockSources(mockService);
+      const { provide, logs, rendererState } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
@@ -1245,11 +1260,13 @@ describe("packs install handler", () => {
             ...logs.success,
             ...logs.warn,
             ...logs.error,
+            ...rendererState.summaries,
+            JSON.stringify(rendererState.results.map((result) => result.data)),
           ].join("\n");
           // Dependency extensions are included in the install plan
           expect(allLogs).toContain("existing-skill");
           expect(allLogs).toContain("existing-cmd");
-          expect(allLogs).toMatch(/3 (to apply|applied|failed)/);
+          expect(allLogs).toContain('"totalSteps":3');
         }),
       );
     });
@@ -1385,7 +1402,7 @@ describe("packs install handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("--force propagation", () => {
-    it.effect("--force in workspace options downgrades plan errors to warnings", () => {
+    it.effect("--force in workspace options applies and reports plan errors structurally", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -1413,9 +1430,14 @@ describe("packs install handler", () => {
             force: true,
             preview: false,
           });
-          // --force downgrades errors to warnings and proceeds
-          expect(logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
+          expect(logs.warn).toEqual([]);
           expect(result._tag).toBe("ExecutedPlan");
+          if (result._tag === "ExecutedPlan") {
+            expect(result.jobs[0]?.steps[0]).toMatchObject({
+              label: "test-step",
+              result: { result: "error", message: "Test error step" },
+            });
+          }
         }),
       );
     });

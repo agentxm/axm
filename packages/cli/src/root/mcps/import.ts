@@ -5,11 +5,19 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { AGENTS_BY_ID, type AgentId } from "@agentxm/client-core/unstable/agent-capabilities";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  forceFlag,
+  previewFlag,
+  Verbosity,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
+  type CompletedJobStep,
+  type ExecutedPlan,
+  type JobStepArtifact,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
@@ -22,6 +30,7 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 export interface McpsImportArgs {
   readonly yes: boolean;
@@ -249,7 +258,7 @@ const makePlan = (
     {
       concurrency: 1,
       steps: servers.map<PlannedJobStep>((server) => ({
-        label: `Import ${server.name}`,
+        label: server.name,
         readiness: "ready",
         run: ws
           .setMcpServer({
@@ -262,6 +271,7 @@ const makePlan = (
             Effect.as({
               result: "success",
               message: `Imported ${server.name}`,
+              artifact: importArtifact(ws.scope, server.name),
             } satisfies JobStepResult),
           ),
       })),
@@ -269,21 +279,89 @@ const makePlan = (
   ],
 });
 
+const importArtifact = (scope: "project" | "user", name: string): JobStepArtifact => ({
+  path: `.axm/settings.json:mcpServers.${name}`,
+  scope,
+  change: "created",
+  fileCount: 2,
+  targets: [{ path: ".axm (config/lockfile)", change: "updated" }],
+});
+
+const formatArtifactTargets = (artifact: JobStepArtifact): string => {
+  if (artifact.targets === undefined || artifact.targets.length === 0) {
+    return artifact.path;
+  }
+  return artifact.targets.map((target) => `${target.path} (${target.change})`).join(", ");
+};
+
+const formatCompletedArtifactStep = (step: CompletedJobStep): string | undefined => {
+  if (step.result.result !== "success" || step.result.artifact === undefined) return undefined;
+  const artifact = step.result.artifact;
+  const details = [
+    artifact.change,
+    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
+    formatArtifactTargets(artifact),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+  return `${step.label}   ${details.join("   ")}`;
+};
+
+const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
+  const rows = plan.jobs
+    .flatMap((job) => job.steps)
+    .flatMap((step) => {
+      const summary = formatCompletedArtifactStep(step);
+      return summary === undefined ? [] : [summary];
+    });
+  return rows.length === 0 ? undefined : rows.join("\n");
+};
+
 export const handleMcpsImport = Effect.fn("Mcps.import")(function* (args: McpsImportArgs) {
-  const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const servers = yield* collectImportableServers(ws, fs, path);
 
   if (servers.length === 0) {
-    yield* renderer.success("No unmanaged MCP servers to import.");
+    yield* emitNoOpOutcome("mcps.import", {
+      planName: "Import MCP servers",
+      message: "No unmanaged MCP servers imported.",
+      withoutSuggestions: true,
+    });
     return;
   }
 
   const plan = makePlan(servers, ws);
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
-  yield* emitPlanResolutionResult("mcps.import", resolution);
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    displayApplied: false,
+  });
+  const summary =
+    resolution._tag === "ExecutedPlan" ? summarizeExecutedArtifacts(resolution) : undefined;
+  const suggestions = [
+    { description: "Inspect MCP servers", cmd: "axm mcps list" },
+    ...(servers.length === 1
+      ? [{ description: "Undo", cmd: `axm mcps uninstall ${servers[0]?.name ?? ""}` }]
+      : []),
+  ];
+  const resultOptions = summary === undefined ? { suggestions } : { summary, suggestions };
+  const emitted = yield* emitPlanResolutionResult(
+    "mcps.import",
+    resolution,
+    resolution._tag === "ExecutedPlan" ? resultOptions : undefined,
+  );
+
+  if (resolution._tag === "ExecutedPlan") {
+    const renderer = yield* CliRenderer;
+    const verbosity = yield* Verbosity;
+    const successOptions =
+      summary === undefined
+        ? { suggestions, withoutSuggestions: emitted }
+        : { summary, suggestions, withoutSuggestions: emitted };
+    yield* renderer.success(
+      `Imported ${count(servers.length, "MCP server")}`,
+      verbosity.level === "quiet" ? undefined : successOptions,
+    );
+  }
 });
 
 const importConfig = {

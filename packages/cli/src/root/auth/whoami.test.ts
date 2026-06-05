@@ -14,6 +14,7 @@ import {
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { handleWhoami } from "./whoami.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -101,7 +102,7 @@ describe("auth whoami handler", () => {
         expect(result).toMatchObject({
           error: true,
           code: "auth",
-          guidance: "Set the AXM_TOKEN environment variable instead of running `axm login`.",
+          guidance: "Set the AXM_TOKEN environment variable for non-interactive auth.",
         });
       }),
     );
@@ -134,6 +135,7 @@ describe("auth whoami handler", () => {
             registry: REGISTRY_URL,
           },
         });
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
         expect(rendererState.logs).toHaveLength(0);
       }),
     );

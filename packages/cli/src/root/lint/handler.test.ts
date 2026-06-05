@@ -46,6 +46,7 @@ import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-
 import { InstallRuleCommandWorkflowActionsLive } from "../rules/install/command-actions.js";
 import { InstallSkillCommandWorkflowActionsLive } from "../skills/install/command-actions.js";
 import { InstallSubagentCommandWorkflowActionsLive } from "../subagents/install/command-actions.js";
+import { expectAppliedPlanResult, planResultSteps } from "../../test-helpers.js";
 import { handleLint, resolveLintRoot } from "./handler.js";
 
 describe("axm lint handler", () => {
@@ -69,12 +70,12 @@ describe("axm lint handler", () => {
     fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(contents, null, 2));
   };
 
-  const makeLayers = (opts?: { machine?: boolean }) => {
+  const makeLayers = (opts?: { machine?: boolean; quiet?: boolean }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const baseLayer = Layer.mergeAll(
       NodeServices.layer,
       renderer.layer,
-      TestFlagsLayer({ nonInteractive: true }),
+      TestFlagsLayer({ nonInteractive: true, quiet: opts?.quiet ?? false }),
     );
     const wsOptions: WorkspaceMutationsOptions = { scope: "project" };
     const wsLayer = Layer.provide(coreWorkspaceLayer({ ...wsOptions }), baseLayer);
@@ -273,9 +274,28 @@ describe("axm lint handler", () => {
         yield* lint({}).pipe(Effect.exit);
         const logs = logsByTag(rendererState);
         // Section headers render via step()
-        expect(logs.step.some((m) => m.includes("Auto-fixable (run `axm lint --fix`)"))).toBe(true);
-        // Footer renders via message()
-        expect(logs.message).toContain("More output: `axm lint --details` | `axm lint --json`");
+        expect(logs.step.some((m) => m.includes("Auto-fixable"))).toBe(true);
+        expect(logs.step.some((m) => m.includes("axm lint --fix"))).toBe(false);
+        expect(logs.message).not.toContain("More output: `axm lint --details` | `axm lint --json`");
+        expect(rendererState.suggestions).toEqual([
+          {
+            description: "Apply auto-fixable lint findings",
+            cmd: "axm lint --fix",
+          },
+          {
+            description: "Show detailed lint output",
+            cmd: "axm lint --details",
+          },
+          {
+            description: "Show machine-readable lint output",
+            cmd: "axm lint --json",
+          },
+          {
+            description: "Install configured missing content",
+            cmd: "axm install demo",
+          },
+        ]);
+        expect(logs.message.some((message) => message.includes("axm install demo"))).toBe(false);
         // Rule lines always present
         expect(logs.message).toContain("  rule: workspace/lockfile-valid (auto-fixable)");
         expect(logs.message).toContain("  rule: workspace/skills-artifacts-correct (auto-fixable)");
@@ -302,6 +322,25 @@ describe("axm lint handler", () => {
         // Diagnostic headers always show location
         expect(logs.error.some((message) => message.includes("./.axm/axm-lock.yaml"))).toBe(true);
         expect(logs.error.some((message) => message.includes("./.axm/settings.json"))).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("quiet mode emits only the lint summary", () => {
+    const { provide, rendererState } = makeLayers({ quiet: true });
+    writeSettings({
+      agents: ["claude-code"],
+      skills: { demo: "@acme/skills/demo@1.0.0" },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({}).pipe(Effect.exit);
+        const logs = logsByTag(rendererState);
+        expect(logs.error.some((message) => message.includes("issues."))).toBe(true);
+        expect(logs.step).toEqual([]);
+        expect(logs.message).toEqual([]);
+        expect(rendererState.suggestions).toEqual([]);
       }),
     );
   });
@@ -362,6 +401,50 @@ describe("axm lint handler", () => {
             path.join(tempDir, ".axm", "extensions", "external", "skills", "demo", "SKILL.md"),
           ),
         ).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("--fix emits a plan-shaped machine result and preserves the lint report", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const skillRoot = path.join(tempDir, "source-skills");
+    const skillDir = path.join(skillRoot, "demo");
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(skillDir, "SKILL.md"),
+      '---\nname: "demo"\ndescription: "Test skill"\n---\n\n# demo\n',
+    );
+    writeSettings({
+      agents: ["claude-code"],
+      skills: { demo: skillRoot },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({ fix: true }).pipe(Effect.exit);
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Lint autofix",
+          totalSteps: 2,
+          appliedCount: 2,
+        });
+        expect(rendererState.results[0]?.data).toMatchObject({
+          data: {
+            findings: expect.any(Array),
+            summary: expect.objectContaining({
+              total: expect.any(Number),
+            }),
+            fix: expect.objectContaining({
+              attempted: expect.any(Number),
+              applied: expect.any(Number),
+              failed: expect.any(Number),
+            }),
+          },
+        });
+        expect(planResultSteps(result)).toEqual([
+          expect.objectContaining({ status: "applied" }),
+          expect.objectContaining({ status: "applied" }),
+        ]);
+        expect(rendererState.logs).toEqual([]);
       }),
     );
   });

@@ -132,11 +132,12 @@ describe("applyPlan", () => {
       expect(result.result).toBe("error");
       if (result.result === "error") {
         expect(result.error.code).toBe("internal");
+        expect(result.message).toBe("Failed bad (internal)");
       }
     }),
   );
 
-  it.effect("executes warn steps via their run closures (applyPlan does not gate warns)", () =>
+  it.effect("executes warn steps and carries readiness warning on the result", () =>
     Effect.gen(function* () {
       const executed = yield* applyPlan(
         makePlan({
@@ -153,7 +154,7 @@ describe("applyPlan", () => {
       expect(steps).toHaveLength(1);
       expect(steps[0]).toMatchObject({
         label: "cautious",
-        result: { result: "success", message: "Done cautious" },
+        result: { result: "success", message: "Done cautious", warnings: ["may conflict"] },
       });
     }),
   );

@@ -605,15 +605,17 @@ export const FilesManagerLive = Layer.effect(
         versionRange,
       }) {
         const lockEntry = yield* buildLockEntry(ref);
-        const source =
-          ref.refType === "registry"
-            ? (() => {
-                const fqn = formatFqn({ owner: ref.owner, type: "files", name: ref.file.name });
-                return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
-              })()
-            : printSourceParams(lockEntryToSourceParams(lockEntry));
         const entries = yield* ws.getConfiguredFilesEntries();
         const current = entries[ref.file.name];
+        const source =
+          current?.authored === true
+            ? current.source
+            : ref.refType === "registry"
+              ? (() => {
+                  const fqn = formatFqn({ owner: ref.owner, type: "files", name: ref.file.name });
+                  return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                })()
+              : printSourceParams(lockEntryToSourceParams(lockEntry));
         yield* ws.setFilesEntry(ref.file.name, {
           source,
           enabled: true,

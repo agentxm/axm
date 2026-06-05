@@ -18,9 +18,13 @@ import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectRecord,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultSteps,
 } from "../../test-helpers.js";
 import { handleHooksNew, type HooksNewHandlerArgs } from "./new.js";
 
@@ -69,8 +73,8 @@ describe("hooks-new.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => {
-    const ctx = makeWorkspaceHandlerTestContext();
+  const makeLayers = (opts?: { readonly machine?: boolean }) => {
+    const ctx = makeWorkspaceHandlerTestContext({ machine: opts?.machine });
     const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
     const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, sourceLayer);
     const fullLayer = Layer.provideMerge(HookManagerLive, workspaceServiceLayer);
@@ -127,6 +131,51 @@ describe("hooks-new.handler", () => {
             {
               description:
                 "Edit `.axm/extensions/@acme/hooks/tool-audit/src/hook.sh` to implement the hook",
+            },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("emits scaffold plan JSON with artifact in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleHooksNew(defaultArgs("machine-hook"));
+
+          expect(logs.success).toEqual([
+            "Created hooks package @acme/hooks/machine-hook with 1 target",
+          ]);
+          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+          const result = expectAppliedPlanResult(renderedResult.data, {
+            planName: "New hook",
+          });
+          const steps = planResultSteps(result);
+          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
+          expect(firstStep).toMatchObject({
+            label: "@acme/hooks/machine-hook",
+            status: "applied",
+            message: "Created hook @acme/hooks/machine-hook",
+            artifact: {
+              path: ".axm/extensions/@acme/hooks/machine-hook",
+              scope: "project",
+              version: "0.1.0",
+              change: "created",
+              fileCount: 1,
+              targets: [
+                {
+                  path: ".claude/settings.json",
+                  change: "created",
+                },
+              ],
+            },
+          });
+          expect(rendererState.suggestions).toEqual([
+            {
+              description:
+                "Edit `.axm/extensions/@acme/hooks/machine-hook/src/hook.sh` to implement the hook",
             },
           ]);
         }),

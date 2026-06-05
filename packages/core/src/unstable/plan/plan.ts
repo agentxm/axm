@@ -57,6 +57,7 @@ export type JobStepResult =
   | {
       readonly result: "success";
       readonly message: string;
+      readonly warnings?: ReadonlyArray<string>;
       readonly links?: { readonly html: string };
       readonly artifact?: JobStepArtifact;
     }
@@ -74,6 +75,7 @@ export interface ReadyJobStep {
   readonly key?: string;
   readonly readiness: "ready";
   readonly label: string;
+  readonly message?: string;
   readonly run: Effect.Effect<JobStepResult, AppError, never>;
 }
 

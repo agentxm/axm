@@ -7,7 +7,12 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  forceFlag,
+  previewFlag,
+  Verbosity,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
@@ -28,11 +33,8 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import {
-  emitNoOpResult,
-  emitPlanResolutionResult,
-  planResolutionToSummary,
-} from "../../json-output.js";
+import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
@@ -54,7 +56,6 @@ interface TargetRegistry {
 const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const renderer = yield* CliRenderer;
 
     const globPatterns = extensions.filter((e) => isGlobPattern(e));
     const literalInputs = extensions.filter((e) => !isGlobPattern(e));
@@ -66,8 +67,6 @@ const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
     const globMatches = expandGlobs(globPatterns, installedNames);
 
     if (globPatterns.length === extensions.length && globMatches.length === 0) {
-      yield* renderer.warn(`No skills matched pattern "${globPatterns.join(", ")}"`);
-      yield* renderer.success("Nothing to publish.");
       return [];
     }
 
@@ -100,7 +99,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
       return yield* makeAppError({
         code: "usage",
         detail: "No registry sources configured",
-        recover: "Add a registry source: `axm sources add <name> <url>`",
+        recover: "Add a registry source.",
         cmd: ADD_REGISTRY_SOURCE.cmd,
       });
     }
@@ -158,21 +157,17 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const renderer = yield* CliRenderer;
+  const verbosity = yield* Verbosity;
 
   const base = ws.baseDir;
 
   // Step 1: Separate glob patterns from literal inputs, expand globs
   const resolvedNames = yield* resolveExtensionInputs(args.extensions);
   if (resolvedNames.length === 0) {
-    if (
-      yield* emitNoOpResult("skills.publish", {
-        planName: "Publish skill",
-        message: "Nothing to publish.",
-      })
-    ) {
-      return;
-    }
-    yield* renderer.info("Nothing to publish.");
+    yield* emitNoOpOutcome("skills.publish", {
+      planName: "Publish skill",
+      message: "No skills matched. No skills published.",
+    });
     return;
   }
 
@@ -214,88 +209,68 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
   });
 
   // Step 3: Validate each extension
-  yield* renderer.withSpinner(
-    "Validating extensions...",
-    () =>
-      Effect.gen(function* () {
-        const fqns = yield* Effect.forEach(extensionNames, (extName) =>
-          Effect.fromResult(Result.mapError(parseFqn(extName), fqnInvalidErrorToAppError)),
-        );
+  yield* Effect.gen(function* () {
+    const fqns = yield* Effect.forEach(extensionNames, (extName) =>
+      Effect.fromResult(Result.mapError(parseFqn(extName), fqnInvalidErrorToAppError)),
+    );
 
-        yield* Effect.forEach(fqns, (fqn, i) => {
-          const extName = extensionNames[i];
-          if (extName === undefined) {
-            return Effect.fail(
-              makeAppError({
-                code: "not_found",
-                detail: `Missing extension name for parsed FQN ${fqn.owner}/skills/${fqn.name}`,
-              }),
-            );
-          }
-          const extensionDir = path.join(
-            base,
-            REGISTRY_EXTENSIONS_DIR,
-            fqn.owner,
-            "skills",
-            fqn.name,
-          );
-
-          return Effect.gen(function* () {
-            const extensionDirExists = yield* fs
-              .exists(extensionDir)
-              .pipe(Effect.orElseSucceed(() => false));
-
-            if (!extensionDirExists) {
-              return yield* makeAppError({
-                code: "not_found",
-                detail: `Managed extension not found: ${extName}`,
-                suggestions: [
-                  {
-                    description: "Only managed extensions in `.axm/extensions/` can be published",
-                  },
-                  SCAFFOLD_MANAGED_SKILL,
-                ],
-              });
-            }
-
-            const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
-            const manifestExists = yield* fs
-              .exists(manifestPath)
-              .pipe(Effect.orElseSucceed(() => false));
-
-            if (!manifestExists) {
-              return yield* makeAppError({
-                code: "not_found",
-                detail: `Missing manifest: ${MANIFEST_FILENAME}`,
-                recover: `Ensure the extension has a valid \`${MANIFEST_FILENAME}\` manifest`,
-              });
-            }
-          });
-        });
-      }),
-    {
-      successMessage: `Validated ${extensionNames.length} ${
-        extensionNames.length === 1 ? "extension" : "extensions"
-      }`,
-    },
-  );
-
-  yield* renderer.withSpinner(
-    "Checking published versions...",
-    () =>
-      Effect.forEach(
-        extensionNames,
-        (extName) =>
-          checkPublishVersionPreflight({
-            fqn: extName,
-            type: "skill",
-            registryName: targetRegistry.registryName,
-            registryUrl: targetRegistry.registryUrl,
-            force: args.force,
+    yield* Effect.forEach(fqns, (fqn, i) => {
+      const extName = extensionNames[i];
+      if (extName === undefined) {
+        return Effect.fail(
+          makeAppError({
+            code: "not_found",
+            detail: `Missing extension name for parsed FQN ${fqn.owner}/skills/${fqn.name}`,
           }),
-        { concurrency: "unbounded" },
-      ),
-    { successMessage: "Version check complete" },
+        );
+      }
+      const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "skills", fqn.name);
+
+      return Effect.gen(function* () {
+        const extensionDirExists = yield* fs
+          .exists(extensionDir)
+          .pipe(Effect.orElseSucceed(() => false));
+
+        if (!extensionDirExists) {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: `Managed extension not found: ${extName}`,
+            suggestions: [
+              {
+                description: "Only managed extensions in `.axm/extensions/` can be published",
+              },
+              SCAFFOLD_MANAGED_SKILL,
+            ],
+          });
+        }
+
+        const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
+        const manifestExists = yield* fs
+          .exists(manifestPath)
+          .pipe(Effect.orElseSucceed(() => false));
+
+        if (!manifestExists) {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: `Missing manifest: ${MANIFEST_FILENAME}`,
+            recover: `Ensure the extension has a valid \`${MANIFEST_FILENAME}\` manifest`,
+          });
+        }
+      });
+    });
+  });
+
+  yield* Effect.forEach(
+    extensionNames,
+    (extName) =>
+      checkPublishVersionPreflight({
+        fqn: extName,
+        type: "skill",
+        registryName: targetRegistry.registryName,
+        registryUrl: targetRegistry.registryUrl,
+        force: args.force,
+      }),
+    { concurrency: "unbounded" },
   );
 
   // Step 4: Build multi-step plan with inline run closures
@@ -347,6 +322,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    displayApplied: false,
   });
 
   const failedStepErrors =
@@ -380,11 +356,24 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
       }),
     ),
   );
-  yield* emitPlanResolutionResult("skills.publish", resolvedPlan);
-  const success = publishSuccessRender(resolvedPlan);
-  yield* renderer.success(success.message, {
-    ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+  const success =
+    resolvedPlan._tag === "ExecutedPlan" ? publishSuccessRender(resolvedPlan) : undefined;
+  const emitted = yield* emitPlanResolutionResult("skills.publish", resolvedPlan, {
+    ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
   });
+  if (emitted) {
+    return;
+  }
+  if (success !== undefined) {
+    yield* renderer.success(
+      success.message,
+      verbosity.level === "quiet"
+        ? undefined
+        : {
+            ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+          },
+    );
+  }
 });
 
 const publishConfig = {

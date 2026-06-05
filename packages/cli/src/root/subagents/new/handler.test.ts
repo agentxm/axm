@@ -19,9 +19,13 @@ import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents"
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { extensionName, writeWorkspaceFiles } from "../../../test-stubs.js";
 import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectRecord,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultSteps,
 } from "../../../test-helpers.js";
 import { handleSubagentsNew, type SubagentsNewHandlerArgs } from "./handler.js";
 
@@ -78,12 +82,8 @@ describe("subagents-new.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (flagsOverrides?: {
-    verbose?: boolean;
-    debug?: boolean;
-    nonInteractive?: boolean;
-  }) => {
-    const ctx = makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+  const makeLayers = (opts?: { readonly machine?: boolean }) => {
+    const ctx = makeWorkspaceHandlerTestContext({ machine: opts?.machine });
     const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive);
     const fullLayer = Layer.provideMerge(SubagentManagerLive, workspaceServiceLayer);
     return {
@@ -161,6 +161,56 @@ describe("subagents-new.handler", () => {
             {
               description:
                 "Edit `.axm/extensions/@acme/subagents/my-subagent/src/my-subagent.md` to fill in instructions",
+            },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("emits scaffold plan JSON with artifact in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: ["claude-code"] });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSubagentsNew(defaultArgs("machine-subagent"));
+
+          expect(logs.success).toEqual(["Created subagent @acme/subagents/machine-subagent"]);
+          expect(rendererState.summaries).toEqual([
+            "-> .axm/extensions/@acme/subagents/machine-subagent   0.0.1 | 2 files",
+          ]);
+          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+          const result = expectAppliedPlanResult(renderedResult.data, {
+            planName: "New subagent",
+          });
+          const steps = planResultSteps(result);
+          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
+          expect(firstStep).toMatchObject({
+            label: "@acme/subagents/machine-subagent",
+            status: "applied",
+            message: "Created subagent @acme/subagents/machine-subagent",
+            artifact: {
+              path: ".axm/extensions/@acme/subagents/machine-subagent",
+              scope: "project",
+              version: "0.0.1",
+              change: "created",
+              fileCount: 2,
+              targets: [
+                {
+                  path: ".axm/extensions/@acme/subagents/machine-subagent/subagent.json",
+                  change: "created",
+                },
+                {
+                  path: ".axm/extensions/@acme/subagents/machine-subagent/src/machine-subagent.md",
+                  change: "created",
+                },
+              ],
+            },
+          });
+          expect(rendererState.suggestions).toEqual([
+            {
+              description:
+                "Edit `.axm/extensions/@acme/subagents/machine-subagent/src/machine-subagent.md` to fill in instructions",
             },
           ]);
         }),
@@ -362,8 +412,8 @@ describe("subagents-new.handler", () => {
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.subagents?.["my-subagent"]).toBeUndefined();
 
-          // Preview log message should appear
-          expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          // Preview outcome should appear
+          expect(logs.info.some((m) => m.includes("Would create 1 subagent"))).toBe(true);
         }),
       );
     });

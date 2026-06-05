@@ -9,7 +9,16 @@ import YAML from "yaml";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectRecord,
+  getAppError,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+  planResultSteps,
+  property,
+} from "../../test-helpers.js";
 import { handleFilesNew } from "./new.js";
 import { afterEach, beforeEach } from "vitest";
 
@@ -45,7 +54,7 @@ describe("files-new.handler", () => {
   };
 
   it.effect("creates files package, registers it, materializes target, and emits edit hint", () => {
-    const { provide, rendererState } = makeLayers();
+    const { provide, logs, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: [] });
 
     return provide(
@@ -95,12 +104,62 @@ describe("files-new.handler", () => {
         expect(fs.readFileSync(path.join(tempDir, "files", "workspace-baseline.md"), "utf-8")).toBe(
           "# workspace-baseline\n",
         );
+        expect(logs.success).toEqual([
+          "Created files package @acme/files/workspace-baseline with 1 target",
+        ]);
+        expect(rendererState.summaries).toEqual(["-> 1 target   0.1.0 | 1 file"]);
         expect(rendererState.suggestions).toEqual([
           {
             description:
               "Edit `.axm/extensions/@acme/files/workspace-baseline/src/README.md` to update files content",
           },
         ]);
+        const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+        const result = expectAppliedPlanResult(renderedResult.data, {
+          planName: "New files",
+        });
+        const steps = planResultSteps(result);
+        const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
+        const artifact = expectRecord(property(firstStep, "artifact"));
+        expect(property(artifact, "path")).toBe(".axm/extensions/@acme/files/workspace-baseline");
+        expect(property(artifact, "version")).toBe("0.1.0");
+        expect(property(artifact, "fileCount")).toBe(1);
+        const targets = property(artifact, "targets");
+        if (!Array.isArray(targets)) {
+          throw new Error("Expected artifact.targets array");
+        }
+        expect(targets.map((target) => property(expectRecord(target), "path"))).toEqual([
+          "files/workspace-baseline.md",
+        ]);
+      }),
+    );
+  });
+
+  it.effect("rejects rerun without --force before reporting success", () => {
+    const { provide } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme", agents: [] });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleFilesNew({
+          name: "workspace-baseline",
+          owner: Option.none(),
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        const error = yield* Effect.flip(
+          handleFilesNew({
+            name: "workspace-baseline",
+            owner: Option.none(),
+            yes: false,
+            force: false,
+            preview: false,
+          }),
+        );
+
+        expect(getAppError(error).code).toBe("conflict");
       }),
     );
   });

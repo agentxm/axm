@@ -12,13 +12,22 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import type { RemoveFromPackOperation } from "@agentxm/client-core/unstable/packs";
 import { removeFromPack } from "@agentxm/client-core/unstable/packs";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
+import {
+  PACK_MANIFEST_FILENAME,
+  PackManifestSchema,
+  packManifestPath,
+} from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import {
+  forceFlag,
+  previewFlag,
+  Verbosity,
+  yesFlag,
+} from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
@@ -52,7 +61,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       detail: `Pack '${args.pack}' not found`,
       suggestions: [
         {
-          description: "Check available packs or create one with `axm packs new`",
+          description: "Create a pack first",
           cmd: "axm packs new <name>",
         },
       ],
@@ -78,7 +87,8 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
                     suggestions: [
                       {
                         description:
-                          "Set `owner` in `.axm/settings.json` (run `axm setup`) before modifying this pack.",
+                          "Set `owner` in `.axm/settings.json` before modifying this pack.",
+                        cmd: "axm setup",
                       },
                     ],
                   }),
@@ -184,14 +194,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const step: PlannedJobStep = {
     readiness: "ready",
     label: args.pack,
-    run: provideServices(removeFromPack(op)).pipe(
-      Effect.map(
-        (result): JobStepResult =>
-          result.result === "error"
-            ? { result: "error", message: result.message, error: result.error }
-            : { result: "success", message: result.message },
-      ),
-    ),
+    run: provideServices(removeFromPack(op)),
   };
 
   const plan: Plan = {
@@ -201,8 +204,38 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
-  yield* emitPlanResolutionResult("packs.remove", resolution);
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    displayApplied: false,
+  });
+  const suggestions = [
+    { description: "Inspect installed packs", cmd: "axm packs list" },
+    {
+      description: "Add to pack",
+      cmd: `axm packs add ${args.pack} <extension>`,
+    },
+  ];
+  const summary = `-> ${packManifestPath(packOwner, args.pack)}   1 file`;
+  const emitted = yield* emitPlanResolutionResult(
+    "packs.remove",
+    resolution,
+    resolution._tag === "ExecutedPlan" ? { summary, suggestions } : undefined,
+  );
+
+  if (resolution._tag === "ExecutedPlan") {
+    const renderer = yield* CliRenderer;
+    const verbosity = yield* Verbosity;
+    yield* renderer.success(
+      `Removed ${count(matchedNames.length, "extension")} from pack ${args.pack}`,
+      verbosity.level === "quiet"
+        ? undefined
+        : {
+            summary,
+            suggestions,
+            withoutSuggestions: emitted,
+          },
+    );
+  }
 });
 
 const removeConfig = {

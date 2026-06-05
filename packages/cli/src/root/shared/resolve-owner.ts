@@ -16,7 +16,8 @@ const makeOwnerRequiredError = (action: string): AppError =>
     suggestions: [
       {
         description:
-          "Set `owner` in `.axm/settings.json` (run `axm setup`), pass an explicit owner flag, or run `axm login`.",
+          "Set `owner` in `.axm/settings.json`, pass an explicit owner flag, or sign in.",
+        cmd: "axm login",
       },
     ],
   });

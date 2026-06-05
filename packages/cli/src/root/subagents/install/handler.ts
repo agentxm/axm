@@ -3,8 +3,10 @@ import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { toPlanResolutionResult } from "../../../json-output.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
+import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
+import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { InstallSubagentCommandWorkflowActions } from "./command-actions.js";
 
 export interface InstallSubagentHandlerArgs {
@@ -27,8 +29,8 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
         detail: "The --all flag requires a source for subagents install",
         suggestions: [
           {
-            description:
-              "Run `axm subagents install <source> --all` or omit --all to install all configured subagents.",
+            description: "Install all subagents from a source, or omit `--all`.",
+            cmd: "axm subagents install <source> --all",
           },
         ],
       });
@@ -40,8 +42,8 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
         detail: "The --subagent flag requires a source for subagents install",
         suggestions: [
           {
-            description:
-              "Run `axm subagents install <source> --subagent <name>` or omit --subagent to install all configured subagents.",
+            description: "Install a named subagent from a source, or omit `--subagent`.",
+            cmd: "axm subagents install <source> --subagent <name>",
           },
         ],
       });
@@ -65,7 +67,27 @@ export const handleInstall = (args: InstallSubagentHandlerArgs, flags: InstallSu
     const resolution = yield* runInstallCommandWorkflow(
       { source: args.source.value, subagents: args.subagents, all: args.all },
       actions,
-      flags,
+      { ...flags, displayApplied: false },
     );
-    yield* emitPlanResolutionResult("subagents.install", resolution);
+    const result = toPlanResolutionResult(resolution);
+    if (result.outcome === "no-op" && result.totalSteps === 0) {
+      yield* emitNoOpOutcome("subagents.install", {
+        planName: result.planName,
+        ...(result.planDescription === undefined
+          ? {}
+          : { planDescription: result.planDescription }),
+        message: "No subagents installed.",
+      });
+      return;
+    }
+
+    yield* emitAppliedPlanOutcome({
+      command: "subagents.install",
+      headline:
+        result.outcome === "no-op"
+          ? unchangedPlanHeadline(resolution, "No subagents installed.")
+          : "Installed subagent " + args.source.value,
+      resolution,
+      suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
+    });
   });

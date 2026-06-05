@@ -9,27 +9,54 @@ import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "../../agents/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
+import type { AgentId } from "../../agents/index.js";
+import type { McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { JobStepResult, Operation } from "../../plan/plan.js";
+import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 
 export type DisableMcpServerOperation = Operation<
   "disable-mcp-server",
   { readonly serverName: string }
 >;
 
+const formatAgentSyncWarnings = (
+  serverName: string,
+  outcomes: ReadonlyArray<McpServerSyncOutcome>,
+): ReadonlyArray<string> => {
+  const warnings = outcomes.filter((outcome) => outcome._tag !== "success");
+  if (warnings.length === 0) return [];
+
+  return [
+    `MCP agent sync warnings for ${serverName}: ${warnings
+      .map((outcome) =>
+        outcome._tag === "fallback"
+          ? `fallback(${outcome.fallbackFrom}):${outcome.reason}`
+          : outcome.reason,
+      )
+      .join(", ")}`,
+  ];
+};
+
+const appendResultWarnings = (message: string, warnings: ReadonlyArray<string>): string =>
+  warnings.length === 0 ? message : `${message}; ${warnings.join("; ")}`;
+
 export const disableMcpServer = (
   op: DisableMcpServerOperation,
 ): Effect.Effect<
   JobStepResult,
   AppError,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository | CliRenderer
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
-    const renderer = yield* CliRenderer;
+    let warnings: ReadonlyArray<string> = [];
+    let syncedAgents: ReadonlyArray<{
+      readonly agentId: AgentId;
+      readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
+    }> = [];
 
     const configured = yield* ws.getConfiguredMcpServerEntries();
     const entry = configured[op.args.serverName];
@@ -54,14 +81,13 @@ export const disableMcpServer = (
           }),
         { concurrency: "unbounded" },
       );
-      const warnings = outcomes.filter((outcome) => outcome._tag !== "success");
-      if (warnings.length > 0) {
-        yield* renderer.warn(
-          `MCP agent sync warnings for ${op.args.serverName}: ${warnings
-            .map((outcome) => outcome.reason)
-            .join(", ")}`,
-        );
-      }
+      syncedAgents = agents.flatMap((agent, index) => {
+        const outcome = outcomes[index];
+        return outcome !== undefined && "targets" in outcome
+          ? [{ agentId: agent.id, targets: outcome.targets }]
+          : [];
+      });
+      warnings = formatAgentSyncWarnings(op.args.serverName, outcomes);
     }
 
     yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
@@ -69,5 +95,14 @@ export const disableMcpServer = (
       enabled: false,
     }));
 
-    return { result: "success", message: `Disabled ${op.args.serverName}` };
+    return {
+      result: "success",
+      message: appendResultWarnings(`Disabled ${op.args.serverName}`, warnings),
+      artifact: mcpServerArtifact({
+        lockEntry: Option.getOrUndefined(lockEntry),
+        scope: ws.scope,
+        change: "updated",
+        targets: [mcpSettingsTarget("updated"), ...agentConfigTargets(syncedAgents)],
+      }),
+    };
   });

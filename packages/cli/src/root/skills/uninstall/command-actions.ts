@@ -14,7 +14,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
@@ -25,14 +25,22 @@ import {
   type InstallableSkillTarget,
 } from "@agentxm/client-core/unstable/skills";
 import {
+  EXTERNAL_EXTENSIONS_DIR,
+  REGISTRY_EXTENSIONS_DIR,
   buildUninstallOperation,
   sanitizeName,
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
+import type { SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { SkillExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepArtifactTarget,
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------
@@ -67,6 +75,22 @@ export class UninstallSkillCommandWorkflowActions extends ServiceMap.Service<
   >
 >()("axm.sh/root/skills/uninstall/command-actions/UninstallSkillCommandWorkflowActions") {}
 
+const skillSourceTarget = (
+  lockEntry: Option.Option<SkillLockEntry>,
+  sanitizedName: string,
+): JobStepArtifactTarget => {
+  if (Option.isSome(lockEntry) && lockEntry.value.type === "registry") {
+    return {
+      path: `${REGISTRY_EXTENSIONS_DIR}/${lockEntry.value.owner}/skills/${lockEntry.value.name}`,
+      change: "removed",
+    };
+  }
+  return {
+    path: `${EXTERNAL_EXTENSIONS_DIR}/skills/${sanitizedName}`,
+    change: "removed",
+  };
+};
+
 // -----------------------------------------------------------------------------
 // Live Layer
 // -----------------------------------------------------------------------------
@@ -79,7 +103,6 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
   UninstallSkillCommandWorkflowActions,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const renderer = yield* CliRenderer;
     const skillMgr = yield* SkillManager;
     const agentRepo = yield* CodingAgentRepository;
     const fs = yield* FileSystem.FileSystem;
@@ -98,8 +121,6 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
 
         // Handle glob matching zero skills
         if (args.skill.includes("*") && skillNames.length === 0) {
-          yield* renderer.warn(`No skills matched pattern "${args.skill}"`);
-          yield* renderer.success("Nothing to uninstall.");
           return { skills: [] } satisfies ParsedSkillUninstallArgs;
         }
 
@@ -168,12 +189,18 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
               }
 
               const sanitizedName = sanitizeName(entry.skillName);
+              const lockEntry = yield* ws.getLockedSkill(entry.skillName);
               const artifact = yield* skillArtifactFromTargets({
                 targets: installableTargets,
                 workspaceRoot: ws.baseDir,
                 sanitizedName,
                 scope: ws.scope,
                 change: "removed",
+                workspaceTargets: [
+                  { path: ".axm/axm-lock.yaml", change: "updated" },
+                  { path: ".axm/settings.json", change: "updated" },
+                  skillSourceTarget(lockEntry, sanitizedName),
+                ],
               }).pipe(
                 Effect.provideService(FileSystem.FileSystem, fs),
                 Effect.provideService(Path.Path, path),
@@ -200,9 +227,11 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
           return {
             _tag: "Plan",
             name:
-              intent.skillsToUninstall.length === 1
-                ? "Uninstall skill"
-                : `Uninstall ${count(intent.skillsToUninstall.length, "skill")}`,
+              intent.skillsToUninstall.length === 0
+                ? "Uninstall skills"
+                : intent.skillsToUninstall.length === 1
+                  ? "Uninstall skill"
+                  : `Uninstall ${count(intent.skillsToUninstall.length, "skill")}`,
             description: Option.none(),
             jobs: [
               {

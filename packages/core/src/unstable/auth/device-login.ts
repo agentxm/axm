@@ -14,6 +14,7 @@ import { normalizeHandle } from "../extensions/handle.js";
 
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
+import { emitLoginSuccess } from "./login-output.js";
 import type { NormalizedTokenResponse } from "./oauth-contract.js";
 
 // -----------------------------------------------------------------------------
@@ -124,7 +125,6 @@ export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptio
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
-    const renderer = yield* CliRenderer;
 
     if (!credStore.allowsPersistedCredentials) {
       return yield* makePersistedCredentialsUnsupportedError();
@@ -136,16 +136,9 @@ export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptio
 
     yield* presentDeviceFlow(deviceFlow.verification_uri, deviceFlow.user_code, options);
 
-    const token = yield* renderer.withSpinner(
-      "Waiting for you to authorize in your browser...",
-      () => authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval),
-    );
+    const token = yield* authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval);
 
     const handle = yield* persistLoginCredentials(registryUrl, token);
 
-    const registryHost = new URL(registryUrl).host;
-    yield* Option.match(handle, {
-      onNone: () => renderer.success(`Logged in to ${registryHost}.`),
-      onSome: (userHandle) => renderer.success(`Logged in to ${registryHost} as ${userHandle}.`),
-    });
+    yield* emitLoginSuccess(registryUrl, handle);
   });

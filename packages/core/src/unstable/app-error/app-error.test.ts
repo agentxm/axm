@@ -54,14 +54,17 @@ describe("AppError", () => {
       code: "internal",
       title: "Internal Error",
       detail: "WorkspaceMutations not initialized",
-      suggestions: [{ description: "Run 'axm setup' to create one." }],
+      suggestions: [{ description: "Create a workspace.", cmd: "axm setup" }],
       cause: new Error("original"),
     });
 
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("internal");
     expect(error.detail).toBe("WorkspaceMutations not initialized");
-    expect(error.suggestions?.[0]?.description).toBe("Run 'axm setup' to create one.");
+    expect(error.suggestions?.[0]).toEqual({
+      description: "Create a workspace.",
+      cmd: "axm setup",
+    });
     expect(error.cause).toBeInstanceOf(Error);
   });
 
@@ -82,13 +85,16 @@ describe("makeAppError", () => {
     const error = makeAppError({
       code: "internal",
       detail: "WorkspaceMutations not initialized",
-      suggestions: [{ description: "Run 'axm setup' to create one." }],
+      suggestions: [{ description: "Create a workspace.", cmd: "axm setup" }],
       cause: new Error("original"),
     });
 
     expect(error._tag).toBe("AppError");
     expect(error.code).toBe("internal");
-    expect(error.suggestions?.[0]?.description).toBe("Run 'axm setup' to create one.");
+    expect(error.suggestions?.[0]).toEqual({
+      description: "Create a workspace.",
+      cmd: "axm setup",
+    });
   });
 
   it("defaults optional fields", () => {

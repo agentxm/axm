@@ -9,6 +9,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { INSTALL_FILES_FROM_REGISTRY } from "../suggested-actions.js";
 
 interface FilesListItem {
   readonly name: string;
@@ -30,6 +31,8 @@ registerEntity<FilesListItem>("files", {
   list: {
     columns: FilesListTable.columns,
     emptyMessage: "No files packages installed",
+    singularLabel: "installed files package",
+    pluralLabel: "installed files packages",
   },
 });
 
@@ -46,11 +49,16 @@ export const handleListFiles = Effect.fn("ListFiles.handle")(function* () {
     locked: locked[name] !== undefined,
   }));
 
-  if (yield* renderer.list("files", { items, count: items.length })) return;
-  if (items.length === 0) {
-    yield* renderer.info("No files packages installed");
+  if (
+    yield* renderer.list("files", {
+      items,
+      count: items.length,
+      suggestions: items.length === 0 ? [INSTALL_FILES_FROM_REGISTRY] : [],
+    })
+  ) {
     return;
   }
+  if (items.length === 0) return;
   yield* renderer.table(items, FilesListTable, "Installed files packages");
 });
 

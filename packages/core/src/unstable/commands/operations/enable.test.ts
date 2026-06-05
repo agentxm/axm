@@ -92,6 +92,13 @@ describe("enableCommand", () => {
 
         expect(result.result).toBe("success");
         expect(result.message).toBe("Enabled my-command");
+        if (result.result === "success") {
+          expect(result.artifact).toEqual({
+            path: ".axm/settings.json",
+            scope: "project",
+            change: "updated",
+          });
+        }
       }),
     );
   });
@@ -124,6 +131,23 @@ describe("enableCommand", () => {
 
         expect(result.result).toBe("success");
         expect(result.message).toBe("Enabled my-command");
+        if (result.result === "success") {
+          expect(result.artifact).toEqual({
+            path: ".claude-code/commands/my-command.md",
+            scope: "project",
+            agents: ["claude-code"],
+            version: "1.0.0",
+            change: "updated",
+            fileCount: 1,
+            targets: [
+              {
+                path: ".claude-code/commands/my-command.md",
+                change: "updated",
+                agentIds: ["claude-code"],
+              },
+            ],
+          });
+        }
         expect(setCommandLockFn).toHaveBeenCalledOnce();
       }),
     );

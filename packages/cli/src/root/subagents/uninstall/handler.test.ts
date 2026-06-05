@@ -21,7 +21,12 @@ import {
   type UninstallSubagentHandlerArgs,
 } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
+  makeEffectProvide,
+  makeWorkspaceHandlerTestContext,
+} from "../../../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -106,8 +111,14 @@ describe("uninstall.handler (subagents)", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (wsOverrides?: Partial<WorkspaceMutationsOptions>) => {
-    const handlerTestContext = makeWorkspaceHandlerTestContext({ wsOptions: wsOverrides });
+  const makeLayers = (options?: {
+    readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
+    readonly machine?: boolean;
+  }) => {
+    const handlerTestContext = makeWorkspaceHandlerTestContext({
+      machine: options?.machine,
+      wsOptions: options?.wsOverrides,
+    });
     const BaseLayer = handlerTestContext.baseLayer;
     const WsLayer = handlerTestContext.wsLayer;
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
@@ -122,7 +133,11 @@ describe("uninstall.handler (subagents)", () => {
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, ActionsLayer);
     const provide = makeEffectProvide(FullLayer);
 
-    return { provide, logs: handlerTestContext.logs };
+    return {
+      provide,
+      logs: handlerTestContext.logs,
+      rendererState: handlerTestContext.rendererState,
+    };
   };
 
   // ---------------------------------------------------------------------------
@@ -131,7 +146,7 @@ describe("uninstall.handler (subagents)", () => {
 
   describe("literal name not in lockfile", () => {
     it.effect("reports a no-op for literal names absent from the lockfile", () => {
-      const { provide } = makeLayers();
+      const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
@@ -145,6 +160,8 @@ describe("uninstall.handler (subagents)", () => {
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.subagents?.["nonexistent"]).toBeUndefined();
+          expect(logs.warn).toEqual([]);
+          expect(logs.success).toEqual(["No subagents uninstalled."]);
         }),
       );
     });
@@ -155,7 +172,7 @@ describe("uninstall.handler (subagents)", () => {
   // ---------------------------------------------------------------------------
 
   describe("glob expansion", () => {
-    it.effect("shows warning when glob matches no subagents", () => {
+    it.effect("reports no-op when glob matches no subagents", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         "my-subagent": makeLockEntry(),
@@ -169,8 +186,31 @@ describe("uninstall.handler (subagents)", () => {
             preview: false,
           });
 
-          expect(logs.warn.some((m) => m.includes("No subagents matched"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to uninstall"))).toBe(true);
+          expect(logs.warn).toEqual([]);
+          expect(logs.success.some((m) => m.includes("No subagents uninstalled"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("emits JSON no-op when glob matches no subagents in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(path.join(tempDir, ".axm"), {
+        "my-subagent": makeLockEntry(),
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstall(defaultArgs("nonexistent-*"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
+
+          expect(logs.warn).toEqual([]);
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Uninstall subagents",
+            message: "No subagents uninstalled.",
+          });
         }),
       );
     });
@@ -208,6 +248,71 @@ describe("uninstall.handler (subagents)", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.subagents?.["my-subagent"]).toBeUndefined();
+        }),
+      );
+    });
+
+    it.effect("emits removed artifact targets in machine mode", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(path.join(tempDir, ".axm"), {
+        "my-subagent": {
+          ...makeLockEntry(),
+          sourceHash: "abc123",
+          renderedFiles: {
+            "claude-code": [{ path: ".claude/agents/my-subagent.md" }],
+          },
+        },
+      });
+      createCanonicalSubagent(tempDir, "my-subagent");
+      const renderedDir = path.join(tempDir, ".claude", "agents");
+      fs.mkdirSync(renderedDir, { recursive: true });
+      fs.writeFileSync(path.join(renderedDir, "my-subagent.md"), "# my-subagent");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstall(defaultArgs("my-subagent"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
+
+          expect(logs.warn).toEqual([]);
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Uninstall subagent",
+          });
+          expect(result).toMatchObject({
+            steps: [
+              {
+                label: "my-subagent",
+                status: "applied",
+                artifact: {
+                  scope: "project",
+                  agents: ["claude-code"],
+                  change: "removed",
+                  fileCount: 4,
+                  targets: [
+                    {
+                      path: ".axm/axm-lock.yaml",
+                      change: "updated",
+                    },
+                    {
+                      path: ".axm/settings.json",
+                      change: "updated",
+                    },
+                    {
+                      path: ".axm/extensions/external/subagents/my-subagent",
+                      change: "removed",
+                    },
+                    {
+                      path: ".claude/agents/my-subagent.md",
+                      change: "removed",
+                      agentIds: ["claude-code"],
+                    },
+                  ],
+                },
+              },
+            ],
+          });
         }),
       );
     });

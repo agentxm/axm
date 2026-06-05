@@ -12,7 +12,15 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectRecord,
+  getAppError,
+  makeWorkspaceHandlerTestContext,
+  planResultSteps,
+  property,
+} from "../../test-helpers.js";
 import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./remove.js";
 
 // -----------------------------------------------------------------------------
@@ -92,7 +100,7 @@ describe("packs-remove.handler", () => {
 
   describe("remove specific extension", () => {
     it.effect("removes a specific extension from the pack manifest", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
@@ -122,8 +130,35 @@ describe("packs-remove.handler", () => {
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
           expect(manifest.dependencies["@acme/skills/linting"]).toBe("^2.0.0");
+          expect(logs.success).toContain("Removed 1 extension from pack frontend-tools");
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
+          expect(rendererState.summaries).toContain(
+            "-> .axm/extensions/@acme/packs/frontend-tools/pack.json   1 file",
+          );
+          expect(rendererState.suggestions).toEqual([
+            { description: "Inspect installed packs", cmd: "axm packs list" },
+            { description: "Add to pack", cmd: "axm packs add frontend-tools <extension>" },
+          ]);
+          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+          const result = expectAppliedPlanResult(renderedResult.data, {
+            planName: "Remove from pack",
+          });
+          const steps = planResultSteps(result);
+          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
+          const artifact = expectRecord(property(firstStep, "artifact"));
+          expect(artifact).toMatchObject({
+            path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
+            scope: "project",
+            change: "updated",
+            fileCount: 1,
+            targets: [
+              {
+                path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
+                change: "updated",
+              },
+            ],
+          });
         }),
       );
     });
@@ -165,8 +200,8 @@ describe("packs-remove.handler", () => {
           expect(manifest.dependencies["@acme/skills/code-review"]).toBe("^1.2.0");
           expect(manifest.dependencies["@acme/skills/linting"]).toBe("^2.0.0");
 
-          // Preview log message should appear
-          expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          // Preview outcome should appear
+          expect(logs.info.some((m) => m.includes("Would remove 1 pack"))).toBe(true);
         }),
       );
     });

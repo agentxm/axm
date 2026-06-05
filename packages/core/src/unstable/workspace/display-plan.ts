@@ -13,6 +13,7 @@ import { CliRenderer } from "../cli-renderer/index.js";
 import { count } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { renderAppError } from "../app-error/index.js";
+import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import type {
   CompletedJobStep,
   ExecutedPlan,
@@ -69,14 +70,31 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
         }
       }
 
-      yield* renderer.info(renderHeading);
+      if (hasFailures) {
+        yield* renderer.error(`${countFailedSteps(allSteps)} failed in ${plan.name}`);
+      } else if (hasLegacySuccessDetail) {
+        yield* renderLegacyExecutedOutcome(allSteps, renderer);
+        if (!verbosity.verbose) {
+          return;
+        }
+      }
+
+      if (verbosity.verbose) {
+        yield* renderer.info(renderHeading);
+      }
       for (const step of allSteps) {
         yield* renderCompletedStep(step, renderer, verbosity);
       }
       yield* renderCompletedSummary(allSteps, renderer);
     } else {
-      yield* renderer.info(renderHeading);
       const allSteps = plan.jobs.flatMap((job) => [...job.steps]);
+      const plannedHeading = renderPlannedHeading(plan, allSteps);
+      yield* renderer.info(
+        verbosity.quiet ? (plannedHeading.split("\n")[0] ?? plannedHeading) : plannedHeading,
+      );
+      if (verbosity.quiet) {
+        return;
+      }
       for (const step of allSteps) {
         yield* renderPlannedStep(step, renderer);
       }
@@ -91,6 +109,61 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
     }
   });
 
+const countFailedSteps = (allSteps: ReadonlyArray<CompletedJobStep>): string => {
+  const failCount = allSteps.filter((step) => step.result.result === "error").length;
+  return count(failCount, "step");
+};
+
+const legacySuccessMessages = (allSteps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<string> =>
+  allSteps.flatMap((step) =>
+    step.result.result === "success" &&
+    step.result.artifact === undefined &&
+    step.result.message.length > 0
+      ? [step.result.message]
+      : [],
+  );
+
+const successMessages = (allSteps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<string> =>
+  allSteps.flatMap((step) =>
+    step.result.result === "success" && step.result.message.length > 0 ? [step.result.message] : [],
+  );
+
+const successWarnings = (allSteps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<string> =>
+  allSteps.flatMap((step) =>
+    step.result.result === "success" && step.result.warnings !== undefined
+      ? step.result.warnings.map((warning) => `${step.label}: ${warning}`)
+      : [],
+  );
+
+const joinSummary = (...parts: ReadonlyArray<string | undefined>): string | undefined => {
+  const present = parts.filter((part): part is string => part !== undefined && part.length > 0);
+  return present.length === 0 ? undefined : present.join("\n");
+};
+
+const renderLegacyExecutedOutcome = (
+  allSteps: ReadonlyArray<CompletedJobStep>,
+  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+) =>
+  Effect.gen(function* () {
+    const messages = legacySuccessMessages(allSteps);
+    if (messages.length === 0) {
+      yield* renderer.success(`Applied ${count(allSteps.length, "step")}`);
+      return;
+    }
+
+    if (messages.length <= 2) {
+      yield* renderer.success(messages.join("; "));
+      return;
+    }
+
+    const skipMessages = messages.filter((message) => message.startsWith("Skipping "));
+    yield* renderer.success(
+      skipMessages.length === 0
+        ? `Applied ${count(messages.length, "change")}`
+        : `Applied ${count(messages.length, "change")}; ${skipMessages.join("; ")}`,
+    );
+  });
+
 const renderSection = (
   section: PlanSection,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
@@ -103,13 +176,51 @@ const renderSection = (
     }
   });
 
+const plannedVerb = (planName: string): string => {
+  const lower = planName.toLowerCase();
+  if (lower.includes("prune")) return "prune";
+  if (lower.includes("unpack")) return "unpack";
+  if (lower.includes("uninstall") || lower.includes("remove")) return "remove";
+  if (lower.includes("disable")) return "disable";
+  if (lower.includes("enable")) return "enable";
+  if (lower.includes("install")) return "install";
+  if (lower.includes("update")) return "update";
+  if (lower.includes("import")) return "import";
+  if (lower.includes("publish")) return "publish";
+  if (lower.includes("create") || lower.includes("new")) return "create";
+  return "apply";
+};
+
+const renderPlannedHeading = (plan: Plan, allSteps: ReadonlyArray<PlannedJobStep>): string => {
+  if (plan.name === "Add MCP server") {
+    const headline = `Would apply ${count(allSteps.length, "change")}`;
+    return Option.match(plan.description, {
+      onNone: () => headline,
+      onSome: (description) => `${headline}\n${description}`,
+    });
+  }
+
+  const type = artifactType(plan.name);
+  const headline = `Would ${plannedVerb(plan.name)} ${count(
+    allSteps.length,
+    type,
+    artifactPluralType(type),
+  )}`;
+  return Option.match(plan.description, {
+    onNone: () => headline,
+    onSome: (description) => `${headline}\n${description}`,
+  });
+};
+
 const renderPlannedStep = (
   step: PlannedJobStep,
   renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
 ) => {
   switch (step.readiness) {
     case "ready":
-      return renderer.success(`  + ${step.label}`);
+      return renderer.success(
+        step.message === undefined ? `  + ${step.label}` : `  + ${step.label} (${step.message})`,
+      );
     case "warn":
       return renderer.warn(`  ${step.label} (${step.warnMessage})`);
     case "error":
@@ -189,11 +300,15 @@ const renderCompletedSummary = (
 
 const operationVerb = (planName: string): string => {
   const lower = planName.toLowerCase();
+  if (lower.includes("prune")) return "Pruned";
+  if (lower.includes("unpack")) return "Unpacked";
   if (lower.includes("uninstall") || lower.includes("remove")) return "Uninstalled";
   if (lower.includes("disable")) return "Disabled";
   if (lower.includes("enable")) return "Enabled";
   if (lower.includes("install")) return "Installed";
   if (lower.includes("update")) return "Updated";
+  if (lower.includes("import")) return "Imported";
+  if (lower.includes("sync")) return "Synced";
   if (lower.includes("publish")) return "Published";
   if (lower.includes("create") || lower.includes("new")) return "Created";
   return "Applied";
@@ -205,15 +320,22 @@ const artifactType = (planName: string): string => {
   if (lower.includes("command")) return "command";
   if (lower.includes("subagent")) return "subagent";
   if (lower.includes("mcp")) return "MCP server";
+  if (lower.includes("instruction-file")) return "instruction-file management";
+  if (lower.includes("rule")) return "rule";
   if (lower.includes("file")) return "files package";
-  if (lower.includes("hook")) return "hook";
+  if (lower.includes("hook")) return "hooks package";
   if (lower.includes("pack")) return "pack";
+  if (lower.includes("configured extension")) return "extension";
+  if (lower.includes("sync")) return "workspace item";
+  if (lower.includes("prune")) return "artifact";
   return "step";
 };
 
 const artifactPluralType = (type: string): string => {
   if (type === "MCP server") return "MCP servers";
   if (type === "files package") return "files packages";
+  if (type === "hooks package") return "hooks packages";
+  if (type === "instruction-file management") return "instruction-file management";
   return `${type}s`;
 };
 
@@ -255,11 +377,15 @@ const formatArtifactSummary = (artifact: JobStepArtifact, verbose: boolean): str
 };
 
 const formatArtifactRow = (step: CompletedJobStep, artifact: JobStepArtifact): string => {
+  const targetPaths =
+    artifact.targets === undefined || artifact.targets.length === 0
+      ? artifact.path
+      : artifact.targets.map((target) => target.path).join(", ");
   const details = [
     artifact.version,
     artifact.change,
     artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
-    artifact.path,
+    targetPaths,
   ].filter((part): part is string => part !== undefined && part.length > 0);
   return `${step.label}   ${details.join("   ")}`;
 };
@@ -274,22 +400,122 @@ const singleArtifactSuggestions = (
   label: string,
   artifact: JobStepArtifact,
   verb: string,
-): ReadonlyArray<{ readonly description: string; readonly cmd: string }> | undefined => {
-  if (type !== "skill") return undefined;
+): ReadonlyArray<SuggestedAction> | undefined => {
   const target = cleanStepLabel(label);
+  const suggestions = inspectSuggestionsForType(type);
+  if (suggestions === undefined) return undefined;
+  const actions = [...suggestions];
+
   if (artifact.change === "removed") {
-    return [{ description: "Inspect installed skills", cmd: "axm skills list" }];
+    return actions;
   }
+
   if (verb === "Enabled") {
-    return [
-      { description: "Inspect installed skills", cmd: "axm skills list" },
-      { description: "Undo", cmd: `axm skills disable ${target}` },
-    ];
+    actions.push({
+      description: "Undo",
+      cmd: inverseCommand(type, "disable", target),
+    });
+    return actions;
   }
-  return [
-    { description: "Inspect installed skills", cmd: "axm skills list" },
-    { description: "Undo", cmd: `axm skills uninstall ${target}` },
-  ];
+
+  if (verb === "Disabled") {
+    actions.push({ description: "Undo", cmd: inverseCommand(type, "enable", target) });
+    return actions;
+  }
+
+  const uninstallGroup = uninstallCommandGroupForType(type);
+  if (uninstallGroup !== undefined) {
+    actions.push({ description: "Undo", cmd: `axm ${uninstallGroup} uninstall ${target}` });
+  }
+  return actions;
+};
+
+const inspectSuggestionsForType = (type: string): ReadonlyArray<SuggestedAction> | undefined => {
+  const listCommand = listCommandForType(type);
+  if (listCommand === undefined) return undefined;
+  return [{ description: inspectDescriptionForType(type), cmd: listCommand }];
+};
+
+const commandGroupForType = (type: string): string => {
+  switch (type) {
+    case "skill":
+      return "skills";
+    case "command":
+      return "commands";
+    case "subagent":
+      return "subagents";
+    case "MCP server":
+      return "mcps";
+    case "files package":
+      return "files";
+    case "hooks package":
+      return "hooks";
+    case "pack":
+      return "packs";
+    case "rule":
+      return "rules";
+    default:
+      return "install";
+  }
+};
+
+const inverseCommand = (type: string, verb: "enable" | "disable", target: string): string =>
+  type === "rule" || type === "instruction-file management"
+    ? `axm rules ${verb}`
+    : `axm ${commandGroupForType(type)} ${verb} ${target}`;
+
+const listCommandForType = (type: string): string | undefined => {
+  switch (type) {
+    case "rule":
+    case "instruction-file management":
+      return "axm rules";
+    case "skill":
+    case "command":
+    case "subagent":
+    case "MCP server":
+    case "files package":
+    case "hooks package":
+    case "pack":
+      return `axm ${commandGroupForType(type)} list`;
+    default:
+      return undefined;
+  }
+};
+
+const uninstallCommandGroupForType = (type: string): string | undefined => {
+  switch (type) {
+    case "skill":
+    case "command":
+    case "subagent":
+    case "MCP server":
+    case "files package":
+    case "hooks package":
+    case "pack":
+      return commandGroupForType(type);
+    case "rule":
+    case "instruction-file management":
+      return undefined;
+    default:
+      return undefined;
+  }
+};
+
+const inspectDescriptionForType = (type: string): string => {
+  switch (type) {
+    case "MCP server":
+      return "Inspect MCP servers";
+    case "files package":
+      return "Inspect installed files packages";
+    case "hooks package":
+      return "Inspect installed hooks packages";
+    case "pack":
+      return "Inspect installed packs";
+    case "rule":
+    case "instruction-file management":
+      return "Inspect instruction-file management";
+    default:
+      return `Inspect installed ${artifactPluralType(type)}`;
+  }
 };
 
 const unchangedHeadline = (step: CompletedJobStep, artifact: JobStepArtifact): string => {
@@ -305,9 +531,54 @@ const singleArtifactHeadline = (
   options?: { readonly configured: boolean },
 ): string => {
   const targetPhrase = artifactTargetPhrase(artifact) ?? `to ${scopePhrase(artifact.scope)}`;
+  if (type === "instruction-file management") {
+    return `${verb} ${type} ${targetPhrase}`;
+  }
   const configuredPrefix = options?.configured === true ? "configured " : "";
   return `${verb} ${configuredPrefix}${type} ${cleanStepLabel(step.label)} ${targetPhrase}`;
 };
+
+const mcpAddServerName = (allSteps: ReadonlyArray<CompletedJobStep>): string | undefined => {
+  const configureStep = allSteps.find((step) => step.label.startsWith("Configure "));
+  return configureStep?.label.slice("Configure ".length);
+};
+
+const renderMcpAddOutcome = (
+  allSteps: ReadonlyArray<CompletedJobStep>,
+  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
+  verbosity: { readonly quiet: boolean; readonly verbose: boolean },
+) =>
+  Effect.gen(function* () {
+    const messages = successMessages(allSteps);
+    const artifacts = allSteps.flatMap((step) =>
+      step.result.result === "success" && step.result.artifact !== undefined
+        ? [{ step, artifact: step.result.artifact }]
+        : [],
+    );
+    const serverName = mcpAddServerName(allSteps);
+    const suggestions =
+      serverName === undefined
+        ? [{ description: "Inspect MCP servers", cmd: "axm mcps list" }]
+        : [
+            { description: "Inspect MCP servers", cmd: "axm mcps list" },
+            { description: "Undo", cmd: `axm mcps remove ${serverName}` },
+          ];
+    const summary =
+      artifacts.length === 0
+        ? undefined
+        : artifacts.map(({ step, artifact }) => formatArtifactRow(step, artifact)).join("\n");
+    const detailSummary = joinSummary(summary, successWarnings(allSteps).join("\n"));
+
+    yield* renderer.success(
+      messages.length === 0 ? "Configured MCP server" : messages.join("; "),
+      verbosity.quiet
+        ? undefined
+        : {
+            ...(detailSummary === undefined ? {} : { summary: detailSummary }),
+            suggestions,
+          },
+    );
+  });
 
 const renderExecutedOutcome = (
   plan: ExecutedPlan,
@@ -331,6 +602,11 @@ const renderExecutedOutcome = (
       return;
     }
 
+    if (plan.name === "Add MCP server") {
+      yield* renderMcpAddOutcome(allSteps, renderer, verbosity);
+      return;
+    }
+
     if (artifacts.length === 1 && successes.length === 1) {
       const first = artifacts[0];
       if (first !== undefined) {
@@ -340,12 +616,17 @@ const renderExecutedOutcome = (
         }
 
         const suggestions = singleArtifactSuggestions(type, first.step.label, first.artifact, verb);
+        const summary =
+          joinSummary(
+            formatArtifactSummary(first.artifact, verbosity.verbose),
+            ...successWarnings([first.step]),
+          ) ?? formatArtifactSummary(first.artifact, verbosity.verbose);
         yield* renderer.success(
           singleArtifactHeadline(verb, type, first.step, first.artifact, { configured }),
           verbosity.quiet
             ? undefined
             : {
-                summary: formatArtifactSummary(first.artifact, verbosity.verbose),
+                summary,
                 ...(suggestions === undefined ? {} : { suggestions }),
               },
         );
@@ -362,9 +643,13 @@ const renderExecutedOutcome = (
         verbosity.quiet
           ? undefined
           : {
-              summary: artifacts
-                .map(({ step, artifact }) => formatArtifactRow(step, artifact))
-                .join("\n"),
+              summary:
+                joinSummary(
+                  artifacts
+                    .map(({ step, artifact }) => formatArtifactRow(step, artifact))
+                    .join("\n"),
+                  successWarnings(allSteps).join("\n"),
+                ) ?? "",
             },
       );
       return;
@@ -384,8 +669,15 @@ const renderExecutedOutcome = (
       artifacts.length > 0
         ? artifacts.map(({ step, artifact }) => formatArtifactRow(step, artifact)).join("\n")
         : undefined;
+    const detailSummary = joinSummary(summary, successWarnings(allSteps).join("\n"));
+    const suggestions = inspectSuggestionsForType(type);
     yield* renderer.success(
       headline,
-      verbosity.quiet || summary === undefined ? undefined : { summary },
+      verbosity.quiet
+        ? undefined
+        : {
+            ...(detailSummary === undefined ? {} : { summary: detailSummary }),
+            ...(suggestions === undefined ? {} : { suggestions }),
+          },
     );
   });

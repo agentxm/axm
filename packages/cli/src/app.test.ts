@@ -1,15 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
 import { CliOutput, Command } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
-import { rootCommand } from "./app.js";
+import { ExitCode } from "@agentxm/client-core/unstable/app-error";
+
+import { rootCommand, run } from "./app.js";
 import { LearnMore } from "./formatter.js";
 import { baseLayer } from "./runtime.js";
 
 const TEST_VERSION = "0.0.0-test";
 type HelpFiles = Map<string, HelpDoc>;
+
+class ExitCalled extends Error {
+  readonly code: number;
+
+  constructor(code: number) {
+    super(`process.exit(${code})`);
+    this.code = code;
+  }
+}
 
 const formatCommandPath = (path: ReadonlyArray<string>): string =>
   path.length === 0 ? "axm" : `axm ${path.join(" ")}`;
@@ -92,5 +103,40 @@ describe("root command help", () => {
 
     expect(missingExamples).toEqual([]);
     expect(invalidExamples).toEqual([]);
+  });
+});
+
+describe("root command parser output", () => {
+  let stdoutWrites: Array<string>;
+
+  beforeEach(() => {
+    stdoutWrites = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
+      stdoutWrites.push(String(args[0]));
+      return true;
+    });
+    vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new ExitCalled(typeof code === "number" ? code : 0);
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("emits one JSON usage envelope for missing required flags", async () => {
+    await expect(run(["token", "create", "--json"])).rejects.toMatchObject({
+      code: ExitCode.Usage,
+    });
+
+    expect(stdoutWrites).toHaveLength(1);
+    const stdoutDoc: unknown = JSON.parse(stdoutWrites[0] ?? "");
+    expect(stdoutDoc).toMatchObject({
+      ok: false,
+      code: "usage",
+      title: "Usage Error",
+      detail: "Missing required flag: --name",
+    });
+    expect(stdoutWrites.join("")).not.toContain('"type":"help"');
   });
 });

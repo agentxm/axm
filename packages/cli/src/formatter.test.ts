@@ -1,5 +1,6 @@
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
+import { CliError } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { describe, expect, it } from "vitest";
 
@@ -360,6 +361,18 @@ describe("makeAxmFormatter", () => {
         type: "version",
         name: "axm",
         version: "1.2.3",
+      });
+    });
+
+    it("serializes parser errors as a usage event", () => {
+      const output = JSON.parse(
+        jsonFormatter.formatErrors([new CliError.MissingOption({ option: "name" })]),
+      );
+
+      expect(output).toEqual({
+        type: "error",
+        code: "usage",
+        message: "Missing required flag: --name",
       });
     });
   });

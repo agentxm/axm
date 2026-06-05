@@ -228,6 +228,10 @@ export const disableSkill: OperationHandler<
         sanitizedName,
         scope: ws.scope,
         change: "removed",
+        workspaceTargets: [
+          { path: ".axm/axm-lock.yaml", change: "updated" },
+          { path: ".axm/settings.json", change: "updated" },
+        ],
       }).pipe(
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),

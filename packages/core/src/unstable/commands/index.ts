@@ -24,6 +24,7 @@ export type {
 } from "./refs.js";
 
 export { CommandManager, CommandManagerLive, buildLockEntryFromRef } from "./manager.js";
+export { commandInstallArtifact, commandUninstallArtifact } from "./install-artifact.js";
 
 export { commandReconciliationAdapter } from "./reconciliation-adapter.js";
 

@@ -117,7 +117,7 @@ describe("axm skills update", () => {
 
         expect(result.exitCode).toBe(0);
         const output = getOutput(result);
-        expect(output).toContain("Previewing changes...");
+        expect(output).toContain("Would update");
         expect(output).toContain("my-skill");
         expect(output).toContain("another-skill");
 

@@ -6,9 +6,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { expandGlobs } from "@agentxm/client-core/unstable/utils";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "@agentxm/client-core/unstable/workspace";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
 import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
 import {
@@ -16,9 +18,15 @@ import {
   resolveSource,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import {
+  previewOrApplyPlan,
+  type JobStepResult,
+  type Plan,
+  type PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
+import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
 
 export interface UpdateHandlerArgs {
@@ -29,6 +37,36 @@ export interface UpdateHandlerArgs {
   readonly yes: boolean;
   readonly preview: boolean;
 }
+
+type ResolveResult =
+  | {
+      readonly type: "match";
+      readonly ref: SubagentExtensionRef;
+    }
+  | {
+      readonly type: "skip";
+      readonly name: string;
+      readonly source: string;
+      readonly reason: string;
+    };
+
+const skippedSubagentStep = (
+  ws: WorkspaceMutationsService,
+  outcome: Extract<ResolveResult, { readonly type: "skip" }>,
+): PlannedJobStep => ({
+  readiness: "ready",
+  label: `Skip ${outcome.name}`,
+  run: Effect.succeed({
+    result: "success",
+    message: outcome.reason,
+    artifact: {
+      path: outcome.source,
+      scope: ws.scope,
+      change: "unchanged",
+      targets: [{ path: outcome.source, change: "unchanged" }],
+    },
+  } satisfies JobStepResult),
+});
 
 const toRegistrySubagentPattern = (source: string) => {
   const parsed = parseRegistrySourcePatternParts(source);
@@ -44,34 +82,21 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
 ) {
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
-  const renderer = yield* CliRenderer;
 
   // Step 1: Load configured subagents and filter to enabled
   const allSubagents = yield* ws.records.getConfiguredSubagents();
   const lockedSubagents = yield* ws.getLockedSubagents();
 
-  const subagentEntries = yield* Effect.forEach(Object.entries(allSubagents), ([name, entry]) =>
-    Effect.gen(function* () {
-      if (!entry.enabled) {
-        yield* renderer.info(`Skipping ${name} (disabled)`);
-        return Option.none<readonly [string, string]>();
-      }
-      return Option.some([name, entry.source] as const);
-    }),
-  ).pipe(Effect.map(Array.getSomes));
+  const subagentEntries: ReadonlyArray<readonly [string, string]> = Object.entries(
+    allSubagents,
+  ).flatMap(([name, entry]) => (entry.enabled ? [[name, entry.source]] : []));
 
   if (subagentEntries.length === 0) {
-    if (
-      yield* emitNoOpResult("subagents.update", {
-        planName: "Update subagents",
-        planDescription: "Update installed subagents",
-        message: "No subagents installed. Nothing to update.",
-      })
-    ) {
-      return;
-    }
-
-    yield* renderer.info("No subagents installed. Nothing to update.");
+    yield* emitNoOpOutcome("subagents.update", {
+      planName: "Update subagents",
+      planDescription: "Update installed subagents",
+      message: "No subagents installed.",
+    });
     return;
   }
 
@@ -124,19 +149,11 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   })();
   if (args.subagents.length > 0) {
     if (filteredEntries.length === 0) {
-      if (
-        yield* emitNoOpResult("subagents.update", {
-          planName: "Update subagents",
-          planDescription: "Update installed subagents",
-          message: "No installed subagents match the --subagent filter. Nothing to update.",
-        })
-      ) {
-        return;
-      }
-
-      yield* renderer.warn(
-        "No installed subagents match the --subagent filter. Nothing to update.",
-      );
+      yield* emitNoOpOutcome("subagents.update", {
+        planName: "Update subagents",
+        planDescription: "Update installed subagents",
+        message: "No installed subagents match the --subagent filter.",
+      });
       return;
     }
   }
@@ -163,62 +180,63 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
         ),
       );
 
-  type ResolveResult = {
-    readonly type: "match";
-    readonly ref: SubagentExtensionRef;
-  };
+  const results = yield* Effect.forEach(
+    filteredEntries,
+    ([name, sourceStr]) =>
+      Effect.gen(function* () {
+        const source = yield* resolveSource(sourceStr);
+        const registryPattern = toRegistrySubagentPattern(sourceStr);
 
-  const results = yield* renderer.withSpinner(
-    "Resolving sources...",
-    () =>
-      Effect.forEach(
-        filteredEntries,
-        ([name, sourceStr]) =>
-          Effect.gen(function* () {
-            const source = yield* resolveSource(sourceStr);
-            const registryPattern = toRegistrySubagentPattern(sourceStr);
+        const requestedOwner = Option.match(registryPattern, {
+          onNone: () => Option.none<Handle>(),
+          onSome: (pattern) => Option.some(pattern.owner),
+        });
 
-            const requestedOwner = Option.match(registryPattern, {
-              onNone: () => Option.none<Handle>(),
-              onSome: (pattern) => Option.some(pattern.owner),
-            });
+        const namedRefs = yield* findSubagentRefs(source, {
+          subagentNames: [name],
+          owner: requestedOwner,
+          versionRange: Option.none(),
+        });
+        const subagentRef = namedRefs.find((r) => r.subagent.name === name);
 
-            const namedRefs = yield* findSubagentRefs(source, {
-              subagentNames: [name],
-              owner: requestedOwner,
-              versionRange: Option.none(),
-            });
-            const subagentRef = namedRefs.find((r) => r.subagent.name === name);
+        if (subagentRef) {
+          return {
+            type: "match",
+            ref: subagentRef,
+          } satisfies ResolveResult;
+        }
 
-            if (subagentRef) {
-              return Option.some<ResolveResult>({
-                type: "match",
-                ref: subagentRef,
-              });
-            }
-
-            yield* renderer.warn(
-              `Subagent "${name}" not found in source ${sources.origin(source)}`,
-            );
-            return Option.none<ResolveResult>();
-          }).pipe(
-            Effect.catch((error) => {
-              return renderer
-                .warn(`Failed to resolve "${name}": ${String(error)}`)
-                .pipe(Effect.map(() => Option.none<ResolveResult>()));
-            }),
-          ),
-        { concurrency: "unbounded" },
+        return {
+          type: "skip",
+          name,
+          source: sourceStr,
+          reason: `Subagent "${name}" not found in source ${sources.origin(source)}`,
+        } satisfies ResolveResult;
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.succeed({
+            type: "skip",
+            name,
+            source: sourceStr,
+            reason: `Failed to resolve "${name}": ${String(error)}`,
+          } satisfies ResolveResult),
+        ),
       ),
-    { successMessage: "Sources resolved" },
+    { concurrency: "unbounded" },
   );
 
   // Step 5: Collect successful resolutions
-  const resolved = Array.getSomes(results);
+  const resolved = results.filter(
+    (result): result is Extract<ResolveResult, { readonly type: "match" }> =>
+      result.type === "match",
+  );
+  const skipped = results.filter(
+    (result): result is Extract<ResolveResult, { readonly type: "skip" }> => result.type === "skip",
+  );
   if (resolved.length === 0) {
     return yield* makeAppError({
       code: "network",
-      detail: "All source re-resolutions failed. Nothing to update.",
+      detail: "All source re-resolutions failed.",
       suggestions: [{ description: "Verify the original source paths are still accessible." }],
     });
   }
@@ -249,13 +267,22 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   }));
 
   // Step 8: Build plan
-  const plan = buildUpdatePlan(
+  const basePlan = buildUpdatePlan(
     ops,
     { lockfileVersion: LOCKFILE_VERSION, subagents: lockedSubagents },
     "Update subagents",
     Option.some("Update installed subagents"),
     makeRunClosure,
   );
+  const skippedSteps = skipped.map((item) => skippedSubagentStep(ws, item));
+  const [firstJob, ...restJobs] = basePlan.jobs;
+  const plan: Plan =
+    firstJob === undefined || skippedSteps.length === 0
+      ? basePlan
+      : {
+          ...basePlan,
+          jobs: [{ ...firstJob, steps: [...firstJob.steps, ...skippedSteps] }, ...restJobs],
+        };
 
   // Step 9: Resolve plan
   const resolution = yield* previewOrApplyPlan(plan, {

@@ -14,12 +14,13 @@ import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
   computeSubagentPaths,
+  subagentScaffoldArtifact,
+  subagentSourcePath,
   subagentContentPath,
   SubagentManager,
   type SubagentManifest,
   type RegistrySubagentRef,
 } from "@agentxm/client-core/unstable/subagents";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
@@ -27,6 +28,7 @@ import { emitPlanResolutionResult } from "../../../json-output.js";
 import { joinDisplayPath } from "../../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
+import { emitScaffoldSuccess } from "../../shared/scaffold-success.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -52,7 +54,6 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   args: SubagentsNewHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const manager = yield* SubagentManager;
@@ -96,6 +97,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
 
   // 4. Build the scaffold operation as a plan step
   const fqn = formatFqn({ owner, type: "subagent", name: args.name });
+  const scaffoldPath = subagentSourcePath(owner, args.name);
   const base = ws.baseDir;
   const ref: RegistrySubagentRef = {
     type: "subagent",
@@ -122,6 +124,15 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
       enabled: true,
       authored: true,
     }),
+    buildArtifact: () =>
+      Effect.succeed(
+        subagentScaffoldArtifact({
+          owner,
+          name: args.name,
+          scope: ws.scope,
+          version: "0.0.1",
+        }),
+      ),
     scaffold: Effect.gen(function* () {
       const extensionName = decodeExtensionNameSync(args.name);
 
@@ -195,7 +206,10 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    displayApplied: false,
+  });
 
   const suggestions = [
     {
@@ -207,12 +221,14 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     "subagents.new",
     resolution,
     resolution._tag === "ExecutedPlan"
-      ? { summary: `Created subagent ${fqn}`, suggestions }
+      ? { summary: `-> ${scaffoldPath}   0.0.1 | 2 files`, suggestions }
       : undefined,
   );
 
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created subagent ${fqn}`, {
+    yield* emitScaffoldSuccess({
+      message: `Created subagent ${fqn}`,
+      summary: `-> ${scaffoldPath}   0.0.1 | 2 files`,
       suggestions,
       withoutSuggestions: emitted,
     });

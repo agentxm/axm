@@ -80,11 +80,23 @@ export const augmentPlanWithReconciliation = (
       settings,
     };
 
-    const readRecoverStep: PlannedJobStep = {
-      readiness: "ready",
-      label: `Recover lockfile (${reason})`,
-      run: runReadRecoverOperation(reconciliationContext).pipe(Effect.provide(runLayer)),
-    };
+    const readRecoverRun = runReadRecoverOperation(reconciliationContext).pipe(
+      Effect.provide(runLayer),
+    );
+    const readRecoverStep: PlannedJobStep =
+      reason === "invalid"
+        ? {
+            readiness: "warn",
+            warnMessage:
+              "Existing lockfile is invalid; AXM will recover installed extensions before applying this plan.",
+            label: `Recover lockfile (${reason})`,
+            run: readRecoverRun,
+          }
+        : {
+            readiness: "ready",
+            label: `Recover lockfile (${reason})`,
+            run: readRecoverRun,
+          };
 
     const materializeStep: PlannedJobStep = {
       readiness: "ready",

@@ -6,13 +6,23 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
+import {
+  HOOK_EXTENSION_DIR,
+  HookManager,
+  type HookExtensionRef,
+} from "@agentxm/client-core/unstable/hooks";
 import {
   buildInstallOperation,
   parseRegistrySourcePatternParts,
+  REGISTRY_EXTENSIONS_DIR,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+} from "@agentxm/client-core/unstable/plan";
 import {
   resolveSource,
   SourceHostProviders,
@@ -35,6 +45,47 @@ export interface ParsedHookInstallArgs {
 }
 
 export type HookInstallSourceRequest = ParsedHookInstallArgs;
+
+const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
+  entry.type === "registry" ? entry.resolvedVersion : undefined;
+
+const hookInstallArtifactPath = (entry: HookLockEntry): string => {
+  if (entry.type === "registry") {
+    return `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`;
+  }
+  if (entry.type === "local") {
+    return entry.path;
+  }
+  return entry.path === undefined ? ".axm/extensions" : entry.path;
+};
+
+const hookInstallArtifactTargets = (args: {
+  readonly lockEntry: HookLockEntry;
+  readonly installedBefore: boolean;
+}): ReadonlyArray<JobStepArtifactTarget> =>
+  [...(args.lockEntry.materializedTargets ?? [])]
+    .sort((left, right) => left.target.localeCompare(right.target))
+    .map((target) => ({
+      path: target.target,
+      change: args.installedBefore ? "updated" : "created",
+    }));
+
+const hookInstallArtifact = (args: {
+  readonly lockEntry: HookLockEntry;
+  readonly installedBefore: boolean;
+  readonly scope: JobStepArtifact["scope"];
+}): JobStepArtifact => {
+  const targets = hookInstallArtifactTargets(args);
+  const version = hookLockEntryVersion(args.lockEntry);
+
+  return {
+    path: hookInstallArtifactPath(args.lockEntry),
+    scope: args.scope,
+    ...(version === undefined ? {} : { version }),
+    change: args.installedBefore ? "updated" : "created",
+    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+  };
+};
 
 export class InstallHookCommandWorkflowActions extends ServiceMap.Service<
   InstallHookCommandWorkflowActions,
@@ -154,7 +205,30 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
           {
             concurrency: 1,
             steps: intent.refs.map(({ ref, versionRange }) =>
-              buildInstallOperation(hookManager, { ref, versionRange }),
+              buildInstallOperation(hookManager, {
+                ref,
+                versionRange,
+                installedBefore: hookManager.isInstalled({
+                  target: { type: "hook", name: ref.hook.name },
+                }),
+                message: `Installed ${ref.hook.name}`,
+                buildArtifact: ({ installedBefore }) =>
+                  Effect.gen(function* () {
+                    const currentLockEntry = yield* ws.getLockedHookEntry(ref.hook.name);
+                    if (Option.isNone(currentLockEntry)) {
+                      return yield* makeAppError({
+                        code: "internal",
+                        detail: `Installed hooks package ${ref.hook.name} but could not read its lockfile entry`,
+                        suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
+                      });
+                    }
+                    return hookInstallArtifact({
+                      lockEntry: currentLockEntry.value,
+                      installedBefore,
+                      scope: ws.scope,
+                    });
+                  }),
+              }),
             ),
           },
         ],

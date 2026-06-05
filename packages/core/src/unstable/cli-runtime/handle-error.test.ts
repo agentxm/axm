@@ -45,7 +45,7 @@ describe("classifyError — ShowHelp", () => {
     expect(result.stdout).toBeUndefined();
   });
 
-  it("never emits output for ShowHelp even in json format", () => {
+  it("does not emit output for ShowHelp without errors even in json format", () => {
     const showHelp = new CliError.ShowHelp({
       commandPath: ["axm"],
       errors: [],
@@ -56,6 +56,25 @@ describe("classifyError — ShowHelp", () => {
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(result.stderr).toBeUndefined();
     expect(result.stdout).toBeUndefined();
+  });
+
+  it("returns a JSON usage envelope for ShowHelp with errors in json format", () => {
+    const showHelp = new CliError.ShowHelp({
+      commandPath: ["axm", "token", "create"],
+      errors: [new CliError.MissingOption({ option: "name" })],
+    });
+
+    const result = classifyError(showHelp, "json");
+
+    expect(result.exitCode).toBe(ExitCode.Usage);
+    expect(result.stderr).toBeUndefined();
+    const parsed: unknown = JSON.parse(result.stdout ?? "");
+    expect(parsed).toMatchObject({
+      ok: false,
+      code: "usage",
+      title: "Usage Error",
+      detail: "Missing required flag: --name",
+    });
   });
 });
 
@@ -172,9 +191,9 @@ describe("classifyError — AppError", () => {
     expect(result.stderr).toHaveLength(1);
     const content = result.stderr?.[0] ?? "";
     expect(content).toContain("already exists in settings");
-    // Suggestions render once, via renderAppError's "Next steps:" block.
-    expect(content).toContain("Next steps:");
-    expect(content).not.toContain("Next:\n");
+    // Suggestions render once, via renderAppError's "Next:" block.
+    expect(content).toContain("Next:");
+    expect(content.split("Next:").length - 1).toBe(1);
   });
 });
 
@@ -184,7 +203,8 @@ describe("classifyError — generic errors", () => {
 
     expect(result.exitCode).toBe(ExitCode.Internal);
     expect(result.stdout).toBeUndefined();
-    expect(result.stderr?.[0]).toContain("boom");
+    expect(result.stderr?.[0]).toBe("✖  boom");
+    expect(result.stderr?.[0]).not.toContain("✗");
   });
 
   it("returns ExitCode.Internal with JSON stdout output for json format", () => {

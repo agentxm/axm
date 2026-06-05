@@ -14,6 +14,7 @@ import { normalizeHandle } from "../extensions/handle.js";
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 import { DeviceLoginInteraction } from "./device-login.js";
+import { emitLoginSuccess } from "./login-output.js";
 import {
   LoopbackCallbackRejected,
   LoopbackLoginFallback,
@@ -108,9 +109,5 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
     });
 
     const handle = yield* persistLoginCredentials(registryUrl, token);
-    const registryHost = new URL(registryUrl).host;
-    yield* Option.match(handle, {
-      onNone: () => renderer.success(`Logged in to ${registryHost}.`),
-      onSome: (userHandle) => renderer.success(`Logged in to ${registryHost} as ${userHandle}.`),
-    });
+    yield* emitLoginSuccess(registryUrl, handle);
   });

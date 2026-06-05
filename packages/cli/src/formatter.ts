@@ -683,9 +683,10 @@ export const makeAxmFormatter = (options?: {
           )
         : version,
 
-    // Keep usage failures human-oriented on stderr even when --json is set.
-    // Effect CLI owns the parse/help path, so this is the cleanest contract
-    // we can provide without replacing Command.runWith().
-    formatErrors: (errors) => base.formatErrors(errors),
+    formatErrors: (errors) => {
+      if (!json) return base.formatErrors(errors);
+      const message = errors.map((error) => error.message).join("; ");
+      return JSON.stringify({ type: "error", code: "usage", message });
+    },
   };
 };

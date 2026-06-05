@@ -17,9 +17,14 @@ import { afterEach, beforeEach } from "vitest";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectRecord,
   getErrorResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultSteps,
+  property,
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -160,7 +165,7 @@ describe("packs unpack.handler", () => {
 
   describe("full unpack", () => {
     it.effect("promotes resolved skills to direct entries and removes pack", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
 
       initWorkspace(axmDir, {
@@ -243,6 +248,21 @@ describe("packs unpack.handler", () => {
           );
           const lockPacks = lockContent.packs ?? {};
           expect(Object.keys(lockPacks)).not.toContain("frontend-tools");
+
+          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+          const result = expectAppliedPlanResult(renderedResult.data, {
+            planName: "Unpack pack",
+            totalSteps: 3,
+          });
+          const steps = planResultSteps(result);
+          const uninstallStep = expectRecord(expectDefined(steps[2], "Expected uninstall step"));
+          expect(property(uninstallStep, "artifact")).toMatchObject({
+            path: ".axm/extensions/@test/packs/frontend-tools",
+            scope: "project",
+            version: "1.0.0",
+            change: "removed",
+            targets: [{ path: ".axm/extensions/@test/packs/frontend-tools", change: "removed" }],
+          });
         }),
       );
     });
@@ -345,16 +365,17 @@ describe("packs unpack.handler", () => {
                 error: true,
                 message: e.detail,
                 guidance: (e.suggestions ?? [])
-                  .map((suggestion) => suggestion.description)
+                  .map((suggestion) => `${suggestion.description} · ${suggestion.cmd ?? ""}`)
                   .join("\n"),
               }),
             ),
           );
           const errorResult = getErrorResult(result);
           expect(errorResult.message).toContain("not installed");
-          expect(errorResult.guidance).toContain("axm packs install");
-          expect(rendererState.spinnerMessages).toContain("Checking pack...");
-          expect(rendererState.spinnerMessages).toContain("Failed");
+          expect(errorResult.guidance).toContain(
+            "Install the pack first. · axm packs install <source>",
+          );
+          expect(rendererState.spinnerMessages).toEqual([]);
         }),
       );
     });

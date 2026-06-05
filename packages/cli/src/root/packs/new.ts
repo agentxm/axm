@@ -12,11 +12,14 @@ import {
   type ExtensionName,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
+import {
+  PACK_MANIFEST_FILENAME,
+  packManifestArtifact,
+  packManifestPath,
+} from "@agentxm/client-core/unstable/packs";
 import type { NewPackOperation, RegistryPackRef } from "@agentxm/client-core/unstable/packs";
 import { newPack, PackManager } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -27,6 +30,7 @@ import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 export interface PacksNewHandlerArgs {
@@ -41,7 +45,6 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const renderer = yield* CliRenderer;
   const manager = yield* PackManager;
 
   // Resolve owner
@@ -50,6 +53,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     : yield* resolveOwnerForNewContent("pack creation");
 
   const fqn = formatFqn({ owner, type: "pack", name: args.name });
+  const manifestDisplayPath = packManifestPath(owner, args.name);
   const base = ws.baseDir;
 
   // Check if pack already exists
@@ -102,6 +106,17 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     label: fqn,
     message: `Created pack ${fqn}`,
     markAuthored: ws.setPackEntry(args.name, { source: fqn, authored: true }),
+    buildArtifact: () =>
+      Effect.succeed(
+        packManifestArtifact({
+          owner,
+          name: args.name,
+          scope: ws.scope,
+          change: "created",
+          version: "0.0.1",
+          fileCount: 1,
+        }),
+      ),
     scaffold: newPack(op).pipe(
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
@@ -116,7 +131,10 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, { preview: args.preview });
+  const resolution = yield* previewOrApplyLocalPlan(plan, {
+    preview: args.preview,
+    displayApplied: false,
+  });
 
   const suggestions = [
     {
@@ -128,12 +146,14 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     "packs.new",
     resolution,
     resolution._tag === "ExecutedPlan"
-      ? { summary: `Created pack ${fqn}`, suggestions }
+      ? { summary: `-> ${manifestDisplayPath}   0.0.1 | 1 file`, suggestions }
       : undefined,
   );
 
   if (resolution._tag === "ExecutedPlan") {
-    yield* renderer.success(`Created pack ${fqn}`, {
+    yield* emitScaffoldSuccess({
+      message: `Created pack ${fqn}`,
+      summary: `-> ${manifestDisplayPath}   0.0.1 | 1 file`,
       suggestions,
       withoutSuggestions: emitted,
     });

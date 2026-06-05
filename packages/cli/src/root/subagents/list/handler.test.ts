@@ -11,7 +11,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import { makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import { expectNoPlanEnvelope, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
+import { INSTALL_SUBAGENT_FROM_REGISTRY } from "../../suggested-actions.js";
 import { handleListSubagents } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -60,7 +61,8 @@ describe("subagents list.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = () => makeWorkspaceHandlerTestContext();
+  const makeLayers = (opts?: { readonly machine?: boolean }) =>
+    makeWorkspaceHandlerTestContext(opts);
 
   // ---------------------------------------------------------------------------
   // Display all subagents
@@ -98,15 +100,22 @@ describe("subagents list.handler", () => {
   // Empty state
   // ---------------------------------------------------------------------------
 
-  it.effect("shows no subagents message when none are installed", () => {
-    const { provide, logs } = makeLayers();
+  it.effect("emits a single empty list payload when none are installed", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
     initWorkspace(path.join(tempDir, ".axm"));
 
     return provide(
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: [] });
 
-        expect(logs.info.some((m) => m.includes("No subagents installed"))).toBe(true);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 0,
+          items: [],
+          emptyMessage: "No subagents installed",
+        });
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
+        expect(rendererState.logs).toEqual([]);
+        expect(rendererState.suggestions).toEqual([INSTALL_SUBAGENT_FROM_REGISTRY]);
       }),
     );
   });
@@ -220,7 +229,7 @@ describe("subagents list.handler", () => {
   });
 
   it.effect("shows a filter-specific empty state when no subagents match the agent filter", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       subagents: {
         "subagent-claude": "@acme/subagents/subagent-claude",
@@ -234,7 +243,12 @@ describe("subagents list.handler", () => {
       Effect.gen(function* () {
         yield* handleListSubagents({ agents: ["cursor"] });
 
-        expect(logs.info).toContain("No subagents matched the selected agent filter.");
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 0,
+          items: [],
+          emptyMessage: "No subagents matched the selected agent filter.",
+        });
+        expect(rendererState.logs).toEqual([]);
       }),
     );
   });
@@ -266,6 +280,7 @@ describe("subagents list.handler", () => {
             },
           ],
         });
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
       }),
     );
   });

@@ -20,9 +20,13 @@ import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
+import {
+  InstallSkillCommandWorkflowActions,
+  InstallSkillCommandWorkflowActionsLive,
+} from "./command-actions.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
 import {
+  expectNoOpPlanResult,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -216,6 +220,45 @@ describe("skills install handler — error propagation", () => {
     };
   };
 
+  const makeNoSelectionLayers = (options?: { readonly machine?: boolean }) => {
+    const handlerTestContext = makeWorkspaceHandlerTestContext({
+      machine: options?.machine,
+    });
+    const actionsLayer = Layer.succeed(InstallSkillCommandWorkflowActions, {
+      parseArgs: () =>
+        Effect.succeed({
+          source: { type: "local" as const, path: tempDir },
+          versionRange: Option.none(),
+          requestedSkills: [],
+          requestedOwner: Option.none(),
+          resolutionProbes: [],
+          all: false,
+        }),
+      resolveSourceRequests: () => Effect.succeed([]),
+      discoverRefs: () => Effect.succeed([]),
+      finalizeIntent: () => Effect.succeed({ skillsToInstall: [] }),
+      buildPlan: () =>
+        Effect.succeed({
+          _tag: "Plan" as const,
+          name: "Install skills",
+          description: Option.none<string>(),
+          jobs: [{ concurrency: 1 as const, steps: [] }],
+        }),
+    });
+    const fullLayer = Layer.mergeAll(
+      handlerTestContext.baseLayer,
+      handlerTestContext.wsLayer,
+      actionsLayer,
+    );
+    const provide = makeEffectProvide(fullLayer);
+
+    return {
+      provide,
+      logs: handlerTestContext.logs,
+      rendererState: handlerTestContext.rendererState,
+    };
+  };
+
   it.effect(
     "preserves REGISTRY_SKILL_NOT_FOUND from resolver instead of wrapping in INVALID_SOURCE",
     () => {
@@ -256,8 +299,7 @@ describe("skills install handler — error propagation", () => {
         }).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
-        expect(rendererState.spinnerMessages).toContain("Parsing source...");
-        expect(rendererState.spinnerMessages).toContain("Failed");
+        expect(rendererState.spinnerMessages).toEqual([]);
       }),
     );
   });
@@ -347,8 +389,47 @@ describe("skills install handler — error propagation", () => {
           preview: false,
         });
 
-        expect(logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
-        expect(rendererState.spinnerMessages.some((line) => line.startsWith("Source:"))).toBe(true);
+        expect(rendererState.spinnerMessages).toEqual([]);
+        expect(logs.info.some((line) => line.includes("Source:"))).toBe(true);
+        expect(logs.info.some((line) => line.includes("Resolution:"))).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("reports no-op when interactive selection chooses no skills", () => {
+    const { provide, logs } = makeNoSelectionLayers();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@myorg/skills"), {
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(logs.warn).toEqual([]);
+        expect(logs.success).toEqual(["No skills installed."]);
+      }),
+    );
+  });
+
+  it.effect("emits JSON no-op when interactive selection chooses no skills", () => {
+    const { provide, logs, rendererState } = makeNoSelectionLayers({ machine: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@myorg/skills"), {
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(logs.warn).toEqual([]);
+        expect(logs.success).toEqual([]);
+        expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Install skills",
+          message: "No skills installed.",
+        });
       }),
     );
   });
@@ -423,7 +504,7 @@ describe("skills install handler — error propagation", () => {
   // --force propagation to workspace previewOrApplyPlan
   // ---------------------------------------------------------------------------
 
-  it.effect("--force in workspace options downgrades plan errors to warnings", () => {
+  it.effect("--force in workspace options applies and reports plan errors structurally", () => {
     const { provide, logs } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"));
 
@@ -447,9 +528,14 @@ describe("skills install handler — error propagation", () => {
           ],
         };
         const result = yield* previewOrApplyPlan(plan, { yes: false, force: true, preview: false });
-        // --force downgrades errors to warnings and proceeds
-        expect(logs.warn.some((m: string) => m.includes("Test error step"))).toBe(true);
+        expect(logs.warn).toEqual([]);
         expect(result._tag).toBe("ExecutedPlan");
+        if (result._tag === "ExecutedPlan") {
+          expect(result.jobs[0]?.steps[0]).toMatchObject({
+            label: "test-step",
+            result: { result: "error", message: "Test error step" },
+          });
+        }
       }),
     );
   });

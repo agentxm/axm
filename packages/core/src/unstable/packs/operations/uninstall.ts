@@ -12,10 +12,9 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
-import type { JobStepResult } from "../../plan/plan.js";
+import type { JobStepArtifact, JobStepArtifactTarget, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { computePackPaths } from "../paths.js";
@@ -41,6 +40,26 @@ export interface UninstallPackOperationArgs {
  */
 export type UninstallPackOperation = Operation<"uninstall-pack", UninstallPackOperationArgs>;
 
+const packDirectoryArtifact = (args: {
+  readonly owner: string;
+  readonly name: string;
+  readonly version?: string;
+}): JobStepArtifact => {
+  const target = removedPackDirectoryTarget(args.owner, args.name);
+  return {
+    path: target.path,
+    scope: "project",
+    change: "removed",
+    ...(args.version === undefined ? {} : { version: args.version }),
+    targets: [target],
+  };
+};
+
+const removedPackDirectoryTarget = (owner: string, name: string): JobStepArtifactTarget => ({
+  path: `${REGISTRY_EXTENSIONS_DIR}/${owner}/packs/${name}`,
+  change: "removed",
+});
+
 /**
  * Uninstall pack operation handler.
  *
@@ -50,13 +69,12 @@ export type UninstallPackOperation = Operation<"uninstall-pack", UninstallPackOp
  */
 export const uninstallPack: OperationHandler<
   UninstallPackOperation,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CliRenderer
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const renderer = yield* CliRenderer;
     const base = ws.baseDir;
 
     // Read pack lock entry
@@ -101,9 +119,18 @@ export const uninstallPack: OperationHandler<
         );
 
         if (results.some((removed) => removed)) {
+          const targets = namespaceDirs
+            .filter((nsDir) => nsDir.startsWith("@"))
+            .map((nsDir) => removedPackDirectoryTarget(nsDir, sanitized));
           return {
             result: "success",
             message: "Removed pack directory from disk",
+            artifact: {
+              path: targets[0]?.path ?? `${REGISTRY_EXTENSIONS_DIR}/*/packs/${sanitized}`,
+              scope: "project",
+              change: "removed",
+              targets,
+            },
           } satisfies JobStepResult;
         }
       }
@@ -123,13 +150,22 @@ export const uninstallPack: OperationHandler<
     yield* removeIfExists(fs, packDir);
 
     // Remove pack from settings and lockfile
-    yield* ws
-      .removePack(op.args.packName)
-      .pipe(Effect.catch((e) => renderer.warn(`Pack removal from settings failed: ${String(e)}`)));
+    const metadataWarning = yield* ws.removePack(op.args.packName).pipe(
+      Effect.as(undefined),
+      Effect.catch((e) => Effect.succeed(`Pack removal from settings failed: ${String(e)}`)),
+    );
 
     return {
       result: "success",
-      message: `Uninstalled pack ${op.args.packName}`,
+      message:
+        metadataWarning === undefined
+          ? `Uninstalled pack ${op.args.packName}`
+          : `Uninstalled pack ${op.args.packName}; ${metadataWarning}`,
+      artifact: packDirectoryArtifact({
+        owner: lockedPack.owner,
+        name: lockedPack.name,
+        version: lockedPack.resolvedVersion,
+      }),
     } satisfies JobStepResult;
   }).pipe(
     Effect.catch((error) =>

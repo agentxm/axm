@@ -19,6 +19,7 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
+import { packManifestArtifact } from "./artifact.js";
 import { hashContent } from "./hash-content.js";
 
 // -----------------------------------------------------------------------------
@@ -73,7 +74,7 @@ export const removeFromPack: OperationHandler<
 
     // 1. Short-circuit if nothing to remove
     if (removals.length === 0) {
-      return { result: "success", message: "Nothing to remove" } satisfies JobStepResult;
+      return { result: "success", message: "No pack entries removed" } satisfies JobStepResult;
     }
 
     // 2. Read current manifest
@@ -152,5 +153,12 @@ export const removeFromPack: OperationHandler<
     return {
       result: "success",
       message: `Removed ${count(removals.length, "extension")} from pack`,
+      artifact: packManifestArtifact({
+        owner: packOwner,
+        name: packName,
+        scope: ws.scope,
+        change: "updated",
+        fileCount: 1,
+      }),
     } satisfies JobStepResult;
   });

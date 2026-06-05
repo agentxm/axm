@@ -95,7 +95,7 @@ describe("MachineRenderer", () => {
       }),
     );
 
-    it.effect("success emits suggestion events without the message", () =>
+    it.effect("success suppresses suggestions", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -108,20 +108,12 @@ describe("MachineRenderer", () => {
             });
           }),
         );
-        const events = parseStderrEvents();
-        expect(events).toEqual([
-          { type: "suggestion", description: "Edit the file" },
-          {
-            type: "suggestion",
-            description: "Apply changes",
-            cmd: "axm sync",
-          },
-        ]);
+        expect(stderrWrites).toHaveLength(0);
         expect(stdoutWrites).toHaveLength(0);
       }),
     );
 
-    it.effect("success emits URL suggestion events", () =>
+    it.effect("success suppresses URL suggestion events", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -136,14 +128,7 @@ describe("MachineRenderer", () => {
             });
           }),
         );
-        const events = parseStderrEvents();
-        expect(events).toEqual([
-          {
-            type: "suggestion",
-            description: "View in browser",
-            url: "https://agentxm.ai/acme/skills/review",
-          },
-        ]);
+        expect(stderrWrites).toHaveLength(0);
         expect(stdoutWrites).toHaveLength(0);
       }),
     );
@@ -440,7 +425,7 @@ describe("MachineRenderer", () => {
       }),
     );
 
-    it.effect("includes summary and suggestions in the flat envelope", () =>
+    it.effect("includes summary and suggestions in the flat envelope without stderr events", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -457,14 +442,7 @@ describe("MachineRenderer", () => {
           }),
         );
 
-        expect(parseStderrEvents()).toEqual([
-          { type: "suggestion", description: "Edit the file", cmd: "axm edit" },
-          {
-            type: "suggestion",
-            description: "Apply changes",
-            cmd: "axm sync",
-          },
-        ]);
+        expect(stderrWrites).toHaveLength(0);
         expect(parseStdout()[0]).toEqual({
           ok: true,
           items: [{ name: "my-command" }],
@@ -474,6 +452,27 @@ describe("MachineRenderer", () => {
             { description: "Edit the file", cmd: "axm edit" },
             { description: "Apply changes", cmd: "axm sync" },
           ],
+        });
+      }),
+    );
+
+    it.effect("omits display-only empty messages from the flat envelope", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.list("skill", {
+              items: [],
+              count: 0,
+              emptyMessage: "No skills matched the selected agent filter.",
+            });
+          }),
+        );
+
+        expect(parseStdout()[0]).toEqual({
+          ok: true,
+          items: [],
+          count: 0,
         });
       }),
     );
@@ -535,6 +534,32 @@ describe("MachineRenderer", () => {
           }),
         );
         expect(stderrWrites).toHaveLength(0);
+      }),
+    );
+
+    it.effect("keeps result suggestions inside the JSON envelope only", () =>
+      Effect.gen(function* () {
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.result({ x: 1 }, Schema.Struct({ x: Schema.Number }), {
+              suggestions: [
+                { description: "Inspect state", cmd: "axm skills list" },
+                { description: "Undo", cmd: "axm skills uninstall example" },
+              ],
+            });
+          }),
+        );
+
+        expect(stderrWrites).toHaveLength(0);
+        expect(parseStdout()[0]).toEqual({
+          ok: true,
+          x: 1,
+          suggestions: [
+            { description: "Inspect state", cmd: "axm skills list" },
+            { description: "Undo", cmd: "axm skills uninstall example" },
+          ],
+        });
       }),
     );
   });

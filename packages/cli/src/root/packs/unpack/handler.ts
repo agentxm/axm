@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { buildRegistrySkillRef } from "@agentxm/client-core/unstable/skills";
@@ -32,41 +31,35 @@ export interface UnpackHandlerArgs {
  */
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
 
   // Validate pack exists in lockfile
-  const entry = yield* renderer.withSpinner(
-    "Checking pack...",
-    () =>
-      Effect.gen(function* () {
-        const lockedPack = yield* ws.getLockedPack(args.name);
+  const entry = yield* Effect.gen(function* () {
+    const lockedPack = yield* ws.getLockedPack(args.name);
 
-        if (Option.isNone(lockedPack)) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Pack "${args.name}" is not installed`,
-            suggestions: [
-              {
-                description: "Install the pack first with `axm packs install`.",
-                cmd: "axm packs install <source>",
-              },
-            ],
-          });
-        }
+    if (Option.isNone(lockedPack)) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Pack "${args.name}" is not installed`,
+        suggestions: [
+          {
+            description: "Install the pack first.",
+            cmd: "axm packs install <source>",
+          },
+        ],
+      });
+    }
 
-        const entry = lockedPack.value;
+    const entry = lockedPack.value;
 
-        if (entry.type !== "registry") {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
-          });
-        }
+    if (entry.type !== "registry") {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
+      });
+    }
 
-        return entry;
-      }),
-    { successMessage: `Found ${args.name}` },
-  );
+    return entry;
+  });
 
   // Look up the registry source used for this pack
   const sourceOpt = yield* ws.getConfiguredSourceByName(entry.sourceName);

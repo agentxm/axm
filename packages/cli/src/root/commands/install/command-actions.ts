@@ -35,10 +35,12 @@ import {
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import {
   CommandManager,
+  commandInstallArtifact,
   selectRenderer,
   type CommandExtensionRef,
 } from "@agentxm/client-core/unstable/commands";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import type { CommandLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { InstallCommandCommandIntent } from "./intent.js";
@@ -322,6 +324,20 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     const buildPlan = (intent: InstallCommandCommandIntent): Effect.Effect<Plan, AppError> =>
       Effect.gen(function* () {
         const configuredAgents = yield* ws.getConfiguredAgents();
+        const previousLockEntries = yield* Effect.forEach(
+          intent.refs,
+          (entry) =>
+            ws.getLockedCommand(entry.ref.command.name).pipe(
+              Effect.map((previousLockEntry) => ({
+                name: entry.ref.command.name,
+                previousLockEntry,
+              })),
+            ),
+          { concurrency: "unbounded" },
+        );
+        const previousLockEntryByName = new Map(
+          previousLockEntries.map((entry) => [entry.name, entry.previousLockEntry]),
+        );
         const warningsByAgent: Record<string, ReadonlyArray<string>> = {};
 
         for (const agentId of configuredAgents) {
@@ -354,6 +370,60 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           makeGroupedSection("Potential rendering warnings", warningsByAgent),
         );
 
+        const steps: ReadonlyArray<PlannedJobStep> = intent.refs.map((entry) => {
+          const commandName = entry.ref.command.name;
+          const previousLockEntry =
+            previousLockEntryByName.get(commandName) ?? Option.none<CommandLockEntry>();
+
+          if (Option.isSome(previousLockEntry) && !intent.force) {
+            return {
+              readiness: "ready",
+              label: commandName,
+              run: Effect.succeed<JobStepResult>({
+                result: "success",
+                message: `${commandName} already installed`,
+                artifact: commandInstallArtifact({
+                  lockEntry: previousLockEntry.value,
+                  previousLockEntry,
+                  versionRange: entry.versionRange,
+                  fallbackPath: commandName,
+                  scope: ws.scope,
+                  workspaceRoot: ws.baseDir,
+                  pathService: path,
+                }),
+              }),
+            } satisfies PlannedJobStep;
+          }
+
+          return buildInstallOperation(commandMgr, {
+            ref: entry.ref,
+            versionRange: entry.versionRange,
+            message: `Installed ${commandName}`,
+            installedBefore: Effect.succeed(Option.isSome(previousLockEntry)),
+            buildArtifact: () =>
+              Effect.gen(function* () {
+                const currentLockEntry = yield* ws.getLockedCommand(commandName);
+                if (Option.isNone(currentLockEntry)) {
+                  return yield* makeAppError({
+                    code: "internal",
+                    detail: `Installed ${commandName} but could not read its lockfile entry`,
+                    suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
+                  });
+                }
+
+                return commandInstallArtifact({
+                  lockEntry: currentLockEntry.value,
+                  previousLockEntry,
+                  versionRange: entry.versionRange,
+                  fallbackPath: commandName,
+                  scope: ws.scope,
+                  workspaceRoot: ws.baseDir,
+                  pathService: path,
+                });
+              }),
+          });
+        });
+
         return {
           _tag: "Plan",
           name: "Install commands",
@@ -361,12 +431,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
           jobs: [
             {
               concurrency: 1 as const,
-              steps: intent.refs.map((entry) =>
-                buildInstallOperation(commandMgr, {
-                  ref: entry.ref,
-                  versionRange: entry.versionRange,
-                }),
-              ),
+              steps,
             },
           ],
           ...(sections === undefined ? {} : { sections }),

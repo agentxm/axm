@@ -10,6 +10,8 @@ import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
+import { expectNoPlanEnvelope } from "../../test-helpers.js";
+import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 import { handleAgentsList } from "./list.js";
 
 const initWorkspace = (axmDir: string, agents: ReadonlyArray<string>) => {
@@ -80,6 +82,7 @@ describe("agents list.handler", () => {
             expect.objectContaining({ id: "cursor", detected: true, configured: false }),
           ]),
         );
+        expect(rendererState.tables[0]?.caption).toBe("2 coding agents");
       }),
     );
   });
@@ -100,6 +103,45 @@ describe("agents list.handler", () => {
             }),
           }),
         );
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
+      }),
+    );
+  });
+
+  it.effect("emits a single empty list payload for the human empty state", () => {
+    const { provide, rendererState } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"), []);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsList({ detected: false, available: false });
+
+        expect(rendererState.tables).toEqual([]);
+        expect(rendererState.logs).toEqual([]);
+        expect(rendererState.results[1]?.data).toMatchObject({
+          count: 0,
+          items: [],
+          emptyMessage: "No coding agents configured or detected.",
+        });
+        expect(rendererState.suggestions).toEqual([SET_UP_AXM_WORKSPACE]);
+      }),
+    );
+  });
+
+  it.effect("emits setup suggestion for empty machine output", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    initWorkspace(path.join(tempDir, ".axm"), []);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsList({ detected: false, available: false });
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 0,
+          data: [],
+        });
+        expectNoPlanEnvelope(rendererState.results[0]?.data);
+        expect(rendererState.suggestions).toEqual([SET_UP_AXM_WORKSPACE]);
       }),
     );
   });

@@ -1,7 +1,9 @@
 import * as Effect from "effect/Effect";
 import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { toPlanResolutionResult } from "../../../json-output.js";
+import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
+import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
   UninstallSubagentCommandWorkflowActions,
   type UninstallSubagentHandlerArgs,
@@ -13,6 +15,23 @@ export const handleUninstall = (
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallSubagentCommandWorkflowActions;
-    const resolution = yield* runUninstallCommandWorkflow(args, actions, flags);
-    yield* emitPlanResolutionResult("subagents.uninstall", resolution);
+    const resolution = yield* runUninstallCommandWorkflow(args, actions, {
+      ...flags,
+      displayApplied: false,
+    });
+    const result = toPlanResolutionResult(resolution);
+    if (result.outcome === "no-op" && result.totalSteps === 0) {
+      yield* emitNoOpOutcome("subagents.uninstall", {
+        planName: result.planName,
+        message: "No subagents uninstalled.",
+      });
+      return;
+    }
+
+    yield* emitAppliedPlanOutcome({
+      command: "subagents.uninstall",
+      headline: "Uninstalled subagent " + args.subagent,
+      resolution,
+      suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
+    });
   });

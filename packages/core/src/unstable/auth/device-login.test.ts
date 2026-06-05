@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { makeAppError } from "../app-error/index.js";
-import { TestRenderer, logsByTag } from "../cli-renderer/index.js";
+import { TestMachineRenderer, TestRenderer, logsByTag } from "../cli-renderer/index.js";
 import { handle } from "../test-helpers.js";
 
 import { AuthClientTest } from "./auth-client.js";
@@ -16,8 +16,14 @@ import { runDeviceLogin, DeviceLoginInteractionTest } from "./device-login.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 
-const makeLayers = (opts?: { readonly browserOpens?: boolean; readonly getMeFails?: boolean }) => {
-  const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+const makeLayers = (opts?: {
+  readonly browserOpens?: boolean;
+  readonly getMeFails?: boolean;
+  readonly machine?: boolean;
+}) => {
+  const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
+  const rendererLayer = renderer.layer;
+  const rendererState = renderer.state;
   const interaction = DeviceLoginInteractionTest({
     openBrowser: () => Effect.succeed(opts?.browserOpens ?? false),
     copyToClipboard: () => Effect.succeed(true),
@@ -67,13 +73,14 @@ const makeLayers = (opts?: { readonly browserOpens?: boolean; readonly getMeFail
   return {
     layer,
     logs: logsByTag(rendererState),
+    rendererState,
     interactionState: interaction.state,
   };
 };
 
 describe("runDeviceLogin", () => {
   it.effect("opens the static URL and copies the URL when requested", () => {
-    const { layer, logs, interactionState } = makeLayers({ browserOpens: true });
+    const { layer, logs, rendererState, interactionState } = makeLayers({ browserOpens: true });
 
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
@@ -84,6 +91,10 @@ describe("runDeviceLogin", () => {
         expect(logs.step).toContain("Visit: https://auth.agentxm.ai/device (copied to clipboard)");
         expect(logs.step).toContain("Code: ABCD-1234");
         expect(logs.success).toContain("Logged in to registry.agentxm.ai as @alice.");
+        expect(rendererState.suggestions).toEqual([
+          { description: "Check active account", cmd: "axm whoami" },
+          { description: "Create an API token", cmd: "axm token create --name <name>" },
+        ]);
       }),
     );
   });
@@ -97,6 +108,43 @@ describe("runDeviceLogin", () => {
         expect(interactionState.openBrowserCalls).toEqual([]);
         expect(logs.step).toContain("Visit: https://auth.agentxm.ai/device (copied to clipboard)");
         expect(logs.step).toContain("Code: ABCD-1234");
+      }),
+    );
+  });
+
+  it.effect("emits structured login result in machine mode", () => {
+    const { layer, logs, rendererState } = makeLayers({ machine: true });
+
+    return runDeviceLogin(REGISTRY_URL, { openBrowser: false }).pipe(
+      Effect.provide(layer),
+      Effect.map(() => {
+        expect(logs.success).toEqual([]);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: {
+            outcome: "applied",
+            planName: "Log in to AXM registry",
+            appliedCount: 1,
+            totalSteps: 1,
+            steps: [
+              {
+                label: "Registry credentials",
+                status: "applied",
+                artifact: {
+                  path: "registry.agentxm.ai",
+                  scope: "user",
+                  change: "created",
+                },
+              },
+            ],
+            status: "logged-in",
+            registryHost: "registry.agentxm.ai",
+            handle: "@alice",
+          },
+        });
+        expect(rendererState.suggestions).toEqual([
+          { description: "Check active account", cmd: "axm whoami" },
+          { description: "Create an API token", cmd: "axm token create --name <name>" },
+        ]);
       }),
     );
   });

@@ -59,6 +59,15 @@ describe("checkCurrency", () => {
     expect(result.latestAvailable).toBe("1.5.0");
   });
 
+  it("returns current when the installed version is newer than the registry latest", () => {
+    const index = makeIndex(["0.2.2", "0.2.1"]);
+    const result = checkCurrency(v("0.2.3"), Option.none(), index);
+
+    expect(result.status).toBe("current");
+    expect(Option.getOrThrow(result.latestMatching)).toBe("0.2.2");
+    expect(result.latestAvailable).toBe("0.2.2");
+  });
+
   it("handles latestMatching as none when no version satisfies constraint", () => {
     const index = makeIndex(["2.0.0", "1.0.0"]);
     const result = checkCurrency(v("0.9.0"), Option.some("^0.9.0"), index);

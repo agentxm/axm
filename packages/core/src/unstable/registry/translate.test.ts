@@ -110,7 +110,7 @@ describe("registryErrorToAppError", () => {
 
     expect(error.code).toBe("forbidden");
     expect(error.suggestions).toContainEqual({
-      description: "Re-authenticate with `axm login --scope extensions:publish:version`",
+      description: "Sign in with the required registry scope.",
       cmd: "axm login --scope extensions:publish:version",
     });
   });

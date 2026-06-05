@@ -1,19 +1,62 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
+import type { FilesLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   previewOrApplyPlan,
+  type JobStepArtifact,
+  type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
+
+const filesDisableArtifactTargets = (
+  lockEntry: Option.Option<FilesLockEntry>,
+): ReadonlyArray<JobStepArtifactTarget> => {
+  const targets: Array<JobStepArtifactTarget> = [{ path: ".axm/settings.json", change: "updated" }];
+  if (Option.isSome(lockEntry)) {
+    for (const materializedTarget of lockEntry.value.materializedTargets ?? []) {
+      if (materializedTarget.mode === "sync-once") continue;
+      targets.push({
+        path: materializedTarget.target,
+        change: materializedTarget.mode === "sync-always" ? "removed" : "updated",
+      });
+    }
+  }
+  return mergeTargets(targets);
+};
+
+const mergeTargets = (
+  targets: ReadonlyArray<JobStepArtifactTarget>,
+): ReadonlyArray<JobStepArtifactTarget> => {
+  const order = { removed: 4, updated: 3, created: 2, unchanged: 1 } as const;
+  const merged = new Map<string, JobStepArtifactTarget>();
+  for (const target of targets) {
+    const current = merged.get(target.path);
+    if (current === undefined || order[target.change] > order[current.change]) {
+      merged.set(target.path, target);
+    }
+  }
+  return [...merged.values()].sort((left, right) => left.path.localeCompare(right.path));
+};
+
+const filesDisableArtifact = (args: {
+  readonly lockEntry: Option.Option<FilesLockEntry>;
+  readonly scope: JobStepArtifact["scope"];
+}): JobStepArtifact => ({
+  path: ".axm/settings.json",
+  scope: args.scope,
+  change: "updated",
+  targets: filesDisableArtifactTargets(args.lockEntry),
+});
 
 export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (args: {
   readonly name: string;
@@ -22,16 +65,19 @@ export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (ar
   readonly preview: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
   const filesManager = yield* FilesManager;
+  const scope = ws.scope;
   const configured = yield* ws.getConfiguredFilesEntries();
   const entry = configured[args.name];
   if (entry === undefined) {
-    yield* renderer.warn(`files package "${args.name}" is not configured`);
+    yield* emitNoOpOutcome("files.disable", {
+      planName: "Disable files",
+      message: `files package "${args.name}" is not configured`,
+    });
     return;
   }
   if (!entry.enabled) {
-    yield* emitNoOpResult("files.disable", {
+    yield* emitNoOpOutcome("files.disable", {
       planName: "Disable files",
       message: `files package "${args.name}" is already disabled`,
     });
@@ -50,6 +96,7 @@ export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (ar
             readiness: "ready",
             label: args.name,
             run: Effect.gen(function* () {
+              const lockEntry = yield* ws.getLockedFilesEntry(args.name);
               yield* ws.updateFilesEntry(args.name, (current) => ({
                 ...current,
                 enabled: false,
@@ -60,6 +107,7 @@ export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (ar
               return {
                 result: "success",
                 message: `Disabled ${args.name}`,
+                artifact: filesDisableArtifact({ lockEntry, scope }),
               } satisfies JobStepResult;
             }),
           },
@@ -67,8 +115,16 @@ export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (ar
       },
     ],
   };
-  const resolution = yield* previewOrApplyPlan(plan, args);
-  yield* emitPlanResolutionResult("files.disable", resolution);
+  const resolution = yield* previewOrApplyPlan(plan, { ...args, displayApplied: false });
+  yield* emitAppliedPlanOutcome({
+    command: "files.disable",
+    headline: `Disabled files package ${args.name}`,
+    resolution,
+    suggestions: [
+      { description: "Inspect installed files packages", cmd: "axm files list" },
+      { description: "Undo", cmd: `axm files enable ${args.name}` },
+    ],
+  });
 });
 
 const disableConfig = {

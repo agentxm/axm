@@ -9,17 +9,17 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import type { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 
 import {
   type PrunableArtifact,
   collectPrunableArtifacts,
-  noArtifacts,
-  removeArtifacts,
+  makePruneArtifactsPlan,
 } from "../skills/prune/handler.js";
+import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,32 +53,6 @@ const skillsPruneCollector: PruneCollector = {
 const pruneCollectors: ReadonlyArray<PruneCollector> = [skillsPruneCollector];
 
 // ---------------------------------------------------------------------------
-// JSON output schema
-// ---------------------------------------------------------------------------
-
-const PrunableArtifactSchema = Schema.Struct({
-  name: Schema.String,
-  location: Schema.String,
-});
-
-const PruneDocumentFields = {
-  artifacts: Schema.Array(PrunableArtifactSchema),
-  count: Schema.Number,
-  pruned: Schema.Boolean,
-} satisfies Schema.Struct.Fields;
-
-// ---------------------------------------------------------------------------
-// Table view
-// ---------------------------------------------------------------------------
-
-const PrunableArtifactTable = {
-  columns: {
-    name: { header: "Name" },
-    location: { header: "Location" },
-  },
-} as const satisfies TableView<PrunableArtifact>;
-
-// ---------------------------------------------------------------------------
 // Core logic
 // ---------------------------------------------------------------------------
 
@@ -100,55 +74,32 @@ export const handleRootPrune = Effect.fn("RootPrune.handle")(function* (
   args: RootPruneHandlerArgs,
   flags: RootPruneHandlerFlags,
 ) {
-  const renderer = yield* CliRenderer;
-
   const artifacts = yield* collectAllPrunableArtifacts(args.patterns);
 
-  // JSON mode: output via document, optionally prune
   if (artifacts.length === 0) {
-    if (
-      yield* renderer.result(
-        { artifacts: noArtifacts, count: 0, pruned: false },
-        Schema.Struct(PruneDocumentFields),
-      )
-    ) {
-      return;
-    }
-    yield* renderer.success("Nothing to prune");
+    yield* emitNoOpOutcome("prune", {
+      planName: "Prune artifacts",
+      message: "No unmanaged artifacts pruned.",
+      withoutSuggestions: true,
+    });
     return;
   }
 
-  // With --yes: prune first, then report
-  if (flags.yes) {
-    yield* removeArtifacts(artifacts);
-
-    if (
-      yield* renderer.result(
-        { artifacts: [...artifacts], count: artifacts.length, pruned: true },
-        Schema.Struct(PruneDocumentFields),
-      )
-    ) {
-      return;
-    }
-
-    yield* renderer.success(
-      `Pruned ${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"}`,
-    );
-    return;
-  }
-
-  // Without --yes: read-only preview
-  if (
-    yield* renderer.result(
-      { artifacts: [...artifacts], count: artifacts.length, pruned: false },
-      Schema.Struct(PruneDocumentFields),
-    )
-  ) {
-    return;
-  }
-
-  yield* renderer.table(artifacts, PrunableArtifactTable, "Prunable artifacts");
-  yield* renderer.info(
-    `Found ${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"} to prune. Run with --yes to remove.`,
-  );
+  const plan = yield* makePruneArtifactsPlan({
+    artifacts,
+    planName: "Prune artifacts",
+    planDescription: "Prune unmanaged artifacts. Run with --yes to remove.",
+  });
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: flags.yes,
+    force: false,
+    preview: !flags.yes,
+    displayApplied: false,
+  });
+  yield* emitAppliedPlanOutcome({
+    command: "prune",
+    headline: "Pruned unmanaged artifacts.",
+    resolution,
+    suggestions: [],
+  });
 });

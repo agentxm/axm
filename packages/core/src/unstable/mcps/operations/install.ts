@@ -17,7 +17,6 @@ import { Entry } from "@napi-rs/keyring";
 import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
-import { CliRenderer } from "../../cli-renderer/index.js";
 import { computeIntegrity, isPathSafe } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { Handle } from "../../extensions/handle.js";
@@ -345,12 +344,33 @@ interface AgentOutcome {
   readonly outcome: McpServerSyncOutcome;
 }
 
-const summarizeAgentSync = (
-  outcomes: ReadonlyArray<AgentOutcome>,
-): {
+interface AgentSyncSummary {
   readonly status: "green" | "degraded";
   readonly details: ReadonlyArray<string>;
-} => {
+  readonly warnings: ReadonlyArray<string>;
+}
+
+const formatAgentSyncWarning = (
+  serverName: string,
+  outcomes: ReadonlyArray<AgentOutcome>,
+): string => {
+  const warningMessage = outcomes
+    .map(({ agentId, outcome }) =>
+      outcome._tag === "success"
+        ? `${agentId}:success`
+        : outcome._tag === "fallback"
+          ? `${agentId}:fallback(${outcome.fallbackFrom}):${outcome.reason}`
+          : `${agentId}:${outcome.reason}`,
+    )
+    .join(", ");
+
+  return `MCP agent sync warnings for ${serverName}: ${warningMessage}`;
+};
+
+const summarizeAgentSync = (
+  outcomes: ReadonlyArray<AgentOutcome>,
+  warnings: ReadonlyArray<string>,
+): AgentSyncSummary => {
   const degraded = outcomes.some(
     ({ outcome }) => outcome._tag === "failed" || outcome._tag === "fallback",
   );
@@ -365,8 +385,12 @@ const summarizeAgentSync = (
   return {
     status: degraded ? "degraded" : "green",
     details,
+    warnings,
   };
 };
+
+const appendResultWarnings = (message: string, warnings: ReadonlyArray<string>): string =>
+  warnings.length === 0 ? message : `${message}; ${warnings.join("; ")}`;
 
 const syncConfiguredAgentsOnInstall = (args: {
   readonly wsBaseDir: string;
@@ -381,8 +405,8 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly configValues: Readonly<Record<string, string>>;
 }) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
     const agentRepo = yield* CodingAgentRepository;
+    const warnings: Array<string> = [];
 
     const unknownConfiguredAgentIds = yield* agentRepo.getUnknownConfiguredAgentIds();
     if (args.strict && unknownConfiguredAgentIds.length > 0) {
@@ -394,9 +418,7 @@ const syncConfiguredAgentsOnInstall = (args: {
     }
 
     if (unknownConfiguredAgentIds.length > 0) {
-      yield* renderer.warn(
-        `Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`,
-      );
+      warnings.push(`Skipping unknown configured agents: ${unknownConfiguredAgentIds.join(", ")}`);
     }
 
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
@@ -472,19 +494,10 @@ const syncConfiguredAgentsOnInstall = (args: {
         outcome._tag === "fallback",
     );
     if (warningOutcomes.length > 0) {
-      const warningMessage = warningOutcomes
-        .map(({ agentId, outcome }) =>
-          outcome._tag === "success"
-            ? `${agentId}:success`
-            : outcome._tag === "fallback"
-              ? `${agentId}:fallback(${outcome.fallbackFrom}):${outcome.reason}`
-              : `${agentId}:${outcome.reason}`,
-        )
-        .join(", ");
-      yield* renderer.warn(`MCP agent sync warnings for ${args.serverName}: ${warningMessage}`);
+      warnings.push(formatAgentSyncWarning(args.serverName, warningOutcomes));
     }
 
-    return summarizeAgentSync(outcomes);
+    return summarizeAgentSync(outcomes, warnings);
   });
 
 // -----------------------------------------------------------------------------
@@ -502,11 +515,10 @@ export const installMcpServer: (
 ) => Effect.Effect<
   JobStepResult,
   AppError,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CliRenderer | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const renderer = yield* CliRenderer;
     const { ref } = op.args;
 
     if (ref.refType !== "registry") {
@@ -544,8 +556,9 @@ export const installMcpServer: (
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
       ? ws.setMcpServerLock({ name: ref.server.name, lockEntry })
       : ws.setMcpServer({ name: ref.server.name, lockEntry, env: persistedEnv, enabled });
-    yield* writeEffect.pipe(
-      Effect.catch((e) => renderer.warn(`MCP server update failed: ${String(e)}`)),
+    const writeWarning = yield* writeEffect.pipe(
+      Effect.as(Option.none<string>()),
+      Effect.catch((e) => Effect.succeed(Option.some(`MCP server update failed: ${e.detail}`))),
     );
 
     const agentSync = yield* syncConfiguredAgentsOnInstall({
@@ -561,8 +574,16 @@ export const installMcpServer: (
       configValues: mergedEnv,
     });
 
+    const warnings = Option.match(writeWarning, {
+      onNone: () => agentSync.warnings,
+      onSome: (warning) => [warning, ...agentSync.warnings],
+    });
+
     return {
       result: "success",
-      message: `Installed ${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
+      message: appendResultWarnings(
+        `Installed ${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
+        warnings,
+      ),
     } satisfies JobStepResult;
   });

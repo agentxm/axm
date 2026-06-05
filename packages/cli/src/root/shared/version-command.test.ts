@@ -6,7 +6,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  at,
+  expectRecord,
+  getAppError,
+  makeWorkspaceHandlerTestContext,
+  property,
+} from "../../test-helpers.js";
 import { handleRootVersion, handleVersion } from "./version-command.js";
 
 const initWorkspace = (root: string) => {
@@ -83,7 +89,7 @@ describe("version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("1.2.4");
-        expect(logs.message).toContain("1.2.3 -> 1.2.4\n");
+        expect(logs.success).toContain("Updated command @test/commands/my-cmd 1.2.3 -> 1.2.4");
       }),
     );
   });
@@ -104,7 +110,90 @@ describe("version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("1.2.3");
-        expect(logs.message).toContain("1.2.3 -> 1.3.0\n");
+        expect(logs.info).toContain(
+          [
+            "Would update skill @test/skills/code-review 1.2.3 -> 1.3.0",
+            "  -> .axm/extensions/@test/skills/code-review/skill.json",
+          ].join("\n"),
+        );
+      }),
+    );
+  });
+
+  it.effect("emits plan-resolution JSON for an applied version bump", () => {
+    const manifestPath = writeManifest(tempDir, "skills", "code-review", "1.2.3");
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleVersion({
+          type: "skill",
+          handle: "@test/skills/code-review",
+          bump: "patch",
+          targetVersion: Option.none(),
+          preview: false,
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("1.2.4");
+
+        const data = expectRecord(at(rendererState.results, 0).data);
+        const result = expectRecord(property(data, "result"));
+        expect(property(result, "outcome")).toBe("applied");
+        expect(property(result, "planName")).toBe("Update extension version");
+        expect(property(result, "appliedCount")).toBe(1);
+
+        const steps = property(result, "steps");
+        if (!Array.isArray(steps)) {
+          throw new Error("Expected plan result steps");
+        }
+        const step = expectRecord(at(steps, 0));
+        expect(property(step, "status")).toBe("applied");
+        expect(property(step, "message")).toBe("1.2.3 -> 1.2.4");
+
+        const artifact = expectRecord(property(step, "artifact"));
+        expect(property(artifact, "path")).toBe(
+          ".axm/extensions/@test/skills/code-review/skill.json",
+        );
+        expect(property(artifact, "change")).toBe("updated");
+        expect(property(artifact, "previousVersion")).toBe("1.2.3");
+        expect(property(artifact, "version")).toBe("1.2.4");
+      }),
+    );
+  });
+
+  it.effect("emits no-op JSON when setting the current version", () => {
+    const manifestPath = writeManifest(tempDir, "skills", "code-review", "1.2.3");
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleVersion({
+          type: "skill",
+          handle: "@test/skills/code-review",
+          bump: "set",
+          targetVersion: Option.some("1.2.3"),
+          preview: false,
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("1.2.3");
+
+        const data = expectRecord(at(rendererState.results, 0).data);
+        const result = expectRecord(property(data, "result"));
+        expect(property(result, "outcome")).toBe("no-op");
+        expect(property(result, "appliedCount")).toBe(0);
+
+        const steps = property(result, "steps");
+        if (!Array.isArray(steps)) {
+          throw new Error("Expected plan result steps");
+        }
+        const step = expectRecord(at(steps, 0));
+        expect(property(step, "status")).toBe("unchanged");
+
+        const artifact = expectRecord(property(step, "artifact"));
+        expect(property(artifact, "change")).toBe("unchanged");
+        expect(property(artifact, "version")).toBe("1.2.3");
       }),
     );
   });
@@ -159,7 +248,7 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("1.2.4");
-        expect(logs.message).toContain("1.2.3 -> 1.2.4\n");
+        expect(logs.success).toContain("Updated command @test/commands/my-cmd 1.2.3 -> 1.2.4");
       }),
     );
   });
@@ -179,7 +268,12 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("1.2.3");
-        expect(logs.message).toContain("1.2.3 -> 1.3.0\n");
+        expect(logs.info).toContain(
+          [
+            "Would update skill @test/skills/code-review 1.2.3 -> 1.3.0",
+            "  -> .axm/extensions/@test/skills/code-review/skill.json",
+          ].join("\n"),
+        );
       }),
     );
   });
@@ -199,7 +293,9 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("0.1.1");
-        expect(logs.message).toContain("0.1.0 -> 0.1.1\n");
+        expect(logs.success).toContain(
+          "Updated subagent @test/subagents/researcher 0.1.0 -> 0.1.1",
+        );
       }),
     );
   });
@@ -219,7 +315,7 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("1.1.0");
-        expect(logs.message).toContain("1.0.0 -> 1.1.0\n");
+        expect(logs.success).toContain("Updated MCP server @test/mcps/my-server 1.0.0 -> 1.1.0");
       }),
     );
   });
@@ -239,7 +335,7 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("2.0.0");
-        expect(logs.message).toContain("0.1.0 -> 2.0.0\n");
+        expect(logs.success).toContain("Updated pack @test/packs/frontend-tools 0.1.0 -> 2.0.0");
       }),
     );
   });

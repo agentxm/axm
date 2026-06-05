@@ -20,6 +20,7 @@ import {
   syncInstructionsGitignore,
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import {
@@ -29,11 +30,17 @@ import {
   configuredSkillsToDiskRefs,
   configuredSubagentsToDiskRefs,
   parseRegistrySourceRef,
+  sanitizeName,
   targetFromRef,
   toLabelWithCompanions,
   toStepKey,
   type ExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
+import {
+  SkillManager,
+  skillArtifactFromTargets,
+  type SkillExtensionRef,
+} from "@agentxm/client-core/unstable/skills";
 import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
@@ -41,16 +48,22 @@ import { FilesManager, renderWorkspaceGeneratorRegions } from "@agentxm/client-c
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
+import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import {
   applyPlan,
   resolvePlan,
+  type JobStepArtifact,
+  type JobStepArtifactTarget,
+  type JobStepResult,
   type Operation,
   type Plan,
   type PlanResolution,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+import {
+  SubagentManager,
+  type SubagentExtensionRef,
+} from "@agentxm/client-core/unstable/subagents";
 import {
   cleanupStaleManagedSubagentFiles,
   displayPlan,
@@ -59,7 +72,8 @@ import {
   resolveConfiguredHook,
   resolveConfiguredRule,
 } from "@agentxm/client-core/unstable/workspace";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../json-output.js";
+import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 export interface HandleSyncArgs {
   readonly dryRun: boolean;
@@ -95,6 +109,115 @@ const enabledDependencyEntries = (
   }
   return entries;
 };
+
+type RenderedFilesByAgent = Readonly<Record<string, ReadonlyArray<{ readonly path: string }>>>;
+
+const registryVersion = (
+  ref: SkillExtensionRef | CommandExtensionRef | SubagentExtensionRef,
+): string | undefined => (ref.refType === "registry" ? ref.version : undefined);
+
+const renderedArtifactTargets = (
+  renderedFiles: RenderedFilesByAgent | undefined,
+  change: JobStepArtifactTarget["change"],
+): ReadonlyArray<JobStepArtifactTarget> => {
+  if (renderedFiles === undefined) return [];
+
+  const agentIdsByPath = new Map<string, Array<string>>();
+  for (const [agentId, files] of Object.entries(renderedFiles)) {
+    for (const file of files) {
+      const agentIds = agentIdsByPath.get(file.path) ?? [];
+      if (!agentIds.includes(agentId)) {
+        agentIds.push(agentId);
+      }
+      agentIdsByPath.set(file.path, agentIds);
+    }
+  }
+
+  return [...agentIdsByPath.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([targetPath, agentIds]) => ({
+      path: targetPath,
+      change,
+      agentIds: [...agentIds].sort(),
+    }));
+};
+
+const skillSyncArtifact = (args: {
+  readonly ref: SkillExtensionRef;
+  readonly agentRepo: CodingAgentRepositoryService;
+  readonly fs: FileSystem.FileSystem;
+  readonly path: Path.Path;
+  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+}): Effect.Effect<JobStepArtifact, AppError, never> =>
+  Effect.gen(function* () {
+    const materializationAgents = yield* args.agentRepo
+      .getMaterializationAgents()
+      .pipe(Effect.provideService(WorkspaceMutations, args.ws));
+    const resolved = yield* Effect.forEach(
+      materializationAgents,
+      (agent) =>
+        agent.resolveEffectiveSkillsDir({ workspaceRoot: args.ws.baseDir }).pipe(
+          Effect.provideService(FileSystem.FileSystem, args.fs),
+          Effect.provideService(Path.Path, args.path),
+          Effect.map((outcome) => ({ agent, outcome })),
+        ),
+      { concurrency: "unbounded" },
+    );
+    const targets = resolved.flatMap(({ agent, outcome }) =>
+      outcome._tag === "supported" ? [{ agentId: agent.id, targetDir: outcome.dir }] : [],
+    );
+    const artifact = yield* skillArtifactFromTargets({
+      targets,
+      workspaceRoot: args.ws.baseDir,
+      sanitizedName: sanitizeName(args.ref.skill.name),
+      scope: args.ws.scope,
+      change: "updated",
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, args.fs),
+      Effect.provideService(Path.Path, args.path),
+    );
+    const version = registryVersion(args.ref);
+    return {
+      ...artifact,
+      ...(version === undefined ? {} : { version }),
+    };
+  });
+
+const commandSyncArtifact = (args: {
+  readonly ref: CommandExtensionRef;
+  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+}): Effect.Effect<JobStepArtifact, AppError, never> =>
+  Effect.gen(function* () {
+    const lockEntry = yield* args.ws.getLockedCommand(args.ref.command.name);
+    const renderedFiles = Option.isSome(lockEntry) ? lockEntry.value.renderedFiles : undefined;
+    const targets = renderedArtifactTargets(renderedFiles, "updated");
+    const version = registryVersion(args.ref);
+    return {
+      path: targets[0]?.path ?? args.ref.command.name,
+      scope: args.ws.scope,
+      ...(version === undefined ? {} : { version }),
+      change: "updated",
+      ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+    };
+  });
+
+const subagentSyncArtifact = (args: {
+  readonly ref: SubagentExtensionRef;
+  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+}): Effect.Effect<JobStepArtifact, AppError, never> =>
+  Effect.gen(function* () {
+    const lockEntry = yield* args.ws.getLockedSubagent(args.ref.subagent.name);
+    const renderedFiles = Option.isSome(lockEntry) ? lockEntry.value.renderedFiles : undefined;
+    const targets = renderedArtifactTargets(renderedFiles, "updated");
+    const version = registryVersion(args.ref);
+    return {
+      path: targets[0]?.path ?? args.ref.subagent.name,
+      scope: args.ws.scope,
+      ...(version === undefined ? {} : { version }),
+      change: "updated",
+      ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+    };
+  });
 
 const buildMcpServerSyncOperation = ({
   ref,
@@ -375,18 +498,36 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       .map(([name]) => name),
     ...packMcpServerRefs.map((ref) => ref.server.name),
   ]);
+  const skillMaterializeStep = (ref: SkillExtensionRef) =>
+    buildMaterializeOperation(skillManager, {
+      ref,
+      message: `Synced skill ${ref.skill.name}`,
+      buildArtifact: () => skillSyncArtifact({ ref, agentRepo, fs, path, ws }),
+    });
+  const commandMaterializeStep = (ref: CommandExtensionRef) =>
+    buildMaterializeOperation(commandManager, {
+      ref,
+      message: `Synced command ${ref.command.name}`,
+      buildArtifact: () => commandSyncArtifact({ ref, ws }),
+    });
+  const subagentMaterializeStep = (ref: SubagentExtensionRef) =>
+    buildMaterializeOperation(subagentManager, {
+      ref,
+      message: `Synced subagent ${ref.subagent.name}`,
+      buildArtifact: () => subagentSyncArtifact({ ref, ws }),
+    });
 
   return {
     expectedSubagentNames: new Set(materializedSubagentRefs.map((ref) => ref.subagent.name)),
     steps: [
-      ...skillRefs.map((ref) => buildMaterializeOperation(skillManager, { ref })),
+      ...skillRefs.map(skillMaterializeStep),
       ...packSkillRefs
         .filter((ref) => !directSkillNames.has(ref.skill.name))
-        .map((ref) => buildMaterializeOperation(skillManager, { ref })),
-      ...commandRefs.map((ref) => buildMaterializeOperation(commandManager, { ref })),
+        .map(skillMaterializeStep),
+      ...commandRefs.map(commandMaterializeStep),
       ...packCommandRefs
         .filter((ref) => !directCommandNames.has(ref.command.name))
-        .map((ref) => buildMaterializeOperation(commandManager, { ref })),
+        .map(commandMaterializeStep),
       ...mcpServerRefs.map((ref) =>
         buildMcpServerSyncOperation({ ref, fs, path, ws, renderer, agentRepo }),
       ),
@@ -416,7 +557,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
             }),
           ]
         : []),
-      ...materializedSubagentRefs.map((ref) => buildMaterializeOperation(subagentManager, { ref })),
+      ...materializedSubagentRefs.map(subagentMaterializeStep),
       ...fileRefs.map((ref) => buildMaterializeOperation(fileManager, { ref })),
       ...packFileRefs
         .filter((ref) => !directFilesNames.has(ref.file.name))
@@ -433,13 +574,25 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   };
 });
 
-const makeSyncPlan = (steps: ReadonlyArray<PlannedJobStep>): Plan =>
-  resolvePlan({
-    name: PLAN_NAME,
-    description: PLAN_DESCRIPTION,
-    steps,
-    concurrency: "unbounded",
-  });
+const makeSyncPlan = ({
+  materializeSteps,
+  workspaceGeneratorStep,
+}: {
+  readonly materializeSteps: ReadonlyArray<PlannedJobStep>;
+  readonly workspaceGeneratorStep: Option.Option<PlannedJobStep>;
+}): Plan => ({
+  _tag: "Plan",
+  name: PLAN_NAME,
+  description: Option.some(PLAN_DESCRIPTION),
+  jobs: [
+    ...(materializeSteps.length > 0
+      ? [{ concurrency: "unbounded" as const, steps: materializeSteps }]
+      : []),
+    ...(Option.isSome(workspaceGeneratorStep)
+      ? [{ concurrency: 1 as const, steps: [workspaceGeneratorStep.value] }]
+      : []),
+  ],
+});
 
 const previewPlan = (plan: Plan): PlanResolution => ({
   _tag: "PreviewedPlan",
@@ -452,25 +605,52 @@ const regionLabel = (count: number): string => (count === 1 ? "region" : "region
 
 const fileLabel = (count: number): string => (count === 1 ? "file" : "files");
 
-const renderWorkspaceGeneratorRegionPhase = Effect.fn("Sync.renderWorkspaceGeneratorRegionPhase")(
-  function* (dryRun: boolean) {
-    const ws = yield* WorkspaceMutations;
-    return yield* renderWorkspaceGeneratorRegions({
-      workspaceRoot: ws.baseDir,
-      dryRun,
-    });
-  },
-);
+const collectWorkspaceGeneratorStep = Effect.fn("Sync.collectWorkspaceGeneratorStep")(function* () {
+  const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const preview = yield* renderWorkspaceGeneratorRegions({
+    workspaceRoot: ws.baseDir,
+    dryRun: true,
+  });
+  if (preview.renderedRegions === 0) return Option.none<PlannedJobStep>();
 
-const reportWorkspaceGeneratorDryRun = Effect.fn("Sync.reportWorkspaceGeneratorDryRun")(function* (
-  changedFiles: number,
-  renderedRegions: number,
-) {
-  if (renderedRegions === 0) return;
-  const renderer = yield* CliRenderer;
-  yield* renderer.info(
-    `Would render ${renderedRegions} workspace generator ${regionLabel(renderedRegions)} across ${changedFiles} ${fileLabel(changedFiles)}`,
+  const run = renderWorkspaceGeneratorRegions({
+    workspaceRoot: ws.baseDir,
+    dryRun: false,
+  }).pipe(
+    Effect.map((result): JobStepResult => {
+      const change = result.changedFiles === 0 ? "unchanged" : "updated";
+      return {
+        result: "success",
+        message:
+          change === "unchanged"
+            ? "Workspace generator regions already current"
+            : `Rendered ${result.renderedRegions} workspace generator ${regionLabel(result.renderedRegions)} across ${result.changedFiles} ${fileLabel(result.changedFiles)}`,
+        artifact: {
+          path: "workspace generator regions",
+          scope: ws.scope,
+          change,
+          fileCount: result.changedFiles,
+          targets: [
+            {
+              path: "workspace generator regions",
+              change,
+            },
+          ],
+        },
+      };
+    }),
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
   );
+
+  return Option.some({
+    key: "workspace-generator-regions",
+    label: "workspace generator regions",
+    readiness: "ready",
+    run,
+  } satisfies PlannedJobStep);
 });
 
 interface SyncInstructionTargetIntentArgs {
@@ -666,51 +846,26 @@ const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function
 // aliases are synced only after that phase has finished.
 
 export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
-  const renderer = yield* CliRenderer;
   const { steps, expectedSubagentNames } = yield* collectMaterializeSteps();
+  const workspaceGeneratorStep = yield* collectWorkspaceGeneratorStep();
 
-  if (steps.length === 0) {
-    const workspaceRegions = yield* renderWorkspaceGeneratorRegionPhase(args.dryRun);
-    if (workspaceRegions.renderedRegions > 0) {
-      if (args.dryRun) {
-        yield* reportWorkspaceGeneratorDryRun(
-          workspaceRegions.changedFiles,
-          workspaceRegions.renderedRegions,
-        );
-      } else {
-        yield* renderer.success(
-          `Rendered ${workspaceRegions.renderedRegions} workspace generator ${regionLabel(workspaceRegions.renderedRegions)} across ${workspaceRegions.changedFiles} ${fileLabel(workspaceRegions.changedFiles)}`,
-        );
-      }
-      yield* renderInstructionPhase(args.dryRun);
-      return;
-    }
+  if (steps.length === 0 && Option.isNone(workspaceGeneratorStep)) {
     yield* renderInstructionPhase(args.dryRun);
     if (!args.dryRun) {
       yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
     }
-    if (
-      yield* emitNoOpResult("sync", {
-        planName: PLAN_NAME,
-        planDescription: PLAN_DESCRIPTION,
-        message: "Nothing to materialize",
-      })
-    ) {
-      return;
-    }
-    yield* renderer.success("Nothing to materialize");
+    yield* emitNoOpOutcome("sync", {
+      planName: PLAN_NAME,
+      planDescription: PLAN_DESCRIPTION,
+      message: "Workspace materialization is up to date",
+    });
     return;
   }
 
-  const plan = makeSyncPlan(steps);
+  const plan = makeSyncPlan({ materializeSteps: steps, workspaceGeneratorStep });
 
   if (args.dryRun) {
     yield* displayPlan(plan);
-    const workspaceRegions = yield* renderWorkspaceGeneratorRegionPhase(true);
-    yield* reportWorkspaceGeneratorDryRun(
-      workspaceRegions.changedFiles,
-      workspaceRegions.renderedRegions,
-    );
     yield* renderInstructionPhase(true);
     yield* emitPlanResolutionResult("sync", previewPlan(plan));
     return;
@@ -718,12 +873,6 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
 
   const executed = yield* applyPlan(plan);
   yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
-  const workspaceRegions = yield* renderWorkspaceGeneratorRegionPhase(false);
-  if (workspaceRegions.renderedRegions > 0) {
-    yield* renderer.success(
-      `Rendered ${workspaceRegions.renderedRegions} workspace generator ${regionLabel(workspaceRegions.renderedRegions)} across ${workspaceRegions.changedFiles} ${fileLabel(workspaceRegions.changedFiles)}`,
-    );
-  }
   yield* renderInstructionPhase(false);
   yield* displayPlan(executed);
   yield* emitPlanResolutionResult("sync", executed);

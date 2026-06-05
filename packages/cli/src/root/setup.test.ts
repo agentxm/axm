@@ -18,7 +18,12 @@ import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
-import { expectDefined } from "../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectNoOpPlanResult,
+  expectPreviewedPlanResult,
+} from "../test-helpers.js";
 import {
   AXM_SKILL_JSON,
   AXM_SKILL_MD,
@@ -29,12 +34,17 @@ import { handleSetup, SetupSkillInstaller, SetupSkillInstallerLive } from "./set
 const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(filePath, "utf-8"));
 const readLockfile = (filePath: string) =>
   Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(fs.readFileSync(filePath, "utf-8")));
+const telemetrySuggestion = {
+  description:
+    'Disable telemetry with AXM_TELEMETRY=0 or by setting "telemetry": false in settings',
+};
 
 const makeSetupTestContext = (opts?: {
   readonly flags?: {
     verbose?: boolean;
     debug?: boolean;
     json?: boolean;
+    quiet?: boolean;
     nonInteractive?: boolean;
   };
   readonly selectAgents?: ReadonlyArray<string>;
@@ -133,6 +143,210 @@ describe("setup.handler", () => {
           expect(settings.skills?.["axm"]).toBe("@agentxm/skills/axm");
           expect(installCalls).toEqual([
             { scope: "project", yes: false, force: false, preview: false },
+          ]);
+        }),
+      );
+    });
+
+    it.effect(
+      "reports already initialized on re-run without reinstalling the bundled skill",
+      () => {
+        const { provide, installCalls, rendererState } = makeSetupTestContext({
+          flags: { nonInteractive: true },
+        });
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+            yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+            const successMessages = rendererState.logs
+              .filter((entry) => entry._tag === "success")
+              .map((entry) => entry.message);
+            expect(successMessages).toEqual([
+              "Initialized with agents: Claude Code",
+              "Workspace already initialized with agents: Claude Code",
+            ]);
+            expect(installCalls).toEqual([
+              { scope: "project", yes: false, force: false, preview: false },
+            ]);
+          }),
+        );
+      },
+    );
+
+    it.effect("emits initialized status in machine output", () => {
+      const { provide, installCalls, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          expect(installCalls).toEqual([
+            { scope: "project", yes: false, force: false, preview: false },
+          ]);
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Set up AXM workspace",
+            totalSteps: 3,
+            appliedCount: 3,
+          });
+          expect(result).toMatchObject({
+            steps: [
+              expect.objectContaining({
+                label: "Workspace configuration",
+                status: "applied",
+                artifact: expect.objectContaining({
+                  change: "created",
+                }),
+              }),
+              expect.objectContaining({
+                label: "Instruction files",
+                status: "applied",
+              }),
+              expect.objectContaining({
+                label: "@agentxm/skills/axm",
+                status: "applied",
+                artifact: expect.objectContaining({
+                  path: ".axm/extensions/@agentxm/skills/axm",
+                  version: AXM_SKILL_VERSION,
+                }),
+              }),
+            ],
+            status: "initialized",
+            changed: true,
+            defaultSkillInstalled: true,
+            scope: "project",
+            agents: [{ id: "claude-code", name: "Claude Code" }],
+            telemetryEnabled: true,
+          });
+          expect(rendererState.suggestions).toEqual([
+            { description: "Inspect configured agents", cmd: "axm agents list" },
+            { description: "Inspect installed skills", cmd: "axm skills list" },
+            { description: "Discover recommended extensions", cmd: "axm discover" },
+            telemetrySuggestion,
+          ]);
+        }),
+      );
+    });
+
+    it.effect("ends initialized setup with actionable suggestions", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          expect(rendererState.suggestions).toEqual([
+            { description: "Inspect configured agents", cmd: "axm agents list" },
+            { description: "Inspect installed skills", cmd: "axm skills list" },
+            { description: "Discover recommended extensions", cmd: "axm discover" },
+            telemetrySuggestion,
+          ]);
+        }),
+      );
+    });
+
+    it.effect("reports the bundled AXM skill footprint in normal setup output", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          expect(rendererState.logs).toContainEqual({
+            _tag: "info",
+            message:
+              "Skill: @agentxm/skills/axm -> .axm/extensions/@agentxm/skills/axm, .claude/skills/axm",
+          });
+        }),
+      );
+    });
+
+    it.effect("fails on unrecognized requested agents before setup output", () => {
+      const { provide, installCalls, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleSetup({
+            scope: "project",
+            agents: ["claude-code", "not-an-agent"],
+          }).pipe(
+            Effect.as({ _tag: "success" as const }),
+            Effect.catchTag("AppError", (error) =>
+              Effect.succeed({ _tag: "error" as const, error }),
+            ),
+          );
+
+          expect(result._tag).toBe("error");
+          if (result._tag === "error") {
+            expect(result.error.code).toBe("validation");
+            expect(result.error.detail).toContain("not-an-agent");
+            expect(result.error.suggestions).toEqual([
+              { description: "Show available setup agents.", cmd: "axm setup --help" },
+            ]);
+          }
+          expect(installCalls).toEqual([]);
+          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.results).toEqual([]);
+          expect(fs.existsSync(path.join(tempDir, ".axm", "settings.json"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("emits already-initialized status in machine output on re-run", () => {
+      const { provide, installCalls, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          expect(installCalls).toEqual([
+            { scope: "project", yes: false, force: false, preview: false },
+          ]);
+          const result = expectNoOpPlanResult(rendererState.results[1]?.data, {
+            planName: "Set up AXM workspace",
+            totalSteps: 2,
+          });
+          expect(result).toMatchObject({
+            steps: [
+              expect.objectContaining({
+                label: "Workspace configuration",
+                status: "unchanged",
+              }),
+              expect.objectContaining({
+                label: "Instruction files",
+                status: "unchanged",
+              }),
+            ],
+            status: "already-initialized",
+            changed: false,
+            defaultSkillInstalled: false,
+            scope: "project",
+            agents: [{ id: "claude-code", name: "Claude Code" }],
+          });
+          expect(rendererState.suggestions).toEqual([
+            { description: "Inspect configured agents", cmd: "axm agents list" },
+            { description: "Inspect installed skills", cmd: "axm skills list" },
+            { description: "Discover recommended extensions", cmd: "axm discover" },
+            telemetrySuggestion,
+            { description: "Inspect configured agents", cmd: "axm agents list" },
+            { description: "Inspect installed skills", cmd: "axm skills list" },
+            { description: "Discover recommended extensions", cmd: "axm discover" },
+            telemetrySuggestion,
           ]);
         }),
       );
@@ -271,6 +485,74 @@ describe("setup.handler", () => {
         }),
       );
     });
+
+    it.effect("ends setup preview with an apply suggestion", () => {
+      const { provide, rendererState } = makeSetupTestContext();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({
+            scope: "project",
+            agents: ["claude-code"],
+            yes: true,
+            preview: true,
+          });
+
+          expect(rendererState.suggestions).toEqual([
+            { description: "Apply setup", cmd: "axm setup --yes" },
+          ]);
+        }),
+      );
+    });
+
+    it.effect("emits preview status in machine output without writing workspace files", () => {
+      const { provide, installCalls, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({
+            scope: "project",
+            agents: ["claude-code"],
+            yes: true,
+            preview: true,
+          });
+
+          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
+          expect(installCalls).toEqual([]);
+          const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+            planName: "Set up AXM workspace",
+            totalSteps: 3,
+          });
+          expect(result).toMatchObject({
+            steps: [
+              expect.objectContaining({
+                label: "Workspace configuration",
+                status: "ready",
+              }),
+              expect.objectContaining({
+                label: "Instruction files",
+                status: "ready",
+              }),
+              expect.objectContaining({
+                label: "@agentxm/skills/axm",
+                status: "ready",
+              }),
+            ],
+            status: "preview",
+            changed: false,
+            defaultSkillInstalled: false,
+            scope: "project",
+            agents: [{ id: "claude-code", name: "Claude Code" }],
+          });
+          expect(rendererState.suggestions).toEqual([
+            { description: "Apply setup", cmd: "axm setup --yes" },
+          ]);
+        }),
+      );
+    });
   });
 
   describe("user scope", () => {
@@ -359,7 +641,11 @@ describe("setup.handler", () => {
           const infoMessages = rendererState.logs
             .filter((entry) => entry._tag === "info")
             .map((entry) => entry.message);
-          expect(infoMessages).toContain("Telemetry is enabled to help improve AXM. To disable:");
+          expect(infoMessages).toContain("Telemetry is enabled to help improve AXM.");
+          expect(infoMessages).not.toContain(
+            '  AXM_TELEMETRY=0 or set "telemetry": false in settings',
+          );
+          expect(rendererState.suggestions).toContainEqual(telemetrySuggestion);
         }),
       );
     });
@@ -376,9 +662,8 @@ describe("setup.handler", () => {
           const infoMessages = rendererState.logs
             .filter((entry) => entry._tag === "info")
             .map((entry) => entry.message);
-          expect(infoMessages).not.toContain(
-            "Telemetry is enabled to help improve AXM. To disable:",
-          );
+          expect(infoMessages).not.toContain("Telemetry is enabled to help improve AXM.");
+          expect(rendererState.suggestions).not.toContainEqual(telemetrySuggestion);
         }).pipe(
           Effect.ensuring(
             Effect.sync(() => {
@@ -425,6 +710,45 @@ describe("setup.handler", () => {
 
           const messageLogs = rendererState.logs.filter((entry) => entry._tag === "message");
           expect(messageLogs).toEqual([]);
+        }),
+      );
+    });
+
+    it.effect("does not emit branding in non-interactive mode", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          const messageLogs = rendererState.logs.filter((entry) => entry._tag === "message");
+          expect(messageLogs.some((entry) => entry.message === BRANDING)).toBe(false);
+          expect(rendererState.logs[0]).toEqual({
+            _tag: "success",
+            message: "Initialized with agents: Claude Code",
+          });
+        }),
+      );
+    });
+
+    it.effect("keeps quiet setup to the outcome line", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { quiet: true, nonInteractive: true },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          expect(rendererState.logs).toEqual([
+            {
+              _tag: "success",
+              message: "Initialized with agents: Claude Code",
+            },
+          ]);
+          expect(rendererState.suggestions).toEqual([]);
         }),
       );
     });

@@ -10,6 +10,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { INSTALL_COMMAND_FROM_REGISTRY } from "../suggested-actions.js";
 
 interface CommandListItem {
   readonly name: string;
@@ -37,6 +38,8 @@ registerEntity<CommandListItem>("command", {
   list: {
     columns: CommandListTable.columns,
     emptyMessage: "No commands installed",
+    singularLabel: "installed command",
+    pluralLabel: "installed commands",
   },
 });
 
@@ -63,12 +66,16 @@ export const handleListCommands = Effect.fn("ListCommands.handle")(function* () 
 
   const items = [...installedItems, ...unmanagedItems];
 
-  if (yield* renderer.list("command", { items, count: items.length })) return;
-
-  if (items.length === 0) {
-    yield* renderer.info("No commands installed");
+  if (
+    yield* renderer.list("command", {
+      items,
+      count: items.length,
+      suggestions: items.length === 0 ? [INSTALL_COMMAND_FROM_REGISTRY] : [],
+    })
+  ) {
     return;
   }
+  if (items.length === 0) return;
 
   yield* renderer.table(items, CommandListTable, "Installed commands");
 });

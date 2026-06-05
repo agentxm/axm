@@ -19,7 +19,16 @@ import {
   makeRegistrySkillLockEntry,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
-import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import {
+  expectAppliedPlanResult,
+  expectDefined,
+  expectNoOpPlanResult,
+  expectRecord,
+  getAppError,
+  makeWorkspaceHandlerTestContext,
+  planResultSteps,
+  property,
+} from "../../test-helpers.js";
 import { handlePacksAdd, type PacksAddHandlerArgs } from "./add.js";
 
 // -----------------------------------------------------------------------------
@@ -101,15 +110,12 @@ describe("packs-add.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (flagsOverrides?: {
-    verbose?: boolean;
-    debug?: boolean;
-    nonInteractive?: boolean;
-  }) => makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) =>
+    makeWorkspaceHandlerTestContext(opts);
 
   describe("add specific extension by name", () => {
     it.effect("adds a registry-sourced skill to the pack manifest", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
@@ -140,8 +146,38 @@ describe("packs-add.handler", () => {
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBe("^1.2.0");
+          expect(logs.success).toContain("Added 1 extension to pack frontend-tools");
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
+          expect(rendererState.summaries).toContain(
+            "-> .axm/extensions/@acme/packs/frontend-tools/pack.json   1 file",
+          );
+          expect(rendererState.suggestions).toEqual([
+            { description: "Inspect installed packs", cmd: "axm packs list" },
+            {
+              description: "Remove from pack",
+              cmd: "axm packs remove frontend-tools code-review",
+            },
+          ]);
+          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+          const result = expectAppliedPlanResult(renderedResult.data, {
+            planName: "Add to pack",
+          });
+          const steps = planResultSteps(result);
+          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
+          const artifact = expectRecord(property(firstStep, "artifact"));
+          expect(artifact).toMatchObject({
+            path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
+            scope: "project",
+            change: "updated",
+            fileCount: 1,
+            targets: [
+              {
+                path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
+                change: "updated",
+              },
+            ],
+          });
         }),
       );
     });
@@ -182,8 +218,8 @@ describe("packs-add.handler", () => {
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
 
-          // Preview log message should appear
-          expect(logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+          // Preview outcome should appear
+          expect(logs.info.some((m) => m.includes("Would apply 1 pack"))).toBe(true);
         }),
       );
     });
@@ -364,7 +400,7 @@ describe("packs-add.handler", () => {
 
   describe("extension already in pack", () => {
     it.effect("reports no-op when extension is already in pack", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
@@ -389,8 +425,49 @@ describe("packs-add.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksAdd(defaultArgs("my-pack", "code-review"));
 
-          expect(logs.info.some((m) => m.includes("already in pack"))).toBe(true);
-          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+          expect(logs.info.some((m) => m.includes("already in pack"))).toBe(false);
+          expect(logs.success.some((m) => m.includes("No extensions added"))).toBe(true);
+          expect(logs.success.some((m) => m.includes("Nothing to do"))).toBe(false);
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Add to pack",
+            message: "No extensions added to pack.",
+          });
+        }),
+      );
+    });
+
+    it.effect("reports JSON no-op without logs when extension is already in pack", () => {
+      const { provide, logs, rendererState } = makeLayers({ machine: true });
+      initWorkspace(path.join(tempDir, ".axm"), {
+        profile: "@acme",
+        packs: { "my-pack": "@acme/packs/my-pack" },
+        lockfileSkills: {
+          "code-review": makeRegistrySkillLockEntry({
+            owner: handle("@acme"),
+            name: extensionName("code-review"),
+            resolvedVersion: exactVersion("1.2.0"),
+            sourceName: "local",
+          }),
+        },
+      });
+      createPackManifest(tempDir, "@acme", "my-pack", {
+        owner: "@acme",
+        type: "pack",
+        name: "my-pack",
+        version: "0.0.1",
+        dependencies: { "@acme/skills/code-review": "^1.2.0" },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("my-pack", "code-review"));
+
+          expect(logs.info).toEqual([]);
+          expect(logs.success).toEqual([]);
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
+            planName: "Add to pack",
+            message: "No extensions added to pack.",
+          });
         }),
       );
     });

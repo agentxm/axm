@@ -12,9 +12,15 @@ import {
 } from "@agentxm/client-core/unstable/agents";
 import type { CodingAgentRepositoryService } from "@agentxm/client-core/unstable/agents";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
+import {
+  expectAppliedPlanResult,
+  expectNoOpPlanResult,
+  expectPreviewedPlanResult,
+  planResultSteps,
+} from "../../test-helpers.js";
 import { handleAgentsRemove } from "./remove.js";
 
 const writeWorkspace = (
@@ -55,8 +61,11 @@ describe("agents remove.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: { readonly wsOverrides?: Partial<WorkspaceMutationsOptions> }) => {
-    const renderer = TestRenderer.make();
+  const makeLayers = (opts?: {
+    readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
+    readonly machine?: boolean;
+  }) => {
+    const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const baseLayer = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
     const wsLayer = Layer.provide(
       coreWorkspaceLayer({
@@ -112,6 +121,171 @@ describe("agents remove.handler", () => {
             (entry) => entry._tag === "success" && entry.message.includes("Done"),
           ),
         ).toBe(false);
+      }),
+    );
+  });
+
+  it.effect("emits previewed plan JSON in machine mode", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    writeWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["opencode"],
+      lockfile: "lockfileVersion: 1\nskills: []\n",
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsRemove({
+          ids: ["opencode"],
+          yes: false,
+          force: false,
+          preview: true,
+        });
+
+        const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+          planName: "Remove coding agents",
+          totalSteps: 2,
+        });
+        expect(result).toMatchObject({
+          steps: [
+            { label: "Remove managed agent artifacts", status: "ready" },
+            { label: "Remove opencode", status: "ready" },
+          ],
+        });
+      }),
+    );
+  });
+
+  it.effect("emits applied plan JSON in machine mode", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    writeWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["opencode"],
+      lockfile: "lockfileVersion: 1\nskills: []\n",
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsRemove({
+          ids: ["opencode"],
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Remove coding agents",
+          totalSteps: 2,
+          appliedCount: 1,
+        });
+        expect(result).toMatchObject({
+          steps: [
+            {
+              label: "Remove managed agent artifacts",
+              status: "unchanged",
+              message: "Removed 0 managed artifacts",
+              artifact: {
+                path: "managed agent artifacts",
+                scope: "project",
+                agents: ["opencode"],
+                change: "unchanged",
+                fileCount: 0,
+                targets: [],
+              },
+            },
+            {
+              label: "Remove opencode",
+              status: "applied",
+              message: "Removed opencode",
+              artifact: {
+                path: ".axm/settings.json",
+                scope: "project",
+                agents: ["opencode"],
+                change: "updated",
+                fileCount: 1,
+                targets: [
+                  {
+                    path: ".axm/settings.json",
+                    change: "updated",
+                    agentIds: ["opencode"],
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }),
+    );
+  });
+
+  it.effect("reports removed managed artifact targets as workspace-relative paths", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    writeWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["opencode"],
+      lockfile: "lockfileVersion: 1\nskills: []\n",
+    });
+    const sourceDir = path.join(tempDir, ".axm", "extensions", "@agentxm", "skills", "axm", "src");
+    const skillsDir = path.join(tempDir, ".opencode", "skills");
+    fs.mkdirSync(sourceDir, { recursive: true });
+    fs.mkdirSync(skillsDir, { recursive: true });
+    fs.symlinkSync(path.relative(skillsDir, sourceDir), path.join(skillsDir, "axm"));
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsRemove({
+          ids: ["opencode"],
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Remove coding agents",
+          totalSteps: 2,
+        });
+        const steps = planResultSteps(result);
+        expect(steps[0]).toMatchObject({
+          label: "Remove managed agent artifacts",
+          status: "applied",
+          artifact: {
+            path: "managed agent artifacts",
+            scope: "project",
+            agents: ["opencode"],
+            change: "removed",
+            fileCount: 1,
+            targets: [
+              {
+                path: ".opencode/skills/axm",
+                change: "removed",
+              },
+            ],
+          },
+        });
+      }),
+    );
+  });
+
+  it.effect("emits no-op JSON when all requested agents are already absent", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    writeWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["claude-code"],
+      lockfile: "lockfileVersion: 1\nskills: []\n",
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsRemove({
+          ids: ["opencode"],
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Remove coding agents",
+          message: "All requested agents are already absent",
+        });
+        expect(result).toMatchObject({
+          planDescription: "Remove opencode and clean up managed artifacts",
+        });
       }),
     );
   });

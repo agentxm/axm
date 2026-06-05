@@ -15,6 +15,9 @@ const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
 };
 
+const cliErrorMessage = (errors: ReadonlyArray<{ readonly message?: string }>): string =>
+  errors.map((error) => error.message ?? String(error)).join("; ");
+
 /**
  * Classified error result — pure data describing what handleError should do.
  *
@@ -34,7 +37,7 @@ export interface ErrorClassification {
  * an AppError appears across surfaces, shared by the outer
  * (`classifyError`/`handleError`) and inner (`writeExpectedCliError`) error
  * paths so the two cannot drift:
- * - text: human-readable `renderAppError` (including its single `Next steps:`
+ * - text: human-readable `renderAppError` (including its single `Next:`
  *   block) on stderr.
  * - json: NDJSON `suggestion` events followed by the `error` event on stderr
  *   (the live stream, mirroring the success renderer), plus the structured
@@ -88,13 +91,34 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
 
   if (CliError.isCliError(error)) {
     if (error._tag === "ShowHelp") {
-      return { exitCode: error.errors.length > 0 ? ExitCode.Usage : ExitCode.Success };
+      if (error.errors.length === 0) {
+        return { exitCode: ExitCode.Success };
+      }
+
+      if (format !== "text") {
+        const message = cliErrorMessage(error.errors);
+        return {
+          exitCode: ExitCode.Usage,
+          stdout:
+            JSON.stringify(
+              makeJsonErrorEnvelope({
+                code: "usage",
+                title: "Usage Error",
+                detail: message,
+              }),
+              null,
+              2,
+            ) + "\n",
+        };
+      }
+
+      return { exitCode: ExitCode.Usage };
     }
 
     if (format !== "text") {
       const message =
         "errors" in error && Array.isArray(error.errors) && error.errors.length > 0
-          ? error.errors.map((e: { message?: string }) => e.message ?? String(e)).join("; ")
+          ? cliErrorMessage(error.errors)
           : error.message;
       return {
         exitCode: ExitCode.Usage,
@@ -121,7 +145,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
   if (format === "text") {
     return {
       exitCode: ExitCode.Internal,
-      stderr: [`\u2717 ${message}`],
+      stderr: [`✖  ${message}`],
     };
   }
 

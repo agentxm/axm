@@ -18,9 +18,13 @@ import { afterEach, beforeEach } from "vitest";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { InstallSubagentCommandWorkflowActionsLive } from "./command-actions.js";
+import {
+  InstallSubagentCommandWorkflowActions,
+  InstallSubagentCommandWorkflowActionsLive,
+} from "./command-actions.js";
 import { handleInstall, type InstallSubagentHandlerArgs } from "./handler.js";
 import {
+  expectNoOpPlanResult,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -121,6 +125,107 @@ describe("subagents install handler — error propagation", () => {
     };
   };
 
+  const makeNoSelectionLayers = (options?: { readonly machine?: boolean }) => {
+    const handlerTestContext = makeWorkspaceHandlerTestContext({
+      machine: options?.machine,
+    });
+    const actionsLayer = Layer.succeed(InstallSubagentCommandWorkflowActions, {
+      parseArgs: () =>
+        Effect.succeed({
+          source: { type: "local" as const, path: tempDir },
+          versionRange: Option.none(),
+          requestedSubagents: [],
+          requestedOwner: Option.none(),
+          resolutionProbes: [],
+          all: false,
+        }),
+      resolveSourceRequests: () => Effect.succeed([]),
+      discoverRefs: () => Effect.succeed([]),
+      finalizeIntent: () => Effect.succeed({ subagentsToInstall: [] }),
+      buildPlan: () =>
+        Effect.succeed({
+          _tag: "Plan" as const,
+          name: "Install subagents",
+          description: Option.none<string>(),
+          jobs: [{ concurrency: 1 as const, steps: [] }],
+        }),
+    });
+    const fullLayer = Layer.mergeAll(
+      handlerTestContext.baseLayer,
+      handlerTestContext.wsLayer,
+      actionsLayer,
+    );
+    const provide = makeEffectProvide(fullLayer);
+
+    return {
+      provide,
+      logs: handlerTestContext.logs,
+      rendererState: handlerTestContext.rendererState,
+    };
+  };
+
+  const makeUnchangedInstallLayers = () => {
+    const handlerTestContext = makeWorkspaceHandlerTestContext();
+    const actionsLayer = Layer.succeed(InstallSubagentCommandWorkflowActions, {
+      parseArgs: () =>
+        Effect.succeed({
+          source: { type: "local" as const, path: tempDir },
+          versionRange: Option.none(),
+          requestedSubagents: [],
+          requestedOwner: Option.none(),
+          resolutionProbes: [],
+          all: false,
+        }),
+      resolveSourceRequests: () => Effect.succeed([]),
+      discoverRefs: () => Effect.succeed([]),
+      finalizeIntent: () =>
+        Effect.succeed({
+          subagentsToInstall: [],
+        }),
+      buildPlan: () =>
+        Effect.succeed({
+          _tag: "Plan" as const,
+          name: "Install subagent",
+          description: Option.none<string>(),
+          jobs: [
+            {
+              concurrency: 1 as const,
+              steps: [
+                {
+                  key: "subagent:planner",
+                  readiness: "ready" as const,
+                  label: "planner",
+                  run: Effect.succeed({
+                    result: "success" as const,
+                    message: "Applied install operation",
+                    artifact: {
+                      path: ".claude/agents/planner.md",
+                      scope: "project" as const,
+                      agents: ["claude-code"],
+                      version: "1.2.3",
+                      change: "unchanged" as const,
+                      fileCount: 1,
+                    },
+                  }),
+                },
+              ],
+            },
+          ],
+        }),
+    });
+    const fullLayer = Layer.mergeAll(
+      handlerTestContext.baseLayer,
+      handlerTestContext.wsLayer,
+      actionsLayer,
+    );
+    const provide = makeEffectProvide(fullLayer);
+
+    return {
+      provide,
+      logs: handlerTestContext.logs,
+    };
+  };
+
   it.effect(
     "preserves REGISTRY_SUBAGENT_NOT_FOUND from resolver instead of wrapping in INVALID_SOURCE",
     () => {
@@ -157,8 +262,7 @@ describe("subagents install handler — error propagation", () => {
         }).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
-        expect(rendererState.spinnerMessages).toContain("Parsing source...");
-        expect(rendererState.spinnerMessages).toContain("Failed");
+        expect(rendererState.spinnerMessages).toEqual([]);
       }),
     );
   });
@@ -177,6 +281,60 @@ describe("subagents install handler — error propagation", () => {
         const appError = getAppError(error);
         expect(appError.code).toBe("not_found");
         expect(appError.detail).toBe("No subagents found in source");
+      }),
+    );
+  });
+
+  it.effect("reports no-op when interactive selection chooses no subagents", () => {
+    const { provide, logs } = makeNoSelectionLayers();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@myorg/subagents"), {
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(logs.warn).toEqual([]);
+        expect(logs.success).toEqual(["No subagents installed."]);
+      }),
+    );
+  });
+
+  it.effect("does not append the empty-selection message when install is unchanged", () => {
+    const { provide, logs } = makeUnchangedInstallLayers();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@myorg/subagents/planner"), {
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(logs.success).toEqual(["Already up to date — planner 1.2.3"]);
+      }),
+    );
+  });
+
+  it.effect("emits JSON no-op when interactive selection chooses no subagents", () => {
+    const { provide, logs, rendererState } = makeNoSelectionLayers({ machine: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(defaultArgs("@myorg/subagents"), {
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(logs.warn).toEqual([]);
+        expect(logs.success).toEqual([]);
+        expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Install subagents",
+          message: "No subagents installed.",
+        });
       }),
     );
   });

@@ -29,7 +29,12 @@ import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@agentxm/client-core/unstable/skills";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import {
+  previewOrApplyPlan,
+  type JobStepResult,
+  type Plan,
+  type PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
 import {
   detectHoldbackWarnings,
@@ -37,7 +42,8 @@ import {
   type PackConstraint,
   type SkillConstraints,
 } from "./constraint-resolution.js";
-import { emitNoOpResult, emitPlanResolutionResult } from "../../../json-output.js";
+import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { LIST_INSTALLED_SKILLS, SKILL_NAME_RULES } from "../../suggested-actions.js";
 
 export interface UpdateHandlerArgs {
@@ -48,6 +54,47 @@ export interface UpdateHandlerArgs {
   readonly yes: boolean;
   readonly preview: boolean;
 }
+
+type ResolveResult =
+  | {
+      readonly type: "match";
+      readonly ref: SkillExtensionRef;
+      readonly versionRange: Option.Option<string>;
+      readonly warnings: ReadonlyArray<string>;
+    }
+  | {
+      readonly type: "skip";
+      readonly name: string;
+      readonly source: string;
+      readonly reason: string;
+    };
+
+const skippedSkillStep = (
+  outcome: Extract<ResolveResult, { readonly type: "skip" }>,
+): PlannedJobStep => ({
+  readiness: "ready",
+  label: `Skip ${outcome.name}`,
+  run: Effect.succeed({
+    result: "success",
+    message: outcome.reason,
+  } satisfies JobStepResult),
+});
+
+const warningMessage = (warnings: ReadonlyArray<string>): string | undefined =>
+  warnings.length === 0 ? undefined : warnings.join("; ");
+
+const appendWarningsToResult =
+  (warnings: ReadonlyArray<string>) =>
+  (result: JobStepResult): JobStepResult => {
+    const message = warningMessage(warnings);
+    if (message === undefined || result.result === "error") {
+      return result;
+    }
+    return {
+      ...result,
+      message: result.message.length === 0 ? message : `${result.message}; ${message}`,
+    };
+  };
 
 const toRegistrySkillPattern = (source: string) => {
   const parsed = parseRegistrySourcePatternParts(source);
@@ -67,30 +114,30 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const allSkills = yield* ws.records.getConfiguredSkills();
   const lockedSkills = yield* ws.getLockedSkills();
 
-  const skillEntries = yield* Effect.forEach(Object.entries(allSkills), ([name, entry]) =>
-    Effect.gen(function* () {
-      if (!entry.enabled) {
-        yield* renderer.info(`Skipping ${name} (disabled)`);
-        return Option.none<readonly [string, string]>();
-      }
-      return Option.some([name, entry.source] as const);
-    }),
-  ).pipe(Effect.map(Array.getSomes));
+  const disabledSkillEntries: ReadonlyArray<Extract<ResolveResult, { readonly type: "skip" }>> =
+    Object.entries(allSkills).flatMap(([name, entry]) =>
+      entry.enabled === false
+        ? [
+            {
+              type: "skip",
+              name,
+              source: entry.source,
+              reason: `Skipping ${name}: disabled`,
+            } satisfies Extract<ResolveResult, { readonly type: "skip" }>,
+          ]
+        : [],
+    );
+  const skillEntries: ReadonlyArray<readonly [string, string]> = Object.entries(allSkills).flatMap(
+    ([name, entry]) => (entry.enabled ? [[name, entry.source]] : []),
+  );
 
   if (skillEntries.length === 0) {
-    if (
-      yield* emitNoOpResult("skills.update", {
-        planName: "Update skills",
-        planDescription: "Update installed skills",
-        message: "No skills installed. Nothing to update.",
-        suggestions: [LIST_INSTALLED_SKILLS],
-      })
-    ) {
-      return;
-    }
-
-    yield* renderer.info("No skills installed. Nothing to update.");
-    yield* renderer.success("Nothing to update", { suggestions: [LIST_INSTALLED_SKILLS] });
+    yield* emitNoOpOutcome("skills.update", {
+      planName: "Update skills",
+      planDescription: "Update installed skills",
+      message: "No skills installed.",
+      suggestions: [LIST_INSTALLED_SKILLS],
+    });
     return;
   }
 
@@ -144,22 +191,10 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   })();
   if (args.skills.length > 0) {
     if (filteredEntries.length === 0) {
-      if (
-        yield* emitNoOpResult("skills.update", {
-          planName: "Update skills",
-          planDescription: "Update installed skills",
-          message: "No installed skills match the --skill filter. Nothing to update.",
-          suggestions: [
-            LIST_INSTALLED_SKILLS,
-            { description: "Relax the `--skill` filter and try again" },
-          ],
-        })
-      ) {
-        return;
-      }
-
-      yield* renderer.warn("No installed skills match the --skill filter. Nothing to update.");
-      yield* renderer.success("Nothing to update", {
+      yield* emitNoOpOutcome("skills.update", {
+        planName: "Update skills",
+        planDescription: "Update installed skills",
+        message: "No installed skills match the --skill filter.",
         suggestions: [
           LIST_INSTALLED_SKILLS,
           { description: "Relax the `--skill` filter and try again" },
@@ -173,12 +208,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const packConstraintMap = yield* collectPackConstraints();
 
   // Step 5: Re-resolve each source and discover skills
-  type ResolveResult = {
-    readonly type: "match";
-    readonly ref: SkillExtensionRef;
-    readonly versionRange: Option.Option<string>;
-    readonly warnings: ReadonlyArray<string>;
-  };
 
   const findSkillRefs = (
     source: RegistrySource | SkillExtensionRef["source"],
@@ -239,7 +268,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         return yield* makeAppError({
           code: "internal",
           detail: `Registry skill "${skillFqn}" has no published versions`,
-          recover: "Publish a version before running `axm skills update`",
+          recover: "Publish a skill version first.",
           cmd: "axm skills publish",
         });
       }
@@ -272,7 +301,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         return yield* makeAppError({
           code: "internal",
           detail: `Resolved version "${resolvedVersion.value.resolvedVersion}" for "${skillFqn}" could not be rediscovered`,
-          recover: "Re-fetch with `axm skills install --force <source>`",
+          recover: "Re-fetch the skill source.",
           cmd: "axm skills install --force <source>",
         });
       }
@@ -303,93 +332,100 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         }),
     });
 
-  const results = yield* renderer.withSpinner(
-    "Resolving sources...",
-    () =>
-      Effect.forEach(
-        filteredEntries,
-        ([name, sourceStr]) =>
-          Effect.gen(function* () {
-            const source = yield* resolveSource(sourceStr);
-            const registryPattern = toRegistrySkillPattern(sourceStr);
+  const results: ReadonlyArray<ResolveResult> = yield* Effect.forEach(
+    filteredEntries,
+    ([name, sourceStr]) =>
+      Effect.gen(function* () {
+        const source = yield* resolveSource(sourceStr);
+        const registryPattern = toRegistrySkillPattern(sourceStr);
 
-            if (source.type === "registry" && Option.isSome(registryPattern)) {
-              const lookupName =
-                registryPattern.value.name ?? (yield* decodeConfiguredSkillName(name, sourceStr));
-              const registryResolved = yield* resolveRegistrySkillWithConstraints({
-                source,
-                owner: registryPattern.value.owner,
-                lookupName,
-                userConstraint:
-                  registryPattern.value.versionRange === undefined
-                    ? Option.none()
-                    : Option.some(registryPattern.value.versionRange),
-                packConstraints:
-                  packConstraintMap.get(`${registryPattern.value.owner}/skills/${lookupName}`) ??
-                  [],
-              });
-              if (Option.isSome(registryResolved)) {
-                return Option.some<ResolveResult>({
-                  type: "match",
-                  ref: registryResolved.value.ref,
-                  versionRange: registryResolved.value.versionRange,
-                  warnings: registryResolved.value.warnings,
-                });
-              }
-            }
+        if (source.type === "registry" && Option.isSome(registryPattern)) {
+          const lookupName =
+            registryPattern.value.name ?? (yield* decodeConfiguredSkillName(name, sourceStr));
+          const registryResolved = yield* resolveRegistrySkillWithConstraints({
+            source,
+            owner: registryPattern.value.owner,
+            lookupName,
+            userConstraint:
+              registryPattern.value.versionRange === undefined
+                ? Option.none()
+                : Option.some(registryPattern.value.versionRange),
+            packConstraints:
+              packConstraintMap.get(`${registryPattern.value.owner}/skills/${lookupName}`) ?? [],
+          });
+          if (Option.isSome(registryResolved)) {
+            return {
+              type: "match",
+              ref: registryResolved.value.ref,
+              versionRange: registryResolved.value.versionRange,
+              warnings: registryResolved.value.warnings,
+            } satisfies ResolveResult;
+          }
+        }
 
-            const requestedOwner = Option.match(registryPattern, {
-              onNone: () => Option.none<Handle>(),
-              onSome: (pattern) => Option.some(pattern.owner),
-            });
+        const requestedOwner = Option.match(registryPattern, {
+          onNone: () => Option.none<Handle>(),
+          onSome: (pattern) => Option.some(pattern.owner),
+        });
 
-            const namedRefs = yield* findSkillRefs(source, {
-              skillNames: [name],
-              owner: requestedOwner,
-              versionRange: Option.none(),
-            });
-            const skillRef = namedRefs.find((r) => r.skill.name === name);
+        const namedRefs = yield* findSkillRefs(source, {
+          skillNames: [name],
+          owner: requestedOwner,
+          versionRange: Option.none(),
+        });
+        const skillRef = namedRefs.find((r) => r.skill.name === name);
 
-            if (skillRef) {
-              return Option.some<ResolveResult>({
-                type: "match",
-                ref: skillRef,
-                versionRange: Option.none(),
-                warnings: [],
-              });
-            }
+        if (skillRef) {
+          return {
+            type: "match",
+            ref: skillRef,
+            versionRange: Option.none(),
+            warnings: [],
+          } satisfies ResolveResult;
+        }
 
-            yield* renderer.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
-            return Option.none<ResolveResult>();
-          }).pipe(
-            Effect.catch((error) => {
-              return renderer
-                .warn(`Failed to resolve "${name}": ${String(error)}`)
-                .pipe(Effect.map(() => Option.none<ResolveResult>()));
-            }),
-          ),
-        { concurrency: "unbounded" },
+        return {
+          type: "skip",
+          name,
+          source: sourceStr,
+          reason: `Skill "${name}" not found in source ${sources.origin(source)}`,
+        } satisfies ResolveResult;
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.succeed({
+            type: "skip",
+            name,
+            source: sourceStr,
+            reason: `Failed to resolve "${name}": ${String(error)}`,
+          } satisfies ResolveResult),
+        ),
       ),
-    { successMessage: "Sources resolved" },
+    { concurrency: "unbounded" },
   );
 
   // Step 6: Collect successful resolutions
-  const resolved = Array.getSomes(results);
+  const resolved = results.filter(
+    (result): result is Extract<ResolveResult, { readonly type: "match" }> =>
+      result.type === "match",
+  );
+  const skipped = results.filter(
+    (result): result is Extract<ResolveResult, { readonly type: "skip" }> => result.type === "skip",
+  );
   if (resolved.length === 0) {
     return yield* makeAppError({
       code: "network",
-      detail: "All source re-resolutions failed. Nothing to update.",
+      detail: "All source re-resolutions failed.",
       recover: "List configured sources",
       cmd: "axm sources list",
     });
   }
 
-  // Step 7: Emit resolution warnings
-  yield* Effect.forEach(
-    Array.flatMap(resolved, (item) => item.warnings),
-    (warning) => renderer.warn(warning),
-    { discard: true },
-  );
+  const warningsBySkill = new Map<string, ReadonlyArray<string>>();
+  for (const item of resolved) {
+    if (item.warnings.length > 0) {
+      warningsBySkill.set(item.ref.skill.name, item.warnings);
+    }
+  }
 
   // Step 8: Build operations
   const ops = resolved.map((item) => {
@@ -426,6 +462,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const makeRunClosure: import("./plan.js").MakeRunClosure = (op) =>
     installSkill(op).pipe(
       Effect.map(toJobStepResult),
+      Effect.map(appendWarningsToResult(warningsBySkill.get(op.args.ref.skill.name) ?? [])),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -436,13 +473,35 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   // Step 10: Build plan
   const lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: lockedSkills };
-  const plan = buildUpdatePlan(
+  const basePlan = buildUpdatePlan(
     ops,
     lockfile,
     "Update skills",
     Option.some("Update installed skills"),
     makeRunClosure,
   );
+  const basePlanWithWarnings: Plan = {
+    ...basePlan,
+    jobs: basePlan.jobs.map((job) => ({
+      ...job,
+      steps: job.steps.map((step) => {
+        if (step.readiness !== "ready") {
+          return step;
+        }
+        const message = warningMessage(warningsBySkill.get(step.label) ?? []);
+        return message === undefined ? step : { ...step, message };
+      }),
+    })),
+  };
+  const skippedSteps = [...skipped, ...disabledSkillEntries].map((item) => skippedSkillStep(item));
+  const [firstJob, ...restJobs] = basePlanWithWarnings.jobs;
+  const plan: Plan =
+    firstJob === undefined || skippedSteps.length === 0
+      ? basePlanWithWarnings
+      : {
+          ...basePlanWithWarnings,
+          jobs: [{ ...firstJob, steps: [...firstJob.steps, ...skippedSteps] }, ...restJobs],
+        };
 
   // Step 11: Resolve plan
   const resolution = yield* previewOrApplyPlan(plan, {

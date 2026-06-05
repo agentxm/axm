@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { TestRenderer } from "../../cli-renderer/index.js";
+import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionRef } from "../../extensions/index.js";
 import type {
@@ -137,8 +137,7 @@ const makeWorkspaceMock = (
   });
 };
 
-/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
-const withServices = (
+const makeServices = (
   axmDir: string,
   wsOverrides?: {
     setSkillFn?: (
@@ -164,7 +163,7 @@ const withServices = (
           ? source.path
           : source.type,
   };
-  const { layer: outputLayer } = TestRenderer.make();
+  const renderer = TestRenderer.make();
   const configuredAgentIds = wsOverrides?.configuredAgents ?? [];
   const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
   const descriptorFor = (id: string): AgentDescriptor | undefined =>
@@ -209,14 +208,28 @@ const withServices = (
     getMaterializationAgents: () => Effect.succeed([universalAgent, ...configuredAgents]),
     getUnknownConfiguredAgentIds: () => Effect.succeed(unknownAgentIds),
   };
-  return Layer.mergeAll(
-    NodeServices.layer,
-    WorkspaceMutations.layer(mockWs),
-    outputLayer,
-    Layer.succeed(SourceHostProviders, sourceProviders),
-    Layer.succeed(CodingAgentRepository, defaultAgentRepo),
-  );
+  return {
+    layer: Layer.mergeAll(
+      NodeServices.layer,
+      WorkspaceMutations.layer(mockWs),
+      renderer.layer,
+      Layer.succeed(SourceHostProviders, sourceProviders),
+      Layer.succeed(CodingAgentRepository, defaultAgentRepo),
+    ),
+    rendererState: renderer.state,
+  };
 };
+
+/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
+const withServices = (
+  axmDir: string,
+  wsOverrides?: {
+    setSkillFn?: (
+      args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
+    ) => Effect.Effect<void, AppError>;
+    configuredAgents?: ReadonlyArray<string>;
+  },
+) => makeServices(axmDir, wsOverrides).layer;
 
 /** Creates a minimal AddSkillOperation for testing using the new ref-based args. */
 const makeOp = (
@@ -439,22 +452,28 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("dedupes shared universal target locations in the artifact", () =>
+    it.effect("dedupes shared universal target locations for multiple configured agents", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
 
         const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
           Effect.provide(
-            withServices(axmDir, { configuredAgents: ["antigravity", "claude-code"] }),
+            withServices(axmDir, {
+              configuredAgents: ["antigravity", "amp", "claude-code"],
+            }),
           ),
         );
 
         expect(result.result).toBe("success");
         if (result.result === "success") {
-          expect(result.artifact?.agents).toEqual(["antigravity", "claude-code"]);
+          expect(result.artifact?.agents).toEqual(["antigravity", "amp", "claude-code"]);
           expect(result.artifact?.targets).toEqual([
-            { path: ".agents/skills/my-skill", change: "created", agentIds: ["antigravity"] },
+            {
+              path: ".agents/skills/my-skill",
+              change: "created",
+              agentIds: ["antigravity", "amp"],
+            },
             { path: ".claude/skills/my-skill", change: "created", agentIds: ["claude-code"] },
           ]);
         }
@@ -580,7 +599,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("swallows WorkspaceMutations.setSkill failure without failing installation", () =>
+    it.effect("surfaces WorkspaceMutations.setSkill failure in result without warning logs", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
@@ -593,12 +612,16 @@ describe("installSkill", () => {
             }),
           ),
         );
+        const services = makeServices(axmDir, { setSkillFn });
 
         const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
-          Effect.provide(withServices(axmDir, { setSkillFn })),
+          Effect.provide(services.layer),
         );
 
         expect(result.result).toBe("success");
+        expect(result.message).toContain("Skill update failed");
+        expect(logsByTag(services.rendererState).warn).toEqual([]);
+        expect(setSkillFn).toHaveBeenCalledOnce();
       }),
     );
   });
@@ -736,7 +759,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("swallows lockfile write failures without failing installation", () =>
+    it.effect("keeps lockfile write failures in the result without warning logs", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -751,13 +774,16 @@ describe("installSkill", () => {
             }),
           ),
         );
+        const services = makeServices(axmDir, { setSkillFn });
 
         const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
-          Effect.provide(withServices(axmDir, { setSkillFn })),
+          Effect.provide(services.layer),
         );
 
         // Installation should still succeed even if lockfile failed
         expect(result.result).toBe("success");
+        expect(result.message).toContain("Skill update failed");
+        expect(logsByTag(services.rendererState).warn).toEqual([]);
 
         // Canonical files should exist
         const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
@@ -767,24 +793,25 @@ describe("installSkill", () => {
   });
 
   describe("per-agent results", () => {
-    it.effect("skips unknown agents and succeeds for known agents", () =>
+    it.effect("skips unknown agents as result context and succeeds for known agents", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
+        const services = makeServices(axmDir, {
+          configuredAgents: ["claude-code", "nonexistent-agent"],
+        });
 
         // Mix valid and invalid agent IDs
         const result = yield* installSkill(
           makeOp({
             sourcePath: src,
           }),
-        ).pipe(
-          Effect.provide(
-            withServices(axmDir, { configuredAgents: ["claude-code", "nonexistent-agent"] }),
-          ),
-        );
+        ).pipe(Effect.provide(services.layer));
 
         // Overall result should succeed (unknown agent skipped best-effort)
         expect(result.result).toBe("success");
+        expect(result.message).toContain("Skipping unknown configured agents: nonexistent-agent");
+        expect(logsByTag(services.rendererState).warn).toEqual([]);
 
         // But claude-code symlink should still have been created
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(true);

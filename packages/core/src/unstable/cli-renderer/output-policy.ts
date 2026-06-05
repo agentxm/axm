@@ -6,6 +6,7 @@ export interface CliOutputEnvironment {
 export interface CliOutputPolicy {
   readonly colors: boolean;
   readonly interactiveActivity: boolean;
+  readonly quiet: boolean;
 }
 
 const hasNonEmptyEnv = (env: NodeJS.ProcessEnv, name: string): boolean => {
@@ -22,7 +23,9 @@ const hasDisabledForceColor = (env: NodeJS.ProcessEnv): boolean => {
   return value !== undefined && (value === "" || value === "0");
 };
 
-export const resolveCliOutputPolicy = (environment?: CliOutputEnvironment): CliOutputPolicy => {
+export const resolveCliOutputPolicy = (
+  environment?: Partial<CliOutputEnvironment> & { readonly quiet?: boolean },
+): CliOutputPolicy => {
   // eslint-disable-next-line no-restricted-properties -- Centralized env access for CLI output policy detection.
   const env = environment?.env ?? process.env;
   const stdoutIsTTY = environment?.stdoutIsTTY ?? process.stdout.isTTY;
@@ -32,5 +35,6 @@ export const resolveCliOutputPolicy = (environment?: CliOutputEnvironment): CliO
   return {
     colors: !plainOutput,
     interactiveActivity: !plainOutput,
+    quiet: environment?.quiet ?? false,
   };
 };

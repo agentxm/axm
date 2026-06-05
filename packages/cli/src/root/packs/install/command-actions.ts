@@ -17,13 +17,19 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import type { ExtensionName, ExtensionRef, Handle } from "@agentxm/client-core/unstable/extensions";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  type ExtensionName,
+  type ExtensionRef,
+  type Handle,
+} from "@agentxm/client-core/unstable/extensions";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
+import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
@@ -50,7 +56,7 @@ import {
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type {
   CommandExtensionTarget,
   FilesExtensionTarget,
@@ -79,6 +85,7 @@ export interface ParsedPackInstallArgs {
   readonly versionRange: Option.Option<VersionRange>;
   readonly resolvedInput: string;
   readonly inputKind: "name-input" | "name-input-with-version" | "registry-pattern-input";
+  readonly sourceResolution?: string;
 }
 
 /** Source request for pack registry lookup. */
@@ -87,6 +94,12 @@ export interface PackSourceRequest {
   readonly owner: Handle;
   readonly packName: ExtensionName;
   readonly versionRange: Option.Option<VersionRange>;
+  readonly sourceResolution?: string;
+}
+
+interface PackDiscoveryResult {
+  readonly ref: PackRef;
+  readonly diagnosticLines?: ReadonlyArray<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -315,6 +328,50 @@ const formatRegistrySourceLabel = ({
   return source.location.href;
 };
 
+const registryPluralSegment = (ref: ExtensionRef): string => {
+  switch (ref.type) {
+    case "skill":
+      return "skills";
+    case "pack":
+      return "packs";
+    case "command":
+      return "commands";
+    case "mcp-server":
+      return "mcps";
+    case "subagent":
+      return "subagents";
+    case "files":
+      return "files";
+    case "rule":
+      return "rules";
+    case "hook":
+      return "hooks";
+  }
+};
+
+const registrySourceArtifact = (args: {
+  readonly ref: ExtensionRef;
+  readonly scope: JobStepArtifact["scope"];
+  readonly installedBefore: boolean;
+}): JobStepArtifact => {
+  const change = args.installedBefore ? "updated" : "created";
+  const target = targetFromRef(args.ref);
+  const sourcePath =
+    args.ref.refType === "registry"
+      ? `${REGISTRY_EXTENSIONS_DIR}/${args.ref.owner}/${registryPluralSegment(args.ref)}/${
+          args.ref.name
+        }`
+      : toLabel(target);
+  return {
+    path: sourcePath,
+    scope: args.scope,
+    ...(args.ref.refType === "registry" ? { version: args.ref.version } : {}),
+    change,
+    fileCount: 1,
+    targets: [{ path: sourcePath, change }],
+  };
+};
+
 // -----------------------------------------------------------------------------
 // Service Tag
 // -----------------------------------------------------------------------------
@@ -325,7 +382,7 @@ export class InstallPackCommandWorkflowActions extends ServiceMap.Service<
     InstallPackHandlerArgs,
     ParsedPackInstallArgs,
     PackSourceRequest,
-    PackRef,
+    PackDiscoveryResult,
     InstallPackCommandIntent
   >
 >()("axm.sh/root/packs/install/command-actions/InstallPackCommandWorkflowActions") {}
@@ -354,6 +411,11 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const hookManager = yield* HookManager;
     const mcpServerMgr = yield* McpServerManager;
     const subagentMgr = yield* SubagentManager;
+    const verbosityOption = yield* Effect.serviceOption(Verbosity);
+    const verbose = Option.match(verbosityOption, {
+      onNone: () => false,
+      onSome: (verbosity) => verbosity.isAtLeast("verbose"),
+    });
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. resolveSource).
@@ -402,7 +464,8 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                         suggestions: [
                           {
                             description:
-                              "Use the fully-qualified `@owner/packs/${name}` form, set `owner` in `.axm/settings.json`, or run `axm login`.",
+                              "Use the fully-qualified `@owner/packs/name` form, set `owner` in settings, or sign in.",
+                            cmd: "axm login",
                           },
                         ],
                       }),
@@ -417,8 +480,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               onSome: (constraint) => `${owner}/packs/${parsed.success.name}@${constraint}`,
             });
 
-            yield* renderer.info(`Source resolution: ${trimmed} -> ${resolvedInput}`);
-
             return {
               inputKind:
                 parsed.success.versionRange === undefined
@@ -428,6 +489,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               packName: parsed.success.name,
               versionRange,
               resolvedInput,
+              sourceResolution: `${trimmed} -> ${resolvedInput}`,
             };
           }
 
@@ -467,24 +529,19 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const resolveSourceRequests = (parsed: ParsedPackInstallArgs) =>
       provide(
         Effect.gen(function* () {
-          const source = yield* renderer.withSpinner(
-            "Parsing source...",
-            () =>
-              resolveSource(parsed.resolvedInput).pipe(
-                Effect.mapError((error) =>
-                  makeAppError({
-                    code: "validation",
-                    detail: `Invalid source: ${error.message}`,
-                    suggestions: [
-                      {
-                        description: "Use @owner/packs/pack-name or just pack-name.",
-                      },
-                    ],
-                    cause: error,
-                  }),
-                ),
-              ),
-            { successMessage: `Pack: ${parsed.owner}/packs/${parsed.packName}` },
+          const source = yield* resolveSource(parsed.resolvedInput).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "validation",
+                detail: `Invalid source: ${error.message}`,
+                suggestions: [
+                  {
+                    description: "Use @owner/packs/pack-name or just pack-name.",
+                  },
+                ],
+                cause: error,
+              }),
+            ),
           );
 
           if (source.type !== "registry") {
@@ -501,6 +558,9 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               owner: parsed.owner,
               packName: parsed.packName,
               versionRange: parsed.versionRange,
+              ...(parsed.sourceResolution !== undefined
+                ? { sourceResolution: parsed.sourceResolution }
+                : {}),
             },
           ];
         }),
@@ -519,155 +579,157 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               });
             }
 
-            const discovered = yield* renderer.withSpinner(
-              "Fetching pack from registry...",
-              () =>
-                Effect.gen(function* () {
-                  const findWith = (candidate: RegistrySource) =>
-                    sources.find(candidate, {
-                      names: [req.packName],
-                      type: "pack",
-                      owner: Option.some(req.owner),
-                      versionRange: req.versionRange,
-                    });
+            return yield* Effect.gen(function* () {
+              const findWith = (candidate: RegistrySource) =>
+                sources.find(candidate, {
+                  names: [req.packName],
+                  type: "pack",
+                  owner: Option.some(req.owner),
+                  versionRange: req.versionRange,
+                });
+              const probes: RegistryLookupProbe[] = [];
 
-                  const probes: RegistryLookupProbe[] = [];
+              const initialResult = yield* findWith(req.source).pipe(Effect.result);
+              probes.push(
+                initialResult._tag === "Success"
+                  ? {
+                      location: req.source.location.href,
+                      outcome: initialResult.success.length > 0 ? "matched" : "not-found",
+                      reason: Option.none(),
+                    }
+                  : {
+                      location: req.source.location.href,
+                      outcome: "error",
+                      reason: Option.some(summarizeLookupError(initialResult.failure)),
+                    },
+              );
 
-                  const initialResult = yield* findWith(req.source).pipe(Effect.result);
+              let resolvedRefs: ReadonlyArray<PackRef> | undefined;
+              let resolvedSource: RegistrySource = req.source;
+
+              if (initialResult._tag === "Success" && initialResult.success.length > 0) {
+                resolvedRefs = initialResult.success.filter(
+                  (ref): ref is PackRef => ref.type === "pack",
+                );
+              } else if (
+                initialResult._tag === "Failure" &&
+                isRemoteReadNotImplemented(initialResult.failure)
+              ) {
+                // Fallback to file:// registries
+                const registryHosts = yield* ws.getRegistrySourceHosts();
+                const fallbackSources = registryHosts
+                  .filter((host) => host.location.protocol === "file:")
+                  .map(
+                    (host) =>
+                      ({
+                        type: "registry" as const,
+                        location: host.location,
+                        owner: Option.some(req.owner),
+                      }) satisfies RegistrySource,
+                  );
+
+                for (const fallbackSource of fallbackSources) {
+                  if (fallbackSource.location.href === req.source.location.href) continue;
+
+                  const fallbackResult = yield* findWith(fallbackSource).pipe(Effect.result);
                   probes.push(
-                    initialResult._tag === "Success"
+                    fallbackResult._tag === "Success"
                       ? {
-                          location: req.source.location.href,
-                          outcome: initialResult.success.length > 0 ? "matched" : "not-found",
+                          location: fallbackSource.location.href,
+                          outcome: fallbackResult.success.length > 0 ? "matched" : "not-found",
                           reason: Option.none(),
                         }
                       : {
-                          location: req.source.location.href,
+                          location: fallbackSource.location.href,
                           outcome: "error",
-                          reason: Option.some(summarizeLookupError(initialResult.failure)),
+                          reason: Option.some(summarizeLookupError(fallbackResult.failure)),
                         },
                   );
 
-                  let resolvedRefs: ReadonlyArray<PackRef> | undefined;
-                  let resolvedSource: RegistrySource = req.source;
-
-                  if (initialResult._tag === "Success" && initialResult.success.length > 0) {
-                    resolvedRefs = initialResult.success.filter(
+                  if (fallbackResult._tag === "Success" && fallbackResult.success.length > 0) {
+                    resolvedRefs = fallbackResult.success.filter(
                       (ref): ref is PackRef => ref.type === "pack",
                     );
-                  } else if (
-                    initialResult._tag === "Failure" &&
-                    isRemoteReadNotImplemented(initialResult.failure)
-                  ) {
-                    // Fallback to file:// registries
-                    const registryHosts = yield* ws.getRegistrySourceHosts();
-                    const fallbackSources = registryHosts
-                      .filter((host) => host.location.protocol === "file:")
-                      .map(
-                        (host) =>
-                          ({
-                            type: "registry" as const,
-                            location: host.location,
-                            owner: Option.some(req.owner),
-                          }) satisfies RegistrySource,
-                      );
-
-                    for (const fallbackSource of fallbackSources) {
-                      if (fallbackSource.location.href === req.source.location.href) continue;
-
-                      const fallbackResult = yield* findWith(fallbackSource).pipe(Effect.result);
-                      probes.push(
-                        fallbackResult._tag === "Success"
-                          ? {
-                              location: fallbackSource.location.href,
-                              outcome: fallbackResult.success.length > 0 ? "matched" : "not-found",
-                              reason: Option.none(),
-                            }
-                          : {
-                              location: fallbackSource.location.href,
-                              outcome: "error",
-                              reason: Option.some(summarizeLookupError(fallbackResult.failure)),
-                            },
-                      );
-
-                      if (fallbackResult._tag === "Success" && fallbackResult.success.length > 0) {
-                        resolvedRefs = fallbackResult.success.filter(
-                          (ref): ref is PackRef => ref.type === "pack",
-                        );
-                        resolvedSource = fallbackSource;
-                        break;
-                      }
-                    }
-
-                    if (!resolvedRefs) {
-                      return yield* makeAppError({
-                        code: "network",
-                        detail: "Pack could not be fetched from registry",
-                        suggestions: [
-                          {
-                            description:
-                              "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
-                          },
-                        ],
-                      });
-                    }
-                  } else if (initialResult._tag === "Failure") {
-                    return yield* makeAppError({
-                      code: "network",
-                      detail: "Pack could not be fetched from registry",
-                      suggestions: [
-                        {
-                          description: "Verify the pack name and registry configuration.",
-                        },
-                      ],
-                      cause: initialResult.failure,
-                    });
+                    resolvedSource = fallbackSource;
+                    break;
                   }
+                }
 
-                  // Log resolution probes for bare-name inputs
-                  if (req.packName && probes.length > 0) {
-                    yield* renderer.info(
-                      `Host resolution: ${probes.map(formatRegistryProbe).join("; ")}`,
-                    );
-                  }
+                if (!resolvedRefs) {
+                  return yield* makeAppError({
+                    code: "network",
+                    detail: "Pack could not be fetched from registry",
+                    suggestions: [
+                      {
+                        description:
+                          "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
+                      },
+                    ],
+                  });
+                }
+              } else if (initialResult._tag === "Failure") {
+                return yield* makeAppError({
+                  code: "network",
+                  detail: "Pack could not be fetched from registry",
+                  suggestions: [
+                    {
+                      description: "Verify the pack name and registry configuration.",
+                    },
+                  ],
+                  cause: initialResult.failure,
+                });
+              }
 
-                  const registryHosts = yield* ws.getRegistrySourceHosts();
-                  yield* renderer.info(
+              const registryHosts = yield* ws.getRegistrySourceHosts();
+              const diagnosticLines = verbose
+                ? [
+                    `Pack: ${req.owner}/packs/${req.packName}`,
+                    ...(req.sourceResolution !== undefined
+                      ? [`Source resolution: ${req.sourceResolution}`]
+                      : []),
+                    ...(probes.length > 0
+                      ? [`Host resolution: ${probes.map(formatRegistryProbe).join("; ")}`]
+                      : []),
                     `Registry source: ${formatRegistrySourceLabel({ source: resolvedSource, registryHosts })}`,
-                  );
+                    "Found pack",
+                  ]
+                : undefined;
 
-                  if (!resolvedRefs || resolvedRefs.length === 0) {
-                    return yield* makeAppError({
-                      code: "not_found",
-                      detail: `Pack "${req.packName}" not found in registry`,
-                      suggestions: [
-                        {
-                          description: "Verify the pack name and check available packs.",
-                        },
-                      ],
-                    });
-                  }
+              if (!resolvedRefs || resolvedRefs.length === 0) {
+                return yield* makeAppError({
+                  code: "not_found",
+                  detail: `Pack "${req.packName}" not found in registry`,
+                  suggestions: [
+                    {
+                      description: "Verify the pack name and check available packs.",
+                    },
+                  ],
+                });
+              }
 
-                  return resolvedRefs;
-                }),
-              { successMessage: "Found pack" },
-            );
-
-            return discovered;
+              return resolvedRefs.map((ref) => ({
+                ref,
+                ...(diagnosticLines !== undefined ? { diagnosticLines } : {}),
+              }));
+            });
           }),
         ),
       );
 
-    const finalizeIntent = (parsed: ParsedPackInstallArgs, refs: ReadonlyArray<PackRef>) =>
+    const finalizeIntent = (
+      parsed: ParsedPackInstallArgs,
+      refs: ReadonlyArray<PackDiscoveryResult>,
+    ) =>
       Effect.gen(function* () {
-        const packRef = refs[0];
-        if (!packRef) {
+        const discovery = refs[0];
+        if (!discovery) {
           return yield* makeAppError({
             code: "not_found",
             detail: "No pack reference found",
           });
         }
 
+        const packRef = discovery.ref;
         if (packRef.type !== "pack") {
           return yield* makeAppError({
             code: "network",
@@ -678,6 +740,9 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         return {
           packToInstall: packRef,
           versionRange: parsed.versionRange,
+          ...(discovery.diagnosticLines !== undefined
+            ? { diagnosticLines: discovery.diagnosticLines }
+            : {}),
         };
       });
 
@@ -705,6 +770,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           configuredFiles,
           configuredRules,
           configuredHooks,
+          lockedSkills,
+          lockedCommands,
+          lockedMcpServers,
+          lockedSubagents,
+          lockedFiles,
+          lockedRules,
+          lockedHooks,
         ] = yield* Effect.all(
           [
             ws.records.getConfiguredSkills(),
@@ -714,6 +786,13 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             ws.getConfiguredFilesEntries(),
             ws.getConfiguredRuleEntries(),
             ws.getConfiguredHookEntries(),
+            ws.getLockedSkills(),
+            ws.getLockedCommands(),
+            ws.getLockedMcpServers(),
+            ws.getLockedSubagents(),
+            ws.getLockedFiles(),
+            ws.getLockedRules(),
+            ws.getLockedHooks(),
           ],
           { concurrency: "unbounded" },
         );
@@ -728,69 +807,101 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           const target = targetFromRef(ref);
 
           if (ref.type === "pack") {
+            const installedBefore = Option.isSome(lockedPack);
             return buildInstallOperation<PackRef>(packMgr, {
               ref,
               versionRange: intent.versionRange,
+              installedBefore: Effect.succeed(installedBefore),
+              buildArtifact: ({ installedBefore }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "skill") {
+            const installedBefore = Object.hasOwn(lockedSkills, ref.skill.name);
             return buildInstallOperation<SkillExtensionRef>(skillMgr, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
               retainedByPack: true,
+              installedBefore: Effect.succeed(installedBefore),
+              buildArtifact: ({ installedBefore }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "command") {
+            const installedBefore = Object.hasOwn(lockedCommands, ref.command.name);
             return buildInstallOperation<CommandExtensionRef>(commandMgr, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
+              installedBefore: Effect.succeed(installedBefore),
+              buildArtifact: ({ installedBefore }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "mcp-server") {
+            const installedBefore = Object.hasOwn(lockedMcpServers, ref.server.name);
             return buildInstallOperation<McpServerExtensionRef>(mcpServerMgr, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
+              installedBefore: Effect.succeed(installedBefore),
+              buildArtifact: ({ installedBefore }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "subagent") {
+            const installedBefore = Object.hasOwn(lockedSubagents, ref.subagent.name);
             return buildInstallOperation<SubagentExtensionRef>(subagentMgr, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
+              installedBefore: Effect.succeed(installedBefore),
+              buildArtifact: ({ installedBefore }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "files") {
+            const installedBefore = Object.hasOwn(lockedFiles, ref.file.name);
             return buildInstallOperation<FilesExtensionRef>(contextManager, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
               retainedByPack: true,
+              installedBefore: Effect.succeed(installedBefore),
+              buildArtifact: ({ installedBefore }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "rule") {
+            const installedBefore = Object.hasOwn(lockedRules, ref.rule.name);
             return buildInstallOperation<RuleExtensionRef>(ruleManager, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
               retainedByPack: true,
+              installedBefore: Effect.succeed(installedBefore),
+              buildArtifact: ({ installedBefore }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "hook") {
+            const installedBefore = Object.hasOwn(lockedHooks, ref.hook.name);
             return buildInstallOperation<HookExtensionRef>(hookManager, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
               retainedByPack: true,
+              installedBefore: Effect.succeed(installedBefore),
+              buildArtifact: ({ installedBefore }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
@@ -873,7 +984,10 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         return {
           _tag: "Plan",
           name: "Install pack",
-          description: Option.none(),
+          description:
+            intent.diagnosticLines === undefined
+              ? Option.none()
+              : Option.some(intent.diagnosticLines.join("\n")),
           jobs: [{ concurrency: 1 as const, steps: [...installSteps, ...uninstallSteps] }],
         } satisfies Plan;
       });

@@ -31,6 +31,8 @@ import {
   type FilesLockMap,
   type HooksLockMap,
   type RulesLockMap,
+  type SkillLockEntry,
+  type SubagentLockEntry,
   type SubagentsLockMap,
 } from "../lockfile/index.js";
 import type { Lockfile } from "../lockfile/schema.js";
@@ -121,6 +123,52 @@ const createEmptyLockfile = (): Lockfile => ({
   skills: {},
 });
 
+const normalizeForStableCompare = (value: unknown): unknown => {
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(normalizeForStableCompare);
+  if (typeof value === "object" && value !== null) {
+    const normalized: Record<string, unknown> = {};
+    for (const [key, entryValue] of Object.entries(value).sort(([left], [right]) =>
+      left.localeCompare(right),
+    )) {
+      normalized[key] = normalizeForStableCompare(entryValue);
+    }
+    return normalized;
+  }
+  return value;
+};
+
+const stableCompare = (left: unknown, right: unknown): boolean =>
+  JSON.stringify(normalizeForStableCompare(left)) ===
+  JSON.stringify(normalizeForStableCompare(right));
+
+type TimestampedLockEntry = {
+  readonly installedAt: Date;
+  readonly updatedAt: Date;
+};
+
+const withoutLockTimestamps = (entry: TimestampedLockEntry): unknown => {
+  const { installedAt: _installedAt, updatedAt: _updatedAt, ...rest } = entry;
+  return rest;
+};
+
+const lockEntrySemanticallyEqual = <TEntry extends TimestampedLockEntry>(
+  current: TEntry | undefined,
+  next: TEntry,
+): boolean =>
+  current !== undefined &&
+  stableCompare(withoutLockTimestamps(current), withoutLockTimestamps(next));
+
+const skillLockEntrySemanticallyEqual = (
+  current: SkillLockEntry | undefined,
+  next: SkillLockEntry,
+): boolean => lockEntrySemanticallyEqual(current, next);
+
+const subagentLockEntrySemanticallyEqual = (
+  current: SubagentLockEntry | undefined,
+  next: SubagentLockEntry,
+): boolean => lockEntrySemanticallyEqual(current, next);
+
 const contextReadErrorToAppError = (
   source: "settings" | "lockfile" | "workspace",
   error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
@@ -181,9 +229,7 @@ const requireInitializedWorkspace = (
             makeAppError({
               code: "internal",
               detail: `Workspace settings not found: ${settingsPath}`,
-              suggestions: [
-                { description: "Run `axm setup` to create the workspace.", cmd: "axm setup" },
-              ],
+              suggestions: [{ description: "Create the workspace.", cmd: "axm setup" }],
             }),
           ),
         onSome: () => Effect.void,
@@ -1022,7 +1068,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               detail: `Skill "${name}" not found in lockfile`,
               suggestions: [
                 {
-                  description: "Install the skill first with `axm skills install`",
+                  description: "Install the skill first.",
                   cmd: "axm skills install <source>",
                 },
               ],
@@ -1060,14 +1106,23 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
             const authored = currentSkills[name]?.authored ?? false;
+            const nextSkillEntry: SkillEntry = { source, enabled: true, authored };
             const updatedSettings = {
               ...currentSettings,
-              skills: { ...currentSkills, [name]: { source, enabled: true, authored } },
+              skills: { ...currentSkills, [name]: nextSkillEntry },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
-            // Update lockfile
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockEntry = currentLockfile.skills[name];
+            const settingsChanged = !stableCompare(currentSkills[name], nextSkillEntry);
+            const lockChanged = !skillLockEntrySemanticallyEqual(currentLockEntry, lockEntry);
+
+            if (settingsChanged) {
+              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            }
+
+            if (!lockChanged) return;
+
             const updatedLockfile = {
               ...currentLockfile,
               skills: {
@@ -1087,6 +1142,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            if (skillLockEntrySemanticallyEqual(currentLockfile.skills[name], lockEntry)) {
+              return;
+            }
             const updatedLockfile = {
               ...currentLockfile,
               skills: {
@@ -1515,15 +1573,24 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
             const authored = currentSubagents[name]?.authored ?? false;
+            const nextSubagentEntry: SubagentEntry = { source, enabled: true, authored };
             const updatedSettings = {
               ...currentSettings,
-              subagents: { ...currentSubagents, [name]: { source, enabled: true, authored } },
+              subagents: { ...currentSubagents, [name]: nextSubagentEntry },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
-            // Update lockfile
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLockedSubagents = currentLockfile.subagents ?? {};
+            const currentLockEntry = currentLockedSubagents[name];
+            const settingsChanged = !stableCompare(currentSubagents[name], nextSubagentEntry);
+            const lockChanged = !subagentLockEntrySemanticallyEqual(currentLockEntry, lockEntry);
+
+            if (settingsChanged) {
+              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            }
+
+            if (!lockChanged) return;
+
             const updatedLockfile = {
               ...currentLockfile,
               subagents: {
@@ -1544,6 +1611,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             // Update lockfile only (skip settings) — used for pack dependencies
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLockedSubagents = currentLockfile.subagents ?? {};
+            if (subagentLockEntrySemanticallyEqual(currentLockedSubagents[name], lockEntry)) {
+              return;
+            }
             const updatedLockfile = {
               ...currentLockfile,
               subagents: {

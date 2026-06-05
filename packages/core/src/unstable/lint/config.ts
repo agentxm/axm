@@ -105,7 +105,7 @@ const ruleIdKeyFilter = Schema.makeFilter(
     if (invalid.length === 0) {
       return undefined;
     }
-    return `Unknown lint rule id(s) in lint.rules: ${invalid.join(", ")}. Keys must be exact <namespace>/<name> ids; wildcards and globs are not supported.`;
+    return `Unknown lint rule IDs in lint.rules: ${invalid.join(", ")}. Keys must be exact <namespace>/<name> IDs; wildcards and globs are not supported.`;
   },
 );
 

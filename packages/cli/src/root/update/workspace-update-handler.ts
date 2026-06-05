@@ -6,14 +6,14 @@ import {
   summarizeCommandOutcome,
   type SubjectType,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/plan";
 
+import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import {
-  emitNoOpResult,
-  emitPlanResolutionResult,
-  planResolutionToSummary,
-} from "../../json-output.js";
-import { runFilesWorkspaceGeneratorPhase } from "../files/workspace-generator-phase.js";
+  mergePlanResolution,
+  runFilesWorkspaceGeneratorPhase,
+} from "../files/workspace-generator-phase.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./workspace-update.js";
 
 const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>): SubjectType =>
@@ -50,7 +50,7 @@ export const handleWorkspaceUpdate = (args: {
           sourceKind: "workspace",
         }),
       );
-      yield* emitNoOpResult(args.command, {
+      yield* emitNoOpOutcome(args.command, {
         planName: args.planName,
         message: planResult.message,
         ...Option.match(args.planDescription, {
@@ -62,16 +62,20 @@ export const handleWorkspaceUpdate = (args: {
     }
 
     const resolution = yield* previewOrApplyPlan(planResult.plan, args.flags);
+    let outputResolution: PlanResolution = resolution;
     if (!args.flags.preview && (Option.isNone(args.type) || args.type.value === "files")) {
-      yield* runFilesWorkspaceGeneratorPhase({ dryRun: false });
+      const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
+        dryRun: false,
+      });
+      outputResolution = mergePlanResolution(resolution, workspaceGeneratorResolution);
     }
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(
-        planResolutionToSummary(resolution, {
+        planResolutionToSummary(outputResolution, {
           subjectType: workspaceUpdateSubjectType(args.type),
           sourceKind: "workspace",
         }),
       ),
     );
-    yield* emitPlanResolutionResult(args.command, resolution);
+    yield* emitPlanResolutionResult(args.command, outputResolution);
   });

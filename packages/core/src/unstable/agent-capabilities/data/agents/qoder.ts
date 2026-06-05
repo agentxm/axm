@@ -9,8 +9,8 @@ export const qoderAgent = {
   family: "alibaba",
   rootDir: ".qoder",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

@@ -9,8 +9,10 @@ export const devinAgent = {
   family: null,
   rootDir: ".devin",
   detection: {
-    projectDirs: [".devin"],
-    userDirs: ["$XDG_CONFIG_HOME/devin"],
+    project: { markers: [{ kind: "dir", path: ".devin", signal: "definitive", note: null }] },
+    user: {
+      markers: [{ kind: "dir", path: "$XDG_CONFIG_HOME/devin", signal: "definitive", note: null }],
+    },
   },
   docs: [
     {

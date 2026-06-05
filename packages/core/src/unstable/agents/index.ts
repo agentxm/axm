@@ -9,7 +9,15 @@
  */
 
 // Detection (effectful)
-export { detectAgent, detectAgentInRoot, detectAgents, detectAgentsInRoot } from "./detection.js";
+export {
+  AgentExecutableResolver,
+  AgentExecutableResolverLive,
+  detectAgent,
+  detectAgentInRoot,
+  detectAgents,
+  detectAgentsInRoot,
+  type AgentExecutableResolverService,
+} from "./detection.js";
 
 // Registry (pure data)
 export { AGENTS, getAgentIds } from "./registry.js";
@@ -20,8 +28,10 @@ export type {
   AgentCommandsDescriptor,
   AgentDescriptor,
   AgentDetectionDescriptor,
+  AgentDetectionMarker,
   AgentId,
   AgentInstructionsDescriptor,
+  AgentScopeDetectionDescriptor,
   ConfigurableAgentId,
   AgentRegistry,
   AgentSkillsDescriptor,

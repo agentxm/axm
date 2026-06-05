@@ -10,6 +10,7 @@ import {
   AGENT_IDS as CONFIGURABLE_AGENT_IDS,
   type AgentId as ConfigurableAgentId,
 } from "../agent-capabilities/catalog.js";
+import type { DetectionMarker, ScopeDetection } from "../agent-capabilities/schema.js";
 
 // -----------------------------------------------------------------------------
 // Agent Skills Configuration
@@ -73,11 +74,17 @@ export type AgentInstructionsDescriptor =
 // -----------------------------------------------------------------------------
 
 /** @experimental This API is unstable and may change without notice. */
+export type AgentDetectionMarker = DetectionMarker;
+
+/** @experimental This API is unstable and may change without notice. */
+export type AgentScopeDetectionDescriptor = ScopeDetection;
+
+/** @experimental This API is unstable and may change without notice. */
 export interface AgentDetectionDescriptor {
-  /** Marker directories relative to the project root. */
-  readonly projectDirs?: ReadonlyArray<string> | undefined;
-  /** Marker directories relative to the user home, or `$XDG_CONFIG_HOME/...`. */
-  readonly userDirs?: ReadonlyArray<string> | undefined;
+  /** Project-scope markers resolved relative to the project root. */
+  readonly project: AgentScopeDetectionDescriptor;
+  /** User-scope markers resolved relative to home/config roots; executables use PATH. */
+  readonly user: AgentScopeDetectionDescriptor;
 }
 
 // -----------------------------------------------------------------------------
@@ -136,7 +143,7 @@ export interface AgentDescriptor {
   readonly subagents?: AgentSubagentsDescriptor;
   /** Workspace instruction-file convention for this coding agent. */
   readonly instructions?: AgentInstructionsDescriptor;
-  /** Explicit marker directories used by agent detection. */
+  /** Structured per-scope markers used by agent detection. */
   readonly detection?: AgentDetectionDescriptor;
 }
 

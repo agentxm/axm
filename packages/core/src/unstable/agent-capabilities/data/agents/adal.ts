@@ -9,8 +9,8 @@ export const adalAgent = {
   family: null,
   rootDir: ".adal",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

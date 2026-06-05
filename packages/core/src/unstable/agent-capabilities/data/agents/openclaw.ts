@@ -9,8 +9,8 @@ export const openclawAgent = {
   family: null,
   rootDir: null,
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

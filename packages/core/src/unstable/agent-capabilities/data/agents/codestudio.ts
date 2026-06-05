@@ -9,8 +9,8 @@ export const codestudioAgent = {
   family: null,
   rootDir: ".codestudio",
   detection: {
-    projectDirs: [".codestudio"],
-    userDirs: ["~/.codestudio"],
+    project: { markers: [{ kind: "dir", path: ".codestudio", signal: "definitive", note: null }] },
+    user: { markers: [{ kind: "dir", path: "~/.codestudio", signal: "definitive", note: null }] },
   },
   docs: [
     {

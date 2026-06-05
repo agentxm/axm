@@ -9,8 +9,8 @@ export const crushAgent = {
   family: null,
   rootDir: ".crush",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

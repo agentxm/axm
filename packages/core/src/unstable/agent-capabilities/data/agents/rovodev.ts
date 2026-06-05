@@ -9,8 +9,8 @@ export const rovodevAgent = {
   family: null,
   rootDir: ".rovodev",
   detection: {
-    projectDirs: [".rovodev"],
-    userDirs: ["~/.rovodev"],
+    project: { markers: [{ kind: "dir", path: ".rovodev", signal: "definitive", note: null }] },
+    user: { markers: [{ kind: "dir", path: "~/.rovodev", signal: "definitive", note: null }] },
   },
   docs: [
     {

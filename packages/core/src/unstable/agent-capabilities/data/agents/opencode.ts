@@ -9,8 +9,8 @@ export const opencodeAgent = {
   family: null,
   rootDir: ".opencode",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

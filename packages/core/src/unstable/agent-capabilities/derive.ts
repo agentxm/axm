@@ -6,6 +6,7 @@
 
 import type {
   AgentDescriptor,
+  AgentDetectionMarker,
   AgentInstructionsDescriptor,
   AgentSubagentsDescriptor,
 } from "../agents/types.js";
@@ -16,7 +17,11 @@ import {
   SUPPORTED_LIFECYCLE,
   type Agent,
   type AgentExtensionCapability,
+  type Detection,
+  type Scope,
   type LeafExtensionType,
+  type McpConfigTarget,
+  type ConfigFileLocation,
 } from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */
@@ -57,6 +62,94 @@ const deriveRootDir = (agent: Agent): string | undefined =>
         ? firstPathSegment(agent.capabilities.skill.directory)
         : undefined);
 
+const detectionMarkerKey = (marker: AgentDetectionMarker): string =>
+  marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
+
+const fileMarker = (path: string): AgentDetectionMarker => ({
+  kind: "file",
+  path,
+  signal: "supporting",
+  note: null,
+});
+
+const appendMarker = (
+  markers: Map<string, AgentDetectionMarker>,
+  marker: AgentDetectionMarker,
+): void => {
+  markers.set(detectionMarkerKey(marker), marker);
+};
+
+const appendFileMarkers = (
+  markersByScope: Record<Scope, Map<string, AgentDetectionMarker>>,
+  locations: ReadonlyArray<ConfigFileLocation | McpConfigTarget>,
+): void => {
+  for (const location of locations) {
+    appendMarker(markersByScope[location.scope], fileMarker(location.path));
+  }
+};
+
+const hasMcpConfigTargets = (
+  capability: Agent["capabilities"]["mcp-server"],
+): capability is Extract<
+  Agent["capabilities"]["mcp-server"],
+  { readonly standardsCompliance: "full" }
+> => "config" in capability && capability.standardsCompliance === "full";
+
+const hasConfigFiles = (
+  capability: AgentExtensionCapability | Agent["permissions"],
+): capability is Extract<
+  AgentExtensionCapability | Agent["permissions"],
+  { readonly configFiles: ReadonlyArray<ConfigFileLocation> }
+> => "configFiles" in capability;
+
+const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection | undefined => {
+  const projectMarkers = new Map<string, AgentDetectionMarker>();
+  const userMarkers = new Map<string, AgentDetectionMarker>();
+  const markersByScope = {
+    project: projectMarkers,
+    user: userMarkers,
+  };
+
+  if (rootDir !== undefined) {
+    appendMarker(projectMarkers, {
+      kind: "dir",
+      path: rootDir,
+      signal: "definitive",
+      note: null,
+    });
+  }
+
+  const mcp = agent.capabilities["mcp-server"];
+  if (hasMcpConfigTargets(mcp)) {
+    appendFileMarkers(markersByScope, mcp.config.targets);
+  }
+
+  for (const capability of Object.values(agent.capabilities)) {
+    if (hasConfigFiles(capability)) appendFileMarkers(markersByScope, capability.configFiles);
+  }
+
+  if (hasConfigFiles(agent.permissions)) {
+    appendFileMarkers(markersByScope, agent.permissions.configFiles);
+  }
+
+  for (const marker of agent.detection.project.markers) {
+    appendMarker(projectMarkers, marker);
+  }
+
+  for (const marker of agent.detection.user.markers) {
+    appendMarker(userMarkers, marker);
+  }
+
+  const project = Array.from(projectMarkers.values());
+  const user = Array.from(userMarkers.values());
+  if (project.length === 0 && user.length === 0) return undefined;
+
+  return {
+    project: { markers: project },
+    user: { markers: user },
+  };
+};
+
 const deriveSubagentsDescriptor = (agent: Agent): AgentSubagentsDescriptor | undefined => {
   const subagents = agent.capabilities.subagent;
   if (!isCapabilitySupported(subagents)) return undefined;
@@ -89,9 +182,6 @@ const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor
   }
 };
 
-const hasDetectionMarkers = (agent: Agent): boolean =>
-  agent.detection.projectDirs.length > 0 || agent.detection.userDirs.length > 0;
-
 /** @experimental This API is unstable and may change without notice. */
 export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
   const skill = agent.capabilities.skill;
@@ -102,15 +192,17 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
       : undefined;
   const subagents = deriveSubagentsDescriptor(agent);
   const instructions = deriveInstructionsDescriptor(agent);
+  const rootDir = deriveRootDir(agent);
+  const detection = deriveDetection(agent, rootDir);
 
   return {
     id: deriveAgentId(agent),
     name: agent.name,
-    rootDir: deriveRootDir(agent),
+    rootDir,
     skills: {
       dir: "directory" in skill ? skill.directory : "",
     },
-    ...(hasDetectionMarkers(agent) ? { detection: agent.detection } : {}),
+    ...(detection === undefined ? {} : { detection }),
     ...(commands === undefined ? {} : { commands }),
     ...(subagents === undefined ? {} : { subagents }),
     ...(instructions === undefined ? {} : { instructions }),

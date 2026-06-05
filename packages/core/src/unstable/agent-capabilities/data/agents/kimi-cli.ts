@@ -9,8 +9,8 @@ export const kimiCliAgent = {
   family: "moonshot",
   rootDir: null,
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

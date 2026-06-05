@@ -9,8 +9,8 @@ export const gooseAgent = {
   family: null,
   rootDir: ".goose",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

@@ -14,6 +14,7 @@ import * as YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { BRANDING } from "@agentxm/client-core/unstable/branding";
+import { AgentExecutableResolver } from "@agentxm/client-core/unstable/agents";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
@@ -73,6 +74,9 @@ const makeSetupTestContext = (opts?: {
     workspaceInitInteraction.layer,
     TestFlagsLayer(opts?.flags),
     Layer.succeed(RegistryUrl, "https://registry.invalid"),
+    Layer.succeed(AgentExecutableResolver, {
+      exists: () => Effect.succeed(false),
+    }),
   );
   const layer =
     opts?.installer === "live"

@@ -9,8 +9,8 @@ export const commandCodeAgent = {
   family: null,
   rootDir: ".commandcode",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

@@ -9,8 +9,8 @@ export const muxAgent = {
   family: null,
   rootDir: ".mux",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

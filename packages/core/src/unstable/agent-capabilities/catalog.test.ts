@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
 import { AgentIdSchema, AGENTS } from "./catalog.js";
-import { AgentSchema, type Agent } from "./schema.js";
+import { AgentSchema, DetectionMarkerSchema, DetectionSchema, type Agent } from "./schema.js";
 
 const decodeAgent = (input: unknown): Agent =>
   Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
@@ -37,7 +37,7 @@ const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   interfaces: ["cli"],
   family: null,
   rootDir: ".sample",
-  detection: { projectDirs: [], userDirs: [] },
+  detection: { project: { markers: [] }, user: { markers: [] } },
   docs: [],
   capabilities: makeCapabilitiesInput(),
   permissions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
@@ -61,6 +61,47 @@ describe("agent capability catalog", () => {
     const decode = Schema.decodeUnknownResult(AgentIdSchema);
     expect(Result.isSuccess(decode("claude-code"))).toBe(true);
     expect(Result.isFailure(decode("unknown-agent"))).toBe(true);
+  });
+
+  it("decodes typed detection markers", () => {
+    const marker = {
+      kind: "executable",
+      name: "codex",
+      signal: "definitive",
+      note: "CLI on PATH.",
+    };
+
+    expect(Schema.decodeUnknownSync(DetectionMarkerSchema)(marker)).toEqual(marker);
+  });
+
+  it("rejects duplicate detection markers by kind and path", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(DetectionSchema)({
+        project: {
+          markers: [
+            { kind: "file", path: "AGENTS.md", signal: "ambiguous", note: null },
+            { kind: "file", path: "AGENTS.md", signal: "supporting", note: null },
+          ],
+        },
+        user: { markers: [] },
+      }),
+    ).toThrow("Detection markers must be unique");
+  });
+
+  it("decodes legacy detection directory arrays into marker form", () => {
+    expect(
+      Schema.decodeUnknownSync(DetectionSchema)({
+        projectDirs: [".sample"],
+        userDirs: ["~/.sample"],
+      }),
+    ).toEqual({
+      project: {
+        markers: [{ kind: "dir", path: ".sample", signal: "definitive", note: null }],
+      },
+      user: {
+        markers: [{ kind: "dir", path: "~/.sample", signal: "definitive", note: null }],
+      },
+    });
   });
 
   it("rejects invalid URLs on catalog URL fields", () => {

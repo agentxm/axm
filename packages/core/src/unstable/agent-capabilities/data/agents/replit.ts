@@ -9,8 +9,8 @@ export const replitAgent = {
   family: null,
   rootDir: null,
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

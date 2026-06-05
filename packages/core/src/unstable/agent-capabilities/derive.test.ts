@@ -20,7 +20,7 @@ const baseAgent = {
   interfaces: ["cli"],
   family: null,
   rootDir: ".sample",
-  detection: { projectDirs: [], userDirs: [] },
+  detection: { project: { markers: [] }, user: { markers: [] } },
   docs: [],
   capabilities: {
     skill: {
@@ -43,6 +43,13 @@ const baseAgent = {
   },
   permissions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
 } satisfies Agent;
+
+const sampleRootDetection = {
+  project: {
+    markers: [{ kind: "dir", path: ".sample", signal: "definitive", note: null }],
+  },
+  user: { markers: [] },
+};
 
 const supportedSkillWithNoStandardsCompliance = {
   ...baseAgent.capabilities.skill,
@@ -256,6 +263,12 @@ describe("agent capability derivation", () => {
       name: "Sample Agent",
       rootDir: ".sample-root",
       skills: { dir: ".sample/skills" },
+      detection: {
+        project: {
+          markers: [{ kind: "dir", path: ".sample-root", signal: "definitive", note: null }],
+        },
+        user: { markers: [] },
+      },
       commands: { dir: ".sample/commands" },
       subagents: { dir: ".sample/agents" },
       instructions: { kind: "own-file", file: "SAMPLE.md", importSyntax: "at-path" },
@@ -292,20 +305,72 @@ describe("agent capability derivation", () => {
 
   it("derives explicit rootDir", () => {
     expect(deriveAgentDescriptor(baseAgent).rootDir).toBe(".sample");
+    expect(deriveAgentDescriptor(baseAgent).detection).toEqual(sampleRootDetection);
   });
 
-  it("derives explicit detection markers", () => {
+  it("derives detection from rootDir, config files, and authored markers", () => {
     expect(
       deriveAgentDescriptor({
         ...baseAgent,
         detection: {
-          projectDirs: [".sample"],
-          userDirs: ["~/.sample"],
+          project: {
+            markers: [
+              {
+                kind: "file",
+                path: ".sample/settings.json",
+                signal: "ambiguous",
+                note: "Shared settings format.",
+              },
+            ],
+          },
+          user: {
+            markers: [{ kind: "dir", path: "~/.sample", signal: "definitive", note: null }],
+          },
+        },
+        capabilities: {
+          ...baseAgent.capabilities,
+          "mcp-server": {
+            lifecycle: "supported",
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/mcp"],
+            lastVerified: "2026-05-16",
+            scopes: ["project"],
+            standardsCompliance: "full",
+            convention: "vendor",
+            transports: ["stdio"],
+            config: {
+              serversKey: "mcpServers",
+              nativeEnabled: true,
+              targets: [
+                { scope: "project", path: ".sample/settings.json", format: "json" },
+                { scope: "user", path: "~/.sample/settings.json", format: "json" },
+              ],
+              stdio: { typeField: null, command: "split", envKey: null },
+              remote: null,
+              transform: null,
+            },
+          },
         },
       }).detection,
     ).toEqual({
-      projectDirs: [".sample"],
-      userDirs: ["~/.sample"],
+      project: {
+        markers: [
+          { kind: "dir", path: ".sample", signal: "definitive", note: null },
+          {
+            kind: "file",
+            path: ".sample/settings.json",
+            signal: "ambiguous",
+            note: "Shared settings format.",
+          },
+        ],
+      },
+      user: {
+        markers: [
+          { kind: "file", path: "~/.sample/settings.json", signal: "supporting", note: null },
+          { kind: "dir", path: "~/.sample", signal: "definitive", note: null },
+        ],
+      },
     });
   });
 

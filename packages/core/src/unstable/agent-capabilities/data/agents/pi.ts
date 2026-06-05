@@ -9,8 +9,8 @@ export const piAgent = {
   family: null,
   rootDir: ".pi",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

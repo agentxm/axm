@@ -9,8 +9,8 @@ export const grokCliAgent = {
   family: "xai",
   rootDir: ".grok",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

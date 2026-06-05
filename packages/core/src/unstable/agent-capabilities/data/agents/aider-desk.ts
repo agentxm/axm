@@ -9,8 +9,8 @@ export const aiderDeskAgent = {
   family: null,
   rootDir: ".aider-desk",
   detection: {
-    projectDirs: [".aider-desk"],
-    userDirs: ["~/.aider-desk"],
+    project: { markers: [{ kind: "dir", path: ".aider-desk", signal: "definitive", note: null }] },
+    user: { markers: [{ kind: "dir", path: "~/.aider-desk", signal: "definitive", note: null }] },
   },
   docs: [
     {

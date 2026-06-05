@@ -9,8 +9,8 @@ export const pochiAgent = {
   family: null,
   rootDir: ".pochi",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

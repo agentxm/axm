@@ -9,8 +9,8 @@ export const hermesAgent = {
   family: null,
   rootDir: ".hermes",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

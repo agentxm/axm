@@ -9,8 +9,8 @@ export const zencoderAgent = {
   family: null,
   rootDir: ".zencoder",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

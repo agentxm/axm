@@ -9,8 +9,8 @@ export const continueAgent = {
   family: null,
   rootDir: ".continue",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

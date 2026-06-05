@@ -9,8 +9,27 @@ export const cursorAgent = {
   family: "cursor",
   rootDir: ".cursor",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: {
+      markers: [
+        {
+          kind: "file",
+          path: "AGENTS.md",
+          signal: "ambiguous",
+          note: "Shared instruction filename used by multiple agents.",
+        },
+      ],
+    },
+    user: {
+      markers: [
+        { kind: "dir", path: "~/.cursor", signal: "definitive", note: null },
+        {
+          kind: "executable",
+          name: "cursor-agent",
+          signal: "definitive",
+          note: "CLI on PATH.",
+        },
+      ],
+    },
   },
   docs: [
     {

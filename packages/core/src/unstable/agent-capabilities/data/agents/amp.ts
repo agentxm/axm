@@ -9,8 +9,8 @@ export const ampAgent = {
   family: "sourcegraph",
   rootDir: null,
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

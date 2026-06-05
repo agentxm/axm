@@ -9,8 +9,8 @@ export const rooAgent = {
   family: null,
   rootDir: ".roo",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

@@ -9,8 +9,13 @@ export const geminiCliAgent = {
   family: "google",
   rootDir: ".gemini",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: {
+      markers: [
+        { kind: "dir", path: "~/.gemini", signal: "definitive", note: null },
+        { kind: "executable", name: "gemini", signal: "definitive", note: "CLI on PATH." },
+      ],
+    },
   },
   docs: [
     {

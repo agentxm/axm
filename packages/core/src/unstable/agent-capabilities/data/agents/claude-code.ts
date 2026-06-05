@@ -9,8 +9,22 @@ export const claudeCodeAgent = {
   family: "anthropic",
   rootDir: ".claude",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: {
+      markers: [
+        {
+          kind: "file",
+          path: ".mcp.json",
+          signal: "ambiguous",
+          note: "Universal MCP file, not Claude-specific.",
+        },
+      ],
+    },
+    user: {
+      markers: [
+        { kind: "dir", path: "~/.claude", signal: "definitive", note: null },
+        { kind: "executable", name: "claude", signal: "definitive", note: "CLI on PATH." },
+      ],
+    },
   },
   docs: [
     {

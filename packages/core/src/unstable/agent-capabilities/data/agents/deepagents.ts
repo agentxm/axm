@@ -9,8 +9,8 @@ export const deepagentsAgent = {
   family: null,
   rootDir: null,
   detection: {
-    projectDirs: [],
-    userDirs: ["~/.deepagents"],
+    project: { markers: [] },
+    user: { markers: [{ kind: "dir", path: "~/.deepagents", signal: "definitive", note: null }] },
   },
   docs: [
     {

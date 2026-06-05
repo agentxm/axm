@@ -9,8 +9,8 @@ export const neovateAgent = {
   family: null,
   rootDir: ".neovate",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

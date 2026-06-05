@@ -9,8 +9,8 @@ export const mcpjamAgent = {
   family: null,
   rootDir: ".mcpjam",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

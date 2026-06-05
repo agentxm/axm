@@ -9,8 +9,8 @@ export const firebenderAgent = {
   family: null,
   rootDir: null,
   detection: {
-    projectDirs: [],
-    userDirs: ["~/.firebender"],
+    project: { markers: [] },
+    user: { markers: [{ kind: "dir", path: "~/.firebender", signal: "definitive", note: null }] },
   },
   docs: [
     {

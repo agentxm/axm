@@ -9,8 +9,8 @@ export const qwenCodeAgent = {
   family: "alibaba",
   rootDir: ".qwen",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

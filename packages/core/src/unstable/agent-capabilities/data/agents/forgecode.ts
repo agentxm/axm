@@ -9,8 +9,13 @@ export const forgecodeAgent = {
   family: null,
   rootDir: ".forge",
   detection: {
-    projectDirs: [".forge"],
-    userDirs: ["~/.forge", "~/forge"],
+    project: { markers: [{ kind: "dir", path: ".forge", signal: "definitive", note: null }] },
+    user: {
+      markers: [
+        { kind: "dir", path: "~/.forge", signal: "definitive", note: null },
+        { kind: "dir", path: "~/forge", signal: "definitive", note: null },
+      ],
+    },
   },
   docs: [
     {

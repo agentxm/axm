@@ -9,8 +9,8 @@ export const tabnineCliAgent = {
   family: null,
   rootDir: ".tabnine",
   detection: {
-    projectDirs: [".tabnine"],
-    userDirs: ["~/.tabnine"],
+    project: { markers: [{ kind: "dir", path: ".tabnine", signal: "definitive", note: null }] },
+    user: { markers: [{ kind: "dir", path: "~/.tabnine", signal: "definitive", note: null }] },
   },
   docs: [
     {

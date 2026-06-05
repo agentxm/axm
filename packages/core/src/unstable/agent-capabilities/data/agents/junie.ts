@@ -9,8 +9,8 @@ export const junieAgent = {
   family: "jetbrains",
   rootDir: ".junie",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

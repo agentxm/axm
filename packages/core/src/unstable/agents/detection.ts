@@ -11,11 +11,19 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as ServiceMap from "effect/Context";
 import { makeAppError } from "../app-error/index.js";
 import { UNIVERSAL_SKILLS_DIR_SEGMENT } from "../extensions/universal-skills-dir.js";
+import { envOption } from "../utils/index.js";
 import { getConfigHome, getHome } from "./constants.js";
 import { AGENTS } from "./registry.js";
-import type { AgentDescriptor } from "./types.js";
+import type {
+  AgentDescriptor,
+  AgentDetectionMarker,
+  AgentScopeDetectionDescriptor,
+} from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Detection Functions
@@ -27,6 +35,85 @@ const wrapDetectionError = (message: string) => (error: unknown) =>
     detail: message,
     cause: error,
   });
+
+export interface AgentExecutableResolverService {
+  readonly exists: (name: string) => Effect.Effect<boolean>;
+}
+
+export class AgentExecutableResolver extends ServiceMap.Service<
+  AgentExecutableResolver,
+  AgentExecutableResolverService
+>()("@agentxm/client-core/unstable/agents/detection/AgentExecutableResolver") {}
+
+const hasPathSeparator = (command: string): boolean =>
+  command.includes("/") || command.includes("\\");
+
+const getExecutableCandidates = (command: string, pathExt: string): ReadonlyArray<string> => {
+  if (process.platform !== "win32") return [command];
+
+  const lower = command.toLowerCase();
+  if (lower.endsWith(".exe") || lower.endsWith(".cmd")) return [command];
+
+  const extensions = pathExt
+    .split(";")
+    .map((segment) => segment.trim().toLowerCase())
+    .filter((segment) => segment.length > 0);
+  return [command, ...extensions.map((extension) => `${command}${extension}`)];
+};
+
+const makeAgentExecutableResolver = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const p = yield* Path.Path;
+
+  return {
+    exists: (command: string) =>
+      Effect.gen(function* () {
+        if (command.trim().length === 0) return false;
+
+        const pathExtOpt = yield* envOption("PATHEXT");
+        const pathExt = Option.getOrElse(pathExtOpt, () => ".EXE;.CMD;.BAT;.COM");
+        const candidates = getExecutableCandidates(command, pathExt);
+
+        if (p.isAbsolute(command) || hasPathSeparator(command)) {
+          const checks = yield* Effect.forEach(
+            candidates,
+            (candidate) => fs.exists(candidate).pipe(Effect.catch(() => Effect.succeed(false))),
+            { concurrency: "unbounded" },
+          );
+          return checks.some(Boolean);
+        }
+
+        const rawPathOpt = yield* envOption("PATH");
+        const rawPath = Option.getOrElse(rawPathOpt, () => "");
+        if (rawPath.trim().length === 0) return false;
+
+        const delimiter = process.platform === "win32" ? ";" : ":";
+        const dirs = rawPath
+          .split(delimiter)
+          .map((segment) => segment.trim())
+          .filter((segment) => segment.length > 0);
+
+        const checks = yield* Effect.forEach(
+          dirs,
+          (dir) =>
+            Effect.forEach(
+              candidates,
+              (candidate) =>
+                fs.exists(p.join(dir, candidate)).pipe(Effect.catch(() => Effect.succeed(false))),
+              { concurrency: "unbounded" },
+            ).pipe(Effect.map((results) => results.some(Boolean))),
+          { concurrency: "unbounded" },
+        );
+
+        return checks.some(Boolean);
+      }),
+  } satisfies AgentExecutableResolverService;
+});
+
+export const AgentExecutableResolverLive = Layer.effect(
+  AgentExecutableResolver,
+  makeAgentExecutableResolver,
+);
 
 const firstPathSegment = (dir: string): string | undefined => {
   const segment = dir.split("/")[0];
@@ -47,15 +134,24 @@ const detectionSegments = (agent: AgentDescriptor): ReadonlyArray<string> =>
     ),
   );
 
-const projectDetectionDirs = (agent: AgentDescriptor): ReadonlyArray<string> =>
-  agent.detection?.projectDirs ?? detectionSegments(agent);
+const markerKey = (marker: AgentDetectionMarker): string =>
+  marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
 
-const detectPathsInRootRaw = (paths: ReadonlyArray<string>, rootDir: string) =>
+const fallbackScopeDetection = (agent: AgentDescriptor): AgentScopeDetectionDescriptor => ({
+  markers: detectionSegments(agent).map((path) => ({
+    kind: "dir",
+    path,
+    signal: "definitive",
+    note: null,
+  })),
+});
+
+const detectLegacySegmentsInRootRaw = (agent: AgentDescriptor, rootDir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const p = yield* Path.Path;
     const results = yield* Effect.all(
-      paths.map((dir) => fs.exists(p.join(rootDir, dir))),
+      detectionSegments(agent).map((dir) => fs.exists(p.join(rootDir, dir))),
       {
         concurrency: "unbounded",
       },
@@ -65,7 +161,7 @@ const detectPathsInRootRaw = (paths: ReadonlyArray<string>, rootDir: string) =>
   });
 
 const detectAgentInRootRaw = (agent: AgentDescriptor, rootDir: string) =>
-  detectPathsInRootRaw(projectDetectionDirs(agent), rootDir);
+  detectScopeRaw(agent.detection?.project ?? fallbackScopeDetection(agent), rootDir, "project");
 
 const resolveUserDetectionPath = (marker: string) =>
   Effect.gen(function* () {
@@ -82,20 +178,73 @@ const resolveUserDetectionPath = (marker: string) =>
     return p.join(home, marker);
   });
 
-const detectUserPathsRaw = (paths: ReadonlyArray<string>) =>
+const resolveProjectPath = (marker: string, rootDir: string) =>
+  Effect.gen(function* () {
+    const p = yield* Path.Path;
+    return p.join(rootDir, marker);
+  });
+
+const resolvePathMarker = (
+  marker: Extract<AgentDetectionMarker, { readonly kind: "dir" | "file" }>,
+  rootDir: string,
+  scope: "project" | "user",
+) =>
+  scope === "project"
+    ? resolveProjectPath(marker.path, rootDir)
+    : resolveUserDetectionPath(marker.path);
+
+const resolveMarker = (marker: AgentDetectionMarker, rootDir: string, scope: "project" | "user") =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const resolvedPaths = yield* Effect.all(paths.map(resolveUserDetectionPath), {
-      concurrency: "unbounded",
-    });
-    const results = yield* Effect.all(
-      resolvedPaths.map((path) => fs.exists(path)),
-      {
-        concurrency: "unbounded",
-      },
+    if (marker.kind === "executable") {
+      const resolverOption = yield* Effect.serviceOption(AgentExecutableResolver);
+      if (Option.isSome(resolverOption)) {
+        return yield* resolverOption.value.exists(marker.name);
+      }
+      const resolver = yield* makeAgentExecutableResolver;
+      return yield* resolver.exists(marker.name);
+    }
+
+    const resolvedPath = yield* resolvePathMarker(marker, rootDir, scope);
+    return yield* fs.exists(resolvedPath);
+  });
+
+const isScopeDetected = (
+  markers: ReadonlyArray<{ readonly marker: AgentDetectionMarker; readonly resolved: boolean }>,
+): boolean => {
+  const resolvedMarkers = markers.filter((entry) => entry.resolved);
+  if (resolvedMarkers.some((entry) => entry.marker.signal === "definitive")) return true;
+
+  const corroborating = new Set(
+    resolvedMarkers
+      .filter(
+        (entry) => entry.marker.signal === "supporting" || entry.marker.signal === "ambiguous",
+      )
+      .map((entry) => markerKey(entry.marker)),
+  );
+
+  return corroborating.size >= 2;
+};
+
+const detectScopeRaw = (
+  detection: AgentScopeDetectionDescriptor,
+  rootDir: string,
+  scope: "project" | "user",
+) =>
+  Effect.gen(function* () {
+    const results = yield* Effect.forEach(
+      detection.markers,
+      (marker) =>
+        resolveMarker(marker, rootDir, scope).pipe(
+          Effect.map((resolved) => ({
+            marker,
+            resolved,
+          })),
+        ),
+      { concurrency: "unbounded" },
     );
 
-    return results.some((exists) => exists);
+    return isScopeDetected(results);
   });
 
 /**
@@ -124,12 +273,13 @@ export const detectAgentInRoot = (agent: AgentDescriptor, rootDir: string) =>
 export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {
     const home = yield* getHome;
-    const userDirs = agent.detection?.userDirs;
 
     const results = yield* Effect.all(
       [
         detectAgentInRootRaw(agent, projectDir),
-        userDirs === undefined ? detectAgentInRootRaw(agent, home) : detectUserPathsRaw(userDirs),
+        agent.detection === undefined
+          ? detectLegacySegmentsInRootRaw(agent, home)
+          : detectScopeRaw(agent.detection.user, home, "user"),
       ],
       { concurrency: "unbounded" },
     );

@@ -9,8 +9,8 @@ export const droidAgent = {
   family: null,
   rootDir: ".factory",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

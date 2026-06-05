@@ -9,8 +9,8 @@ export const codemakerAgent = {
   family: null,
   rootDir: ".codemaker",
   detection: {
-    projectDirs: [".codemaker"],
-    userDirs: ["~/.codemaker"],
+    project: { markers: [{ kind: "dir", path: ".codemaker", signal: "definitive", note: null }] },
+    user: { markers: [{ kind: "dir", path: "~/.codemaker", signal: "definitive", note: null }] },
   },
   docs: [
     {

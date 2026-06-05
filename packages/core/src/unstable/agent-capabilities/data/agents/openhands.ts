@@ -9,8 +9,8 @@ export const openhandsAgent = {
   family: null,
   rootDir: ".openhands",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

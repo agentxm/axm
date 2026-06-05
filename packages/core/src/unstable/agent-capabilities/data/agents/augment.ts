@@ -9,8 +9,8 @@ export const augmentAgent = {
   family: null,
   rootDir: ".augment",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

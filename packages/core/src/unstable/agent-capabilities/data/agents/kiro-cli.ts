@@ -9,8 +9,8 @@ export const kiroCliAgent = {
   family: "amazon",
   rootDir: ".kiro",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

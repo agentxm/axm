@@ -9,8 +9,10 @@ export const codeartsAgentAgent = {
   family: null,
   rootDir: ".codeartsdoer",
   detection: {
-    projectDirs: [".codeartsdoer"],
-    userDirs: ["~/.codeartsdoer"],
+    project: {
+      markers: [{ kind: "dir", path: ".codeartsdoer", signal: "definitive", note: null }],
+    },
+    user: { markers: [{ kind: "dir", path: "~/.codeartsdoer", signal: "definitive", note: null }] },
   },
   docs: [
     {

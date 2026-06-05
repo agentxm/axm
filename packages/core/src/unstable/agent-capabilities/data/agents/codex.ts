@@ -9,8 +9,22 @@ export const codexAgent = {
   family: "openai",
   rootDir: ".codex",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: {
+      markers: [
+        {
+          kind: "file",
+          path: "AGENTS.md",
+          signal: "ambiguous",
+          note: "Shared instruction filename used by multiple agents.",
+        },
+      ],
+    },
+    user: {
+      markers: [
+        { kind: "dir", path: "~/.codex", signal: "definitive", note: null },
+        { kind: "executable", name: "codex", signal: "definitive", note: "CLI on PATH." },
+      ],
+    },
   },
   docs: [
     {

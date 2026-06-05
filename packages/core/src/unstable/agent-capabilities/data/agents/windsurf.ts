@@ -9,8 +9,8 @@ export const windsurfAgent = {
   family: "cognition",
   rootDir: ".windsurf",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

@@ -9,8 +9,8 @@ export const dextoAgent = {
   family: null,
   rootDir: null,
   detection: {
-    projectDirs: [],
-    userDirs: ["~/.dexto"],
+    project: { markers: [] },
+    user: { markers: [{ kind: "dir", path: "~/.dexto", signal: "definitive", note: null }] },
   },
   docs: [
     {

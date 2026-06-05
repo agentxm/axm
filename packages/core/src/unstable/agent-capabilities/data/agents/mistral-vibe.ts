@@ -9,8 +9,8 @@ export const mistralVibeAgent = {
   family: "mistral",
   rootDir: ".vibe",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

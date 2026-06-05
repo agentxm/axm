@@ -9,8 +9,8 @@ export const kodeAgent = {
   family: null,
   rootDir: ".kode",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

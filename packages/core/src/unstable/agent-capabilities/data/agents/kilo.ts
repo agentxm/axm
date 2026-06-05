@@ -9,8 +9,8 @@ export const kiloAgent = {
   family: null,
   rootDir: ".kilocode",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

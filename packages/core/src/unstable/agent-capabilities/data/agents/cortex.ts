@@ -9,8 +9,10 @@ export const cortexAgent = {
   family: null,
   rootDir: ".cortex",
   detection: {
-    projectDirs: [".cortex"],
-    userDirs: ["~/.snowflake/cortex"],
+    project: { markers: [{ kind: "dir", path: ".cortex", signal: "definitive", note: null }] },
+    user: {
+      markers: [{ kind: "dir", path: "~/.snowflake/cortex", signal: "definitive", note: null }],
+    },
   },
   docs: [
     {

@@ -9,8 +9,8 @@ export const ibmBobAgent = {
   family: null,
   rootDir: ".bob",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

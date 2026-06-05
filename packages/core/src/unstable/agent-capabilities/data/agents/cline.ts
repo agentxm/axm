@@ -9,8 +9,8 @@ export const clineAgent = {
   family: null,
   rootDir: ".cline",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

@@ -9,8 +9,8 @@ export const githubCopilotAgent = {
   family: "github",
   rootDir: ".github",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

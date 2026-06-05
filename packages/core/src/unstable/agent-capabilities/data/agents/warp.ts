@@ -9,8 +9,8 @@ export const warpAgent = {
   family: null,
   rootDir: null,
   detection: {
-    projectDirs: [],
-    userDirs: ["~/.warp"],
+    project: { markers: [] },
+    user: { markers: [{ kind: "dir", path: "~/.warp", signal: "definitive", note: null }] },
   },
   docs: [
     {

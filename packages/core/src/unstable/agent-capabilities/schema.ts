@@ -5,6 +5,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import * as SchemaTransformation from "effect/SchemaTransformation";
 import { ExtensionTypeSchema } from "../extensions/common.js";
 import { DocLinkSchema, UrlSchema, type LeafExtensionType } from "../extension-types/schema.js";
 
@@ -151,16 +152,118 @@ const NonEmptyMcpTransportsSchema = Schema.NonEmptyArray(McpTransportSchema).pip
   Schema.check(Schema.isUnique()),
 );
 
-/** @experimental This API is unstable and may change without notice. */
-export const DetectionSchema = Schema.Struct({
+const LegacyDetectionSchema = Schema.Struct({
   projectDirs: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
   userDirs: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
-}).annotate({
-  identifier: "Detection",
-  title: "Detection",
-  description:
-    "Explicit project and user-scope marker directories used to detect an installed agent.",
 });
+
+/** @experimental This API is unstable and may change without notice. */
+export const DetectionSignalSchema = Schema.Literals([
+  "definitive",
+  "supporting",
+  "ambiguous",
+]).annotate({
+  identifier: "DetectionSignal",
+  title: "Detection Signal",
+  description: "How strongly a resolved marker identifies a specific coding agent.",
+  examples: ["definitive", "supporting", "ambiguous"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type DetectionSignal = Schema.Schema.Type<typeof DetectionSignalSchema>;
+
+const DetectionMarkerBaseFields = {
+  signal: DetectionSignalSchema,
+  note: Schema.NullOr(Schema.NonEmptyString),
+};
+
+/** @experimental This API is unstable and may change without notice. */
+export const DetectionMarkerSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("dir"),
+    path: Schema.NonEmptyString,
+    ...DetectionMarkerBaseFields,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("file"),
+    path: Schema.NonEmptyString,
+    ...DetectionMarkerBaseFields,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("executable"),
+    name: Schema.NonEmptyString,
+    ...DetectionMarkerBaseFields,
+  }),
+]).annotate({
+  identifier: "DetectionMarker",
+  title: "Detection Marker",
+  description: "Typed marker used to detect an installed or configured coding agent.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type DetectionMarker = Schema.Schema.Type<typeof DetectionMarkerSchema>;
+
+const detectionMarkerKey = (marker: DetectionMarker): string =>
+  marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
+
+/** @experimental This API is unstable and may change without notice. */
+export const ScopeDetectionSchema = Schema.Struct({
+  markers: Schema.Array(DetectionMarkerSchema).pipe(
+    Schema.check(
+      Schema.makeFilter((markers: ReadonlyArray<DetectionMarker>) => {
+        const seen = new Set<string>();
+        for (const marker of markers) {
+          const key = detectionMarkerKey(marker);
+          if (seen.has(key)) return "Detection markers must be unique by kind and path/name.";
+          seen.add(key);
+        }
+        return undefined;
+      }),
+    ),
+  ),
+}).annotate({
+  identifier: "ScopeDetection",
+  title: "Scope Detection",
+  description: "Detection markers for one configuration scope.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type ScopeDetection = Schema.Schema.Type<typeof ScopeDetectionSchema>;
+
+const CurrentDetectionSchema = Schema.Struct({
+  project: ScopeDetectionSchema,
+  user: ScopeDetectionSchema,
+});
+
+const markerFromLegacyDir = (path: string): DetectionMarker => ({
+  kind: "dir",
+  path,
+  signal: "definitive",
+  note: null,
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export const DetectionSchema = Schema.Union([CurrentDetectionSchema, LegacyDetectionSchema]).pipe(
+  Schema.decodeTo(
+    Schema.toType(CurrentDetectionSchema),
+    SchemaTransformation.transform({
+      decode: (detection) =>
+        "projectDirs" in detection
+          ? {
+              project: { markers: detection.projectDirs.map(markerFromLegacyDir) },
+              user: { markers: detection.userDirs.map(markerFromLegacyDir) },
+            }
+          : detection,
+      encode: (detection) => detection,
+    }),
+  ),
+  Schema.annotate({
+    identifier: "Detection",
+    title: "Detection",
+    description:
+      "Per-scope signals (marker dirs, files, CLI binaries) used to detect an installed agent.",
+  }),
+);
 
 /** @experimental This API is unstable and may change without notice. */
 export type Detection = Schema.Schema.Type<typeof DetectionSchema>;

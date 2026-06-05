@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { AgentExecutableResolver } from "@agentxm/client-core/unstable/agents";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
@@ -51,7 +52,14 @@ describe("agents list.handler", () => {
     readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
-    const baseLayer = Layer.mergeAll(NodeServices.layer, renderer.layer, TestFlagsLayer());
+    const baseLayer = Layer.mergeAll(
+      NodeServices.layer,
+      renderer.layer,
+      TestFlagsLayer(),
+      Layer.succeed(AgentExecutableResolver, {
+        exists: () => Effect.succeed(false),
+      }),
+    );
     const wsLayer = Layer.provide(
       coreWorkspaceLayer({
         scope: "project",

@@ -9,8 +9,8 @@ export const codebuddyAgent = {
   family: null,
   rootDir: ".codebuddy",
   detection: {
-    projectDirs: [],
-    userDirs: [],
+    project: { markers: [] },
+    user: { markers: [] },
   },
   docs: [
     {

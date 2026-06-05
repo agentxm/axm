@@ -9,8 +9,15 @@ export const antigravityAgent = {
   family: "google",
   rootDir: null,
   detection: {
-    projectDirs: [".agents", ".agent"],
-    userDirs: ["~/.gemini/antigravity"],
+    project: {
+      markers: [
+        { kind: "dir", path: ".agents", signal: "definitive", note: null },
+        { kind: "dir", path: ".agent", signal: "definitive", note: null },
+      ],
+    },
+    user: {
+      markers: [{ kind: "dir", path: "~/.gemini/antigravity", signal: "definitive", note: null }],
+    },
   },
   docs: [
     {

@@ -1,3 +1,13 @@
+## 0.16.0 (2026-06-05)
+
+### 🚀 Features
+
+- Model agent capability availability, vendor status, AXM support, and plugin-backed surfaces. ([d961e220](https://github.com/agentxm/axm/commit/d961e220))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.15.1 (2026-06-05)
 
 ### 🩹 Fixes

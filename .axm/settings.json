@@ -6,7 +6,7 @@
     "codex",
     "cursor",
     "gemini-cli",
-    "github-copilot"
+    "github-copilot-cli"
   ],
   "skills": {
     "effect-basics": "@axm/skills/effect-basics",

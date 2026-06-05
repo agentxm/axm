@@ -194,7 +194,6 @@ describe("commands-new.handler", () => {
           }
           const targetPaths = targets.map((target) => property(expectRecord(target), "path"));
           expect(targetPaths).toEqual([
-            ".claude/commands/my-command.md",
             ".cursor/commands/my-command.md",
             ".gemini/commands/my-command.toml",
           ]);

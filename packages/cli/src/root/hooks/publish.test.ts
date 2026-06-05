@@ -101,12 +101,6 @@ describe("hooks publish.handler", () => {
                 scope: "project",
                 version: "1.0.0",
                 change: "created",
-                targets: [
-                  {
-                    path: "@test/hooks/machine-hook@1.0.0",
-                    change: "created",
-                  },
-                ],
               },
             },
           ],

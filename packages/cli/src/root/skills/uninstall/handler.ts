@@ -24,9 +24,12 @@ export const handleUninstall = (
       result.totalSteps > 0 &&
       result.steps.every((step) => step.message === "not installed" || step.status === "unchanged");
     if (result.outcome === "no-op" || allStepsAlreadyAbsent) {
+      const literalAbsent = allStepsAlreadyAbsent && !args.skill.includes("*");
       yield* emitNoOpOutcome("skills.uninstall", {
         planName: result.planName,
-        message: "No skills uninstalled.",
+        message: literalAbsent
+          ? `No skills uninstalled; ${args.skill} is not installed.`
+          : "No skills uninstalled.",
       });
       return;
     }

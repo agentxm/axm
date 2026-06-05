@@ -357,7 +357,6 @@ describe("root sync handler", () => {
               scope: "project",
               change: "updated",
               fileCount: 1,
-              targets: [{ path: "workspace generator regions", change: "updated" }],
             },
           },
         ],

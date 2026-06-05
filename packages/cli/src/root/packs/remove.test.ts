@@ -152,12 +152,6 @@ describe("packs-remove.handler", () => {
             scope: "project",
             change: "updated",
             fileCount: 1,
-            targets: [
-              {
-                path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
-                change: "updated",
-              },
-            ],
           });
         }),
       );

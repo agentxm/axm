@@ -321,13 +321,6 @@ describe("agents add.handler", () => {
                 agents: ["cursor"],
                 change: "updated",
                 fileCount: 1,
-                targets: [
-                  {
-                    path: ".axm/settings.json",
-                    change: "updated",
-                    agentIds: ["cursor"],
-                  },
-                ],
               },
             },
             {
@@ -338,7 +331,6 @@ describe("agents add.handler", () => {
               artifact: {
                 scope: "project",
                 change: "unchanged",
-                targets: [{ path: ".axm/axm-lock.yaml", change: "unchanged" }],
               },
             },
           ],

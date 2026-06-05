@@ -23,7 +23,8 @@ describe("axm skills install output UX", () => {
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
       expect(output).toContain("Installed skill my-skill for 3 agents");
-      expect(output).toContain("-> 2 locations");
+      expect(output).toContain(".agents/skills/my-skill (created) [antigravity, amp]");
+      expect(output).toContain(".claude/skills/my-skill (created) [claude-code]");
       expect(output).toContain("1 file");
       expect(output).not.toContain("skill(s)");
       expect(output).not.toContain("agent targets");
@@ -54,8 +55,8 @@ describe("axm skills install output UX", () => {
       expect(step.status).toBe("applied");
       expect(step.artifact.change).toBe("created");
       expect(step.artifact.agents).toEqual(["claude-code", "cursor"]);
+      expect(step.artifact.path).toBe(".agents/skills/my-skill");
       expect(step.artifact.targets).toEqual([
-        { path: ".agents/skills/my-skill", change: "created" },
         { path: ".claude/skills/my-skill", change: "created", agentIds: ["claude-code"] },
         { path: ".cursor/skills/my-skill", change: "created", agentIds: ["cursor"] },
       ]);
@@ -85,8 +86,8 @@ describe("axm skills install output UX", () => {
       const document = JSON.parse(result.stdout);
       const step = document.result.steps[0];
       expect(step.artifact.agents).toEqual(["antigravity", "amp", "claude-code"]);
+      expect(step.artifact.path).toBe(".agents/skills/my-skill");
       expect(step.artifact.targets).toEqual([
-        { path: ".agents/skills/my-skill", change: "created", agentIds: ["antigravity", "amp"] },
         { path: ".claude/skills/my-skill", change: "created", agentIds: ["claude-code"] },
       ]);
     } finally {
@@ -123,8 +124,8 @@ describe("axm skills install output UX", () => {
       expect(step.status).toBe("unchanged");
       expect(step.artifact.change).toBe("unchanged");
       expect(step.artifact.agents).toEqual(["claude-code"]);
+      expect(step.artifact.path).toBe(".agents/skills/my-skill");
       expect(step.artifact.targets).toEqual([
-        { path: ".agents/skills/my-skill", change: "unchanged" },
         { path: ".claude/skills/my-skill", change: "unchanged", agentIds: ["claude-code"] },
       ]);
     } finally {

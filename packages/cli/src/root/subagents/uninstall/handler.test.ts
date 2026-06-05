@@ -292,10 +292,6 @@ describe("uninstall.handler (subagents)", () => {
                   fileCount: 4,
                   targets: [
                     {
-                      path: ".axm/axm-lock.yaml",
-                      change: "updated",
-                    },
-                    {
                       path: ".axm/settings.json",
                       change: "updated",
                     },

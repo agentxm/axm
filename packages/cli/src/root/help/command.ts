@@ -150,7 +150,7 @@ export const handleHelpTopic = (topic: Option.Option<string>) =>
       return Effect.fail(
         makeAppError({
           code: "not_found",
-          detail: `Unknown help topic '${rawName}'`,
+          detail: `Unknown help topic '${rawName}'. Known topics include: ${ORDERED_TOPIC_NAMES.join(", ")}`,
           suggestions: [
             {
               description: "List available help topics.",

@@ -847,12 +847,6 @@ describe("packs publish.handler", () => {
                 artifact: {
                   scope: "project",
                   change: "unchanged",
-                  targets: [
-                    {
-                      path: "@external/skills/remote-machine-skill",
-                      change: "unchanged",
-                    },
-                  ],
                 },
               },
               {

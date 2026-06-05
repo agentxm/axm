@@ -112,12 +112,6 @@ describe("files publish.handler", () => {
                 scope: "project",
                 version: "1.0.0",
                 change: "created",
-                targets: [
-                  {
-                    path: "@test/files/machine-files@1.0.0",
-                    change: "created",
-                  },
-                ],
               },
             },
           ],

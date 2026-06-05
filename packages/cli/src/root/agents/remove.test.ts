@@ -188,7 +188,6 @@ describe("agents remove.handler", () => {
                 agents: ["opencode"],
                 change: "unchanged",
                 fileCount: 0,
-                targets: [],
               },
             },
             {
@@ -201,13 +200,6 @@ describe("agents remove.handler", () => {
                 agents: ["opencode"],
                 change: "updated",
                 fileCount: 1,
-                targets: [
-                  {
-                    path: ".axm/settings.json",
-                    change: "updated",
-                    agentIds: ["opencode"],
-                  },
-                ],
               },
             },
           ],

@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
+import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
 import { toPlanResolutionResult } from "../../../json-output.js";
@@ -20,6 +22,31 @@ export interface InstallSkillFlags {
   readonly force: boolean;
   readonly preview: boolean;
 }
+
+const appliedInstallHeadline = (resolution: PlanResolution, fallbackSource: string): string => {
+  if (resolution._tag !== "ExecutedPlan") return `Installed skill ${fallbackSource}`;
+
+  const successfulSteps = resolution.jobs
+    .flatMap((job) => job.steps)
+    .flatMap((step) => {
+      if (step.result.result !== "success") return [];
+      return [{ label: step.label, agents: step.result.artifact?.agents }];
+    });
+  const firstStep = successfulSteps.at(0);
+
+  if (successfulSteps.length === 1 && firstStep !== undefined) {
+    const agents = firstStep.agents;
+    const targetPhrase =
+      agents === undefined || agents.length === 0 ? "" : ` for ${count(agents.length, "agent")}`;
+    return `Installed skill ${firstStep.label}${targetPhrase}`;
+  }
+
+  if (successfulSteps.length > 1) {
+    return `Installed ${count(successfulSteps.length, "skill")}`;
+  }
+
+  return `Installed skill ${fallbackSource}`;
+};
 
 const validateWorkspaceInstallArgs = (args: InstallHandlerArgs) =>
   Effect.gen(function* () {
@@ -78,7 +105,7 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
       headline:
         result.outcome === "no-op"
           ? unchangedPlanHeadline(resolution, "No skills installed.")
-          : "Installed skill " + args.source.value,
+          : appliedInstallHeadline(resolution, args.source.value),
       resolution,
       suggestions: [{ description: "Inspect installed skills", cmd: "axm skills list" }],
     });

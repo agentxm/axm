@@ -132,11 +132,7 @@ describe("mcps-new.handler", () => {
           throw new Error("Expected artifact.targets array");
         }
         const targetPaths = targets.map((target) => property(expectRecord(target), "path"));
-        expect(targetPaths).toEqual([
-          ".axm/extensions/@acme/mcps/context",
-          ".axm (config/lockfile)",
-          ".mcp.json",
-        ]);
+        expect(targetPaths).toEqual([".axm (config/lockfile)", ".mcp.json"]);
         const mcpConfigTarget = expectRecord(
           expectDefined(
             targets.find((target) => property(expectRecord(target), "path") === ".mcp.json"),

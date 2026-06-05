@@ -212,7 +212,6 @@ describe("skills-new.handler", () => {
           }
           const targetPaths = targets.map((target) => property(expectRecord(target), "path"));
           expect(targetPaths).toEqual([
-            ".axm/extensions/@acme/skills/audit-skill",
             ".axm (config/lockfile)",
             ".agents/skills/audit-skill",
             ".claude/skills/audit-skill",

@@ -27,12 +27,26 @@ describe("structured output (--json)", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(parseJson(result.stdout)).toEqual({
+      expect(parseJson(result.stdout)).toMatchObject({
         ok: true,
         result: {
+          outcome: "no-op",
+          planName: "Log out of AXM registry",
           status: "not-logged-in",
           registryHost: "registry.agentxm.ai",
+          steps: [
+            {
+              label: "Registry credentials",
+              status: "unchanged",
+              artifact: {
+                path: "registry.agentxm.ai",
+                scope: "user",
+                change: "unchanged",
+              },
+            },
+          ],
         },
+        suggestions: [{ description: "Log in to this registry", cmd: "axm login" }],
       });
       expect(result.stderr.trim()).toBe("");
     } finally {
@@ -103,11 +117,13 @@ describe("structured output (--json)", () => {
 
       expect(result.exitCode).toBe(2);
       expect(parseJson(result.stdout)).toMatchObject({
-        type: "help",
-        usage: "axm token <subcommand> [flags]",
+        ok: false,
+        code: "usage",
+        title: "Usage Error",
+        detail: "Unrecognized flag: --nonexistent-flag in command axm token",
       });
       expect(result.stderr).toContain("Unrecognized flag: --nonexistent-flag");
-      expect(getJsonLines(result.stderr)).toHaveLength(0);
+      expect(getJsonLines(result.stderr)).toHaveLength(1);
     });
   });
 

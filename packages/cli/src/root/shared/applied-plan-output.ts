@@ -45,6 +45,12 @@ const formatFailedStep = (step: CompletedJobStep): string | undefined => {
     : `${step.label}   failed   ${message}`;
 };
 
+const formatPlainSuccessStep = (step: CompletedJobStep): string | undefined => {
+  if (step.result.result !== "success" || step.result.artifact !== undefined) return undefined;
+  const message = step.result.message.trim();
+  return message.length === 0 ? undefined : `${step.label}   ${message}`;
+};
+
 export const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
   const rows = plan.jobs
     .flatMap((job) => job.steps)
@@ -55,12 +61,14 @@ export const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefin
   return rows.length === 0 ? undefined : rows.join("\n");
 };
 
-const summarizeExecutedOutcome = (plan: ExecutedPlan): string | undefined => {
+export const summarizeExecutedOutcome = (plan: ExecutedPlan): string | undefined => {
   const rows = plan.jobs
     .flatMap((job) => job.steps)
     .flatMap((step) => {
       const artifactSummary = formatCompletedArtifactStep(step);
       if (artifactSummary !== undefined) return [artifactSummary];
+      const successSummary = formatPlainSuccessStep(step);
+      if (successSummary !== undefined) return [successSummary];
       const failedSummary = formatFailedStep(step);
       return failedSummary === undefined ? [] : [failedSummary];
     });

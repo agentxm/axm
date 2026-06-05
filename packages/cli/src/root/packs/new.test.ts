@@ -169,12 +169,6 @@ describe("packs-new.handler", () => {
             version: "0.0.1",
             change: "created",
             fileCount: 1,
-            targets: [
-              {
-                path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
-                change: "created",
-              },
-            ],
           });
         }),
       );

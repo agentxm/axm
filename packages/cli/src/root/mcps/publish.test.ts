@@ -93,12 +93,6 @@ describe("mcps publish output", () => {
                 scope: "project",
                 version: "1.0.0",
                 change: "created",
-                targets: [
-                  {
-                    path: "@test/mcps/machine-mcp@1.0.0",
-                    change: "created",
-                  },
-                ],
               },
             },
           ],

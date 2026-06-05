@@ -261,7 +261,6 @@ describe("packs unpack.handler", () => {
             scope: "project",
             version: "1.0.0",
             change: "removed",
-            targets: [{ path: ".axm/extensions/@test/packs/frontend-tools", change: "removed" }],
           });
         }),
       );

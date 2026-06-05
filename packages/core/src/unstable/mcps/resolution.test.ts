@@ -9,7 +9,9 @@ const decodeManifest = Schema.decodeUnknownSync(McpServerManifestSchema);
 const stdioCapability = {
   standardsCompliance: "full",
   convention: "universal",
-  lifecycle: "supported",
+  availability: { via: "native" },
+  vendorStatus: { state: "active" },
+  axmSupport: "supported",
   notes: null,
   docs: [],
   sources: ["https://example.com/mcp"],
@@ -33,7 +35,9 @@ const stdioCapability = {
 const remoteCapability = {
   standardsCompliance: "full",
   convention: "universal",
-  lifecycle: "supported",
+  availability: { via: "native" },
+  vendorStatus: { state: "active" },
+  axmSupport: "supported",
   notes: null,
   docs: [],
   sources: ["https://example.com/mcp"],

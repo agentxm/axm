@@ -40,7 +40,9 @@ export const cursorAgent = {
   ],
   capabilities: {
     skill: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI; it also loads .claude/skills and .codex/skills for cross-tool compatibility.\n",
       docs: [],
@@ -52,7 +54,9 @@ export const cursorAgent = {
       directory: ".cursor/skills",
     },
     command: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Custom commands are Markdown prompt files under .cursor/commands (project) or ~/.cursor/commands (user); documented as a beta feature.\n",
       docs: [],
@@ -65,7 +69,9 @@ export const cursorAgent = {
       directory: ".cursor/commands",
     },
     "mcp-server": {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://cursor.com/docs/mcp"],
@@ -105,7 +111,9 @@ export const cursorAgent = {
       },
     },
     subagent: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Custom subagents are Markdown files with YAML frontmatter under .cursor/agents (project) or ~/.cursor/agents (user); added in Cursor 2.4.\n",
       docs: [],
@@ -116,13 +124,17 @@ export const cursorAgent = {
       layout: "directory",
     },
     files: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     rule: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://docs.cursor.com/en/cli/using"],
@@ -137,14 +149,18 @@ export const cursorAgent = {
       importSyntax: null,
     },
     hook: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
   },
   permissions: {
-    lifecycle: "supported",
+    availability: { via: "native" },
+    vendorStatus: { state: "active" },
+    axmSupport: "supported",
     notes: null,
     docs: [],
     sources: [

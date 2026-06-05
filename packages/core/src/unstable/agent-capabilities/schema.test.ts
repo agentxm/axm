@@ -5,7 +5,9 @@ import { McpExtensionCapabilitySchema } from "./schema.js";
 const decodeMcpCapability = Schema.decodeUnknownSync(McpExtensionCapabilitySchema);
 
 const activeMcpCapability = {
-  lifecycle: "supported",
+  availability: { via: "native" },
+  vendorStatus: { state: "active" },
+  axmSupport: "supported",
   notes: null,
   docs: [],
   sources: ["https://example.com/mcp"],
@@ -52,7 +54,9 @@ describe("MCP capability schema", () => {
   it("allows supported MCP capabilities to omit writer config", () => {
     expect(
       decodeMcpCapability({
-        lifecycle: "supported",
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        axmSupport: "supported",
         notes: "UI-only surface; no writable MCP config file.",
         docs: [],
         sources: ["https://example.com/mcp"],
@@ -63,7 +67,9 @@ describe("MCP capability schema", () => {
         transports: ["http"],
       }),
     ).toMatchObject({
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       standardsCompliance: "none",
     });
   });

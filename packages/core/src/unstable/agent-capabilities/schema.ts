@@ -7,7 +7,12 @@
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import { ExtensionTypeSchema } from "../extensions/common.js";
-import { DocLinkSchema, UrlSchema, type LeafExtensionType } from "../extension-types/schema.js";
+import {
+  DocLinkSchema,
+  LeafExtensionTypeSchema,
+  UrlSchema,
+  type LeafExtensionType,
+} from "../extension-types/schema.js";
 
 export {
   DocLinkSchema,
@@ -69,47 +74,6 @@ export const ConventionSchema = Schema.Literals(["universal", "vendor"]).annotat
 export type Convention = Schema.Schema.Type<typeof ConventionSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const SUPPORTED_LIFECYCLE = "supported" as const;
-
-/** @experimental This API is unstable and may change without notice. */
-export const CapabilityLifecycleSchema = Schema.Literals([
-  SUPPORTED_LIFECYCLE,
-  "planned",
-  "unsupported",
-  "unknown",
-]).annotate({
-  identifier: "CapabilityLifecycle",
-  title: "Capability Lifecycle",
-  description: "State of AXM's integration with an agent capability.",
-  examples: [SUPPORTED_LIFECYCLE, "unsupported", "unknown"],
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type CapabilityLifecycle = Schema.Schema.Type<typeof CapabilityLifecycleSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const ActiveLifecycleSchema = Schema.Literals([SUPPORTED_LIFECYCLE, "planned"]).annotate({
-  identifier: "ActiveLifecycle",
-  title: "Active Lifecycle",
-  description: "Capability lifecycle values that carry a concrete capability claim.",
-  examples: [SUPPORTED_LIFECYCLE, "planned"],
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type ActiveLifecycle = Schema.Schema.Type<typeof ActiveLifecycleSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const InactiveLifecycleSchema = Schema.Literals(["unsupported", "unknown"]).annotate({
-  identifier: "InactiveLifecycle",
-  title: "Inactive Lifecycle",
-  description: "Capability lifecycle values without active extension support.",
-  examples: ["unsupported", "unknown"],
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type InactiveLifecycle = Schema.Schema.Type<typeof InactiveLifecycleSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
 export const ScopeSchema = Schema.Literals(["user", "project"]).annotate({
   identifier: "Scope",
   title: "Scope",
@@ -123,6 +87,182 @@ export type Scope = Schema.Schema.Type<typeof ScopeSchema>;
 const NonEmptyScopesSchema = Schema.NonEmptyArray(ScopeSchema).pipe(
   Schema.check(Schema.isUnique()),
 );
+
+/** @experimental This API is unstable and may change without notice. */
+export const SUPPORTED_AXM_SUPPORT = "supported" as const;
+
+/** @experimental This API is unstable and may change without notice. */
+export const AxmSupportSchema = Schema.Literals([
+  SUPPORTED_AXM_SUPPORT,
+  "planned",
+  "unsupported",
+  "unknown",
+]).annotate({
+  identifier: "AxmSupport",
+  title: "AXM Support",
+  description: "AXM install behavior and verification state for an agent capability.",
+  examples: [SUPPORTED_AXM_SUPPORT, "unsupported", "unknown"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type AxmSupport = Schema.Schema.Type<typeof AxmSupportSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const ActiveAxmSupportSchema = Schema.Literals([SUPPORTED_AXM_SUPPORT, "planned"]).annotate({
+  identifier: "ActiveAxmSupport",
+  title: "Active AXM Support",
+  description: "AXM support values that carry a concrete managed capability claim.",
+  examples: [SUPPORTED_AXM_SUPPORT, "planned"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type ActiveAxmSupport = Schema.Schema.Type<typeof ActiveAxmSupportSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const InactiveAxmSupportSchema = Schema.Literals(["unsupported", "unknown"]).annotate({
+  identifier: "InactiveAxmSupport",
+  title: "Inactive AXM Support",
+  description: "AXM support values without an active managed extension writer.",
+  examples: ["unsupported", "unknown"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type InactiveAxmSupport = Schema.Schema.Type<typeof InactiveAxmSupportSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PluginDistributionMechanismSchema = Schema.Literals([
+  "agent-native",
+  "npm",
+  "git",
+  "manual",
+]).annotate({
+  identifier: "PluginDistributionMechanism",
+  title: "Plugin Distribution Mechanism",
+  description: "How an agent-vendor plugin is distributed outside AXM.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PluginDistributionMechanism = Schema.Schema.Type<
+  typeof PluginDistributionMechanismSchema
+>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PluginDistributionSchema = Schema.Struct({
+  mechanism: PluginDistributionMechanismSchema,
+  installHint: Schema.NullOr(Schema.NonEmptyString),
+  packageRef: Schema.NullOr(Schema.NonEmptyString),
+}).annotate({
+  identifier: "PluginDistribution",
+  title: "Plugin Distribution",
+  description: "Descriptive install metadata that AXM may display but never executes.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PluginDistribution = Schema.Schema.Type<typeof PluginDistributionSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PluginDetectionPathSchema = Schema.Struct({
+  scope: ScopeSchema,
+  path: Schema.NonEmptyString,
+  kind: Schema.Literals(["dir", "file"]),
+}).annotate({
+  identifier: "PluginDetectionPath",
+  title: "Plugin Detection Path",
+  description: "Future scan marker for detecting an installed agent-vendor plugin.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PluginDetectionPath = Schema.Schema.Type<typeof PluginDetectionPathSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PluginDetectionConfigKeySchema = Schema.Struct({
+  scope: ScopeSchema,
+  file: Schema.NonEmptyString,
+  key: Schema.NonEmptyString,
+}).annotate({
+  identifier: "PluginDetectionConfigKey",
+  title: "Plugin Detection Config Key",
+  description: "Future config-key marker for detecting an installed agent-vendor plugin.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PluginDetectionConfigKey = Schema.Schema.Type<typeof PluginDetectionConfigKeySchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PluginDetectionSchema = Schema.Struct({
+  paths: Schema.Array(PluginDetectionPathSchema),
+  configKeys: Schema.Array(PluginDetectionConfigKeySchema),
+}).annotate({
+  identifier: "PluginDetection",
+  title: "Plugin Detection",
+  description: "Descriptive plugin detection markers reserved for future workspace scans.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PluginDetection = Schema.Schema.Type<typeof PluginDetectionSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const PluginDescriptorSchema = Schema.Struct({
+  name: Schema.NonEmptyString,
+  homepage: UrlSchema,
+  author: Schema.NullOr(Schema.NonEmptyString),
+  distribution: PluginDistributionSchema,
+  detection: Schema.NullOr(PluginDetectionSchema),
+}).annotate({
+  identifier: "PluginDescriptor",
+  title: "Plugin Descriptor",
+  description: "Descriptive metadata for third-party or vendor plugins outside AXM management.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PluginDescriptor = Schema.Schema.Type<typeof PluginDescriptorSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const AvailabilitySchema = Schema.Union([
+  Schema.Struct({ via: Schema.Literal("native") }),
+  Schema.Struct({ via: Schema.Literal("none") }),
+  Schema.Struct({
+    via: Schema.Literal("plugin"),
+    provider: Schema.Literals(["first-party", "third-party"]),
+    plugin: PluginDescriptorSchema,
+  }),
+]).annotate({
+  identifier: "Availability",
+  title: "Availability",
+  description: "Whether the agent capability surface is obtainable natively, via plugin, or not.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type Availability = Schema.Schema.Type<typeof AvailabilitySchema>;
+
+const VendorStatusSinceSchema = Schema.NonEmptyString.pipe(
+  Schema.check(
+    Schema.isPattern(ISO_DATE_PATTERN, {
+      message: "Expected an ISO 8601 date in YYYY-MM-DD form.",
+    }),
+  ),
+);
+
+const InactiveVendorStatusFields = {
+  since: Schema.NullOr(VendorStatusSinceSchema),
+  note: Schema.NullOr(Schema.NonEmptyString),
+  supersededByType: Schema.NullOr(LeafExtensionTypeSchema),
+};
+
+/** @experimental This API is unstable and may change without notice. */
+export const VendorStatusSchema = Schema.Union([
+  Schema.Struct({ state: Schema.Literal("active") }),
+  Schema.Struct({ state: Schema.Literal("maintenance"), ...InactiveVendorStatusFields }),
+  Schema.Struct({ state: Schema.Literal("deprecated"), ...InactiveVendorStatusFields }),
+  Schema.Struct({ state: Schema.Literal("removed"), ...InactiveVendorStatusFields }),
+]).annotate({
+  identifier: "VendorStatus",
+  title: "Vendor Status",
+  description: "Vendor or plugin health for the surface named by availability.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type VendorStatus = Schema.Schema.Type<typeof VendorStatusSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const AgentInterfaceSchema = Schema.Literals(["cli", "ide-extension"]).annotate({
@@ -289,18 +429,22 @@ const ActiveSourcesSchema = Schema.NonEmptyArray(UrlSchema);
 const InactiveSourcesSchema = Schema.Array(UrlSchema);
 
 const InactiveCapabilitySchema = Schema.Struct({
-  lifecycle: InactiveLifecycleSchema,
+  availability: AvailabilitySchema,
+  vendorStatus: VendorStatusSchema,
+  axmSupport: InactiveAxmSupportSchema,
   notes: CapabilityNotesSchema,
   docs: CapabilityDocsSchema,
   sources: InactiveSourcesSchema,
 }).annotate({
   identifier: "InactiveCapability",
-  title: "Inactive Capability",
-  description: "Capability slot with no active extension support.",
+  title: "Inactive AXM Capability",
+  description: "Capability slot with no active AXM-managed extension support.",
 });
 
 const ActiveCapabilityBaseFields = {
-  lifecycle: ActiveLifecycleSchema,
+  availability: AvailabilitySchema,
+  vendorStatus: VendorStatusSchema,
+  axmSupport: ActiveAxmSupportSchema,
   notes: CapabilityNotesSchema,
   docs: CapabilityDocsSchema,
   sources: ActiveSourcesSchema,
@@ -889,7 +1033,7 @@ export const AgentLifecycleStateSchema = Schema.Literals([
   identifier: "AgentLifecycleState",
   title: "Agent Lifecycle State",
   description:
-    "Support status of the coding agent product itself. Distinct from CapabilityLifecycle, which tracks AXM's integration with a single capability.",
+    "Support status of the coding agent product itself. Distinct from AxmSupport, which tracks AXM's integration with a single capability.",
   examples: ["active", "deprecated", "retired"],
 });
 

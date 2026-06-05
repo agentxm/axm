@@ -32,7 +32,9 @@ export const antigravityAgent = {
   ],
   capabilities: {
     skill: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Antigravity 2.0 defaults to .agents/skills (project) and ~/.gemini/antigravity/skills (user); .agent/skills remains supported for backward compatibility.\n",
       docs: [],
@@ -44,7 +46,9 @@ export const antigravityAgent = {
       directory: ".agents/skills",
     },
     command: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         'Custom slash commands ("workflows") are Markdown files under .agents/workflows (project) or ~/.gemini/antigravity/global_workflows (user). Commands have no industry spec yet.\n',
       docs: [],
@@ -54,7 +58,9 @@ export const antigravityAgent = {
       directory: ".agents/workflows",
     },
     "mcp-server": {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://antigravity.google/docs/mcp"],
@@ -87,19 +93,25 @@ export const antigravityAgent = {
       },
     },
     subagent: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     files: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     rule: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: [
@@ -117,14 +129,18 @@ export const antigravityAgent = {
       importSyntax: null,
     },
     hook: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
   },
   permissions: {
-    lifecycle: "unsupported",
+    availability: { via: "none" },
+    vendorStatus: { state: "active" },
+    axmSupport: "unsupported",
     notes: null,
     docs: [],
     sources: [],

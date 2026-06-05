@@ -3,6 +3,7 @@ import {
   AGENTS,
   agentById,
   agentSupportsType,
+  capabilityStatus,
   deriveAgentDescriptor,
   getSupportedAgentsForExtension,
   getSupportedAgentsForExtensionType,
@@ -11,6 +12,15 @@ import {
   listCapabilities,
 } from "./index.js";
 import type { Agent } from "./schema.js";
+
+const unsupportedCapability = {
+  availability: { via: "none" },
+  vendorStatus: { state: "active" },
+  axmSupport: "unsupported",
+  notes: null,
+  docs: [],
+  sources: [],
+} as const;
 
 const baseAgent = {
   id: "codex",
@@ -27,7 +37,9 @@ const baseAgent = {
     skill: {
       standardsCompliance: "full",
       convention: "vendor",
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://example.com/skills"],
@@ -35,14 +47,14 @@ const baseAgent = {
       scopes: ["project"],
       directory: ".sample/skills",
     },
-    command: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-    "mcp-server": { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-    subagent: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-    files: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-    rule: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-    hook: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+    command: unsupportedCapability,
+    "mcp-server": unsupportedCapability,
+    subagent: unsupportedCapability,
+    files: unsupportedCapability,
+    rule: unsupportedCapability,
+    hook: unsupportedCapability,
   },
-  permissions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  permissions: unsupportedCapability,
 } satisfies Agent;
 
 const sampleRootDetection = {
@@ -75,7 +87,7 @@ describe("agent capability derivation", () => {
     expect(agentSupportsType(agentById("cursor"), "rule")).toBe(true);
   });
 
-  it("determines support from lifecycle only", () => {
+  it("determines support from AXM support and availability", () => {
     expect(
       agentSupportsType(
         {
@@ -88,6 +100,22 @@ describe("agent capability derivation", () => {
         "skill",
       ),
     ).toBe(true);
+
+    expect(
+      agentSupportsType(
+        {
+          ...baseAgent,
+          capabilities: {
+            ...baseAgent.capabilities,
+            skill: {
+              ...baseAgent.capabilities.skill,
+              availability: { via: "none" },
+            },
+          },
+        },
+        "skill",
+      ),
+    ).toBe(false);
   });
 
   it("does not infer support for omitted capabilities", () => {
@@ -98,7 +126,7 @@ describe("agent capability derivation", () => {
   it("requires supported MCP capabilities without writer config to explain why they are not writable", () => {
     const unsupportedWritableMcp = AGENTS.flatMap((agent) => {
       const capability = agent.capabilities["mcp-server"];
-      if (capability.lifecycle !== "supported") return [];
+      if (capability.axmSupport !== "supported") return [];
       if ("config" in capability && capability.config !== undefined) return [];
       if (capability.notes !== null) return [];
       return [agent.id];
@@ -215,18 +243,114 @@ describe("agent capability derivation", () => {
     expect(
       listCapabilities(agentById("codex")).map((entry) => ({
         type: entry.type,
-        lifecycle: entry.capability.lifecycle,
+        status: capabilityStatus(entry.capability),
+        axmSupport: entry.capability.axmSupport,
         ...("standardsCompliance" in entry.capability
           ? { standardsCompliance: entry.capability.standardsCompliance }
           : {}),
       })),
     ).toEqual([
-      { type: "skill", lifecycle: "supported", standardsCompliance: "full" },
-      { type: "command", lifecycle: "supported" },
-      { type: "mcp-server", lifecycle: "supported", standardsCompliance: "full" },
-      { type: "subagent", lifecycle: "supported" },
-      { type: "rule", lifecycle: "supported", standardsCompliance: "full" },
+      { type: "skill", status: "native", axmSupport: "supported", standardsCompliance: "full" },
+      { type: "command", status: "native-deprecated", axmSupport: "supported" },
+      {
+        type: "mcp-server",
+        status: "native",
+        axmSupport: "supported",
+        standardsCompliance: "full",
+      },
+      { type: "subagent", status: "native", axmSupport: "supported" },
+      { type: "rule", status: "native", axmSupport: "supported", standardsCompliance: "full" },
     ]);
+  });
+
+  it("derives capability headline statuses", () => {
+    const native = baseAgent.capabilities.skill;
+    const nativeDeprecated = {
+      ...native,
+      vendorStatus: {
+        state: "deprecated",
+        since: null,
+        note: "Use skills instead.",
+        supersededByType: "skill",
+      },
+    } satisfies Agent["capabilities"]["skill"];
+    const plugin = {
+      availability: {
+        via: "plugin",
+        provider: "third-party",
+        plugin: {
+          name: "sample-plugin",
+          homepage: "https://example.com/plugin",
+          author: null,
+          distribution: {
+            mechanism: "manual",
+            installHint: null,
+            packageRef: null,
+          },
+          detection: null,
+        },
+      },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
+      notes: null,
+      docs: [],
+      sources: [],
+    } satisfies Agent["capabilities"]["subagent"];
+    const pluginDeprecated = {
+      ...plugin,
+      vendorStatus: {
+        state: "removed",
+        since: null,
+        note: "Plugin archived.",
+        supersededByType: null,
+      },
+    } satisfies Agent["capabilities"]["subagent"];
+
+    expect([
+      capabilityStatus(native),
+      capabilityStatus(nativeDeprecated),
+      capabilityStatus(plugin),
+      capabilityStatus(pluginDeprecated),
+      capabilityStatus({
+        ...native,
+        axmSupport: "planned",
+      }),
+      capabilityStatus(unsupportedCapability),
+      capabilityStatus({
+        ...unsupportedCapability,
+        axmSupport: "unknown",
+      }),
+    ]).toEqual([
+      "native",
+      "native-deprecated",
+      "plugin",
+      "plugin-deprecated",
+      "planned",
+      "unsupported",
+      "unknown",
+    ]);
+  });
+
+  it("captures the Codex and Pi worked examples", () => {
+    const codexCommand = agentById("codex").capabilities.command;
+    const piSubagents = agentById("pi").capabilities.subagent;
+
+    expect(capabilityStatus(codexCommand)).toBe("native-deprecated");
+    expect(codexCommand.vendorStatus).toMatchObject({
+      state: "deprecated",
+      supersededByType: "skill",
+    });
+
+    expect(capabilityStatus(piSubagents)).toBe("plugin");
+    expect(piSubagents.availability).toMatchObject({
+      via: "plugin",
+      provider: "third-party",
+      plugin: {
+        name: "pi-subagents",
+        distribution: { installHint: "pi install npm:pi-subagents" },
+      },
+    });
+    expect(agentSupportsType(agentById("pi"), "subagent")).toBe(false);
   });
 
   it("derives descriptors with explicit rootDir and own-file instructions", () => {
@@ -237,7 +361,9 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           command: {
-            lifecycle: "supported",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            axmSupport: "supported",
             notes: null,
             docs: [],
             sources: ["https://example.com/commands"],
@@ -246,7 +372,9 @@ describe("agent capability derivation", () => {
             directory: ".sample/commands",
           },
           subagent: {
-            lifecycle: "supported",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            axmSupport: "supported",
             notes: null,
             docs: [],
             sources: ["https://example.com/subagents"],
@@ -258,7 +386,9 @@ describe("agent capability derivation", () => {
           rule: {
             standardsCompliance: "parity",
             convention: "vendor",
-            lifecycle: "supported",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            axmSupport: "supported",
             notes: null,
             docs: [],
             sources: ["https://example.com/instructions"],
@@ -296,7 +426,9 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           subagent: {
-            lifecycle: "supported",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            axmSupport: "supported",
             notes: null,
             docs: [],
             sources: ["https://example.com/subagents"],
@@ -343,7 +475,9 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           "mcp-server": {
-            lifecycle: "supported",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            axmSupport: "supported",
             notes: null,
             docs: [],
             sources: ["https://example.com/mcp"],
@@ -396,7 +530,9 @@ describe("agent capability derivation", () => {
           rule: {
             standardsCompliance: "full",
             convention: "universal",
-            lifecycle: "supported",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            axmSupport: "supported",
             notes: null,
             docs: [],
             sources: ["https://example.com/instructions"],
@@ -419,7 +555,9 @@ describe("agent capability derivation", () => {
           rule: {
             standardsCompliance: "partial",
             convention: "vendor",
-            lifecycle: "supported",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            axmSupport: "supported",
             notes: null,
             docs: [],
             sources: ["https://example.com/instructions"],

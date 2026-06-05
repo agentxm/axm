@@ -35,7 +35,9 @@ export const codexAgent = {
   ],
   capabilities: {
     skill: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Reads SKILL.md skills from repository (.agents/skills) and user (~/.agents/skills) locations with progressive disclosure, using the cross-tool Agent Skills convention rather than a .codex/ path.\n",
       docs: [],
@@ -47,7 +49,14 @@ export const codexAgent = {
       directory: ".codex/skills",
     },
     command: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: {
+        state: "deprecated",
+        since: null,
+        note: "Deprecated in favor of agent skills.",
+        supersededByType: "skill",
+      },
+      axmSupport: "supported",
       notes:
         "Custom prompts are user-scope Markdown slash commands in ~/.codex/prompts. Deprecated by OpenAI in favor of skills for reusable instructions, and there is no project-scoped command directory.\n",
       docs: [],
@@ -60,7 +69,9 @@ export const codexAgent = {
       directory: ".codex/prompts",
     },
     "mcp-server": {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://developers.openai.com/codex/mcp"],
@@ -104,7 +115,9 @@ export const codexAgent = {
       },
     },
     subagent: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Custom agents are standalone TOML files under .codex/agents (project) or ~/.codex/agents (user); a custom agent overrides a built-in of the same name.\n",
       docs: [],
@@ -115,13 +128,17 @@ export const codexAgent = {
       layout: "directory",
     },
     files: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     rule: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://github.com/openai/codex/blob/main/docs/agents_md.md"],
@@ -135,14 +152,18 @@ export const codexAgent = {
       importSyntax: null,
     },
     hook: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
   },
   permissions: {
-    lifecycle: "supported",
+    availability: { via: "native" },
+    vendorStatus: { state: "active" },
+    axmSupport: "supported",
     notes: null,
     docs: [],
     sources: [

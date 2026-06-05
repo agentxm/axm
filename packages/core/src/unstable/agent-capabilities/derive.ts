@@ -14,7 +14,7 @@ import type { ExtensionType } from "../extensions/common.js";
 import { AGENTS, AGENT_IDS, type AgentId } from "./catalog.js";
 import {
   LEAF_EXTENSION_TYPES,
-  SUPPORTED_LIFECYCLE,
+  SUPPORTED_AXM_SUPPORT,
   type Agent,
   type AgentExtensionCapability,
   type Detection,
@@ -40,8 +40,33 @@ export const isLeafExtensionType = (value: ExtensionType): value is LeafExtensio
   value !== "pack";
 
 /** @experimental This API is unstable and may change without notice. */
+export type CapabilityStatus =
+  | "native"
+  | "native-deprecated"
+  | "plugin"
+  | "plugin-deprecated"
+  | "planned"
+  | "unsupported"
+  | "unknown";
+
+/** @experimental This API is unstable and may change without notice. */
+export const capabilityStatus = (capability: AgentExtensionCapability): CapabilityStatus => {
+  if (capability.axmSupport === "unknown") return "unknown";
+  if (capability.axmSupport === "planned") return "planned";
+
+  switch (capability.availability.via) {
+    case "none":
+      return "unsupported";
+    case "native":
+      return capability.vendorStatus.state === "active" ? "native" : "native-deprecated";
+    case "plugin":
+      return capability.vendorStatus.state === "active" ? "plugin" : "plugin-deprecated";
+  }
+};
+
+/** @experimental This API is unstable and may change without notice. */
 export const isCapabilitySupported = (capability: AgentExtensionCapability): boolean =>
-  capability.lifecycle === SUPPORTED_LIFECYCLE;
+  capability.axmSupport === SUPPORTED_AXM_SUPPORT && capability.availability.via !== "none";
 
 const catalogAgentIds = new Set<string>(AGENT_IDS);
 
@@ -209,7 +234,8 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
   for (const type of LEAF_EXTENSION_TYPES) {
     const capability = agent.capabilities[type];
     if (
-      capability.lifecycle !== "unsupported" ||
+      capability.axmSupport !== "unsupported" ||
+      capability.availability.via !== "none" ||
       capability.sources.length > 0 ||
       capability.docs.length > 0 ||
       capability.notes !== null

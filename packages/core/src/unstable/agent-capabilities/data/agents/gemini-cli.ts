@@ -30,7 +30,9 @@ export const geminiCliAgent = {
   ],
   capabilities: {
     skill: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md"],
@@ -41,7 +43,9 @@ export const geminiCliAgent = {
       directory: ".gemini/skills",
     },
     command: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Custom slash commands are TOML files under .gemini/commands (project) or ~/.gemini/commands (user); AXM bridges its command extension format to TOML.\n",
       docs: [],
@@ -53,7 +57,9 @@ export const geminiCliAgent = {
       directory: ".gemini/commands",
     },
     "mcp-server": {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md"],
@@ -91,7 +97,9 @@ export const geminiCliAgent = {
       },
     },
     subagent: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Subagents are Markdown files with YAML frontmatter under .gemini/agents (project) or ~/.gemini/agents (user); shipped in Gemini CLI v0.38.1.\n",
       docs: [],
@@ -102,13 +110,17 @@ export const geminiCliAgent = {
       layout: "directory",
     },
     files: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     rule: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Consumer access (free, AI Pro, AI Ultra) ends 2026-06-18; Antigravity CLI succeeds Gemini CLI for those tiers. Enterprise customers on paid API keys retain access.\n",
       docs: [],
@@ -126,14 +138,18 @@ export const geminiCliAgent = {
       importSyntax: null,
     },
     hook: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
   },
   permissions: {
-    lifecycle: "supported",
+    availability: { via: "native" },
+    vendorStatus: { state: "active" },
+    axmSupport: "supported",
     notes: null,
     docs: [],
     sources: [

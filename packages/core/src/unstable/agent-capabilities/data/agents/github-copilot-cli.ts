@@ -41,7 +41,9 @@ export const githubCopilotCliAgent = {
   ],
   capabilities: {
     skill: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "GitHub Copilot CLI reads SKILL.md skills from project .github/skills, .claude/skills, or .agents/skills, and user skills from ~/.copilot/skills.\n",
       docs: [],
@@ -56,7 +58,9 @@ export const githubCopilotCliAgent = {
       directory: ".github/skills",
     },
     command: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: "GitHub Copilot CLI has no documented custom slash-command file surface.",
       docs: [],
       sources: [
@@ -64,7 +68,9 @@ export const githubCopilotCliAgent = {
       ],
     },
     "mcp-server": {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: [
@@ -122,7 +128,9 @@ export const githubCopilotCliAgent = {
       },
     },
     subagent: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "No industry spec for subagents yet; GitHub Copilot CLI custom agents are Markdown agent profiles under .github/agents or ~/.copilot/agents.\n",
       docs: [],
@@ -136,13 +144,17 @@ export const githubCopilotCliAgent = {
       layout: "directory",
     },
     files: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     rule: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "GitHub Copilot CLI supports AGENTS.md plus Copilot-specific instruction files; AXM syncs the cross-agent AGENTS.md convention.\n",
       docs: [],
@@ -159,14 +171,18 @@ export const githubCopilotCliAgent = {
       importSyntax: null,
     },
     hook: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
   },
   permissions: {
-    lifecycle: "supported",
+    availability: { via: "native" },
+    vendorStatus: { state: "active" },
+    axmSupport: "supported",
     notes: null,
     docs: [],
     sources: [

@@ -21,7 +21,9 @@ export const hermesAgent = {
   ],
   capabilities: {
     skill: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Hermes reads SKILL.md skills from ~/.hermes/skills as the source of truth. Additional external skill directories can be configured in ~/.hermes/config.yaml for shared team use.\n",
       docs: [],
@@ -33,13 +35,17 @@ export const hermesAgent = {
       directory: ".hermes/skills",
     },
     command: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     "mcp-server": {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Hermes declares MCP servers under mcp_servers in ~/.hermes/config.yaml. The YAML config dialect is outside AXM's current native MCP writer formats.\n",
       docs: [],
@@ -51,19 +57,25 @@ export const hermesAgent = {
       transports: ["stdio", "http"],
     },
     subagent: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     files: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     rule: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Hermes reads AGENTS.md as a recursive project instruction source. .hermes.md or HERMES.md are higher-priority native alternatives at the git root, but AGENTS.md is the cross-tool standard AXM writes.\n",
       docs: [],
@@ -78,14 +90,18 @@ export const hermesAgent = {
       importSyntax: null,
     },
     hook: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
   },
   permissions: {
-    lifecycle: "unsupported",
+    availability: { via: "none" },
+    vendorStatus: { state: "active" },
+    axmSupport: "unsupported",
     notes: null,
     docs: [],
     sources: [],

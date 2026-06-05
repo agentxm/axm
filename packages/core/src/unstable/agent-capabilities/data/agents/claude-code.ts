@@ -35,7 +35,9 @@ export const claudeCodeAgent = {
   ],
   capabilities: {
     skill: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://docs.claude.com/en/docs/claude-code/skills"],
@@ -46,7 +48,9 @@ export const claudeCodeAgent = {
       directory: ".claude/skills",
     },
     command: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Custom slash commands are Markdown prompt files under .claude/commands. Commands have no industry spec yet.\n",
       docs: [],
@@ -56,7 +60,9 @@ export const claudeCodeAgent = {
       directory: ".claude/commands",
     },
     "mcp-server": {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: null,
       docs: [],
       sources: ["https://code.claude.com/docs/en/mcp"],
@@ -105,7 +111,9 @@ export const claudeCodeAgent = {
       },
     },
     subagent: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
       docs: [],
       sources: ["https://docs.claude.com/en/docs/claude-code/sub-agents"],
@@ -115,13 +123,17 @@ export const claudeCodeAgent = {
       layout: "directory",
     },
     files: {
-      lifecycle: "unsupported",
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      axmSupport: "unsupported",
       notes: null,
       docs: [],
       sources: [],
     },
     rule: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes: "Reads CLAUDE.md, not the AGENTS.md spec filename.",
       docs: [],
       sources: ["https://docs.claude.com/en/docs/claude-code/memory"],
@@ -135,7 +147,9 @@ export const claudeCodeAgent = {
       importSyntax: "at-path",
     },
     hook: {
-      lifecycle: "supported",
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      axmSupport: "supported",
       notes:
         "Managed hooks merge into the Claude Code settings hooks block and execute materialized AXM package entrypoints.",
       docs: [],
@@ -169,7 +183,9 @@ export const claudeCodeAgent = {
     },
   },
   permissions: {
-    lifecycle: "supported",
+    availability: { via: "native" },
+    vendorStatus: { state: "active" },
+    axmSupport: "supported",
     notes: null,
     docs: [],
     sources: [

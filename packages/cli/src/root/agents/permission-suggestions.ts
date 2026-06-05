@@ -2,7 +2,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
   AgentIdSchema,
-  SUPPORTED_LIFECYCLE,
+  SUPPORTED_AXM_SUPPORT,
   agentById,
   type AgentId,
   type ConfigFileLocation,
@@ -59,7 +59,12 @@ export const buildPermissionSuggestions = (
       onSome: (agentId) => {
         const agent = agentById(agentId);
         const permissions = agent.permissions;
-        if (permissions.lifecycle !== SUPPORTED_LIFECYCLE) return [];
+        if (
+          permissions.axmSupport !== SUPPORTED_AXM_SUPPORT ||
+          permissions.availability.via === "none"
+        ) {
+          return [];
+        }
 
         const target = preferredTarget(permissions);
         const example = permissions.grammar?.example;

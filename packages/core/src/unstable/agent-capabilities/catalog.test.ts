@@ -8,15 +8,27 @@ import {
   AgentSchema,
   DetectionMarkerSchema,
   DetectionSchema,
+  LEAF_EXTENSION_TYPES,
   type Agent,
 } from "./schema.js";
 
 const decodeAgent = (input: unknown): Agent =>
   Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
 
+const unsupportedCapability = {
+  availability: { via: "none" },
+  vendorStatus: { state: "active" },
+  axmSupport: "unsupported",
+  notes: null,
+  docs: [],
+  sources: [],
+} as const;
+
 const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
   skill: {
-    lifecycle: "supported",
+    availability: { via: "native" },
+    vendorStatus: { state: "active" },
+    axmSupport: "supported",
     notes: null,
     docs: [],
     sources: ["https://example.com/skills"],
@@ -26,12 +38,12 @@ const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
     convention: "vendor",
     directory: ".sample/skills",
   },
-  command: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  "mcp-server": { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  subagent: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  files: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  rule: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
-  hook: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  command: unsupportedCapability,
+  "mcp-server": unsupportedCapability,
+  subagent: unsupportedCapability,
+  files: unsupportedCapability,
+  rule: unsupportedCapability,
+  hook: unsupportedCapability,
   ...overrides,
 });
 
@@ -47,7 +59,7 @@ const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   detection: { project: { markers: [] }, user: { markers: [] } },
   docs: [],
   capabilities: makeCapabilitiesInput(),
-  permissions: { lifecycle: "unsupported", notes: null, docs: [], sources: [] },
+  permissions: unsupportedCapability,
   ...overrides,
 });
 
@@ -121,7 +133,9 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             command: {
-              lifecycle: "supported",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              axmSupport: "supported",
               notes: null,
               docs: [],
               sources: ["https://example.com/docs"],
@@ -141,7 +155,9 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             files: {
-              lifecycle: "supported",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              axmSupport: "supported",
               notes: null,
               docs: [],
               sources: ["https://example.com/docs"],
@@ -165,7 +181,9 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             skill: {
-              lifecycle: "supported",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              axmSupport: "supported",
               notes: null,
               docs: [],
               sources: ["https://example.com/docs"],
@@ -185,7 +203,9 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             rule: {
-              lifecycle: "supported",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              axmSupport: "supported",
               notes: null,
               docs: [],
               sources: ["https://example.com/docs"],
@@ -204,13 +224,15 @@ describe("agent capability catalog", () => {
     ).toThrow("AGENTS.md");
   });
 
-  it("requires sourced active capability claims", () => {
+  it("requires sourced active AXM support claims", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             skill: {
-              lifecycle: "supported",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              axmSupport: "supported",
               notes: null,
               docs: [],
               sources: [],
@@ -232,7 +254,9 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             rule: {
-              lifecycle: "supported",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              axmSupport: "supported",
               notes: null,
               docs: [],
               sources: ["https://example.com/docs"],
@@ -256,7 +280,9 @@ describe("agent capability catalog", () => {
       makeAgentInput({
         capabilities: makeCapabilitiesInput({
           "mcp-server": {
-            lifecycle: "supported",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            axmSupport: "supported",
             notes: null,
             docs: [],
             sources: ["https://example.com/docs"],
@@ -270,7 +296,7 @@ describe("agent capability catalog", () => {
       }),
     );
 
-    expect(decoded.capabilities["mcp-server"].lifecycle).toBe("supported");
+    expect(decoded.capabilities["mcp-server"].axmSupport).toBe("supported");
   });
 
   it("requires MCP config coverage for declared transports", () => {
@@ -279,7 +305,9 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             "mcp-server": {
-              lifecycle: "supported",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              axmSupport: "supported",
               notes: null,
               docs: [],
               sources: ["https://example.com/docs"],
@@ -356,6 +384,23 @@ describe("agent capability catalog", () => {
         expect(seen, `supersededBy cycle through ${cursor}`).not.toContain(cursor);
         seen.add(cursor);
         cursor = successorOf(cursor);
+      }
+    }
+  });
+
+  it("keeps supersededByType references valid", () => {
+    const leafTypes = new Set<string>(LEAF_EXTENSION_TYPES);
+    const agents = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS);
+
+    for (const agent of agents) {
+      for (const capability of [...Object.values(agent.capabilities), agent.permissions]) {
+        if (capability.vendorStatus.state === "active") continue;
+        const successor = capability.vendorStatus.supersededByType;
+        if (successor === null) continue;
+        expect(
+          leafTypes,
+          `${agent.id} supersededByType unknown extension type ${successor}`,
+        ).toContain(successor);
       }
     }
   });

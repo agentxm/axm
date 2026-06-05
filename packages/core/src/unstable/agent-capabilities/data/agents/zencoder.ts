@@ -46,6 +46,10 @@ export const zencoderAgent = {
       standardsCompliance: "full",
       convention: "universal",
       transports: ["stdio"],
+      mcpEnvExpansion: {
+        variables: "none",
+        defaults: false,
+      },
       config: {
         serversKey: "mcpServers",
         nativeEnabled: true,

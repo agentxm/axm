@@ -6,6 +6,11 @@ import {
   registerEntity,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  inspectMcpServerAcrossAgents,
+  type AgentMcpServerInspection,
+} from "@agentxm/client-core/unstable/mcps";
+import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
@@ -37,26 +42,65 @@ registerEntity<McpServerListItem>("mcp-server", {
   },
 });
 
+const hasInlineProjection = (entry: McpServerEntry): boolean =>
+  entry.command !== undefined || entry.url !== undefined;
+
+const driftStatus = (inspections: ReadonlyArray<AgentMcpServerInspection>): string => {
+  if (inspections.some((inspection) => inspection.status === "drift")) return "drift";
+  if (inspections.some((inspection) => inspection.status === "unmanaged")) return "drift";
+  if (inspections.some((inspection) => inspection.status === "absent")) return "missing";
+  return "enabled";
+};
+
+const configuredStatus = (args: {
+  readonly enabled: boolean;
+  readonly configuredEntry: McpServerEntry | undefined;
+  readonly inspections: ReadonlyArray<AgentMcpServerInspection>;
+}): string => {
+  if (!args.enabled) return "disabled";
+  if (args.configuredEntry === undefined) return "enabled";
+  if (!hasInlineProjection(args.configuredEntry)) return "enabled";
+  return driftStatus(args.inspections);
+};
+
 export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
   const installed = yield* ws.records.getInstalledMcpServers();
   const unmanaged = yield* ws.records.getUnmanagedMcpServers();
+  const configuredEntries = yield* ws.getConfiguredMcpServerEntries();
+  const configuredAgents = yield* ws.getConfiguredAgents();
 
   const installedItems = yield* Effect.forEach(
     Object.entries(installed),
     ([name, entry]) =>
-      ws.getLockedMcpServer(name).pipe(
-        Effect.map((locked) => ({
+      Effect.gen(function* () {
+        const locked = yield* ws.getLockedMcpServer(name);
+        const configuredEntry = configuredEntries[name];
+        const inspections =
+          configuredEntry !== undefined && hasInlineProjection(configuredEntry)
+            ? yield* inspectMcpServerAcrossAgents({
+                workspaceRoot: ws.baseDir,
+                scope: ws.scope,
+                agentIds: configuredAgents,
+                serverName: name,
+                entry: configuredEntry,
+              })
+            : [];
+        return {
           name,
           version:
             Option.isSome(locked) && locked.value.type === "registry"
               ? locked.value.resolvedVersion
               : "n/a",
           transport: "auto",
-          status: entry.lifecycle === "configured" && !entry.enabled ? "disabled" : "enabled",
-        })),
-      ),
+          status: configuredStatus({
+            enabled: !(entry.lifecycle === "configured" && !entry.enabled),
+            configuredEntry,
+            inspections,
+          }),
+        };
+      }),
     { concurrency: "unbounded" },
   );
   const unmanagedItems = Object.entries(unmanaged).map(([name, entry]) => ({

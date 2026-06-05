@@ -177,7 +177,7 @@ const writeIfChanged = (
     };
   });
 
-const resolveTargetPath = (
+export const resolveAgentMcpConfigTargetPath = (
   workspaceRoot: string,
   target: McpConfigTarget,
 ): Effect.Effect<string, AppError, Path.Path> =>
@@ -295,7 +295,7 @@ export const writeAgentMcpConfig = (
 ): Effect.Effect<AgentMcpConfigWriteResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
-    const configPath = yield* resolveTargetPath(args.workspaceRoot, target);
+    const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
     const raw = yield* readExisting(configPath);
     const next =
       target.format === "toml"
@@ -320,7 +320,7 @@ export const removeAgentMcpConfig = (
 ): Effect.Effect<AgentMcpConfigWriteResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
-    const configPath = yield* resolveTargetPath(args.workspaceRoot, target);
+    const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
     const raw = yield* readExisting(configPath);
     const next =
       target.format === "toml"

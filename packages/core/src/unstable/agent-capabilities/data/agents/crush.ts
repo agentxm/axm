@@ -46,6 +46,10 @@ export const crushAgent = {
       standardsCompliance: "full",
       convention: "vendor",
       transports: ["stdio", "http"],
+      mcpEnvExpansion: {
+        variables: "none",
+        defaults: false,
+      },
       config: {
         serversKey: "mcp",
         nativeEnabled: true,

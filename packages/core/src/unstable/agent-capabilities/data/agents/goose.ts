@@ -46,6 +46,10 @@ export const gooseAgent = {
       standardsCompliance: "full",
       convention: "universal",
       transports: ["stdio", "http", "sse"],
+      mcpEnvExpansion: {
+        variables: "none",
+        defaults: false,
+      },
       config: {
         serversKey: "mcpServers",
         nativeEnabled: true,

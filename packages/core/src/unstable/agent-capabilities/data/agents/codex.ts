@@ -54,6 +54,10 @@ export const codexAgent = {
       standardsCompliance: "full",
       convention: "vendor",
       transports: ["stdio", "http"],
+      mcpEnvExpansion: {
+        variables: "none",
+        defaults: false,
+      },
       config: {
         serversKey: "mcp_servers",
         nativeEnabled: true,

@@ -50,6 +50,10 @@ export const claudeCodeAgent = {
       standardsCompliance: "full",
       convention: "universal",
       transports: ["stdio", "http", "sse"],
+      mcpEnvExpansion: {
+        variables: "braced",
+        defaults: true,
+      },
       config: {
         serversKey: "mcpServers",
         nativeEnabled: false,

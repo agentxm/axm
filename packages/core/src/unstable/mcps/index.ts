@@ -69,3 +69,23 @@ export { disableMcpServer } from "./operations/disable.js";
 export { mcpServerArtifact, mcpSettingsTarget, mcpSourceTarget } from "./operations/artifact.js";
 export { resolveMcpServer, type McpResolution } from "./resolution.js";
 export { writeAgentMcpConfig, removeAgentMcpConfig } from "./config-writer.js";
+export {
+  collectManagedAgentMcpServers,
+  inspectAgentMcpServer,
+  inspectMcpServerAcrossAgents,
+  type AgentMcpInspectionStatus,
+  type AgentMcpServerInspection,
+  type CollectManagedAgentMcpServersArgs,
+  type InspectAgentMcpServerArgs,
+  type ManagedAgentMcpServer,
+} from "./inspection.js";
+export {
+  diffAgentEntry,
+  inferInlineRemoteTransport,
+  projectExpectedEntry,
+  renderEnvValue,
+  type DriftReport,
+  type ExpectedAgentEntry,
+  type InlineRemoteTransport,
+  type ProjectExpectedEntryArgs,
+} from "./projection.js";

@@ -14,8 +14,6 @@ import {
   AGENTS_BY_ID,
   type Agent,
   type AgentId as CapabilityAgentId,
-  type McpRemoteDialect,
-  type McpStdioDialect,
 } from "../agent-capabilities/index.js";
 import type { McpConfigTarget } from "../agent-capabilities/index.js";
 import { getHome } from "./constants.js";
@@ -26,6 +24,7 @@ import {
   McpServerManifestSchema,
   type McpServerManifest,
 } from "../mcps/manifest-schema.js";
+import { projectExpectedEntry } from "../mcps/projection.js";
 import { resolveMcpServer } from "../mcps/resolution.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer.js";
 import type {
@@ -50,7 +49,6 @@ export interface CliInvocationResult {
 }
 
 type NodePlatform = NodeJS.Platform;
-type InlineRemoteTransport = "streamable-http" | "sse";
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 type FullMcpCapability = Extract<AgentMcpCapability, { readonly standardsCompliance: "full" }>;
 
@@ -489,66 +487,6 @@ const entryFromAddArgs = (args: AddMcpServerArgs) => ({
   canonicalPath: args.canonicalPath,
 });
 
-const addInlineTypeField = (
-  entry: Record<string, unknown>,
-  typeField: McpStdioDialect["typeField"] | McpRemoteDialect["typeField"],
-  transport: "stdio" | InlineRemoteTransport,
-): void => {
-  if (typeField === null) return;
-  if (typeof typeField.value === "string") {
-    entry[typeField.name] = typeField.value;
-    return;
-  }
-  if (transport !== "stdio") {
-    entry[typeField.name] = typeField.value[transport];
-  }
-};
-
-const projectInlineStdio = (args: {
-  readonly dialect: McpStdioDialect;
-  readonly command: string;
-  readonly commandArgs: ReadonlyArray<string>;
-  readonly env: Readonly<Record<string, string>>;
-  readonly enabled: boolean;
-  readonly nativeEnabled: boolean;
-}): Readonly<Record<string, unknown>> => {
-  const invocation = [args.command, ...args.commandArgs];
-  const entry: Record<string, unknown> = { managedBy: "axm" };
-  addInlineTypeField(entry, args.dialect.typeField, "stdio");
-  if (args.nativeEnabled) entry["enabled"] = args.enabled;
-  if (args.dialect.command === "array") {
-    entry["command"] = invocation;
-  } else {
-    entry["command"] = args.command;
-    if (args.commandArgs.length > 0) entry["args"] = args.commandArgs;
-  }
-  if (Object.keys(args.env).length > 0 && args.dialect.envKey !== null) {
-    entry[args.dialect.envKey] = args.env;
-  }
-  return entry;
-};
-
-const inferInlineRemoteTransport = (url: string): InlineRemoteTransport =>
-  url.endsWith("/sse") || url.includes("/sse?") ? "sse" : "streamable-http";
-
-const projectInlineRemote = (args: {
-  readonly dialect: McpRemoteDialect;
-  readonly url: string;
-  readonly headers: Readonly<Record<string, string>>;
-  readonly enabled: boolean;
-  readonly nativeEnabled: boolean;
-}): Readonly<Record<string, unknown>> => {
-  const transport = inferInlineRemoteTransport(args.url);
-  const entry: Record<string, unknown> = { managedBy: "axm" };
-  addInlineTypeField(entry, args.dialect.typeField, transport);
-  if (args.nativeEnabled) entry["enabled"] = args.enabled;
-  entry[args.dialect.urlKey[transport]] = args.url;
-  if (Object.keys(args.headers).length > 0 && args.dialect.headersKey !== null) {
-    entry[args.dialect.headersKey] = args.headers;
-  }
-  return entry;
-};
-
 export interface SyncInlineMcpServerArgs {
   readonly workspaceRoot: string;
   readonly serverName: string;
@@ -584,38 +522,19 @@ export const syncInlineMcpServerToAgent = (
     }
 
     const config = capability.config;
-    const projected =
-      args.entry.command !== undefined
-        ? config.stdio === null
-          ? Option.none<Readonly<Record<string, unknown>>>()
-          : Option.some(
-              projectInlineStdio({
-                dialect: config.stdio,
-                command: args.entry.command,
-                commandArgs: args.entry.args ?? [],
-                env: args.entry.env,
-                enabled: args.entry.enabled,
-                nativeEnabled: config.nativeEnabled,
-              }),
-            )
-        : args.entry.url !== undefined
-          ? config.remote === null
-            ? Option.none<Readonly<Record<string, unknown>>>()
-            : Option.some(
-                projectInlineRemote({
-                  dialect: config.remote,
-                  url: args.entry.url,
-                  headers: args.entry.headers ?? {},
-                  enabled: args.entry.enabled,
-                  nativeEnabled: config.nativeEnabled,
-                }),
-              )
-          : Option.none<Readonly<Record<string, unknown>>>();
+    const projected = projectExpectedEntry({
+      serverName: args.serverName,
+      entry: args.entry,
+      stdio: config.stdio,
+      remote: config.remote,
+      nativeEnabled: config.nativeEnabled,
+      envExpansion: capability.mcpEnvExpansion,
+    });
 
-    if (Option.isNone(projected)) {
+    if (projected._tag !== "projected") {
       return {
         _tag: "unsupported",
-        reason: `${agentId} does not support this inline MCP server transport`,
+        reason: `${agentId} ${projected.reason}`,
       } as const;
     }
 
@@ -628,12 +547,16 @@ export const syncInlineMcpServerToAgent = (
           serverName: args.serverName,
           serversKey: config.serversKey,
           target,
-          entry: projected.value,
+          entry: projected.entry,
         }),
       { concurrency: "unbounded" },
     );
     const syncTargets = writeResults.flatMap((result) => result.targets);
-    return { _tag: "success", targets: syncTargets } satisfies McpServerSyncOutcome;
+    return {
+      _tag: "success",
+      targets: syncTargets,
+      ...(projected.warnings.length > 0 ? { warnings: projected.warnings } : {}),
+    } satisfies McpServerSyncOutcome;
   });
 
 export const pruneManagedMcpServersForAgent = (

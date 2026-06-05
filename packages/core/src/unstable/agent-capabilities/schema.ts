@@ -528,12 +528,26 @@ export const McpConfigSchema = Schema.Struct({
 /** @experimental This API is unstable and may change without notice. */
 export type McpConfig = Schema.Schema.Type<typeof McpConfigSchema>;
 
+/** @experimental This API is unstable and may change without notice. */
+export const McpEnvExpansionSchema = Schema.Struct({
+  variables: Schema.Literals(["none", "braced"]),
+  defaults: Schema.Boolean,
+}).annotate({
+  identifier: "McpEnvExpansion",
+  title: "MCP Env Expansion",
+  description: "Whether an agent expands MCP config environment references.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpEnvExpansion = Schema.Schema.Type<typeof McpEnvExpansionSchema>;
+
 const McpFullCapabilityStruct = Schema.Struct({
   ...ActiveCapabilityBaseFields,
   standardsCompliance: Schema.Literal("full"),
   convention: ConventionSchema,
   transports: NonEmptyMcpTransportsSchema,
   config: McpConfigSchema,
+  mcpEnvExpansion: Schema.optionalKey(McpEnvExpansionSchema),
 });
 
 const McpFullCapabilitySchema = McpFullCapabilityStruct.pipe(

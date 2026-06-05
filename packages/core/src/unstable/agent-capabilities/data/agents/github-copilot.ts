@@ -56,6 +56,10 @@ export const githubCopilotAgent = {
       standardsCompliance: "full",
       convention: "vendor",
       transports: ["stdio", "http", "sse"],
+      mcpEnvExpansion: {
+        variables: "none",
+        defaults: false,
+      },
       config: {
         serversKey: "servers",
         nativeEnabled: false,

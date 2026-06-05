@@ -3,7 +3,9 @@ import { Command } from "effect/unstable/cli";
 import { mcpsVersionCommand } from "../shared/version-command.js";
 import { addCommand } from "./add.js";
 import { disableCommand } from "./disable.js";
+import { doctorCommand } from "./doctor.js";
 import { enableCommand } from "./enable.js";
+import { getCommand } from "./get.js";
 import { importCommand } from "./import.js";
 import { installCommand } from "./install/command.js";
 import { listCommand } from "./list.js";
@@ -33,8 +35,10 @@ export const mcpsCommand = Command.make("mcps").pipe(
     addCommand,
     removeCommand,
     importCommand,
+    doctorCommand,
     installCommand,
     uninstallCommand,
+    getCommand,
     listCommand,
     enableCommand,
     disableCommand,

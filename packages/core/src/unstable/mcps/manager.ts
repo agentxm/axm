@@ -24,6 +24,7 @@ import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
+import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -204,6 +205,23 @@ export const McpServerManagerLive = Layer.effect(
 
     const materializeUninstall: ExtensionManager<McpServerExtensionRef>["materializeUninstall"] =
       Effect.fn("McpServerManager.materializeUninstall")(function* ({ target }) {
+        const configuredAgents = yield* ws
+          .getConfiguredAgents()
+          .pipe(Effect.catch(() => Effect.succeed([])));
+
+        yield* Effect.forEach(
+          configuredAgents,
+          (agentId) =>
+            provide(
+              removeMcpServerFromManifest(agentId, {
+                workspaceRoot: baseDir,
+                scope: ws.scope,
+                serverName: target.name,
+              }),
+            ).pipe(Effect.catch(() => Effect.void)),
+          { concurrency: "unbounded" },
+        );
+
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
         const extensionsDirExists = yield* fs
           .exists(extensionsDir)

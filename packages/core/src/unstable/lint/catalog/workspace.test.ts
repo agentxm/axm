@@ -31,6 +31,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/configured-but-not-installed", severity: "error" },
   { id: "workspace/mcp-server-transport-exclusivity", severity: "warning" },
   { id: "workspace/mcp-server-no-secret-literal", severity: "warning" },
+  { id: "workspace/mcp-server-agent-drift", severity: "warning" },
   // Lockfile aligned (configured).
   { id: "workspace/skills-lockfile-aligned", severity: "error" },
   // Integrity intact (configured + implicit).

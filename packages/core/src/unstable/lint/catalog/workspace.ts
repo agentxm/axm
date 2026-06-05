@@ -60,6 +60,7 @@ import { packsMembersRetainedRule } from "./workspace/packs-members-retained.js"
 import { configuredButNotInstalledRule } from "./workspace/configured-but-not-installed.js";
 import { mcpServerNoSecretLiteralRule } from "./workspace/mcp-server-no-secret-literal.js";
 import { mcpServerTransportExclusivityRule } from "./workspace/mcp-server-transport-exclusivity.js";
+import { mcpServerAgentDriftRule } from "./workspace/mcp-server-agent-drift.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
@@ -89,6 +90,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   configuredButNotInstalledRule,
   mcpServerTransportExclusivityRule,
   mcpServerNoSecretLiteralRule,
+  mcpServerAgentDriftRule,
   // Lockfile aligned (configured).
   skillsLockfileAlignedRule,
   // Integrity intact (configured + implicit).

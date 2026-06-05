@@ -80,6 +80,31 @@ const parseHeaders = (
 ): Effect.Effect<Readonly<Record<string, string>>, AppError> =>
   Effect.map(Effect.forEach(values, parseHeader), (entries) => Object.fromEntries(entries));
 
+const validateRemoteUrl = (value: string): Effect.Effect<void, AppError> =>
+  Effect.gen(function* () {
+    const protocol = yield* Effect.try({
+      try: () => new URL(value).protocol,
+      catch: (cause) =>
+        makeAppError({
+          code: "usage",
+          detail: `Invalid MCP server URL "${value}". Use an http(s):// streamable URL.`,
+          cause,
+        }),
+    });
+    if (protocol === "ws:" || protocol === "wss:") {
+      return yield* makeAppError({
+        code: "usage",
+        detail: "WebSocket MCP transport is not supported; use an http(s):// streamable URL.",
+      });
+    }
+    if (protocol !== "http:" && protocol !== "https:") {
+      return yield* makeAppError({
+        code: "usage",
+        detail: `Unsupported MCP server URL scheme "${protocol}". Use an http(s):// streamable URL.`,
+      });
+    }
+  });
+
 const arraysEqual = (
   left: ReadonlyArray<string> | undefined,
   right: ReadonlyArray<string> | undefined,
@@ -197,7 +222,13 @@ const syncStep = (
         ),
       { concurrency: "unbounded" },
     );
-    const warnings = outcomes.filter((outcome) => outcome._tag !== "success");
+    const warningDetails = outcomes.flatMap((outcome, index) => {
+      const agentId = agentIds[index] ?? "unknown";
+      if (outcome._tag === "success") {
+        return (outcome.warnings ?? []).map((warning) => `${agentId}: ${warning}`);
+      }
+      return [`${agentId}: ${outcome.reason}`];
+    });
     const successfulAgentIds = outcomes.flatMap((outcome, index) => {
       const agentId = agentIds[index];
       return outcome._tag === "success" && agentId !== undefined ? [agentId] : [];
@@ -254,9 +285,10 @@ const syncStep = (
     return {
       result: "success",
       message:
-        warnings.length === 0
+        warningDetails.length === 0
           ? `Synced ${name} to ${count(successfulAgentIds.length, "agent")}`
-          : `Synced ${name} to ${count(successfulAgentIds.length, "agent")} with ${count(warnings.length, "warning")}`,
+          : `Synced ${name} to ${count(successfulAgentIds.length, "agent")} with ${count(warningDetails.length, "warning")}`,
+      ...(warningDetails.length > 0 ? { warnings: warningDetails } : {}),
       ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
   }),
@@ -298,6 +330,9 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
   const path = yield* Path.Path;
   const env = parseEnv(args.env);
   const headers = yield* parseHeaders(args.header);
+  if (Option.isSome(args.url)) {
+    yield* validateRemoteUrl(args.url.value);
+  }
   const lockEntry = yield* makeInlineLockEntry(args, headers);
   const configured = yield* ws.getConfiguredMcpServerEntries();
   const existingEntry = configured[args.name];

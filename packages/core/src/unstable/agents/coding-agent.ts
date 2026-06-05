@@ -199,12 +199,14 @@ export type McpServerSyncOutcome =
   | {
       readonly _tag: "success";
       readonly targets?: ReadonlyArray<McpServerSyncTarget>;
+      readonly warnings?: ReadonlyArray<string>;
     }
   | {
       readonly _tag: "fallback";
       readonly fallbackFrom: McpServerSyncFallbackSource;
       readonly reason: string;
       readonly targets?: ReadonlyArray<McpServerSyncTarget>;
+      readonly warnings?: ReadonlyArray<string>;
     }
   | { readonly _tag: "unsupported"; readonly reason: string }
   | { readonly _tag: "disabled"; readonly reason: string }

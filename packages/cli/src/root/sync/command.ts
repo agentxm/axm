@@ -10,10 +10,13 @@ const syncConfig = {
   dryRun: Flag.boolean("dry-run").pipe(
     Flag.withDescription("Preview the materialization plan without applying it"),
   ),
+  force: Flag.boolean("force").pipe(
+    Flag.withDescription("Overwrite drifted managed MCP server agent configs"),
+  ),
 } as const;
 
-export const syncCommand = Command.make("sync", syncConfig, ({ scope, dryRun }) =>
-  handleSync({ dryRun }).pipe(withWorkspace(scope), withRuntime("sync")),
+export const syncCommand = Command.make("sync", syncConfig, ({ scope, dryRun, force }) =>
+  handleSync({ dryRun, force }).pipe(withWorkspace(scope), withRuntime("sync")),
 ).pipe(
   withArgvTracking(syncConfig),
   Command.withDescription("Materialize workspace files from the axm lockfile"),
@@ -25,6 +28,10 @@ export const syncCommand = Command.make("sync", syncConfig, ({ scope, dryRun }) 
     {
       command: "axm sync --dry-run",
       description: "Preview what would be materialized without writing files",
+    },
+    {
+      command: "axm sync --force",
+      description: "Overwrite drifted managed MCP server agent configs",
     },
     {
       command: "axm sync --scope user",

@@ -107,6 +107,7 @@ export {
   removeMcpServerMixed,
   removeMcpServerConfigOnly,
   removeMcpServerConfigFirst,
+  removeMcpServerFromManifest,
   pruneManagedMcpServersForAgent,
   runCliInvocation,
   syncInlineMcpServerToAgent,

@@ -20,9 +20,11 @@ import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
+  expectRecord,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultSteps,
+  property,
 } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleSync } from "./handler.js";
@@ -30,6 +32,10 @@ import { handleSync } from "./handler.js";
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+};
+
+const writeSettings = (baseDir: string, value: unknown) => {
+  writeJson(path.join(baseDir, ".axm", "settings.json"), value);
 };
 
 const writeSubagentExtension = (baseDir: string, name: string) => {
@@ -142,7 +148,7 @@ describe("root sync handler", () => {
         agents: [],
       });
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       expect(logs.success).toEqual(["Workspace materialization is up to date"]);
     }),
@@ -155,13 +161,116 @@ describe("root sync handler", () => {
         agents: [],
       });
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       expect(logs.success).toEqual([]);
       expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
         message: "Workspace materialization is up to date",
       });
+    }),
+  );
+
+  it.effect("prunes stale managed MCP entries when no servers remain declared", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+      });
+      writeJson(path.join(tempDir, ".mcp.json"), {
+        mcpServers: {
+          demo: {
+            managedBy: "axm",
+            command: "node",
+            args: ["server.js"],
+          },
+        },
+      });
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+      });
+      const steps = planResultSteps(result);
+      expect(steps).toMatchObject([
+        {
+          label: "mcp-server stale managed entries",
+          status: "applied",
+          message: "Pruned stale managed MCP server entries",
+        },
+      ]);
+      const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
+      expect(config.mcpServers).toEqual({});
+    }),
+  );
+
+  it.effect("refuses to overwrite drifted inline MCP agent configs without force", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"));
+      writeSettings(tempDir, {
+        agents: ["claude-code"],
+        mcpServers: {
+          demo: {
+            enabled: true,
+            command: "node",
+            args: ["server.js"],
+            env: {},
+          },
+        },
+      });
+      writeJson(path.join(tempDir, ".mcp.json"), {
+        mcpServers: {
+          demo: {
+            managedBy: "axm",
+            type: "stdio",
+            command: "python",
+          },
+        },
+      });
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      const payload = expectRecord(rendererState.results[0]?.data);
+      const result = expectRecord(property(payload, "result"));
+      expect(property(result, "failedCount")).toBe(1);
+      expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"python"');
+    }),
+  );
+
+  it.effect("overwrites drifted inline MCP agent configs with force", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"));
+      writeSettings(tempDir, {
+        agents: ["claude-code"],
+        mcpServers: {
+          demo: {
+            enabled: true,
+            command: "node",
+            args: ["server.js"],
+            env: {},
+          },
+        },
+      });
+      writeJson(path.join(tempDir, ".mcp.json"), {
+        mcpServers: {
+          demo: {
+            managedBy: "axm",
+            type: "stdio",
+            command: "python",
+          },
+        },
+      });
+
+      yield* provide(handleSync({ dryRun: false, force: true }));
+
+      const payload = expectRecord(rendererState.results[0]?.data);
+      const result = expectRecord(property(payload, "result"));
+      expect(property(result, "failedCount")).toBe(0);
+      const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
+      expect(config.mcpServers.demo.command).toBe("node");
     }),
   );
 
@@ -202,7 +311,7 @@ describe("root sync handler", () => {
         "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
       );
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       const renderedSkill = path.join(tempDir, ".claude", "skills", "review", "SKILL.md");
       const universalSkill = path.join(tempDir, ".agents", "skills", "review", "SKILL.md");
@@ -234,7 +343,7 @@ describe("root sync handler", () => {
       fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
       fs.writeFileSync(path.join(skillDir, "src", "SKILL.md"), "# Solo\n");
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "solo", "SKILL.md"))).toBe(true);
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "solo"))).toBe(false);
@@ -252,7 +361,7 @@ describe("root sync handler", () => {
       });
       writeCommandExtension(tempDir, "review");
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       const renderedCommand = path.join(tempDir, ".claude", "commands", "review.md");
       expect(fs.existsSync(renderedCommand)).toBe(true);
@@ -286,7 +395,7 @@ describe("root sync handler", () => {
       fs.mkdirSync(path.join(fileDir, "src"), { recursive: true });
       fs.writeFileSync(path.join(fileDir, "src", "context.md"), "# Context\n");
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       const renderedFile = path.join(tempDir, "files", "context.md");
       expect(fs.existsSync(renderedFile)).toBe(true);
@@ -316,7 +425,7 @@ describe("root sync handler", () => {
           ].join("\n"),
         );
 
-        yield* provide(handleSync({ dryRun: false }));
+        yield* provide(handleSync({ dryRun: false, force: false }));
 
         const readme = fs.readFileSync(readmePath, "utf-8");
         expect(readme).toContain("- README.md");
@@ -343,7 +452,7 @@ describe("root sync handler", () => {
         ].join("\n"),
       );
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
@@ -380,7 +489,7 @@ describe("root sync handler", () => {
       ].join("\n");
       fs.writeFileSync(readmePath, original);
 
-      yield* provide(handleSync({ dryRun: true }));
+      yield* provide(handleSync({ dryRun: true, force: false }));
 
       expect(fs.readFileSync(readmePath, "utf-8")).toBe(original);
     }),
@@ -402,7 +511,7 @@ describe("root sync handler", () => {
       ].join("\n");
       fs.writeFileSync(readmePath, original);
 
-      yield* provide(handleSync({ dryRun: true }));
+      yield* provide(handleSync({ dryRun: true, force: false }));
 
       expect(fs.readFileSync(readmePath, "utf-8")).toBe(original);
       const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
@@ -427,7 +536,7 @@ describe("root sync handler", () => {
       writeSubagentExtension(tempDir, "review");
       writeRenderedSubagent(tempDir, ".cursor", "review", true);
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".cursor", "agents", "review.md"))).toBe(false);
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "review.md"))).toBe(true);
@@ -449,7 +558,7 @@ describe("root sync handler", () => {
       writeSubagentExtension(tempDir, "review");
       writeRenderedSubagent(tempDir, ".claude", "review", true);
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "review.md"))).toBe(false);
     }),
@@ -464,7 +573,7 @@ describe("root sync handler", () => {
       writeSubagentExtension(tempDir, "orphan");
       writeRenderedSubagent(tempDir, ".claude", "orphan", true);
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "orphan.md"))).toBe(false);
     }),
@@ -478,7 +587,7 @@ describe("root sync handler", () => {
       });
       writeRenderedSubagent(tempDir, ".claude", "manual", false);
 
-      yield* provide(handleSync({ dryRun: false }));
+      yield* provide(handleSync({ dryRun: false, force: false }));
 
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "manual.md"))).toBe(true);
     }),

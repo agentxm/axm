@@ -25,6 +25,10 @@ import type {
 } from "./manifest-schema.js";
 
 type UpstreamRemoteTransport = "streamable-http" | "sse";
+type ConfiguredMcpCapability = McpExtensionCapability & {
+  readonly config: McpConfig;
+  readonly transports: ReadonlyArray<McpTransport>;
+};
 
 export type McpResolution =
   | {
@@ -52,8 +56,6 @@ export interface ResolveMcpServerArgs {
   readonly enabled: boolean;
 }
 
-type FullMcpCapability = Extract<McpExtensionCapability, { readonly standardsCompliance: "full" }>;
-
 type Candidate =
   | {
       readonly kind: "remote";
@@ -80,15 +82,15 @@ const capabilitySupportsUpstream = (
   transport: UpstreamRemoteTransport,
 ): boolean => transports.includes(transport === "streamable-http" ? "http" : transport);
 
-const hasFullMcpConfig = (capability: McpExtensionCapability): capability is FullMcpCapability =>
-  "config" in capability && capability.standardsCompliance === "full";
+const hasMcpConfig = (capability: McpExtensionCapability): capability is ConfiguredMcpCapability =>
+  "config" in capability && capability.config !== undefined && "transports" in capability;
 
 const isRemoteTransport = (transport: string): transport is UpstreamRemoteTransport =>
   transport === "streamable-http" || transport === "sse";
 
 const selectCandidate = (
   manifest: McpServerManifest,
-  capability: FullMcpCapability,
+  capability: ConfiguredMcpCapability,
 ): Candidate | undefined => {
   const candidates: Array<Candidate> = [];
   const remotes = manifest.server.remotes ?? [];
@@ -243,7 +245,8 @@ const addTypeField = (
     return;
   }
   if (transport !== "stdio") {
-    entry[typeField.name] = typeField.value[transport];
+    const value = typeField.value[transport];
+    if (value !== undefined) entry[typeField.name] = value;
   }
 };
 
@@ -272,6 +275,7 @@ const projectStdio = (args: {
 
 const projectRemote = (args: {
   readonly dialect: McpRemoteDialect;
+  readonly urlKey: string;
   readonly remote: McpRegistryRemoteTransport;
   readonly headers: Readonly<Record<string, string>>;
   readonly values: Readonly<Record<string, string>>;
@@ -281,7 +285,7 @@ const projectRemote = (args: {
   const entry: Record<string, unknown> = { managedBy: "axm" };
   addTypeField(entry, args.dialect.typeField, args.remote.type);
   if (args.nativeEnabled) entry["enabled"] = args.enabled;
-  entry[args.dialect.urlKey[args.remote.type]] = substituteVariables(args.remote.url, args.values);
+  entry[args.urlKey] = substituteVariables(args.remote.url, args.values);
   if (Object.keys(args.headers).length > 0 && args.dialect.headersKey !== null) {
     entry[args.dialect.headersKey] = args.headers;
   }
@@ -402,8 +406,16 @@ const resolveRemote = (
   if (config.remote === null) {
     return { _tag: "no-distribution", reason: "agent has no remote MCP config dialect" };
   }
+  const urlKey = config.remote.urlKey[remote.type];
+  if (urlKey === undefined) {
+    return {
+      _tag: "no-distribution",
+      reason: `agent does not support the ${remote.type} remote transport`,
+    };
+  }
   const entry = projectRemote({
     dialect: config.remote,
+    urlKey,
     remote,
     headers: headers.headers,
     values,
@@ -423,8 +435,8 @@ const resolveRemote = (
 };
 
 export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
-  if (!hasFullMcpConfig(args.capability)) {
-    return { _tag: "no-distribution", reason: "agent does not have full MCP config support" };
+  if (!hasMcpConfig(args.capability)) {
+    return { _tag: "no-distribution", reason: "agent does not have MCP config support" };
   }
   const capability = args.capability;
   const config = capability.config;

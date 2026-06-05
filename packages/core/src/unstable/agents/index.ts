@@ -135,7 +135,7 @@ export { claudeCodeCodingAgent } from "./claude-code/service.js";
 export { codexCodingAgent } from "./codex/service.js";
 export { cursorCodingAgent } from "./cursor/service.js";
 export { geminiCliCodingAgent } from "./gemini-cli/service.js";
-export { githubCopilotCodingAgent } from "./github-copilot/service.js";
+export { githubCopilotCliCodingAgent } from "./github-copilot-cli/service.js";
 export { junieCodingAgent } from "./junie/service.js";
 export { kiloCodingAgent } from "./kilo/service.js";
 export { kiroCliCodingAgent } from "./kiro-cli/service.js";

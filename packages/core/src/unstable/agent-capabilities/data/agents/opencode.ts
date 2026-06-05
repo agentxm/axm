@@ -44,7 +44,7 @@ export const opencodeAgent = {
       notes: null,
       docs: [],
       sources: ["https://opencode.ai/docs/mcp-servers/", "https://opencode.ai/docs/config/"],
-      lastVerified: "2026-05-18",
+      lastVerified: "2026-06-05",
       scopes: ["user", "project"],
       standardsCompliance: "full",
       convention: "vendor",
@@ -81,12 +81,10 @@ export const opencodeAgent = {
             name: "type",
             value: {
               "streamable-http": "remote",
-              sse: "remote",
             },
           },
           urlKey: {
             "streamable-http": "url",
-            sse: "url",
           },
           headersKey: "headers",
         },

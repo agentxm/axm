@@ -78,7 +78,6 @@ export {
 export {
   renderMarkdownWithFrontmatter,
   renderMarkdownOnly,
-  renderPromptMd,
   renderToml,
   renderPlainText,
   selectRenderer,

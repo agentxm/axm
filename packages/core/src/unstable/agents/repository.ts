@@ -21,7 +21,7 @@ import { claudeCodeCodingAgent } from "./claude-code/service.js";
 import { codexCodingAgent } from "./codex/service.js";
 import { cursorCodingAgent } from "./cursor/service.js";
 import { geminiCliCodingAgent } from "./gemini-cli/service.js";
-import { githubCopilotCodingAgent } from "./github-copilot/service.js";
+import { githubCopilotCliCodingAgent } from "./github-copilot-cli/service.js";
 import { junieCodingAgent } from "./junie/service.js";
 import { kiloCodingAgent } from "./kilo/service.js";
 import { kiroCliCodingAgent } from "./kiro-cli/service.js";
@@ -100,8 +100,8 @@ const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
       return Effect.succeed(cursorCodingAgent);
     case "gemini-cli":
       return Effect.succeed(geminiCliCodingAgent);
-    case "github-copilot":
-      return Effect.succeed(githubCopilotCodingAgent);
+    case "github-copilot-cli":
+      return Effect.succeed(githubCopilotCliCodingAgent);
     case "junie":
       return Effect.succeed(junieCodingAgent);
     case "kilo":

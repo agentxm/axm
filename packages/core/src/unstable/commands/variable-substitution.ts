@@ -52,7 +52,7 @@ export type PortableVariable = AllArgumentsVariable | PositionalVariable | Named
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AgentFamily = "claude-code" | "cursor" | "copilot" | "gemini" | "junie" | "kiro";
+export type AgentFamily = "claude-code" | "cursor" | "gemini" | "junie" | "kiro";
 
 /**
  * Map agent IDs to their variable-encoding family.
@@ -67,7 +67,6 @@ export const agentFamilyMap: Readonly<Record<string, AgentFamily>> = {
   kilo: "claude-code",
   roo: "claude-code",
   cursor: "cursor",
-  "github-copilot": "copilot",
   "gemini-cli": "gemini",
   junie: "junie",
   "kiro-cli": "kiro",
@@ -127,17 +126,6 @@ const encodeCursor = (variable: PortableVariable, _agent: string): EncodedVariab
   }
 };
 
-const encodeCopilot = (variable: PortableVariable, _agent: string): EncodedVariable => {
-  switch (variable.type) {
-    case "arguments":
-      return { replacement: "${input:args}" };
-    case "positional":
-      return { replacement: `\${input:arg${variable.index + 1}}` };
-    case "named":
-      return { replacement: `\${input:${variable.name}}` };
-  }
-};
-
 const encodeGemini = (variable: PortableVariable, _agent: string): EncodedVariable => {
   switch (variable.type) {
     case "arguments":
@@ -191,7 +179,6 @@ const encodersByFamily: Record<
 > = {
   "claude-code": encodeClaudeCode,
   cursor: encodeCursor,
-  copilot: encodeCopilot,
   gemini: encodeGemini,
   junie: encodeJunie,
   kiro: encodeKiro,

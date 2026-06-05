@@ -57,7 +57,10 @@ import { agentModule as droid, type DroidNativeConfig } from "./droid.js";
 import { agentModule as firebender, type FirebenderNativeConfig } from "./firebender.js";
 import { agentModule as forgecode, type ForgecodeNativeConfig } from "./forgecode.js";
 import { agentModule as geminiCli, type GeminiCliNativeConfig } from "./gemini-cli.js";
-import { agentModule as githubCopilot, type GithubCopilotNativeConfig } from "./github-copilot.js";
+import {
+  agentModule as githubCopilotCli,
+  type GithubCopilotCliNativeConfig,
+} from "./github-copilot-cli.js";
 import { agentModule as goose, type GooseNativeConfig } from "./goose.js";
 import { agentModule as grokCli, type GrokCliNativeConfig } from "./grok-cli.js";
 import { agentModule as hermes, type HermesNativeConfig } from "./hermes.js";
@@ -155,7 +158,7 @@ const registeredAgentModulesById = {
   firebender,
   forgecode,
   "gemini-cli": geminiCli,
-  "github-copilot": githubCopilot,
+  "github-copilot-cli": githubCopilotCli,
   goose,
   "grok-cli": grokCli,
   hermes,
@@ -236,7 +239,7 @@ export type {
   FirebenderNativeConfig,
   ForgecodeNativeConfig,
   GeminiCliNativeConfig,
-  GithubCopilotNativeConfig,
+  GithubCopilotCliNativeConfig,
   GooseNativeConfig,
   GrokCliNativeConfig,
   HermesNativeConfig,

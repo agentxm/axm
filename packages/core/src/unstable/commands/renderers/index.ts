@@ -20,13 +20,11 @@ export { rendered, skipped } from "./types.js";
 
 export { renderMarkdownWithFrontmatter } from "./render-markdown-with-frontmatter.js";
 export { renderMarkdownOnly } from "./render-markdown-only.js";
-export { renderPromptMd } from "./render-prompt-md.js";
 export { renderToml } from "./render-toml.js";
 export { renderPlainText } from "./render-plain-text.js";
 
 import { renderMarkdownWithFrontmatter } from "./render-markdown-with-frontmatter.js";
 import { renderMarkdownOnly } from "./render-markdown-only.js";
-import { renderPromptMd } from "./render-prompt-md.js";
 import { renderToml } from "./render-toml.js";
 import { renderPlainText } from "./render-plain-text.js";
 import type { CommandRenderOutcome, RenderInput } from "./types.js";
@@ -50,7 +48,6 @@ const rendererMap: Readonly<Record<string, Renderer>> = {
   kilo: renderMarkdownWithFrontmatter,
   roo: renderMarkdownWithFrontmatter,
   cursor: renderMarkdownOnly,
-  "github-copilot": renderPromptMd,
   "gemini-cli": renderToml,
   "kiro-cli": renderPlainText,
 };

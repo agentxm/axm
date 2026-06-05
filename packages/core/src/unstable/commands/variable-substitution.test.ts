@@ -31,10 +31,6 @@ describe("variable-substitution", () => {
       expect(resolveAgentFamily("cursor")).toBe("cursor");
     });
 
-    it("maps github-copilot to copilot family", () => {
-      expect(resolveAgentFamily("github-copilot")).toBe("copilot");
-    });
-
     it("maps gemini-cli to gemini family", () => {
       expect(resolveAgentFamily("gemini-cli")).toBe("gemini");
     });
@@ -133,32 +129,6 @@ describe("variable-substitution", () => {
       it("{{arg:name}} -> appended as context", () => {
         const result = substituteVariables("Use {{arg:scope}}", "cursor");
         expect(result.body).toContain("**scope:** (provided as context)");
-      });
-    });
-
-    // -----------------------------------------------------------------------
-    // Copilot family
-    // -----------------------------------------------------------------------
-
-    describe("copilot family", () => {
-      it("{{arguments}} -> ${input:args}", () => {
-        const result = substituteVariables("Run with {{arguments}}", "github-copilot");
-        expect(result.body).toBe("Run with ${input:args}");
-      });
-
-      it("{{arguments[0]}} -> ${input:arg1}", () => {
-        const result = substituteVariables("File: {{arguments[0]}}", "github-copilot");
-        expect(result.body).toBe("File: ${input:arg1}");
-      });
-
-      it("{{arguments[2]}} -> ${input:arg3}", () => {
-        const result = substituteVariables("Third: {{arguments[2]}}", "github-copilot");
-        expect(result.body).toBe("Third: ${input:arg3}");
-      });
-
-      it("{{arg:name}} -> ${input:name}", () => {
-        const result = substituteVariables("Review {{arg:scope}}", "github-copilot");
-        expect(result.body).toBe("Review ${input:scope}");
       });
     });
 

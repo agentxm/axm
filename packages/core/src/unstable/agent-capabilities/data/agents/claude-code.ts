@@ -58,7 +58,7 @@ export const claudeCodeAgent = {
       lifecycle: "supported",
       notes: null,
       docs: [],
-      sources: ["https://docs.claude.com/en/docs/claude-code/mcp"],
+      sources: ["https://code.claude.com/docs/en/mcp"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       standardsCompliance: "full",

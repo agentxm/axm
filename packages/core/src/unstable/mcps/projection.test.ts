@@ -81,4 +81,108 @@ describe("MCP projection", () => {
       },
     });
   });
+
+  it("returns unsupported when an inferred SSE URL has no target dialect mapping", () => {
+    const projected = projectExpectedEntry({
+      serverName: "demo",
+      entry: {
+        source: "inline",
+        url: "https://example.test/sse",
+        headers: {},
+        enabled: true,
+        authored: false,
+        env: {},
+      },
+      stdio: null,
+      remote: {
+        typeField: {
+          name: "type",
+          value: {
+            "streamable-http": "http",
+          },
+        },
+        urlKey: {
+          "streamable-http": "url",
+        },
+        headersKey: "headers",
+      },
+      nativeEnabled: true,
+    });
+
+    expect(projected).toEqual({
+      _tag: "unsupported",
+      reason: "agent does not support the sse remote transport",
+    });
+  });
+
+  it("projects Codex remote servers without a type field", () => {
+    const projected = projectExpectedEntry({
+      serverName: "demo",
+      entry: {
+        source: "inline",
+        url: "https://example.test/mcp",
+        headers: { Authorization: "${TOKEN}" },
+        enabled: true,
+        authored: false,
+        env: {},
+      },
+      stdio: null,
+      remote: {
+        typeField: null,
+        urlKey: {
+          "streamable-http": "url",
+        },
+        headersKey: "http_headers",
+      },
+      nativeEnabled: true,
+    });
+
+    expect(projected).toEqual({
+      _tag: "projected",
+      warnings: ["headers.Authorization: does not expand environment reference ${TOKEN}"],
+      entry: {
+        managedBy: "axm",
+        enabled: true,
+        url: "https://example.test/mcp",
+        http_headers: { Authorization: "${TOKEN}" },
+      },
+    });
+  });
+
+  it("keeps stdio projection unchanged", () => {
+    const projected = projectExpectedEntry({
+      serverName: "demo",
+      entry: {
+        source: "inline",
+        command: "npx",
+        args: ["-y", "@acme/context"],
+        env: { ACME_TOKEN: "secret" },
+        enabled: true,
+        authored: false,
+      },
+      stdio: {
+        typeField: {
+          name: "type",
+          value: "stdio",
+        },
+        command: "split",
+        envKey: "env",
+      },
+      remote: null,
+      nativeEnabled: true,
+    });
+
+    expect(projected).toEqual({
+      _tag: "projected",
+      warnings: [],
+      entry: {
+        managedBy: "axm",
+        type: "stdio",
+        enabled: true,
+        command: "npx",
+        args: ["-y", "@acme/context"],
+        env: { ACME_TOKEN: "secret" },
+      },
+    });
+  });
 });

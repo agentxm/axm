@@ -10,7 +10,7 @@ import { codexCodingAgent } from "./codex/service.js";
 import { cursorCodingAgent } from "./cursor/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
 import { geminiCliCodingAgent } from "./gemini-cli/service.js";
-import { githubCopilotCodingAgent } from "./github-copilot/service.js";
+import { githubCopilotCliCodingAgent } from "./github-copilot-cli/service.js";
 import { augmentCodingAgent } from "./augment/service.js";
 import { junieCodingAgent } from "./junie/service.js";
 import { kiloCodingAgent } from "./kilo/service.js";
@@ -172,18 +172,15 @@ describe("resolveEffectiveCommandsDir", () => {
     );
   });
 
-  describe("github-copilot", () => {
-    it.effect("resolves project scope to .github/prompts", () =>
+  describe("github-copilot-cli", () => {
+    it.effect("returns unsupported for project scope", () =>
       withNode(
         Effect.gen(function* () {
-          const outcome = yield* githubCopilotCodingAgent.resolveEffectiveCommandsDir({
+          const outcome = yield* githubCopilotCliCodingAgent.resolveEffectiveCommandsDir({
             workspaceRoot: "/workspace",
             scope: "project",
           });
-          expect(outcome._tag).toBe("supported");
-          if (outcome._tag === "supported") {
-            expect(outcome.dir).toContain(".github/prompts");
-          }
+          expect(outcome._tag).toBe("unsupported");
         }),
       ),
     );
@@ -191,7 +188,7 @@ describe("resolveEffectiveCommandsDir", () => {
     it.effect("returns unsupported for user scope", () =>
       withNode(
         Effect.gen(function* () {
-          const outcome = yield* githubCopilotCodingAgent.resolveEffectiveCommandsDir({
+          const outcome = yield* githubCopilotCliCodingAgent.resolveEffectiveCommandsDir({
             workspaceRoot: "/workspace",
             scope: "user",
           });
@@ -429,16 +426,13 @@ describe("addCommand", () => {
     ),
   );
 
-  it.effect("github-copilot writes .prompt.md file", () =>
+  it.effect("github-copilot-cli returns unsupported for command writes", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-github-copilot-cmd-"));
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-github-copilot-cli-cmd-"));
         try {
-          const outcome = yield* githubCopilotCodingAgent.addCommand(makeAddArgs(workspaceRoot));
-          expect(outcome._tag).toBe("success");
-          if (outcome._tag === "success") {
-            expect(outcome.renderedFilePath).toContain("test-cmd.prompt.md");
-          }
+          const outcome = yield* githubCopilotCliCodingAgent.addCommand(makeAddArgs(workspaceRoot));
+          expect(outcome._tag).toBe("unsupported");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

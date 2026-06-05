@@ -50,7 +50,7 @@ export interface ProjectOnlyAgentConfig {
   /** Skills directory relative to workspace root (e.g. ".junie/skills"). */
   readonly skillsProjectDir: string;
   /** Commands directory relative to workspace root (e.g. ".junie/commands"). */
-  readonly commandsProjectDir: string;
+  readonly commandsProjectDir?: string;
   /** Subagents directory relative to workspace root (e.g. ".junie/agents"). */
   readonly subagentsProjectDir: string;
   /** Optional MCP handlers. When omitted, MCP operations return "unsupported". */
@@ -94,13 +94,19 @@ export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): Codi
           } as const),
     resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
       Effect.gen(function* () {
-        const path = yield* Path.Path;
+        if (config.commandsProjectDir === undefined) {
+          return {
+            _tag: "unsupported",
+            reason: `${config.displayName} does not support custom commands`,
+          } as const;
+        }
         if (scope === "user") {
           return {
             _tag: "unsupported",
             reason: `${config.displayName} does not support user-scope commands`,
           } as const;
         }
+        const path = yield* Path.Path;
         return {
           _tag: "supported",
           dir: path.resolve(workspaceRoot, config.commandsProjectDir),

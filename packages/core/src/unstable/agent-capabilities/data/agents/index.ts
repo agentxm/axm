@@ -22,7 +22,7 @@ export { droidAgent } from "./droid.js";
 export { firebenderAgent } from "./firebender.js";
 export { forgecodeAgent } from "./forgecode.js";
 export { geminiCliAgent } from "./gemini-cli.js";
-export { githubCopilotAgent } from "./github-copilot.js";
+export { githubCopilotCliAgent } from "./github-copilot-cli.js";
 export { gooseAgent } from "./goose.js";
 export { grokCliAgent } from "./grok-cli.js";
 export { hermesAgent } from "./hermes.js";

@@ -14,8 +14,9 @@ import {
   AGENTS_BY_ID,
   type Agent,
   type AgentId as CapabilityAgentId,
+  type McpConfig,
+  type McpConfigTarget,
 } from "../agent-capabilities/index.js";
-import type { McpConfigTarget } from "../agent-capabilities/index.js";
 import { getHome } from "./constants.js";
 import { envOption, isPathSafe } from "../utils/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
@@ -50,7 +51,9 @@ export interface CliInvocationResult {
 
 type NodePlatform = NodeJS.Platform;
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type FullMcpCapability = Extract<AgentMcpCapability, { readonly standardsCompliance: "full" }>;
+type ConfiguredMcpCapability = Extract<AgentMcpCapability, { readonly transports: unknown }> & {
+  readonly config: McpConfig;
+};
 
 const DEFAULT_SUPPORTED_PLATFORMS = ["darwin", "linux", "win32"] as const;
 
@@ -68,8 +71,8 @@ const emptyJsonMcpConfig: JsonMcpConfig = { servers: {} };
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const hasFullMcpConfig = (capability: AgentMcpCapability): capability is FullMcpCapability =>
-  "config" in capability && capability.standardsCompliance === "full";
+const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
+  "config" in capability && capability.config !== undefined && "transports" in capability;
 
 const redactSecrets = (value: string): string =>
   value
@@ -514,10 +517,10 @@ export const syncInlineMcpServerToAgent = (
 
     const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.capabilities["mcp-server"];
-    if (!hasFullMcpConfig(capability)) {
+    if (!hasMcpConfig(capability)) {
       return {
         _tag: "unsupported",
-        reason: `${agentId} does not have full MCP config support`,
+        reason: `${agentId} does not have MCP config support`,
       } as const;
     }
 
@@ -573,10 +576,10 @@ export const pruneManagedMcpServersForAgent = (
 
     const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.capabilities["mcp-server"];
-    if (!hasFullMcpConfig(capability)) {
+    if (!hasMcpConfig(capability)) {
       return {
         _tag: "unsupported",
-        reason: `${agentId} does not have full MCP config support`,
+        reason: `${agentId} does not have MCP config support`,
       } as const;
     }
 
@@ -876,10 +879,10 @@ export const addMcpServerFromManifest = (
 
     const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.capabilities["mcp-server"];
-    if (!hasFullMcpConfig(capability)) {
+    if (!hasMcpConfig(capability)) {
       return {
         _tag: "unsupported",
-        reason: `${agentId} does not have full MCP config support`,
+        reason: `${agentId} does not have MCP config support`,
       } as const;
     }
     const config = capability.config;
@@ -950,10 +953,10 @@ export const removeMcpServerFromManifest = (
 
     const agent: Agent = AGENTS_BY_ID[agentId];
     const capability = agent.capabilities["mcp-server"];
-    if (!hasFullMcpConfig(capability)) {
+    if (!hasMcpConfig(capability)) {
       return {
         _tag: "unsupported",
-        reason: `${agentId} does not have full MCP config support`,
+        reason: `${agentId} does not have MCP config support`,
       } as const;
     }
     const config = capability.config;

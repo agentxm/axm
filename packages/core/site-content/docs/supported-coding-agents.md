@@ -6,7 +6,7 @@ description: Coding agents and AI assistants supported by axm
 # Supported Coding Agents
 
 AXM supports a broad set of coding agents and AI assistants, including Claude
-Code, Codex, Gemini CLI, Amp, Cursor, OpenCode, GitHub Copilot, Windsurf,
+Code, Codex, Gemini CLI, Amp, Cursor, OpenCode, GitHub Copilot CLI, Windsurf,
 Cline, Continue, Roo, Goose, and more.
 
 Support means axm can detect the agent's local configuration and install
@@ -20,7 +20,7 @@ compatible extension artifacts into the locations that agent expects.
 - Amp
 - Cursor
 - OpenCode
-- GitHub Copilot
+- GitHub Copilot CLI
 
 ## More Agents
 

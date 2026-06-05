@@ -142,7 +142,7 @@ describe("Settings schema", () => {
         "cursor",
         "windsurf",
         "codex",
-        "github-copilot",
+        "github-copilot-cli",
         "gemini-cli",
         "opencode",
         "antigravity",

@@ -3,7 +3,6 @@ import {
   selectRenderer,
   renderMarkdownWithFrontmatter,
   renderMarkdownOnly,
-  renderPromptMd,
   renderToml,
   renderPlainText,
 } from "./index.js";
@@ -41,8 +40,8 @@ describe("selectRenderer", () => {
     expect(selectRenderer("cursor")).toBe(renderMarkdownOnly);
   });
 
-  it("selects prompt-md for github-copilot", () => {
-    expect(selectRenderer("github-copilot")).toBe(renderPromptMd);
+  it("does not select a command renderer for github-copilot-cli", () => {
+    expect(selectRenderer("github-copilot-cli")).toBeUndefined();
   });
 
   it("selects toml for gemini-cli", () => {

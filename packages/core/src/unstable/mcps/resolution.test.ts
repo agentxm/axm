@@ -61,6 +61,29 @@ const remoteCapability = {
   },
 } satisfies McpExtensionCapability;
 
+const partialRemoteCapability = {
+  ...remoteCapability,
+  standardsCompliance: "partial",
+  notes: "Config dialect is verified, but native semantics diverge from full MCP format.",
+} satisfies McpExtensionCapability;
+
+const httpOnlyRemoteCapability = {
+  ...remoteCapability,
+  transports: ["http"],
+  config: {
+    ...remoteCapability.config,
+    stdio: null,
+    remote: {
+      typeField: {
+        name: "type",
+        value: { "streamable-http": "http" },
+      },
+      urlKey: { "streamable-http": "url" },
+      headersKey: "headers",
+    },
+  },
+} satisfies McpExtensionCapability;
+
 const manifest = (server: Record<string, unknown>) =>
   decodeManifest({
     owner: "@acme",
@@ -132,6 +155,41 @@ describe("resolveMcpServer", () => {
         url: "https://mcp.acme.test/prod",
       });
     }
+  });
+
+  it("resolves through writer config even when MCP compliance is partial", () => {
+    const result = resolveMcpServer({
+      manifest: manifest({
+        remotes: [{ type: "streamable-http", url: "https://mcp.acme.test/{tenant}" }],
+      }),
+      capability: partialRemoteCapability,
+      values: { tenant: "prod" },
+      enabled: true,
+    });
+
+    expect(result._tag).toBe("resolved");
+    if (result._tag === "resolved") {
+      expect(result.entry).toMatchObject({
+        type: "http",
+        url: "https://mcp.acme.test/prod",
+      });
+    }
+  });
+
+  it("does not project SSE remotes when the target dialect omits SSE", () => {
+    const result = resolveMcpServer({
+      manifest: manifest({
+        remotes: [{ type: "sse", url: "https://mcp.acme.test/sse" }],
+      }),
+      capability: httpOnlyRemoteCapability,
+      values: {},
+      enabled: true,
+    });
+
+    expect(result).toEqual({
+      _tag: "no-distribution",
+      reason: "no MCP distribution is viable for this agent",
+    });
   });
 
   it("falls back to an mcp-remote stdio shim for remote-only servers", () => {

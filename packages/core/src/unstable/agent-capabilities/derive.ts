@@ -88,13 +88,6 @@ const appendFileMarkers = (
   }
 };
 
-const hasMcpConfigTargets = (
-  capability: Agent["capabilities"]["mcp-server"],
-): capability is Extract<
-  Agent["capabilities"]["mcp-server"],
-  { readonly standardsCompliance: "full" }
-> => "config" in capability && capability.standardsCompliance === "full";
-
 const hasConfigFiles = (
   capability: AgentExtensionCapability | Agent["permissions"],
 ): capability is Extract<
@@ -120,7 +113,7 @@ const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection |
   }
 
   const mcp = agent.capabilities["mcp-server"];
-  if (hasMcpConfigTargets(mcp)) {
+  if ("config" in mcp && mcp.config !== undefined) {
     appendFileMarkers(markersByScope, mcp.config.targets);
   }
 

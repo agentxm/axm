@@ -56,7 +56,8 @@ const addInlineTypeField = (
     return;
   }
   if (transport !== "stdio") {
-    entry[typeField.name] = typeField.value[transport];
+    const value = typeField.value[transport];
+    if (value !== undefined) entry[typeField.name] = value;
   }
 };
 
@@ -160,11 +161,23 @@ const projectInlineRemote = (args: {
   readonly enabled: boolean;
   readonly nativeEnabled: boolean;
   readonly envExpansion: McpEnvExpansion;
-}): {
-  readonly entry: Readonly<Record<string, unknown>>;
-  readonly warnings: ReadonlyArray<string>;
-} => {
+}):
+  | {
+      readonly entry: Readonly<Record<string, unknown>>;
+      readonly warnings: ReadonlyArray<string>;
+    }
+  | {
+      readonly _tag: "unsupported";
+      readonly reason: string;
+    } => {
   const transport = inferInlineRemoteTransport(args.url);
+  const urlKey = args.dialect.urlKey[transport];
+  if (urlKey === undefined) {
+    return {
+      _tag: "unsupported",
+      reason: `agent does not support the ${transport} remote transport`,
+    };
+  }
   const entry: Record<string, unknown> = { managedBy: "axm" };
   const headers = projectEnvRecord({
     values: args.headers,
@@ -173,7 +186,7 @@ const projectInlineRemote = (args: {
   });
   addInlineTypeField(entry, args.dialect.typeField, transport);
   if (args.nativeEnabled) entry["enabled"] = args.enabled;
-  entry[args.dialect.urlKey[transport]] = args.url;
+  entry[urlKey] = args.url;
   if (Object.keys(headers.values).length > 0 && args.dialect.headersKey !== null) {
     entry[args.dialect.headersKey] = headers.values;
   }
@@ -219,6 +232,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       nativeEnabled: args.nativeEnabled,
       envExpansion,
     });
+    if ("_tag" in projected) return projected;
     return {
       _tag: "projected",
       warnings: projected.warnings,

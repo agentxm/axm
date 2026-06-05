@@ -21,7 +21,7 @@
 - **Multi-tool** — a unified context-engineering toolkit for managing
   skills, commands, subagents, and MCP servers
 - **Multi-agent** — share workflows across Claude Code, Codex, Cursor,
-  Gemini CLI, GitHub Copilot, OpenCode, and
+  Gemini CLI, GitHub Copilot CLI, OpenCode, and
   [nearly 40 others](#supported-agents)
 - **Cross-platform** — discover and distribute agent skills and extensions
   across package ecosystems including JavaScript, Python, Java, .NET, Go,
@@ -189,7 +189,7 @@ environments.
 ## Supported agents
 
 AXM supports nearly 40 agents — Claude Code, Codex, Cursor,
-Gemini CLI, GitHub Copilot, OpenCode, Windsurf, Cline, Continue, Roo, Goose,
+Gemini CLI, GitHub Copilot CLI, OpenCode, Windsurf, Cline, Continue, Roo, Goose,
 and more. If your agent isn't there,
 [open an issue](https://github.com/agentxm/axm/issues) and we'll add it.
 

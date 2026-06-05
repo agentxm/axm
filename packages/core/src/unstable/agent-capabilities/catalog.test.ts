@@ -244,26 +244,26 @@ describe("agent capability catalog", () => {
     ).toThrow("directory");
   });
 
-  it("requires config for full MCP standards compliance", () => {
-    expect(() =>
-      decodeAgent(
-        makeAgentInput({
-          capabilities: makeCapabilitiesInput({
-            "mcp-server": {
-              lifecycle: "supported",
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/docs"],
-              lastVerified: "2026-05-18",
-              scopes: ["project"],
-              standardsCompliance: "full",
-              convention: "universal",
-              transports: ["stdio"],
-            },
-          }),
+  it("allows full MCP standards compliance without writer config", () => {
+    const decoded = decodeAgent(
+      makeAgentInput({
+        capabilities: makeCapabilitiesInput({
+          "mcp-server": {
+            lifecycle: "supported",
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/docs"],
+            lastVerified: "2026-05-18",
+            scopes: ["project"],
+            standardsCompliance: "full",
+            convention: "universal",
+            transports: ["stdio"],
+          },
         }),
-      ),
-    ).toThrow("config");
+      }),
+    );
+
+    expect(decoded.capabilities["mcp-server"].lifecycle).toBe("supported");
   });
 
   it("requires MCP config coverage for declared transports", () => {

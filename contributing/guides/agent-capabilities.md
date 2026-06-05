@@ -58,7 +58,7 @@ capabilities: {
     convention: "universal" // standard `mcpServers` key
     scopes: ["user", "project"]
     transports: ["stdio", "http", "sse"]
-    # config: {...}
+    config: {...} // optional; present only when AXM has a verified writer dialect
   }
 
   subagent: {
@@ -91,7 +91,9 @@ along up to three orthogonal axes:
 AXM derives extension compatibility from lifecycle only: an agent supports a
 leaf extension type when `agent.capabilities[type].lifecycle === "supported"`
 (see `isCapabilitySupported` in `derive.ts`). `standardsCompliance` remains
-format-fidelity metadata.
+format-fidelity metadata. MCP `config` is also orthogonal to
+`standardsCompliance`: it means AXM has a verified file-backed writer dialect
+for that agent, not that the agent is fully compliant with the MCP spec.
 
 ### Leaf extension capability keys
 
@@ -213,12 +215,12 @@ divergence.
 
 **OpenCode** ([source](../../packages/core/src/unstable/agent-capabilities/data/agents/opencode.ts))
 
-| Kind         | compliance | convention | lifecycle   | Why                                                    |
-| ------------ | ---------- | ---------- | ----------- | ------------------------------------------------------ |
-| `skill`      | `full`     | `vendor`   | `supported` | Spec-format SKILL.md at `.opencode/skills/`            |
-| `mcp-server` | `full`     | `vendor`   | `supported` | `mcp-server` key in `opencode.jsonc`; not `mcpServers` |
-| `command`    | —          | —          | `supported` | No industry spec                                       |
-| `subagent`   | —          | —          | `supported` | No industry spec                                       |
+| Kind         | compliance | convention | lifecycle   | Why                                             |
+| ------------ | ---------- | ---------- | ----------- | ----------------------------------------------- |
+| `skill`      | `full`     | `vendor`   | `supported` | Spec-format SKILL.md at `.opencode/skills/`     |
+| `mcp-server` | `full`     | `vendor`   | `supported` | `mcp` key in `opencode.jsonc`; not `mcpServers` |
+| `command`    | —          | —          | `supported` | No industry spec                                |
+| `subagent`   | —          | —          | `supported` | No industry spec                                |
 
 ---
 

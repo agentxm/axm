@@ -17,7 +17,7 @@ import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "
 
 const AGENT_DIRS: Readonly<Record<string, string>> = {
   "claude-code": ".claude/agents",
-  "github-copilot": ".github/agents",
+  "github-copilot-cli": ".github/agents",
   cursor: ".cursor/agents",
   "gemini-cli": ".gemini/agents",
   opencode: ".opencode/agents",

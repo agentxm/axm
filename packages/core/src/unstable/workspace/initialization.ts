@@ -57,7 +57,7 @@ const POPULAR_AGENT_IDS = [
   "claude-code",
   "codex",
   "cursor",
-  "github-copilot",
+  "github-copilot-cli",
   "gemini-cli",
   "opencode",
 ] as const;

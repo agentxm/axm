@@ -13,6 +13,7 @@ import {
   AGENTS_BY_ID,
   type Agent,
   type AgentId,
+  type McpConfig,
   type McpConfigTarget,
 } from "../agent-capabilities/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
@@ -22,7 +23,9 @@ import { resolveAgentMcpConfigTargetPath } from "./config-writer.js";
 import { diffAgentEntry, projectExpectedEntry, type ExpectedAgentEntry } from "./projection.js";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type FullMcpCapability = Extract<AgentMcpCapability, { readonly standardsCompliance: "full" }>;
+type ConfiguredMcpCapability = Extract<AgentMcpCapability, { readonly transports: unknown }> & {
+  readonly config: McpConfig;
+};
 
 export type AgentMcpInspectionStatus = "unsupported" | "absent" | "match" | "drift" | "unmanaged";
 
@@ -63,8 +66,8 @@ export interface CollectManagedAgentMcpServersArgs {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const hasFullMcpConfig = (capability: AgentMcpCapability): capability is FullMcpCapability =>
-  "config" in capability && capability.standardsCompliance === "full";
+const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
+  "config" in capability && capability.config !== undefined && "transports" in capability;
 
 const isCapabilityAgentId = (agentId: string): agentId is AgentId => agentId in AGENTS_BY_ID;
 
@@ -257,7 +260,7 @@ export const inspectAgentMcpServer = (
     }
 
     const capability = AGENTS_BY_ID[args.agentId].capabilities["mcp-server"];
-    if (!hasFullMcpConfig(capability)) {
+    if (!hasMcpConfig(capability)) {
       return {
         agentId: args.agentId,
         path: "",
@@ -265,7 +268,7 @@ export const inspectAgentMcpServer = (
         status: "unsupported",
         fields: [],
         warnings: [],
-        reason: `${args.agentId} does not have full MCP config support`,
+        reason: `${args.agentId} does not have MCP config support`,
       };
     }
 
@@ -387,7 +390,7 @@ export const collectManagedAgentMcpServers = (
         Effect.gen(function* () {
           if (!isCapabilityAgentId(agentId)) return [];
           const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-          if (!hasFullMcpConfig(capability)) return [];
+          if (!hasMcpConfig(capability)) return [];
           const targets = capability.config.targets.filter((target) => target.scope === args.scope);
           const perTarget = yield* Effect.forEach(
             targets,

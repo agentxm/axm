@@ -67,7 +67,7 @@ export const cursorAgent = {
       lifecycle: "supported",
       notes: null,
       docs: [],
-      sources: ["https://docs.cursor.com/advanced/model-context-protocol"],
+      sources: ["https://cursor.com/docs/mcp"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       standardsCompliance: "full",

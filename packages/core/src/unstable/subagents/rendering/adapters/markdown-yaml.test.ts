@@ -103,7 +103,7 @@ describe("renderMarkdownYaml", () => {
   describe("agent-specific paths", () => {
     it.each([
       ["claude-code", ".claude/agents/code-reviewer.md"],
-      ["github-copilot", ".github/agents/code-reviewer.md"],
+      ["github-copilot-cli", ".github/agents/code-reviewer.md"],
       ["cursor", ".cursor/agents/code-reviewer.md"],
       ["gemini-cli", ".gemini/agents/code-reviewer.md"],
       ["opencode", ".opencode/agents/code-reviewer.md"],

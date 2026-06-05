@@ -62,7 +62,7 @@ export const codexAgent = {
       lifecycle: "supported",
       notes: null,
       docs: [],
-      sources: ["https://github.com/openai/codex/blob/main/docs/config.md#mcp-servers"],
+      sources: ["https://developers.openai.com/codex/mcp"],
       lastVerified: "2026-05-16",
       scopes: ["user", "project"],
       standardsCompliance: "full",
@@ -93,16 +93,9 @@ export const codexAgent = {
           envKey: "env",
         },
         remote: {
-          typeField: {
-            name: "type",
-            value: {
-              "streamable-http": "streamable-http",
-              sse: "sse",
-            },
-          },
+          typeField: null,
           urlKey: {
             "streamable-http": "url",
-            sse: "url",
           },
           headersKey: "http_headers",
         },

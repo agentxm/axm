@@ -46,7 +46,7 @@ import { rendered } from "./types.js";
  */
 const rendererMap: Readonly<Record<string, SubagentRenderer>> = {
   "claude-code": renderMarkdownYaml,
-  "github-copilot": renderMarkdownYaml,
+  "github-copilot-cli": renderMarkdownYaml,
   cursor: renderMarkdownYaml,
   "gemini-cli": renderMarkdownYaml,
   opencode: renderMarkdownYaml,

@@ -38,7 +38,8 @@ export const openhandsAgent = {
     },
     "mcp-server": {
       lifecycle: "supported",
-      notes: null,
+      notes:
+        "OpenHands exposes MCP-like tool integration through its SDK/tool system, but AXM has no verified file-backed MCP writer dialect for this surface yet.\n",
       docs: [],
       sources: [
         "https://docs.openhands.dev/sdk/arch/skill",

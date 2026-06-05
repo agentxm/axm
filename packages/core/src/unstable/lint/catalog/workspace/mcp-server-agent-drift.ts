@@ -1,6 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
-import { AGENTS_BY_ID, type Agent, type AgentId } from "../../../agent-capabilities/index.js";
+import {
+  AGENTS_BY_ID,
+  type Agent,
+  type AgentId,
+  type McpConfig,
+} from "../../../agent-capabilities/index.js";
 import { diffAgentEntry, projectExpectedEntry } from "../../../mcps/projection.js";
 import type { McpServerEntry } from "../../../settings/index.js";
 import type {
@@ -13,10 +18,12 @@ import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 const RULE_ID = "workspace/mcp-server-agent-drift";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type FullMcpCapability = Extract<AgentMcpCapability, { readonly standardsCompliance: "full" }>;
+type ConfiguredMcpCapability = Extract<AgentMcpCapability, { readonly transports: unknown }> & {
+  readonly config: McpConfig;
+};
 
-const hasFullMcpConfig = (capability: AgentMcpCapability): capability is FullMcpCapability =>
-  "config" in capability && capability.standardsCompliance === "full";
+const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
+  "config" in capability && capability.config !== undefined && "transports" in capability;
 
 const isCapabilityAgentId = (agentId: string): agentId is AgentId => agentId in AGENTS_BY_ID;
 
@@ -58,7 +65,7 @@ const checkActual = (args: {
   if (!isCapabilityAgentId(args.actual.origin.agentId)) return [];
   if (args.actual.config === null) return [];
   const capability = AGENTS_BY_ID[args.actual.origin.agentId].capabilities["mcp-server"];
-  if (!hasFullMcpConfig(capability)) return [];
+  if (!hasMcpConfig(capability)) return [];
   const projected = projectExpectedEntry({
     serverName: args.row.key.name,
     entry: args.entry,

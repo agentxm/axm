@@ -701,7 +701,7 @@ describe("common schemas", () => {
       "cursor",
       "windsurf",
       "codex",
-      "github-copilot",
+      "github-copilot-cli",
       "gemini-cli",
       "opencode",
       "antigravity",

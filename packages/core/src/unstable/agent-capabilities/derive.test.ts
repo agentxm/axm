@@ -91,7 +91,19 @@ describe("agent capability derivation", () => {
 
   it("does not infer support for omitted capabilities", () => {
     expect(agentSupportsType(agentById("codex"), "files")).toBe(false);
-    expect(agentSupportsType(agentById("github-copilot"), "files")).toBe(false);
+    expect(agentSupportsType(agentById("github-copilot-cli"), "files")).toBe(false);
+  });
+
+  it("requires supported MCP capabilities without writer config to explain why they are not writable", () => {
+    const unsupportedWritableMcp = AGENTS.flatMap((agent) => {
+      const capability = agent.capabilities["mcp-server"];
+      if (capability.lifecycle !== "supported") return [];
+      if ("config" in capability && capability.config !== undefined) return [];
+      if (capability.notes !== null) return [];
+      return [agent.id];
+    });
+
+    expect(unsupportedWritableMcp).toEqual([]);
   });
 
   it("does not count explicit unsupported as support", () => {
@@ -114,7 +126,7 @@ describe("agent capability derivation", () => {
       "droid",
       "forgecode",
       "gemini-cli",
-      "github-copilot",
+      "github-copilot-cli",
       "grok-cli",
       "hermes",
       "ibm-bob",
@@ -149,7 +161,7 @@ describe("agent capability derivation", () => {
       "codex",
       "cursor",
       "gemini-cli",
-      "github-copilot",
+      "github-copilot-cli",
       "ibm-bob",
       "junie",
       "kilo",
@@ -176,7 +188,7 @@ describe("agent capability derivation", () => {
       "crush",
       "cursor",
       "gemini-cli",
-      "github-copilot",
+      "github-copilot-cli",
       "grok-cli",
       "hermes",
       "ibm-bob",

@@ -32,9 +32,8 @@ describe("buildPermissionSuggestions", () => {
         url: "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/settings.md",
       },
       {
-        description:
-          'Allow AXM in GitHub Copilot by adding `"/^axm(\\\\s|$)/": true` to `.vscode/settings.json`',
-        url: "https://code.visualstudio.com/docs/copilot/reference/copilot-settings",
+        description: "Allow AXM in GitHub Copilot CLI with `--allow-tool='shell(axm:*)'`",
+        url: "https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/allowing-tools",
       },
       {
         description: "Configure Kode to allow AXM without per-call prompts",

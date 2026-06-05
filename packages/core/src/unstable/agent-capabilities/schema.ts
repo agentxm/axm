@@ -56,8 +56,6 @@ export const StandardsComplianceSchema = Schema.Literals([
 /** @experimental This API is unstable and may change without notice. */
 export type StandardsCompliance = Schema.Schema.Type<typeof StandardsComplianceSchema>;
 
-const ActiveMcpNonFullStandardsComplianceSchema = Schema.Literals(["parity", "partial"]);
-
 /** @experimental This API is unstable and may change without notice. */
 export const ConventionSchema = Schema.Literals(["universal", "vendor"]).annotate({
   identifier: "Convention",
@@ -550,7 +548,7 @@ export type McpConfigTarget = Schema.Schema.Type<typeof McpConfigTargetSchema>;
 /** @experimental This API is unstable and may change without notice. */
 export const McpTypeFieldValueMapSchema = Schema.Struct({
   "streamable-http": Schema.NonEmptyString,
-  sse: Schema.NonEmptyString,
+  sse: Schema.optionalKey(Schema.NonEmptyString),
 }).annotate({
   identifier: "McpTypeFieldValueMap",
   title: "MCP Type Field Value Map",
@@ -590,7 +588,7 @@ export type McpStdioDialect = Schema.Schema.Type<typeof McpStdioDialectSchema>;
 /** @experimental This API is unstable and may change without notice. */
 export const McpUrlKeyMapSchema = Schema.Struct({
   "streamable-http": Schema.NonEmptyString,
-  sse: Schema.NonEmptyString,
+  sse: Schema.optionalKey(Schema.NonEmptyString),
 }).annotate({
   identifier: "McpUrlKeyMap",
   title: "MCP URL Key Map",
@@ -644,20 +642,20 @@ export const McpEnvExpansionSchema = Schema.Struct({
 /** @experimental This API is unstable and may change without notice. */
 export type McpEnvExpansion = Schema.Schema.Type<typeof McpEnvExpansionSchema>;
 
-const McpFullCapabilityStruct = Schema.Struct({
-  ...ActiveCapabilityBaseFields,
-  standardsCompliance: Schema.Literal("full"),
-  convention: ConventionSchema,
+const McpActiveCapabilityStruct = Schema.Struct({
+  ...ActiveSpecTrackedCapabilityFields,
   transports: NonEmptyMcpTransportsSchema,
-  config: McpConfigSchema,
+  config: Schema.optionalKey(McpConfigSchema),
   mcpEnvExpansion: Schema.optionalKey(McpEnvExpansionSchema),
 });
 
-const McpFullCapabilitySchema = McpFullCapabilityStruct.pipe(
+const McpActiveCapabilitySchema = McpActiveCapabilityStruct.pipe(
   Schema.check(
-    Schema.makeFilter((capability: Schema.Schema.Type<typeof McpFullCapabilityStruct>) => {
+    Schema.makeFilter((capability: Schema.Schema.Type<typeof McpActiveCapabilityStruct>) => {
       const issues: Array<Schema.FilterIssue> = [];
-      if (capability.transports.includes("stdio") && capability.config.stdio === null) {
+      const config = capability.config;
+      if (config === undefined) return issues;
+      if (capability.transports.includes("stdio") && config.stdio === null) {
         issues.push({
           path: ["config", "stdio"],
           issue: "MCP stdio config is required when stdio transport is supported.",
@@ -665,7 +663,7 @@ const McpFullCapabilitySchema = McpFullCapabilityStruct.pipe(
       }
       if (
         (capability.transports.includes("http") || capability.transports.includes("sse")) &&
-        capability.config.remote === null
+        config.remote === null
       ) {
         issues.push({
           path: ["config", "remote"],
@@ -677,17 +675,9 @@ const McpFullCapabilitySchema = McpFullCapabilityStruct.pipe(
   ),
 );
 
-const McpNonFullCapabilitySchema = Schema.Struct({
-  ...ActiveCapabilityBaseFields,
-  standardsCompliance: ActiveMcpNonFullStandardsComplianceSchema,
-  convention: ConventionSchema,
-  transports: NonEmptyMcpTransportsSchema,
-});
-
 /** @experimental This API is unstable and may change without notice. */
 export const McpExtensionCapabilitySchema = Schema.Union([
-  McpFullCapabilitySchema,
-  McpNonFullCapabilitySchema,
+  McpActiveCapabilitySchema,
   InactiveCapabilitySchema,
 ]).annotate({
   identifier: "McpExtensionCapability",

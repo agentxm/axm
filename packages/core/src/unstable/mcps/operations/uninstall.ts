@@ -52,7 +52,7 @@ export type UninstallMcpServerOperation = Operation<
 const REQUIRED_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
   "claude-code",
   "opencode",
-  "github-copilot",
+  "github-copilot-cli",
   "cursor",
   "gemini-cli",
   "codex",

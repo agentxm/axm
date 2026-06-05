@@ -42,6 +42,11 @@ const preferredTarget = (
   );
 };
 
+const prefersCliFlags = (permissions: PermissionsExtensionCapability): boolean =>
+  "mechanism" in permissions &&
+  permissions.mechanism.includes("cli-flag") &&
+  ("configFiles" in permissions ? permissions.configFiles.length === 0 : true);
+
 /**
  * Build one permission suggestion per cataloged agent with permissions data.
  */
@@ -62,7 +67,9 @@ export const buildPermissionSuggestions = (
 
         const description =
           target === undefined
-            ? `Configure ${agent.name} to allow AXM without per-call prompts`
+            ? prefersCliFlags(permissions) && example !== undefined
+              ? `Allow AXM in ${agent.name} with \`${example}\``
+              : `Configure ${agent.name} to allow AXM without per-call prompts`
             : `Allow AXM in ${agent.name} by adding ${
                 example === undefined ? "" : `\`${example}\` `
               }to \`${target.path}\``;

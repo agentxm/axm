@@ -34,7 +34,7 @@ Supported body placeholders:
 
 - `{{arguments}}` — all arguments the user passed to the command.
 - `{{arguments[N]}}` — the Nth positional argument, zero-indexed.
-- `{{arg:name}}` — a named argument slot, rendered with each target agent's named-argument syntax (e.g. `${input:name}` on Copilot, `$name` on Junie). Families without native named arguments — Claude Code, Cursor, Gemini — render the placeholder as a context appendix instead of inlining a value.
+- `{{arg:name}}` — a named argument slot, rendered with each target agent's named-argument syntax (e.g. `$name` on Junie). Families without native named arguments — Claude Code, Cursor, Gemini — render the placeholder as a context appendix instead of inlining a value.
 
 Use `\{{` to render a literal `{{` without substitution.
 
@@ -52,8 +52,6 @@ native command directory:
 - **Markdown + YAML** (Claude Code, Codex, OpenCode, Augment, Junie, Kilo,
   Roo) — frontmatter keys become YAML; body follows the `---` block.
 - **Markdown body only** (Cursor) — body only; frontmatter is dropped.
-- **Prompt Markdown** (GitHub Copilot IDE) — frontmatter keys become YAML;
-  file names end in `.prompt.md`.
 - **TOML** (Gemini CLI) — frontmatter keys become TOML; body becomes `prompt`.
   Nested filenames map to Gemini `:` command namespaces.
 - **Plain text** (Kiro CLI) — body only; frontmatter is not rendered.

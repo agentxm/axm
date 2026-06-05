@@ -1,3 +1,13 @@
+## 0.15.1 (2026-06-05)
+
+### 🩹 Fixes
+
+- Improve CLI command UX and agent capability detection. ([ea2cb4ac](https://github.com/agentxm/axm/commit/ea2cb4ac))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.15.0 (2026-06-03)
 
 ### 🚀 Features

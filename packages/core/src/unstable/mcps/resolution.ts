@@ -23,6 +23,7 @@ import type {
   McpRegistryRemoteTransport,
   McpServerManifest,
 } from "./manifest-schema.js";
+import { AXM_MCP_METADATA_KEY, buildAxmMcpMetadata } from "./metadata.js";
 
 type UpstreamRemoteTransport = "streamable-http" | "sse";
 type ConfiguredMcpCapability = McpExtensionCapability & {
@@ -263,9 +264,12 @@ const projectStdio = (args: {
   readonly env: Readonly<Record<string, string>>;
   readonly enabled: boolean;
   readonly nativeEnabled: boolean;
+  readonly ref: string;
 }): Readonly<Record<string, unknown>> => {
   const [command, ...rest] = args.command;
-  const entry: Record<string, unknown> = { managedBy: "axm" };
+  const entry: Record<string, unknown> = {
+    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({ source: "registry", ref: args.ref }),
+  };
   addTypeField(entry, args.dialect.typeField, "stdio");
   if (args.nativeEnabled) entry["enabled"] = args.enabled;
   if (args.dialect.command === "array") {
@@ -288,8 +292,11 @@ const projectRemote = (args: {
   readonly values: Readonly<Record<string, string>>;
   readonly enabled: boolean;
   readonly nativeEnabled: boolean;
+  readonly ref: string;
 }): Readonly<Record<string, unknown>> => {
-  const entry: Record<string, unknown> = { managedBy: "axm" };
+  const entry: Record<string, unknown> = {
+    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({ source: "registry", ref: args.ref }),
+  };
   addTypeField(entry, args.dialect.typeField, args.remote.type);
   if (args.nativeEnabled) entry["enabled"] = args.enabled;
   entry[args.urlKey] = substituteVariables(args.remote.url, args.values);
@@ -311,6 +318,7 @@ const resolveRemoteVariables = (
 };
 
 const resolvePackage = (
+  manifest: McpServerManifest,
   pkg: McpRegistryPackage,
   config: McpConfig,
   values: Readonly<Record<string, string>>,
@@ -348,6 +356,7 @@ const resolvePackage = (
     env: env.env,
     enabled,
     nativeEnabled: config.nativeEnabled,
+    ref: `${manifest.owner}/mcps/${manifest.name}`,
   });
   if (missing.length > 0) {
     return {
@@ -363,6 +372,7 @@ const resolvePackage = (
 };
 
 const resolveRemote = (
+  manifest: McpServerManifest,
   remote: McpRegistryRemoteTransport,
   config: McpConfig,
   values: Readonly<Record<string, string>>,
@@ -391,6 +401,7 @@ const resolveRemote = (
       env: {},
       enabled,
       nativeEnabled: config.nativeEnabled,
+      ref: `${manifest.owner}/mcps/${manifest.name}`,
     });
     return missing.length > 0
       ? {
@@ -428,6 +439,7 @@ const resolveRemote = (
     values,
     enabled,
     nativeEnabled: config.nativeEnabled,
+    ref: `${manifest.owner}/mcps/${manifest.name}`,
   });
   return missing.length > 0
     ? {
@@ -466,7 +478,7 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
   }
 
   if (candidate.kind === "package") {
-    return resolvePackage(candidate.pkg, config, args.values, args.enabled);
+    return resolvePackage(args.manifest, candidate.pkg, config, args.values, args.enabled);
   }
 
   if (!isRemoteTransport(candidate.remote.type)) {
@@ -475,5 +487,12 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
       reason: `unsupported remote transport: ${candidate.remote.type}`,
     };
   }
-  return resolveRemote(candidate.remote, config, args.values, args.enabled, candidate.shimmed);
+  return resolveRemote(
+    args.manifest,
+    candidate.remote,
+    config,
+    args.values,
+    args.enabled,
+    candidate.shimmed,
+  );
 };

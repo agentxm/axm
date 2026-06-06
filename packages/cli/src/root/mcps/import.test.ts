@@ -107,11 +107,21 @@ describe("mcps import output", () => {
                 path: ".axm/settings.json:mcpServers.demo",
                 scope: "project",
                 change: "created",
-                fileCount: 2,
-                targets: [{ path: ".axm (config/lockfile)", change: "updated" }],
+                fileCount: 3,
+                targets: [
+                  { path: ".axm (config/lockfile)", change: "updated" },
+                  { path: ".mcp.json", change: "updated" },
+                ],
               },
             },
           ],
+        });
+        const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
+        expect(config.mcpServers.demo).toEqual({
+          command: "node",
+          args: ["server.js"],
+          env: { DEMO_TOKEN: "secret-value" },
+          "x-axm": { managed: true, source: "inline" },
         });
       }),
     );
@@ -128,7 +138,7 @@ describe("mcps import output", () => {
 
         expect(logs.success).toEqual(["Imported 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
-          "demo   created   2 files   .axm (config/lockfile) (updated)",
+          "demo   created   3 files   .axm (config/lockfile) (updated), .mcp.json (updated)",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },

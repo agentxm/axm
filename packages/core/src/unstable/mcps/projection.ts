@@ -10,6 +10,11 @@ import type {
   McpStdioDialect,
 } from "../agent-capabilities/index.js";
 import type { McpServerEntry } from "../settings/index.js";
+import {
+  AXM_MCP_METADATA_KEY,
+  buildAxmMcpMetadataFromSettingsSource,
+  isAxmManagedMcpEntry,
+} from "./metadata.js";
 
 export type InlineRemoteTransport = "streamable-http" | "sse";
 
@@ -129,12 +134,15 @@ const projectInlineStdio = (args: {
   readonly enabled: boolean;
   readonly nativeEnabled: boolean;
   readonly envExpansion: McpEnvExpansion;
+  readonly source: string;
 }): {
   readonly entry: Readonly<Record<string, unknown>>;
   readonly warnings: ReadonlyArray<string>;
 } => {
   const invocation = [args.command, ...args.commandArgs];
-  const entry: Record<string, unknown> = { managedBy: "axm" };
+  const entry: Record<string, unknown> = {
+    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source),
+  };
   const env = projectEnvRecord({
     values: args.env,
     envExpansion: args.envExpansion,
@@ -161,6 +169,7 @@ const projectInlineRemote = (args: {
   readonly enabled: boolean;
   readonly nativeEnabled: boolean;
   readonly envExpansion: McpEnvExpansion;
+  readonly source: string;
 }):
   | {
       readonly entry: Readonly<Record<string, unknown>>;
@@ -178,7 +187,9 @@ const projectInlineRemote = (args: {
       reason: `agent does not support the ${transport} remote transport`,
     };
   }
-  const entry: Record<string, unknown> = { managedBy: "axm" };
+  const entry: Record<string, unknown> = {
+    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source),
+  };
   const headers = projectEnvRecord({
     values: args.headers,
     envExpansion: args.envExpansion,
@@ -210,6 +221,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       enabled: args.entry.enabled,
       nativeEnabled: args.nativeEnabled,
       envExpansion,
+      source: args.entry.source,
     });
     return {
       _tag: "projected",
@@ -231,6 +243,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       enabled: args.entry.enabled,
       nativeEnabled: args.nativeEnabled,
       envExpansion,
+      source: args.entry.source,
     });
     if ("_tag" in projected) return projected;
     return {
@@ -245,14 +258,26 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
   };
 };
 
-const normalize = (value: unknown): string => JSON.stringify(value);
+const normalizeForCompare = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(normalizeForCompare);
+  if (typeof value !== "object" || value === null) return value;
+  const sorted: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value).sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
+    sorted[key] = normalizeForCompare(item);
+  }
+  return sorted;
+};
+
+const normalize = (value: unknown): string => JSON.stringify(normalizeForCompare(value));
 
 export const diffAgentEntry = (
   expected: ExpectedAgentEntry,
   actual: Readonly<Record<string, unknown>> | undefined,
 ): DriftReport => {
   if (actual === undefined) return { _tag: "absent" };
-  if (actual["managedBy"] !== "axm") return { _tag: "unmanaged" };
+  if (!isAxmManagedMcpEntry(actual)) return { _tag: "unmanaged" };
   if (expected._tag !== "projected") {
     return { _tag: "drift", fields: ["transport"] };
   }

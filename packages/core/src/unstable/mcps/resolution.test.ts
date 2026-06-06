@@ -139,6 +139,7 @@ describe("resolveMcpServer", () => {
     expect(result._tag).toBe("resolved");
     if (result._tag === "resolved") {
       expect(result.entry).toMatchObject({
+        "x-axm": { managed: true, source: "registry", ref: "@acme/mcps/context" },
         command: "npx",
         args: ["-y", "@acme/context-mcp@1.2.3"],
         env: { ACME_TOKEN: "secret" },
@@ -168,6 +169,7 @@ describe("resolveMcpServer", () => {
       expect(result.transport).toBe("streamable-http");
       expect(result.shimmed).toBe(false);
       expect(result.entry).toMatchObject({
+        "x-axm": { managed: true, source: "registry", ref: "@acme/mcps/context" },
         type: "http",
         url: "https://mcp.acme.test/prod",
       });
@@ -217,6 +219,7 @@ describe("resolveMcpServer", () => {
     if (result._tag === "resolved") {
       expect(result.shimmed).toBe(true);
       expect(result.entry).toMatchObject({
+        "x-axm": { managed: true, source: "registry", ref: "@acme/mcps/context" },
         command: "npx",
         args: ["-y", "mcp-remote", "https://mcp.acme.test"],
       });

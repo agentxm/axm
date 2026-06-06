@@ -8,6 +8,7 @@ import {
   type AgentId,
   type McpConfig,
 } from "../../../agent-capabilities/index.js";
+import { isAxmManagedMcpEntry } from "../../../mcps/metadata.js";
 import { diffAgentEntry, projectExpectedEntry } from "../../../mcps/projection.js";
 import type { McpServerEntry } from "../../../settings/index.js";
 import type {
@@ -42,7 +43,10 @@ const configuredEntry = (row: InstalledMcpServer): McpServerEntry | undefined =>
 
 const agentActuals = (actuals: ReadonlyArray<ActualMcpServer>): ReadonlyArray<ActualMcpServer> =>
   actuals.filter(
-    (actual) => actual.origin._tag === "agent-mcp-config" && actual.config?.["managedBy"] === "axm",
+    (actual) =>
+      actual.origin._tag === "agent-mcp-config" &&
+      actual.config !== null &&
+      isAxmManagedMcpEntry(actual.config),
   );
 
 const configuredAgentIds = (context: WorkspaceRuleContext): Effect.Effect<ReadonlySet<string>> =>

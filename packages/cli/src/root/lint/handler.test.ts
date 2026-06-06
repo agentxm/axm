@@ -503,12 +503,12 @@ describe("axm lint handler", () => {
         {
           mcpServers: {
             demo: {
-              managedBy: "axm",
+              "x-axm": { managed: true, source: "inline" },
               type: "stdio",
               command: "python",
             },
             stale: {
-              managedBy: "axm",
+              "x-axm": { managed: true, source: "inline" },
               type: "stdio",
               command: "node",
             },
@@ -529,7 +529,7 @@ describe("axm lint handler", () => {
         yield* lint({ fix: true }).pipe(Effect.exit);
         const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
         expect(config.mcpServers.demo).toEqual({
-          managedBy: "axm",
+          "x-axm": { managed: true, source: "inline" },
           type: "stdio",
           command: "node",
           args: ["server.js"],

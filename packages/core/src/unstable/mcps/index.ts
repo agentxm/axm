@@ -70,6 +70,15 @@ export { mcpServerArtifact, mcpSettingsTarget, mcpSourceTarget } from "./operati
 export { resolveMcpServer, type McpResolution } from "./resolution.js";
 export { writeAgentMcpConfig, removeAgentMcpConfig } from "./config-writer.js";
 export {
+  AXM_MCP_METADATA_KEY,
+  AxmMcpMetadataSchema,
+  buildAxmMcpMetadata,
+  buildAxmMcpMetadataFromSettingsSource,
+  isAxmManagedMcpEntry,
+  readAxmMcpMetadata,
+  type AxmMcpMetadata,
+} from "./metadata.js";
+export {
   collectManagedAgentMcpServers,
   inspectAgentMcpServer,
   inspectMcpServerAcrossAgents,

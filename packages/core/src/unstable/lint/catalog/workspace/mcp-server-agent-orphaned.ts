@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { Operation } from "../../../plan/plan.js";
+import { isAxmManagedMcpEntry } from "../../../mcps/metadata.js";
 import type { UnmanagedMcpServer } from "../../../workspace/read-model/extensions/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule.js";
@@ -10,7 +11,9 @@ import { removeMcpServerAgentOp } from "./helpers/install-ops.js";
 const RULE_ID = "workspace/mcp-server-agent-orphaned";
 
 const isManagedAgentEntry = (row: UnmanagedMcpServer): boolean =>
-  row.actual.origin._tag === "agent-mcp-config" && row.actual.config?.["managedBy"] === "axm";
+  row.actual.origin._tag === "agent-mcp-config" &&
+  row.actual.config !== null &&
+  isAxmManagedMcpEntry(row.actual.config);
 
 const configuredAgentIds = (context: WorkspaceRuleContext): Effect.Effect<ReadonlySet<string>> =>
   Effect.gen(function* () {

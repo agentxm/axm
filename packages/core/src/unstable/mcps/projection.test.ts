@@ -1,6 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 
-import { inferInlineRemoteTransport, projectExpectedEntry, renderEnvValue } from "./projection.js";
+import {
+  diffAgentEntry,
+  inferInlineRemoteTransport,
+  projectExpectedEntry,
+  renderEnvValue,
+} from "./projection.js";
 
 describe("MCP projection", () => {
   it("rejects WebSocket URLs instead of coercing them to streamable HTTP", () => {
@@ -74,7 +79,7 @@ describe("MCP projection", () => {
       _tag: "projected",
       warnings: [],
       entry: {
-        managedBy: "axm",
+        "x-axm": { managed: true, source: "inline" },
         type: "http",
         enabled: true,
         url: "https://example.test/mcp",
@@ -141,7 +146,7 @@ describe("MCP projection", () => {
       _tag: "projected",
       warnings: ["headers.Authorization: does not expand environment reference ${TOKEN}"],
       entry: {
-        managedBy: "axm",
+        "x-axm": { managed: true, source: "inline" },
         enabled: true,
         url: "https://example.test/mcp",
         http_headers: { Authorization: "${TOKEN}" },
@@ -176,7 +181,7 @@ describe("MCP projection", () => {
       _tag: "projected",
       warnings: [],
       entry: {
-        managedBy: "axm",
+        "x-axm": { managed: true, source: "inline" },
         type: "stdio",
         enabled: true,
         command: "npx",
@@ -184,5 +189,39 @@ describe("MCP projection", () => {
         env: { ACME_TOKEN: "secret" },
       },
     });
+  });
+
+  it("compares nested metadata without reporting order-only drift", () => {
+    const expected = projectExpectedEntry({
+      serverName: "demo",
+      entry: {
+        source: "inline",
+        command: "npx",
+        args: ["-y", "@acme/context"],
+        env: {},
+        enabled: true,
+        authored: false,
+      },
+      stdio: {
+        typeField: {
+          name: "type",
+          value: "stdio",
+        },
+        command: "split",
+        envKey: "env",
+      },
+      remote: null,
+      nativeEnabled: true,
+    });
+
+    expect(
+      diffAgentEntry(expected, {
+        "x-axm": { source: "inline", managed: true },
+        type: "stdio",
+        enabled: true,
+        command: "npx",
+        args: ["-y", "@acme/context"],
+      }),
+    ).toEqual({ _tag: "match" });
   });
 });

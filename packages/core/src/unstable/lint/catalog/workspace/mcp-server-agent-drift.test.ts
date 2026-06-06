@@ -33,7 +33,7 @@ const makeContext = (): WorkspaceRuleContext =>
                 contentRoot: null,
                 configFile: ".mcp.json",
                 config: {
-                  managedBy: "axm",
+                  "x-axm": { managed: true, source: "inline" },
                   type: "stdio",
                   command: "python",
                 },

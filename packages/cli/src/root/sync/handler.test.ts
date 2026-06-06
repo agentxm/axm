@@ -180,7 +180,7 @@ describe("root sync handler", () => {
       writeJson(path.join(tempDir, ".mcp.json"), {
         mcpServers: {
           demo: {
-            managedBy: "axm",
+            "x-axm": { managed: true, source: "inline" },
             command: "node",
             args: ["server.js"],
           },
@@ -223,7 +223,7 @@ describe("root sync handler", () => {
       writeJson(path.join(tempDir, ".mcp.json"), {
         mcpServers: {
           demo: {
-            managedBy: "axm",
+            "x-axm": { managed: true, source: "inline" },
             type: "stdio",
             command: "python",
           },
@@ -257,7 +257,7 @@ describe("root sync handler", () => {
       writeJson(path.join(tempDir, ".mcp.json"), {
         mcpServers: {
           demo: {
-            managedBy: "axm",
+            "x-axm": { managed: true, source: "inline" },
             type: "stdio",
             command: "python",
           },

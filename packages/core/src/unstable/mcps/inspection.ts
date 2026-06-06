@@ -21,6 +21,7 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import type { McpServerEntry } from "../settings/index.js";
 import { parseTomlValue, stringifyToml, stringifyTomlKey } from "../toml/index.js";
 import { resolveAgentMcpConfigTargetPath } from "./config-writer.js";
+import { isAxmManagedMcpEntry } from "./metadata.js";
 import { diffAgentEntry, projectExpectedEntry, type ExpectedAgentEntry } from "./projection.js";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
@@ -241,7 +242,7 @@ const inspectActual = (args: {
       args.serverName,
     );
     if (Option.isNone(actual)) return { status: "absent", fields: [] };
-    if (actual.value["managedBy"] !== "axm") {
+    if (!isAxmManagedMcpEntry(actual.value)) {
       return { status: "unmanaged", fields: [], actual: actual.value };
     }
     const drift = diffAgentEntry(args.expected, actual.value);
@@ -369,7 +370,7 @@ const managedJsonNames = (
     const servers = parsed[serversKey];
     if (!isRecord(servers)) return [];
     return Object.entries(servers).flatMap(([name, entry]) =>
-      isRecord(entry) && entry["managedBy"] === "axm" ? [name] : [],
+      isRecord(entry) && isAxmManagedMcpEntry(entry) ? [name] : [],
     );
   });
 

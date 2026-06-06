@@ -13,6 +13,11 @@ import {
 } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+import {
+  AXM_MCP_METADATA_KEY,
+  buildAxmMcpMetadataFromSettingsSource,
+  isAxmManagedMcpEntry,
+} from "@agentxm/client-core/unstable/mcps";
 import type { McpServerLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   type CompletedJobStep,
@@ -42,6 +47,13 @@ interface ImportedMcpServer {
   readonly name: string;
   readonly lockEntry: McpServerLockEntry;
   readonly env: Readonly<Record<string, string>>;
+  readonly adoptions: ReadonlyArray<ImportedMcpServerAdoption>;
+}
+
+interface ImportedMcpServerAdoption {
+  readonly filePath: string;
+  readonly serversKey: string;
+  readonly name: string;
 }
 
 interface AgentMcpConfig {
@@ -128,6 +140,7 @@ const envRefsFromRecord = (
 const normalizeStdio = (
   name: string,
   config: Readonly<Record<string, unknown>>,
+  adoption: ImportedMcpServerAdoption,
 ): Option.Option<ImportedMcpServer> => {
   const now = new Date();
   const commandValue = config["command"];
@@ -144,6 +157,7 @@ const normalizeStdio = (
         syncedAgents: [],
       } satisfies McpServerLockEntry,
       env,
+      adoptions: [adoption],
     });
   }
   const command = stringArray(commandValue);
@@ -161,12 +175,14 @@ const normalizeStdio = (
       syncedAgents: [],
     } satisfies McpServerLockEntry,
     env,
+    adoptions: [adoption],
   });
 };
 
 const normalizeRemote = (
   name: string,
   config: Readonly<Record<string, unknown>>,
+  adoption: ImportedMcpServerAdoption,
 ): Option.Option<ImportedMcpServer> => {
   const url = config["url"];
   if (typeof url !== "string") return Option.none();
@@ -182,30 +198,79 @@ const normalizeRemote = (
       syncedAgents: [],
     } satisfies McpServerLockEntry,
     env: {},
+    adoptions: [adoption],
   });
 };
 
 const normalizeServer = (
   name: string,
   config: Readonly<Record<string, unknown>>,
+  adoption: ImportedMcpServerAdoption,
 ): Option.Option<ImportedMcpServer> => {
-  if (config["managedBy"] === "axm") return Option.none();
-  const remote = normalizeRemote(name, config);
+  if (isAxmManagedMcpEntry(config)) return Option.none();
+  const remote = normalizeRemote(name, config, adoption);
   if (Option.isSome(remote)) return remote;
-  return normalizeStdio(name, config);
+  return normalizeStdio(name, config, adoption);
 };
 
 const collectFromConfig = (
   config: Readonly<Record<string, unknown>>,
   serversKey: string,
+  filePath: string,
 ): ReadonlyArray<ImportedMcpServer> => {
   const servers = config[serversKey];
   if (!isRecord(servers)) return [];
   return Object.entries(servers)
-    .map(([name, value]) => (isRecord(value) ? normalizeServer(name, value) : Option.none()))
+    .map(([name, value]) =>
+      isRecord(value)
+        ? normalizeServer(name, value, { filePath, serversKey, name })
+        : Option.none(),
+    )
     .filter(Option.isSome)
     .map((entry) => entry.value);
 };
+
+const writeAdoptedMcpConfig = (
+  fs: FileSystem.FileSystem,
+  adoption: ImportedMcpServerAdoption,
+): Effect.Effect<void, AppError> =>
+  Effect.gen(function* () {
+    const config = yield* readJsonObject(fs, adoption.filePath);
+    if (Option.isNone(config)) return;
+    const servers = config.value[adoption.serversKey];
+    if (!isRecord(servers)) return;
+    const entry = servers[adoption.name];
+    if (!isRecord(entry) || isAxmManagedMcpEntry(entry)) return;
+    const updatedConfig = {
+      ...config.value,
+      [adoption.serversKey]: {
+        ...servers,
+        [adoption.name]: {
+          ...entry,
+          [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource("inline"),
+        },
+      },
+    };
+    yield* fs
+      .writeFileString(adoption.filePath, `${JSON.stringify(updatedConfig, null, 2)}\n`)
+      .pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to write MCP config: ${adoption.filePath}`,
+            cause: error,
+          }),
+        ),
+      );
+  });
+
+const adoptImportedMcpServerConfigs = (
+  fs: FileSystem.FileSystem,
+  server: ImportedMcpServer,
+): Effect.Effect<void, AppError> =>
+  Effect.forEach(server.adoptions, (adoption) => writeAdoptedMcpConfig(fs, adoption), {
+    concurrency: "unbounded",
+  }).pipe(Effect.asVoid);
 
 const collectImportableServers = (
   ws: WorkspaceMutationsService,
@@ -218,18 +283,24 @@ const collectImportableServers = (
     const imports: Array<ImportedMcpServer> = [];
     const addNew = (servers: ReadonlyArray<ImportedMcpServer>) => {
       for (const server of servers) {
-        if (
-          !configuredNames.has(server.name) &&
-          !imports.some((item) => item.name === server.name)
-        ) {
+        if (configuredNames.has(server.name)) continue;
+        const existingIndex = imports.findIndex((item) => item.name === server.name);
+        const existing = imports[existingIndex];
+        if (existing === undefined) {
           imports.push(server);
+        } else {
+          imports[existingIndex] = {
+            ...existing,
+            adoptions: [...existing.adoptions, ...server.adoptions],
+          };
         }
       }
     };
 
-    const workspaceConfig = yield* readJsonObject(fs, path.join(ws.baseDir, ".mcp.json"));
+    const workspaceConfigPath = path.join(ws.baseDir, ".mcp.json");
+    const workspaceConfig = yield* readJsonObject(fs, workspaceConfigPath);
     if (Option.isSome(workspaceConfig))
-      addNew(collectFromConfig(workspaceConfig.value, "mcpServers"));
+      addNew(collectFromConfig(workspaceConfig.value, "mcpServers", workspaceConfigPath));
 
     const agentIds = yield* ws.getConfiguredAgents();
     for (const agentId of agentIds) {
@@ -239,9 +310,10 @@ const collectImportableServers = (
       if (Option.isNone(mcpConfig)) continue;
       const targets = mcpConfig.value.targets.filter((target) => target.scope === ws.scope);
       for (const target of targets) {
-        const config = yield* readJsonObject(fs, path.resolve(ws.baseDir, target.path));
+        const configPath = path.resolve(ws.baseDir, target.path);
+        const config = yield* readJsonObject(fs, configPath);
         if (Option.isSome(config))
-          addNew(collectFromConfig(config.value, mcpConfig.value.serversKey));
+          addNew(collectFromConfig(config.value, mcpConfig.value.serversKey, configPath));
       }
     }
     return imports;
@@ -250,6 +322,8 @@ const collectImportableServers = (
 const makePlan = (
   servers: ReadonlyArray<ImportedMcpServer>,
   ws: WorkspaceMutationsService,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
 ): Plan => ({
   _tag: "Plan",
   name: "Import MCP servers",
@@ -268,10 +342,11 @@ const makePlan = (
             enabled: true,
           })
           .pipe(
+            Effect.flatMap(() => adoptImportedMcpServerConfigs(fs, server)),
             Effect.as({
               result: "success",
               message: `Imported ${server.name}`,
-              artifact: importArtifact(ws.scope, server.name),
+              artifact: importArtifact(ws.scope, server, ws.baseDir, path),
             } satisfies JobStepResult),
           ),
       })),
@@ -279,12 +354,23 @@ const makePlan = (
   ],
 });
 
-const importArtifact = (scope: "project" | "user", name: string): JobStepArtifact => ({
-  path: `.axm/settings.json:mcpServers.${name}`,
+const importArtifact = (
+  scope: "project" | "user",
+  server: ImportedMcpServer,
+  baseDir: string,
+  path: Path.Path,
+): JobStepArtifact => ({
+  path: `.axm/settings.json:mcpServers.${server.name}`,
   scope,
   change: "created",
-  fileCount: 2,
-  targets: [{ path: ".axm (config/lockfile)", change: "updated" }],
+  fileCount: 2 + server.adoptions.length,
+  targets: [
+    { path: ".axm (config/lockfile)", change: "updated" },
+    ...server.adoptions.map((adoption) => ({
+      path: path.relative(baseDir, adoption.filePath),
+      change: "updated" as const,
+    })),
+  ],
 });
 
 const formatArtifactTargets = (artifact: JobStepArtifact): string => {
@@ -330,7 +416,7 @@ export const handleMcpsImport = Effect.fn("Mcps.import")(function* (args: McpsIm
     return;
   }
 
-  const plan = makePlan(servers, ws);
+  const plan = makePlan(servers, ws, fs, path);
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     displayApplied: false,

@@ -26,6 +26,11 @@ import {
   McpServerManifestSchema,
   type McpServerManifest,
 } from "../mcps/manifest-schema.js";
+import {
+  AXM_MCP_METADATA_KEY,
+  buildAxmMcpMetadata,
+  isAxmManagedMcpEntry,
+} from "../mcps/metadata.js";
 import { projectExpectedEntry } from "../mcps/projection.js";
 import { resolveMcpServer } from "../mcps/resolution.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer.js";
@@ -296,7 +301,7 @@ const collectManagedJsonServerNames = (
     const servers = parsed[serversKey];
     if (!isRecord(servers)) return [];
     return Object.entries(servers).flatMap(([name, entry]) =>
-      isRecord(entry) && entry["managedBy"] === "axm" && !declaredServerNames.has(name)
+      isRecord(entry) && isAxmManagedMcpEntry(entry) && !declaredServerNames.has(name)
         ? [name]
         : [],
     );
@@ -492,11 +497,10 @@ const ADD_IDEMPOTENT_PATTERNS: ReadonlyArray<RegExp> = [/already exists/i, /alre
 const REMOVE_IDEMPOTENT_PATTERNS: ReadonlyArray<RegExp> = [/not installed/i, /not configured/i];
 
 const entryFromAddArgs = (args: AddMcpServerArgs) => ({
-  managedBy: "axm",
-  name: args.serverName,
-  owner: args.owner,
-  version: args.resolvedVersion,
-  canonicalPath: args.canonicalPath,
+  [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({
+    source: "registry",
+    ref: `${args.owner}/mcps/${args.serverName}`,
+  }),
 });
 
 export interface SyncInlineMcpServerArgs {

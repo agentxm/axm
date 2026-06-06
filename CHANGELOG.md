@@ -1,3 +1,13 @@
+## 0.16.2 (2026-06-06)
+
+### 🩹 Fixes
+
+- Extend release installer verification timeout. ([fb8c61f0](https://github.com/agentxm/axm/commit/fb8c61f0))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.16.1 (2026-06-06)
 
 ### 🩹 Fixes

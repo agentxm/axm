@@ -1,3 +1,13 @@
+## 0.16.1 (2026-06-06)
+
+### 🩹 Fixes
+
+- Remove pre-launch compatibility shims and repo cruft. ([24b65239](https://github.com/agentxm/axm/commit/24b65239))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.16.0 (2026-06-05)
 
 ### 🚀 Features

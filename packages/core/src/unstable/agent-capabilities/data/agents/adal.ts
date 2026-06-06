@@ -20,7 +20,7 @@ export const adalAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -38,7 +38,7 @@ export const adalAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -51,7 +51,7 @@ export const adalAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -64,7 +64,7 @@ export const adalAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -77,7 +77,7 @@ export const adalAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -90,7 +90,7 @@ export const adalAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -111,12 +111,18 @@ export const adalAgent = {
       },
     },
     hook: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
         sources: [],
+      },
+      canonical: {
+        events: [],
+        mechanism: [],
+        matcherKinds: [],
+        decision: [],
       },
       axm: {
         support: "unsupported",
@@ -125,7 +131,7 @@ export const adalAgent = {
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,

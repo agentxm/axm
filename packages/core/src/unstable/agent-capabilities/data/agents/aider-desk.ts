@@ -20,7 +20,7 @@ export const aiderDeskAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -41,7 +41,7 @@ export const aiderDeskAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -54,7 +54,7 @@ export const aiderDeskAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -67,7 +67,7 @@ export const aiderDeskAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -80,7 +80,7 @@ export const aiderDeskAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -93,7 +93,7 @@ export const aiderDeskAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -106,12 +106,18 @@ export const aiderDeskAgent = {
       },
     },
     hook: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
         sources: [],
+      },
+      canonical: {
+        events: [],
+        mechanism: [],
+        matcherKinds: [],
+        decision: [],
       },
       axm: {
         support: "unsupported",
@@ -120,7 +126,7 @@ export const aiderDeskAgent = {
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,

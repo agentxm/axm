@@ -29,7 +29,7 @@ export const geminiCliAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -49,7 +49,7 @@ export const geminiCliAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -68,7 +68,7 @@ export const geminiCliAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -116,7 +116,7 @@ export const geminiCliAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -134,7 +134,7 @@ export const geminiCliAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -147,7 +147,7 @@ export const geminiCliAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -172,21 +172,173 @@ export const geminiCliAgent = {
       },
     },
     hook: {
-      canonical: {
-        availability: { via: "none" },
+      native: {
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Gemini CLI hooks run command hooks from settings files and use JSON on stdin/stdout. AXM serializes compatible command-stdin hook bindings through the catalog-driven writer.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/writing-hooks.md",
+          "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+        ],
+        scopes: ["user", "project"],
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.gemini/settings.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".gemini/settings.json",
+            format: "json",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "BeforeTool",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "/Write|Edit|MultiEdit/", notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "modify", operations: ["modify-input"] },
+            ],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "AfterTool",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "/Write|Edit|MultiEdit/", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "BeforeAgent",
+            canonical: "turn.start",
+            matcher: { kind: "regex", example: "*", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "AfterAgent",
+            canonical: "turn.end",
+            matcher: { kind: "regex", example: "*", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "SessionStart",
+            canonical: "session.start",
+            matcher: { kind: "regex", example: "startup", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "SessionEnd",
+            canonical: "session.end",
+            matcher: { kind: "regex", example: "exit", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PreCompress",
+            canonical: "compaction.pre",
+            matcher: { kind: "regex", example: "*", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "Notification",
+            canonical: "notification",
+            matcher: { kind: "regex", example: "*", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "BeforeToolSelection",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "*", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["modify-input"] }],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/writing-hooks.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+        ],
+      },
+      canonical: {
+        events: [
+          "tool.pre",
+          "tool.post",
+          "turn.start",
+          "turn.end",
+          "session.start",
+          "session.end",
+          "compaction.pre",
+          "notification",
+        ],
+        mechanism: ["command-stdin"],
+        matcherKinds: ["regex"],
+        decision: [
+          { kind: "observe" },
+          { kind: "block", outcomes: ["allow", "deny"] },
+          { kind: "modify", operations: ["modify-input", "inject-context"] },
+        ],
       },
       axm: {
-        support: "unsupported",
-        writer: null,
+        support: "supported",
+        lastVerified: "2026-06-06",
+        writer: {
+          serializer: "command-stdin",
+          configFiles: [
+            {
+              scope: "project",
+              path: ".gemini/settings.json",
+              format: "json",
+              gitignored: false,
+            },
+          ],
+          settingsKey: "hooks",
+          eventMap: "native.events",
+          matcherKind: "regex",
+          matcherSerialization: "slash-delimited",
+          timeoutSerialization: "milliseconds",
+          commandNameSerialization: "manifest",
+        },
       },
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,

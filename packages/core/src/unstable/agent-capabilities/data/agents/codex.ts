@@ -34,7 +34,7 @@ export const codexAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -53,7 +53,7 @@ export const codexAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: {
           state: "deprecated",
@@ -78,7 +78,7 @@ export const codexAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -130,7 +130,7 @@ export const codexAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -148,7 +148,7 @@ export const codexAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -161,7 +161,7 @@ export const codexAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -182,21 +182,99 @@ export const codexAgent = {
       },
     },
     hook: {
-      canonical: {
-        availability: { via: "none" },
+      native: {
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Codex lifecycle hooks are distinct from the legacy notify command; AXM models the native hook surface but does not serialize Codex hooks yet.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://github.com/openai/codex/blob/main/docs/config.md",
+          "https://github.com/openai/codex/issues/16226",
+          "https://github.com/openai/codex/issues/17331",
+        ],
+        scopes: ["user", "project"],
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.codex/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".codex/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "PreToolUse",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "Read|Write|Bash", notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny", "ask"] },
+              { kind: "modify", operations: ["modify-input"] },
+            ],
+            sources: ["https://github.com/openai/codex/issues/16226"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PostToolUse",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "Read|Write|Bash", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://github.com/openai/codex/issues/16226"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "UserPromptSubmit",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://github.com/openai/codex/issues/16226"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "SessionStart",
+            canonical: "session.start",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://github.com/openai/codex/issues/16226"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "Stop",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://github.com/openai/codex/issues/16226"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+      },
+      canonical: {
+        events: ["tool.pre", "tool.post", "prompt.submit", "session.start", "turn.end"],
+        mechanism: ["command-stdin"],
+        matcherKinds: ["regex", "none-imperative"],
+        decision: [
+          { kind: "observe" },
+          { kind: "block", outcomes: ["allow", "deny", "ask"] },
+          { kind: "modify", operations: ["modify-input", "inject-context"] },
+        ],
       },
       axm: {
         support: "unsupported",
+        reason: "AXM has not implemented a Codex hooks writer.",
         writer: null,
       },
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,

@@ -20,7 +20,7 @@ export const rovodevAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: "Rovo Dev also reads universal .agents/skills in both project and user scopes.\n",
@@ -41,7 +41,7 @@ export const rovodevAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -54,7 +54,7 @@ export const rovodevAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -67,7 +67,7 @@ export const rovodevAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
@@ -84,7 +84,7 @@ export const rovodevAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -97,7 +97,7 @@ export const rovodevAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -110,12 +110,18 @@ export const rovodevAgent = {
       },
     },
     hook: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
         sources: [],
+      },
+      canonical: {
+        events: [],
+        mechanism: [],
+        matcherKinds: [],
+        decision: [],
       },
       axm: {
         support: "unsupported",
@@ -124,7 +130,7 @@ export const rovodevAgent = {
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,

@@ -20,7 +20,7 @@ export const warpAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -38,7 +38,7 @@ export const warpAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -51,7 +51,7 @@ export const warpAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -64,7 +64,7 @@ export const warpAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -77,7 +77,7 @@ export const warpAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -90,7 +90,7 @@ export const warpAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -103,12 +103,18 @@ export const warpAgent = {
       },
     },
     hook: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
         sources: [],
+      },
+      canonical: {
+        events: [],
+        mechanism: [],
+        matcherKinds: [],
+        decision: [],
       },
       axm: {
         support: "unsupported",
@@ -117,7 +123,7 @@ export const warpAgent = {
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,

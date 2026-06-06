@@ -99,7 +99,7 @@ const checkActual = (args: {
     stdio: config.stdio,
     remote: config.remote,
     nativeEnabled: config.nativeEnabled,
-    envExpansion: capability.canonical.mcpEnvExpansion,
+    envExpansion: capability.native.mcpEnvExpansion,
   });
   if (projected._tag !== "projected") return undefined;
   const drift = diffAgentEntry(projected, args.actual.config);

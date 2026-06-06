@@ -6,16 +6,17 @@ import {
   agentSupportsType,
   axmIntegrationStatus,
   deriveAgentDescriptor,
+  deriveHookPortability,
   getSupportedAgentsForExtension,
   getSupportedAgentsForExtensionType,
   getSupportedAgentsForExtensionTypes,
   getSupportedExtensionTypesForAgent,
   listCapabilities,
-  toCanonicalAgent,
+  toNativeAgent,
 } from "./index.js";
 import type { Agent } from "./schema.js";
 const unsupportedCapability = {
-  canonical: {
+  native: {
     availability: { via: "none" },
     vendorStatus: { state: "active" },
     notes: null,
@@ -25,6 +26,15 @@ const unsupportedCapability = {
   axm: {
     support: "unsupported",
     writer: null,
+  },
+} as const;
+const unsupportedHookCapability = {
+  ...unsupportedCapability,
+  canonical: {
+    events: [],
+    mechanism: [],
+    matcherKinds: [],
+    decision: [],
   },
 } as const;
 const baseAgent = {
@@ -40,7 +50,7 @@ const baseAgent = {
   docs: [],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         standardsCompliance: "full",
         convention: "vendor",
         availability: { via: "native" },
@@ -62,7 +72,7 @@ const baseAgent = {
     subagent: unsupportedCapability,
     files: unsupportedCapability,
     rule: unsupportedCapability,
-    hook: unsupportedCapability,
+    hook: unsupportedHookCapability,
   },
   permissions: unsupportedCapability,
 } satisfies Agent;
@@ -74,8 +84,8 @@ const sampleRootDetection = {
 };
 const supportedSkillWithNoStandardsCompliance = {
   ...baseAgent.capabilities.skill,
-  canonical: {
-    ...baseAgent.capabilities.skill.canonical,
+  native: {
+    ...baseAgent.capabilities.skill.native,
     standardsCompliance: "none",
   },
 } satisfies Agent["capabilities"]["skill"];
@@ -116,8 +126,8 @@ describe("agent capability derivation", () => {
             ...baseAgent.capabilities,
             skill: {
               ...baseAgent.capabilities.skill,
-              canonical: {
-                ...baseAgent.capabilities.skill.canonical,
+              native: {
+                ...baseAgent.capabilities.skill.native,
                 availability: { via: "none" },
               },
             },
@@ -136,7 +146,7 @@ describe("agent capability derivation", () => {
       const capability = agent.capabilities["mcp-server"];
       if (capability.axm.support !== "supported") return [];
       if (capability.axm.writer !== null) return [];
-      if (capability.canonical.notes !== null) return [];
+      if (capability.native.notes !== null) return [];
       return [agent.id];
     });
     expect(unsupportedWritableMcp).toEqual([]);
@@ -245,8 +255,8 @@ describe("agent capability derivation", () => {
         type: entry.type,
         agentStatus: agentCapabilityStatus(entry.capability),
         axmStatus: axmIntegrationStatus(entry.capability),
-        ...("standardsCompliance" in entry.capability.canonical
-          ? { standardsCompliance: entry.capability.canonical.standardsCompliance }
+        ...("standardsCompliance" in entry.capability.native
+          ? { standardsCompliance: entry.capability.native.standardsCompliance }
           : {}),
       })),
     ).toEqual([
@@ -278,14 +288,19 @@ describe("agent capability derivation", () => {
         axmStatus: "supported",
         standardsCompliance: "full",
       },
+      {
+        type: "hook",
+        agentStatus: "native",
+        axmStatus: "unsupported",
+      },
     ]);
   });
   it("derives capability headline statuses", () => {
     const native = baseAgent.capabilities.skill;
     const nativeDeprecated = {
       ...native,
-      canonical: {
-        ...native.canonical,
+      native: {
+        ...native.native,
         vendorStatus: {
           state: "deprecated",
           since: null,
@@ -295,7 +310,7 @@ describe("agent capability derivation", () => {
       },
     } satisfies Agent["capabilities"]["skill"];
     const plugin = {
-      canonical: {
+      native: {
         availability: {
           via: "plugin",
           provider: "third-party",
@@ -324,8 +339,8 @@ describe("agent capability derivation", () => {
     } satisfies Agent["capabilities"]["subagent"];
     const pluginDeprecated = {
       ...plugin,
-      canonical: {
-        ...plugin.canonical,
+      native: {
+        ...plugin.native,
         vendorStatus: {
           state: "removed",
           since: null,
@@ -370,13 +385,13 @@ describe("agent capability derivation", () => {
     const piSubagents = agentById("pi").capabilities.subagent;
     expect(agentCapabilityStatus(codexCommand)).toBe("native-deprecated");
     expect(axmIntegrationStatus(codexCommand)).toBe("supported");
-    expect(codexCommand.canonical.vendorStatus).toMatchObject({
+    expect(codexCommand.native.vendorStatus).toMatchObject({
       state: "deprecated",
       supersededByType: "skill",
     });
     expect(agentCapabilityStatus(piSubagents)).toBe("plugin");
     expect(axmIntegrationStatus(piSubagents)).toBe("unsupported");
-    expect(piSubagents.canonical.availability).toMatchObject({
+    expect(piSubagents.native.availability).toMatchObject({
       via: "plugin",
       provider: "third-party",
       plugin: {
@@ -386,16 +401,31 @@ describe("agent capability derivation", () => {
     });
     expect(agentSupportsType(agentById("pi"), "subagent")).toBe(false);
   });
-  it("projects a canonical agent without AXM internals", () => {
-    const canonical = toCanonicalAgent(agentById("codex"));
-    const serialized = JSON.stringify(canonical);
+  it("projects a native agent without AXM internals", () => {
+    const native = toNativeAgent(agentById("codex"));
+    const serialized = JSON.stringify(native);
     expect(serialized).not.toContain('"axm"');
     expect(serialized).not.toContain('"support"');
-    expect(serialized).not.toContain('"lastVerified"');
     expect(serialized).not.toContain('"writer"');
-    expect(canonical.capabilities.skill).toMatchObject({
+    expect(native.capabilities.skill).toMatchObject({
       availability: { via: "native" },
       directory: ".codex/skills",
+    });
+  });
+  it("derives hook portability verdicts from canonical event and AXM support", () => {
+    const requirement = {
+      events: ["tool.pre"],
+      mechanisms: ["command-stdin"],
+      decisions: ["block"],
+    } as const;
+    expect(deriveHookPortability(agentById("claude-code"), requirement)).toMatchObject({
+      standardsCompliance: "full",
+    });
+    expect(deriveHookPortability(agentById("amp"), requirement)).toMatchObject({
+      standardsCompliance: "partial",
+    });
+    expect(deriveHookPortability(agentById("warp"), requirement)).toMatchObject({
+      standardsCompliance: "none",
     });
   });
   it("derives descriptors with explicit rootDir and own-file instructions", () => {
@@ -406,7 +436,7 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           command: {
-            canonical: {
+            native: {
               availability: { via: "native" },
               vendorStatus: { state: "active" },
               notes: null,
@@ -422,7 +452,7 @@ describe("agent capability derivation", () => {
             },
           },
           subagent: {
-            canonical: {
+            native: {
               availability: { via: "native" },
               vendorStatus: { state: "active" },
               notes: null,
@@ -439,7 +469,7 @@ describe("agent capability derivation", () => {
             },
           },
           rule: {
-            canonical: {
+            native: {
               standardsCompliance: "parity",
               convention: "vendor",
               availability: { via: "native" },
@@ -485,7 +515,7 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           subagent: {
-            canonical: {
+            native: {
               availability: { via: "native" },
               vendorStatus: { state: "active" },
               notes: null,
@@ -538,7 +568,7 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           "mcp-server": {
-            canonical: {
+            native: {
               availability: { via: "native" },
               vendorStatus: { state: "active" },
               notes: null,
@@ -596,7 +626,7 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           rule: {
-            canonical: {
+            native: {
               standardsCompliance: "full",
               convention: "universal",
               availability: { via: "native" },
@@ -625,7 +655,7 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           rule: {
-            canonical: {
+            native: {
               standardsCompliance: "partial",
               convention: "vendor",
               availability: { via: "native" },

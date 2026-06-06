@@ -31,7 +31,7 @@ export const antigravityAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -50,7 +50,7 @@ export const antigravityAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -67,7 +67,7 @@ export const antigravityAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -108,7 +108,7 @@ export const antigravityAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -121,7 +121,7 @@ export const antigravityAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -134,7 +134,7 @@ export const antigravityAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -159,21 +159,102 @@ export const antigravityAgent = {
       },
     },
     hook: {
-      canonical: {
-        availability: { via: "none" },
+      native: {
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Antigravity documents command hooks in hooks.json for the current Antigravity execution loop. This supersedes earlier research that found hooks only in SDK/plugin surfaces.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://antigravity.google/docs/hooks",
+          "https://antigravity.google/docs/cli-plugins",
+        ],
+        scopes: ["user", "project"],
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.gemini/config/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".agents/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "PreToolUse",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "run_command|view_file", notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny", "ask"] },
+              { kind: "modify", operations: ["modify-input"] },
+            ],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PostToolUse",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "run_command|view_file", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PreInvocation",
+            canonical: "model.pre",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PostInvocation",
+            canonical: "model.post",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "modify", operations: ["inject-context"] },
+            ],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "Stop",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+      },
+      canonical: {
+        events: ["tool.pre", "tool.post", "model.pre", "model.post", "turn.end"],
+        mechanism: ["command-stdin"],
+        matcherKinds: ["regex", "none-imperative"],
+        decision: [
+          { kind: "observe" },
+          { kind: "block", outcomes: ["allow", "deny", "ask"] },
+          { kind: "modify", operations: ["modify-input", "inject-context"] },
+        ],
       },
       axm: {
         support: "unsupported",
+        reason: "AXM has not implemented an Antigravity hooks writer.",
         writer: null,
       },
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,

@@ -22,7 +22,7 @@ export const codeartsAgentAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -40,7 +40,7 @@ export const codeartsAgentAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -53,7 +53,7 @@ export const codeartsAgentAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -66,7 +66,7 @@ export const codeartsAgentAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -79,7 +79,7 @@ export const codeartsAgentAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -92,7 +92,7 @@ export const codeartsAgentAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -105,12 +105,18 @@ export const codeartsAgentAgent = {
       },
     },
     hook: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
         sources: [],
+      },
+      canonical: {
+        events: [],
+        mechanism: [],
+        matcherKinds: [],
+        decision: [],
       },
       axm: {
         support: "unsupported",
@@ -119,7 +125,7 @@ export const codeartsAgentAgent = {
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,

@@ -20,7 +20,7 @@ export const codebuddyAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -38,7 +38,7 @@ export const codebuddyAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -51,7 +51,7 @@ export const codebuddyAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -64,7 +64,7 @@ export const codebuddyAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
@@ -81,7 +81,7 @@ export const codebuddyAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -94,7 +94,7 @@ export const codebuddyAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -107,12 +107,18 @@ export const codebuddyAgent = {
       },
     },
     hook: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
         sources: [],
+      },
+      canonical: {
+        events: [],
+        mechanism: [],
+        matcherKinds: [],
+        decision: [],
       },
       axm: {
         support: "unsupported",
@@ -121,7 +127,7 @@ export const codebuddyAgent = {
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,

@@ -34,7 +34,7 @@ export const claudeCodeAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -52,7 +52,7 @@ export const claudeCodeAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -69,7 +69,7 @@ export const claudeCodeAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -126,7 +126,7 @@ export const claudeCodeAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
@@ -143,7 +143,7 @@ export const claudeCodeAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -156,7 +156,7 @@ export const claudeCodeAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: "Reads CLAUDE.md, not the AGENTS.md spec filename.",
@@ -177,7 +177,7 @@ export const claudeCodeAgent = {
       },
     },
     hook: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -188,6 +188,7 @@ export const claudeCodeAgent = {
           "https://docs.claude.com/en/docs/claude-code/settings",
         ],
         scopes: ["user", "project"],
+        mechanism: ["command-stdin"],
         configFiles: [
           {
             scope: "user",
@@ -208,18 +209,122 @@ export const claudeCodeAgent = {
             gitignored: true,
           },
         ],
+        events: [
+          {
+            nativeName: "PreToolUse",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "Write|Edit|MultiEdit", notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny", "ask"] },
+              { kind: "modify", operations: ["modify-input"] },
+            ],
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "PostToolUse",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "Write|Edit|MultiEdit", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "UserPromptSubmit",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "modify", operations: ["inject-context"] },
+            ],
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "SessionStart",
+            canonical: "session.start",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "Stop",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "SubagentStop",
+            canonical: "subagent.stop",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "PreCompact",
+            canonical: "compaction.pre",
+            matcher: { kind: "regex", example: "manual|auto", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+        ],
+      },
+      canonical: {
+        events: [
+          "tool.pre",
+          "tool.post",
+          "prompt.submit",
+          "session.start",
+          "turn.end",
+          "subagent.stop",
+          "compaction.pre",
+        ],
+        mechanism: ["command-stdin"],
+        matcherKinds: ["regex", "none-imperative"],
+        decision: [
+          { kind: "observe" },
+          { kind: "block", outcomes: ["allow", "deny", "ask"] },
+          { kind: "modify", operations: ["modify-input", "inject-context"] },
+        ],
       },
       axm: {
         support: "supported",
         lastVerified: "2026-06-02",
         writer: {
-          serializer: "claude-code-settings",
+          serializer: "command-stdin",
+          configFiles: [
+            {
+              scope: "project",
+              path: ".claude/settings.json",
+              format: "json",
+              gitignored: false,
+            },
+            {
+              scope: "project",
+              path: ".claude/settings.local.json",
+              format: "json",
+              gitignored: true,
+            },
+          ],
+          settingsKey: "hooks",
+          eventMap: "native.events",
+          matcherKind: "regex",
+          matcherSerialization: "bare",
+          timeoutSerialization: "seconds",
+          commandNameSerialization: "omit",
         },
       },
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,

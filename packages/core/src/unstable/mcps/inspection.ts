@@ -26,8 +26,8 @@ import { diffAgentEntry, projectExpectedEntry, type ExpectedAgentEntry } from ".
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 type ConfiguredMcpCapability = AgentMcpCapability & {
-  readonly canonical: Extract<
-    AgentMcpCapability["canonical"],
+  readonly native: Extract<
+    AgentMcpCapability["native"],
     { readonly transports: ReadonlyArray<McpTransport> }
   >;
   readonly axm: {
@@ -77,7 +77,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null && "transports" in capability.canonical;
+  capability.axm.writer !== null && "transports" in capability.native;
 
 const isCapabilityAgentId = (agentId: string): agentId is AgentId => agentId in AGENTS_BY_ID;
 
@@ -302,7 +302,7 @@ export const inspectAgentMcpServer = (
       stdio: config.stdio,
       remote: config.remote,
       nativeEnabled: config.nativeEnabled,
-      envExpansion: capability.canonical.mcpEnvExpansion,
+      envExpansion: capability.native.mcpEnvExpansion,
     });
     const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
     if (projected._tag !== "projected") {

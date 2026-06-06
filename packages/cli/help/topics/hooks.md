@@ -2,9 +2,9 @@
 
 Hook packages live in `./.axm/extensions/<@owner>/hooks/<hook-name>`.
 
-A hook extension runs your code on an agent lifecycle event — `PreToolUse`,
-`PostToolUse`, `SessionStart`, and friends. It is a portable manifest plus an
-executable body. On install, AXM materializes the body under
+A hook extension runs your code on an agent lifecycle event such as a tool
+pre-call, tool post-call, prompt submission, or session start. It is a portable
+manifest plus an executable body. On install, AXM materializes the body under
 `.axm/extensions/...` and merges a native hook entry into the target agent's
 settings file that points at it.
 
@@ -40,8 +40,8 @@ Required fields:
   or `python`.
 - `entrypoint` — path to the executable body, relative to the manifest
   directory. The file must exist in the archive.
-- `bindings` — the lifecycle events this hook serializes into agent-native
-  settings.
+- `bindings` — manifest binding names AXM maps through the agent capability
+  catalog into agent-native settings.
 
 `timeoutMs`, `blocking`, and `capabilities` are optional. Run
 `axm help hook-schema` to print the raw JSON Schema.
@@ -62,10 +62,16 @@ block-secrets/
 
 ## Bindings
 
-Each binding is an `event` with an optional `matcher`. The supported events are:
+Each binding is an `event` with an optional `matcher`. The current manifest
+binding names are:
 
 `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `SessionStart`, `Stop`,
 `SubagentStop`, and `PreCompact`.
+
+These are compatibility binding names, not a universal native hook vocabulary.
+The agent capability catalog maps native hook names to canonical AXM event IDs
+such as `tool.pre`, `tool.post`, `prompt.submit`, and `session.start`, along
+with the native invocation mechanism, matcher kind, and decision capability.
 
 `matcher` is valid only on `PreToolUse` and `PostToolUse` — it filters which
 tools trigger the hook (for example, `Write|Edit|MultiEdit`). Other events match
@@ -87,10 +93,12 @@ entrypoint:
 bash .axm/extensions/@acme/hooks/block-secrets/src/hook.sh
 ```
 
-Claude Code is the first serializer: a `PreToolUse` binding becomes a `hooks`
-group in `.claude/settings.json`. AXM preserves unrelated settings and removes
-only the entries it manages, so `axm sync` can always reconcile the file. Other
-agents will gain serializers behind the same manifest contract.
+Claude Code and Gemini CLI use the catalog-driven `command-stdin` serializer: a
+`PreToolUse` binding becomes a native hook group in the configured agent settings
+file, with event names and matcher syntax taken from the agent capability
+catalog. AXM preserves unrelated settings and removes only the entries it
+manages, so `axm sync` can always reconcile the file. Other agents will gain
+serializers behind the same manifest contract.
 
 ## Configuration
 

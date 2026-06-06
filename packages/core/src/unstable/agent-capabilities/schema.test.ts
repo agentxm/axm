@@ -1,9 +1,10 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import { McpExtensionCapabilitySchema } from "./schema.js";
+import { HooksExtensionCapabilitySchema, McpExtensionCapabilitySchema } from "./schema.js";
 const decodeMcpCapability = Schema.decodeUnknownSync(McpExtensionCapabilitySchema);
+const decodeHooksCapability = Schema.decodeUnknownSync(HooksExtensionCapabilitySchema);
 const activeMcpCapability = {
-  canonical: {
+  native: {
     availability: { via: "native" },
     vendorStatus: { state: "active" },
     notes: null,
@@ -46,13 +47,13 @@ describe("MCP capability schema", () => {
       expect(
         decodeMcpCapability({
           ...activeMcpCapability,
-          canonical: {
-            ...activeMcpCapability.canonical,
+          native: {
+            ...activeMcpCapability.native,
             standardsCompliance,
           },
         }),
       ).toMatchObject({
-        canonical: { standardsCompliance },
+        native: { standardsCompliance },
         axm: { writer: { config: { serversKey: "mcpServers" } } },
       });
     }
@@ -60,7 +61,7 @@ describe("MCP capability schema", () => {
   it("allows supported MCP capabilities to omit writer config", () => {
     expect(
       decodeMcpCapability({
-        canonical: {
+        native: {
           availability: { via: "native" },
           vendorStatus: { state: "active" },
           notes: "UI-only surface; no writable MCP config file.",
@@ -78,7 +79,7 @@ describe("MCP capability schema", () => {
         },
       }),
     ).toMatchObject({
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         standardsCompliance: "none",
@@ -118,5 +119,86 @@ describe("MCP capability schema", () => {
         },
       }),
     ).toThrow("MCP remote config is required when http or sse transport is supported.");
+  });
+});
+
+describe("Hooks capability schema", () => {
+  it("requires native event pointers to resolve through the canonical hook model", () => {
+    expect(() =>
+      decodeHooksCapability({
+        native: {
+          availability: { via: "native" },
+          vendorStatus: { state: "active" },
+          notes: null,
+          docs: [],
+          sources: ["https://example.com/hooks"],
+          scopes: ["project"],
+          mechanism: ["command-stdin"],
+          configFiles: [],
+          events: [
+            {
+              nativeName: "PreToolUse",
+              canonical: "tool.pre",
+              matcher: { kind: "regex", example: "Write", notes: null },
+              decision: [{ kind: "observe" }],
+              sources: ["https://example.com/hooks"],
+              lastVerified: "2026-06-06",
+            },
+          ],
+        },
+        canonical: {
+          events: [],
+          mechanism: ["command-stdin"],
+          matcherKinds: ["regex"],
+          decision: [{ kind: "observe" }],
+        },
+        axm: {
+          support: "unsupported",
+          reason: "No writer yet.",
+          writer: null,
+        },
+      }),
+    ).toThrow("tool.pre");
+  });
+  it("allows native hook availability with unsupported AXM writer and a reason", () => {
+    expect(
+      decodeHooksCapability({
+        native: {
+          availability: { via: "native" },
+          vendorStatus: { state: "active" },
+          notes: null,
+          docs: [],
+          sources: ["https://example.com/hooks"],
+          scopes: ["project"],
+          mechanism: ["in-process-plugin"],
+          configFiles: [],
+          events: [
+            {
+              nativeName: "tool.execute.before",
+              canonical: "tool.pre",
+              matcher: { kind: "none-imperative", example: null, notes: null },
+              decision: [{ kind: "observe" }],
+              sources: ["https://example.com/hooks"],
+              lastVerified: "2026-06-06",
+            },
+          ],
+        },
+        canonical: {
+          events: ["tool.pre"],
+          mechanism: ["in-process-plugin"],
+          matcherKinds: ["none-imperative"],
+          decision: [{ kind: "observe" }],
+        },
+        axm: {
+          support: "unsupported",
+          reason: "In-process plugin writers are not implemented.",
+          writer: null,
+        },
+      }),
+    ).toMatchObject({
+      native: { availability: { via: "native" }, mechanism: ["in-process-plugin"] },
+      canonical: { events: ["tool.pre"] },
+      axm: { support: "unsupported", reason: "In-process plugin writers are not implemented." },
+    });
   });
 });

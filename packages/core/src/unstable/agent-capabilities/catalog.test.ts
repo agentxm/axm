@@ -6,6 +6,7 @@ import { AgentIdSchema, AGENTS, AGENT_IDS } from "./catalog.js";
 import {
   AgentLifecycleSchema,
   AgentSchema,
+  CANONICAL_HOOK_EVENT_IDS,
   DetectionMarkerSchema,
   DetectionSchema,
   LEAF_EXTENSION_TYPES,
@@ -14,7 +15,7 @@ import {
 const decodeAgent = (input: unknown): Agent =>
   Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
 const unsupportedCapability = {
-  canonical: {
+  native: {
     availability: { via: "none" },
     vendorStatus: { state: "active" },
     notes: null,
@@ -26,9 +27,18 @@ const unsupportedCapability = {
     writer: null,
   },
 } as const;
+const unsupportedHookCapability = {
+  ...unsupportedCapability,
+  canonical: {
+    events: [],
+    mechanism: [],
+    matcherKinds: [],
+    decision: [],
+  },
+} as const;
 const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
   skill: {
-    canonical: {
+    native: {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,
@@ -50,7 +60,7 @@ const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
   subagent: unsupportedCapability,
   files: unsupportedCapability,
   rule: unsupportedCapability,
-  hook: unsupportedCapability,
+  hook: unsupportedHookCapability,
   ...overrides,
 });
 const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
@@ -78,13 +88,43 @@ describe("agent capability catalog", () => {
       sortedStrings(CONFIGURABLE_AGENT_IDS),
     );
   });
-  it("exposes exactly canonical and AXM blocks on every decoded capability", () => {
+  it("exposes native and AXM blocks on every decoded capability", () => {
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
       onExcessProperty: "error",
     });
     for (const agent of decoded) {
-      for (const capability of Object.values(agent.capabilities)) {
-        expect(Object.keys(capability).sort()).toEqual(["axm", "canonical"]);
+      for (const [type, capability] of Object.entries(agent.capabilities)) {
+        expect(Object.keys(capability).sort()).toEqual(
+          type === "hook" ? ["axm", "canonical", "native"] : ["axm", "native"],
+        );
+      }
+    }
+  });
+  it("models native hooks for Codex, Cursor, and OpenCode without AXM writers", () => {
+    const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
+      onExcessProperty: "error",
+    });
+    const byId = new Map(decoded.map((agent) => [agent.id, agent]));
+    for (const id of ["codex", "cursor", "opencode"]) {
+      const hook = byId.get(id)?.capabilities.hook;
+      expect(hook?.native.availability).toEqual({ via: "native" });
+      expect(hook?.axm).toMatchObject({
+        support: "unsupported",
+        writer: null,
+      });
+      expect(hook?.axm).toHaveProperty("reason");
+    }
+  });
+  it("keeps every native hook event mapped to the canonical hook registry", () => {
+    const ids = new Set<string>(CANONICAL_HOOK_EVENT_IDS);
+    const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
+      onExcessProperty: "error",
+    });
+    for (const agent of decoded) {
+      const hook = agent.capabilities.hook;
+      if (!("events" in hook.native)) continue;
+      for (const event of hook.native.events) {
+        expect(ids, `${agent.id} hook event ${event.nativeName}`).toContain(event.canonical);
       }
     }
   });
@@ -132,7 +172,7 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             command: {
-              canonical: {
+              native: {
                 availability: { via: "native" },
                 vendorStatus: { state: "active" },
                 notes: null,
@@ -158,7 +198,7 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             files: {
-              canonical: {
+              native: {
                 availability: { via: "native" },
                 vendorStatus: { state: "active" },
                 notes: null,
@@ -188,7 +228,7 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             skill: {
-              canonical: {
+              native: {
                 availability: { via: "native" },
                 vendorStatus: { state: "active" },
                 notes: null,
@@ -214,7 +254,7 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             rule: {
-              canonical: {
+              native: {
                 availability: { via: "native" },
                 vendorStatus: { state: "active" },
                 notes: null,
@@ -245,7 +285,7 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             skill: {
-              canonical: {
+              native: {
                 availability: { via: "native" },
                 vendorStatus: { state: "active" },
                 notes: null,
@@ -273,7 +313,7 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             rule: {
-              canonical: {
+              native: {
                 availability: { via: "native" },
                 vendorStatus: { state: "active" },
                 notes: null,
@@ -303,7 +343,7 @@ describe("agent capability catalog", () => {
       makeAgentInput({
         capabilities: makeCapabilitiesInput({
           "mcp-server": {
-            canonical: {
+            native: {
               availability: { via: "native" },
               vendorStatus: { state: "active" },
               notes: null,
@@ -331,7 +371,7 @@ describe("agent capability catalog", () => {
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             "mcp-server": {
-              canonical: {
+              native: {
                 availability: { via: "native" },
                 vendorStatus: { state: "active" },
                 notes: null,
@@ -418,8 +458,8 @@ describe("agent capability catalog", () => {
     const agents = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS);
     for (const agent of agents) {
       for (const capability of [...Object.values(agent.capabilities), agent.permissions]) {
-        if (capability.canonical.vendorStatus.state === "active") continue;
-        const successor = capability.canonical.vendorStatus.supersededByType;
+        if (capability.native.vendorStatus.state === "active") continue;
+        const successor = capability.native.vendorStatus.supersededByType;
         if (successor === null) continue;
         expect(
           leafTypes,

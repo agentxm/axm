@@ -58,8 +58,8 @@ export interface CliInvocationResult {
 type NodePlatform = NodeJS.Platform;
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 type ConfiguredMcpCapability = AgentMcpCapability & {
-  readonly canonical: Extract<
-    AgentMcpCapability["canonical"],
+  readonly native: Extract<
+    AgentMcpCapability["native"],
     { readonly transports: ReadonlyArray<McpTransport> }
   >;
   readonly axm: {
@@ -86,7 +86,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null && "transports" in capability.canonical;
+  capability.axm.writer !== null && "transports" in capability.native;
 
 const redactSecrets = (value: string): string =>
   value
@@ -544,7 +544,7 @@ export const syncInlineMcpServerToAgent = (
       stdio: config.stdio,
       remote: config.remote,
       nativeEnabled: config.nativeEnabled,
-      envExpansion: capability.canonical.mcpEnvExpansion,
+      envExpansion: capability.native.mcpEnvExpansion,
     });
 
     if (projected._tag !== "projected") {

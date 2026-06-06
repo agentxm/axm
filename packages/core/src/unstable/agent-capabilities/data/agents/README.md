@@ -7,30 +7,35 @@ Owner: AgentXM Marketplace maintainers.
 Add one `*.ts` file per agent. File name must match `id`, and each module
 exports `<camelCaseId>Agent` as `as const satisfies Agent`.
 
-Each capability is authored as two top-level blocks:
+Each capability is authored with `native` and `axm` top-level blocks:
 
-- `canonical`: vendor-sourced facts, edited on the vendor/docs cadence
+- `native`: vendor-sourced facts, edited on the vendor/docs cadence
 - `axm`: AXM integration state and writer mechanics, edited on the AXM release
   cadence
 
+Hook capabilities also carry `canonical`, AXM's vendor-neutral projection:
+canonical event IDs, invocation mechanism families, matcher kinds, and decision
+capabilities derived from the native event map.
+
 Capability claims with `axm.support: "supported"` or `"planned"` require:
 
-- `canonical.sources` with authoritative URLs
+- `native.sources` with authoritative URLs
 - `axm.lastVerified` in `YYYY-MM-DD`
 
 Every agent declares every capability slot. Each capability has three authored
-canonical axes:
+native axes:
 
-- `canonical.availability`: whether the surface is native, absent, or available through a
+- `native.availability`: whether the surface is native, absent, or available through a
   descriptive plugin descriptor
-- `canonical.vendorStatus`: whether the named surface is active, maintenance,
+- `native.vendorStatus`: whether the named surface is active, maintenance,
   deprecated, or removed
 - `axm.support`: whether AXM installs or has verified support for the capability
 
 Writer mechanics live under `axm.writer`:
 
 - MCP config dialects use `axm.writer.config`
-- Hook serializers use `axm.writer.serializer`
+- Hook writers use `axm.writer.serializer`, `configFiles`, `settingsKey`,
+  `eventMap`, and `matcherKind`
 - Permission grants use `axm.writer.grants`
 - Capabilities without AXM writer mechanics use `axm.writer: null`
 
@@ -38,7 +43,7 @@ Use an inactive AXM support entry for unsupported or unknown AXM behavior:
 
 ```ts
 {
-  canonical: {
+  native: {
     availability: { via: "none" },
     vendorStatus: { state: "active" },
     notes: null,
@@ -52,13 +57,16 @@ Use an inactive AXM support entry for unsupported or unknown AXM behavior:
 }
 ```
 
+Unsupported native surfaces may include `axm.reason` to explain why AXM cannot
+write that surface yet.
+
 All values are explicit. Do not rely on optional fields or schema defaults.
 
 ## Agent lifecycle
 
 Every agent declares a `lifecycle` describing the support status of the product
 itself. This is the agent-level axis and is distinct from a capability's
-`canonical.availability`, `canonical.vendorStatus`, and `axm.support` axes.
+`native.availability`, `native.vendorStatus`, and `axm.support` axes.
 
 A current agent is simply:
 
@@ -106,9 +114,9 @@ Permissions capability:
 
 - Describes how an agent grants tool execution and filesystem access without
   per-call prompts. Used by `axm agents add` to suggest concrete config edits.
-- `canonical.mechanism` lists every surface that can be used (any of `config-file`,
+- `native.mechanism` lists every surface that can be used (any of `config-file`,
   `cli-flag`, `ui-only`).
-- `canonical.configFiles` enumerates writable config files by `scope` and
+- `native.configFiles` enumerates writable config files by `scope` and
   `format`.
 - `axm.writer.grants` keys (`shell`, `filesystem`, …) hold either a JSON-ish
   `patch` or a raw `template`. Both may interpolate `${tool}` and

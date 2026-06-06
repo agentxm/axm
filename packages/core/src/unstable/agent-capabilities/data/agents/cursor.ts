@@ -39,7 +39,7 @@ export const cursorAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -58,7 +58,7 @@ export const cursorAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -78,7 +78,7 @@ export const cursorAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -126,7 +126,7 @@ export const cursorAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -144,7 +144,7 @@ export const cursorAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -157,7 +157,7 @@ export const cursorAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -179,21 +179,87 @@ export const cursorAgent = {
       },
     },
     hook: {
-      canonical: {
-        availability: { via: "none" },
+      native: {
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Cursor hooks run custom scripts around agent-loop stages. AXM models the native surface but does not serialize Cursor hooks yet.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://cursor.com/blog/hooks-partners",
+          "https://cursor.com/blog/enterprise/",
+          "https://cursor.com/changelog/1-7",
+        ],
+        scopes: ["user", "project"],
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.cursor/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".cursor/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "beforeSubmitPrompt",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://cursor.com/blog/enterprise/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "beforeShellCommand",
+            canonical: "tool.pre",
+            matcher: { kind: "exact-substring", example: "npm install", notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://cursor.com/blog/enterprise/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "beforeMCPExecution",
+            canonical: "tool.pre",
+            matcher: { kind: "exact-substring", example: "server/tool", notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://cursor.com/blog/hooks-partners"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "afterMCPExecution",
+            canonical: "tool.post",
+            matcher: { kind: "exact-substring", example: "server/tool", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["redact"] }],
+            sources: ["https://cursor.com/blog/hooks-partners"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+      },
+      canonical: {
+        events: ["prompt.submit", "tool.pre", "tool.post"],
+        mechanism: ["command-stdin"],
+        matcherKinds: ["exact-substring", "none-imperative"],
+        decision: [
+          { kind: "observe" },
+          { kind: "block", outcomes: ["allow", "deny"] },
+          { kind: "modify", operations: ["inject-context", "redact"] },
+        ],
       },
       axm: {
         support: "unsupported",
+        reason: "AXM has not implemented a Cursor hooks writer.",
         writer: null,
       },
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,

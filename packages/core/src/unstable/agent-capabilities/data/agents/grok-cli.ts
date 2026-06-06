@@ -20,7 +20,7 @@ export const grokCliAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -39,7 +39,7 @@ export const grokCliAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -52,7 +52,7 @@ export const grokCliAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -71,7 +71,7 @@ export const grokCliAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -84,7 +84,7 @@ export const grokCliAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -97,7 +97,7 @@ export const grokCliAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
@@ -119,21 +119,74 @@ export const grokCliAgent = {
       },
     },
     hook: {
-      canonical: {
-        availability: { via: "none" },
+      native: {
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "xAI Grok CLI discovers hook scripts from .grok hooks paths and also advertises Claude Code hook compatibility. Exact in-app hook event details should be reverified before adding a writer.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.x.ai/build/features/skills-plugins-marketplaces"],
+        scopes: ["user", "project"],
+        mechanism: ["command-env", "command-stdin"],
+        configFiles: [],
+        events: [
+          {
+            nativeName: "PreToolUse",
+            canonical: "tool.pre",
+            matcher: {
+              kind: "regex",
+              example: "Write|Edit|Bash",
+              notes: "Via Claude Code compatibility.",
+            },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny", "ask"] }],
+            sources: ["https://docs.x.ai/build/features/skills-plugins-marketplaces"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PostToolUse",
+            canonical: "tool.post",
+            matcher: {
+              kind: "regex",
+              example: "Write|Edit|Bash",
+              notes: "Via Claude Code compatibility.",
+            },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://docs.x.ai/build/features/skills-plugins-marketplaces"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "SessionStart",
+            canonical: "session.start",
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: "Via Claude Code compatibility.",
+            },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.x.ai/build/features/skills-plugins-marketplaces"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+      },
+      canonical: {
+        events: ["tool.pre", "tool.post", "session.start"],
+        mechanism: ["command-env", "command-stdin"],
+        matcherKinds: ["regex", "none-imperative"],
+        decision: [
+          { kind: "observe" },
+          { kind: "block", outcomes: ["allow", "deny", "ask"] },
+          { kind: "modify", operations: ["inject-context"] },
+        ],
       },
       axm: {
         support: "unsupported",
+        reason: "AXM has not implemented a Grok CLI hooks writer.",
         writer: null,
       },
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,

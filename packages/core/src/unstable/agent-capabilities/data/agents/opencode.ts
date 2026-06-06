@@ -20,7 +20,7 @@ export const opencodeAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -38,7 +38,7 @@ export const opencodeAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
@@ -54,7 +54,7 @@ export const opencodeAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -114,7 +114,7 @@ export const opencodeAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
@@ -131,7 +131,7 @@ export const opencodeAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -144,7 +144,7 @@ export const opencodeAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -157,21 +157,102 @@ export const opencodeAgent = {
       },
     },
     hook: {
-      canonical: {
-        availability: { via: "none" },
+      native: {
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "OpenCode exposes lifecycle hooks through in-process JavaScript/TypeScript plugins. AXM models the surface but does not serialize plugin hooks yet.",
         docs: [],
-        sources: [],
+        sources: ["https://opencode.ai/docs/plugins/"],
+        scopes: ["user", "project"],
+        mechanism: ["in-process-plugin"],
+        configFiles: [],
+        events: [
+          {
+            nativeName: "tool.execute.before",
+            canonical: "tool.pre",
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: "Plugin code branches imperatively.",
+            },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "modify", operations: ["modify-input"] },
+            ],
+            sources: ["https://opencode.ai/docs/plugins/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "tool.execute.after",
+            canonical: "tool.post",
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: "Plugin code branches imperatively.",
+            },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["modify-output"] }],
+            sources: ["https://opencode.ai/docs/plugins/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "file.edited",
+            canonical: "file.changed",
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: "Plugin code branches imperatively.",
+            },
+            decision: [{ kind: "observe" }],
+            sources: ["https://opencode.ai/docs/plugins/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "session.created",
+            canonical: "session.start",
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: "Plugin code branches imperatively.",
+            },
+            decision: [{ kind: "observe" }],
+            sources: ["https://opencode.ai/docs/plugins/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "session.compacted",
+            canonical: "compaction.post",
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: "Plugin code branches imperatively.",
+            },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://opencode.ai/docs/plugins/"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+      },
+      canonical: {
+        events: ["tool.pre", "tool.post", "file.changed", "session.start", "compaction.post"],
+        mechanism: ["in-process-plugin"],
+        matcherKinds: ["none-imperative"],
+        decision: [
+          { kind: "observe" },
+          { kind: "block", outcomes: ["allow", "deny"] },
+          { kind: "modify", operations: ["modify-input", "modify-output", "inject-context"] },
+        ],
       },
       axm: {
         support: "unsupported",
+        reason: "AXM has not implemented in-process plugin hook writers.",
         writer: null,
       },
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,

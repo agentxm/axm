@@ -5,7 +5,7 @@ import { McpServerManifestSchema } from "./manifest-schema.js";
 import { resolveMcpServer } from "./resolution.js";
 const decodeManifest = Schema.decodeUnknownSync(McpServerManifestSchema);
 const stdioCapability = {
-  canonical: {
+  native: {
     standardsCompliance: "full",
     convention: "universal",
     availability: { via: "native" },
@@ -36,7 +36,7 @@ const stdioCapability = {
   },
 } satisfies McpExtensionCapability;
 const remoteCapability = {
-  canonical: {
+  native: {
     standardsCompliance: "full",
     convention: "universal",
     availability: { via: "native" },
@@ -75,16 +75,16 @@ const remoteCapability = {
 } satisfies McpExtensionCapability;
 const partialRemoteCapability = {
   ...remoteCapability,
-  canonical: {
-    ...remoteCapability.canonical,
+  native: {
+    ...remoteCapability.native,
     standardsCompliance: "partial",
     notes: "Config dialect is verified, but native semantics diverge from full MCP format.",
   },
 } satisfies McpExtensionCapability;
 const httpOnlyRemoteCapability = {
   ...remoteCapability,
-  canonical: {
-    ...remoteCapability.canonical,
+  native: {
+    ...remoteCapability.native,
     transports: ["http"],
   },
   axm: {

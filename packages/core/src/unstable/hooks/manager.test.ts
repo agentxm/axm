@@ -21,7 +21,11 @@ import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { HookManager, HookManagerLive } from "./manager.js";
 import type { LocalHookRef } from "./refs.js";
 
-const writeHookPackage = (packageRoot: string, name: string) => {
+const writeHookPackage = (
+  packageRoot: string,
+  name: string,
+  options?: { readonly timeoutMs?: number },
+) => {
   mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
   writeFileSync(
     nodePath.join(packageRoot, "hook.json"),
@@ -34,6 +38,7 @@ const writeHookPackage = (packageRoot: string, name: string) => {
         runtime: "bash",
         entrypoint: "src/hook.sh",
         bindings: [{ event: "PreToolUse", matcher: "Write|Edit" }],
+        ...(options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
       },
       null,
       2,
@@ -64,12 +69,16 @@ const makeSourceHostProviders = () =>
     origin: () => "test",
   });
 
-const makeHookManagerLayer = (workspaceRoot: string) =>
+const makeHookManagerLayer = (
+  workspaceRoot: string,
+  options?: { readonly configuredAgents?: ReadonlyArray<string> },
+) =>
   HookManagerLive.pipe(
     Layer.provide(
       Layer.succeed(
         WorkspaceMutations,
         makeBaseWorkspaceMock(nodePath.join(workspaceRoot, ".axm"), {
+          getConfiguredAgents: () => Effect.succeed(options?.configuredAgents ?? ["claude-code"]),
           getConfiguredHookEntries: () => Effect.succeed({}),
         }),
       ),
@@ -106,7 +115,52 @@ describe("HookManager", () => {
         expect(raw).toContain('"PreToolUse"');
         expect(raw).toContain('"matcher": "Write|Edit"');
         expect(raw).toContain(".axm/extensions/external/hooks/identity-check/src/hook.sh");
+        expect(raw).not.toContain('"name": "identity-check"');
         expect(existsSync(`${settingsPath}.bak`)).toBe(false);
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("writes Gemini CLI hooks from catalog writer metadata", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "identity-check", { timeoutMs: 5000 });
+
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          yield* manager.materializeInstall({
+            ref: makeLocalHookRef("identity-check", packageRoot),
+          });
+        }).pipe(
+          Effect.provide(
+            makeHookManagerLayer(workspaceRoot, {
+              configuredAgents: ["claude-code", "gemini-cli"],
+            }),
+          ),
+        );
+
+        const claudeRaw = readFileSync(
+          nodePath.join(workspaceRoot, ".claude", "settings.json"),
+          "utf8",
+        );
+        expect(claudeRaw).toContain('"PreToolUse"');
+        expect(claudeRaw).toContain('"matcher": "Write|Edit"');
+        expect(claudeRaw).toContain('"timeout": 5');
+        expect(claudeRaw).not.toContain('"name": "identity-check"');
+
+        const geminiRaw = readFileSync(
+          nodePath.join(workspaceRoot, ".gemini", "settings.json"),
+          "utf8",
+        );
+        expect(geminiRaw).toContain('"BeforeTool"');
+        expect(geminiRaw).toContain('"matcher": "/Write|Edit/"');
+        expect(geminiRaw).toContain('"name": "identity-check"');
+        expect(geminiRaw).toContain('"timeout": 5000');
+        expect(geminiRaw).toContain(".axm/extensions/external/hooks/identity-check/src/hook.sh");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }

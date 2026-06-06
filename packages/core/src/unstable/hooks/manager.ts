@@ -13,6 +13,13 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import {
+  AGENTS as CAPABILITY_AGENTS,
+  type Agent as CapabilityAgent,
+  type CanonicalHookEventId,
+  type HookEventMapping,
+  type HooksWriter,
+} from "../agent-capabilities/index.js";
 import { computeSourceHash } from "../extensions/rendered-files.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
@@ -53,7 +60,7 @@ export class HookManager extends ServiceMap.Service<
   ExtensionManager<HookExtensionRef>
 >()("@agentxm/client-core/unstable/hooks/manager/HookManager") {}
 
-const CLAUDE_SETTINGS_PATH = ".claude/settings.json";
+const HOOK_MANIFEST_COMPATIBILITY_AGENT_ID = "claude-code";
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
@@ -161,6 +168,62 @@ const localHookLockEntry = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+interface HookWriterTarget {
+  readonly agent: CapabilityAgent;
+  readonly writer: HooksWriter;
+  readonly configPath: string;
+}
+
+const capabilityAgentById = (id: string): CapabilityAgent | undefined =>
+  CAPABILITY_AGENTS.find((agent) => agent.id === id);
+
+const configuredHookWriterTargets = (
+  configuredAgents: ReadonlyArray<string>,
+  resolvePath: (path: string) => string,
+): ReadonlyArray<HookWriterTarget> => {
+  const targets: HookWriterTarget[] = [];
+  for (const id of configuredAgents) {
+    const agent = capabilityAgentById(id);
+    const hook = agent?.capabilities.hook;
+    if (agent === undefined || hook === undefined || hook.axm.support !== "supported") continue;
+    if (hook.axm.writer === null) continue;
+
+    const configFile = hook.axm.writer.configFiles.find(
+      (file) => file.scope === "project" && file.format === "json" && !file.gitignored,
+    );
+    if (configFile === undefined) continue;
+
+    targets.push({
+      agent,
+      writer: hook.axm.writer,
+      configPath: resolvePath(configFile.path),
+    });
+  }
+  return targets;
+};
+
+const hookEventsFor = (agent: CapabilityAgent): ReadonlyArray<HookEventMapping> => {
+  const native = agent.capabilities.hook.native;
+  return "events" in native ? native.events : [];
+};
+
+const manifestCompatibilityEventMap = (): ReadonlyMap<string, CanonicalHookEventId> => {
+  const agent = capabilityAgentById(HOOK_MANIFEST_COMPATIBILITY_AGENT_ID);
+  const entries = hookEventsForAgent(agent).map(
+    (event): readonly [string, CanonicalHookEventId] => [event.nativeName, event.canonical],
+  );
+  return new Map(entries);
+};
+
+const hookEventsForAgent = (agent: CapabilityAgent | undefined): ReadonlyArray<HookEventMapping> =>
+  agent === undefined ? [] : hookEventsFor(agent);
+
+const targetNativeEventName = (
+  agent: CapabilityAgent,
+  canonical: CanonicalHookEventId,
+): string | undefined =>
+  hookEventsFor(agent).find((event) => event.canonical === canonical)?.nativeName;
+
 const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
   Effect.sync(() => {
     const errors: Array<ParseError> = [];
@@ -179,21 +242,25 @@ const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown
     ),
   );
 
-const validateHooksShape = (configPath: string, parsed: unknown): Effect.Effect<void, AppError> => {
+const validateHooksShape = (
+  configPath: string,
+  settingsKey: string,
+  parsed: unknown,
+): Effect.Effect<void, AppError> => {
   if (!isRecord(parsed)) {
     return Effect.fail(
       makeAppError({
         code: "validation",
-        detail: `Invalid Claude Code hooks config format: ${configPath}`,
+        detail: `Invalid hooks config format: ${configPath}`,
       }),
     );
   }
-  const hooks = parsed["hooks"];
+  const hooks = parsed[settingsKey];
   if (hooks !== undefined && !isRecord(hooks)) {
     return Effect.fail(
       makeAppError({
         code: "validation",
-        detail: `Invalid Claude Code hooks config format: ${configPath} (hooks must be an object)`,
+        detail: `Invalid hooks config format: ${configPath} (${settingsKey} must be an object)`,
       }),
     );
   }
@@ -302,43 +369,95 @@ const interpreterForRuntime = (runtime: HookManifest["runtime"]): string => {
   }
 };
 
-const appendClaudeHookBinding = (
+const serializeMatcher = (writer: HooksWriter, matcher: string | undefined): string | undefined => {
+  if (matcher === undefined) return undefined;
+  switch (writer.matcherSerialization) {
+    case "bare":
+    case "glob":
+      return matcher;
+    case "slash-delimited":
+      return `/${matcher}/`;
+  }
+};
+
+const serializeTimeout = (
+  writer: HooksWriter,
+  timeoutMs: number | undefined,
+): number | undefined => {
+  if (timeoutMs === undefined) return undefined;
+  switch (writer.timeoutSerialization) {
+    case "seconds":
+      return Math.ceil(timeoutMs / 1000);
+    case "milliseconds":
+      return timeoutMs;
+  }
+};
+
+const appendCommandHookBinding = (
   hooks: Record<string, unknown>,
+  agent: CapabilityAgent,
+  writer: HooksWriter,
   binding: HookBinding,
+  hookName: string,
   command: string,
   timeoutMs: number | undefined,
-): void => {
-  const existingGroups = hooks[binding.event];
-  const groups = Array.isArray(existingGroups) ? [...existingGroups] : [];
-  const commandEntry: Record<string, unknown> = {
-    type: "command",
-    command,
-  };
-  if (timeoutMs !== undefined) {
-    commandEntry["timeout"] = Math.ceil(timeoutMs / 1000);
-  }
+): Effect.Effect<void, AppError> =>
+  Effect.gen(function* () {
+    const compatibilityEvent = manifestCompatibilityEventMap().get(binding.event);
+    if (compatibilityEvent === undefined) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Hook binding event is not recognized by the compatibility map: ${binding.event}`,
+      });
+    }
 
-  const group: Record<string, unknown> = {
-    hooks: [commandEntry],
-  };
-  if (binding.matcher !== undefined) {
-    group["matcher"] = binding.matcher;
-  }
-  groups.push(group);
-  hooks[binding.event] = groups;
-};
+    const nativeEventName = targetNativeEventName(agent, compatibilityEvent);
+    if (nativeEventName === undefined) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `${agent.name} does not support hook event ${compatibilityEvent} for binding ${binding.event}`,
+      });
+    }
+
+    const existingGroups = hooks[nativeEventName];
+    const groups = Array.isArray(existingGroups) ? [...existingGroups] : [];
+    const commandEntry: Record<string, unknown> = {
+      type: "command",
+      command,
+    };
+    if (writer.commandNameSerialization === "manifest") {
+      commandEntry["name"] = hookName;
+    }
+    const timeout = serializeTimeout(writer, timeoutMs);
+    if (timeout !== undefined) {
+      commandEntry["timeout"] = timeout;
+    }
+
+    const group: Record<string, unknown> = {
+      hooks: [commandEntry],
+    };
+    const matcher = serializeMatcher(writer, binding.matcher);
+    if (matcher !== undefined) {
+      group["matcher"] = matcher;
+    }
+    groups.push(group);
+    hooks[nativeEventName] = groups;
+  });
 
 const updateHooksJson = (
   configPath: string,
+  settingsKey: string,
   raw: string,
   renderedHooks: Record<string, unknown>,
 ): Effect.Effect<string, AppError> =>
   Effect.gen(function* () {
     const initial = raw.trim().length === 0 ? "{}\n" : raw;
     const parsed = yield* parseJsonConfig(configPath, initial);
-    yield* validateHooksShape(configPath, parsed);
+    yield* validateHooksShape(configPath, settingsKey, parsed);
     const existingHooks =
-      isRecord(parsed) && isRecord(parsed["hooks"]) ? stripManagedHookGroups(parsed["hooks"]) : {};
+      isRecord(parsed) && isRecord(parsed[settingsKey])
+        ? stripManagedHookGroups(parsed[settingsKey])
+        : {};
 
     for (const [event, groups] of Object.entries(renderedHooks)) {
       const existingGroups = existingHooks[event];
@@ -348,9 +467,14 @@ const updateHooksJson = (
     }
 
     const hooksKeys = Object.keys(existingHooks);
-    const edits = modify(initial, ["hooks"], hooksKeys.length === 0 ? undefined : existingHooks, {
-      formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
-    });
+    const edits = modify(
+      initial,
+      [settingsKey],
+      hooksKeys.length === 0 ? undefined : existingHooks,
+      {
+        formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
+      },
+    );
     return applyEdits(initial, edits);
   });
 
@@ -583,13 +707,16 @@ export const HookManagerLive = Layer.effect(
         };
       });
 
-    const renderInstalledHookGroups = (args?: {
-      readonly include?: {
-        readonly ref: HookExtensionRef;
-        readonly packageRoot: string;
-      };
-      readonly excludeName?: string;
-    }) =>
+    const renderInstalledHookGroups = (
+      target: HookWriterTarget,
+      args?: {
+        readonly include?: {
+          readonly ref: HookExtensionRef;
+          readonly packageRoot: string;
+        };
+        readonly excludeName?: string;
+      },
+    ) =>
       Effect.gen(function* () {
         const configured = yield* ws.getConfiguredHookEntries();
         const renderedHooks = yield* Effect.forEach(
@@ -616,7 +743,15 @@ export const HookManagerLive = Layer.effect(
         const hooks: Record<string, unknown> = {};
         for (const rendered of sorted) {
           for (const binding of rendered.manifest.bindings) {
-            appendClaudeHookBinding(hooks, binding, rendered.command, rendered.manifest.timeoutMs);
+            yield* appendCommandHookBinding(
+              hooks,
+              target.agent,
+              target.writer,
+              binding,
+              rendered.manifest.name,
+              rendered.command,
+              rendered.manifest.timeoutMs,
+            );
           }
         }
         return hooks;
@@ -630,17 +765,41 @@ export const HookManagerLive = Layer.effect(
       readonly excludeName?: string;
     }) =>
       Effect.gen(function* () {
-        const rendered = yield* renderInstalledHookGroups(args);
-        const configPath = path.resolve(baseDir, CLAUDE_SETTINGS_PATH);
-        const raw = yield* provide(readExisting(configPath));
-        const next = yield* updateHooksJson(configPath, raw, rendered);
-        yield* provide(writeIfChanged(configPath, raw, next));
+        const configuredAgents = yield* ws.getConfiguredAgents();
+        const targets = configuredHookWriterTargets(configuredAgents, (configPath) =>
+          path.resolve(baseDir, configPath),
+        );
 
-        return decodeMaterializedTarget({
-          target: decodeRelativePathSync(CLAUDE_SETTINGS_PATH),
-          mode: "sync-always",
-          renderHash: computeSourceHash(JSON.stringify(rendered)),
-        });
+        return yield* Effect.forEach(
+          targets,
+          (target) =>
+            Effect.gen(function* () {
+              const rendered = yield* renderInstalledHookGroups(target, args);
+              const raw = yield* provide(readExisting(target.configPath));
+              const next = yield* updateHooksJson(
+                target.configPath,
+                target.writer.settingsKey,
+                raw,
+                rendered,
+              );
+              yield* provide(writeIfChanged(target.configPath, raw, next));
+
+              const workspaceRelative = makeWorkspaceRelativePath(path, baseDir, target.configPath);
+              if (Option.isNone(workspaceRelative)) {
+                return yield* makeAppError({
+                  code: "validation",
+                  detail: `Hook config path escapes workspace: ${target.configPath}`,
+                });
+              }
+
+              return decodeMaterializedTarget({
+                target: decodeRelativePathSync(workspaceRelative.value),
+                mode: "sync-always",
+                renderHash: computeSourceHash(JSON.stringify(rendered)),
+              });
+            }),
+          { concurrency: "unbounded" },
+        );
       });
 
     const materializeInstall: ExtensionManager<HookExtensionRef>["materializeInstall"] = Effect.fn(
@@ -660,10 +819,10 @@ export const HookManagerLive = Layer.effect(
         });
       }
 
-      const materializedTarget = yield* writeHooksConfig({ include: { ref, packageRoot } });
+      const materializedTargets = yield* writeHooksConfig({ include: { ref, packageRoot } });
       lastInstallState.set(ref.hook.name, {
         ref,
-        materializedTargets: [materializedTarget],
+        materializedTargets,
         workspaceRelativeLocalSourcePath,
       });
     }, Effect.asVoid);

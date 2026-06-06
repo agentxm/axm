@@ -35,7 +35,7 @@ Claude Code's capability claims show every axis in use:
 ```typescript
 capabilities: {
   skill: {
-    canonical: {
+    native: {
       availability: { via: "native" }
       vendorStatus: { state: "active" }
       standardsCompliance: "full" // SKILL.md shape per spec
@@ -52,7 +52,7 @@ capabilities: {
   }
 
   rule: {
-    canonical: {
+    native: {
       standardsCompliance: "parity" // CLAUDE.md is behaviorally equivalent
       convention: "vendor" // different filename
       availability: { via: "native" }
@@ -65,7 +65,7 @@ capabilities: {
   }
 
   files: {
-    canonical: {
+    native: {
       availability: { via: "none" }
       vendorStatus: { state: "active" }
     }
@@ -73,7 +73,7 @@ capabilities: {
   }
 
   "mcp-server": {
-    canonical: {
+    native: {
       availability: { via: "native" }
       vendorStatus: { state: "active" }
       standardsCompliance: "full"
@@ -90,7 +90,7 @@ capabilities: {
   }
 
   subagent: {
-    canonical: {
+    native: {
       availability: { via: "native" }
       vendorStatus: { state: "active" }
       scopes: ["user", "project"]
@@ -103,7 +103,7 @@ capabilities: {
 }
 
 permissions:
-  canonical: {
+  native: {
     availability: { via: "native" }
     vendorStatus: { state: "active" }
     scopes: ["user", "project"]
@@ -121,8 +121,11 @@ permissions:
 An **agent** declares zero or more **capabilities**. Each capability is graded
 along orthogonal axes:
 
-- **Canonical block** — vendor-sourced facts under `canonical`, including the
+- **Native block** — vendor-sourced facts under `native`, including the
   axes below plus capability-specific fields and provenance.
+- **Hook canonical block** — hook capabilities also carry `canonical`, AXM's
+  vendor-neutral projection of native hook events, mechanisms, matcher kinds,
+  and decision capabilities.
 - **Standards compliance** — how well the agent's native format matches an
   industry spec. Spec-tracked capabilities only.
 - **Convention** — whether the agent's location/filename/path matches the
@@ -140,10 +143,10 @@ along orthogonal axes:
 AXM derives extension compatibility from AXM support and availability: an agent
 supports a leaf extension type when
 `agent.capabilities[type].axm.support === "supported"` and
-`agent.capabilities[type].canonical.availability.via !== "none"` (see
+`agent.capabilities[type].native.availability.via !== "none"` (see
 `isCapabilitySupported` in `derive.ts`). `agentCapabilityStatus` derives the
 agent-facing status (`native`, `native-deprecated`, `plugin`,
-`plugin-deprecated`, `none`) from canonical availability and vendor status.
+`plugin-deprecated`, `none`) from native availability and vendor status.
 `axmIntegrationStatus` returns the AXM integration axis (`supported`, `planned`,
 `unsupported`, `unknown`). `standardsCompliance` remains format-fidelity
 metadata. `axm.writer.config` means AXM has a verified file-backed writer
@@ -230,18 +233,52 @@ not the agent core's lack of native support.
 
 ### AXM Support _(all capabilities)_
 
-| Value         | Meaning                                                       | Works? |
-| ------------- | ------------------------------------------------------------- | :----: |
-| `supported`   | Implemented and verified                                      |  yes   |
-| `planned`     | AXM intends to support this but does not yet                  |   no   |
-| `unsupported` | Authoritative source confirms the agent lacks this capability |   no   |
-| `unknown`     | Not verified                                                  |   no   |
+| Value         | Meaning                                          | Works? |
+| ------------- | ------------------------------------------------ | :----: |
+| `supported`   | Implemented and verified                         |  yes   |
+| `planned`     | AXM intends to support this but does not yet     |   no   |
+| `unsupported` | AXM does not manage or serialize this capability |   no   |
+| `unknown`     | Not verified                                     |   no   |
 
 Any active AXM claim (`supported` or `planned`) must cite at least one
-`canonical.sources[]` URL and an ISO `axm.lastVerified` date. Inactive AXM claims
+`native.sources[]` URL and an ISO `axm.lastVerified` date. Inactive AXM claims
 (`unsupported` or `unknown`) omit active-only fields. `unsupported` can still
-combine with `canonical.availability.via: "plugin"` when AXM does not manage
+combine with `native.availability.via: "plugin"` when AXM does not manage
 the surface but a plugin path is known.
+Inactive AXM claims may carry `axm.reason`, especially when a native hook system
+exists but AXM has no writer for its invocation family.
+
+### Hook canonical model
+
+Hook capabilities use all three namespaces:
+
+- `native`: vendor facts, including native event names, invocation mechanism
+  families, config files, matcher syntax, decision contract, sources, and
+  per-event `lastVerified`.
+- `canonical`: AXM's normalized projection, using event IDs such as `tool.pre`,
+  `tool.post`, `prompt.submit`, and `session.start`, plus mechanism families,
+  matcher kinds, and decision capabilities.
+- `axm`: support status and the optional parameterized writer.
+
+Each native hook event maps to one canonical event:
+
+```typescript
+{
+  nativeName: "PreToolUse",
+  canonical: "tool.pre",
+  matcher: { kind: "regex", example: "Write|Edit", notes: null },
+  decision: [
+    { kind: "observe" },
+    { kind: "block", outcomes: ["allow", "deny", "ask"] },
+  ],
+  sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+  lastVerified: "2026-06-02",
+}
+```
+
+Do not collapse “native hooks exist but AXM cannot serialize them” to
+`native.availability.via: "none"`. Use native availability with the mechanism
+family and event mappings, then set `axm.support: "unsupported"` with a reason.
 
 ### Derived Statuses _(never authored)_
 
@@ -251,7 +288,7 @@ the surface but a plugin path is known.
 - `native-deprecated` — native + maintenance/deprecated/removed
 - `plugin` — plugin + active
 - `plugin-deprecated` — plugin + maintenance/deprecated/removed
-- `none` — no known canonical availability
+- `none` — no known native availability
 
 `axmIntegrationStatus(capability)` independently returns `supported`, `planned`,
 `unsupported`, or `unknown`.
@@ -291,6 +328,8 @@ divergence.
    native surface; `unsupported` when AXM does not manage it.
 4. Omit `standardsCompliance` and `convention` — the schema rejects them on
    these kinds.
+5. For `hook`, fill the `canonical` projection and ensure each native event's
+   `canonical` pointer resolves to the shared hook event registry.
 
 ---
 
@@ -334,9 +373,9 @@ divergence.
 When you add or change a capability claim:
 
 - update the agent's TypeScript module in `data/agents/`
-- set `canonical.sources` and `axm.lastVerified` together for
+- set `native.sources` and `axm.lastVerified` together for
   `axm.support: "supported"` or `"planned"` claims
-- set `canonical.availability`, `canonical.vendorStatus`, and `axm.support`
+- set `native.availability`, `native.vendorStatus`, and `axm.support`
   explicitly
 - for plugin-backed availability, include a descriptive plugin descriptor and
   remember AXM does not manage that plugin

@@ -412,7 +412,7 @@ const CapabilityNotesSchema = Schema.NullOr(Schema.NonEmptyString);
 const CapabilityDocsSchema = Schema.Array(DocLinkSchema);
 const CapabilitySourcesSchema = Schema.Array(UrlSchema);
 
-const UnavailableCanonicalCapabilityFields = {
+const UnavailableNativeCapabilityFields = {
   availability: NoneAvailabilitySchema,
   vendorStatus: VendorStatusSchema,
   notes: CapabilityNotesSchema,
@@ -420,7 +420,7 @@ const UnavailableCanonicalCapabilityFields = {
   sources: CapabilitySourcesSchema,
 };
 
-const AvailableCanonicalCapabilityBaseFields = {
+const AvailableNativeCapabilityBaseFields = {
   availability: AvailableCapabilityAvailabilitySchema,
   vendorStatus: VendorStatusSchema,
   notes: CapabilityNotesSchema,
@@ -434,8 +434,8 @@ const SpecTrackedCapabilityFields = {
   convention: ConventionSchema,
 };
 
-const AvailableSpecTrackedCanonicalCapabilityFields = {
-  ...AvailableCanonicalCapabilityBaseFields,
+const AvailableSpecTrackedNativeCapabilityFields = {
+  ...AvailableNativeCapabilityBaseFields,
   ...SpecTrackedCapabilityFields,
 };
 
@@ -447,12 +447,13 @@ const NoWriterAxmCapabilityStateSchema = Schema.Union([
   }),
   Schema.Struct({
     support: InactiveAxmSupportSchema,
+    reason: Schema.optionalKey(Schema.NonEmptyString),
     writer: Schema.Null,
   }),
 ]);
 
 type CapabilityWithActiveSources = {
-  readonly canonical: {
+  readonly native: {
     readonly sources: ReadonlyArray<Url>;
   };
   readonly axm: {
@@ -465,37 +466,37 @@ const requireSourcesForActiveAxmSupport = (
 ): Schema.FilterIssue | undefined => {
   if (
     (capability.axm.support === SUPPORTED_AXM_SUPPORT || capability.axm.support === "planned") &&
-    capability.canonical.sources.length === 0
+    capability.native.sources.length === 0
   ) {
     return {
-      path: ["canonical", "sources"],
-      issue: "Active AXM support claims require at least one canonical source.",
+      path: ["native", "sources"],
+      issue: "Active AXM support claims require at least one native source.",
     };
   }
   return undefined;
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const CanonicalCapabilityBaseSchema = Schema.Union([
-  Schema.Struct(AvailableCanonicalCapabilityBaseFields),
-  Schema.Struct(UnavailableCanonicalCapabilityFields),
+export const NativeCapabilityBaseSchema = Schema.Union([
+  Schema.Struct(AvailableNativeCapabilityBaseFields),
+  Schema.Struct(UnavailableNativeCapabilityFields),
 ]).annotate({
-  identifier: "CanonicalCapabilityBase",
-  title: "Canonical Capability Base",
+  identifier: "NativeCapabilityBase",
+  title: "Native Capability Base",
   description: "Vendor-sourced fields shared by all agent capabilities.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
-export type CanonicalCapabilityBase = Schema.Schema.Type<typeof CanonicalCapabilityBaseSchema>;
+export type NativeCapabilityBase = Schema.Schema.Type<typeof NativeCapabilityBaseSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const SkillsExtensionCapabilitySchema = Schema.Struct({
-  canonical: Schema.Union([
+  native: Schema.Union([
     Schema.Struct({
-      ...AvailableSpecTrackedCanonicalCapabilityFields,
+      ...AvailableSpecTrackedNativeCapabilityFields,
       directory: Schema.NonEmptyString,
     }),
-    Schema.Struct(UnavailableCanonicalCapabilityFields),
+    Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
   axm: NoWriterAxmCapabilityStateSchema,
 })
@@ -511,12 +512,12 @@ export type SkillsExtensionCapability = Schema.Schema.Type<typeof SkillsExtensio
 
 /** @experimental This API is unstable and may change without notice. */
 export const CommandsExtensionCapabilitySchema = Schema.Struct({
-  canonical: Schema.Union([
+  native: Schema.Union([
     Schema.Struct({
-      ...AvailableCanonicalCapabilityBaseFields,
+      ...AvailableNativeCapabilityBaseFields,
       directory: Schema.NonEmptyString,
     }),
-    Schema.Struct(UnavailableCanonicalCapabilityFields),
+    Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
   axm: NoWriterAxmCapabilityStateSchema,
 })
@@ -543,22 +544,22 @@ export const SubagentsLayoutSchema = Schema.Literals(["file", "directory"]).anno
 /** @experimental This API is unstable and may change without notice. */
 export type SubagentsLayout = Schema.Schema.Type<typeof SubagentsLayoutSchema>;
 
-const PluginSubagentsCanonicalCapabilitySchema = Schema.Struct({
-  ...AvailableCanonicalCapabilityBaseFields,
+const PluginSubagentsNativeCapabilitySchema = Schema.Struct({
+  ...AvailableNativeCapabilityBaseFields,
   availability: PluginAvailabilitySchema,
 });
 
 /** @experimental This API is unstable and may change without notice. */
 export const SubagentsExtensionCapabilitySchema = Schema.Struct({
-  canonical: Schema.Union([
+  native: Schema.Union([
     Schema.Struct({
-      ...AvailableCanonicalCapabilityBaseFields,
+      ...AvailableNativeCapabilityBaseFields,
       availability: NativeAvailabilitySchema,
       directory: Schema.NonEmptyString,
       layout: SubagentsLayoutSchema,
     }),
-    PluginSubagentsCanonicalCapabilitySchema,
-    Schema.Struct(UnavailableCanonicalCapabilityFields),
+    PluginSubagentsNativeCapabilitySchema,
+    Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
   axm: NoWriterAxmCapabilityStateSchema,
 })
@@ -607,7 +608,7 @@ const OptionalRuleDirectoryField = {
 };
 
 const AgentsMdRulesExtensionCapabilitySchema = Schema.Struct({
-  ...AvailableSpecTrackedCanonicalCapabilityFields,
+  ...AvailableSpecTrackedNativeCapabilityFields,
   ...OptionalRuleDirectoryField,
   kind: Schema.Literal("agents-md"),
   files: Schema.Tuple([Schema.Literal("AGENTS.md")]),
@@ -616,7 +617,7 @@ const AgentsMdRulesExtensionCapabilitySchema = Schema.Struct({
 });
 
 const OwnFileRulesExtensionCapabilitySchema = Schema.Struct({
-  ...AvailableSpecTrackedCanonicalCapabilityFields,
+  ...AvailableSpecTrackedNativeCapabilityFields,
   ...OptionalRuleDirectoryField,
   kind: Schema.Literal("own-file"),
   files: Schema.Tuple([Schema.NonEmptyString]),
@@ -625,7 +626,7 @@ const OwnFileRulesExtensionCapabilitySchema = Schema.Struct({
 });
 
 const RulesDirRulesExtensionCapabilitySchema = Schema.Struct({
-  ...AvailableSpecTrackedCanonicalCapabilityFields,
+  ...AvailableSpecTrackedNativeCapabilityFields,
   kind: Schema.Literal("rules-dir"),
   files: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
   nestedDiscovery: Schema.Boolean,
@@ -635,11 +636,11 @@ const RulesDirRulesExtensionCapabilitySchema = Schema.Struct({
 
 /** @experimental This API is unstable and may change without notice. */
 export const RulesExtensionCapabilitySchema = Schema.Struct({
-  canonical: Schema.Union([
+  native: Schema.Union([
     AgentsMdRulesExtensionCapabilitySchema,
     OwnFileRulesExtensionCapabilitySchema,
     RulesDirRulesExtensionCapabilitySchema,
-    Schema.Struct(UnavailableCanonicalCapabilityFields),
+    Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
   axm: NoWriterAxmCapabilityStateSchema,
 })
@@ -655,14 +656,14 @@ export type RulesExtensionCapability = Schema.Schema.Type<typeof RulesExtensionC
 
 /** @experimental This API is unstable and may change without notice. */
 export const FilesExtensionCapabilitySchema = Schema.Struct({
-  canonical: Schema.Union([
+  native: Schema.Union([
     Schema.Struct({
-      ...AvailableCanonicalCapabilityBaseFields,
+      ...AvailableNativeCapabilityBaseFields,
       directory: Schema.NonEmptyString,
       files: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
       naming: Schema.NullOr(Schema.NonEmptyString),
     }),
-    Schema.Struct(UnavailableCanonicalCapabilityFields),
+    Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
   axm: NoWriterAxmCapabilityStateSchema,
 })
@@ -822,7 +823,7 @@ export const McpEnvExpansionSchema = Schema.Struct({
 export type McpEnvExpansion = Schema.Schema.Type<typeof McpEnvExpansionSchema>;
 
 const McpUnavailableCapabilityStruct = Schema.Struct({
-  canonical: Schema.Struct(UnavailableCanonicalCapabilityFields),
+  native: Schema.Struct(UnavailableNativeCapabilityFields),
   axm: Schema.Union([
     Schema.Struct({
       support: ActiveAxmSupportSchema,
@@ -831,19 +832,20 @@ const McpUnavailableCapabilityStruct = Schema.Struct({
     }),
     Schema.Struct({
       support: InactiveAxmSupportSchema,
+      reason: Schema.optionalKey(Schema.NonEmptyString),
       writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
     }),
   ]),
 });
 
-const McpCanonicalWithTransportsSchema = Schema.Struct({
-  ...AvailableSpecTrackedCanonicalCapabilityFields,
+const McpNativeWithTransportsSchema = Schema.Struct({
+  ...AvailableSpecTrackedNativeCapabilityFields,
   transports: NonEmptyMcpTransportsSchema,
   mcpEnvExpansion: Schema.optionalKey(McpEnvExpansionSchema),
 });
 
 const McpAvailableCapabilityStruct = Schema.Struct({
-  canonical: McpCanonicalWithTransportsSchema,
+  native: McpNativeWithTransportsSchema,
   axm: Schema.Union([
     Schema.Struct({
       support: ActiveAxmSupportSchema,
@@ -852,6 +854,7 @@ const McpAvailableCapabilityStruct = Schema.Struct({
     }),
     Schema.Struct({
       support: InactiveAxmSupportSchema,
+      reason: Schema.optionalKey(Schema.NonEmptyString),
       writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
     }),
   ]),
@@ -869,17 +872,17 @@ const McpExtensionCapabilitySchemaWithChecks = McpExtensionCapabilityStruct.pipe
       const activeSourcesIssue = requireSourcesForActiveAxmSupport(capability);
       if (activeSourcesIssue !== undefined) issues.push(activeSourcesIssue);
       const writer = capability.axm.writer;
-      if (writer === null || !("transports" in capability.canonical)) return issues;
+      if (writer === null || !("transports" in capability.native)) return issues;
       const config = writer.config;
-      if (capability.canonical.transports.includes("stdio") && config.stdio === null) {
+      if (capability.native.transports.includes("stdio") && config.stdio === null) {
         issues.push({
           path: ["axm", "writer", "config", "stdio"],
           issue: "MCP stdio config is required when stdio transport is supported.",
         });
       }
       if (
-        (capability.canonical.transports.includes("http") ||
-          capability.canonical.transports.includes("sse")) &&
+        (capability.native.transports.includes("http") ||
+          capability.native.transports.includes("sse")) &&
         config.remote === null
       ) {
         issues.push({
@@ -954,43 +957,368 @@ export const ConfigFileLocationSchema = Schema.Struct({
 export type ConfigFileLocation = Schema.Schema.Type<typeof ConfigFileLocationSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HooksSerializerSchema = Schema.Literals(["claude-code-settings"]).annotate({
+export const CANONICAL_HOOK_EVENT_IDS = [
+  "session.start",
+  "session.end",
+  "prompt.submit",
+  "turn.start",
+  "turn.end",
+  "tool.pre",
+  "tool.post",
+  "tool.error",
+  "subagent.start",
+  "subagent.stop",
+  "compaction.pre",
+  "compaction.post",
+  "notification",
+  "model.pre",
+  "model.post",
+  "file.changed",
+] as const;
+
+/** @experimental This API is unstable and may change without notice. */
+export const CanonicalHookEventIdSchema = Schema.Literals(CANONICAL_HOOK_EVENT_IDS).annotate({
+  identifier: "CanonicalHookEventId",
+  title: "Canonical Hook Event ID",
+  description: "Vendor-neutral hook lifecycle event identifier.",
+  examples: ["tool.pre", "tool.post", "prompt.submit"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type CanonicalHookEventId = Schema.Schema.Type<typeof CanonicalHookEventIdSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookEventTierSchema = Schema.Literals(["core", "extended"]).annotate({
+  identifier: "HookEventTier",
+  title: "Hook Event Tier",
+  description: "Whether a canonical hook event belongs to the stable core or extended tail.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookEventTier = Schema.Schema.Type<typeof HookEventTierSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const CanonicalHookEventSchema = Schema.Struct({
+  id: CanonicalHookEventIdSchema,
+  tier: HookEventTierSchema,
+}).annotate({
+  identifier: "CanonicalHookEvent",
+  title: "Canonical Hook Event",
+  description: "Registered AXM hook event concept.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type CanonicalHookEvent = Schema.Schema.Type<typeof CanonicalHookEventSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const CANONICAL_HOOK_EVENTS = [
+  { id: "session.start", tier: "core" },
+  { id: "session.end", tier: "core" },
+  { id: "prompt.submit", tier: "core" },
+  { id: "turn.start", tier: "core" },
+  { id: "turn.end", tier: "core" },
+  { id: "tool.pre", tier: "core" },
+  { id: "tool.post", tier: "core" },
+  { id: "tool.error", tier: "core" },
+  { id: "subagent.start", tier: "extended" },
+  { id: "subagent.stop", tier: "extended" },
+  { id: "compaction.pre", tier: "extended" },
+  { id: "compaction.post", tier: "extended" },
+  { id: "notification", tier: "extended" },
+  { id: "model.pre", tier: "extended" },
+  { id: "model.post", tier: "extended" },
+  { id: "file.changed", tier: "extended" },
+] as const satisfies ReadonlyArray<CanonicalHookEvent>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookMechanismFamilySchema = Schema.Literals([
+  "command-stdin",
+  "command-env",
+  "http",
+  "mcp-tool",
+  "prompt",
+  "subagent",
+  "in-process-plugin",
+  "declarative-action",
+]).annotate({
+  identifier: "HookMechanismFamily",
+  title: "Hook Mechanism Family",
+  description: "How a native hook system invokes a hook.",
+  examples: ["command-stdin", "in-process-plugin", "declarative-action"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookMechanismFamily = Schema.Schema.Type<typeof HookMechanismFamilySchema>;
+
+const HookMechanismFamiliesSchema = Schema.Array(HookMechanismFamilySchema).pipe(
+  Schema.check(Schema.isUnique()),
+);
+
+const NonEmptyHookMechanismFamiliesSchema = Schema.NonEmptyArray(HookMechanismFamilySchema).pipe(
+  Schema.check(Schema.isUnique()),
+);
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookMatcherKindSchema = Schema.Literals([
+  "regex",
+  "literal-list",
+  "glob",
+  "tool-category",
+  "exact-substring",
+  "none-imperative",
+]).annotate({
+  identifier: "HookMatcherKind",
+  title: "Hook Matcher Kind",
+  description: "Native matcher syntax used to scope hook invocation.",
+  examples: ["regex", "glob", "none-imperative"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookMatcherKind = Schema.Schema.Type<typeof HookMatcherKindSchema>;
+
+const HookMatcherKindsSchema = Schema.Array(HookMatcherKindSchema).pipe(
+  Schema.check(Schema.isUnique()),
+);
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookMatcherSchema = Schema.Struct({
+  kind: HookMatcherKindSchema,
+  example: Schema.NullOr(Schema.NonEmptyString),
+  notes: Schema.NullOr(Schema.NonEmptyString),
+}).annotate({
+  identifier: "HookMatcher",
+  title: "Hook Matcher",
+  description: "Matcher model for a native hook event.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookMatcher = Schema.Schema.Type<typeof HookMatcherSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookBlockOutcomeSchema = Schema.Literals(["allow", "deny", "ask"]).annotate({
+  identifier: "HookBlockOutcome",
+  title: "Hook Block Outcome",
+  description: "Decision outcome available to blocking hook systems.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookBlockOutcome = Schema.Schema.Type<typeof HookBlockOutcomeSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookModifyOperationSchema = Schema.Literals([
+  "modify-input",
+  "inject-context",
+  "modify-output",
+  "synthesize",
+  "redact",
+]).annotate({
+  identifier: "HookModifyOperation",
+  title: "Hook Modify Operation",
+  description: "Transform operation available to modifying hook systems.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookModifyOperation = Schema.Schema.Type<typeof HookModifyOperationSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookDecisionCapabilitySchema = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("observe") }),
+  Schema.Struct({
+    kind: Schema.Literal("block"),
+    outcomes: Schema.NonEmptyArray(HookBlockOutcomeSchema).pipe(Schema.check(Schema.isUnique())),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("modify"),
+    operations: Schema.NonEmptyArray(HookModifyOperationSchema).pipe(
+      Schema.check(Schema.isUnique()),
+    ),
+  }),
+]).annotate({
+  identifier: "HookDecisionCapability",
+  title: "Hook Decision Capability",
+  description: "Whether a hook event can observe, block, or modify lifecycle behavior.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookDecisionCapability = Schema.Schema.Type<typeof HookDecisionCapabilitySchema>;
+
+const HookDecisionCapabilitiesSchema = Schema.Array(HookDecisionCapabilitySchema);
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookEventMappingSchema = Schema.Struct({
+  nativeName: Schema.NonEmptyString,
+  canonical: CanonicalHookEventIdSchema,
+  matcher: HookMatcherSchema,
+  decision: Schema.NonEmptyArray(HookDecisionCapabilitySchema),
+  sources: Schema.NonEmptyArray(UrlSchema),
+  lastVerified: LastVerifiedDateSchema,
+}).annotate({
+  identifier: "HookEventMapping",
+  title: "Hook Event Mapping",
+  description: "Native hook event name with its canonical AXM event pointer and provenance.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookEventMapping = Schema.Schema.Type<typeof HookEventMappingSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HooksCanonicalModelSchema = Schema.Struct({
+  events: Schema.Array(CanonicalHookEventIdSchema).pipe(Schema.check(Schema.isUnique())),
+  mechanism: HookMechanismFamiliesSchema,
+  matcherKinds: HookMatcherKindsSchema,
+  decision: HookDecisionCapabilitiesSchema,
+}).annotate({
+  identifier: "HooksCanonicalModel",
+  title: "Hooks Canonical Model",
+  description: "Vendor-neutral hook capability projection for an agent.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HooksCanonicalModel = Schema.Schema.Type<typeof HooksCanonicalModelSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HooksSerializerSchema = Schema.Literals(["command-stdin"]).annotate({
   identifier: "HooksSerializer",
   title: "Hooks Serializer",
   description: "Native settings serializer AXM uses for managed hook declarations.",
-  examples: ["claude-code-settings"],
+  examples: ["command-stdin"],
 });
 
 /** @experimental This API is unstable and may change without notice. */
 export type HooksSerializer = Schema.Schema.Type<typeof HooksSerializerSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HooksExtensionCapabilitySchema = Schema.Struct({
-  canonical: Schema.Union([
-    Schema.Struct({
-      ...AvailableCanonicalCapabilityBaseFields,
-      configFiles: Schema.Array(ConfigFileLocationSchema),
-    }),
-    Schema.Struct(UnavailableCanonicalCapabilityFields),
+export const HookMatcherSerializationSchema = Schema.Literals([
+  "bare",
+  "slash-delimited",
+  "glob",
+]).annotate({
+  identifier: "HookMatcherSerialization",
+  title: "Hook Matcher Serialization",
+  description: "How AXM serializes manifest matcher strings into an agent-native hook group.",
+  examples: ["bare", "slash-delimited", "glob"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookMatcherSerialization = Schema.Schema.Type<typeof HookMatcherSerializationSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookTimeoutSerializationSchema = Schema.Literals(["seconds", "milliseconds"]).annotate(
+  {
+    identifier: "HookTimeoutSerialization",
+    title: "Hook Timeout Serialization",
+    description: "Unit AXM uses when serializing hook timeout fields into native settings.",
+    examples: ["seconds", "milliseconds"],
+  },
+);
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookTimeoutSerialization = Schema.Schema.Type<typeof HookTimeoutSerializationSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookCommandNameSerializationSchema = Schema.Literals(["omit", "manifest"]).annotate({
+  identifier: "HookCommandNameSerialization",
+  title: "Hook Command Name Serialization",
+  description: "Whether native command hook entries need an explicit name field.",
+  examples: ["omit", "manifest"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookCommandNameSerialization = Schema.Schema.Type<
+  typeof HookCommandNameSerializationSchema
+>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HooksWriterSchema = Schema.Struct({
+  serializer: HooksSerializerSchema,
+  configFiles: Schema.NonEmptyArray(ConfigFileLocationSchema),
+  settingsKey: Schema.NonEmptyString,
+  eventMap: Schema.Literal("native.events"),
+  matcherKind: HookMatcherKindSchema,
+  matcherSerialization: HookMatcherSerializationSchema,
+  timeoutSerialization: HookTimeoutSerializationSchema,
+  commandNameSerialization: HookCommandNameSerializationSchema,
+}).annotate({
+  identifier: "HooksWriter",
+  title: "Hooks Writer",
+  description: "Parameterized AXM hook writer metadata derived from native hook catalog data.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HooksWriter = Schema.Schema.Type<typeof HooksWriterSchema>;
+
+const HooksAvailableNativeCapabilitySchema = Schema.Struct({
+  ...AvailableNativeCapabilityBaseFields,
+  mechanism: NonEmptyHookMechanismFamiliesSchema,
+  configFiles: Schema.Array(ConfigFileLocationSchema),
+  events: Schema.NonEmptyArray(HookEventMappingSchema),
+});
+
+const HooksExtensionCapabilityStruct = Schema.Struct({
+  native: Schema.Union([
+    HooksAvailableNativeCapabilitySchema,
+    Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
+  canonical: HooksCanonicalModelSchema,
   axm: Schema.Union([
     Schema.Struct({
       support: ActiveAxmSupportSchema,
       lastVerified: LastVerifiedDateSchema,
-      writer: Schema.NullOr(Schema.Struct({ serializer: HooksSerializerSchema })),
+      writer: Schema.NullOr(HooksWriterSchema),
     }),
     Schema.Struct({
       support: InactiveAxmSupportSchema,
-      writer: Schema.NullOr(Schema.Struct({ serializer: HooksSerializerSchema })),
+      reason: Schema.optionalKey(Schema.NonEmptyString),
+      writer: Schema.NullOr(HooksWriterSchema),
     }),
   ]),
-})
-  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
-  .annotate({
-    identifier: "HooksExtensionCapability",
-    title: "Hooks Capability",
-    description: "Agent support for lifecycle hook extensions.",
-  });
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export const HooksExtensionCapabilitySchema = HooksExtensionCapabilityStruct.pipe(
+  Schema.check(
+    Schema.makeFilter((capability: Schema.Schema.Type<typeof HooksExtensionCapabilityStruct>) => {
+      const issues: Array<Schema.FilterIssue> = [];
+      const activeSourcesIssue = requireSourcesForActiveAxmSupport(capability);
+      if (activeSourcesIssue !== undefined) issues.push(activeSourcesIssue);
+
+      const canonicalEvents = new Set<string>(capability.canonical.events);
+      const canonicalMechanisms = new Set<string>(capability.canonical.mechanism);
+      const canonicalMatcherKinds = new Set<string>(capability.canonical.matcherKinds);
+
+      if ("events" in capability.native) {
+        for (const mechanism of capability.native.mechanism) {
+          if (!canonicalMechanisms.has(mechanism)) {
+            issues.push({
+              path: ["canonical", "mechanism"],
+              issue: `Hook canonical mechanism list is missing ${mechanism}.`,
+            });
+          }
+        }
+        for (const event of capability.native.events) {
+          if (!canonicalEvents.has(event.canonical)) {
+            issues.push({
+              path: ["canonical", "events"],
+              issue: `Hook canonical event list is missing ${event.canonical}.`,
+            });
+          }
+          if (!canonicalMatcherKinds.has(event.matcher.kind)) {
+            issues.push({
+              path: ["canonical", "matcherKinds"],
+              issue: `Hook canonical matcher list is missing ${event.matcher.kind}.`,
+            });
+          }
+        }
+      }
+
+      return issues;
+    }),
+  ),
+).annotate({
+  identifier: "HooksExtensionCapability",
+  title: "Hooks Capability",
+  description: "Agent support for lifecycle hook extensions.",
+});
 
 /** @experimental This API is unstable and may change without notice. */
 export type HooksExtensionCapability = Schema.Schema.Type<typeof HooksExtensionCapabilitySchema>;
@@ -1064,16 +1392,16 @@ export type PermissionGrant = Schema.Schema.Type<typeof PermissionGrantSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const PermissionsExtensionCapabilitySchema = Schema.Struct({
-  canonical: Schema.Union([
+  native: Schema.Union([
     Schema.Struct({
-      ...AvailableCanonicalCapabilityBaseFields,
+      ...AvailableNativeCapabilityBaseFields,
       mechanism: NonEmptyPermissionMechanismsSchema,
       configFiles: Schema.Array(ConfigFileLocationSchema),
       grammar: Schema.NullOr(PermissionGrammarSchema),
       prerequisites: Schema.Array(PermissionPrerequisiteSchema),
       cliFlags: Schema.Array(PermissionCliFlagSchema),
     }),
-    Schema.Struct(UnavailableCanonicalCapabilityFields),
+    Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
   axm: Schema.Union([
     Schema.Struct({
@@ -1085,6 +1413,7 @@ export const PermissionsExtensionCapabilitySchema = Schema.Struct({
     }),
     Schema.Struct({
       support: InactiveAxmSupportSchema,
+      reason: Schema.optionalKey(Schema.NonEmptyString),
       writer: Schema.NullOr(
         Schema.Struct({ grants: Schema.Record(Schema.String, PermissionGrantSchema) }),
       ),
@@ -1128,7 +1457,7 @@ export type AgentCapabilities = Schema.Schema.Type<typeof AgentCapabilitiesSchem
 export type AgentExtensionCapability = AgentCapabilities[LeafExtensionType];
 
 /** @experimental This API is unstable and may change without notice. */
-export type CanonicalCapability = AgentExtensionCapability["canonical"];
+export type NativeCapability = AgentExtensionCapability["native"];
 
 /** @experimental This API is unstable and may change without notice. */
 export type AxmCapabilityState = AgentExtensionCapability["axm"];
@@ -1207,9 +1536,9 @@ export const AgentSchema = AgentStruct.pipe(
   Schema.check(
     Schema.makeFilter((agent: Schema.Schema.Type<typeof AgentStruct>) => {
       if (
-        "kind" in agent.capabilities.rule.canonical &&
-        agent.capabilities.rule.canonical.kind === "agents-md" &&
-        agent.capabilities.rule.canonical.files[0] !== "AGENTS.md"
+        "kind" in agent.capabilities.rule.native &&
+        agent.capabilities.rule.native.kind === "agents-md" &&
+        agent.capabilities.rule.native.files[0] !== "AGENTS.md"
       ) {
         return {
           path: ["capabilities", "rule", "canonical", "files"],

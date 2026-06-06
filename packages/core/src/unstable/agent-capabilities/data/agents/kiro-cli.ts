@@ -20,7 +20,7 @@ export const kiroCliAgent = {
   ],
   capabilities: {
     skill: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -38,7 +38,7 @@ export const kiroCliAgent = {
       },
     },
     command: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
@@ -54,7 +54,7 @@ export const kiroCliAgent = {
       },
     },
     "mcp-server": {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -113,7 +113,7 @@ export const kiroCliAgent = {
       },
     },
     subagent: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
@@ -130,7 +130,7 @@ export const kiroCliAgent = {
       },
     },
     files: {
-      canonical: {
+      native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -143,7 +143,7 @@ export const kiroCliAgent = {
       },
     },
     rule: {
-      canonical: {
+      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes: null,
@@ -165,21 +165,89 @@ export const kiroCliAgent = {
       },
     },
     hook: {
-      canonical: {
-        availability: { via: "none" },
+      native: {
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Kiro CLI hooks are command hooks in agent configuration. AXM models the surface but does not serialize Kiro CLI hooks yet.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://kiro.dev/docs/cli/hooks/",
+          "https://kiro.dev/docs/cli/custom-agents/configuration-reference/",
+        ],
+        scopes: ["user", "project"],
+        mechanism: ["command-stdin"],
+        configFiles: [],
+        events: [
+          {
+            nativeName: "agentSpawn",
+            canonical: "session.start",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://kiro.dev/docs/cli/hooks/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "userPromptSubmit",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://kiro.dev/docs/cli/hooks/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "preToolUse",
+            canonical: "tool.pre",
+            matcher: {
+              kind: "literal-list",
+              example: "execute_bash",
+              notes: "Supports canonical tool names, aliases, MCP server prefixes, and *.",
+            },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://kiro.dev/docs/cli/hooks/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "postToolUse",
+            canonical: "tool.post",
+            matcher: {
+              kind: "literal-list",
+              example: "fs_write",
+              notes: "Supports canonical tool names, aliases, MCP server prefixes, and *.",
+            },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://kiro.dev/docs/cli/hooks/"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "stop",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://kiro.dev/docs/cli/hooks/"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+      },
+      canonical: {
+        events: ["session.start", "prompt.submit", "tool.pre", "tool.post", "turn.end"],
+        mechanism: ["command-stdin"],
+        matcherKinds: ["literal-list", "none-imperative"],
+        decision: [
+          { kind: "observe" },
+          { kind: "block", outcomes: ["allow", "deny"] },
+          { kind: "modify", operations: ["inject-context"] },
+        ],
       },
       axm: {
         support: "unsupported",
+        reason: "AXM has not implemented a Kiro CLI hooks writer.",
         writer: null,
       },
     },
   },
   permissions: {
-    canonical: {
+    native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,

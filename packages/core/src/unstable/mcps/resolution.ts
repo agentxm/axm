@@ -27,8 +27,8 @@ import { AXM_MCP_METADATA_KEY, buildAxmMcpMetadata } from "./metadata.js";
 
 type UpstreamRemoteTransport = "streamable-http" | "sse";
 type ConfiguredMcpCapability = McpExtensionCapability & {
-  readonly canonical: Extract<
-    McpExtensionCapability["canonical"],
+  readonly native: Extract<
+    McpExtensionCapability["native"],
     { readonly transports: ReadonlyArray<McpTransport> }
   >;
   readonly axm: {
@@ -91,7 +91,7 @@ const capabilitySupportsUpstream = (
 ): boolean => transports.includes(transport === "streamable-http" ? "http" : transport);
 
 const hasMcpConfig = (capability: McpExtensionCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null && "transports" in capability.canonical;
+  capability.axm.writer !== null && "transports" in capability.native;
 
 const isRemoteTransport = (transport: string): transport is UpstreamRemoteTransport =>
   transport === "streamable-http" || transport === "sse";
@@ -105,15 +105,15 @@ const selectCandidate = (
   const packages = manifest.server.packages ?? [];
 
   for (const remote of remotes) {
-    if (capabilitySupportsUpstream(capability.canonical.transports, remote.type)) {
+    if (capabilitySupportsUpstream(capability.native.transports, remote.type)) {
       candidates.push({ kind: "remote", rank: 1, remote, shimmed: false });
-    } else if (capability.canonical.transports.includes("stdio")) {
+    } else if (capability.native.transports.includes("stdio")) {
       candidates.push({ kind: "remote", rank: 3, remote, shimmed: true });
     }
   }
 
   for (const pkg of packages) {
-    if (capability.canonical.transports.includes("stdio")) {
+    if (capability.native.transports.includes("stdio")) {
       candidates.push({ kind: "package", rank: 2, pkg });
     }
   }

@@ -244,6 +244,20 @@ describe("axm lint (e2e, Phase 7)", () => {
       }
     });
 
+    it("axm mcps doctor and reconcile return non-zero with 'Unknown subcommand'", async () => {
+      const temp = createTempDir();
+      try {
+        const doctor = await runCli(["mcps", "doctor"], { cwd: temp.path });
+        const reconcile = await runCli(["mcps", "reconcile"], { cwd: temp.path });
+        expect(doctor.exitCode).not.toBe(0);
+        expect(doctor.stdout + doctor.stderr).toContain("Unknown subcommand");
+        expect(reconcile.exitCode).not.toBe(0);
+        expect(reconcile.stdout + reconcile.stderr).toContain("Unknown subcommand");
+      } finally {
+        temp.cleanup();
+      }
+    });
+
     it("axm sync requires an initialized workspace", async () => {
       const temp = createTempDir();
       try {

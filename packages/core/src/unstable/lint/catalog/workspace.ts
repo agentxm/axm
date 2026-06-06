@@ -25,7 +25,7 @@
  *
  * Autofix rides per-extension Operations only (§6). No `editFile`,
  * `writeFile`, or `syncWorkspace()` reference — arms whose remediation can't
- * be expressed in the 14-operation vocabulary ship as `AdvisoryFinding` with a
+ * be expressed in the operation vocabulary ship as `AdvisoryFinding` with a
  * CLI suggestion instead.
  *
  * Rule ids are **registered with the lint config allowlist at module-load
@@ -61,6 +61,7 @@ import { configuredButNotInstalledRule } from "./workspace/configured-but-not-in
 import { mcpServerNoSecretLiteralRule } from "./workspace/mcp-server-no-secret-literal.js";
 import { mcpServerTransportExclusivityRule } from "./workspace/mcp-server-transport-exclusivity.js";
 import { mcpServerAgentDriftRule } from "./workspace/mcp-server-agent-drift.js";
+import { mcpServerAgentOrphanedRule } from "./workspace/mcp-server-agent-orphaned.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
@@ -91,6 +92,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   mcpServerTransportExclusivityRule,
   mcpServerNoSecretLiteralRule,
   mcpServerAgentDriftRule,
+  mcpServerAgentOrphanedRule,
   // Lockfile aligned (configured).
   skillsLockfileAlignedRule,
   // Integrity intact (configured + implicit).

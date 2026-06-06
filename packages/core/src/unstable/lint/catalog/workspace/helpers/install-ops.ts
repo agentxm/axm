@@ -1,8 +1,8 @@
 /**
- * Helpers for emitting the 14 per-extension Operation values used by the
+ * Helpers for emitting the per-extension Operation values used by the
  * workspace autofix rules.
  *
- * Autofix `fix` methods MUST compose from the 14-Operation vocabulary per
+ * Autofix `fix` methods MUST compose from the Operation vocabulary per
  * `docs/design/lint-engine.md §6`. Wiring to the canonical `OperationHandler`
  * registry (which expects fully-resolved `SkillExtensionRef` / `PackRef`
  * values) happens at the CLI layer (Phase 5); at the lint layer we emit the
@@ -124,6 +124,21 @@ export interface SyncInstructionsGitignoreIntent {
   readonly desired: boolean;
 }
 
+/** @experimental */
+export interface SyncMcpServerAgentIntent {
+  readonly serverName: string;
+  readonly agentId: string;
+  readonly scope: "project" | "user";
+  readonly force: boolean;
+}
+
+/** @experimental */
+export interface RemoveMcpServerAgentIntent {
+  readonly serverName: string;
+  readonly agentId: string;
+  readonly scope: "project" | "user";
+}
+
 // -----------------------------------------------------------------------------
 // Emit helpers
 // -----------------------------------------------------------------------------
@@ -240,12 +255,26 @@ export const syncInstructionsGitignoreOp = (
   args: intent,
 });
 
+export const syncMcpServerAgentOp = (
+  intent: SyncMcpServerAgentIntent,
+): Operation<"sync-mcp-server-agent", SyncMcpServerAgentIntent> => ({
+  name: "sync-mcp-server-agent",
+  args: intent,
+});
+
+export const removeMcpServerAgentOp = (
+  intent: RemoveMcpServerAgentIntent,
+): Operation<"remove-mcp-server-agent", RemoveMcpServerAgentIntent> => ({
+  name: "remove-mcp-server-agent",
+  args: intent,
+});
+
 // -----------------------------------------------------------------------------
-// Vocabulary guard — the canonical 14-operation vocabulary.
+// Vocabulary guard — the canonical operation vocabulary.
 // -----------------------------------------------------------------------------
 
 /**
- * The 14 per-extension Operation names lint autofix is allowed to emit.
+ * The per-extension Operation names lint autofix is allowed to emit.
  *
  * The guard test (`workspace-guard.test.ts`, task 3c.29) asserts no
  * autofixing workspace rule emits an Operation outside this set and that
@@ -271,6 +300,8 @@ export const PER_EXTENSION_OPERATION_NAMES = [
   "disable-subagent",
   "sync-instruction-target",
   "sync-instructions-gitignore",
+  "sync-mcp-server-agent",
+  "remove-mcp-server-agent",
 ] as const;
 
 /** @experimental */
@@ -309,7 +340,7 @@ export const collectMissingLockfileInstallOps = (
   }
   for (const [name, entry] of Object.entries(settings.subagents ?? {})) {
     // Subagents install-handler ships in a later install family; v1 emits a
-    // no-op install-command for consistency… Actually, per the 14-op
+    // no-op install-command for consistency… Actually, per the operation
     // vocabulary subagents have only enable/disable Operations at v1 (their
     // install family defers); emitting only enable here would be wrong.
     // Skip subagents in the missing-arm autofix for now — the lockfile

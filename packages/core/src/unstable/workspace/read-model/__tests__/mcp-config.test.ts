@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { AGENTS } from "../../../agents/registry.js";
+import type { AgentDescriptor, AgentId } from "../../../agents/types.js";
 import { buildFixture } from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeMcpConfigScanner } from "../scanners/mcp-config.js";
@@ -19,7 +20,7 @@ const USER_HOME = "/home/user";
 
 const runScanner = (
   spec: Parameters<typeof buildFixture>[0],
-  options?: { readonly agentRegistry?: typeof AGENTS },
+  options?: { readonly agentRegistry?: Readonly<Partial<Record<AgentId, AgentDescriptor>>> },
 ) =>
   Effect.gen(function* () {
     const deps = yield* buildFixture(spec);
@@ -94,54 +95,83 @@ describe("mcp-config scanner", () => {
 
   it.effect("emits agent-mcp-config occurrences for per-agent mcp.json files", () =>
     Effect.gen(function* () {
-      // We use a synthetic registry with one agent ("claude-code") so the
-      // fixture's `agentDirs` writes the agent's mcp.json under .claude/.
-      const claude = AGENTS["claude-code"];
-      const onlyClaude = { "claude-code": claude } as const;
+      // Use a single agent whose MCP target lives under its native root.
+      const cursor = AGENTS["cursor"];
       const { occurrences } = yield* runScanner(
         {
           workspaceRoot: WORKSPACE_ROOT,
           userHome: USER_HOME,
           project: {
             agentDirs: {
-              "claude-code": {
+              cursor: {
                 "mcp.json": JSON.stringify({
-                  mcpServers: { "claude-srv": { command: "echo" } },
+                  mcpServers: { "cursor-srv": { command: "echo" } },
                 }),
               },
             },
           },
         },
-        { agentRegistry: { ...AGENTS, ...onlyClaude } },
+        { agentRegistry: { cursor } },
+      );
+      const cursorMcp = occurrences.filter((o) => o.origin === "agent" && o.agentId === "cursor");
+      expect(cursorMcp).toHaveLength(1);
+      expect(cursorMcp[0]?.name).toBe("cursor-srv");
+      expect(cursorMcp[0]?.contentLocation).toBe("/ws/.cursor/mcp.json");
+    }).pipe(Effect.provide(Path.layer)),
+  );
+
+  it.effect("emits a Claude agent occurrence for the universal project .mcp.json target", () =>
+    Effect.gen(function* () {
+      const claude = AGENTS["claude-code"];
+      const { occurrences } = yield* runScanner(
+        {
+          workspaceRoot: WORKSPACE_ROOT,
+          userHome: USER_HOME,
+          project: {
+            mcpJson: {
+              _tag: "valid",
+              contents: {
+                mcpServers: {
+                  "claude-srv": { command: "echo" },
+                },
+              },
+            },
+          },
+        },
+        { agentRegistry: { "claude-code": claude } },
       );
       const claudeMcp = occurrences.filter(
         (o) => o.origin === "agent" && o.agentId === "claude-code",
       );
       expect(claudeMcp).toHaveLength(1);
       expect(claudeMcp[0]?.name).toBe("claude-srv");
-      expect(claudeMcp[0]?.contentLocation).toBe("/ws/.claude/mcp.json");
+      expect(claudeMcp[0]?.contentLocation).toBe("/ws/.mcp.json");
     }).pipe(Effect.provide(Path.layer)),
   );
 
   it.effect("workspace and agent occurrences for the same server name are distinct entries", () =>
     Effect.gen(function* () {
-      const { occurrences } = yield* runScanner({
-        workspaceRoot: WORKSPACE_ROOT,
-        userHome: USER_HOME,
-        project: {
-          mcpJson: {
-            _tag: "valid",
-            contents: { mcpServers: { shared: { command: "ws" } } },
-          },
-          agentDirs: {
-            "claude-code": {
-              "mcp.json": JSON.stringify({
-                mcpServers: { shared: { command: "agent" } },
-              }),
+      const cursor = AGENTS["cursor"];
+      const { occurrences } = yield* runScanner(
+        {
+          workspaceRoot: WORKSPACE_ROOT,
+          userHome: USER_HOME,
+          project: {
+            mcpJson: {
+              _tag: "valid",
+              contents: { mcpServers: { shared: { command: "ws" } } },
+            },
+            agentDirs: {
+              cursor: {
+                "mcp.json": JSON.stringify({
+                  mcpServers: { shared: { command: "agent" } },
+                }),
+              },
             },
           },
         },
-      });
+        { agentRegistry: { cursor } },
+      );
       const shared = occurrences.filter((o) => o.name === "shared");
       expect(shared).toHaveLength(2);
       const origins = shared.map((o) => o.origin).sort();

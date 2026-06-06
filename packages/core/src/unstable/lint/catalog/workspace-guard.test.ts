@@ -3,7 +3,7 @@
  *
  * Enforces the Phase 3c design invariant: no `AutofixingRule.fix` in the
  * `workspace/*` catalog invokes `syncWorkspace()` or references any
- * Operation outside the 14 per-extension vocabulary
+ * Operation outside the per-extension vocabulary
  * (`PER_EXTENSION_OPERATION_NAMES`).
  *
  * Strategy:
@@ -28,7 +28,10 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { AGENTS } from "../../agents/registry.js";
-import { isPerExtensionOperationName } from "./workspace/helpers/install-ops.js";
+import {
+  isPerExtensionOperationName,
+  PER_EXTENSION_OPERATION_NAMES,
+} from "./workspace/helpers/install-ops.js";
 import { workspaceRules } from "./workspace.js";
 import type { AutofixableFinding, AutofixingRule } from "../rule.js";
 import type { WorkspaceRuleContext } from "../context.js";
@@ -90,24 +93,9 @@ describe("workspace catalog guard — static grep", () => {
     }
   });
 
-  it("no rule source references an operation name outside the 14-op vocabulary", () => {
+  it("no rule source references an operation name outside the per-extension vocabulary", () => {
     const files = listRuleFiles();
-    const allowedNames = new Set([
-      "install-skill",
-      "uninstall-skill",
-      "enable-skill",
-      "disable-skill",
-      "install-pack",
-      "uninstall-pack",
-      "install-command",
-      "uninstall-command",
-      "enable-command",
-      "disable-command",
-      "install-mcp-server",
-      "uninstall-mcp-server",
-      "enable-subagent",
-      "disable-subagent",
-    ]);
+    const allowedNames: ReadonlySet<string> = new Set(PER_EXTENSION_OPERATION_NAMES);
     // Match `name: "<value>"` or `name: '<value>'` inside the source;
     // every match whose value looks op-like (hyphenated lowercase)
     // must be in the allowlist.
@@ -127,7 +115,7 @@ describe("workspace catalog guard — static grep", () => {
         }
         expect(
           allowedNames.has(value),
-          `${nodePath.basename(file)} references operation name '${value}' outside the 14-op vocabulary`,
+          `${nodePath.basename(file)} references operation name '${value}' outside the per-extension vocabulary`,
         ).toBe(true);
       }
     }

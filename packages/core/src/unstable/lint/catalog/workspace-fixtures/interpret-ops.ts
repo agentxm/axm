@@ -15,8 +15,9 @@
  *   probes, remove per-agent artifacts.
  * - `enable-skill` / `disable-skill` — toggle per-agent artifact presence.
  * - `install-pack` / `uninstall-pack` — add/remove the pack lock entry.
- * - Other families (`-command`, `-mcp-server`, `-subagent`) are stubs for
- *   the harness; today no v1 rule emits those.
+ * - Other families (`-command`, `-mcp-server`, `-subagent`, MCP agent config)
+ *   are stubs for the harness; today no seeded reducer state models those
+ *   files.
  *
  * The reducer writes **raw JSON-compatible shapes** into
  * `state.lockfile` — the accessor returns `LockfileDocument = unknown`, so
@@ -451,6 +452,8 @@ export const applyOperationIntent = (
     case "disable-command":
     case "install-mcp-server":
     case "uninstall-mcp-server":
+    case "sync-mcp-server-agent":
+    case "remove-mcp-server-agent":
     case "enable-subagent":
     case "disable-subagent":
       return;

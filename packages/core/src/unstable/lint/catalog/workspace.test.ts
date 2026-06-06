@@ -32,6 +32,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/mcp-server-transport-exclusivity", severity: "warning" },
   { id: "workspace/mcp-server-no-secret-literal", severity: "warning" },
   { id: "workspace/mcp-server-agent-drift", severity: "warning" },
+  { id: "workspace/mcp-server-agent-orphaned", severity: "warning" },
   // Lockfile aligned (configured).
   { id: "workspace/skills-lockfile-aligned", severity: "error" },
   // Integrity intact (configured + implicit).
@@ -72,6 +73,8 @@ describe("workspaceRules", () => {
       "workspace/lockfile-valid",
       "workspace/instructions-target-current",
       "workspace/instructions-gitignore-current",
+      "workspace/mcp-server-agent-drift",
+      "workspace/mcp-server-agent-orphaned",
       "workspace/skills-lockfile-aligned",
       "workspace/skills-integrity-valid",
       "workspace/skills-universal-artifact-present",

@@ -3,7 +3,7 @@
  *
  * Exercise the command tree via Effect CLI's help-doc harness — the same
  * pattern `app.test.ts` uses — to pin: (a) `axm lint` is registered with the
- * expected flag set, and (b) `axm doctor` is an unknown command.
+ * expected flag set, and (b) doctor commands are unknown.
  */
 
 import { describe, expect, it } from "vitest";
@@ -96,6 +96,15 @@ describe("axm lint command surface", () => {
     expect(allSubcommandNames).not.toContain("doctor");
   });
 
+  it("does not register 'doctor' or 'reconcile' under mcps", async () => {
+    const mcpsDoc = await Effect.runPromise(captureHelpDoc(["mcps"]));
+    const allSubcommandNames = (mcpsDoc.subcommands ?? []).flatMap((g) =>
+      g.commands.map((c) => c.name),
+    );
+    expect(allSubcommandNames).not.toContain("doctor");
+    expect(allSubcommandNames).not.toContain("reconcile");
+  });
+
   it("registers 'sync' as a subcommand", async () => {
     const rootDoc = await Effect.runPromise(captureHelpDoc([]));
     const allSubcommandNames = (rootDoc.subcommands ?? []).flatMap((g) =>
@@ -107,6 +116,13 @@ describe("axm lint command surface", () => {
   it("rejects 'axm doctor' with an unknown-command error (non-zero exit)", async () => {
     const result = await Effect.runPromise(captureRunError(["doctor"]));
     expect(result.output).toMatch(/Failure|exit/);
+  });
+
+  it("rejects retired MCP doctor commands with unknown-command errors", async () => {
+    const doctor = await Effect.runPromise(captureRunError(["mcps", "doctor"]));
+    const reconcile = await Effect.runPromise(captureRunError(["mcps", "reconcile"]));
+    expect(doctor.output).toMatch(/Failure|exit/);
+    expect(reconcile.output).toMatch(/Failure|exit/);
   });
 
   it("accepts sync --scope, --dry-run, and --json", async () => {

@@ -36,9 +36,12 @@ import { effectCliExit, type SuggestedAction } from "@agentxm/client-core/unstab
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   CodingAgentRepository,
+  removeMcpServerFromManifest,
   resolveInstructionsConfig,
+  syncInlineMcpServerToAgent,
   syncInstructionTarget,
   syncInstructionsGitignore,
+  type McpServerSyncOutcome,
 } from "@agentxm/client-core/unstable/agents";
 import { disableSkill, enableSkill, SkillManager } from "@agentxm/client-core/unstable/skills";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
@@ -85,6 +88,7 @@ import {
   type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { Settings } from "@agentxm/client-core/unstable/settings";
+import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import * as os from "node:os";
 import { PlanResolutionResultSchema, toPlanResolutionResult } from "../../json-output.js";
 
@@ -315,6 +319,94 @@ const isSyncInstructionsGitignoreIntent = (
   return typeof args["desired"] === "boolean";
 };
 
+type LintFixScope = "project" | "user";
+
+const isLintFixScope = (value: unknown): value is LintFixScope =>
+  value === "project" || value === "user";
+
+interface SyncMcpServerAgentIntentArgs {
+  readonly serverName: string;
+  readonly agentId: string;
+  readonly scope: LintFixScope;
+  readonly force: boolean;
+}
+
+const isSyncMcpServerAgentIntent = (args: unknown): args is SyncMcpServerAgentIntentArgs => {
+  if (!isRecord(args)) {
+    return false;
+  }
+  return (
+    typeof args["serverName"] === "string" &&
+    typeof args["agentId"] === "string" &&
+    isLintFixScope(args["scope"]) &&
+    typeof args["force"] === "boolean"
+  );
+};
+
+interface RemoveMcpServerAgentIntentArgs {
+  readonly serverName: string;
+  readonly agentId: string;
+  readonly scope: LintFixScope;
+}
+
+const isRemoveMcpServerAgentIntent = (args: unknown): args is RemoveMcpServerAgentIntentArgs => {
+  if (!isRecord(args)) {
+    return false;
+  }
+  return (
+    typeof args["serverName"] === "string" &&
+    typeof args["agentId"] === "string" &&
+    isLintFixScope(args["scope"])
+  );
+};
+
+const isInlineMcpServerEntry = (entry: McpServerEntry): boolean =>
+  entry.command !== undefined || entry.url !== undefined;
+
+const mcpSyncTargetSummary = (
+  outcome: Extract<McpServerSyncOutcome, { readonly targets?: unknown }>,
+) => {
+  const targets = outcome.targets ?? [];
+  if (targets.length === 0) return "no agent config targets changed";
+  return targets.map((target) => `${target.change} ${target.path}`).join(", ");
+};
+
+const mcpSyncOutcomeResult = (args: {
+  readonly action: "synchronized" | "removed";
+  readonly serverName: string;
+  readonly agentId: string;
+  readonly outcome: McpServerSyncOutcome;
+}) => {
+  switch (args.outcome._tag) {
+    case "success":
+      return {
+        result: "success" as const,
+        message: `MCP server '${args.serverName}' ${args.action} for ${args.agentId}: ${mcpSyncTargetSummary(args.outcome)}`,
+        ...(args.outcome.warnings === undefined ? {} : { warnings: args.outcome.warnings }),
+      };
+    case "fallback":
+      return {
+        result: "success" as const,
+        message: `MCP server '${args.serverName}' ${args.action} for ${args.agentId} with fallback from ${args.outcome.fallbackFrom}: ${mcpSyncTargetSummary(args.outcome)}`,
+        warnings: [args.outcome.reason, ...(args.outcome.warnings ?? [])],
+      };
+    case "unsupported":
+    case "disabled":
+    case "nothing-runnable":
+    case "needs-input":
+    case "misconfigured":
+    case "failed":
+      return {
+        result: "error" as const,
+        message: `Could not ${args.action === "synchronized" ? "synchronize" : "remove"} MCP server '${args.serverName}' for ${args.agentId}: ${args.outcome.reason}`,
+        error: makeAppError({
+          code: "internal",
+          detail: args.outcome.reason,
+        }),
+      };
+  }
+};
+
 /**
  * Surfaces an operation that the adapter cannot lower into a canonical
  * `PlannedJobStep` in this release — e.g. the missing-arm subagent install
@@ -466,6 +558,90 @@ const adaptIntent = (
         const step = buildUninstallOperation(mgr, retention, {
           target: { type: "mcp-server", name: op.args.name },
         });
+        return { kind: "step", step };
+      }
+      case "sync-mcp-server-agent": {
+        if (!isSyncMcpServerAgentIntent(op.args)) {
+          return unmapped(op.name, "missing serverName/agentId/scope/force args");
+        }
+        const intent = op.args;
+        const ws = yield* WorkspaceMutations;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const configured = yield* ws.getConfiguredMcpServerEntries();
+        const entry = configured[intent.serverName];
+        if (entry === undefined) {
+          return unmapped(op.name, `MCP server "${intent.serverName}" not found in settings`);
+        }
+        if (!isInlineMcpServerEntry(entry)) {
+          return unmapped(
+            op.name,
+            `MCP server "${intent.serverName}" is not an inline settings entry`,
+          );
+        }
+        const run = syncInlineMcpServerToAgent(intent.agentId, {
+          workspaceRoot: args.workspaceRoot,
+          serverName: intent.serverName,
+          entry,
+          scope: intent.scope,
+        }).pipe(
+          Effect.map((outcome) =>
+            mcpSyncOutcomeResult({
+              action: "synchronized",
+              serverName: intent.serverName,
+              agentId: intent.agentId,
+              outcome,
+            }),
+          ),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        const step: PlannedJobStep = intent.force
+          ? {
+              key: `mcp-server:${intent.serverName}:${intent.agentId}`,
+              readiness: "warn",
+              warnMessage: `Overwriting drifted MCP server config for ${intent.agentId}`,
+              label: `${intent.agentId} MCP server '${intent.serverName}'`,
+              run,
+            }
+          : {
+              key: `mcp-server:${intent.serverName}:${intent.agentId}`,
+              readiness: "ready",
+              label: `${intent.agentId} MCP server '${intent.serverName}'`,
+              run,
+            };
+        return { kind: "step", step };
+      }
+      case "remove-mcp-server-agent": {
+        if (!isRemoveMcpServerAgentIntent(op.args)) {
+          return unmapped(op.name, "missing serverName/agentId/scope args");
+        }
+        const intent = op.args;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const run = removeMcpServerFromManifest(intent.agentId, {
+          workspaceRoot: args.workspaceRoot,
+          serverName: intent.serverName,
+          scope: intent.scope,
+          disableOnly: false,
+        }).pipe(
+          Effect.map((outcome) =>
+            mcpSyncOutcomeResult({
+              action: "removed",
+              serverName: intent.serverName,
+              agentId: intent.agentId,
+              outcome,
+            }),
+          ),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        const step: PlannedJobStep = {
+          key: `mcp-server:${intent.serverName}:${intent.agentId}`,
+          readiness: "ready",
+          label: `${intent.agentId} MCP server '${intent.serverName}'`,
+          run,
+        };
         return { kind: "step", step };
       }
       case "enable-skill": {

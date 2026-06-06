@@ -70,6 +70,15 @@ describe("axm lint handler", () => {
     fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(contents, null, 2));
   };
 
+  const writeEmptyLockfile = () => {
+    const axmDir = path.join(tempDir, ".axm");
+    fs.mkdirSync(axmDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(axmDir, "axm-lock.yaml"),
+      "lockfileVersion: 1\nskills: {}\nmcpServers: {}\n",
+    );
+  };
+
   const makeLayers = (opts?: { machine?: boolean; quiet?: boolean }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const baseLayer = Layer.mergeAll(
@@ -471,6 +480,70 @@ describe("axm lint handler", () => {
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
           "**/CLAUDE.md",
         );
+      }),
+    );
+  });
+
+  it.effect("--fix repairs MCP agent config drift and orphaned managed entries", () => {
+    const { provide, rendererState } = makeLayers();
+    writeSettings({
+      agents: ["claude-code"],
+      mcpServers: {
+        demo: {
+          command: "node",
+          args: ["server.js"],
+          env: {},
+        },
+      },
+    });
+    writeEmptyLockfile();
+    fs.writeFileSync(
+      path.join(tempDir, ".mcp.json"),
+      JSON.stringify(
+        {
+          mcpServers: {
+            demo: {
+              managedBy: "axm",
+              type: "stdio",
+              command: "python",
+            },
+            stale: {
+              managedBy: "axm",
+              type: "stdio",
+              command: "node",
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({}).pipe(Effect.exit);
+        const reportMessages = rendererState.logs.map((e) => e.message).join("\n");
+        expect(reportMessages).toContain("workspace/mcp-server-agent-drift");
+        expect(reportMessages).toContain("workspace/mcp-server-agent-orphaned");
+
+        yield* lint({ fix: true }).pipe(Effect.exit);
+        const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
+        expect(config.mcpServers.demo).toEqual({
+          managedBy: "axm",
+          type: "stdio",
+          command: "node",
+          args: ["server.js"],
+        });
+        expect(config.mcpServers.stale).toBeUndefined();
+
+        const beforeFinalLint = rendererState.logs.length;
+        yield* lint({}).pipe(Effect.exit);
+        const finalMessages = rendererState.logs
+          .slice(beforeFinalLint)
+          .map((e) => e.message)
+          .join("\n");
+        expect(finalMessages).not.toMatch(/MCP server 'demo' has drifted/);
+        expect(finalMessages).not.toMatch(/MCP server 'stale' has an orphaned/);
       }),
     );
   });

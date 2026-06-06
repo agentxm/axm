@@ -203,7 +203,8 @@ describe("classifyError — generic errors", () => {
 
     expect(result.exitCode).toBe(ExitCode.Internal);
     expect(result.stdout).toBeUndefined();
-    expect(result.stderr?.[0]).toBe("✖  boom");
+    expect(result.stderr?.[0]).toContain("✖  boom (internal)");
+    expect(result.stderr?.[0]).toContain("Run with `--debug` to see error details.");
     expect(result.stderr?.[0]).not.toContain("✗");
   });
 
@@ -217,6 +218,7 @@ describe("classifyError — generic errors", () => {
       code: "internal",
       title: "Internal Error",
       detail: "boom",
+      cause: [{ _tag: "Error", message: "boom" }],
     });
     expect(stderrEvents(result.stderr)).toContainEqual({
       type: "error",

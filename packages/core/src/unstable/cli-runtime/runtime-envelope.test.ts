@@ -293,4 +293,25 @@ describe("writeExpectedCliError", () => {
       suggestions: [{ description: "Choose a different name or remove the existing skill first" }],
     });
   });
+
+  it("text mode: uses Verbosity service for debug cause details", async () => {
+    const cause = new Error("settings decode failed");
+    cause.stack = "Error: settings decode failed\n at decode";
+    const error = makeAppError({
+      code: "internal",
+      detail: "Failed to read workspace settings",
+      cause,
+    });
+
+    await Effect.runPromise(
+      writeExpectedCliError(error, "text").pipe(
+        Effect.provide(testLayer("text", { verbosityLevel: "debug" })),
+      ),
+    );
+
+    const stderr = stderrWrites.join("");
+    expect(stderr).toContain("Cause: Error: settings decode failed");
+    expect(stderr).toContain("Stack: Error: settings decode failed");
+    expect(stderr).toContain("Stack:  at decode");
+  });
 });

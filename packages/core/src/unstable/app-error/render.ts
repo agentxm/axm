@@ -1,18 +1,11 @@
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { type AppError, effectiveSuggestionsFor } from "./app-error.js";
+import { serializeErrorCauseChain } from "./cause-chain.js";
 
 const defaultRenderOptions: { readonly verbose: boolean; readonly debug: boolean } = {
   verbose: false,
   debug: false,
 };
-
-const isAppError = (cause: unknown): cause is AppError =>
-  typeof cause === "object" &&
-  cause !== null &&
-  "_tag" in cause &&
-  cause._tag === "AppError" &&
-  "detail" in cause &&
-  "code" in cause;
 
 const getStringField = (value: unknown, field: string): string | undefined => {
   if (value === null || value === undefined || typeof value !== "object") {
@@ -87,34 +80,15 @@ const formatCause = (
   cause: unknown,
   options: { readonly verbose: boolean; readonly debug: boolean },
 ): ReadonlyArray<string> => {
-  if (cause === undefined || cause === null) return [];
-
-  if (isAppError(cause)) {
-    const causeHeadline = `${cause.detail} (${cause.code})`;
-    return [`Cause: ${causeHeadline}`];
-  }
-
-  if (cause instanceof Error) {
-    const lines = [`Cause: ${cause.message}`];
-    if (options.debug && cause.stack) {
-      lines.push(...cause.stack.split("\n").map((line) => `Stack: ${line}`));
+  const chain = serializeErrorCauseChain(cause, { debug: options.debug });
+  return chain.flatMap((item) => {
+    const code = item.code === undefined ? "" : ` (${item.code})`;
+    const lines = [`Cause: ${item._tag}: ${item.message}${code}`];
+    if (options.debug && item.stack !== undefined) {
+      lines.push(...item.stack.split("\n").map((line) => `Stack: ${line}`));
     }
     return lines;
-  }
-
-  if (typeof cause === "string" || typeof cause === "number" || typeof cause === "boolean") {
-    return [`Cause: ${String(cause)}`];
-  }
-
-  if (!options.debug) {
-    return ["Cause: non-error object (re-run with --debug for full details)"];
-  }
-
-  try {
-    return [`Cause: ${JSON.stringify(cause)}`];
-  } catch {
-    return ["Cause: [unserializable object]"];
-  }
+  });
 };
 
 export const renderAppError = (
@@ -163,6 +137,8 @@ export const renderAppError = (
     for (const line of formatCause(error.cause, options)) {
       lines.push(`  ${line}`);
     }
+  } else if (error.cause !== undefined && error.cause !== null) {
+    lines.push("  Run with `--debug` to see error details.");
   }
 
   return lines.join("\n");

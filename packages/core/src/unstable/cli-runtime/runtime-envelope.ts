@@ -335,11 +335,10 @@ export const withCliRuntime = <A, R>(
   Effect.gen(function* () {
     const format = yield* resolveCliFormat;
     const foundationLayer = makeFoundationLayer(format);
-    const provided = program.pipe(Effect.provide(foundationLayer), Effect.scoped);
 
-    return yield* withCliErrorHandling(provided, {
+    return yield* withCliErrorHandling(program, {
       command: options.command,
       format,
       telemetryConfig: options.telemetryConfig,
-    });
+    }).pipe(Effect.provide(foundationLayer), Effect.scoped);
   });

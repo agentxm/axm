@@ -185,9 +185,23 @@ describe("renderAppError", () => {
         "  Title: Internal Error",
         "Next:",
         "  This looks like a bug. Please report it, including the request ID if one is shown. · https://github.com/agentxm/axm/issues",
-        "  Cause: permission denied",
+        "  Cause: Error: permission denied",
       ].join("\n"),
     );
+  });
+
+  it("includes a debug hint in normal mode when a cause is attached", () => {
+    const error = new AppError({
+      code: "internal",
+      title: "Internal Error",
+      detail: "Installation failed",
+      cause: new Error("permission denied"),
+    });
+
+    const result = renderAppError(error);
+
+    expect(result).toContain("Run with `--debug` to see error details.");
+    expect(result).not.toContain("Cause:");
   });
 
   it("includes stack in debug mode", () => {
@@ -202,7 +216,7 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error, { verbose: true, debug: true });
 
-    expect(result).toContain("Cause: permission denied");
+    expect(result).toContain("Cause: Error: permission denied");
     expect(result).toContain("Stack: Error: permission denied");
     expect(result).toContain("Stack:  at test");
   });
@@ -224,7 +238,7 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error, { verbose: true, debug: true });
 
-    expect(result).toContain("Cause: Remote registry is unreachable (network)");
+    expect(result).toContain("Cause: AppError: Remote registry is unreachable (network)");
   });
 });
 

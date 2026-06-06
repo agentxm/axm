@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 
 import { makeAppError } from "../app-error/index.js";
+import { SettingsDecodeError } from "../workspace/read-model/errors.js";
 import { SuggestedActionSchema } from "./suggested-action.js";
 import {
   JsonEnvelopeSchema,
@@ -153,5 +154,60 @@ describe("JsonEnvelopeSchema", () => {
     );
 
     expect(envelope.suggestions).toBeUndefined();
+  });
+
+  it("includes structured cause chains without debug stacks", () => {
+    const cause = new Error("decode failed");
+    cause.stack = "Error: decode failed\n at test";
+
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({ code: "internal", detail: "Failed to read workspace settings", cause }),
+    );
+
+    expect(envelope.cause).toEqual([{ _tag: "Error", message: "decode failed" }]);
+    expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual(envelope);
+  });
+
+  it("serializes structured tagged error fields when the cause message is blank", () => {
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({
+        code: "internal",
+        detail: "Failed to read workspace settings",
+        cause: new SettingsDecodeError({
+          path: "/workspace/.axm/settings.json",
+          issues: ["mcpServers.bad: expected source, command, or url"],
+          raw: { mcpServers: { bad: { foo: "bar" } } },
+        }),
+      }),
+    );
+
+    expect(envelope.cause).toEqual([
+      {
+        _tag: "SettingsDecodeError",
+        message: "mcpServers.bad: expected source, command, or url",
+      },
+    ]);
+  });
+
+  it("includes cause stacks only under debug", () => {
+    const cause = new Error("decode failed");
+    cause.stack = "Error: decode failed\n at test";
+
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({ code: "internal", detail: "Failed to read workspace settings", cause }),
+      { debug: true },
+    );
+
+    expect(envelope.cause).toEqual([
+      { _tag: "Error", message: "decode failed", stack: "Error: decode failed\n at test" },
+    ]);
+  });
+
+  it("omits cause when no cause is attached", () => {
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({ code: "not_found", detail: "Resource missing" }),
+    );
+
+    expect(envelope.cause).toBeUndefined();
   });
 });

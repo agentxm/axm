@@ -4,6 +4,7 @@ import {
   ExitCode,
   exitCodeFor,
   effectiveSuggestionsFor,
+  makeAppError,
   renderAppError,
 } from "../app-error/index.js";
 import type { OutputFormat } from "./output-mode.js";
@@ -61,7 +62,7 @@ export const renderAppErrorChannels = (
           ...effectiveSuggestionsFor(error).map((s) => JSON.stringify(makeSuggestionEvent(s))),
           JSON.stringify(makeErrorEvent(error.code, error.detail)),
         ],
-        stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error), null, 2) + "\n",
+        stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, options), null, 2) + "\n",
       };
 
 /**
@@ -77,7 +78,14 @@ export const renderAppErrorChannels = (
  * - CliError → 2 (usage/validation — bad flags, missing args)
  * - Other → 10 (unexpected internal error)
  */
-export const classifyError = (error: unknown, format: OutputFormat): ErrorClassification => {
+export const classifyError = (
+  error: unknown,
+  format: OutputFormat,
+  options: { readonly verbose: boolean; readonly debug: boolean } = {
+    verbose: false,
+    debug: false,
+  },
+): ErrorClassification => {
   if (isEffectCliExit(error)) {
     return { exitCode: error.exitCode };
   }
@@ -85,7 +93,7 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
   if (error instanceof AppError) {
     return {
       exitCode: exitCodeFor(error.code),
-      ...renderAppErrorChannels(error, format),
+      ...renderAppErrorChannels(error, format, options),
     };
   }
 
@@ -140,28 +148,14 @@ export const classifyError = (error: unknown, format: OutputFormat): ErrorClassi
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  const code = "internal";
-
-  if (format === "text") {
-    return {
-      exitCode: ExitCode.Internal,
-      stderr: [`✖  ${message}`],
-    };
-  }
-
+  const wrapped = makeAppError({
+    code: "internal",
+    detail: message,
+    cause: error,
+  });
   return {
     exitCode: ExitCode.Internal,
-    stderr: [JSON.stringify(makeErrorEvent(code, message))],
-    stdout:
-      JSON.stringify(
-        makeJsonErrorEnvelope({
-          code,
-          title: "Internal Error",
-          detail: message,
-        }),
-        null,
-        2,
-      ) + "\n",
+    ...renderAppErrorChannels(wrapped, format, options),
   };
 };
 

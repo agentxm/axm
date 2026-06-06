@@ -598,9 +598,9 @@ describe("displayPlan", () => {
             }),
           );
 
-          expect(logsByTag(state).error.some((m) => m.includes("Cause: connection refused"))).toBe(
-            true,
-          );
+          expect(
+            logsByTag(state).error.some((m) => m.includes("Cause: Error: connection refused")),
+          ).toBe(true);
         }),
       { verbose: true, debug: true },
     ),

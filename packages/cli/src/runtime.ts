@@ -320,11 +320,10 @@ export const withRuntime =
         debugLoggerLayer,
         Layer.mergeAll(foundationLayer, interactionLayer),
       );
-      const provided = program.pipe(Effect.provide(appLayer), Effect.scoped);
 
-      return yield* withCliErrorHandling(provided, {
+      return yield* withCliErrorHandling(program, {
         command,
         format,
         telemetryConfig: config.telemetryConfig,
-      });
+      }).pipe(Effect.provide(appLayer), Effect.scoped);
     }).pipe(Effect.provide(RegistryRuntimeLayer));

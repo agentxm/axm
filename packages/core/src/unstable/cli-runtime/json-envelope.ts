@@ -5,6 +5,8 @@ import {
   type AppError,
   type AppErrorCode,
   type AppErrorMetadata,
+  type SerializedErrorCause,
+  serializeErrorCauseChain,
   effectiveSuggestionsFor,
 } from "../app-error/index.js";
 import { SuggestedActionSchema, type SuggestedAction } from "./suggested-action.js";
@@ -16,6 +18,16 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
   code: AppErrorCodeSchema,
   title: Schema.String,
   detail: Schema.String,
+  cause: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        _tag: Schema.String,
+        code: Schema.optional(AppErrorCodeSchema),
+        message: Schema.String,
+        stack: Schema.optional(Schema.String),
+      }),
+    ),
+  ),
   metadata: Schema.optional(
     Schema.Struct({
       request: Schema.optional(
@@ -106,6 +118,7 @@ export const makeJsonErrorEnvelope = (args: {
   readonly code: AppErrorCode;
   readonly title: string;
   readonly detail: string;
+  readonly cause?: ReadonlyArray<SerializedErrorCause>;
   readonly metadata?: AppErrorMetadata;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }): JsonErrorEnvelope => ({
@@ -113,17 +126,25 @@ export const makeJsonErrorEnvelope = (args: {
   code: args.code,
   title: args.title,
   detail: args.detail,
+  ...(args.cause !== undefined && args.cause.length > 0 ? { cause: [...args.cause] } : {}),
   ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
   ...(args.suggestions !== undefined && args.suggestions.length > 0
     ? { suggestions: [...args.suggestions] }
     : {}),
 });
 
-export const makeJsonErrorEnvelopeFromAppError = (error: AppError): JsonErrorEnvelope =>
+export const makeJsonErrorEnvelopeFromAppError = (
+  error: AppError,
+  options: { readonly debug?: boolean } = {},
+): JsonErrorEnvelope =>
   makeJsonErrorEnvelope({
     code: error.code,
     title: error.title,
     detail: error.detail,
+    cause: serializeErrorCauseChain(
+      error.cause,
+      options.debug === undefined ? {} : { debug: options.debug },
+    ),
     ...(error.metadata !== undefined ? { metadata: error.metadata } : {}),
     suggestions: effectiveSuggestionsFor(error),
   });

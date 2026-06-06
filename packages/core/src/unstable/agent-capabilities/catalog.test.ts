@@ -11,32 +11,39 @@ import {
   LEAF_EXTENSION_TYPES,
   type Agent,
 } from "./schema.js";
-
 const decodeAgent = (input: unknown): Agent =>
   Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
-
 const unsupportedCapability = {
-  availability: { via: "none" },
-  vendorStatus: { state: "active" },
-  axmSupport: "unsupported",
-  notes: null,
-  docs: [],
-  sources: [],
-} as const;
-
-const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
-  skill: {
-    availability: { via: "native" },
+  canonical: {
+    availability: { via: "none" },
     vendorStatus: { state: "active" },
-    axmSupport: "supported",
     notes: null,
     docs: [],
-    sources: ["https://example.com/skills"],
-    lastVerified: "2026-05-16",
-    scopes: ["project"],
-    standardsCompliance: "full",
-    convention: "vendor",
-    directory: ".sample/skills",
+    sources: [],
+  },
+  axm: {
+    support: "unsupported",
+    writer: null,
+  },
+} as const;
+const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
+  skill: {
+    canonical: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://example.com/skills"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "vendor",
+      directory: ".sample/skills",
+    },
+    axm: {
+      support: "supported",
+      lastVerified: "2026-05-16",
+      writer: null,
+    },
   },
   command: unsupportedCapability,
   "mcp-server": unsupportedCapability,
@@ -46,7 +53,6 @@ const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
   hook: unsupportedCapability,
   ...overrides,
 });
-
 const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   id: "sample-agent",
   name: "Sample Agent",
@@ -62,26 +68,31 @@ const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   permissions: unsupportedCapability,
   ...overrides,
 });
-
 const sortedStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => [...values].sort();
-
 describe("agent capability catalog", () => {
   it("decodes every typed catalog entry through the schema", () => {
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
       onExcessProperty: "error",
     });
-
     expect(sortedStrings(decoded.map((agent) => agent.id))).toEqual(
       sortedStrings(CONFIGURABLE_AGENT_IDS),
     );
   });
-
+  it("exposes exactly canonical and AXM blocks on every decoded capability", () => {
+    const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
+      onExcessProperty: "error",
+    });
+    for (const agent of decoded) {
+      for (const capability of Object.values(agent.capabilities)) {
+        expect(Object.keys(capability).sort()).toEqual(["axm", "canonical"]);
+      }
+    }
+  });
   it("AgentIdSchema rejects ids outside the verified catalog", () => {
     const decode = Schema.decodeUnknownResult(AgentIdSchema);
     expect(Result.isSuccess(decode("claude-code"))).toBe(true);
     expect(Result.isFailure(decode("unknown-agent"))).toBe(true);
   });
-
   it("decodes typed detection markers", () => {
     const marker = {
       kind: "executable",
@@ -89,10 +100,8 @@ describe("agent capability catalog", () => {
       signal: "definitive",
       note: "CLI on PATH.",
     };
-
     expect(Schema.decodeUnknownSync(DetectionMarkerSchema)(marker)).toEqual(marker);
   });
-
   it("rejects duplicate detection markers by kind and path", () => {
     expect(() =>
       Schema.decodeUnknownSync(DetectionSchema)({
@@ -106,7 +115,6 @@ describe("agent capability catalog", () => {
       }),
     ).toThrow("Detection markers must be unique");
   });
-
   it("decodes legacy detection directory arrays into marker form", () => {
     expect(
       Schema.decodeUnknownSync(DetectionSchema)({
@@ -122,207 +130,238 @@ describe("agent capability catalog", () => {
       },
     });
   });
-
   it("rejects invalid URLs on catalog URL fields", () => {
     expect(() => decodeAgent(makeAgentInput({ homepage: "not-a-url" }))).toThrow("Expected URL");
   });
-
   it("rejects spec axes on non-spec capabilities", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             command: {
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              axmSupport: "supported",
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/docs"],
-              lastVerified: "2026-05-16",
-              scopes: ["project"],
-              standardsCompliance: "full",
-              convention: "vendor",
-              directory: ".sample/commands",
+              canonical: {
+                availability: { via: "native" },
+                vendorStatus: { state: "active" },
+                notes: null,
+                docs: [],
+                sources: ["https://example.com/docs"],
+                scopes: ["project"],
+                standardsCompliance: "full",
+                convention: "vendor",
+                directory: ".sample/commands",
+              },
+              axm: {
+                support: "supported",
+                lastVerified: "2026-05-16",
+                writer: null,
+              },
             },
           }),
         }),
       ),
     ).toThrow("standardsCompliance");
-
     expect(() =>
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             files: {
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              axmSupport: "supported",
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/docs"],
-              lastVerified: "2026-05-16",
-              scopes: ["project"],
-              standardsCompliance: "full",
-              convention: "vendor",
-              directory: ".sample/context",
-              files: ["NOTES.md"],
-              naming: null,
+              canonical: {
+                availability: { via: "native" },
+                vendorStatus: { state: "active" },
+                notes: null,
+                docs: [],
+                sources: ["https://example.com/docs"],
+                scopes: ["project"],
+                standardsCompliance: "full",
+                convention: "vendor",
+                directory: ".sample/context",
+                files: ["NOTES.md"],
+                naming: null,
+              },
+              axm: {
+                support: "supported",
+                lastVerified: "2026-05-16",
+                writer: null,
+              },
             },
           }),
         }),
       ),
     ).toThrow("standardsCompliance");
   });
-
   it("requires spec axes on spec-tracked capabilities", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             skill: {
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              axmSupport: "supported",
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/docs"],
-              lastVerified: "2026-05-16",
-              scopes: ["project"],
-              directory: ".sample/skills",
+              canonical: {
+                availability: { via: "native" },
+                vendorStatus: { state: "active" },
+                notes: null,
+                docs: [],
+                sources: ["https://example.com/docs"],
+                scopes: ["project"],
+                directory: ".sample/skills",
+              },
+              axm: {
+                support: "supported",
+                lastVerified: "2026-05-16",
+                writer: null,
+              },
             },
           }),
         }),
       ),
     ).toThrow("standardsCompliance");
   });
-
   it("validates instruction kind invariants structurally", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             rule: {
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              axmSupport: "supported",
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/docs"],
-              lastVerified: "2026-05-16",
-              scopes: ["project"],
-              standardsCompliance: "full",
-              convention: "universal",
-              kind: "agents-md",
-              files: ["SAMPLE.md"],
-              nestedDiscovery: false,
-              importSyntax: null,
+              canonical: {
+                availability: { via: "native" },
+                vendorStatus: { state: "active" },
+                notes: null,
+                docs: [],
+                sources: ["https://example.com/docs"],
+                scopes: ["project"],
+                standardsCompliance: "full",
+                convention: "universal",
+                kind: "agents-md",
+                files: ["SAMPLE.md"],
+                nestedDiscovery: false,
+                importSyntax: null,
+              },
+              axm: {
+                support: "supported",
+                lastVerified: "2026-05-16",
+                writer: null,
+              },
             },
           }),
         }),
       ),
     ).toThrow("AGENTS.md");
   });
-
   it("requires sourced active AXM support claims", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             skill: {
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              axmSupport: "supported",
-              notes: null,
-              docs: [],
-              sources: [],
-              lastVerified: "2026-05-16",
-              scopes: ["project"],
-              standardsCompliance: "full",
-              convention: "vendor",
-              directory: ".sample/skills",
+              canonical: {
+                availability: { via: "native" },
+                vendorStatus: { state: "active" },
+                notes: null,
+                docs: [],
+                sources: [],
+                scopes: ["project"],
+                standardsCompliance: "full",
+                convention: "vendor",
+                directory: ".sample/skills",
+              },
+              axm: {
+                support: "supported",
+                lastVerified: "2026-05-16",
+                writer: null,
+              },
             },
           }),
         }),
       ),
     ).toThrow("sources");
   });
-
   it("requires rules.directory for rules-dir instructions", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             rule: {
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              axmSupport: "supported",
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/docs"],
-              lastVerified: "2026-05-16",
-              scopes: ["project"],
-              standardsCompliance: "partial",
-              convention: "vendor",
-              kind: "rules-dir",
-              files: ["RULES.md"],
-              nestedDiscovery: false,
-              importSyntax: null,
+              canonical: {
+                availability: { via: "native" },
+                vendorStatus: { state: "active" },
+                notes: null,
+                docs: [],
+                sources: ["https://example.com/docs"],
+                scopes: ["project"],
+                standardsCompliance: "partial",
+                convention: "vendor",
+                kind: "rules-dir",
+                files: ["RULES.md"],
+                nestedDiscovery: false,
+                importSyntax: null,
+              },
+              axm: {
+                support: "supported",
+                lastVerified: "2026-05-16",
+                writer: null,
+              },
             },
           }),
         }),
       ),
     ).toThrow("directory");
   });
-
   it("allows full MCP standards compliance without writer config", () => {
     const decoded = decodeAgent(
       makeAgentInput({
         capabilities: makeCapabilitiesInput({
           "mcp-server": {
-            availability: { via: "native" },
-            vendorStatus: { state: "active" },
-            axmSupport: "supported",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/docs"],
-            lastVerified: "2026-05-18",
-            scopes: ["project"],
-            standardsCompliance: "full",
-            convention: "universal",
-            transports: ["stdio"],
+            canonical: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "universal",
+              transports: ["stdio"],
+            },
+            axm: {
+              support: "supported",
+              lastVerified: "2026-05-18",
+              writer: null,
+            },
           },
         }),
       }),
     );
-
-    expect(decoded.capabilities["mcp-server"].axmSupport).toBe("supported");
+    expect(decoded.capabilities["mcp-server"].axm.support).toBe("supported");
   });
-
   it("requires MCP config coverage for declared transports", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
             "mcp-server": {
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              axmSupport: "supported",
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/docs"],
-              lastVerified: "2026-05-18",
-              scopes: ["project"],
-              standardsCompliance: "full",
-              convention: "universal",
-              transports: ["stdio", "http"],
-              config: {
-                serversKey: "mcpServers",
-                nativeEnabled: false,
-                targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
-                stdio: null,
-                remote: null,
-                transform: null,
+              canonical: {
+                availability: { via: "native" },
+                vendorStatus: { state: "active" },
+                notes: null,
+                docs: [],
+                sources: ["https://example.com/docs"],
+                scopes: ["project"],
+                standardsCompliance: "full",
+                convention: "universal",
+                transports: ["stdio", "http"],
+              },
+              axm: {
+                support: "supported",
+                lastVerified: "2026-05-18",
+                writer: {
+                  config: {
+                    serversKey: "mcpServers",
+                    nativeEnabled: false,
+                    targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+                    stdio: null,
+                    remote: null,
+                    transform: null,
+                  },
+                },
               },
             },
           }),
@@ -330,13 +369,11 @@ describe("agent capability catalog", () => {
       ),
     ).toThrow("MCP stdio config is required");
   });
-
   it("defaults every catalog agent to an active lifecycle unless retired or deprecated", () => {
     for (const agent of AGENTS) {
       expect(["active", "deprecated", "retired"]).toContain(agent.lifecycle.state);
     }
   });
-
   it("requires since, note, and supersededBy on inactive lifecycle states", () => {
     const decode = (input: unknown) =>
       Schema.decodeUnknownResult(AgentLifecycleSchema)(input, { onExcessProperty: "error" });
@@ -357,7 +394,6 @@ describe("agent capability catalog", () => {
     expect(Result.isFailure(decode({ state: "retired" }))).toBe(true);
     expect(Result.isFailure(decode({ state: "deprecated", since: "2025-11-01" }))).toBe(true);
   });
-
   it("keeps supersededBy references valid: known agent, not self, no cycles", () => {
     const agents = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS);
     const byId = new Map(agents.map((agent) => [agent.id, agent]));
@@ -368,15 +404,12 @@ describe("agent capability catalog", () => {
         ? null
         : lifecycle.supersededBy;
     };
-
     for (const agent of agents) {
       if (agent.lifecycle.state === "active") continue;
       const successor = agent.lifecycle.supersededBy;
       if (successor === null) continue;
-
       expect(ids, `${agent.id} supersededBy unknown agent ${successor}`).toContain(successor);
       expect(successor, `${agent.id} supersededBy itself`).not.toBe(agent.id);
-
       // Walk the successor chain; it must terminate without revisiting a node.
       const seen = new Set<string>([agent.id]);
       let cursor: string | null = successor;
@@ -387,15 +420,13 @@ describe("agent capability catalog", () => {
       }
     }
   });
-
   it("keeps supersededByType references valid", () => {
     const leafTypes = new Set<string>(LEAF_EXTENSION_TYPES);
     const agents = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS);
-
     for (const agent of agents) {
       for (const capability of [...Object.values(agent.capabilities), agent.permissions]) {
-        if (capability.vendorStatus.state === "active") continue;
-        const successor = capability.vendorStatus.supersededByType;
+        if (capability.canonical.vendorStatus.state === "active") continue;
+        const successor = capability.canonical.vendorStatus.supersededByType;
         if (successor === null) continue;
         expect(
           leafTypes,

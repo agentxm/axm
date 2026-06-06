@@ -26,8 +26,15 @@ import type {
 
 type UpstreamRemoteTransport = "streamable-http" | "sse";
 type ConfiguredMcpCapability = McpExtensionCapability & {
-  readonly config: McpConfig;
-  readonly transports: ReadonlyArray<McpTransport>;
+  readonly canonical: Extract<
+    McpExtensionCapability["canonical"],
+    { readonly transports: ReadonlyArray<McpTransport> }
+  >;
+  readonly axm: {
+    readonly writer: {
+      readonly config: McpConfig;
+    };
+  };
 };
 
 export type McpResolution =
@@ -83,7 +90,7 @@ const capabilitySupportsUpstream = (
 ): boolean => transports.includes(transport === "streamable-http" ? "http" : transport);
 
 const hasMcpConfig = (capability: McpExtensionCapability): capability is ConfiguredMcpCapability =>
-  "config" in capability && capability.config !== undefined && "transports" in capability;
+  capability.axm.writer !== null && "transports" in capability.canonical;
 
 const isRemoteTransport = (transport: string): transport is UpstreamRemoteTransport =>
   transport === "streamable-http" || transport === "sse";
@@ -97,15 +104,15 @@ const selectCandidate = (
   const packages = manifest.server.packages ?? [];
 
   for (const remote of remotes) {
-    if (capabilitySupportsUpstream(capability.transports, remote.type)) {
+    if (capabilitySupportsUpstream(capability.canonical.transports, remote.type)) {
       candidates.push({ kind: "remote", rank: 1, remote, shimmed: false });
-    } else if (capability.transports.includes("stdio")) {
+    } else if (capability.canonical.transports.includes("stdio")) {
       candidates.push({ kind: "remote", rank: 3, remote, shimmed: true });
     }
   }
 
   for (const pkg of packages) {
-    if (capability.transports.includes("stdio")) {
+    if (capability.canonical.transports.includes("stdio")) {
       candidates.push({ kind: "package", rank: 2, pkg });
     }
   }
@@ -439,7 +446,7 @@ export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
     return { _tag: "no-distribution", reason: "agent does not have MCP config support" };
   }
   const capability = args.capability;
-  const config = capability.config;
+  const config = capability.axm.writer.config;
 
   const hasPackages = (args.manifest.server.packages ?? []).length > 0;
   const hasRemotes = (args.manifest.server.remotes ?? []).length > 0;

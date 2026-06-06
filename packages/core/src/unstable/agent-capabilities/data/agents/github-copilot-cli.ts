@@ -1,5 +1,4 @@
 import type { Agent } from "../../schema.js";
-
 export const githubCopilotCliAgent = {
   id: "github-copilot-cli",
   name: "GitHub Copilot CLI",
@@ -41,190 +40,232 @@ export const githubCopilotCliAgent = {
   ],
   capabilities: {
     skill: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes:
-        "GitHub Copilot CLI reads SKILL.md skills from project .github/skills, .claude/skills, or .agents/skills, and user skills from ~/.copilot/skills.\n",
-      docs: [],
-      sources: [
-        "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills",
-        "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
-      ],
-      lastVerified: "2026-06-05",
-      scopes: ["user", "project"],
-      standardsCompliance: "full",
-      convention: "vendor",
-      directory: ".github/skills",
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes:
+          "GitHub Copilot CLI reads SKILL.md skills from project .github/skills, .claude/skills, or .agents/skills, and user skills from ~/.copilot/skills.\n",
+        docs: [],
+        sources: [
+          "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills",
+          "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
+        ],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "vendor",
+        directory: ".github/skills",
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-06-05",
+        writer: null,
+      },
     },
     command: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: "GitHub Copilot CLI has no documented custom slash-command file surface.",
-      docs: [],
-      sources: [
-        "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/overview",
-      ],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: "GitHub Copilot CLI has no documented custom slash-command file surface.",
+        docs: [],
+        sources: [
+          "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/overview",
+        ],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
     "mcp-server": {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes: null,
-      docs: [],
-      sources: [
-        "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers",
-        "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
-        "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference",
-      ],
-      lastVerified: "2026-06-05",
-      scopes: ["user", "project"],
-      standardsCompliance: "full",
-      convention: "vendor",
-      transports: ["stdio", "http", "sse"],
-      mcpEnvExpansion: {
-        variables: "none",
-        defaults: false,
-      },
-      config: {
-        serversKey: "mcpServers",
-        nativeEnabled: false,
-        targets: [
-          {
-            scope: "user",
-            path: "~/.copilot/mcp-config.json",
-            format: "json",
-          },
-          {
-            scope: "project",
-            path: ".mcp.json",
-            format: "json",
-          },
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [
+          "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers",
+          "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
+          "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference",
         ],
-        stdio: {
-          typeField: {
-            name: "type",
-            value: "local",
-          },
-          command: "split",
-          envKey: "env",
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "vendor",
+        transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: {
+          variables: "none",
+          defaults: false,
         },
-        remote: {
-          typeField: {
-            name: "type",
-            value: {
-              "streamable-http": "http",
-              sse: "sse",
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-06-05",
+        writer: {
+          config: {
+            serversKey: "mcpServers",
+            nativeEnabled: false,
+            targets: [
+              {
+                scope: "user",
+                path: "~/.copilot/mcp-config.json",
+                format: "json",
+              },
+              {
+                scope: "project",
+                path: ".mcp.json",
+                format: "json",
+              },
+            ],
+            stdio: {
+              typeField: {
+                name: "type",
+                value: "local",
+              },
+              command: "split",
+              envKey: "env",
             },
+            remote: {
+              typeField: {
+                name: "type",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
+              },
+              urlKey: {
+                "streamable-http": "url",
+                sse: "url",
+              },
+              headersKey: "headers",
+            },
+            transform: null,
           },
-          urlKey: {
-            "streamable-http": "url",
-            sse: "url",
-          },
-          headersKey: "headers",
         },
-        transform: null,
       },
     },
     subagent: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes:
-        "No industry spec for subagents yet; GitHub Copilot CLI custom agents are Markdown agent profiles under .github/agents or ~/.copilot/agents.\n",
-      docs: [],
-      sources: [
-        "https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-custom-agents",
-        "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
-      ],
-      lastVerified: "2026-06-05",
-      scopes: ["user", "project"],
-      directory: ".github/agents",
-      layout: "directory",
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes:
+          "No industry spec for subagents yet; GitHub Copilot CLI custom agents are Markdown agent profiles under .github/agents or ~/.copilot/agents.\n",
+        docs: [],
+        sources: [
+          "https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-custom-agents",
+          "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
+        ],
+        scopes: ["user", "project"],
+        directory: ".github/agents",
+        layout: "directory",
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-06-05",
+        writer: null,
+      },
     },
     files: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
     rule: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes:
-        "GitHub Copilot CLI supports AGENTS.md plus Copilot-specific instruction files; AXM syncs the cross-agent AGENTS.md convention.\n",
-      docs: [],
-      sources: [
-        "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions",
-      ],
-      lastVerified: "2026-06-05",
-      scopes: ["user", "project"],
-      standardsCompliance: "full",
-      convention: "universal",
-      kind: "agents-md",
-      files: ["AGENTS.md"],
-      nestedDiscovery: false,
-      importSyntax: null,
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes:
+          "GitHub Copilot CLI supports AGENTS.md plus Copilot-specific instruction files; AXM syncs the cross-agent AGENTS.md convention.\n",
+        docs: [],
+        sources: [
+          "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions",
+        ],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        kind: "agents-md",
+        files: ["AGENTS.md"],
+        nestedDiscovery: false,
+        importSyntax: null,
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-06-05",
+        writer: null,
+      },
     },
     hook: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
   },
   permissions: {
-    availability: { via: "native" },
-    vendorStatus: { state: "active" },
-    axmSupport: "supported",
-    notes: null,
-    docs: [],
-    sources: [
-      "https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/allowing-tools",
-      "https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/configure-copilot-cli",
-      "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
-    ],
-    lastVerified: "2026-06-05",
-    scopes: ["user", "project"],
-    mechanism: ["cli-flag"],
-    configFiles: [],
-    grammar: {
-      style: "prefix",
-      example: "--allow-tool='shell(axm:*)'",
-      notes:
-        "Copilot CLI permission flags use tool-kind patterns such as shell(git:*), write(path), url(domain), or MCP_SERVER(tool). Deny rules take precedence over allow rules.\n",
+    canonical: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: [
+        "https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/allowing-tools",
+        "https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/configure-copilot-cli",
+        "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
+      ],
+      scopes: ["user", "project"],
+      mechanism: ["cli-flag"],
+      configFiles: [],
+      grammar: {
+        style: "prefix",
+        example: "--allow-tool='shell(axm:*)'",
+        notes:
+          "Copilot CLI permission flags use tool-kind patterns such as shell(git:*), write(path), url(domain), or MCP_SERVER(tool). Deny rules take precedence over allow rules.\n",
+      },
+      prerequisites: [],
+      cliFlags: [
+        {
+          flag: "--allow-tool='shell(${tool}:*)'",
+          note: "Allow a command family without prompting.",
+        },
+        {
+          flag: "--allow-all-tools",
+          note: "Allow all available tools without prompting.",
+        },
+        {
+          flag: "--allow-all",
+          note: "Allow all tools, paths, and URLs.",
+        },
+      ],
     },
-    prerequisites: [],
-    cliFlags: [
-      {
-        flag: "--allow-tool='shell(${tool}:*)'",
-        note: "Allow a command family without prompting.",
-      },
-      {
-        flag: "--allow-all-tools",
-        note: "Allow all available tools without prompting.",
-      },
-      {
-        flag: "--allow-all",
-        note: "Allow all tools, paths, and URLs.",
-      },
-    ],
-    grants: {
-      shell: {
-        target: "CLI invocation",
-        patch: null,
-        template: "--allow-tool='shell(${tool}:*)'",
-      },
-      filesystem: {
-        target: "CLI invocation",
-        patch: null,
-        template: "--allow-tool='write(${workspaceRoot}/**)'",
+    axm: {
+      support: "supported",
+      lastVerified: "2026-06-05",
+      writer: {
+        grants: {
+          shell: {
+            target: "CLI invocation",
+            patch: null,
+            template: "--allow-tool='shell(${tool}:*)'",
+          },
+          filesystem: {
+            target: "CLI invocation",
+            patch: null,
+            template: "--allow-tool='write(${workspaceRoot}/**)'",
+          },
+        },
       },
     },
   },

@@ -16,6 +16,7 @@ import {
   type AgentId as CapabilityAgentId,
   type McpConfig,
   type McpConfigTarget,
+  type McpTransport,
 } from "../agent-capabilities/index.js";
 import { getHome } from "./constants.js";
 import { envOption, isPathSafe } from "../utils/index.js";
@@ -51,8 +52,16 @@ export interface CliInvocationResult {
 
 type NodePlatform = NodeJS.Platform;
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = Extract<AgentMcpCapability, { readonly transports: unknown }> & {
-  readonly config: McpConfig;
+type ConfiguredMcpCapability = AgentMcpCapability & {
+  readonly canonical: Extract<
+    AgentMcpCapability["canonical"],
+    { readonly transports: ReadonlyArray<McpTransport> }
+  >;
+  readonly axm: {
+    readonly writer: {
+      readonly config: McpConfig;
+    };
+  };
 };
 
 const DEFAULT_SUPPORTED_PLATFORMS = ["darwin", "linux", "win32"] as const;
@@ -72,7 +81,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  "config" in capability && capability.config !== undefined && "transports" in capability;
+  capability.axm.writer !== null && "transports" in capability.canonical;
 
 const redactSecrets = (value: string): string =>
   value
@@ -524,14 +533,14 @@ export const syncInlineMcpServerToAgent = (
       } as const;
     }
 
-    const config = capability.config;
+    const config = capability.axm.writer.config;
     const projected = projectExpectedEntry({
       serverName: args.serverName,
       entry: args.entry,
       stdio: config.stdio,
       remote: config.remote,
       nativeEnabled: config.nativeEnabled,
-      envExpansion: capability.mcpEnvExpansion,
+      envExpansion: capability.canonical.mcpEnvExpansion,
     });
 
     if (projected._tag !== "projected") {
@@ -583,7 +592,7 @@ export const pruneManagedMcpServersForAgent = (
       } as const;
     }
 
-    const config = capability.config;
+    const config = capability.axm.writer.config;
     const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
     yield* Effect.forEach(
       targets,
@@ -885,7 +894,7 @@ export const addMcpServerFromManifest = (
         reason: `${agentId} does not have MCP config support`,
       } as const;
     }
-    const config = capability.config;
+    const config = capability.axm.writer.config;
 
     const manifest = yield* decodeManifestAt(
       path.join(args.canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
@@ -959,7 +968,7 @@ export const removeMcpServerFromManifest = (
         reason: `${agentId} does not have MCP config support`,
       } as const;
     }
-    const config = capability.config;
+    const config = capability.axm.writer.config;
 
     const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
     const writeResults = yield* Effect.forEach(

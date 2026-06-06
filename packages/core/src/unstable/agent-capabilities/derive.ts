@@ -31,6 +31,23 @@ export interface CapabilityListing {
 }
 
 /** @experimental This API is unstable and may change without notice. */
+export type CanonicalAgentCapabilities = {
+  readonly skill: Agent["capabilities"]["skill"]["canonical"];
+  readonly command: Agent["capabilities"]["command"]["canonical"];
+  readonly "mcp-server": Agent["capabilities"]["mcp-server"]["canonical"];
+  readonly subagent: Agent["capabilities"]["subagent"]["canonical"];
+  readonly files: Agent["capabilities"]["files"]["canonical"];
+  readonly rule: Agent["capabilities"]["rule"]["canonical"];
+  readonly hook: Agent["capabilities"]["hook"]["canonical"];
+};
+
+/** @experimental This API is unstable and may change without notice. */
+export type CanonicalAgent = Omit<Agent, "capabilities" | "permissions"> & {
+  readonly capabilities: CanonicalAgentCapabilities;
+  readonly permissions: Agent["permissions"]["canonical"];
+};
+
+/** @experimental This API is unstable and may change without notice. */
 export type ExtensionCompatibilityInput =
   | { readonly type: LeafExtensionType }
   | { readonly type: "pack"; readonly memberTypes: ReadonlyArray<LeafExtensionType> };
@@ -40,33 +57,38 @@ export const isLeafExtensionType = (value: ExtensionType): value is LeafExtensio
   value !== "pack";
 
 /** @experimental This API is unstable and may change without notice. */
-export type CapabilityStatus =
+export type AgentCapabilityStatus =
   | "native"
   | "native-deprecated"
   | "plugin"
   | "plugin-deprecated"
-  | "planned"
-  | "unsupported"
-  | "unknown";
+  | "none";
 
 /** @experimental This API is unstable and may change without notice. */
-export const capabilityStatus = (capability: AgentExtensionCapability): CapabilityStatus => {
-  if (capability.axmSupport === "unknown") return "unknown";
-  if (capability.axmSupport === "planned") return "planned";
+export type AxmIntegrationStatus = AgentExtensionCapability["axm"]["support"];
 
-  switch (capability.availability.via) {
+/** @experimental This API is unstable and may change without notice. */
+export const agentCapabilityStatus = (
+  capability: AgentExtensionCapability,
+): AgentCapabilityStatus => {
+  switch (capability.canonical.availability.via) {
     case "none":
-      return "unsupported";
+      return "none";
     case "native":
-      return capability.vendorStatus.state === "active" ? "native" : "native-deprecated";
+      return capability.canonical.vendorStatus.state === "active" ? "native" : "native-deprecated";
     case "plugin":
-      return capability.vendorStatus.state === "active" ? "plugin" : "plugin-deprecated";
+      return capability.canonical.vendorStatus.state === "active" ? "plugin" : "plugin-deprecated";
   }
 };
 
 /** @experimental This API is unstable and may change without notice. */
+export const axmIntegrationStatus = (capability: AgentExtensionCapability): AxmIntegrationStatus =>
+  capability.axm.support;
+
+/** @experimental This API is unstable and may change without notice. */
 export const isCapabilitySupported = (capability: AgentExtensionCapability): boolean =>
-  capability.axmSupport === SUPPORTED_AXM_SUPPORT && capability.availability.via !== "none";
+  capability.axm.support === SUPPORTED_AXM_SUPPORT &&
+  capability.canonical.availability.via !== "none";
 
 const catalogAgentIds = new Set<string>(AGENT_IDS);
 
@@ -83,8 +105,8 @@ const deriveRootDir = (agent: Agent): string | undefined =>
   agent.rootDir === null
     ? undefined
     : agent.rootDir ||
-      ("directory" in agent.capabilities.skill
-        ? firstPathSegment(agent.capabilities.skill.directory)
+      ("directory" in agent.capabilities.skill.canonical
+        ? firstPathSegment(agent.capabilities.skill.canonical.directory)
         : undefined);
 
 const detectionMarkerKey = (marker: AgentDetectionMarker): string =>
@@ -114,9 +136,9 @@ const appendFileMarkers = (
 };
 
 const hasConfigFiles = (
-  capability: AgentExtensionCapability | Agent["permissions"],
+  capability: AgentExtensionCapability["canonical"] | Agent["permissions"]["canonical"],
 ): capability is Extract<
-  AgentExtensionCapability | Agent["permissions"],
+  AgentExtensionCapability["canonical"] | Agent["permissions"]["canonical"],
   { readonly configFiles: ReadonlyArray<ConfigFileLocation> }
 > => "configFiles" in capability;
 
@@ -138,16 +160,18 @@ const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection |
   }
 
   const mcp = agent.capabilities["mcp-server"];
-  if ("config" in mcp && mcp.config !== undefined) {
-    appendFileMarkers(markersByScope, mcp.config.targets);
+  if (mcp.axm.writer !== null) {
+    appendFileMarkers(markersByScope, mcp.axm.writer.config.targets);
   }
 
   for (const capability of Object.values(agent.capabilities)) {
-    if (hasConfigFiles(capability)) appendFileMarkers(markersByScope, capability.configFiles);
+    if (hasConfigFiles(capability.canonical)) {
+      appendFileMarkers(markersByScope, capability.canonical.configFiles);
+    }
   }
 
-  if (hasConfigFiles(agent.permissions)) {
-    appendFileMarkers(markersByScope, agent.permissions.configFiles);
+  if (hasConfigFiles(agent.permissions.canonical)) {
+    appendFileMarkers(markersByScope, agent.permissions.canonical.configFiles);
   }
 
   for (const marker of agent.detection.project.markers) {
@@ -171,31 +195,37 @@ const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection |
 const deriveSubagentsDescriptor = (agent: Agent): AgentSubagentsDescriptor | undefined => {
   const subagents = agent.capabilities.subagent;
   if (!isCapabilitySupported(subagents)) return undefined;
-  if (!("directory" in subagents)) return undefined;
+  if (!("directory" in subagents.canonical)) return undefined;
   return {
-    dir: subagents.directory,
-    ...(subagents.layout === "file" ? { isFile: true } : {}),
+    dir: subagents.canonical.directory,
+    ...(subagents.canonical.layout === "file" ? { isFile: true } : {}),
   };
 };
 
 const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor | undefined => {
   const instructions = agent.capabilities.rule;
-  if (!isCapabilitySupported(instructions) || !("kind" in instructions)) return undefined;
+  if (!isCapabilitySupported(instructions) || !("kind" in instructions.canonical)) return undefined;
 
-  switch (instructions.kind) {
+  switch (instructions.canonical.kind) {
     case "agents-md":
       return { kind: "agents-md" };
     case "own-file": {
-      const file = instructions.files[0];
+      const file = instructions.canonical.files[0];
       if (file === undefined) return undefined;
       return {
         kind: "own-file",
         file,
-        ...(instructions.importSyntax === null ? {} : { importSyntax: instructions.importSyntax }),
+        ...(instructions.canonical.importSyntax === null
+          ? {}
+          : { importSyntax: instructions.canonical.importSyntax }),
       };
     }
     case "rules-dir": {
-      return { kind: "rules-dir", dir: instructions.directory, format: "frontmatter" };
+      return {
+        kind: "rules-dir",
+        dir: instructions.canonical.directory,
+        format: "frontmatter",
+      };
     }
   }
 };
@@ -205,8 +235,8 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
   const skill = agent.capabilities.skill;
   const command = agent.capabilities.command;
   const commands =
-    isCapabilitySupported(command) && "directory" in command
-      ? { dir: command.directory }
+    isCapabilitySupported(command) && "directory" in command.canonical
+      ? { dir: command.canonical.directory }
       : undefined;
   const subagents = deriveSubagentsDescriptor(agent);
   const instructions = deriveInstructionsDescriptor(agent);
@@ -218,7 +248,7 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
     name: agent.name,
     rootDir,
     skills: {
-      dir: "directory" in skill ? skill.directory : "",
+      dir: "directory" in skill.canonical ? skill.canonical.directory : "",
     },
     ...(detection === undefined ? {} : { detection }),
     ...(commands === undefined ? {} : { commands }),
@@ -234,11 +264,11 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
   for (const type of LEAF_EXTENSION_TYPES) {
     const capability = agent.capabilities[type];
     if (
-      capability.axmSupport !== "unsupported" ||
-      capability.availability.via !== "none" ||
-      capability.sources.length > 0 ||
-      capability.docs.length > 0 ||
-      capability.notes !== null
+      capability.axm.support !== "unsupported" ||
+      capability.canonical.availability.via !== "none" ||
+      capability.canonical.sources.length > 0 ||
+      capability.canonical.docs.length > 0 ||
+      capability.canonical.notes !== null
     ) {
       capabilities.push({ type, capability });
     }
@@ -282,3 +312,27 @@ export const getSupportedAgentsForExtension = (
   extension.type === "pack"
     ? getSupportedAgentsForExtensionTypes(extension.memberTypes, catalog)
     : getSupportedAgentsForExtensionType(extension.type, catalog);
+
+/** @experimental This API is unstable and may change without notice. */
+export const toCanonicalAgent = (agent: Agent): CanonicalAgent => ({
+  id: agent.id,
+  name: agent.name,
+  vendor: agent.vendor,
+  homepage: agent.homepage,
+  interfaces: agent.interfaces,
+  family: agent.family,
+  rootDir: agent.rootDir,
+  lifecycle: agent.lifecycle,
+  detection: agent.detection,
+  docs: agent.docs,
+  capabilities: {
+    skill: agent.capabilities.skill.canonical,
+    command: agent.capabilities.command.canonical,
+    "mcp-server": agent.capabilities["mcp-server"].canonical,
+    subagent: agent.capabilities.subagent.canonical,
+    files: agent.capabilities.files.canonical,
+    rule: agent.capabilities.rule.canonical,
+    hook: agent.capabilities.hook.canonical,
+  },
+  permissions: agent.permissions.canonical,
+});

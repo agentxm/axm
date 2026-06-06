@@ -31,8 +31,9 @@ const matchingProjectConfig = (
 const preferredTarget = (
   permissions: PermissionsExtensionCapability,
 ): ConfigFileLocation | undefined => {
-  const configFiles = "configFiles" in permissions ? permissions.configFiles : [];
-  const shellTarget = "grants" in permissions ? permissions.grants["shell"]?.target : undefined;
+  const configFiles =
+    "configFiles" in permissions.canonical ? permissions.canonical.configFiles : [];
+  const shellTarget = permissions.axm.writer?.grants["shell"]?.target;
 
   return (
     matchingProjectConfig(shellTarget, configFiles) ??
@@ -43,9 +44,9 @@ const preferredTarget = (
 };
 
 const prefersCliFlags = (permissions: PermissionsExtensionCapability): boolean =>
-  "mechanism" in permissions &&
-  permissions.mechanism.includes("cli-flag") &&
-  ("configFiles" in permissions ? permissions.configFiles.length === 0 : true);
+  "mechanism" in permissions.canonical &&
+  permissions.canonical.mechanism.includes("cli-flag") &&
+  ("configFiles" in permissions.canonical ? permissions.canonical.configFiles.length === 0 : true);
 
 /**
  * Build one permission suggestion per cataloged agent with permissions data.
@@ -60,15 +61,16 @@ export const buildPermissionSuggestions = (
         const agent = agentById(agentId);
         const permissions = agent.permissions;
         if (
-          permissions.axmSupport !== SUPPORTED_AXM_SUPPORT ||
-          permissions.availability.via === "none"
+          permissions.axm.support !== SUPPORTED_AXM_SUPPORT ||
+          permissions.canonical.availability.via === "none"
         ) {
           return [];
         }
 
         const target = preferredTarget(permissions);
-        const example = permissions.grammar?.example;
-        const docUrl = permissions.sources[0];
+        const example =
+          "grammar" in permissions.canonical ? permissions.canonical.grammar?.example : undefined;
+        const docUrl = permissions.canonical.sources[0];
 
         const description =
           target === undefined

@@ -15,6 +15,7 @@ import {
   type AgentId,
   type McpConfig,
   type McpConfigTarget,
+  type McpTransport,
 } from "../agent-capabilities/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { McpServerEntry } from "../settings/index.js";
@@ -23,8 +24,16 @@ import { resolveAgentMcpConfigTargetPath } from "./config-writer.js";
 import { diffAgentEntry, projectExpectedEntry, type ExpectedAgentEntry } from "./projection.js";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = Extract<AgentMcpCapability, { readonly transports: unknown }> & {
-  readonly config: McpConfig;
+type ConfiguredMcpCapability = AgentMcpCapability & {
+  readonly canonical: Extract<
+    AgentMcpCapability["canonical"],
+    { readonly transports: ReadonlyArray<McpTransport> }
+  >;
+  readonly axm: {
+    readonly writer: {
+      readonly config: McpConfig;
+    };
+  };
 };
 
 export type AgentMcpInspectionStatus = "unsupported" | "absent" | "match" | "drift" | "unmanaged";
@@ -67,7 +76,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  "config" in capability && capability.config !== undefined && "transports" in capability;
+  capability.axm.writer !== null && "transports" in capability.canonical;
 
 const isCapabilityAgentId = (agentId: string): agentId is AgentId => agentId in AGENTS_BY_ID;
 
@@ -272,7 +281,7 @@ export const inspectAgentMcpServer = (
       };
     }
 
-    const config = capability.config;
+    const config = capability.axm.writer.config;
     const target = config.targets.find((item) => item.scope === args.scope);
     if (target === undefined) {
       return {
@@ -292,7 +301,7 @@ export const inspectAgentMcpServer = (
       stdio: config.stdio,
       remote: config.remote,
       nativeEnabled: config.nativeEnabled,
-      envExpansion: capability.mcpEnvExpansion,
+      envExpansion: capability.canonical.mcpEnvExpansion,
     });
     const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
     if (projected._tag !== "projected") {
@@ -391,7 +400,9 @@ export const collectManagedAgentMcpServers = (
           if (!isCapabilityAgentId(agentId)) return [];
           const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
           if (!hasMcpConfig(capability)) return [];
-          const targets = capability.config.targets.filter((target) => target.scope === args.scope);
+          const targets = capability.axm.writer.config.targets.filter(
+            (target) => target.scope === args.scope,
+          );
           const perTarget = yield* Effect.forEach(
             targets,
             (target) =>
@@ -408,7 +419,7 @@ export const collectManagedAgentMcpServers = (
                     : yield* managedJsonNames(
                         absolutePath,
                         raw.value,
-                        capability.config.serversKey,
+                        capability.axm.writer.config.serversKey,
                       );
                 return names.map((serverName) => ({
                   agentId,

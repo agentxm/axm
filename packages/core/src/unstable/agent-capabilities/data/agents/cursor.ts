@@ -1,5 +1,4 @@
 import type { Agent } from "../../schema.js";
-
 export const cursorAgent = {
   id: "cursor",
   name: "Cursor",
@@ -40,218 +39,260 @@ export const cursorAgent = {
   ],
   capabilities: {
     skill: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes:
-        "Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI; it also loads .claude/skills and .codex/skills for cross-tool compatibility.\n",
-      docs: [],
-      sources: ["https://cursor.com/docs/context/skills", "https://cursor.com/changelog/2-4"],
-      lastVerified: "2026-05-18",
-      scopes: ["user", "project"],
-      standardsCompliance: "full",
-      convention: "vendor",
-      directory: ".cursor/skills",
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes:
+          "Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI; it also loads .claude/skills and .codex/skills for cross-tool compatibility.\n",
+        docs: [],
+        sources: ["https://cursor.com/docs/context/skills", "https://cursor.com/changelog/2-4"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "vendor",
+        directory: ".cursor/skills",
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-05-18",
+        writer: null,
+      },
     },
     command: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes:
-        "Custom commands are Markdown prompt files under .cursor/commands (project) or ~/.cursor/commands (user); documented as a beta feature.\n",
-      docs: [],
-      sources: [
-        "https://docs.cursor.com/en/agent/chat/commands",
-        "https://cursor.com/changelog/1-6",
-      ],
-      lastVerified: "2026-05-18",
-      scopes: ["user", "project"],
-      directory: ".cursor/commands",
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes:
+          "Custom commands are Markdown prompt files under .cursor/commands (project) or ~/.cursor/commands (user); documented as a beta feature.\n",
+        docs: [],
+        sources: [
+          "https://docs.cursor.com/en/agent/chat/commands",
+          "https://cursor.com/changelog/1-6",
+        ],
+        scopes: ["user", "project"],
+        directory: ".cursor/commands",
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-05-18",
+        writer: null,
+      },
     },
     "mcp-server": {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes: null,
-      docs: [],
-      sources: ["https://cursor.com/docs/mcp"],
-      lastVerified: "2026-05-16",
-      scopes: ["user", "project"],
-      standardsCompliance: "full",
-      convention: "universal",
-      transports: ["stdio", "http", "sse"],
-      mcpEnvExpansion: {
-        variables: "none",
-        defaults: false,
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: ["https://cursor.com/docs/mcp"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: {
+          variables: "none",
+          defaults: false,
+        },
       },
-      config: {
-        serversKey: "mcpServers",
-        nativeEnabled: false,
-        targets: [
-          {
-            scope: "project",
-            path: ".cursor/mcp.json",
-            format: "json",
+      axm: {
+        support: "supported",
+        lastVerified: "2026-05-16",
+        writer: {
+          config: {
+            serversKey: "mcpServers",
+            nativeEnabled: false,
+            targets: [
+              {
+                scope: "project",
+                path: ".cursor/mcp.json",
+                format: "json",
+              },
+            ],
+            stdio: {
+              typeField: null,
+              command: "split",
+              envKey: "env",
+            },
+            remote: {
+              typeField: null,
+              urlKey: {
+                "streamable-http": "url",
+                sse: "url",
+              },
+              headersKey: "headers",
+            },
+            transform: null,
           },
-        ],
-        stdio: {
-          typeField: null,
-          command: "split",
-          envKey: "env",
         },
-        remote: {
-          typeField: null,
-          urlKey: {
-            "streamable-http": "url",
-            sse: "url",
-          },
-          headersKey: "headers",
-        },
-        transform: null,
       },
     },
     subagent: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes:
-        "Custom subagents are Markdown files with YAML frontmatter under .cursor/agents (project) or ~/.cursor/agents (user); added in Cursor 2.4.\n",
-      docs: [],
-      sources: ["https://cursor.com/docs/subagents", "https://cursor.com/changelog/2-4"],
-      lastVerified: "2026-05-18",
-      scopes: ["user", "project"],
-      directory: ".cursor/agents",
-      layout: "directory",
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes:
+          "Custom subagents are Markdown files with YAML frontmatter under .cursor/agents (project) or ~/.cursor/agents (user); added in Cursor 2.4.\n",
+        docs: [],
+        sources: ["https://cursor.com/docs/subagents", "https://cursor.com/changelog/2-4"],
+        scopes: ["user", "project"],
+        directory: ".cursor/agents",
+        layout: "directory",
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-05-18",
+        writer: null,
+      },
     },
     files: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
     rule: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes: null,
-      docs: [],
-      sources: ["https://docs.cursor.com/en/cli/using"],
-      lastVerified: "2026-05-16",
-      scopes: ["project"],
-      standardsCompliance: "full",
-      convention: "universal",
-      directory: ".cursor/rules",
-      kind: "agents-md",
-      files: ["AGENTS.md"],
-      nestedDiscovery: false,
-      importSyntax: null,
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: ["https://docs.cursor.com/en/cli/using"],
+        scopes: ["project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        directory: ".cursor/rules",
+        kind: "agents-md",
+        files: ["AGENTS.md"],
+        nestedDiscovery: false,
+        importSyntax: null,
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-05-16",
+        writer: null,
+      },
     },
     hook: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
   },
   permissions: {
-    availability: { via: "native" },
-    vendorStatus: { state: "active" },
-    axmSupport: "supported",
-    notes: null,
-    docs: [],
-    sources: [
-      "https://cursor.com/docs/reference/permissions",
-      "https://cursor.com/docs/reference/sandbox",
-      "https://cursor.com/docs/agent/tools/terminal",
-      "https://cursor.com/docs/cli/reference/permissions",
-    ],
-    lastVerified: "2026-05-18",
-    scopes: ["user", "project"],
-    mechanism: ["config-file", "ui-only", "cli-flag"],
-    configFiles: [
-      {
-        scope: "user",
-        path: "~/.cursor/permissions.json",
-        format: "json",
-        gitignored: false,
-      },
-      {
-        scope: "user",
-        path: "~/.cursor/sandbox.json",
-        format: "json",
-        gitignored: false,
-      },
-      {
-        scope: "project",
-        path: ".cursor/sandbox.json",
-        format: "json",
-        gitignored: false,
-      },
-      {
-        scope: "user",
-        path: "~/.cursor/cli-config.json",
-        format: "json",
-        gitignored: false,
-      },
-      {
-        scope: "project",
-        path: ".cursor/cli.json",
-        format: "json",
-        gitignored: false,
-      },
-    ],
-    grammar: {
-      style: "prefix",
-      example: "axm",
-      notes:
-        "IDE: case-sensitive command prefix in terminalAllowlist. CLI: Tool-call syntax Shell()/Read()/Write() with glob patterns. Deny always beats allow.\n",
-    },
-    prerequisites: [
-      {
-        key: "Settings > Cursor Settings > Agents > Auto-Run",
-        value: "Run in Sandbox | Run Everything",
-        scope: "user",
-        note: "IDE Auto-Run must be enabled before terminalAllowlist takes effect.",
-      },
-    ],
-    cliFlags: [
-      {
-        flag: "--force",
-        note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
-      },
-      {
-        flag: "--yolo",
-        note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
-      },
-    ],
-    grants: {
-      shell: {
-        target: "~/.cursor/permissions.json",
-        patch: {
-          terminalAllowlist: ["${tool}"],
+    canonical: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: [
+        "https://cursor.com/docs/reference/permissions",
+        "https://cursor.com/docs/reference/sandbox",
+        "https://cursor.com/docs/agent/tools/terminal",
+        "https://cursor.com/docs/cli/reference/permissions",
+      ],
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "ui-only", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.cursor/permissions.json",
+          format: "json",
+          gitignored: false,
         },
-        template: null,
+        {
+          scope: "user",
+          path: "~/.cursor/sandbox.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".cursor/sandbox.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "user",
+          path: "~/.cursor/cli-config.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".cursor/cli.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "prefix",
+        example: "axm",
+        notes:
+          "IDE: case-sensitive command prefix in terminalAllowlist. CLI: Tool-call syntax Shell()/Read()/Write() with glob patterns. Deny always beats allow.\n",
       },
-      cliShell: {
-        target: ".cursor/cli.json",
-        patch: {
-          permissions: {
-            allow: ["Shell(${tool})", "Shell(${tool}:*)"],
+      prerequisites: [
+        {
+          key: "Settings > Cursor Settings > Agents > Auto-Run",
+          value: "Run in Sandbox | Run Everything",
+          scope: "user",
+          note: "IDE Auto-Run must be enabled before terminalAllowlist takes effect.",
+        },
+      ],
+      cliFlags: [
+        {
+          flag: "--force",
+          note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
+        },
+        {
+          flag: "--yolo",
+          note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
+        },
+      ],
+    },
+    axm: {
+      support: "supported",
+      lastVerified: "2026-05-18",
+      writer: {
+        grants: {
+          shell: {
+            target: "~/.cursor/permissions.json",
+            patch: {
+              terminalAllowlist: ["${tool}"],
+            },
+            template: null,
+          },
+          cliShell: {
+            target: ".cursor/cli.json",
+            patch: {
+              permissions: {
+                allow: ["Shell(${tool})", "Shell(${tool}:*)"],
+              },
+            },
+            template: null,
+          },
+          filesystem: {
+            target: ".cursor/sandbox.json",
+            patch: {
+              type: "workspace_readwrite",
+              additionalReadwritePaths: [],
+            },
+            template: null,
           },
         },
-        template: null,
-      },
-      filesystem: {
-        target: ".cursor/sandbox.json",
-        patch: {
-          type: "workspace_readwrite",
-          additionalReadwritePaths: [],
-        },
-        template: null,
       },
     },
   },

@@ -12,6 +12,7 @@ import {
   LeafExtensionTypeSchema,
   UrlSchema,
   type LeafExtensionType,
+  type Url,
 } from "../extension-types/schema.js";
 
 export {
@@ -218,14 +219,24 @@ export const PluginDescriptorSchema = Schema.Struct({
 export type PluginDescriptor = Schema.Schema.Type<typeof PluginDescriptorSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
+const NativeAvailabilitySchema = Schema.Struct({ via: Schema.Literal("native") });
+const NoneAvailabilitySchema = Schema.Struct({ via: Schema.Literal("none") });
+const PluginAvailabilitySchema = Schema.Struct({
+  via: Schema.Literal("plugin"),
+  provider: Schema.Literals(["first-party", "third-party"]),
+  plugin: PluginDescriptorSchema,
+});
+
+const AvailableCapabilityAvailabilitySchema = Schema.Union([
+  NativeAvailabilitySchema,
+  PluginAvailabilitySchema,
+]);
+
+/** @experimental This API is unstable and may change without notice. */
 export const AvailabilitySchema = Schema.Union([
-  Schema.Struct({ via: Schema.Literal("native") }),
-  Schema.Struct({ via: Schema.Literal("none") }),
-  Schema.Struct({
-    via: Schema.Literal("plugin"),
-    provider: Schema.Literals(["first-party", "third-party"]),
-    plugin: PluginDescriptorSchema,
-  }),
+  NativeAvailabilitySchema,
+  NoneAvailabilitySchema,
+  PluginAvailabilitySchema,
 ]).annotate({
   identifier: "Availability",
   title: "Availability",
@@ -425,30 +436,22 @@ export type LastVerifiedDate = Schema.Schema.Type<typeof LastVerifiedDateSchema>
 
 const CapabilityNotesSchema = Schema.NullOr(Schema.NonEmptyString);
 const CapabilityDocsSchema = Schema.Array(DocLinkSchema);
-const ActiveSourcesSchema = Schema.NonEmptyArray(UrlSchema);
-const InactiveSourcesSchema = Schema.Array(UrlSchema);
+const CapabilitySourcesSchema = Schema.Array(UrlSchema);
 
-const InactiveCapabilitySchema = Schema.Struct({
-  availability: AvailabilitySchema,
+const UnavailableCanonicalCapabilityFields = {
+  availability: NoneAvailabilitySchema,
   vendorStatus: VendorStatusSchema,
-  axmSupport: InactiveAxmSupportSchema,
   notes: CapabilityNotesSchema,
   docs: CapabilityDocsSchema,
-  sources: InactiveSourcesSchema,
-}).annotate({
-  identifier: "InactiveCapability",
-  title: "Inactive AXM Capability",
-  description: "Capability slot with no active AXM-managed extension support.",
-});
+  sources: CapabilitySourcesSchema,
+};
 
-const ActiveCapabilityBaseFields = {
-  availability: AvailabilitySchema,
+const AvailableCanonicalCapabilityBaseFields = {
+  availability: AvailableCapabilityAvailabilitySchema,
   vendorStatus: VendorStatusSchema,
-  axmSupport: ActiveAxmSupportSchema,
   notes: CapabilityNotesSchema,
   docs: CapabilityDocsSchema,
-  sources: ActiveSourcesSchema,
-  lastVerified: LastVerifiedDateSchema,
+  sources: CapabilitySourcesSchema,
   scopes: NonEmptyScopesSchema,
 };
 
@@ -457,62 +460,98 @@ const SpecTrackedCapabilityFields = {
   convention: ConventionSchema,
 };
 
-/** @experimental This API is unstable and may change without notice. */
-export const CapabilityBaseSchema = Schema.Union([
-  Schema.Struct(ActiveCapabilityBaseFields),
-  InactiveCapabilitySchema,
-]).annotate({
-  identifier: "CapabilityBase",
-  title: "Capability Base",
-  description: "Fields shared by all agent capabilities.",
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type CapabilityBase = Schema.Schema.Type<typeof CapabilityBaseSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const ScopedCapabilityBaseSchema = Schema.Struct(ActiveCapabilityBaseFields).annotate({
-  identifier: "ScopedCapabilityBase",
-  title: "Scoped Capability Base",
-  description: "Capability fields shared by extension-backed active capabilities.",
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type ScopedCapabilityBase = Schema.Schema.Type<typeof ScopedCapabilityBaseSchema>;
-
-const ActiveSpecTrackedCapabilityFields = {
-  ...ActiveCapabilityBaseFields,
+const AvailableSpecTrackedCanonicalCapabilityFields = {
+  ...AvailableCanonicalCapabilityBaseFields,
   ...SpecTrackedCapabilityFields,
 };
 
-/** @experimental This API is unstable and may change without notice. */
-export const SkillsExtensionCapabilitySchema = Schema.Union([
+const NoWriterAxmCapabilityStateSchema = Schema.Union([
   Schema.Struct({
-    ...ActiveSpecTrackedCapabilityFields,
-    directory: Schema.NonEmptyString,
+    support: ActiveAxmSupportSchema,
+    lastVerified: LastVerifiedDateSchema,
+    writer: Schema.Null,
   }),
-  InactiveCapabilitySchema,
+  Schema.Struct({
+    support: InactiveAxmSupportSchema,
+    writer: Schema.Null,
+  }),
+]);
+
+type CapabilityWithActiveSources = {
+  readonly canonical: {
+    readonly sources: ReadonlyArray<Url>;
+  };
+  readonly axm: {
+    readonly support: AxmSupport;
+  };
+};
+
+const requireSourcesForActiveAxmSupport = (
+  capability: CapabilityWithActiveSources,
+): Schema.FilterIssue | undefined => {
+  if (
+    (capability.axm.support === SUPPORTED_AXM_SUPPORT || capability.axm.support === "planned") &&
+    capability.canonical.sources.length === 0
+  ) {
+    return {
+      path: ["canonical", "sources"],
+      issue: "Active AXM support claims require at least one canonical source.",
+    };
+  }
+  return undefined;
+};
+
+/** @experimental This API is unstable and may change without notice. */
+export const CanonicalCapabilityBaseSchema = Schema.Union([
+  Schema.Struct(AvailableCanonicalCapabilityBaseFields),
+  Schema.Struct(UnavailableCanonicalCapabilityFields),
 ]).annotate({
-  identifier: "SkillsExtensionCapability",
-  title: "Skills Capability",
-  description: "Agent support for Agent Skills-style extensions.",
+  identifier: "CanonicalCapabilityBase",
+  title: "Canonical Capability Base",
+  description: "Vendor-sourced fields shared by all agent capabilities.",
 });
+
+/** @experimental This API is unstable and may change without notice. */
+export type CanonicalCapabilityBase = Schema.Schema.Type<typeof CanonicalCapabilityBaseSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const SkillsExtensionCapabilitySchema = Schema.Struct({
+  canonical: Schema.Union([
+    Schema.Struct({
+      ...AvailableSpecTrackedCanonicalCapabilityFields,
+      directory: Schema.NonEmptyString,
+    }),
+    Schema.Struct(UnavailableCanonicalCapabilityFields),
+  ]),
+  axm: NoWriterAxmCapabilityStateSchema,
+})
+  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
+  .annotate({
+    identifier: "SkillsExtensionCapability",
+    title: "Skills Capability",
+    description: "Agent support for Agent Skills-style extensions.",
+  });
 
 /** @experimental This API is unstable and may change without notice. */
 export type SkillsExtensionCapability = Schema.Schema.Type<typeof SkillsExtensionCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const CommandsExtensionCapabilitySchema = Schema.Union([
-  Schema.Struct({
-    ...ActiveCapabilityBaseFields,
-    directory: Schema.NonEmptyString,
-  }),
-  InactiveCapabilitySchema,
-]).annotate({
-  identifier: "CommandsExtensionCapability",
-  title: "Commands Capability",
-  description: "Agent support for command extensions.",
-});
+export const CommandsExtensionCapabilitySchema = Schema.Struct({
+  canonical: Schema.Union([
+    Schema.Struct({
+      ...AvailableCanonicalCapabilityBaseFields,
+      directory: Schema.NonEmptyString,
+    }),
+    Schema.Struct(UnavailableCanonicalCapabilityFields),
+  ]),
+  axm: NoWriterAxmCapabilityStateSchema,
+})
+  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
+  .annotate({
+    identifier: "CommandsExtensionCapability",
+    title: "Commands Capability",
+    description: "Agent support for command extensions.",
+  });
 
 /** @experimental This API is unstable and may change without notice. */
 export type CommandsExtensionCapability = Schema.Schema.Type<
@@ -530,19 +569,31 @@ export const SubagentsLayoutSchema = Schema.Literals(["file", "directory"]).anno
 /** @experimental This API is unstable and may change without notice. */
 export type SubagentsLayout = Schema.Schema.Type<typeof SubagentsLayoutSchema>;
 
-/** @experimental This API is unstable and may change without notice. */
-export const SubagentsExtensionCapabilitySchema = Schema.Union([
-  Schema.Struct({
-    ...ActiveCapabilityBaseFields,
-    directory: Schema.NonEmptyString,
-    layout: SubagentsLayoutSchema,
-  }),
-  InactiveCapabilitySchema,
-]).annotate({
-  identifier: "SubagentsExtensionCapability",
-  title: "Subagents Capability",
-  description: "Agent support for subagent extensions.",
+const PluginSubagentsCanonicalCapabilitySchema = Schema.Struct({
+  ...AvailableCanonicalCapabilityBaseFields,
+  availability: PluginAvailabilitySchema,
 });
+
+/** @experimental This API is unstable and may change without notice. */
+export const SubagentsExtensionCapabilitySchema = Schema.Struct({
+  canonical: Schema.Union([
+    Schema.Struct({
+      ...AvailableCanonicalCapabilityBaseFields,
+      availability: NativeAvailabilitySchema,
+      directory: Schema.NonEmptyString,
+      layout: SubagentsLayoutSchema,
+    }),
+    PluginSubagentsCanonicalCapabilitySchema,
+    Schema.Struct(UnavailableCanonicalCapabilityFields),
+  ]),
+  axm: NoWriterAxmCapabilityStateSchema,
+})
+  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
+  .annotate({
+    identifier: "SubagentsExtensionCapability",
+    title: "Subagents Capability",
+    description: "Agent support for subagent extensions.",
+  });
 
 /** @experimental This API is unstable and may change without notice. */
 export type SubagentsExtensionCapability = Schema.Schema.Type<
@@ -582,7 +633,7 @@ const OptionalRuleDirectoryField = {
 };
 
 const AgentsMdRulesExtensionCapabilitySchema = Schema.Struct({
-  ...ActiveSpecTrackedCapabilityFields,
+  ...AvailableSpecTrackedCanonicalCapabilityFields,
   ...OptionalRuleDirectoryField,
   kind: Schema.Literal("agents-md"),
   files: Schema.Tuple([Schema.Literal("AGENTS.md")]),
@@ -591,7 +642,7 @@ const AgentsMdRulesExtensionCapabilitySchema = Schema.Struct({
 });
 
 const OwnFileRulesExtensionCapabilitySchema = Schema.Struct({
-  ...ActiveSpecTrackedCapabilityFields,
+  ...AvailableSpecTrackedCanonicalCapabilityFields,
   ...OptionalRuleDirectoryField,
   kind: Schema.Literal("own-file"),
   files: Schema.Tuple([Schema.NonEmptyString]),
@@ -600,7 +651,7 @@ const OwnFileRulesExtensionCapabilitySchema = Schema.Struct({
 });
 
 const RulesDirRulesExtensionCapabilitySchema = Schema.Struct({
-  ...ActiveSpecTrackedCapabilityFields,
+  ...AvailableSpecTrackedCanonicalCapabilityFields,
   kind: Schema.Literal("rules-dir"),
   files: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
   nestedDiscovery: Schema.Boolean,
@@ -609,34 +660,44 @@ const RulesDirRulesExtensionCapabilitySchema = Schema.Struct({
 });
 
 /** @experimental This API is unstable and may change without notice. */
-export const RulesExtensionCapabilitySchema = Schema.Union([
-  AgentsMdRulesExtensionCapabilitySchema,
-  OwnFileRulesExtensionCapabilitySchema,
-  RulesDirRulesExtensionCapabilitySchema,
-  InactiveCapabilitySchema,
-]).annotate({
-  identifier: "RulesExtensionCapability",
-  title: "Rules Capability",
-  description: "Agent support for behavior-governing instruction files and rule extensions.",
-});
+export const RulesExtensionCapabilitySchema = Schema.Struct({
+  canonical: Schema.Union([
+    AgentsMdRulesExtensionCapabilitySchema,
+    OwnFileRulesExtensionCapabilitySchema,
+    RulesDirRulesExtensionCapabilitySchema,
+    Schema.Struct(UnavailableCanonicalCapabilityFields),
+  ]),
+  axm: NoWriterAxmCapabilityStateSchema,
+})
+  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
+  .annotate({
+    identifier: "RulesExtensionCapability",
+    title: "Rules Capability",
+    description: "Agent support for behavior-governing instruction files and rule extensions.",
+  });
 
 /** @experimental This API is unstable and may change without notice. */
 export type RulesExtensionCapability = Schema.Schema.Type<typeof RulesExtensionCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const FilesExtensionCapabilitySchema = Schema.Union([
-  Schema.Struct({
-    ...ActiveCapabilityBaseFields,
-    directory: Schema.NonEmptyString,
-    files: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
-    naming: Schema.NullOr(Schema.NonEmptyString),
-  }),
-  InactiveCapabilitySchema,
-]).annotate({
-  identifier: "FilesExtensionCapability",
-  title: "Files Capability",
-  description: "Agent support for standalone context-file scaffolding.",
-});
+export const FilesExtensionCapabilitySchema = Schema.Struct({
+  canonical: Schema.Union([
+    Schema.Struct({
+      ...AvailableCanonicalCapabilityBaseFields,
+      directory: Schema.NonEmptyString,
+      files: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
+      naming: Schema.NullOr(Schema.NonEmptyString),
+    }),
+    Schema.Struct(UnavailableCanonicalCapabilityFields),
+  ]),
+  axm: NoWriterAxmCapabilityStateSchema,
+})
+  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
+  .annotate({
+    identifier: "FilesExtensionCapability",
+    title: "Files Capability",
+    description: "Agent support for standalone context-file scaffolding.",
+  });
 
 /** @experimental This API is unstable and may change without notice. */
 export type FilesExtensionCapability = Schema.Schema.Type<typeof FilesExtensionCapabilitySchema>;
@@ -786,31 +847,69 @@ export const McpEnvExpansionSchema = Schema.Struct({
 /** @experimental This API is unstable and may change without notice. */
 export type McpEnvExpansion = Schema.Schema.Type<typeof McpEnvExpansionSchema>;
 
-const McpActiveCapabilityStruct = Schema.Struct({
-  ...ActiveSpecTrackedCapabilityFields,
+const McpUnavailableCapabilityStruct = Schema.Struct({
+  canonical: Schema.Struct(UnavailableCanonicalCapabilityFields),
+  axm: Schema.Union([
+    Schema.Struct({
+      support: ActiveAxmSupportSchema,
+      lastVerified: LastVerifiedDateSchema,
+      writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
+    }),
+    Schema.Struct({
+      support: InactiveAxmSupportSchema,
+      writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
+    }),
+  ]),
+});
+
+const McpCanonicalWithTransportsSchema = Schema.Struct({
+  ...AvailableSpecTrackedCanonicalCapabilityFields,
   transports: NonEmptyMcpTransportsSchema,
-  config: Schema.optionalKey(McpConfigSchema),
   mcpEnvExpansion: Schema.optionalKey(McpEnvExpansionSchema),
 });
 
-const McpActiveCapabilitySchema = McpActiveCapabilityStruct.pipe(
+const McpAvailableCapabilityStruct = Schema.Struct({
+  canonical: McpCanonicalWithTransportsSchema,
+  axm: Schema.Union([
+    Schema.Struct({
+      support: ActiveAxmSupportSchema,
+      lastVerified: LastVerifiedDateSchema,
+      writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
+    }),
+    Schema.Struct({
+      support: InactiveAxmSupportSchema,
+      writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
+    }),
+  ]),
+});
+
+const McpExtensionCapabilityStruct = Schema.Union([
+  McpAvailableCapabilityStruct,
+  McpUnavailableCapabilityStruct,
+]);
+
+const McpExtensionCapabilitySchemaWithChecks = McpExtensionCapabilityStruct.pipe(
   Schema.check(
-    Schema.makeFilter((capability: Schema.Schema.Type<typeof McpActiveCapabilityStruct>) => {
+    Schema.makeFilter((capability: Schema.Schema.Type<typeof McpExtensionCapabilityStruct>) => {
       const issues: Array<Schema.FilterIssue> = [];
-      const config = capability.config;
-      if (config === undefined) return issues;
-      if (capability.transports.includes("stdio") && config.stdio === null) {
+      const activeSourcesIssue = requireSourcesForActiveAxmSupport(capability);
+      if (activeSourcesIssue !== undefined) issues.push(activeSourcesIssue);
+      const writer = capability.axm.writer;
+      if (writer === null || !("transports" in capability.canonical)) return issues;
+      const config = writer.config;
+      if (capability.canonical.transports.includes("stdio") && config.stdio === null) {
         issues.push({
-          path: ["config", "stdio"],
+          path: ["axm", "writer", "config", "stdio"],
           issue: "MCP stdio config is required when stdio transport is supported.",
         });
       }
       if (
-        (capability.transports.includes("http") || capability.transports.includes("sse")) &&
+        (capability.canonical.transports.includes("http") ||
+          capability.canonical.transports.includes("sse")) &&
         config.remote === null
       ) {
         issues.push({
-          path: ["config", "remote"],
+          path: ["axm", "writer", "config", "remote"],
           issue: "MCP remote config is required when http or sse transport is supported.",
         });
       }
@@ -820,10 +919,7 @@ const McpActiveCapabilitySchema = McpActiveCapabilityStruct.pipe(
 );
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpExtensionCapabilitySchema = Schema.Union([
-  McpActiveCapabilitySchema,
-  InactiveCapabilitySchema,
-]).annotate({
+export const McpExtensionCapabilitySchema = McpExtensionCapabilitySchemaWithChecks.annotate({
   identifier: "McpExtensionCapability",
   title: "MCP Capability",
   description: "Agent support for MCP server extensions.",
@@ -895,18 +991,32 @@ export const HooksSerializerSchema = Schema.Literals(["claude-code-settings"]).a
 export type HooksSerializer = Schema.Schema.Type<typeof HooksSerializerSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HooksExtensionCapabilitySchema = Schema.Union([
-  Schema.Struct({
-    ...ActiveCapabilityBaseFields,
-    configFiles: Schema.Array(ConfigFileLocationSchema),
-    serializer: HooksSerializerSchema,
-  }),
-  InactiveCapabilitySchema,
-]).annotate({
-  identifier: "HooksExtensionCapability",
-  title: "Hooks Capability",
-  description: "Agent support for lifecycle hook extensions.",
-});
+export const HooksExtensionCapabilitySchema = Schema.Struct({
+  canonical: Schema.Union([
+    Schema.Struct({
+      ...AvailableCanonicalCapabilityBaseFields,
+      configFiles: Schema.Array(ConfigFileLocationSchema),
+    }),
+    Schema.Struct(UnavailableCanonicalCapabilityFields),
+  ]),
+  axm: Schema.Union([
+    Schema.Struct({
+      support: ActiveAxmSupportSchema,
+      lastVerified: LastVerifiedDateSchema,
+      writer: Schema.NullOr(Schema.Struct({ serializer: HooksSerializerSchema })),
+    }),
+    Schema.Struct({
+      support: InactiveAxmSupportSchema,
+      writer: Schema.NullOr(Schema.Struct({ serializer: HooksSerializerSchema })),
+    }),
+  ]),
+})
+  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
+  .annotate({
+    identifier: "HooksExtensionCapability",
+    title: "Hooks Capability",
+    description: "Agent support for lifecycle hook extensions.",
+  });
 
 /** @experimental This API is unstable and may change without notice. */
 export type HooksExtensionCapability = Schema.Schema.Type<typeof HooksExtensionCapabilitySchema>;
@@ -979,22 +1089,41 @@ export const PermissionGrantSchema = PermissionGrantStruct.pipe(
 export type PermissionGrant = Schema.Schema.Type<typeof PermissionGrantSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const PermissionsExtensionCapabilitySchema = Schema.Union([
-  Schema.Struct({
-    ...ActiveCapabilityBaseFields,
-    mechanism: NonEmptyPermissionMechanismsSchema,
-    configFiles: Schema.Array(ConfigFileLocationSchema),
-    grammar: Schema.NullOr(PermissionGrammarSchema),
-    prerequisites: Schema.Array(PermissionPrerequisiteSchema),
-    cliFlags: Schema.Array(PermissionCliFlagSchema),
-    grants: Schema.Record(Schema.String, PermissionGrantSchema),
-  }),
-  InactiveCapabilitySchema,
-]).annotate({
-  identifier: "PermissionsExtensionCapability",
-  title: "Permissions Capability",
-  description: "How an agent grants tool execution and filesystem access without per-call prompts.",
-});
+export const PermissionsExtensionCapabilitySchema = Schema.Struct({
+  canonical: Schema.Union([
+    Schema.Struct({
+      ...AvailableCanonicalCapabilityBaseFields,
+      mechanism: NonEmptyPermissionMechanismsSchema,
+      configFiles: Schema.Array(ConfigFileLocationSchema),
+      grammar: Schema.NullOr(PermissionGrammarSchema),
+      prerequisites: Schema.Array(PermissionPrerequisiteSchema),
+      cliFlags: Schema.Array(PermissionCliFlagSchema),
+    }),
+    Schema.Struct(UnavailableCanonicalCapabilityFields),
+  ]),
+  axm: Schema.Union([
+    Schema.Struct({
+      support: ActiveAxmSupportSchema,
+      lastVerified: LastVerifiedDateSchema,
+      writer: Schema.NullOr(
+        Schema.Struct({ grants: Schema.Record(Schema.String, PermissionGrantSchema) }),
+      ),
+    }),
+    Schema.Struct({
+      support: InactiveAxmSupportSchema,
+      writer: Schema.NullOr(
+        Schema.Struct({ grants: Schema.Record(Schema.String, PermissionGrantSchema) }),
+      ),
+    }),
+  ]),
+})
+  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
+  .annotate({
+    identifier: "PermissionsExtensionCapability",
+    title: "Permissions Capability",
+    description:
+      "How an agent grants tool execution and filesystem access without per-call prompts.",
+  });
 
 /** @experimental This API is unstable and may change without notice. */
 export type PermissionsExtensionCapability = Schema.Schema.Type<
@@ -1023,6 +1152,12 @@ export type AgentCapabilities = Schema.Schema.Type<typeof AgentCapabilitiesSchem
 
 /** @experimental This API is unstable and may change without notice. */
 export type AgentExtensionCapability = AgentCapabilities[LeafExtensionType];
+
+/** @experimental This API is unstable and may change without notice. */
+export type CanonicalCapability = AgentExtensionCapability["canonical"];
+
+/** @experimental This API is unstable and may change without notice. */
+export type AxmCapabilityState = AgentExtensionCapability["axm"];
 
 /** @experimental This API is unstable and may change without notice. */
 export const AgentLifecycleStateSchema = Schema.Literals([
@@ -1098,12 +1233,12 @@ export const AgentSchema = AgentStruct.pipe(
   Schema.check(
     Schema.makeFilter((agent: Schema.Schema.Type<typeof AgentStruct>) => {
       if (
-        "kind" in agent.capabilities.rule &&
-        agent.capabilities.rule.kind === "agents-md" &&
-        agent.capabilities.rule.files[0] !== "AGENTS.md"
+        "kind" in agent.capabilities.rule.canonical &&
+        agent.capabilities.rule.canonical.kind === "agents-md" &&
+        agent.capabilities.rule.canonical.files[0] !== "AGENTS.md"
       ) {
         return {
-          path: ["capabilities", "rule", "files"],
+          path: ["capabilities", "rule", "canonical", "files"],
           issue: 'capabilities.rule.kind "agents-md" requires AGENTS.md.',
         };
       }

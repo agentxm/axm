@@ -215,10 +215,10 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
       for (const agentId of configuredAgentIds) {
         const agent = catalogAgents.find((candidate) => candidate.id === agentId);
         const capability = agent?.capabilities["mcp-server"];
-        if (capability === undefined || !("config" in capability)) {
+        if (capability === undefined || capability.axm.writer === null) {
           continue;
         }
-        for (const target of capability.config.targets) {
+        for (const target of capability.axm.writer.config.targets) {
           if (target.scope !== ws.scope) {
             continue;
           }

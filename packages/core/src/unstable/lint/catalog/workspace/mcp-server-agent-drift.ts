@@ -21,12 +21,16 @@ import { syncMcpServerAgentOp } from "./helpers/install-ops.js";
 const RULE_ID = "workspace/mcp-server-agent-drift";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = Extract<AgentMcpCapability, { readonly transports: unknown }> & {
-  readonly config: McpConfig;
+type ConfiguredMcpCapability = AgentMcpCapability & {
+  readonly axm: {
+    readonly writer: {
+      readonly config: McpConfig;
+    };
+  };
 };
 
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  "config" in capability && capability.config !== undefined && "transports" in capability;
+  capability.axm.writer !== null;
 
 const isCapabilityAgentId = (agentId: string): agentId is AgentId => agentId in AGENTS_BY_ID;
 
@@ -84,13 +88,14 @@ const checkActual = (args: {
   if (args.actual.config === null) return undefined;
   const capability = AGENTS_BY_ID[args.actual.origin.agentId].capabilities["mcp-server"];
   if (!hasMcpConfig(capability)) return undefined;
+  const config = capability.axm.writer.config;
   const projected = projectExpectedEntry({
     serverName: args.row.key.name,
     entry: args.entry,
-    stdio: capability.config.stdio,
-    remote: capability.config.remote,
-    nativeEnabled: capability.config.nativeEnabled,
-    envExpansion: capability.mcpEnvExpansion,
+    stdio: config.stdio,
+    remote: config.remote,
+    nativeEnabled: config.nativeEnabled,
+    envExpansion: capability.canonical.mcpEnvExpansion,
   });
   if (projected._tag !== "projected") return undefined;
   const drift = diffAgentEntry(projected, args.actual.config);

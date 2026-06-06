@@ -2,26 +2,31 @@ import { describe, expect, it } from "vitest";
 import {
   AGENTS,
   agentById,
+  agentCapabilityStatus,
   agentSupportsType,
-  capabilityStatus,
+  axmIntegrationStatus,
   deriveAgentDescriptor,
   getSupportedAgentsForExtension,
   getSupportedAgentsForExtensionType,
   getSupportedAgentsForExtensionTypes,
   getSupportedExtensionTypesForAgent,
   listCapabilities,
+  toCanonicalAgent,
 } from "./index.js";
 import type { Agent } from "./schema.js";
-
 const unsupportedCapability = {
-  availability: { via: "none" },
-  vendorStatus: { state: "active" },
-  axmSupport: "unsupported",
-  notes: null,
-  docs: [],
-  sources: [],
+  canonical: {
+    availability: { via: "none" },
+    vendorStatus: { state: "active" },
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  axm: {
+    support: "unsupported",
+    writer: null,
+  },
 } as const;
-
 const baseAgent = {
   id: "codex",
   name: "Sample Agent",
@@ -35,17 +40,22 @@ const baseAgent = {
   docs: [],
   capabilities: {
     skill: {
-      standardsCompliance: "full",
-      convention: "vendor",
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes: null,
-      docs: [],
-      sources: ["https://example.com/skills"],
-      lastVerified: "2026-05-16",
-      scopes: ["project"],
-      directory: ".sample/skills",
+      canonical: {
+        standardsCompliance: "full",
+        convention: "vendor",
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: ["https://example.com/skills"],
+        scopes: ["project"],
+        directory: ".sample/skills",
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-05-16",
+        writer: null,
+      },
     },
     command: unsupportedCapability,
     "mcp-server": unsupportedCapability,
@@ -56,19 +66,19 @@ const baseAgent = {
   },
   permissions: unsupportedCapability,
 } satisfies Agent;
-
 const sampleRootDetection = {
   project: {
     markers: [{ kind: "dir", path: ".sample", signal: "definitive", note: null }],
   },
   user: { markers: [] },
 };
-
 const supportedSkillWithNoStandardsCompliance = {
   ...baseAgent.capabilities.skill,
-  standardsCompliance: "none",
+  canonical: {
+    ...baseAgent.capabilities.skill.canonical,
+    standardsCompliance: "none",
+  },
 } satisfies Agent["capabilities"]["skill"];
-
 describe("agent capability derivation", () => {
   it("lists supported leaf extension types for an agent", () => {
     expect(getSupportedExtensionTypesForAgent(agentById("claude-code"))).toEqual([
@@ -80,13 +90,11 @@ describe("agent capability derivation", () => {
       "hook",
     ]);
   });
-
   it("counts supported capabilities as support", () => {
     expect(agentSupportsType(agentById("claude-code"), "rule")).toBe(true);
     expect(agentSupportsType(agentById("claude-code"), "files")).toBe(false);
     expect(agentSupportsType(agentById("cursor"), "rule")).toBe(true);
   });
-
   it("determines support from AXM support and availability", () => {
     expect(
       agentSupportsType(
@@ -100,7 +108,6 @@ describe("agent capability derivation", () => {
         "skill",
       ),
     ).toBe(true);
-
     expect(
       agentSupportsType(
         {
@@ -109,7 +116,10 @@ describe("agent capability derivation", () => {
             ...baseAgent.capabilities,
             skill: {
               ...baseAgent.capabilities.skill,
-              availability: { via: "none" },
+              canonical: {
+                ...baseAgent.capabilities.skill.canonical,
+                availability: { via: "none" },
+              },
             },
           },
         },
@@ -117,28 +127,23 @@ describe("agent capability derivation", () => {
       ),
     ).toBe(false);
   });
-
   it("does not infer support for omitted capabilities", () => {
     expect(agentSupportsType(agentById("codex"), "files")).toBe(false);
     expect(agentSupportsType(agentById("github-copilot-cli"), "files")).toBe(false);
   });
-
   it("requires supported MCP capabilities without writer config to explain why they are not writable", () => {
     const unsupportedWritableMcp = AGENTS.flatMap((agent) => {
       const capability = agent.capabilities["mcp-server"];
-      if (capability.axmSupport !== "supported") return [];
-      if ("config" in capability && capability.config !== undefined) return [];
-      if (capability.notes !== null) return [];
+      if (capability.axm.support !== "supported") return [];
+      if (capability.axm.writer !== null) return [];
+      if (capability.canonical.notes !== null) return [];
       return [agent.id];
     });
-
     expect(unsupportedWritableMcp).toEqual([]);
   });
-
   it("does not count explicit unsupported as support", () => {
     expect(agentSupportsType(agentById("windsurf"), "subagent")).toBe(false);
   });
-
   it("finds agents that support one extension type", () => {
     expect(getSupportedAgentsForExtensionType("rule", AGENTS).map((agent) => agent.id)).toEqual([
       "adal",
@@ -175,11 +180,9 @@ describe("agent capability derivation", () => {
       "zencoder",
     ]);
   });
-
   it("defaults single-type support lookup to the full catalog", () => {
     expect(getSupportedAgentsForExtensionType("skill").map((agent) => agent.id)).toContain("codex");
   });
-
   it("requires every requested type for multi-type compatibility", () => {
     expect(
       getSupportedAgentsForExtensionTypes(["rule", "subagent"], AGENTS).map((agent) => agent.id),
@@ -203,7 +206,6 @@ describe("agent capability derivation", () => {
       "zencoder",
     ]);
   });
-
   it("derives pack compatibility from all member types", () => {
     expect(
       getSupportedAgentsForExtension(
@@ -234,91 +236,124 @@ describe("agent capability derivation", () => {
       "zencoder",
     ]);
   });
-
   it("does not treat empty packs as vacuously compatible", () => {
     expect(getSupportedAgentsForExtension({ type: "pack", memberTypes: [] }, AGENTS)).toEqual([]);
   });
-
   it("lists present capability details for support views", () => {
     expect(
       listCapabilities(agentById("codex")).map((entry) => ({
         type: entry.type,
-        status: capabilityStatus(entry.capability),
-        axmSupport: entry.capability.axmSupport,
-        ...("standardsCompliance" in entry.capability
-          ? { standardsCompliance: entry.capability.standardsCompliance }
+        agentStatus: agentCapabilityStatus(entry.capability),
+        axmStatus: axmIntegrationStatus(entry.capability),
+        ...("standardsCompliance" in entry.capability.canonical
+          ? { standardsCompliance: entry.capability.canonical.standardsCompliance }
           : {}),
       })),
     ).toEqual([
-      { type: "skill", status: "native", axmSupport: "supported", standardsCompliance: "full" },
-      { type: "command", status: "native-deprecated", axmSupport: "supported" },
       {
-        type: "mcp-server",
-        status: "native",
-        axmSupport: "supported",
+        type: "skill",
+        agentStatus: "native",
+        axmStatus: "supported",
         standardsCompliance: "full",
       },
-      { type: "subagent", status: "native", axmSupport: "supported" },
-      { type: "rule", status: "native", axmSupport: "supported", standardsCompliance: "full" },
+      {
+        type: "command",
+        agentStatus: "native-deprecated",
+        axmStatus: "supported",
+      },
+      {
+        type: "mcp-server",
+        agentStatus: "native",
+        axmStatus: "supported",
+        standardsCompliance: "full",
+      },
+      {
+        type: "subagent",
+        agentStatus: "native",
+        axmStatus: "supported",
+      },
+      {
+        type: "rule",
+        agentStatus: "native",
+        axmStatus: "supported",
+        standardsCompliance: "full",
+      },
     ]);
   });
-
   it("derives capability headline statuses", () => {
     const native = baseAgent.capabilities.skill;
     const nativeDeprecated = {
       ...native,
-      vendorStatus: {
-        state: "deprecated",
-        since: null,
-        note: "Use skills instead.",
-        supersededByType: "skill",
+      canonical: {
+        ...native.canonical,
+        vendorStatus: {
+          state: "deprecated",
+          since: null,
+          note: "Use skills instead.",
+          supersededByType: "skill",
+        },
       },
     } satisfies Agent["capabilities"]["skill"];
     const plugin = {
-      availability: {
-        via: "plugin",
-        provider: "third-party",
-        plugin: {
-          name: "sample-plugin",
-          homepage: "https://example.com/plugin",
-          author: null,
-          distribution: {
-            mechanism: "manual",
-            installHint: null,
-            packageRef: null,
+      canonical: {
+        availability: {
+          via: "plugin",
+          provider: "third-party",
+          plugin: {
+            name: "sample-plugin",
+            homepage: "https://example.com/plugin",
+            author: null,
+            distribution: {
+              mechanism: "manual",
+              installHint: null,
+              packageRef: null,
+            },
+            detection: null,
           },
-          detection: null,
         },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+        scopes: ["project"],
       },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     } satisfies Agent["capabilities"]["subagent"];
     const pluginDeprecated = {
       ...plugin,
-      vendorStatus: {
-        state: "removed",
-        since: null,
-        note: "Plugin archived.",
-        supersededByType: null,
+      canonical: {
+        ...plugin.canonical,
+        vendorStatus: {
+          state: "removed",
+          since: null,
+          note: "Plugin archived.",
+          supersededByType: null,
+        },
       },
     } satisfies Agent["capabilities"]["subagent"];
-
     expect([
-      capabilityStatus(native),
-      capabilityStatus(nativeDeprecated),
-      capabilityStatus(plugin),
-      capabilityStatus(pluginDeprecated),
-      capabilityStatus({
+      agentCapabilityStatus(native),
+      agentCapabilityStatus(nativeDeprecated),
+      agentCapabilityStatus(plugin),
+      agentCapabilityStatus(pluginDeprecated),
+      axmIntegrationStatus({
         ...native,
-        axmSupport: "planned",
+        axm: {
+          support: "planned",
+          lastVerified: "2026-05-16",
+          writer: null,
+        },
       }),
-      capabilityStatus(unsupportedCapability),
-      capabilityStatus({
+      agentCapabilityStatus(unsupportedCapability),
+      axmIntegrationStatus({
         ...unsupportedCapability,
-        axmSupport: "unknown",
+        axm: {
+          support: "unknown",
+          writer: null,
+        },
       }),
     ]).toEqual([
       "native",
@@ -326,23 +361,22 @@ describe("agent capability derivation", () => {
       "plugin",
       "plugin-deprecated",
       "planned",
-      "unsupported",
+      "none",
       "unknown",
     ]);
   });
-
   it("captures the Codex and Pi worked examples", () => {
     const codexCommand = agentById("codex").capabilities.command;
     const piSubagents = agentById("pi").capabilities.subagent;
-
-    expect(capabilityStatus(codexCommand)).toBe("native-deprecated");
-    expect(codexCommand.vendorStatus).toMatchObject({
+    expect(agentCapabilityStatus(codexCommand)).toBe("native-deprecated");
+    expect(axmIntegrationStatus(codexCommand)).toBe("supported");
+    expect(codexCommand.canonical.vendorStatus).toMatchObject({
       state: "deprecated",
       supersededByType: "skill",
     });
-
-    expect(capabilityStatus(piSubagents)).toBe("plugin");
-    expect(piSubagents.availability).toMatchObject({
+    expect(agentCapabilityStatus(piSubagents)).toBe("plugin");
+    expect(axmIntegrationStatus(piSubagents)).toBe("unsupported");
+    expect(piSubagents.canonical.availability).toMatchObject({
       via: "plugin",
       provider: "third-party",
       plugin: {
@@ -352,7 +386,18 @@ describe("agent capability derivation", () => {
     });
     expect(agentSupportsType(agentById("pi"), "subagent")).toBe(false);
   });
-
+  it("projects a canonical agent without AXM internals", () => {
+    const canonical = toCanonicalAgent(agentById("codex"));
+    const serialized = JSON.stringify(canonical);
+    expect(serialized).not.toContain('"axm"');
+    expect(serialized).not.toContain('"support"');
+    expect(serialized).not.toContain('"lastVerified"');
+    expect(serialized).not.toContain('"writer"');
+    expect(canonical.capabilities.skill).toMatchObject({
+      availability: { via: "native" },
+      directory: ".codex/skills",
+    });
+  });
   it("derives descriptors with explicit rootDir and own-file instructions", () => {
     expect(
       deriveAgentDescriptor({
@@ -361,43 +406,58 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           command: {
-            availability: { via: "native" },
-            vendorStatus: { state: "active" },
-            axmSupport: "supported",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/commands"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            directory: ".sample/commands",
+            canonical: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/commands"],
+              scopes: ["project"],
+              directory: ".sample/commands",
+            },
+            axm: {
+              support: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
           },
           subagent: {
-            availability: { via: "native" },
-            vendorStatus: { state: "active" },
-            axmSupport: "supported",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/subagents"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            directory: ".sample/agents",
-            layout: "directory",
+            canonical: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/subagents"],
+              scopes: ["project"],
+              directory: ".sample/agents",
+              layout: "directory",
+            },
+            axm: {
+              support: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
           },
           rule: {
-            standardsCompliance: "parity",
-            convention: "vendor",
-            availability: { via: "native" },
-            vendorStatus: { state: "active" },
-            axmSupport: "supported",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/instructions"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            kind: "own-file",
-            files: ["SAMPLE.md"],
-            nestedDiscovery: true,
-            importSyntax: "at-path",
+            canonical: {
+              standardsCompliance: "parity",
+              convention: "vendor",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/instructions"],
+              scopes: ["project"],
+              kind: "own-file",
+              files: ["SAMPLE.md"],
+              nestedDiscovery: true,
+              importSyntax: "at-path",
+            },
+            axm: {
+              support: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
           },
         },
       }),
@@ -417,7 +477,6 @@ describe("agent capability derivation", () => {
       instructions: { kind: "own-file", file: "SAMPLE.md", importSyntax: "at-path" },
     });
   });
-
   it("derives explicit rootDir opt-out and file-style subagents", () => {
     expect(
       deriveAgentDescriptor({
@@ -426,16 +485,21 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           subagent: {
-            availability: { via: "native" },
-            vendorStatus: { state: "active" },
-            axmSupport: "supported",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/subagents"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            directory: ".sample-modes.yaml",
-            layout: "file",
+            canonical: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/subagents"],
+              scopes: ["project"],
+              directory: ".sample-modes.yaml",
+              layout: "file",
+            },
+            axm: {
+              support: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
           },
         },
       }),
@@ -447,12 +511,10 @@ describe("agent capability derivation", () => {
       subagents: { dir: ".sample-modes.yaml", isFile: true },
     });
   });
-
   it("derives explicit rootDir", () => {
     expect(deriveAgentDescriptor(baseAgent).rootDir).toBe(".sample");
     expect(deriveAgentDescriptor(baseAgent).detection).toEqual(sampleRootDetection);
   });
-
   it("derives detection from rootDir, config files, and authored markers", () => {
     expect(
       deriveAgentDescriptor({
@@ -475,27 +537,33 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           "mcp-server": {
-            availability: { via: "native" },
-            vendorStatus: { state: "active" },
-            axmSupport: "supported",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/mcp"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            standardsCompliance: "full",
-            convention: "vendor",
-            transports: ["stdio"],
-            config: {
-              serversKey: "mcpServers",
-              nativeEnabled: true,
-              targets: [
-                { scope: "project", path: ".sample/settings.json", format: "json" },
-                { scope: "user", path: "~/.sample/settings.json", format: "json" },
-              ],
-              stdio: { typeField: null, command: "split", envKey: null },
-              remote: null,
-              transform: null,
+            canonical: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/mcp"],
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "vendor",
+              transports: ["stdio"],
+            },
+            axm: {
+              support: "supported",
+              lastVerified: "2026-05-16",
+              writer: {
+                config: {
+                  serversKey: "mcpServers",
+                  nativeEnabled: true,
+                  targets: [
+                    { scope: "project", path: ".sample/settings.json", format: "json" },
+                    { scope: "user", path: "~/.sample/settings.json", format: "json" },
+                  ],
+                  stdio: { typeField: null, command: "split", envKey: null },
+                  remote: null,
+                  transform: null,
+                },
+              },
             },
           },
         },
@@ -520,7 +588,6 @@ describe("agent capability derivation", () => {
       },
     });
   });
-
   it("derives agents-md and rules-dir instruction descriptors", () => {
     expect(
       deriveAgentDescriptor({
@@ -528,46 +595,55 @@ describe("agent capability derivation", () => {
         capabilities: {
           ...baseAgent.capabilities,
           rule: {
-            standardsCompliance: "full",
-            convention: "universal",
-            availability: { via: "native" },
-            vendorStatus: { state: "active" },
-            axmSupport: "supported",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/instructions"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            kind: "agents-md",
-            files: ["AGENTS.md"],
-            nestedDiscovery: true,
-            importSyntax: null,
+            canonical: {
+              standardsCompliance: "full",
+              convention: "universal",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/instructions"],
+              scopes: ["project"],
+              kind: "agents-md",
+              files: ["AGENTS.md"],
+              nestedDiscovery: true,
+              importSyntax: null,
+            },
+            axm: {
+              support: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
           },
         },
       }).instructions,
     ).toEqual({ kind: "agents-md" });
-
     expect(
       deriveAgentDescriptor({
         ...baseAgent,
         capabilities: {
           ...baseAgent.capabilities,
           rule: {
-            standardsCompliance: "partial",
-            convention: "vendor",
-            availability: { via: "native" },
-            vendorStatus: { state: "active" },
-            axmSupport: "supported",
-            notes: null,
-            docs: [],
-            sources: ["https://example.com/instructions"],
-            lastVerified: "2026-05-16",
-            scopes: ["project"],
-            kind: "rules-dir",
-            files: ["RULES.md"],
-            nestedDiscovery: false,
-            importSyntax: null,
-            directory: ".sample/rules",
+            canonical: {
+              standardsCompliance: "partial",
+              convention: "vendor",
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/instructions"],
+              scopes: ["project"],
+              kind: "rules-dir",
+              files: ["RULES.md"],
+              nestedDiscovery: false,
+              importSyntax: null,
+              directory: ".sample/rules",
+            },
+            axm: {
+              support: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
           },
         },
       }).instructions,

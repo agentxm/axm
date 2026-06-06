@@ -230,10 +230,16 @@ const scanWorkspaceMcp = (
   });
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = AgentMcpCapability & { readonly config: McpConfig };
+type ConfiguredMcpCapability = AgentMcpCapability & {
+  readonly axm: {
+    readonly writer: {
+      readonly config: McpConfig;
+    };
+  };
+};
 
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  "config" in capability && capability.config !== undefined;
+  capability.axm.writer !== null;
 
 const isCapabilityAgentId = (id: string): id is CapabilityAgentId => id in AGENTS_BY_ID;
 
@@ -283,7 +289,8 @@ const scanAgentMcp = (
     // Resolve the root segment for legacy descriptors whose MCP config target
     // is still the default `<agent-root>/mcp.json`.
     yield* agentRootSegment(path, descriptor, diagnostics, rootResolverState);
-    const targets = capability.config.targets.filter((target) => target.scope === scope);
+    const config = capability.axm.writer.config;
+    const targets = config.targets.filter((target) => target.scope === scope);
     const perTarget = yield* Effect.forEach(
       targets,
       (target) =>
@@ -292,7 +299,7 @@ const scanAgentMcp = (
           if (Option.isNone(filePathOpt)) return [];
           const decoded = yield* readMcpConfigCached(cache, fs, diagnostics, filePathOpt.value);
           if (Option.isNone(decoded)) return [];
-          const servers = extractServers(decoded.value, capability.config.serversKey);
+          const servers = extractServers(decoded.value, config.serversKey);
           const contentLocation = makeAbsolutePath(path, filePathOpt.value);
           return servers.map<AgentMcpConfigOccurrence>((server) => ({
             _tag: "mcp-config",

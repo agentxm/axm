@@ -3,91 +3,108 @@ import { describe, expect, it } from "vitest";
 import type { McpExtensionCapability } from "../agent-capabilities/index.js";
 import { McpServerManifestSchema } from "./manifest-schema.js";
 import { resolveMcpServer } from "./resolution.js";
-
 const decodeManifest = Schema.decodeUnknownSync(McpServerManifestSchema);
-
 const stdioCapability = {
-  standardsCompliance: "full",
-  convention: "universal",
-  availability: { via: "native" },
-  vendorStatus: { state: "active" },
-  axmSupport: "supported",
-  notes: null,
-  docs: [],
-  sources: ["https://example.com/mcp"],
-  lastVerified: "2026-05-16",
-  scopes: ["project"],
-  transports: ["stdio"],
-  config: {
-    serversKey: "mcpServers",
-    nativeEnabled: true,
-    targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
-    stdio: {
-      typeField: null,
-      command: "split",
-      envKey: "env",
-    },
-    remote: null,
-    transform: null,
+  canonical: {
+    standardsCompliance: "full",
+    convention: "universal",
+    availability: { via: "native" },
+    vendorStatus: { state: "active" },
+    notes: null,
+    docs: [],
+    sources: ["https://example.com/mcp"],
+    scopes: ["project"],
+    transports: ["stdio"],
   },
-} satisfies McpExtensionCapability;
-
-const remoteCapability = {
-  standardsCompliance: "full",
-  convention: "universal",
-  availability: { via: "native" },
-  vendorStatus: { state: "active" },
-  axmSupport: "supported",
-  notes: null,
-  docs: [],
-  sources: ["https://example.com/mcp"],
-  lastVerified: "2026-05-16",
-  scopes: ["project"],
-  transports: ["http", "stdio"],
-  config: {
-    serversKey: "mcpServers",
-    nativeEnabled: true,
-    targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
-    stdio: {
-      typeField: null,
-      command: "array",
-      envKey: "env",
-    },
-    remote: {
-      typeField: {
-        name: "type",
-        value: { "streamable-http": "http", sse: "sse" },
+  axm: {
+    support: "supported",
+    lastVerified: "2026-05-16",
+    writer: {
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+        stdio: {
+          typeField: null,
+          command: "split",
+          envKey: "env",
+        },
+        remote: null,
+        transform: null,
       },
-      urlKey: { "streamable-http": "url", sse: "url" },
-      headersKey: "headers",
     },
-    transform: null,
   },
 } satisfies McpExtensionCapability;
-
+const remoteCapability = {
+  canonical: {
+    standardsCompliance: "full",
+    convention: "universal",
+    availability: { via: "native" },
+    vendorStatus: { state: "active" },
+    notes: null,
+    docs: [],
+    sources: ["https://example.com/mcp"],
+    scopes: ["project"],
+    transports: ["http", "stdio"],
+  },
+  axm: {
+    support: "supported",
+    lastVerified: "2026-05-16",
+    writer: {
+      config: {
+        serversKey: "mcpServers",
+        nativeEnabled: true,
+        targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
+        stdio: {
+          typeField: null,
+          command: "array",
+          envKey: "env",
+        },
+        remote: {
+          typeField: {
+            name: "type",
+            value: { "streamable-http": "http", sse: "sse" },
+          },
+          urlKey: { "streamable-http": "url", sse: "url" },
+          headersKey: "headers",
+        },
+        transform: null,
+      },
+    },
+  },
+} satisfies McpExtensionCapability;
 const partialRemoteCapability = {
   ...remoteCapability,
-  standardsCompliance: "partial",
-  notes: "Config dialect is verified, but native semantics diverge from full MCP format.",
+  canonical: {
+    ...remoteCapability.canonical,
+    standardsCompliance: "partial",
+    notes: "Config dialect is verified, but native semantics diverge from full MCP format.",
+  },
 } satisfies McpExtensionCapability;
-
 const httpOnlyRemoteCapability = {
   ...remoteCapability,
-  transports: ["http"],
-  config: {
-    ...remoteCapability.config,
-    stdio: null,
-    remote: {
-      typeField: {
-        name: "type",
-        value: { "streamable-http": "http" },
+  canonical: {
+    ...remoteCapability.canonical,
+    transports: ["http"],
+  },
+  axm: {
+    ...remoteCapability.axm,
+    writer: {
+      config: {
+        ...remoteCapability.axm.writer.config,
+        stdio: null,
+        remote: {
+          typeField: {
+            name: "type",
+            value: { "streamable-http": "http" },
+          },
+          urlKey: { "streamable-http": "url" },
+          headersKey: "headers",
+        },
       },
-      urlKey: { "streamable-http": "url" },
-      headersKey: "headers",
     },
   },
 } satisfies McpExtensionCapability;
-
 const manifest = (server: Record<string, unknown>) =>
   decodeManifest({
     owner: "@acme",
@@ -101,7 +118,6 @@ const manifest = (server: Record<string, unknown>) =>
       ...server,
     },
   });
-
 describe("resolveMcpServer", () => {
   it("resolves stdio packages into agent dialect config", () => {
     const result = resolveMcpServer({
@@ -120,7 +136,6 @@ describe("resolveMcpServer", () => {
       values: { ACME_TOKEN: "secret" },
       enabled: true,
     });
-
     expect(result._tag).toBe("resolved");
     if (result._tag === "resolved") {
       expect(result.entry).toMatchObject({
@@ -131,7 +146,6 @@ describe("resolveMcpServer", () => {
       });
     }
   });
-
   it("prefers native remotes when the agent supports HTTP", () => {
     const result = resolveMcpServer({
       manifest: manifest({
@@ -149,7 +163,6 @@ describe("resolveMcpServer", () => {
       values: { tenant: "prod" },
       enabled: true,
     });
-
     expect(result._tag).toBe("resolved");
     if (result._tag === "resolved") {
       expect(result.transport).toBe("streamable-http");
@@ -160,7 +173,6 @@ describe("resolveMcpServer", () => {
       });
     }
   });
-
   it("resolves through writer config even when MCP compliance is partial", () => {
     const result = resolveMcpServer({
       manifest: manifest({
@@ -170,7 +182,6 @@ describe("resolveMcpServer", () => {
       values: { tenant: "prod" },
       enabled: true,
     });
-
     expect(result._tag).toBe("resolved");
     if (result._tag === "resolved") {
       expect(result.entry).toMatchObject({
@@ -179,7 +190,6 @@ describe("resolveMcpServer", () => {
       });
     }
   });
-
   it("does not project SSE remotes when the target dialect omits SSE", () => {
     const result = resolveMcpServer({
       manifest: manifest({
@@ -189,13 +199,11 @@ describe("resolveMcpServer", () => {
       values: {},
       enabled: true,
     });
-
     expect(result).toEqual({
       _tag: "no-distribution",
       reason: "no MCP distribution is viable for this agent",
     });
   });
-
   it("falls back to an mcp-remote stdio shim for remote-only servers", () => {
     const result = resolveMcpServer({
       manifest: manifest({
@@ -205,7 +213,6 @@ describe("resolveMcpServer", () => {
       values: {},
       enabled: true,
     });
-
     expect(result._tag).toBe("resolved");
     if (result._tag === "resolved") {
       expect(result.shimmed).toBe(true);
@@ -215,7 +222,6 @@ describe("resolveMcpServer", () => {
       });
     }
   });
-
   it("returns needs-input with placeholders for missing required values", () => {
     const result = resolveMcpServer({
       manifest: manifest({
@@ -233,14 +239,12 @@ describe("resolveMcpServer", () => {
       values: {},
       enabled: true,
     });
-
     expect(result._tag).toBe("needs-input");
     if (result._tag === "needs-input") {
       expect(result.missing).toEqual(["ACME_TOKEN"]);
       expect(result.entry).toMatchObject({ env: { ACME_TOKEN: "${ACME_TOKEN}" } });
     }
   });
-
   it("reports nothing-runnable for tombstone manifests", () => {
     const result = resolveMcpServer({
       manifest: manifest({}),
@@ -248,7 +252,6 @@ describe("resolveMcpServer", () => {
       values: {},
       enabled: true,
     });
-
     expect(result).toMatchObject({ _tag: "nothing-runnable" });
   });
 });

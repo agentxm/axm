@@ -7,30 +7,48 @@ Owner: AgentXM Marketplace maintainers.
 Add one `*.ts` file per agent. File name must match `id`, and each module
 exports `<camelCaseId>Agent` as `as const satisfies Agent`.
 
-Capability claims with `axmSupport: "supported"` or `"planned"` require:
+Each capability is authored as two top-level blocks:
 
-- `sources` with authoritative URLs
-- `lastVerified` in `YYYY-MM-DD`
+- `canonical`: vendor-sourced facts, edited on the vendor/docs cadence
+- `axm`: AXM integration state and writer mechanics, edited on the AXM release
+  cadence
+
+Capability claims with `axm.support: "supported"` or `"planned"` require:
+
+- `canonical.sources` with authoritative URLs
+- `axm.lastVerified` in `YYYY-MM-DD`
 
 Every agent declares every capability slot. Each capability has three authored
-axes:
+canonical axes:
 
-- `availability`: whether the surface is native, absent, or available through a
+- `canonical.availability`: whether the surface is native, absent, or available through a
   descriptive plugin descriptor
-- `vendorStatus`: whether the named surface is active, maintenance,
+- `canonical.vendorStatus`: whether the named surface is active, maintenance,
   deprecated, or removed
-- `axmSupport`: whether AXM installs or has verified support for the capability
+- `axm.support`: whether AXM installs or has verified support for the capability
+
+Writer mechanics live under `axm.writer`:
+
+- MCP config dialects use `axm.writer.config`
+- Hook serializers use `axm.writer.serializer`
+- Permission grants use `axm.writer.grants`
+- Capabilities without AXM writer mechanics use `axm.writer: null`
 
 Use an inactive AXM support entry for unsupported or unknown AXM behavior:
 
 ```ts
 {
-  availability: { via: "none" },
-  vendorStatus: { state: "active" },
-  axmSupport: "unsupported",
-  notes: null,
-  docs: [],
-  sources: [],
+  canonical: {
+    availability: { via: "none" },
+    vendorStatus: { state: "active" },
+    notes: null,
+    docs: [],
+    sources: [],
+  },
+  axm: {
+    support: "unsupported",
+    writer: null,
+  },
 }
 ```
 
@@ -40,7 +58,7 @@ All values are explicit. Do not rely on optional fields or schema defaults.
 
 Every agent declares a `lifecycle` describing the support status of the product
 itself. This is the agent-level axis and is distinct from a capability's
-`availability`, `vendorStatus`, and `axmSupport` axes.
+`canonical.availability`, `canonical.vendorStatus`, and `axm.support` axes.
 
 A current agent is simply:
 
@@ -88,10 +106,12 @@ Permissions capability:
 
 - Describes how an agent grants tool execution and filesystem access without
   per-call prompts. Used by `axm agents add` to suggest concrete config edits.
-- `mechanism` lists every surface that can be used (any of `config-file`,
+- `canonical.mechanism` lists every surface that can be used (any of `config-file`,
   `cli-flag`, `ui-only`).
-- `configFiles` enumerates writable config files by `scope` and `format`.
-- `grants` keys (`shell`, `filesystem`, …) hold either a JSON-ish `patch` or a
-  raw `template`. Both may interpolate `${tool}` and `${workspaceRoot}`.
+- `canonical.configFiles` enumerates writable config files by `scope` and
+  `format`.
+- `axm.writer.grants` keys (`shell`, `filesystem`, …) hold either a JSON-ish
+  `patch` or a raw `template`. Both may interpolate `${tool}` and
+  `${workspaceRoot}`.
 - `prerequisites` capture modes/gates (folder trust, Auto-Run, sandbox mode)
   that must be set before allow rules take effect.

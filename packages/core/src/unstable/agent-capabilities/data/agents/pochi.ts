@@ -1,5 +1,4 @@
 import type { Agent } from "../../schema.js";
-
 export const pochiAgent = {
   id: "pochi",
   name: "Pochi",
@@ -21,118 +20,159 @@ export const pochiAgent = {
   ],
   capabilities: {
     skill: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes: null,
-      docs: [],
-      sources: ["https://docs.getpochi.com/skills/"],
-      lastVerified: "2026-05-20",
-      scopes: ["user", "project"],
-      standardsCompliance: "full",
-      convention: "vendor",
-      directory: ".pochi/skills",
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: ["https://docs.getpochi.com/skills/"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "vendor",
+        directory: ".pochi/skills",
+      },
+      axm: {
+        support: "supported",
+        lastVerified: "2026-05-20",
+        writer: null,
+      },
     },
     command: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
     "mcp-server": {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
-      axmSupport: "supported",
-      notes: null,
-      docs: [],
-      sources: ["https://docs.getpochi.com/mcp/"],
-      lastVerified: "2026-05-20",
-      scopes: ["user", "project"],
-      standardsCompliance: "full",
-      convention: "universal",
-      transports: ["stdio", "http"],
-      mcpEnvExpansion: {
-        variables: "none",
-        defaults: false,
+      canonical: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: ["https://docs.getpochi.com/mcp/"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "http"],
+        mcpEnvExpansion: {
+          variables: "none",
+          defaults: false,
+        },
       },
-      config: {
-        serversKey: "mcpServers",
-        nativeEnabled: true,
-        targets: [
-          {
-            scope: "project",
-            path: ".pochi/mcp.jsonc",
-            format: "jsonc",
-          },
-          {
-            scope: "user",
-            path: "~/.pochi/mcp.jsonc",
-            format: "jsonc",
-          },
-        ],
-        stdio: {
-          typeField: null,
-          command: "split",
-          envKey: "env",
-        },
-        remote: {
-          typeField: {
-            name: "type",
-            value: {
-              "streamable-http": "http",
-              sse: "http",
+      axm: {
+        support: "supported",
+        lastVerified: "2026-05-20",
+        writer: {
+          config: {
+            serversKey: "mcpServers",
+            nativeEnabled: true,
+            targets: [
+              {
+                scope: "project",
+                path: ".pochi/mcp.jsonc",
+                format: "jsonc",
+              },
+              {
+                scope: "user",
+                path: "~/.pochi/mcp.jsonc",
+                format: "jsonc",
+              },
+            ],
+            stdio: {
+              typeField: null,
+              command: "split",
+              envKey: "env",
             },
+            remote: {
+              typeField: {
+                name: "type",
+                value: {
+                  "streamable-http": "http",
+                  sse: "http",
+                },
+              },
+              urlKey: {
+                "streamable-http": "url",
+                sse: "url",
+              },
+              headersKey: "headers",
+            },
+            transform: null,
           },
-          urlKey: {
-            "streamable-http": "url",
-            sse: "url",
-          },
-          headersKey: "headers",
         },
-        transform: null,
       },
     },
     subagent: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
     files: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
     rule: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
     hook: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      axmSupport: "unsupported",
-      notes: null,
-      docs: [],
-      sources: [],
+      canonical: {
+        availability: { via: "none" },
+        vendorStatus: { state: "active" },
+        notes: null,
+        docs: [],
+        sources: [],
+      },
+      axm: {
+        support: "unsupported",
+        writer: null,
+      },
     },
   },
   permissions: {
-    availability: { via: "none" },
-    vendorStatus: { state: "active" },
-    axmSupport: "unsupported",
-    notes: null,
-    docs: [],
-    sources: [],
+    canonical: {
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    axm: {
+      support: "unsupported",
+      writer: null,
+    },
   },
 } as const satisfies Agent;

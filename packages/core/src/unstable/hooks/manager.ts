@@ -30,6 +30,7 @@ import {
   makeWorkspaceRelativeSourcePath,
   stripFileProtocol,
 } from "../utils/index.js";
+import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { resolveConfiguredHook } from "../workspace/configured-entry-resolution/index.js";
@@ -215,25 +216,6 @@ const readExisting = (configPath: string): Effect.Effect<string, AppError, FileS
     );
   });
 
-const makeBackup = (
-  configPath: string,
-  oldRaw: string,
-  newRaw: string,
-): Effect.Effect<void, AppError, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    if (oldRaw === "" || oldRaw === newRaw) return;
-    const fs = yield* FileSystem.FileSystem;
-    yield* fs.writeFileString(`${configPath}.bak`, oldRaw).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to write backup: ${configPath}.bak`,
-          cause: error,
-        }),
-      ),
-    );
-  });
-
 const writeIfChanged = (
   configPath: string,
   oldRaw: string,
@@ -252,16 +234,21 @@ const writeIfChanged = (
         }),
       ),
     );
-    yield* makeBackup(configPath, oldRaw, newRaw);
-    yield* fs.writeFileString(configPath, newRaw).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to write Claude Code hooks config: ${configPath}`,
-          cause: error,
-        }),
+    yield* runWithTransientFileBackup({
+      sourcePath: configPath,
+      oldRaw,
+      newRaw,
+      tempPrefix: "axm-hooks-config-backup-",
+      operation: fs.writeFileString(configPath, newRaw).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to write Claude Code hooks config: ${configPath}`,
+            cause: error,
+          }),
+        ),
       ),
-    );
+    });
   });
 
 const isManagedHookCommand = (value: unknown): boolean =>

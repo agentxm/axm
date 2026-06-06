@@ -511,6 +511,37 @@ describe("axm install", () => {
     }
   });
 
+  it("updates existing Claude Code MCP config without a workspace backup", async () => {
+    const registryDir = createTempDir("axm-registry-");
+    const workspace = createTempDir();
+
+    try {
+      await publishMcpServerToRegistry(registryDir.path, "context");
+      await initWorkspace(workspace.path, registryDir.path);
+
+      const mcpConfigPath = path.join(workspace.path, ".mcp.json");
+      fs.writeFileSync(
+        mcpConfigPath,
+        JSON.stringify({ mcpServers: { existing: { command: "echo" } } }, null, 2),
+      );
+
+      const result = await runJsonCommand(
+        workspace.path,
+        ["mcps", "install"],
+        [registryFqn("mcps", "context")],
+      );
+
+      expect(result.stdout.result.outcome).toBe("applied");
+      expect(fs.existsSync(`${mcpConfigPath}.bak`)).toBe(false);
+      const mcpConfig = JSON.parse(fs.readFileSync(mcpConfigPath, "utf-8"));
+      expect(mcpConfig.mcpServers.existing.command).toBe("echo");
+      expect(Object.keys(mcpConfig.mcpServers).filter((key) => key !== "existing")).toHaveLength(1);
+    } finally {
+      registryDir.cleanup();
+      workspace.cleanup();
+    }
+  });
+
   it("keeps same-name configured installs across extension types", async () => {
     const registryDir = createTempDir("axm-registry-");
     const workspace = createTempDir();

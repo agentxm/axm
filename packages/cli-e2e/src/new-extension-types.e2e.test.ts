@@ -114,3 +114,37 @@ describe("axm mcps new", () => {
     }
   });
 });
+
+describe("axm hooks new", () => {
+  it("updates existing Claude Code settings without a workspace backup", async () => {
+    const temp = createTempDir();
+
+    try {
+      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      configureWorkspace(temp.path, (settings) => ({
+        ...settings,
+        owner: "@test",
+      }));
+
+      const settingsPath = path.join(temp.path, ".claude", "settings.json");
+      writeJson(settingsPath, {
+        hooks: {
+          Stop: [{ hooks: [{ type: "command", command: "echo keep" }] }],
+        },
+      });
+
+      const result = await runCli(["hooks", "new", "tool-audit", "--owner", "@test", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(result.exitCode).toBe(0);
+
+      const settings = readJson(settingsPath);
+      expect(fs.existsSync(`${settingsPath}.bak`)).toBe(false);
+      expect(settings["hooks"]).toBeDefined();
+      expect(JSON.stringify(settings["hooks"])).toContain("echo keep");
+      expect(JSON.stringify(settings["hooks"])).toContain("tool-audit");
+    } finally {
+      temp.cleanup();
+    }
+  });
+});

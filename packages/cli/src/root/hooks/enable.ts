@@ -40,7 +40,6 @@ const hookPackagePath = (entry: HookLockEntry, name: string): string =>
 const hookEnableArtifactTargets = (args: {
   readonly entry: HookLockEntry;
   readonly name: string;
-  readonly backupExists: boolean;
 }): ReadonlyArray<JobStepArtifactTarget> =>
   [
     { path: ".axm/settings.json", change: "updated" as const },
@@ -50,22 +49,16 @@ const hookEnableArtifactTargets = (args: {
       path: target.target,
       change: "updated" as const,
     })),
-    {
-      path: ".claude/settings.json.bak",
-      change: args.backupExists ? ("updated" as const) : ("created" as const),
-    },
   ].sort((left, right) => left.path.localeCompare(right.path));
 
 const hookEnableArtifact = (args: {
   readonly lockEntry: HookLockEntry;
   readonly name: string;
-  readonly backupExists: boolean;
   readonly scope: JobStepArtifact["scope"];
 }): JobStepArtifact => {
   const targets = hookEnableArtifactTargets({
     entry: args.lockEntry,
     name: args.name,
-    backupExists: args.backupExists,
   });
   const version = hookLockEntryVersion(args.lockEntry);
 
@@ -117,11 +110,7 @@ export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: 
 }) {
   const ws = yield* WorkspaceMutations;
   const hookManager = yield* HookManager;
-  const fs = yield* FileSystem.FileSystem;
   const scope = ws.scope;
-  const backupExists = yield* fs
-    .exists(".claude/settings.json.bak")
-    .pipe(Effect.catch(() => Effect.succeed(false)));
   const configured = yield* ws.getConfiguredHookEntries();
   const entry = configured[args.name];
   if (entry === undefined) {
@@ -169,7 +158,6 @@ export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: 
                 return hookEnableArtifact({
                   lockEntry: currentLockEntry.value,
                   name: args.name,
-                  backupExists,
                   scope,
                 });
               }),

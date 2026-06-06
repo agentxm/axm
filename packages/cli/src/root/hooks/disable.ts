@@ -1,5 +1,4 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -31,7 +30,6 @@ const hookPackagePath = (entry: HookLockEntry, name: string): string =>
 const hookDisableArtifactTargets = (args: {
   readonly lockEntry: HookLockEntry;
   readonly name: string;
-  readonly backupExists: boolean;
 }): ReadonlyArray<JobStepArtifactTarget> =>
   [
     { path: ".axm/settings.json", change: "updated" as const },
@@ -40,23 +38,17 @@ const hookDisableArtifactTargets = (args: {
       path: target.target,
       change: "updated" as const,
     })),
-    {
-      path: ".claude/settings.json.bak",
-      change: args.backupExists ? ("updated" as const) : ("created" as const),
-    },
   ].sort((left, right) => left.path.localeCompare(right.path));
 
 const hookDisableArtifact = (args: {
   readonly lockEntry: Option.Option<HookLockEntry>;
   readonly name: string;
-  readonly backupExists: boolean;
   readonly scope: JobStepArtifact["scope"];
 }): JobStepArtifact => {
   const targets = Option.isSome(args.lockEntry)
     ? hookDisableArtifactTargets({
         lockEntry: args.lockEntry.value,
         name: args.name,
-        backupExists: args.backupExists,
       })
     : [];
 
@@ -76,11 +68,7 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
 }) {
   const ws = yield* WorkspaceMutations;
   const hookManager = yield* HookManager;
-  const fs = yield* FileSystem.FileSystem;
   const scope = ws.scope;
-  const backupExists = yield* fs
-    .exists(".claude/settings.json.bak")
-    .pipe(Effect.catch(() => Effect.succeed(false)));
   const configured = yield* ws.getConfiguredHookEntries();
   const entry = configured[args.name];
   if (entry === undefined) {
@@ -121,7 +109,7 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
               return {
                 result: "success",
                 message: `Disabled ${args.name}`,
-                artifact: hookDisableArtifact({ lockEntry, name: args.name, backupExists, scope }),
+                artifact: hookDisableArtifact({ lockEntry, name: args.name, scope }),
               } satisfies JobStepResult;
             }),
           },

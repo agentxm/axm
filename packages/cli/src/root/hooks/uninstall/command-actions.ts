@@ -54,12 +54,6 @@ const hookUninstallArtifactTargets = (
     { path: ".axm/settings.json", change: "updated" },
     { path: sourcePath, change: retained ? "unchanged" : "removed" },
     ...materializedTargets,
-    ...materializedTargets.map(
-      (target): JobStepArtifactTarget => ({
-        path: `${target.path}.bak`,
-        change: retained ? "unchanged" : "created",
-      }),
-    ),
   ];
 };
 

@@ -12,6 +12,7 @@ import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { getHome } from "../agents/constants.js";
 import { isPathSafe } from "../utils/index.js";
+import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { stringifyToml } from "../toml/index.js";
 import type { McpConfigTarget, McpServersKey } from "../agent-capabilities/index.js";
 
@@ -89,25 +90,6 @@ const validateServersShape = (
   return Effect.void;
 };
 
-const makeBackup = (
-  configPath: string,
-  oldRaw: string,
-  newRaw: string,
-): Effect.Effect<void, AppError, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    if (oldRaw === "" || oldRaw === newRaw) return;
-    const fs = yield* FileSystem.FileSystem;
-    yield* fs.writeFileString(`${configPath}.bak`, oldRaw).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to write backup: ${configPath}.bak`,
-          cause: error,
-        }),
-      ),
-    );
-  });
-
 const readExisting = (configPath: string): Effect.Effect<string, AppError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -143,36 +125,27 @@ const writeIfChanged = (
         }),
       ),
     );
-    const backupPath = `${configPath}.bak`;
-    const backupExists = yield* fs
-      .exists(backupPath)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    yield* makeBackup(configPath, oldRaw, newRaw);
-    yield* fs.writeFileString(configPath, newRaw).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to write MCP config: ${configPath}`,
-          cause: error,
-        }),
+    yield* runWithTransientFileBackup({
+      sourcePath: configPath,
+      oldRaw,
+      newRaw,
+      tempPrefix: "axm-mcp-config-backup-",
+      operation: fs.writeFileString(configPath, newRaw).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to write MCP config: ${configPath}`,
+            cause: error,
+          }),
+        ),
       ),
-    );
-    const backupTarget =
-      oldRaw === ""
-        ? []
-        : [
-            {
-              path: `${targetPath}.bak`,
-              change: backupExists ? "updated" : "created",
-            } satisfies AgentMcpConfigWriteTarget,
-          ];
+    });
     return {
       targets: [
         {
           path: targetPath,
           change: oldRaw === "" ? "created" : "updated",
         },
-        ...backupTarget,
       ],
     };
   });

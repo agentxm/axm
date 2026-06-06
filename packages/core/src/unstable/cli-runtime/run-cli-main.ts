@@ -5,6 +5,7 @@ import { format as formatConsoleArgs } from "node:util";
 
 import { handleError } from "./handle-error.js";
 import { withGracefulShutdown } from "./graceful-shutdown.js";
+import type { OutputFormat } from "./output-mode.js";
 import { resolveFormatFromArgv } from "./resolve-format.js";
 import { resolveVerbosityFromArgv } from "../cli-flags/resolve-verbosity.js";
 import type { VerbosityLevel } from "../cli-flags/verbosity.js";
@@ -128,6 +129,28 @@ const bufferStderr = (): {
 const isUsageHelpError = (error: unknown): boolean =>
   CliError.isCliError(error) && error._tag === "ShowHelp" && error.errors.length > 0;
 
+/**
+ * Whether this invocation runs in an interactive session that may render live
+ * output (prompts, spinners) before the program resolves.
+ *
+ * Output buffering is incompatible with such sessions: an interactive prompt
+ * blocks waiting for input, so the program never resolves and the buffer never
+ * flushes — buffered prompt frames and spinners would never reach the terminal,
+ * making it appear to hang. We only buffer non-interactive sessions, which is
+ * where rerouting/deduping parser usage-help (ShowHelp) actually matters
+ * (piped output, CI, `--json`, `--non-interactive`).
+ *
+ * Mirrors the interactivity resolution in `isNonInteractive`: explicit
+ * `--non-interactive` flag → `CI` env var → stdin is not a TTY. `--json` always
+ * forces machine output, so it is treated as non-interactive here.
+ */
+const isInteractiveSession = (args: ReadonlyArray<string>, format: OutputFormat): boolean =>
+  format === "text" &&
+  process.stdin.isTTY === true &&
+  // eslint-disable-next-line no-restricted-properties -- Pre-runtime bootstrap: Effect Config is unavailable before the runtime is built
+  process.env["CI"] !== "true" &&
+  !args.includes("--non-interactive");
+
 // Raw async/await: bootstraps the CLI before the Effect runtime is configured.
 export const runCliMain = async (
   execute: (args: ReadonlyArray<string>) => Effect.Effect<void, unknown, never>,
@@ -137,31 +160,32 @@ export const runCliMain = async (
 ): Promise<void> => {
   const args = options?.args ?? process.argv.slice(2);
   const format = resolveFormatFromArgv(args);
-  const stdoutBuffer = bufferStdout();
-  const stderrBuffer = format === "text" ? bufferStderr() : undefined;
+  const interactive = isInteractiveSession(args, format);
+  const stdoutBuffer = interactive ? undefined : bufferStdout();
+  const stderrBuffer = !interactive && format === "text" ? bufferStderr() : undefined;
 
   try {
     await Effect.runPromise(withGracefulShutdown(execute(args)));
-    stdoutBuffer.flushToStdout();
+    stdoutBuffer?.flushToStdout();
     stderrBuffer?.flushToStderr();
   } catch (error) {
     const isUsageHelp = isUsageHelpError(error);
     if (isUsageHelp) {
       if (format === "text") {
         stderrBuffer?.discard();
-        stdoutBuffer.flushToStderr();
+        stdoutBuffer?.flushToStderr();
       } else {
-        stdoutBuffer.discard();
+        stdoutBuffer?.discard();
       }
     } else {
-      stdoutBuffer.flushToStdout();
+      stdoutBuffer?.flushToStdout();
       stderrBuffer?.flushToStderr();
     }
-    stdoutBuffer.restore();
+    stdoutBuffer?.restore();
     stderrBuffer?.restore();
     handleError(error, format);
   } finally {
-    stdoutBuffer.restore();
+    stdoutBuffer?.restore();
     stderrBuffer?.restore();
   }
 };

@@ -103,4 +103,84 @@ describe("runCliMain", () => {
       "ERROR\n  Missing required flag: --name\n\nUSAGE\n  axm token create [flags]\n",
     );
   });
+
+  describe("interactive output buffering", () => {
+    let originalIsTTY: boolean | undefined;
+    let originalCI: string | undefined;
+
+    beforeEach(() => {
+      originalIsTTY = process.stdin.isTTY;
+      originalCI = process.env["CI"];
+    });
+
+    afterEach(() => {
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: originalIsTTY,
+        configurable: true,
+      });
+      if (originalCI === undefined) {
+        delete process.env["CI"];
+      } else {
+        process.env["CI"] = originalCI;
+      }
+    });
+
+    const setTTY = (value: boolean) => {
+      Object.defineProperty(process.stdin, "isTTY", { value, configurable: true });
+    };
+
+    it("does not withhold output in an interactive TTY session (prevents hangs)", async () => {
+      setTTY(true);
+      delete process.env["CI"];
+
+      // Records whether stdout had already reached the real writer at the moment
+      // the program wrote it — i.e. before runCliMain resolves. With buffering on,
+      // the write is captured and only flushed after completion, so this is false.
+      let visibleDuringExecution = false;
+      const execute = () =>
+        Effect.sync(() => {
+          process.stdout.write("live frame\n");
+          visibleDuringExecution = stdoutWrites.includes("live frame\n");
+        });
+
+      await runCliMain(execute, { args: ["setup"] });
+
+      expect(visibleDuringExecution).toBe(true);
+      expect(stdoutWrites).toContain("live frame\n");
+    });
+
+    it("still buffers on a TTY when --non-interactive is passed", async () => {
+      setTTY(true);
+      delete process.env["CI"];
+
+      let visibleDuringExecution = false;
+      const execute = () =>
+        Effect.sync(() => {
+          process.stdout.write("buffered frame\n");
+          visibleDuringExecution = stdoutWrites.includes("buffered frame\n");
+        });
+
+      await runCliMain(execute, { args: ["setup", "--non-interactive"] });
+
+      expect(visibleDuringExecution).toBe(false);
+      expect(stdoutWrites).toContain("buffered frame\n");
+    });
+
+    it("still buffers on a TTY under CI", async () => {
+      setTTY(true);
+      process.env["CI"] = "true";
+
+      let visibleDuringExecution = false;
+      const execute = () =>
+        Effect.sync(() => {
+          process.stdout.write("buffered frame\n");
+          visibleDuringExecution = stdoutWrites.includes("buffered frame\n");
+        });
+
+      await runCliMain(execute, { args: ["setup"] });
+
+      expect(visibleDuringExecution).toBe(false);
+      expect(stdoutWrites).toContain("buffered frame\n");
+    });
+  });
 });

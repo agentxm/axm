@@ -64,6 +64,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
         requireInteractive(
           autocompleteMultiselect({
             message: selectAgentsMessage,
+            maxPerPage: 10,
             choices: allAgents.map((agent) => ({
               title: agent.name,
               value: agent.id,

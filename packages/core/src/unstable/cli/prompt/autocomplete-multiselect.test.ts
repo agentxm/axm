@@ -174,4 +174,49 @@ describe("autocompleteMultiselect", () => {
       expect(firstFrame).toContain("...");
     }),
   );
+
+  it.effect("renders a key hint footer while active and hides it on submit", () =>
+    Effect.gen(function* () {
+      const terminal = yield* makeTerminal;
+      const prompt = autocompleteMultiselect({
+        message: "Pick pets",
+        choices: [
+          { title: "Apple", value: "apple" },
+          { title: "Banana", value: "banana" },
+        ],
+      });
+
+      yield* terminal.inputKey("enter");
+
+      const result = yield* Prompt.run(prompt).pipe(Effect.provide(testLayer(terminal)));
+      expect(result).toEqual([]);
+
+      const frames = toConsoleLines(yield* TestConsole.logLines).map(stripAnsi);
+      const activeFrame = frames.find((line) => line.includes("Pick pets")) ?? "";
+      expect(activeFrame).toContain("space toggle");
+      expect(activeFrame).toContain("enter confirm");
+
+      const submittedFrame = frames.find((line) => line.includes("selected: 0")) ?? "";
+      expect(submittedFrame).not.toContain("space toggle");
+    }),
+  );
+
+  it.effect("renders a custom hint when provided", () =>
+    Effect.gen(function* () {
+      const terminal = yield* makeTerminal;
+      const prompt = autocompleteMultiselect({
+        message: "Pick pets",
+        hint: "press space then enter",
+        choices: [{ title: "Apple", value: "apple" }],
+      });
+
+      yield* terminal.inputKey("enter");
+
+      yield* Prompt.run(prompt).pipe(Effect.provide(testLayer(terminal)));
+
+      const frames = toConsoleLines(yield* TestConsole.logLines).map(stripAnsi);
+      const activeFrame = frames.find((line) => line.includes("Pick pets")) ?? "";
+      expect(activeFrame).toContain("press space then enter");
+    }),
+  );
 });

@@ -14,8 +14,11 @@ export interface AutocompleteMultiselectOptions<A> {
   readonly filterLabel?: string;
   readonly filterPlaceholder?: string;
   readonly emptyMessage?: string;
+  readonly hint?: string;
   readonly validate?: (value: ReadonlyArray<A>) => Effect.Effect<ReadonlyArray<A>, string>;
 }
+
+const DEFAULT_HINT = "↑/↓ move · space toggle · enter confirm · type to filter";
 
 interface AutocompleteMultiselectState {
   readonly query: string;
@@ -290,11 +293,20 @@ const renderPrompt = <A>(
   });
 
   const countLine = `${state.selectedIndices.size} selected`;
+  const hintLine = submitted ? "" : (options.hint ?? DEFAULT_HINT);
   const submissionLine = submitted
     ? `selected: ${selectedValues(options.choices, state.selectedIndices).length}`
     : "";
 
-  return [`? ${options.message}`, filterLine, ...choices, countLine, errorLine, submissionLine]
+  return [
+    `? ${options.message}`,
+    filterLine,
+    ...choices,
+    countLine,
+    hintLine,
+    errorLine,
+    submissionLine,
+  ]
     .filter((line) => line.length > 0)
     .join("\n");
 };

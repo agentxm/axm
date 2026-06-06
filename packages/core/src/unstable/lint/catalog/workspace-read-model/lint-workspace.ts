@@ -64,7 +64,7 @@ import type { InstalledPackInfo } from "../pack-accessor/contexts.js";
 import { makePlatformSkillFileAccessor } from "../skill-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
 import { makePlatformFilesAccessor } from "../files-accessor/platform.js";
-import { parseRegistrySource } from "../workspace/helpers/registry-source.js";
+import { parseRegistrySourceRef } from "../../../extensions/registry-source.js";
 import { COMMAND_MANIFEST_FILENAME } from "../../../commands/manifest-schema.js";
 import { FILES_MANIFEST_FILENAME } from "../../../files/manifest-schema.js";
 import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcps/manifest-schema.js";
@@ -435,7 +435,7 @@ const installedSkillToInfo = (
   }
 
   if (skill.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySource(skill.installationOrigin.declared.entry.source);
+    const parsed = parseRegistrySourceRef(skill.installationOrigin.declared.entry.source);
     if (parsed !== undefined && parsed.type === "skills") {
       return buildNativeInstalledSkillInfo({
         platform: args.platform,
@@ -479,7 +479,7 @@ const installedPackToInfo = (
   }
 
   if (pack.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySource(pack.installationOrigin.declared.entry.source);
+    const parsed = parseRegistrySourceRef(pack.installationOrigin.declared.entry.source);
     if (parsed !== undefined && parsed.type === "packs") {
       return buildInstalledPackInfo({
         platform: args.platform,
@@ -591,7 +591,7 @@ const commandPackageRoot = (
   }
 
   if (command.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySource(command.installationOrigin.declared.entry.source);
+    const parsed = parseRegistrySourceRef(command.installationOrigin.declared.entry.source);
     if (parsed !== undefined && parsed.type === "commands") {
       return args.platform.path.resolve(
         args.workspaceRoot,
@@ -621,7 +621,7 @@ const subagentPackageRoot = (
   }
 
   if (subagent.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySource(subagent.installationOrigin.declared.entry.source);
+    const parsed = parseRegistrySourceRef(subagent.installationOrigin.declared.entry.source);
     if (parsed !== undefined && parsed.type === "subagents") {
       return args.platform.path.resolve(
         args.workspaceRoot,
@@ -651,7 +651,7 @@ const mcpServerPackageRoot = (
   }
 
   if (mcpServer.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySource(mcpServer.installationOrigin.declared.entry.source);
+    const parsed = parseRegistrySourceRef(mcpServer.installationOrigin.declared.entry.source);
     if (parsed !== undefined && parsed.type === "mcps") {
       return args.platform.path.resolve(
         args.workspaceRoot,
@@ -689,7 +689,7 @@ const isNativeSkill = (skill: InstalledSkill, actual: ActualSkill): boolean => {
   if (skill.installationOrigin._tag !== "direct") {
     return false;
   }
-  const parsed = parseRegistrySource(skill.installationOrigin.declared.entry.source);
+  const parsed = parseRegistrySourceRef(skill.installationOrigin.declared.entry.source);
   return parsed !== undefined && parsed.type === "skills";
 };
 

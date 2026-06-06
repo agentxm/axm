@@ -152,10 +152,4 @@ export default [
     files: ["**/*.js", "**/*.jsx", "**/*.cjs", "**/*.mjs"],
     rules: {},
   },
-  {
-    files: ["examples/companion-packages/**/*.{js,jsx,ts,tsx,cjs,mjs,cts,mts}"],
-    rules: {
-      "@nx/enforce-module-boundaries": "off",
-    },
-  },
 ];

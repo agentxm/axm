@@ -5,7 +5,6 @@
  */
 
 import * as Schema from "effect/Schema";
-import * as SchemaTransformation from "effect/SchemaTransformation";
 import { ExtensionTypeSchema } from "../extensions/common.js";
 import {
   DocLinkSchema,
@@ -301,11 +300,6 @@ const NonEmptyMcpTransportsSchema = Schema.NonEmptyArray(McpTransportSchema).pip
   Schema.check(Schema.isUnique()),
 );
 
-const LegacyDetectionSchema = Schema.Struct({
-  projectDirs: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
-  userDirs: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
-});
-
 /** @experimental This API is unstable and may change without notice. */
 export const DetectionSignalSchema = Schema.Literals([
   "definitive",
@@ -379,33 +373,13 @@ export const ScopeDetectionSchema = Schema.Struct({
 /** @experimental This API is unstable and may change without notice. */
 export type ScopeDetection = Schema.Schema.Type<typeof ScopeDetectionSchema>;
 
-const CurrentDetectionSchema = Schema.Struct({
+const DetectionStruct = Schema.Struct({
   project: ScopeDetectionSchema,
   user: ScopeDetectionSchema,
 });
 
-const markerFromLegacyDir = (path: string): DetectionMarker => ({
-  kind: "dir",
-  path,
-  signal: "definitive",
-  note: null,
-});
-
 /** @experimental This API is unstable and may change without notice. */
-export const DetectionSchema = Schema.Union([CurrentDetectionSchema, LegacyDetectionSchema]).pipe(
-  Schema.decodeTo(
-    Schema.toType(CurrentDetectionSchema),
-    SchemaTransformation.transform({
-      decode: (detection) =>
-        "projectDirs" in detection
-          ? {
-              project: { markers: detection.projectDirs.map(markerFromLegacyDir) },
-              user: { markers: detection.userDirs.map(markerFromLegacyDir) },
-            }
-          : detection,
-      encode: (detection) => detection,
-    }),
-  ),
+export const DetectionSchema = DetectionStruct.pipe(
   Schema.annotate({
     identifier: "Detection",
     title: "Detection",

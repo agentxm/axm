@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-import { parseRegistrySource } from "./registry-source.js";
+import { parseRegistrySourceRef } from "../../../../extensions/registry-source.js";
 
 const BARE_NAME_RE = /^[a-z0-9][a-z0-9-]*(?:@[^\s/:]+)?$/i;
 const NON_REGISTRY_MARKERS = [
@@ -30,7 +30,7 @@ export interface Categorized {
 
 /** Classify a declaration source into registry / bare / non-registry buckets. */
 export const categorizeEntry = (name: string, source: string): Categorized => {
-  const parsed = parseRegistrySource(source);
+  const parsed = parseRegistrySourceRef(source);
   if (parsed !== undefined) {
     return {
       name,

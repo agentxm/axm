@@ -122,11 +122,6 @@
         "cwd": "packages/cli"
       }
     },
-    "release-verify": {
-      "cache": false,
-      "dependsOn": ["cli-e2e:e2e", "cli-spike-e2e:e2e"],
-      "executor": "nx:noop"
-    },
     "nx-release-publish": {
       "cache": false,
       "dependsOn": ["build", "^nx-release-publish"],

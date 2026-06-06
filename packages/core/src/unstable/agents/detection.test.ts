@@ -76,7 +76,7 @@ const provideDetectionLayer = <A, E>(
     ),
   );
 
-const syntheticAgent = (detection: NonNullable<AgentDescriptor["detection"]>): AgentDescriptor => ({
+const syntheticAgent = (detection: AgentDescriptor["detection"]): AgentDescriptor => ({
   id: "codex",
   name: "Synthetic Agent",
   skills: { dir: ".agents/skills" },
@@ -188,23 +188,6 @@ describe("detectAgent", () => {
       const result = yield* provideDetectionLayer(
         detectAgent(agent, testProjectDir),
         new Set([path.join(home, ".sample"), path.join(configHome, "sample/config.json")]),
-      );
-
-      expect(result).toBe(true);
-    }),
-  );
-
-  it.effect("keeps ad hoc descriptors without detection on the legacy first-segment fallback", () =>
-    Effect.gen(function* () {
-      const agent: AgentDescriptor = {
-        id: "codex",
-        name: "Synthetic Legacy Agent",
-        skills: { dir: ".legacy/skills" },
-      };
-
-      const result = yield* provideDetectionLayer(
-        detectAgent(agent, testProjectDir),
-        new Set([path.join(testProjectDir, ".legacy")]),
       );
 
       expect(result).toBe(true);

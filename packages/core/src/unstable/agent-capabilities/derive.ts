@@ -142,7 +142,7 @@ const hasConfigFiles = (
   { readonly configFiles: ReadonlyArray<ConfigFileLocation> }
 > => "configFiles" in capability;
 
-const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection | undefined => {
+const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection => {
   const projectMarkers = new Map<string, AgentDetectionMarker>();
   const userMarkers = new Map<string, AgentDetectionMarker>();
   const markersByScope = {
@@ -184,8 +184,6 @@ const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection |
 
   const project = Array.from(projectMarkers.values());
   const user = Array.from(userMarkers.values());
-  if (project.length === 0 && user.length === 0) return undefined;
-
   return {
     project: { markers: project },
     user: { markers: user },
@@ -250,7 +248,7 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
     skills: {
       dir: "directory" in skill.canonical ? skill.canonical.directory : "",
     },
-    ...(detection === undefined ? {} : { detection }),
+    detection,
     ...(commands === undefined ? {} : { commands }),
     ...(subagents === undefined ? {} : { subagents }),
     ...(instructions === undefined ? {} : { instructions }),

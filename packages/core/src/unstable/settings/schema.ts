@@ -402,8 +402,6 @@ export const SkillEntryObjectSchema = Schema.Struct({
  * the most compact JSON representation (plain string when enabled and not
  * authored, object otherwise).
  *
- * The legacy unmanaged marker (`{ managed: false }`) is no longer supported.
- *
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillEntrySchema = compactOrVerboseEntry(

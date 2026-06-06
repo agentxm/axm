@@ -11,7 +11,6 @@ import {
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";
-import { migrateLegacyUniversalSkillArtifacts } from "./migration.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 
 describe("lockfile schema", () => {
@@ -71,31 +70,6 @@ describe("lockfile schema", () => {
 
       expect(result.lockfileVersion).toBe(1);
       expect(result.skills).toEqual({});
-    });
-
-    it("migrates legacy universalArtifact to the universal agent", () => {
-      const input = {
-        lockfileVersion: 1,
-        skills: {
-          "my-skill": {
-            type: "local",
-            path: "./my-skill",
-            agents: ["claude-code"],
-            installedAt: "2025-01-15T10:30:00Z",
-            updatedAt: "2025-01-15T10:30:00Z",
-            universalArtifact: {
-              path: ".agents/skills/my-skill",
-              integrity: "abc123",
-            },
-          },
-        },
-      };
-
-      const decoded = Schema.decodeUnknownSync(LockfileSchema)(input);
-      const migrated = migrateLegacyUniversalSkillArtifacts(input, decoded);
-
-      expect(migrated.lockfileVersion).toBe(LOCKFILE_VERSION);
-      expect(migrated.skills["my-skill"]?.agents).toEqual(["universal", "claude-code"]);
     });
 
     it("rejects missing lockfileVersion", () => {

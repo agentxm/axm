@@ -15,7 +15,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import { makeAppError } from "../app-error/index.js";
-import { UNIVERSAL_SKILLS_DIR_SEGMENT } from "../extensions/universal-skills-dir.js";
 import { envOption } from "../utils/index.js";
 import { getConfigHome, getHome } from "./constants.js";
 import { AGENTS } from "./registry.js";
@@ -115,53 +114,11 @@ export const AgentExecutableResolverLive = Layer.effect(
   makeAgentExecutableResolver,
 );
 
-const firstPathSegment = (dir: string): string | undefined => {
-  const segment = dir.split("/")[0];
-  return segment === undefined || segment.length === 0 ? undefined : segment;
-};
-
-const detectionSegments = (agent: AgentDescriptor): ReadonlyArray<string> =>
-  Array.from(
-    new Set(
-      [
-        firstPathSegment(agent.skills.dir),
-        firstPathSegment(agent.commands?.dir ?? ""),
-        firstPathSegment(agent.subagents?.dir ?? ""),
-      ].filter(
-        (segment): segment is string =>
-          segment !== undefined && segment !== UNIVERSAL_SKILLS_DIR_SEGMENT,
-      ),
-    ),
-  );
-
 const markerKey = (marker: AgentDetectionMarker): string =>
   marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
 
-const fallbackScopeDetection = (agent: AgentDescriptor): AgentScopeDetectionDescriptor => ({
-  markers: detectionSegments(agent).map((path) => ({
-    kind: "dir",
-    path,
-    signal: "definitive",
-    note: null,
-  })),
-});
-
-const detectLegacySegmentsInRootRaw = (agent: AgentDescriptor, rootDir: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const p = yield* Path.Path;
-    const results = yield* Effect.all(
-      detectionSegments(agent).map((dir) => fs.exists(p.join(rootDir, dir))),
-      {
-        concurrency: "unbounded",
-      },
-    );
-
-    return results.some((exists) => exists);
-  });
-
 const detectAgentInRootRaw = (agent: AgentDescriptor, rootDir: string) =>
-  detectScopeRaw(agent.detection?.project ?? fallbackScopeDetection(agent), rootDir, "project");
+  detectScopeRaw(agent.detection.project, rootDir, "project");
 
 const resolveUserDetectionPath = (marker: string) =>
   Effect.gen(function* () {
@@ -275,12 +232,7 @@ export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
     const home = yield* getHome;
 
     const results = yield* Effect.all(
-      [
-        detectAgentInRootRaw(agent, projectDir),
-        agent.detection === undefined
-          ? detectLegacySegmentsInRootRaw(agent, home)
-          : detectScopeRaw(agent.detection.user, home, "user"),
-      ],
+      [detectAgentInRootRaw(agent, projectDir), detectScopeRaw(agent.detection.user, home, "user")],
       { concurrency: "unbounded" },
     );
 

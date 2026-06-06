@@ -20,6 +20,7 @@ const UNIVERSAL_AGENT_DESCRIPTOR: AgentDescriptor = {
   skills: {
     dir: UNIVERSAL_SKILLS_DIR,
   },
+  detection: { project: { markers: [] }, user: { markers: [] } },
 };
 
 /**

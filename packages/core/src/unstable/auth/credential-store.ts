@@ -439,23 +439,6 @@ export const CredentialStoreLive = Layer.effect(
     const load: CredentialStoreService["load"] = Effect.fn("CredentialStore.load")(
       function* (registryUrl) {
         const existing = yield* loadCredentialFile(registryUrl);
-        if (storageTier === "keychain") {
-          const legacy = yield* readStoredFile();
-          const legacyRegistry = Option.isSome(legacy)
-            ? legacy.value.registries[registryUrl]
-            : undefined;
-          if (Option.isNone(existing) && legacyRegistry !== undefined) {
-            const migrated: CredentialFile = {
-              version: 1,
-              registries: { [registryUrl]: legacyRegistry },
-            };
-            yield* writeKeychainCredentialFile(registryUrl, migrated).pipe(
-              Effect.catch(() => Effect.void),
-            );
-            yield* deleteCredentialFile(fs, path, homeDir);
-            return yield* load(registryUrl);
-          }
-        }
         if (Option.isNone(existing)) return Option.none<StoredCredentials>();
 
         const registry = existing.value.registries[registryUrl];

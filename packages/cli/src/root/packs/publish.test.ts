@@ -51,7 +51,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      profile: "@test",
+      owner: "@test",
       agents: ["claude-code"],
       sources: sources ?? [
         { name: "local", type: "registry", location: new URL(`file://${registryRoot}`) },

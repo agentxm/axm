@@ -39,7 +39,7 @@ import type {
   UninstallPackIntent,
   UninstallSkillIntent,
 } from "../workspace/helpers/install-ops.js";
-import { parseRegistrySource } from "../workspace/helpers/registry-source.js";
+import { parseRegistrySourceRef } from "../../../extensions/registry-source.js";
 
 export interface WorkspaceState {
   settings: unknown;
@@ -196,7 +196,7 @@ const readEnabled = (settings: RawSettings | undefined, skillName: string): bool
 // -----------------------------------------------------------------------------
 
 export const applyInstallSkill = (state: WorkspaceState, intent: InstallSkillIntent): void => {
-  const parsed = parseRegistrySource(intent.source);
+  const parsed = parseRegistrySourceRef(intent.source);
   const settings = asSettings(state.settings);
   const agents = declaredAgents(settings);
   const enabled = readEnabled(settings, intent.name);
@@ -341,7 +341,7 @@ const setEnabled = (state: WorkspaceState, name: string, enabled: boolean): void
 };
 
 export const applyInstallPack = (state: WorkspaceState, intent: InstallPackIntent): void => {
-  const parsed = parseRegistrySource(intent.source);
+  const parsed = parseRegistrySourceRef(intent.source);
   if (parsed === undefined) {
     return;
   }

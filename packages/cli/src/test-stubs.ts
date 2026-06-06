@@ -325,7 +325,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.rules) && { rules: opts.rules }),
     ...(hasEntries(opts.hooks) && { hooks: opts.hooks }),
     ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
-    ...(hasEntries(opts["mcps"]) && { mcps: opts["mcps"] }),
+    ...(hasEntries(opts.mcps) && { mcpServers: opts.mcps }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
     ...(opts.sources && { sources: opts.sources }),
   };
@@ -338,7 +338,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.lockfileRules) && { rules: opts.lockfileRules }),
     ...(hasEntries(opts.lockfileHooks) && { hooks: opts.lockfileHooks }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
-    ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
+    ...(hasEntries(opts.lockfileMcpServers) && { mcpServers: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
   };
 

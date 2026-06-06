@@ -51,12 +51,12 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      profile: "@test",
+      owner: "@test",
       agents: ["claude-code"],
       sources: [{ name: "local", type: "registry", location: "file:///tmp/test-registry" }],
       ...(options.skills ? { skills: options.skills } : {}),
       ...(options.commands ? { commands: options.commands } : {}),
-      ...(options["mcps"] ? { mcps: options["mcps"] } : {}),
+      ...(options["mcps"] ? { mcpServers: options["mcps"] } : {}),
       ...(options.packs ? { packs: options.packs } : {}),
     }),
   );
@@ -66,7 +66,7 @@ const initWorkspace = (
       lockfileVersion: 1,
       skills: options.lockSkills ?? {},
       ...(options.lockCommands ? { commands: options.lockCommands } : {}),
-      ...(options.lockMcpServers ? { mcps: options.lockMcpServers } : {}),
+      ...(options.lockMcpServers ? { mcpServers: options.lockMcpServers } : {}),
       ...(options.lockPacks ? { packs: options.lockPacks } : {}),
     }),
   );

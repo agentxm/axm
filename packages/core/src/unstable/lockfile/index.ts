@@ -64,7 +64,6 @@ export { LOCKFILE_NAME } from "./lockfile.js";
 export type { LockfileUpdate } from "./lockfile.js";
 
 export { applyLockfileUpdates, commitLockfileUpdates, writeLockfile } from "./lockfile.js";
-export { migrateLegacyUniversalSkillArtifacts } from "./migration.js";
 export {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,

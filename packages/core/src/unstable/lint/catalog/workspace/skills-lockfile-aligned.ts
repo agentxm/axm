@@ -33,7 +33,7 @@ import type { Operation } from "../../../plan/plan.js";
 import { type Lockfile } from "../../../lockfile/schema.js";
 import { type Settings } from "../../../settings/schema.js";
 import { installSkillOp, uninstallSkillOp } from "./helpers/install-ops.js";
-import { parseRegistrySource } from "./helpers/registry-source.js";
+import { parseRegistrySourceRef } from "../../../extensions/registry-source.js";
 import { EMPTY_LINT_FINDINGS, EMPTY_OPERATIONS } from "./helpers/empty.js";
 import { isSameFinding } from "./helpers/finding.js";
 import {
@@ -128,7 +128,7 @@ const collectAlignmentViolations = (
     if (lockEntry === undefined || !isRegistrySkillLockEntry(lockEntry)) {
       continue;
     }
-    const parsed = parseRegistrySource(entry.source);
+    const parsed = parseRegistrySourceRef(entry.source);
     if (parsed === undefined) {
       continue;
     }

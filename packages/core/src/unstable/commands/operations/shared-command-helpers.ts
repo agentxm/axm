@@ -50,7 +50,7 @@ export interface ReadCommandContentResult extends CommandContentResult {
 
 /**
  * Read the command content file (`src/${name}.md`) and `command.json` from a
- * canonical command directory. Falls back to legacy root `${name}.md` files.
+ * canonical command directory.
  *
  * Parses the content file's frontmatter and reads/validates `command.json` if
  * present.
@@ -65,12 +65,7 @@ export const readCommandContent = (
     const path = yield* Path.Path;
 
     const contentFilename = commandContentFilename(commandName);
-    const srcCommandMdPath = path.join(canonicalPath, "src", contentFilename);
-    const rootCommandMdPath = path.join(canonicalPath, contentFilename);
-    const srcCommandMdExists = yield* fs
-      .exists(srcCommandMdPath)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    const commandMdPath = srcCommandMdExists ? srcCommandMdPath : rootCommandMdPath;
+    const commandMdPath = path.join(canonicalPath, "src", contentFilename);
     const commandMdExists = yield* fs
       .exists(commandMdPath)
       .pipe(Effect.catch(() => Effect.succeed(false)));

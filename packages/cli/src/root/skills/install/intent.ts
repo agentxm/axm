@@ -12,7 +12,7 @@ import type { VersionRange } from "@agentxm/client-core/unstable/version-constra
  * Describes the resolved intent to install one or more skills.
  *
  * Produced by `finalizeSkillInstallIntent` after source resolution,
- * discovery, and selection. Consumed by `buildSkillInstallPlan`.
+ * discovery, and selection.
  */
 export type InstallSkillCommandIntent = {
   readonly skillsToInstall: ReadonlyArray<{

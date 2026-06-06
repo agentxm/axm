@@ -170,41 +170,6 @@ describe("makeScopedStateApi.settings", () => {
     }),
   );
 
-  it.effect("lifts legacy agentsConfig.instructions into rulesConfig.instructions", () =>
-    Effect.gen(function* () {
-      const counters = yield* makeCounters;
-      const fs = buildFs(
-        {
-          readers: {
-            [SETTINGS_PATH]: () =>
-              Effect.succeed(
-                JSON.stringify({
-                  agents: ["claude-code"],
-                  agentsConfig: {
-                    instructions: {
-                      fileName: "AGENTS.md",
-                      gitignore: true,
-                    },
-                  },
-                }),
-              ),
-          },
-          missing: new Set(),
-          existsFails: new Set(),
-        },
-        counters,
-      );
-      const api = yield* makeApi("project", fs);
-
-      const result = yield* api.settings;
-      const value = Option.getOrThrow(result);
-      expect(value.rulesConfig?.instructions).toEqual({
-        fileName: "AGENTS.md",
-        gitignore: true,
-      });
-    }),
-  );
-
   it.effect("fails with SettingsIoError when filesystem read fails", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
@@ -314,9 +279,8 @@ describe("makeScopedStateApi.settings", () => {
       const err = yield* Effect.flip(api.settings);
       expect(err).toBeInstanceOf(SettingsDecodeError);
       if (err._tag === "SettingsDecodeError") {
-        expect(err.issues).toEqual([
-          "ignored: Legacy settings key is no longer supported; use feature config siblings such as skillsConfig.ignore",
-        ]);
+        expect(err.issues.length).toBeGreaterThan(0);
+        expect(err.raw).toEqual({ ignored: { skills: ["legacy-*"] } });
       }
     }),
   );
@@ -406,7 +370,7 @@ describe("makeScopedStateApi.lockfile", () => {
 
       const result = yield* api.lockfile;
       expect(Option.isSome(result)).toBe(true);
-      expect(Option.getOrThrow(result).lockfileVersion).toBe(2);
+      expect(Option.getOrThrow(result).lockfileVersion).toBe(1);
     }),
   );
 

@@ -144,7 +144,7 @@ export interface AgentDescriptor {
   /** Workspace instruction-file convention for this coding agent. */
   readonly instructions?: AgentInstructionsDescriptor;
   /** Structured per-scope markers used by agent detection. */
-  readonly detection?: AgentDetectionDescriptor;
+  readonly detection: AgentDetectionDescriptor;
 }
 
 // -----------------------------------------------------------------------------

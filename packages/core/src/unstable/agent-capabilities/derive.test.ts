@@ -508,6 +508,7 @@ describe("agent capability derivation", () => {
       name: "Sample Agent",
       rootDir: undefined,
       skills: { dir: ".sample/skills" },
+      detection: { project: { markers: [] }, user: { markers: [] } },
       subagents: { dir: ".sample-modes.yaml", isFile: true },
     });
   });

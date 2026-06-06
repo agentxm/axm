@@ -115,20 +115,13 @@ describe("agent capability catalog", () => {
       }),
     ).toThrow("Detection markers must be unique");
   });
-  it("decodes legacy detection directory arrays into marker form", () => {
-    expect(
+  it("rejects legacy detection directory arrays", () => {
+    expect(() =>
       Schema.decodeUnknownSync(DetectionSchema)({
         projectDirs: [".sample"],
         userDirs: ["~/.sample"],
       }),
-    ).toEqual({
-      project: {
-        markers: [{ kind: "dir", path: ".sample", signal: "definitive", note: null }],
-      },
-      user: {
-        markers: [{ kind: "dir", path: "~/.sample", signal: "definitive", note: null }],
-      },
-    });
+    ).toThrow();
   });
   it("rejects invalid URLs on catalog URL fields", () => {
     expect(() => decodeAgent(makeAgentInput({ homepage: "not-a-url" }))).toThrow("Expected URL");

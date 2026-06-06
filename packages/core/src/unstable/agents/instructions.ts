@@ -15,7 +15,7 @@ import type { AgentDescriptor, AgentId, AgentInstructionsDescriptor } from "./ty
 
 export interface ResolvedInstructionsConfig {
   readonly fileName: string;
-  readonly gitignore: boolean;
+  readonly gitignoreAliases: boolean;
 }
 
 export type InstructionMechanism = "native" | "symlink" | "copy" | "adapter";
@@ -42,7 +42,7 @@ export interface InstructionStatusItem {
 export interface InstructionsStatus {
   readonly enabled: boolean;
   readonly sourceFileName: string;
-  readonly gitignore: boolean;
+  readonly gitignoreAliases: boolean;
   readonly roots: ReadonlyArray<string>;
   readonly items: ReadonlyArray<InstructionStatusItem>;
 }
@@ -68,7 +68,7 @@ export const resolveInstructionsConfig = (
   config: InstructionsConfig | undefined,
 ): ResolvedInstructionsConfig => ({
   fileName: config?.fileName ?? DEFAULT_SOURCE_FILE,
-  gitignore: config?.gitignore ?? DEFAULT_GITIGNORE,
+  gitignoreAliases: config?.gitignoreAliases ?? DEFAULT_GITIGNORE,
 });
 
 export const resolveInstructionMechanism = (
@@ -397,7 +397,7 @@ export const getInstructionsStatus = (args: {
     return {
       enabled: true,
       sourceFileName: args.config.fileName,
-      gitignore: args.config.gitignore,
+      gitignoreAliases: args.config.gitignoreAliases,
       roots,
       items: items.flat(),
     } satisfies InstructionsStatus;
@@ -567,7 +567,7 @@ export const getInstructionsGitignoreStatus = (args: {
     const currentContent = yield* readFileOption(file);
     const current = Option.isSome(currentContent) && hasManagedRegion(currentContent.value);
     const region = desiredGitignoreRegion({
-      desired: args.config.gitignore,
+      desired: args.config.gitignoreAliases,
       sourceFileName: args.config.fileName,
       configuredAgents: args.configuredAgents,
     });
@@ -691,7 +691,7 @@ export const syncInstructions = (args: {
     );
     const gitignoreWrite = yield* writeGitignoreRegion({
       workspaceRoot: args.workspaceRoot,
-      desired: args.config.gitignore,
+      desired: args.config.gitignoreAliases,
       sourceFileName: args.config.fileName,
       configuredAgents: args.configuredAgents,
       dryRun: args.dryRun,

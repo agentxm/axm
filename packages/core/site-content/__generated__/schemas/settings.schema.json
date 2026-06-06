@@ -90,9 +90,9 @@
           "default": "AGENTS.md",
           "examples": ["AGENTS.md"]
         },
-        "gitignore": {
+        "gitignoreAliases": {
           "type": "boolean",
-          "description": "Whether AXM manages propagated instruction-file ignore entries in .gitignore.",
+          "description": "Whether AXM adds propagated alias instruction files (e.g. CLAUDE.md) to a managed .gitignore region. The source-of-truth file (fileName) is never ignored.",
           "default": true,
           "examples": [true, false]
         }
@@ -111,7 +111,7 @@
             { "type": "null" }
           ],
           "description": "Instruction-file management: false for manual, object for enabled, null or absent for unset.",
-          "examples": [false, { "fileName": "AGENTS.md", "gitignore": true }]
+          "examples": [false, { "fileName": "AGENTS.md", "gitignoreAliases": true }]
         }
       },
       "additionalProperties": false

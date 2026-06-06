@@ -1313,9 +1313,10 @@ export const InstructionsConfigSchema = Schema.Struct({
       examples: ["AGENTS.md"],
     }),
   ),
-  gitignore: Schema.optionalKey(
+  gitignoreAliases: Schema.optionalKey(
     Schema.Boolean.annotate({
-      description: "Whether AXM manages propagated instruction-file ignore entries in .gitignore.",
+      description:
+        "Whether AXM adds propagated alias instruction files (e.g. CLAUDE.md) to a managed .gitignore region. The source-of-truth file (fileName) is never ignored.",
       default: true,
       examples: [true, false],
     }),
@@ -1349,7 +1350,7 @@ export const RulesConfigSchema = Schema.Struct({
     Schema.Union([Schema.Literal(false), InstructionsConfigSchema, Schema.Null]).annotate({
       description:
         "Instruction-file management: false for manual, object for enabled, null or absent for unset.",
-      examples: [false, { fileName: "AGENTS.md", gitignore: true }],
+      examples: [false, { fileName: "AGENTS.md", gitignoreAliases: true }],
     }),
   ),
 })

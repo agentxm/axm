@@ -49,7 +49,7 @@ const InstructionStatusItemSchema = Schema.Struct({
 const InstructionsStatusOutputSchema = Schema.Struct({
   enabled: Schema.Boolean,
   sourceFileName: Schema.String,
-  gitignore: Schema.Boolean,
+  gitignoreAliases: Schema.Boolean,
   roots: Schema.Array(Schema.String),
   items: Schema.Array(InstructionStatusItemSchema),
 });
@@ -86,7 +86,10 @@ const rawInstructionsConfigEquals = (
 ): boolean => {
   if (value === false) return false;
   const resolved = resolveInstructionsConfig(value);
-  return resolved.fileName === expected.fileName && resolved.gitignore === expected.gitignore;
+  return (
+    resolved.fileName === expected.fileName &&
+    resolved.gitignoreAliases === expected.gitignoreAliases
+  );
 };
 
 const makeInstructionsConfigPlan = (args: {
@@ -133,7 +136,7 @@ export const handleRulesStatus = Effect.fn("Rules.status")(function* () {
     const output = {
       enabled: false,
       sourceFileName: "AGENTS.md",
-      gitignore: false,
+      gitignoreAliases: false,
       roots: [],
       items: [],
     };
@@ -184,7 +187,7 @@ export const handleRulesEnable = Effect.fn("Rules.enable")(function* (args: {
   const ws = yield* WorkspaceMutations;
   const config = {
     fileName: args.fileName,
-    gitignore: args.gitignore,
+    gitignoreAliases: args.gitignore,
   } satisfies InstructionsConfig;
   const current = yield* ws.getInstructionsConfig();
 
@@ -253,7 +256,7 @@ const rulesEnableConfig = {
     Flag.withDefault("AGENTS.md"),
   ),
   gitignore: Flag.boolean("gitignore").pipe(
-    Flag.withDescription("Manage propagated files in .gitignore"),
+    Flag.withDescription("Manage propagated alias files in .gitignore"),
     Flag.withDefault(true),
   ),
 } as const;
@@ -279,7 +282,7 @@ const rulesEnableCommand = Command.make(
     { command: "axm rules enable", description: "Enable instruction files" },
     {
       command: "axm rules enable --no-gitignore",
-      description: "Enable without writing gitignore entries",
+      description: "Enable without writing alias gitignore entries",
     },
   ]),
 );

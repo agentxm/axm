@@ -13,7 +13,7 @@ const root = "/repo";
 const baseStatus: InstructionsStatus = {
   enabled: true,
   sourceFileName: "AGENTS.md",
-  gitignore: true,
+  gitignoreAliases: true,
   roots: [root],
   items: [],
 };

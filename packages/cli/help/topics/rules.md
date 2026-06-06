@@ -25,7 +25,7 @@ Instruction-file management is controlled by `rulesConfig.instructions` in
   "rulesConfig": {
     "instructions": {
       "fileName": "AGENTS.md",
-      "gitignore": true,
+      "gitignoreAliases": true,
     },
   },
 }
@@ -36,8 +36,8 @@ Three forms:
 - **Absent** — unset. AXM does not propagate or report on instruction files.
 - **`false`** — explicitly disabled. AXM leaves instruction files alone and
   treats them as manually managed.
-- **Object** `{ fileName?, gitignore? }` — enabled. AXM keeps each configured
-  agent's instruction file in sync with the source file.
+- **Object** `{ fileName?, gitignoreAliases? }` — enabled. AXM keeps each
+  configured agent's instruction file in sync with the source file.
 
 Prefer the CLI over hand-editing — it normalizes the shape and reconciles
 existing on-disk files through `axm lint --fix` or `axm sync`.
@@ -103,15 +103,16 @@ Use `axm lint --fix` to repair autofixable instruction drift. `axm sync` also
 propagates configured instruction files after materializing extension and
 context files.
 
-## gitignore propagation
+## Alias gitignore propagation
 
-The `gitignore` option controls whether AXM also writes managed ignore entries
-for propagated files in `.gitignore`. AXM only manages a single block between
-`# >>> axm:instructions >>>` and `# <<< axm:instructions <<<` markers, so
-hand-edited entries outside the block are left untouched.
+The `gitignoreAliases` option controls whether AXM writes managed ignore entries
+for propagated alias files in `.gitignore`. AXM only manages a single block
+between `# >>> axm:instructions >>>` and `# <<< axm:instructions <<<` markers,
+so hand-edited entries outside the block are left untouched. The source-of-truth
+file named by `fileName` is never added to the managed ignore block.
 
 - `true` (default) — manage the block inside `.gitignore` so collaborators do
-  not see propagated `CLAUDE.md` or `GEMINI.md` files.
+  not see propagated alias files such as `CLAUDE.md` or `GEMINI.md`.
 - `false` — do not write any ignore entries.
 
 ## Authoring the source file

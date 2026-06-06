@@ -443,7 +443,7 @@ describe("setup.handler", () => {
           expect(settings.agents).toEqual(["claude-code"]);
           expect(settings.rulesConfig?.instructions).toEqual({
             fileName: "AGENTS.md",
-            gitignore: true,
+            gitignoreAliases: true,
           });
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(true);
           expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(true);

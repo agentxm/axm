@@ -465,7 +465,7 @@ describe("axm lint handler", () => {
       rulesConfig: {
         instructions: {
           fileName: "AGENTS.md",
-          gitignore: true,
+          gitignoreAliases: true,
         },
       },
     });

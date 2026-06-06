@@ -172,7 +172,7 @@ describe("Settings schema", () => {
         rulesConfig: {
           instructions: {
             fileName: "AGENTS.md",
-            gitignore: true,
+            gitignoreAliases: true,
           },
         },
       };
@@ -181,8 +181,23 @@ describe("Settings schema", () => {
 
       expect(result.rulesConfig?.instructions).toEqual({
         fileName: "AGENTS.md",
-        gitignore: true,
+        gitignoreAliases: true,
       });
+    });
+
+    it("rejects the old instruction-file gitignore key under strict settings validation", () => {
+      const input = {
+        rulesConfig: {
+          instructions: {
+            fileName: "AGENTS.md",
+            gitignore: true,
+          },
+        },
+      };
+
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
     });
 
     it("accepts explicit manual instruction-file management", () => {

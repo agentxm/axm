@@ -81,7 +81,7 @@ describe("rules handler", () => {
         );
         expect(settings.rulesConfig.instructions).toEqual({
           fileName: "AGENTS.md",
-          gitignore: true,
+          gitignoreAliases: true,
         });
       }),
     );
@@ -127,7 +127,7 @@ describe("rules handler", () => {
     initWorkspace(tempDir, [], {
       instructions: {
         fileName: "AGENTS.md",
-        gitignore: true,
+        gitignoreAliases: true,
       },
     });
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
@@ -151,7 +151,7 @@ describe("rules handler", () => {
     initWorkspace(tempDir, ["claude-code"], {
       instructions: {
         fileName: "AGENTS.md",
-        gitignore: true,
+        gitignoreAliases: true,
       },
     });
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
@@ -181,7 +181,7 @@ describe("rules handler", () => {
     initWorkspace(tempDir, ["claude-code"], {
       instructions: {
         fileName: "AGENTS.md",
-        gitignore: true,
+        gitignoreAliases: true,
       },
     });
 
@@ -208,7 +208,7 @@ describe("rules handler", () => {
     initWorkspace(tempDir, ["claude-code"], {
       instructions: {
         fileName: "AGENTS.md",
-        gitignore: true,
+        gitignoreAliases: true,
       },
     });
 
@@ -264,7 +264,7 @@ describe("rules handler", () => {
     initWorkspace(tempDir, ["claude-code"], {
       instructions: {
         fileName: "AGENTS.md",
-        gitignore: true,
+        gitignoreAliases: true,
       },
     });
 

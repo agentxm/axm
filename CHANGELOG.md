@@ -1,3 +1,11 @@
+## Unreleased
+
+### ⚠️ Breaking Changes
+
+- Rename `rulesConfig.instructions.gitignore` to
+  `rulesConfig.instructions.gitignoreAliases`; the old `gitignore` key is no
+  longer recognized.
+
 ## 0.16.2 (2026-06-06)
 
 ### 🩹 Fixes

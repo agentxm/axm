@@ -401,7 +401,10 @@ const applyProjectSetup = (args: {
     yield* syncInstructions({
       workspaceRoot: args.workspaceRoot,
       configuredAgents: args.settings.agents ?? [],
-      config: { fileName: args.sourceFileName, gitignore: DEFAULT_INSTRUCTIONS_GITIGNORE },
+      config: {
+        fileName: args.sourceFileName,
+        gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE,
+      },
       force: args.force,
       dryRun: args.dryRun,
     });
@@ -491,7 +494,7 @@ const configureProjectWorkspace = (args: {
         instructions: instructionSetup.enabled
           ? {
               fileName: instructionSetup.fileName,
-              gitignore: DEFAULT_INSTRUCTIONS_GITIGNORE,
+              gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE,
             }
           : false,
       },

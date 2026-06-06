@@ -124,7 +124,7 @@ const SetupResultSchema = Schema.Struct({
     Schema.Struct({
       enabled: Schema.Boolean,
       fileName: Schema.optional(Schema.String),
-      gitignore: Schema.optional(Schema.Boolean),
+      gitignoreAliases: Schema.optional(Schema.Boolean),
     }),
   ),
   telemetryEnabled: Schema.Boolean,
@@ -397,7 +397,7 @@ const setupPlanFields = (args: {
     | {
         readonly enabled: boolean;
         readonly fileName?: string;
-        readonly gitignore?: boolean;
+        readonly gitignoreAliases?: boolean;
       }
     | undefined;
   readonly agentIds: ReadonlyArray<string>;
@@ -469,7 +469,7 @@ const setupPlanFields = (args: {
           ...(args.instructions.enabled
             ? [
                 { path: "CLAUDE.md", change: workspaceChange },
-                ...(args.instructions.gitignore === true
+                ...(args.instructions.gitignoreAliases === true
                   ? [{ path: ".gitignore", change: workspaceChange }]
                   : []),
               ]
@@ -594,8 +594,8 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
             ...(instructionsValue.fileName !== undefined && {
               fileName: instructionsValue.fileName,
             }),
-            ...(instructionsValue.gitignore !== undefined && {
-              gitignore: instructionsValue.gitignore,
+            ...(instructionsValue.gitignoreAliases !== undefined && {
+              gitignoreAliases: instructionsValue.gitignoreAliases,
             }),
           };
 

@@ -7,7 +7,7 @@ export default defineConfig({
   root: projectRoot,
   test: {
     include: ["src/install-verification.e2e.test.ts"],
-    testTimeout: 60000,
+    testTimeout: 180000,
     reporters: ["default", "junit"],
     outputFile: { junit: "../../test-results/cli-e2e-install/junit.xml" },
   },

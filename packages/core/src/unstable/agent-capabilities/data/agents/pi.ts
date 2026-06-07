@@ -33,7 +33,7 @@ export const piAgent = {
         directory: ".pi/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -50,7 +50,7 @@ export const piAgent = {
         directory: ".pi/prompts",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -65,7 +65,8 @@ export const piAgent = {
         sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -117,7 +118,8 @@ export const piAgent = {
         scopes: ["user", "project"],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -130,7 +132,8 @@ export const piAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -151,7 +154,7 @@ export const piAgent = {
         importSyntax: null,
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -168,8 +171,9 @@ export const piAgent = {
         modeling: "native-unmodeled",
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
         reason: "AXM has not implemented Pi extension hook writers.",
       },
     },
@@ -184,7 +188,8 @@ export const piAgent = {
       sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
     },
     axm: {
-      support: "unsupported",
+      status: "unsupported",
+      lastVerified: null,
       writer: null,
     },
   },

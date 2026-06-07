@@ -1,6 +1,33 @@
 /**
  * Agent capability catalog schemas.
  *
+ * Sourcing namespaces:
+ *
+ * - `native` is the vendor-authoritative fact layer: whether the agent exposes
+ *   the surface, which standard or convention it follows, where config lives,
+ *   and the source URLs used to verify that claim.
+ * - `axm` is AXM integration state: whether AXM has modeled support, whether a
+ *   writer exists, the writer metadata needed by AXM, and AXM-owned backlog or
+ *   unsupported reasons. These fields are not vendor facts.
+ * - `canonical` is a derived, vendor-neutral vocabulary. Hook event/tool
+ *   mappings store canonical IDs beside native names, but the catalog does not
+ *   store a per-agent canonical capability block.
+ *
+ * Status axes:
+ *
+ * - `AgentLifecycle` describes the coding agent product itself.
+ * - `VendorStatus` describes the vendor or plugin surface named by
+ *   `Availability`.
+ * - `Availability` describes whether the surface is native, plugin-backed, or
+ *   absent.
+ * - AXM support/writer state lives under `axm.status` and `axm.writer`;
+ *   `axm.writer !== null` means AXM has verified write mechanics for that
+ *   capability.
+ *
+ * `permissions` lives beside `capabilities` because it models AXM grant/write
+ * mechanics for an agent's permission system. It is not a publishable leaf
+ * extension type and therefore is not keyed under the extension capability map.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
@@ -100,7 +127,7 @@ export const AxmSupportSchema = Schema.Literals([
 ]).annotate({
   identifier: "AxmSupport",
   title: "AXM Support",
-  description: "AXM install behavior and verification state for an agent capability.",
+  description: "AXM-owned integration status for an agent capability. This is not a vendor fact.",
   examples: [SUPPORTED_AXM_SUPPORT, "unsupported", "unknown"],
 });
 
@@ -412,6 +439,34 @@ const CapabilityNotesSchema = Schema.NullOr(Schema.NonEmptyString);
 const CapabilityDocsSchema = Schema.Array(DocLinkSchema);
 const CapabilitySourcesSchema = Schema.Array(UrlSchema);
 
+const provenanceFields = <SourcesSchema extends Schema.Top, VerifiedSchema extends Schema.Top>(
+  sources: SourcesSchema,
+  lastVerified: VerifiedSchema,
+) => ({
+  sources,
+  lastVerified,
+});
+
+const NullableProvenanceFields = provenanceFields(
+  CapabilitySourcesSchema,
+  Schema.NullOr(LastVerifiedDateSchema),
+);
+
+const VerifiedProvenanceFields = provenanceFields(
+  Schema.NonEmptyArray(UrlSchema),
+  LastVerifiedDateSchema,
+);
+
+/** @experimental This API is unstable and may change without notice. */
+export const ProvenanceSchema = Schema.Struct(NullableProvenanceFields).annotate({
+  identifier: "Provenance",
+  title: "Provenance",
+  description: "Source URLs and verification date for a catalog capability claim.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type Provenance = Schema.Schema.Type<typeof ProvenanceSchema>;
+
 const UnavailableNativeCapabilityFields = {
   availability: NoneAvailabilitySchema,
   vendorStatus: VendorStatusSchema,
@@ -439,25 +494,35 @@ const AvailableSpecTrackedNativeCapabilityFields = {
   ...SpecTrackedCapabilityFields,
 };
 
-const NoWriterAxmCapabilityStateSchema = Schema.Union([
+const axmCapabilityStateDescription =
+  "AXM integration state for this capability: AXM support status, AXM verification date, optional writer metadata, and AXM-owned rationale. This is not a vendor fact.";
+
+const axmCapabilityStateSchema = <WriterSchema extends Schema.Top>(
+  writerSchema: WriterSchema,
+  identifier: string,
+) =>
   Schema.Struct({
-    support: ActiveAxmSupportSchema,
-    lastVerified: LastVerifiedDateSchema,
-    writer: Schema.Null,
-  }),
-  Schema.Struct({
-    support: InactiveAxmSupportSchema,
+    status: AxmSupportSchema,
+    lastVerified: Schema.NullOr(LastVerifiedDateSchema),
     reason: Schema.optionalKey(Schema.NonEmptyString),
-    writer: Schema.Null,
-  }),
-]);
+    writer: Schema.NullOr(writerSchema),
+  }).annotate({
+    identifier,
+    title: "AXM Capability State",
+    description: axmCapabilityStateDescription,
+  });
+
+const NoWriterAxmCapabilityStateSchema = axmCapabilityStateSchema(
+  Schema.Never,
+  "NoWriterAxmCapabilityState",
+);
 
 type CapabilityWithActiveSources = {
   readonly native: {
     readonly sources: ReadonlyArray<Url>;
   };
   readonly axm: {
-    readonly support: AxmSupport;
+    readonly status: AxmSupport;
   };
 };
 
@@ -465,7 +530,7 @@ const requireSourcesForActiveAxmSupport = (
   capability: CapabilityWithActiveSources,
 ): Schema.FilterIssue | undefined => {
   if (
-    (capability.axm.support === SUPPORTED_AXM_SUPPORT || capability.axm.support === "planned") &&
+    (capability.axm.status === SUPPORTED_AXM_SUPPORT || capability.axm.status === "planned") &&
     capability.native.sources.length === 0
   ) {
     return {
@@ -824,18 +889,7 @@ export type McpEnvExpansion = Schema.Schema.Type<typeof McpEnvExpansionSchema>;
 
 const McpUnavailableCapabilityStruct = Schema.Struct({
   native: Schema.Struct(UnavailableNativeCapabilityFields),
-  axm: Schema.Union([
-    Schema.Struct({
-      support: ActiveAxmSupportSchema,
-      lastVerified: LastVerifiedDateSchema,
-      writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
-    }),
-    Schema.Struct({
-      support: InactiveAxmSupportSchema,
-      reason: Schema.optionalKey(Schema.NonEmptyString),
-      writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
-    }),
-  ]),
+  axm: axmCapabilityStateSchema(Schema.Struct({ config: McpConfigSchema }), "McpAxmState"),
 });
 
 const McpNativeWithTransportsSchema = Schema.Struct({
@@ -846,18 +900,7 @@ const McpNativeWithTransportsSchema = Schema.Struct({
 
 const McpAvailableCapabilityStruct = Schema.Struct({
   native: McpNativeWithTransportsSchema,
-  axm: Schema.Union([
-    Schema.Struct({
-      support: ActiveAxmSupportSchema,
-      lastVerified: LastVerifiedDateSchema,
-      writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
-    }),
-    Schema.Struct({
-      support: InactiveAxmSupportSchema,
-      reason: Schema.optionalKey(Schema.NonEmptyString),
-      writer: Schema.NullOr(Schema.Struct({ config: McpConfigSchema })),
-    }),
-  ]),
+  axm: axmCapabilityStateSchema(Schema.Struct({ config: McpConfigSchema }), "McpAxmState"),
 });
 
 const McpExtensionCapabilityStruct = Schema.Union([
@@ -1037,8 +1080,7 @@ export type CanonicalHookToolId = Schema.Schema.Type<typeof CanonicalHookToolIdS
 export const HookToolMappingSchema = Schema.Struct({
   nativeName: Schema.NonEmptyString,
   canonical: CanonicalHookToolIdSchema,
-  sources: Schema.NonEmptyArray(UrlSchema),
-  lastVerified: LastVerifiedDateSchema,
+  ...VerifiedProvenanceFields,
 }).annotate({
   identifier: "HookToolMapping",
   title: "Hook Tool Mapping",
@@ -1149,8 +1191,7 @@ export const HookEventMappingSchema = Schema.Struct({
   canonical: CanonicalHookEventIdSchema,
   matcher: HookMatcherSchema,
   decision: Schema.NonEmptyArray(HookDecisionCapabilitySchema),
-  sources: Schema.NonEmptyArray(UrlSchema),
-  lastVerified: LastVerifiedDateSchema,
+  ...VerifiedProvenanceFields,
 }).annotate({
   identifier: "HookEventMapping",
   title: "Hook Event Mapping",
@@ -1250,11 +1291,7 @@ const HooksExtensionCapabilityStruct = Schema.Struct({
     HooksUnmodeledNativeCapabilitySchema,
     Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
-  axm: Schema.Struct({
-    writer: Schema.NullOr(HooksWriterSchema),
-    verified: Schema.NullOr(LastVerifiedDateSchema),
-    reason: Schema.optionalKey(Schema.NonEmptyString),
-  }),
+  axm: axmCapabilityStateSchema(HooksWriterSchema, "HooksAxmState"),
 });
 
 /** @experimental This API is unstable and may change without notice. */
@@ -1371,22 +1408,10 @@ export const PermissionsExtensionCapabilitySchema = Schema.Struct({
     }),
     Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
-  axm: Schema.Union([
-    Schema.Struct({
-      support: ActiveAxmSupportSchema,
-      lastVerified: LastVerifiedDateSchema,
-      writer: Schema.NullOr(
-        Schema.Struct({ grants: Schema.Record(Schema.String, PermissionGrantSchema) }),
-      ),
-    }),
-    Schema.Struct({
-      support: InactiveAxmSupportSchema,
-      reason: Schema.optionalKey(Schema.NonEmptyString),
-      writer: Schema.NullOr(
-        Schema.Struct({ grants: Schema.Record(Schema.String, PermissionGrantSchema) }),
-      ),
-    }),
-  ]),
+  axm: axmCapabilityStateSchema(
+    Schema.Struct({ grants: Schema.Record(Schema.String, PermissionGrantSchema) }),
+    "PermissionsAxmState",
+  ),
 })
   .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
   .annotate({
@@ -1509,7 +1534,7 @@ export const AgentSchema = AgentStruct.pipe(
         agent.capabilities.rule.native.files[0] !== "AGENTS.md"
       ) {
         return {
-          path: ["capabilities", "rule", "canonical", "files"],
+          path: ["capabilities", "rule", "native", "files"],
           issue: 'capabilities.rule.kind "agents-md" requires AGENTS.md.',
         };
       }

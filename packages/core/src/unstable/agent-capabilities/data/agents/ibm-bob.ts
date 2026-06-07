@@ -32,7 +32,7 @@ export const ibmBobAgent = {
         directory: ".bob/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -46,7 +46,8 @@ export const ibmBobAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -68,7 +69,7 @@ export const ibmBobAgent = {
         },
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-19",
         writer: {
           config: {
@@ -117,7 +118,7 @@ export const ibmBobAgent = {
         layout: "file",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-19",
         writer: null,
       },
@@ -131,7 +132,8 @@ export const ibmBobAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -152,7 +154,7 @@ export const ibmBobAgent = {
         importSyntax: null,
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-19",
         writer: null,
       },
@@ -166,8 +168,9 @@ export const ibmBobAgent = {
         sources: [],
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
       },
     },
   },
@@ -180,7 +183,8 @@ export const ibmBobAgent = {
       sources: [],
     },
     axm: {
-      support: "unsupported",
+      status: "unsupported",
+      lastVerified: null,
       writer: null,
     },
   },

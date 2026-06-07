@@ -32,7 +32,7 @@ export const crushAgent = {
         directory: ".crush/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -46,7 +46,8 @@ export const crushAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -67,7 +68,7 @@ export const crushAgent = {
         },
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: {
           config: {
@@ -118,7 +119,8 @@ export const crushAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -131,7 +133,8 @@ export const crushAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -151,7 +154,7 @@ export const crushAgent = {
         importSyntax: null,
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -165,8 +168,9 @@ export const crushAgent = {
         sources: [],
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
       },
     },
   },
@@ -179,7 +183,8 @@ export const crushAgent = {
       sources: [],
     },
     axm: {
-      support: "unsupported",
+      status: "unsupported",
+      lastVerified: null,
       writer: null,
     },
   },

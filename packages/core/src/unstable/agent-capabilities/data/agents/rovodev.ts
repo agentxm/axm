@@ -35,7 +35,7 @@ export const rovodevAgent = {
         directory: ".rovodev/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -49,7 +49,8 @@ export const rovodevAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -62,7 +63,8 @@ export const rovodevAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -78,7 +80,7 @@ export const rovodevAgent = {
         layout: "directory",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -92,7 +94,8 @@ export const rovodevAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -105,7 +108,8 @@ export const rovodevAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -118,8 +122,9 @@ export const rovodevAgent = {
         sources: [],
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
       },
     },
   },
@@ -132,7 +137,8 @@ export const rovodevAgent = {
       sources: [],
     },
     axm: {
-      support: "unsupported",
+      status: "unsupported",
+      lastVerified: null,
       writer: null,
     },
   },

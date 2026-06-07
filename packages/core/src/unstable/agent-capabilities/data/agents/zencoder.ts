@@ -32,7 +32,7 @@ export const zencoderAgent = {
         directory: ".zencoder/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -46,7 +46,8 @@ export const zencoderAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -67,7 +68,7 @@ export const zencoderAgent = {
         },
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: {
           config: {
@@ -108,7 +109,7 @@ export const zencoderAgent = {
         layout: "directory",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -122,7 +123,8 @@ export const zencoderAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -146,7 +148,7 @@ export const zencoderAgent = {
         directory: ".zencoder/rules",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -160,8 +162,9 @@ export const zencoderAgent = {
         sources: [],
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
       },
     },
   },
@@ -174,7 +177,8 @@ export const zencoderAgent = {
       sources: [],
     },
     axm: {
-      support: "unsupported",
+      status: "unsupported",
+      lastVerified: null,
       writer: null,
     },
   },

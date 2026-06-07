@@ -7,6 +7,7 @@ import {
   type Agent,
   type AgentId,
   type McpConfig,
+  type McpEnvExpansion,
 } from "../../../agent-capabilities/index.js";
 import { isAxmManagedMcpEntry } from "../../../mcps/metadata.js";
 import { diffAgentEntry, projectExpectedEntry } from "../../../mcps/projection.js";
@@ -23,6 +24,9 @@ const RULE_ID = "workspace/mcp-server-agent-drift";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 type ConfiguredMcpCapability = AgentMcpCapability & {
+  readonly native: {
+    readonly mcpEnvExpansion?: McpEnvExpansion | undefined;
+  };
   readonly axm: {
     readonly writer: {
       readonly config: McpConfig;
@@ -31,7 +35,7 @@ type ConfiguredMcpCapability = AgentMcpCapability & {
 };
 
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null;
+  capability.axm.writer !== null && "transports" in capability.native;
 
 const isCapabilityAgentId = (agentId: string): agentId is AgentId => agentId in AGENTS_BY_ID;
 

@@ -60,7 +60,7 @@ export const buildPermissionSuggestions = (
         const agent = agentById(agentId);
         const permissions = agent.permissions;
         if (
-          permissions.axm.support !== SUPPORTED_AXM_SUPPORT ||
+          permissions.axm.status !== SUPPORTED_AXM_SUPPORT ||
           permissions.native.availability.via === "none"
         ) {
           return [];

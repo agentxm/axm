@@ -23,15 +23,17 @@ const unsupportedCapability = {
     sources: [],
   },
   axm: {
-    support: "unsupported",
+    status: "unsupported",
+    lastVerified: null,
     writer: null,
   },
 } as const;
 const unsupportedHookCapability = {
   ...unsupportedCapability,
   axm: {
+    status: "unsupported",
     writer: null,
-    verified: null,
+    lastVerified: null,
   },
 } as const;
 const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
@@ -48,7 +50,7 @@ const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
       directory: ".sample/skills",
     },
     axm: {
-      support: "supported",
+      status: "supported",
       lastVerified: "2026-05-16",
       writer: null,
     },
@@ -183,7 +185,7 @@ describe("agent capability catalog", () => {
                 directory: ".sample/commands",
               },
               axm: {
-                support: "supported",
+                status: "supported",
                 lastVerified: "2026-05-16",
                 writer: null,
               },
@@ -211,7 +213,7 @@ describe("agent capability catalog", () => {
                 naming: null,
               },
               axm: {
-                support: "supported",
+                status: "supported",
                 lastVerified: "2026-05-16",
                 writer: null,
               },
@@ -237,7 +239,7 @@ describe("agent capability catalog", () => {
                 directory: ".sample/skills",
               },
               axm: {
-                support: "supported",
+                status: "supported",
                 lastVerified: "2026-05-16",
                 writer: null,
               },
@@ -268,7 +270,7 @@ describe("agent capability catalog", () => {
                 importSyntax: null,
               },
               axm: {
-                support: "supported",
+                status: "supported",
                 lastVerified: "2026-05-16",
                 writer: null,
               },
@@ -296,7 +298,7 @@ describe("agent capability catalog", () => {
                 directory: ".sample/skills",
               },
               axm: {
-                support: "supported",
+                status: "supported",
                 lastVerified: "2026-05-16",
                 writer: null,
               },
@@ -327,7 +329,7 @@ describe("agent capability catalog", () => {
                 importSyntax: null,
               },
               axm: {
-                support: "supported",
+                status: "supported",
                 lastVerified: "2026-05-16",
                 writer: null,
               },
@@ -354,7 +356,7 @@ describe("agent capability catalog", () => {
               transports: ["stdio"],
             },
             axm: {
-              support: "supported",
+              status: "supported",
               lastVerified: "2026-05-18",
               writer: null,
             },
@@ -362,7 +364,38 @@ describe("agent capability catalog", () => {
         }),
       }),
     );
-    expect(decoded.capabilities["mcp-server"].axm.support).toBe("supported");
+    expect(decoded.capabilities["mcp-server"].axm.status).toBe("supported");
+  });
+  it("reports the real native files path for invalid agents-md rule files", () => {
+    expect(() =>
+      decodeAgent(
+        makeAgentInput({
+          capabilities: makeCapabilitiesInput({
+            rule: {
+              native: {
+                availability: { via: "native" },
+                vendorStatus: { state: "active" },
+                notes: null,
+                docs: [],
+                sources: ["https://example.com/docs"],
+                scopes: ["project"],
+                standardsCompliance: "full",
+                convention: "universal",
+                kind: "agents-md",
+                files: ["README.md"],
+                nestedDiscovery: true,
+                importSyntax: null,
+              },
+              axm: {
+                status: "supported",
+                lastVerified: "2026-05-16",
+                writer: null,
+              },
+            },
+          }),
+        }),
+      ),
+    ).toThrow('["capabilities"]["rule"]["native"]["files"]');
   });
   it("requires MCP config coverage for declared transports", () => {
     expect(() =>
@@ -382,7 +415,7 @@ describe("agent capability catalog", () => {
                 transports: ["stdio", "http"],
               },
               axm: {
-                support: "supported",
+                status: "supported",
                 lastVerified: "2026-05-18",
                 writer: {
                   config: {

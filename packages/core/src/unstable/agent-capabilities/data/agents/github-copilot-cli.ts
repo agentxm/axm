@@ -56,7 +56,7 @@ export const githubCopilotCliAgent = {
         directory: ".github/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-06-05",
         writer: null,
       },
@@ -72,7 +72,8 @@ export const githubCopilotCliAgent = {
         ],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -97,7 +98,7 @@ export const githubCopilotCliAgent = {
         },
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-06-05",
         writer: {
           config: {
@@ -158,7 +159,7 @@ export const githubCopilotCliAgent = {
         layout: "directory",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-06-05",
         writer: null,
       },
@@ -172,7 +173,8 @@ export const githubCopilotCliAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -195,7 +197,7 @@ export const githubCopilotCliAgent = {
         importSyntax: null,
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-06-05",
         writer: null,
       },
@@ -209,8 +211,9 @@ export const githubCopilotCliAgent = {
         sources: [],
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
       },
     },
   },
@@ -251,7 +254,7 @@ export const githubCopilotCliAgent = {
       ],
     },
     axm: {
-      support: "supported",
+      status: "supported",
       lastVerified: "2026-06-05",
       writer: {
         grants: {

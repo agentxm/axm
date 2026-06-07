@@ -26,15 +26,17 @@ const unsupportedCapability = {
     sources: [],
   },
   axm: {
-    support: "unsupported",
+    status: "unsupported",
+    lastVerified: null,
     writer: null,
   },
 } as const;
 const unsupportedHookCapability = {
   ...unsupportedCapability,
   axm: {
+    status: "unsupported",
     writer: null,
-    verified: null,
+    lastVerified: null,
   },
 } as const;
 const baseAgent = {
@@ -62,7 +64,7 @@ const baseAgent = {
         directory: ".sample/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: null,
       },
@@ -144,7 +146,7 @@ describe("agent capability derivation", () => {
   it("requires supported MCP capabilities without writer config to explain why they are not writable", () => {
     const unsupportedWritableMcp = AGENTS.flatMap((agent) => {
       const capability = agent.capabilities["mcp-server"];
-      if (capability.axm.support !== "supported") return [];
+      if (capability.axm.status !== "supported") return [];
       if (capability.axm.writer !== null) return [];
       if (capability.native.notes !== null) return [];
       return [agent.id];
@@ -274,7 +276,7 @@ describe("agent capability derivation", () => {
       {
         type: "mcp-server",
         agentStatus: "native",
-        axmStatus: "supported",
+        axmStatus: "writer",
         standardsCompliance: "full",
       },
       {
@@ -333,7 +335,8 @@ describe("agent capability derivation", () => {
         scopes: ["project"],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     } satisfies Agent["capabilities"]["subagent"];
@@ -357,7 +360,7 @@ describe("agent capability derivation", () => {
       axmIntegrationStatus({
         ...native,
         axm: {
-          support: "planned",
+          status: "planned",
           lastVerified: "2026-05-16",
           writer: null,
         },
@@ -366,7 +369,8 @@ describe("agent capability derivation", () => {
       axmIntegrationStatus({
         ...unsupportedCapability,
         axm: {
-          support: "unknown",
+          status: "unknown",
+          lastVerified: null,
           writer: null,
         },
       }),
@@ -471,7 +475,7 @@ describe("agent capability derivation", () => {
               directory: ".sample/commands",
             },
             axm: {
-              support: "supported",
+              status: "supported",
               lastVerified: "2026-05-16",
               writer: null,
             },
@@ -488,7 +492,7 @@ describe("agent capability derivation", () => {
               layout: "directory",
             },
             axm: {
-              support: "supported",
+              status: "supported",
               lastVerified: "2026-05-16",
               writer: null,
             },
@@ -509,7 +513,7 @@ describe("agent capability derivation", () => {
               importSyntax: "at-path",
             },
             axm: {
-              support: "supported",
+              status: "supported",
               lastVerified: "2026-05-16",
               writer: null,
             },
@@ -551,7 +555,7 @@ describe("agent capability derivation", () => {
               layout: "file",
             },
             axm: {
-              support: "supported",
+              status: "supported",
               lastVerified: "2026-05-16",
               writer: null,
             },
@@ -605,7 +609,7 @@ describe("agent capability derivation", () => {
               transports: ["stdio"],
             },
             axm: {
-              support: "supported",
+              status: "supported",
               lastVerified: "2026-05-16",
               writer: {
                 config: {
@@ -666,7 +670,7 @@ describe("agent capability derivation", () => {
               importSyntax: null,
             },
             axm: {
-              support: "supported",
+              status: "supported",
               lastVerified: "2026-05-16",
               writer: null,
             },
@@ -696,7 +700,7 @@ describe("agent capability derivation", () => {
               directory: ".sample/rules",
             },
             axm: {
-              support: "supported",
+              status: "supported",
               lastVerified: "2026-05-16",
               writer: null,
             },

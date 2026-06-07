@@ -32,7 +32,7 @@ export const codebuddyAgent = {
         directory: ".codebuddy/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -46,7 +46,8 @@ export const codebuddyAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -59,7 +60,8 @@ export const codebuddyAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -75,7 +77,7 @@ export const codebuddyAgent = {
         layout: "directory",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -89,7 +91,8 @@ export const codebuddyAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -102,7 +105,8 @@ export const codebuddyAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -115,8 +119,9 @@ export const codebuddyAgent = {
         sources: [],
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
       },
     },
   },
@@ -140,7 +145,7 @@ export const codebuddyAgent = {
       ],
     },
     axm: {
-      support: "supported",
+      status: "supported",
       lastVerified: "2026-05-20",
       writer: {
         grants: {},

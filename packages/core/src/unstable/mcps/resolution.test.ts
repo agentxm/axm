@@ -17,7 +17,7 @@ const stdioCapability = {
     transports: ["stdio"],
   },
   axm: {
-    support: "supported",
+    status: "supported",
     lastVerified: "2026-05-16",
     writer: {
       config: {
@@ -48,7 +48,7 @@ const remoteCapability = {
     transports: ["http", "stdio"],
   },
   axm: {
-    support: "supported",
+    status: "supported",
     lastVerified: "2026-05-16",
     writer: {
       config: {

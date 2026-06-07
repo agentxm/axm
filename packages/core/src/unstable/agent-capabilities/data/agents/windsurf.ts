@@ -33,7 +33,7 @@ export const windsurfAgent = {
         directory: ".windsurf/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -50,7 +50,7 @@ export const windsurfAgent = {
         directory: ".windsurf/workflows",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -72,7 +72,7 @@ export const windsurfAgent = {
         },
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: {
           config: {
@@ -106,7 +106,8 @@ export const windsurfAgent = {
         sources: ["https://docs.windsurf.com/windsurf/cascade/agents-md"],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -119,7 +120,8 @@ export const windsurfAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -140,7 +142,7 @@ export const windsurfAgent = {
         importSyntax: null,
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: null,
       },
@@ -154,8 +156,9 @@ export const windsurfAgent = {
         sources: [],
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
       },
     },
   },
@@ -196,7 +199,7 @@ export const windsurfAgent = {
       cliFlags: [],
     },
     axm: {
-      support: "supported",
+      status: "supported",
       lastVerified: "2026-05-18",
       writer: {
         grants: {

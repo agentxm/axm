@@ -33,7 +33,7 @@ export const grokCliAgent = {
         directory: ".grok/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-19",
         writer: null,
       },
@@ -47,7 +47,8 @@ export const grokCliAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -65,7 +66,7 @@ export const grokCliAgent = {
         transports: ["stdio", "http", "sse"],
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-19",
         writer: null,
       },
@@ -79,7 +80,8 @@ export const grokCliAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -92,7 +94,8 @@ export const grokCliAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -113,7 +116,7 @@ export const grokCliAgent = {
         importSyntax: null,
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-19",
         writer: null,
       },
@@ -130,8 +133,9 @@ export const grokCliAgent = {
         modeling: "native-unmodeled",
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
         reason: "AXM has not implemented a Grok CLI hooks writer.",
       },
     },
@@ -145,7 +149,8 @@ export const grokCliAgent = {
       sources: [],
     },
     axm: {
-      support: "unsupported",
+      status: "unsupported",
+      lastVerified: null,
       writer: null,
     },
   },

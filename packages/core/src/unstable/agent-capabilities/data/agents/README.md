@@ -17,7 +17,7 @@ Hook capabilities also carry `canonical`, AXM's vendor-neutral projection:
 canonical event IDs, invocation mechanism families, matcher kinds, and decision
 capabilities derived from the native event map.
 
-Capability claims with `axm.support: "supported"` or `"planned"` require:
+Capability claims with `axm.status: "supported"` or `"planned"` require:
 
 - `native.sources` with authoritative URLs
 - `axm.lastVerified` in `YYYY-MM-DD`
@@ -29,7 +29,7 @@ native axes:
   descriptive plugin descriptor
 - `native.vendorStatus`: whether the named surface is active, maintenance,
   deprecated, or removed
-- `axm.support`: whether AXM installs or has verified support for the capability
+- `axm.status`: whether AXM installs or has verified support for the capability
 
 Writer mechanics live under `axm.writer`:
 
@@ -39,7 +39,7 @@ Writer mechanics live under `axm.writer`:
 - Permission grants use `axm.writer.grants`
 - Capabilities without AXM writer mechanics use `axm.writer: null`
 
-Use an inactive AXM support entry for unsupported or unknown AXM behavior:
+Use an inactive AXM status entry for unsupported or unknown AXM behavior:
 
 ```ts
 {
@@ -51,7 +51,8 @@ Use an inactive AXM support entry for unsupported or unknown AXM behavior:
     sources: [],
   },
   axm: {
-    support: "unsupported",
+    status: "unsupported",
+    lastVerified: null,
     writer: null,
   },
 }
@@ -66,7 +67,7 @@ All values are explicit. Do not rely on optional fields or schema defaults.
 
 Every agent declares a `lifecycle` describing the support status of the product
 itself. This is the agent-level axis and is distinct from a capability's
-`native.availability`, `native.vendorStatus`, and `axm.support` axes.
+`native.availability`, `native.vendorStatus`, and `axm.status` axes.
 
 A current agent is simply:
 

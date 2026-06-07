@@ -43,7 +43,7 @@ export const geminiCliAgent = {
         directory: ".gemini/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: null,
       },
@@ -62,7 +62,7 @@ export const geminiCliAgent = {
         directory: ".gemini/commands",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -86,7 +86,7 @@ export const geminiCliAgent = {
         },
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: {
           config: {
@@ -128,7 +128,7 @@ export const geminiCliAgent = {
         layout: "directory",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -142,7 +142,8 @@ export const geminiCliAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -166,7 +167,7 @@ export const geminiCliAgent = {
         importSyntax: null,
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -186,8 +187,9 @@ export const geminiCliAgent = {
         modeling: "native-unmodeled",
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
         reason: "AXM has not implemented a Gemini CLI hooks writer.",
       },
     },
@@ -246,7 +248,7 @@ export const geminiCliAgent = {
       ],
     },
     axm: {
-      support: "supported",
+      status: "supported",
       lastVerified: "2026-05-18",
       writer: {
         grants: {

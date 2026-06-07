@@ -44,7 +44,7 @@ export const antigravityAgent = {
         directory: ".agents/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -61,7 +61,7 @@ export const antigravityAgent = {
         directory: ".agents/workflows",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -83,7 +83,7 @@ export const antigravityAgent = {
         },
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: {
           config: {
@@ -116,7 +116,8 @@ export const antigravityAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -129,7 +130,8 @@ export const antigravityAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -153,7 +155,7 @@ export const antigravityAgent = {
         importSyntax: null,
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-20",
         writer: null,
       },
@@ -173,8 +175,9 @@ export const antigravityAgent = {
         modeling: "native-unmodeled",
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
         reason: "AXM has not implemented an Antigravity hooks writer.",
       },
     },
@@ -188,7 +191,8 @@ export const antigravityAgent = {
       sources: [],
     },
     axm: {
-      support: "unsupported",
+      status: "unsupported",
+      lastVerified: null,
       writer: null,
     },
   },

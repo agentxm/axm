@@ -17,6 +17,7 @@ import {
   SUPPORTED_AXM_SUPPORT,
   type Agent,
   type AgentExtensionCapability,
+  type AxmSupport,
   type CanonicalHookEventId,
   type CanonicalHookToolId,
   type Detection,
@@ -26,10 +27,10 @@ import {
   type HookMechanismFamily,
   type HookModifyOperation,
   type Scope,
+  type StandardsCompliance,
   type LeafExtensionType,
   type McpConfigTarget,
   type ConfigFileLocation,
-  type StandardsCompliance,
 } from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */
@@ -72,10 +73,8 @@ export type AgentCapabilityStatus =
   | "plugin-deprecated"
   | "none";
 
-type SupportBearingCapability = Exclude<AgentExtensionCapability, Agent["capabilities"]["hook"]>;
-
 /** @experimental This API is unstable and may change without notice. */
-export type AxmIntegrationStatus = SupportBearingCapability["axm"]["support"] | "writer";
+export type AxmIntegrationStatus = AxmSupport | "writer";
 
 /** @experimental This API is unstable and may change without notice. */
 export const agentCapabilityStatus = (
@@ -93,18 +92,12 @@ export const agentCapabilityStatus = (
 
 /** @experimental This API is unstable and may change without notice. */
 export const axmIntegrationStatus = (capability: AgentExtensionCapability): AxmIntegrationStatus =>
-  "support" in capability.axm
-    ? capability.axm.support
-    : capability.axm.writer === null
-      ? "unsupported"
-      : "writer";
+  capability.axm.writer === null ? capability.axm.status : "writer";
 
 /** @experimental This API is unstable and may change without notice. */
 export const isCapabilitySupported = (capability: AgentExtensionCapability): boolean =>
-  "support" in capability.axm
-    ? capability.axm.support === SUPPORTED_AXM_SUPPORT &&
-      capability.native.availability.via !== "none"
-    : capability.axm.writer !== null && capability.native.availability.via !== "none";
+  (capability.axm.writer !== null || capability.axm.status === SUPPORTED_AXM_SUPPORT) &&
+  capability.native.availability.via !== "none";
 
 const catalogAgentIds = new Set<string>(AGENT_IDS);
 
@@ -278,9 +271,9 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
   for (const type of LEAF_EXTENSION_TYPES) {
     const capability = agent.capabilities[type];
     if (
-      ("support" in capability.axm
-        ? capability.axm.support !== "unsupported"
-        : capability.axm.writer !== null || capability.axm.verified !== null) ||
+      capability.axm.status !== "unsupported" ||
+      capability.axm.writer !== null ||
+      capability.axm.lastVerified !== null ||
       capability.native.availability.via !== "none" ||
       capability.native.sources.length > 0 ||
       capability.native.docs.length > 0 ||

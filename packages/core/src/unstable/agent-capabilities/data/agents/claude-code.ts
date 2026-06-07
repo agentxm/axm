@@ -46,7 +46,7 @@ export const claudeCodeAgent = {
         directory: ".claude/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: null,
       },
@@ -63,7 +63,7 @@ export const claudeCodeAgent = {
         directory: ".claude/commands",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -85,7 +85,7 @@ export const claudeCodeAgent = {
         },
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: {
           config: {
@@ -137,7 +137,7 @@ export const claudeCodeAgent = {
         layout: "directory",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: null,
       },
@@ -151,7 +151,8 @@ export const claudeCodeAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -171,7 +172,7 @@ export const claudeCodeAgent = {
         importSyntax: "at-path",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: null,
       },
@@ -315,6 +316,7 @@ export const claudeCodeAgent = {
         ],
       },
       axm: {
+        status: "supported",
         writer: {
           serializer: "command-stdin",
           configFiles: [
@@ -338,7 +340,7 @@ export const claudeCodeAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
-        verified: "2026-06-02",
+        lastVerified: "2026-06-02",
       },
     },
   },
@@ -384,7 +386,7 @@ export const claudeCodeAgent = {
       cliFlags: [],
     },
     axm: {
-      support: "supported",
+      status: "supported",
       lastVerified: "2026-05-18",
       writer: {
         grants: {

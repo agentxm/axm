@@ -16,7 +16,7 @@ const activeMcpCapability = {
     transports: ["stdio", "http"],
   },
   axm: {
-    support: "supported",
+    status: "supported",
     lastVerified: "2026-06-05",
     writer: {
       config: {
@@ -73,7 +73,7 @@ describe("MCP capability schema", () => {
           transports: ["http"],
         },
         axm: {
-          support: "supported",
+          status: "supported",
           lastVerified: "2026-06-05",
           writer: null,
         },
@@ -85,7 +85,7 @@ describe("MCP capability schema", () => {
         standardsCompliance: "none",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         writer: null,
       },
     });
@@ -161,8 +161,9 @@ describe("Hooks capability schema", () => {
           ],
         },
         axm: {
+          status: "unsupported",
           writer: null,
-          verified: null,
+          lastVerified: null,
         },
       }),
     ).toThrow("unique nativeName");
@@ -180,8 +181,9 @@ describe("Hooks capability schema", () => {
           modeling: "native-unmodeled",
         },
         axm: {
+          status: "unsupported",
           writer: null,
-          verified: null,
+          lastVerified: null,
           reason: "In-process plugin writers are not implemented.",
         },
       }),

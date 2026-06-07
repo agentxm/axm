@@ -52,7 +52,7 @@ export const cursorAgent = {
         directory: ".cursor/skills",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -72,7 +72,7 @@ export const cursorAgent = {
         directory: ".cursor/commands",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -94,7 +94,7 @@ export const cursorAgent = {
         },
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: {
           config: {
@@ -138,7 +138,7 @@ export const cursorAgent = {
         layout: "directory",
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-18",
         writer: null,
       },
@@ -152,7 +152,8 @@ export const cursorAgent = {
         sources: [],
       },
       axm: {
-        support: "unsupported",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -173,7 +174,7 @@ export const cursorAgent = {
         importSyntax: null,
       },
       axm: {
-        support: "supported",
+        status: "supported",
         lastVerified: "2026-05-16",
         writer: null,
       },
@@ -194,8 +195,9 @@ export const cursorAgent = {
         modeling: "native-unmodeled",
       },
       axm: {
+        status: "unsupported",
         writer: null,
-        verified: null,
+        lastVerified: null,
         reason: "AXM has not implemented a Cursor hooks writer.",
       },
     },
@@ -272,7 +274,7 @@ export const cursorAgent = {
       ],
     },
     axm: {
-      support: "supported",
+      status: "supported",
       lastVerified: "2026-05-18",
       writer: {
         grants: {

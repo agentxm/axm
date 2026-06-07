@@ -160,15 +160,9 @@ export const commandCodeAgent = {
         docs: [],
         sources: [],
       },
-      canonical: {
-        events: [],
-        mechanism: [],
-        matcherKinds: [],
-        decision: [],
-      },
       axm: {
-        support: "unsupported",
         writer: null,
+        verified: null,
       },
     },
   },

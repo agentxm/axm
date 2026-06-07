@@ -38,9 +38,9 @@ export interface NewHookOperationArgs {
   readonly owner: Handle;
   /** Interpreter family for the entrypoint. */
   readonly runtime: HookRuntime;
-  /** Agent hook event the scaffold binds to. */
+  /** Canonical hook event the scaffold binds to. */
   readonly event: HookEvent;
-  /** Optional tool matcher (only meaningful for PreToolUse/PostToolUse). */
+  /** Optional raw matcher (only meaningful for tool.pre/tool.post). */
   readonly matcher: string | undefined;
   /** Overwrite an existing hook directory/settings entry. */
   readonly force: boolean;
@@ -71,7 +71,7 @@ const entrypointFilename = (runtime: HookRuntime): string => {
 };
 
 const matcherForBinding = (event: HookEvent, matcher: string | undefined): string | undefined =>
-  event === "PreToolUse" || event === "PostToolUse" ? matcher : undefined;
+  event === "tool.pre" || event === "tool.post" ? matcher : undefined;
 
 const makeEntrypoint = (runtime: HookRuntime, fqn: string): string => {
   switch (runtime) {
@@ -195,7 +195,9 @@ export const newHook: OperationHandler<
       version: INITIAL_HOOK_VERSION,
       runtime,
       entrypoint: `src/${entrypointFile}`,
-      bindings: [bindingMatcher === undefined ? { event } : { event, matcher: bindingMatcher }],
+      bindings: [
+        bindingMatcher === undefined ? { on: event } : { on: event, matcherRaw: bindingMatcher },
+      ],
     };
 
     yield* fs

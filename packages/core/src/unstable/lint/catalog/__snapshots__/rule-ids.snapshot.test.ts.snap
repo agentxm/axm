@@ -30,6 +30,7 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "hook/manifest-present",
   "hook/manifest-schema-valid",
   "hook/manifest-keys-recognized",
+  "hook/matcher-raw-portability",
   "hook/entrypoint-exists",
   "workspace/initialized",
   "workspace/settings-schema-valid",

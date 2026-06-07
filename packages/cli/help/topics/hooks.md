@@ -27,9 +27,14 @@ The manifest owns the binding and the entrypoint:
   "version": "1.0.0",
   "runtime": "bash",
   "entrypoint": "src/hook.sh",
-  "bindings": [{ "event": "PreToolUse", "matcher": "Write|Edit|MultiEdit" }],
+  "bindings": [
+    {
+      "on": "tool.pre",
+      "match": { "tools": ["file.write", "file.edit"] },
+      "requires": { "decision": { "kind": "block" } }
+    }
+  ],
   "timeoutMs": 5000,
-  "blocking": true,
   "capabilities": { "network": false, "filesystemWrite": false }
 }
 ```
@@ -40,11 +45,12 @@ Required fields:
   or `python`.
 - `entrypoint` — path to the executable body, relative to the manifest
   directory. The file must exist in the archive.
-- `bindings` — manifest binding names AXM maps through the agent capability
-  catalog into agent-native settings.
+- `bindings` — canonical AXM hook events and optional canonical tool matchers
+  that AXM maps through the agent capability catalog into agent-native settings.
 
-`timeoutMs`, `blocking`, and `capabilities` are optional. Run
-`axm help hook-schema` to print the raw JSON Schema.
+`timeoutMs`, `requires`, `blocking`, and `capabilities` are optional. Run
+`axm help hook-schema` to print the raw JSON Schema. `blocking: true` is a
+legacy alias for `requires.decision.kind = "block"`.
 
 ## `src/`
 
@@ -62,20 +68,22 @@ block-secrets/
 
 ## Bindings
 
-Each binding is an `event` with an optional `matcher`. The current manifest
-binding names are:
+Each binding uses `on` with a canonical AXM hook event:
 
-`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `SessionStart`, `Stop`,
-`SubagentStop`, and `PreCompact`.
+`tool.pre`, `tool.post`, `prompt.submit`, `session.start`, `turn.end`,
+`subagent.stop`, and `compaction.pre` are the current canonical event set. AXM
+adds events only after at least one writer-backed native mapping can serialize
+them, so authoring tooling rejects events that would resolve to nothing.
 
-These are compatibility binding names, not a universal native hook vocabulary.
-The agent capability catalog maps native hook names to canonical AXM event IDs
-such as `tool.pre`, `tool.post`, `prompt.submit`, and `session.start`, along
-with the native invocation mechanism, matcher kind, and decision capability.
+Use `match.tools` for portable tool-scoped bindings. AXM maps canonical tool IDs
+such as `file.write`, `file.edit`, and `shell.exec` into each target agent's
+native tool names and matcher syntax. `matcherRaw` remains available for native
+long-tail cases, but lint marks it non-portable.
 
-`matcher` is valid only on `PreToolUse` and `PostToolUse` — it filters which
-tools trigger the hook (for example, `Write|Edit|MultiEdit`). Other events match
-by event name alone.
+Use `requires.decision` when a hook depends on more than observation. For
+example, `{ "kind": "block" }` requires the target event to support blocking;
+install fails before settings are written if the configured agent cannot satisfy
+that requirement.
 
 ## Install and serialization
 
@@ -93,12 +101,13 @@ entrypoint:
 bash .axm/extensions/@acme/hooks/block-secrets/src/hook.sh
 ```
 
-Claude Code and Gemini CLI use the catalog-driven `command-stdin` serializer: a
-`PreToolUse` binding becomes a native hook group in the configured agent settings
-file, with event names and matcher syntax taken from the agent capability
-catalog. AXM preserves unrelated settings and removes only the entries it
-manages, so `axm sync` can always reconcile the file. Other agents will gain
-serializers behind the same manifest contract.
+Claude Code uses the catalog-driven `command-stdin` serializer: a `tool.pre`
+binding becomes a native hook group in the configured agent settings file, with
+native event names and matcher syntax taken from the agent capability catalog.
+AXM preserves unrelated settings and removes only the entries it manages, so
+`axm sync` can always reconcile the file. Other agents can declare unmodeled
+native hook availability until a writer is implemented behind the same manifest
+contract.
 
 ## Configuration
 
@@ -123,11 +132,12 @@ reconciles on-disk settings.
 
 ## Safety metadata
 
-`blocking` and `capabilities` (`network`, `filesystemWrite`, `exec`, `env`) are
-author-declared and **advisory in v1**. AXM validates and displays them, but does
-not yet use them for consent prompts, sandboxing, or capability enforcement. Read
-a hook's source before installing it — a hook runs with your shell's privileges
-on the events it binds.
+`requires.decision` is enforced at install because it is a hard compatibility
+fact. `capabilities` (`network`, `filesystemWrite`, `exec`, `env`) are
+author-declared and advisory in v1. AXM validates and displays them, but does
+not yet use them for consent prompts, sandboxing, or capability enforcement.
+Read a hook's source before installing it — a hook runs with your shell's
+privileges on the events it binds.
 
 ## Commands
 

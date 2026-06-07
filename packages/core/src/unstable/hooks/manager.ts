@@ -17,8 +17,10 @@ import {
   AGENTS as CAPABILITY_AGENTS,
   type Agent as CapabilityAgent,
   type CanonicalHookEventId,
+  type CanonicalHookToolId,
   type HookEventMapping,
   type HooksWriter,
+  installable,
 } from "../agent-capabilities/index.js";
 import { computeSourceHash } from "../extensions/rendered-files.js";
 import {
@@ -60,7 +62,6 @@ export class HookManager extends ServiceMap.Service<
   ExtensionManager<HookExtensionRef>
 >()("@agentxm/client-core/unstable/hooks/manager/HookManager") {}
 
-const HOOK_MANIFEST_COMPATIBILITY_AGENT_ID = "claude-code";
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
@@ -180,49 +181,66 @@ const capabilityAgentById = (id: string): CapabilityAgent | undefined =>
 const configuredHookWriterTargets = (
   configuredAgents: ReadonlyArray<string>,
   resolvePath: (path: string) => string,
-): ReadonlyArray<HookWriterTarget> => {
-  const targets: HookWriterTarget[] = [];
-  for (const id of configuredAgents) {
-    const agent = capabilityAgentById(id);
-    const hook = agent?.capabilities.hook;
-    if (agent === undefined || hook === undefined || hook.axm.support !== "supported") continue;
-    if (hook.axm.writer === null) continue;
+): Effect.Effect<ReadonlyArray<HookWriterTarget>, AppError> =>
+  Effect.gen(function* () {
+    const targets: HookWriterTarget[] = [];
+    for (const id of configuredAgents) {
+      const agent = capabilityAgentById(id);
+      const hook = agent?.capabilities.hook;
+      if (agent === undefined || hook === undefined) continue;
 
-    const configFile = hook.axm.writer.configFiles.find(
-      (file) => file.scope === "project" && file.format === "json" && !file.gitignored,
-    );
-    if (configFile === undefined) continue;
+      if (hook.native.availability.via === "none") {
+        return yield* makeAppError({
+          code: "validation",
+          detail: `${agent.name} has no hook system.`,
+        });
+      }
 
-    targets.push({
-      agent,
-      writer: hook.axm.writer,
-      configPath: resolvePath(configFile.path),
-    });
-  }
-  return targets;
-};
+      if (hook.axm.writer === null) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: `AXM has not built a hook writer for ${agent.name}.`,
+        });
+      }
+
+      const configFile = hook.axm.writer.configFiles.find(
+        (file) => file.scope === "project" && file.format === "json" && !file.gitignored,
+      );
+      if (configFile === undefined) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: `AXM has no project JSON hook writer target for ${agent.name}.`,
+        });
+      }
+
+      targets.push({
+        agent,
+        writer: hook.axm.writer,
+        configPath: resolvePath(configFile.path),
+      });
+    }
+    return targets;
+  });
 
 const hookEventsFor = (agent: CapabilityAgent): ReadonlyArray<HookEventMapping> => {
   const native = agent.capabilities.hook.native;
   return "events" in native ? native.events : [];
 };
 
-const manifestCompatibilityEventMap = (): ReadonlyMap<string, CanonicalHookEventId> => {
-  const agent = capabilityAgentById(HOOK_MANIFEST_COMPATIBILITY_AGENT_ID);
-  const entries = hookEventsForAgent(agent).map(
-    (event): readonly [string, CanonicalHookEventId] => [event.nativeName, event.canonical],
-  );
-  return new Map(entries);
-};
-
-const hookEventsForAgent = (agent: CapabilityAgent | undefined): ReadonlyArray<HookEventMapping> =>
-  agent === undefined ? [] : hookEventsFor(agent);
-
 const targetNativeEventName = (
   agent: CapabilityAgent,
   canonical: CanonicalHookEventId,
 ): string | undefined =>
   hookEventsFor(agent).find((event) => event.canonical === canonical)?.nativeName;
+
+const hookNativeToolNames = (
+  agent: CapabilityAgent,
+  canonical: CanonicalHookToolId,
+): ReadonlyArray<string> => {
+  const native = agent.capabilities.hook.native;
+  if (!("tools" in native)) return [];
+  return native.tools.filter((tool) => tool.canonical === canonical).map((tool) => tool.nativeName);
+};
 
 const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
   Effect.sync(() => {
@@ -380,6 +398,45 @@ const serializeMatcher = (writer: HooksWriter, matcher: string | undefined): str
   }
 };
 
+const escapeRegexLiteral = (value: string): string =>
+  value.replace(/[\\^$.*+?()[\]{}|]/g, (character) => `\\${character}`);
+
+const targetMatcherRaw = (agent: CapabilityAgent, binding: HookBinding): string | undefined =>
+  binding.targets?.[agent.id]?.matcherRaw ?? binding.matcherRaw;
+
+const serializeBindingMatcher = (
+  agent: CapabilityAgent,
+  writer: HooksWriter,
+  binding: HookBinding,
+): Effect.Effect<string | undefined, AppError> => {
+  const noMatcher: string | undefined = undefined;
+  const raw = targetMatcherRaw(agent, binding);
+  if (raw !== undefined) return Effect.succeed(serializeMatcher(writer, raw));
+
+  const tools = binding.match?.tools ?? [];
+  if (tools.length === 0) return Effect.succeed(noMatcher);
+
+  const nativeNames = tools.flatMap((tool) => hookNativeToolNames(agent, tool));
+  if (nativeNames.length === 0) {
+    return Effect.fail(
+      makeAppError({
+        code: "validation",
+        detail: `${agent.name} cannot express matcher tool(s): ${tools.join(", ")}.`,
+      }),
+    );
+  }
+
+  return Effect.succeed(serializeMatcher(writer, nativeNames.map(escapeRegexLiteral).join("|")));
+};
+
+const bindingWithManifestRequirements = (
+  binding: HookBinding,
+  manifest: HookManifest,
+): HookBinding =>
+  manifest.blocking === true && binding.requires === undefined
+    ? { ...binding, requires: { decision: { kind: "block" } } }
+    : binding;
+
 const serializeTimeout = (
   writer: HooksWriter,
   timeoutMs: number | undefined,
@@ -398,24 +455,26 @@ const appendCommandHookBinding = (
   agent: CapabilityAgent,
   writer: HooksWriter,
   binding: HookBinding,
+  manifest: HookManifest,
   hookName: string,
   command: string,
   timeoutMs: number | undefined,
 ): Effect.Effect<void, AppError> =>
   Effect.gen(function* () {
-    const compatibilityEvent = manifestCompatibilityEventMap().get(binding.event);
-    if (compatibilityEvent === undefined) {
+    const resolvedBinding = bindingWithManifestRequirements(binding, manifest);
+    const verdict = installable(agent, resolvedBinding);
+    if (!verdict.installable) {
       return yield* makeAppError({
         code: "validation",
-        detail: `Hook binding event is not recognized by the compatibility map: ${binding.event}`,
+        detail: verdict.reason,
       });
     }
 
-    const nativeEventName = targetNativeEventName(agent, compatibilityEvent);
+    const nativeEventName = targetNativeEventName(agent, resolvedBinding.on);
     if (nativeEventName === undefined) {
       return yield* makeAppError({
         code: "validation",
-        detail: `${agent.name} does not support hook event ${compatibilityEvent} for binding ${binding.event}`,
+        detail: `${agent.name} does not support ${resolvedBinding.on}.`,
       });
     }
 
@@ -436,7 +495,7 @@ const appendCommandHookBinding = (
     const group: Record<string, unknown> = {
       hooks: [commandEntry],
     };
-    const matcher = serializeMatcher(writer, binding.matcher);
+    const matcher = yield* serializeBindingMatcher(agent, writer, resolvedBinding);
     if (matcher !== undefined) {
       group["matcher"] = matcher;
     }
@@ -748,6 +807,7 @@ export const HookManagerLive = Layer.effect(
               target.agent,
               target.writer,
               binding,
+              rendered.manifest,
               rendered.manifest.name,
               rendered.command,
               rendered.manifest.timeoutMs,
@@ -766,15 +826,24 @@ export const HookManagerLive = Layer.effect(
     }) =>
       Effect.gen(function* () {
         const configuredAgents = yield* ws.getConfiguredAgents();
-        const targets = configuredHookWriterTargets(configuredAgents, (configPath) =>
+        const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
 
-        return yield* Effect.forEach(
+        const renderedTargets = yield* Effect.forEach(
           targets,
           (target) =>
             Effect.gen(function* () {
               const rendered = yield* renderInstalledHookGroups(target, args);
+              return { target, rendered };
+            }),
+          { concurrency: "unbounded" },
+        );
+
+        return yield* Effect.forEach(
+          renderedTargets,
+          ({ target, rendered }) =>
+            Effect.gen(function* () {
               const raw = yield* provide(readExisting(target.configPath));
               const next = yield* updateHooksJson(
                 target.configPath,

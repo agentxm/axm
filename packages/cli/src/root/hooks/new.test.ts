@@ -43,7 +43,7 @@ const defaultArgs = (
   name: extensionName(name),
   owner: Option.none(),
   runtime: "bash",
-  event: "PreToolUse",
+  event: "tool.pre",
   matcher: Option.none(),
   yes: false,
   force: false,
@@ -103,7 +103,7 @@ describe("hooks-new.handler", () => {
           expect(manifest.name).toBe("tool-audit");
           expect(manifest.runtime).toBe("bash");
           expect(manifest.entrypoint).toBe("src/hook.sh");
-          expect(manifest.bindings).toEqual([{ event: "PreToolUse", matcher: "Write|Edit" }]);
+          expect(manifest.bindings).toEqual([{ on: "tool.pre", matcherRaw: "Write|Edit" }]);
 
           // Entrypoint
           const entrypointPath = path.join(hookDir(tempDir, "tool-audit"), "src", "hook.sh");
@@ -188,11 +188,11 @@ describe("hooks-new.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleHooksNew(defaultArgs("on-start", { event: "SessionStart" }));
+          yield* handleHooksNew(defaultArgs("on-start", { event: "session.start" }));
 
           const manifestPath = path.join(hookDir(tempDir, "on-start"), "hook.json");
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.bindings).toEqual([{ event: "SessionStart" }]);
+          expect(manifest.bindings).toEqual([{ on: "session.start" }]);
         }),
       );
     });

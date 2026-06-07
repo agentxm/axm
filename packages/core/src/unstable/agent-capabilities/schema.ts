@@ -959,21 +959,12 @@ export type ConfigFileLocation = Schema.Schema.Type<typeof ConfigFileLocationSch
 /** @experimental This API is unstable and may change without notice. */
 export const CANONICAL_HOOK_EVENT_IDS = [
   "session.start",
-  "session.end",
   "prompt.submit",
-  "turn.start",
   "turn.end",
   "tool.pre",
   "tool.post",
-  "tool.error",
-  "subagent.start",
   "subagent.stop",
   "compaction.pre",
-  "compaction.post",
-  "notification",
-  "model.pre",
-  "model.post",
-  "file.changed",
 ] as const;
 
 /** @experimental This API is unstable and may change without notice. */
@@ -1013,46 +1004,60 @@ export type CanonicalHookEvent = Schema.Schema.Type<typeof CanonicalHookEventSch
 /** @experimental This API is unstable and may change without notice. */
 export const CANONICAL_HOOK_EVENTS = [
   { id: "session.start", tier: "core" },
-  { id: "session.end", tier: "core" },
   { id: "prompt.submit", tier: "core" },
-  { id: "turn.start", tier: "core" },
   { id: "turn.end", tier: "core" },
   { id: "tool.pre", tier: "core" },
   { id: "tool.post", tier: "core" },
-  { id: "tool.error", tier: "core" },
-  { id: "subagent.start", tier: "extended" },
   { id: "subagent.stop", tier: "extended" },
   { id: "compaction.pre", tier: "extended" },
-  { id: "compaction.post", tier: "extended" },
-  { id: "notification", tier: "extended" },
-  { id: "model.pre", tier: "extended" },
-  { id: "model.post", tier: "extended" },
-  { id: "file.changed", tier: "extended" },
 ] as const satisfies ReadonlyArray<CanonicalHookEvent>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HookMechanismFamilySchema = Schema.Literals([
-  "command-stdin",
-  "command-env",
-  "http",
-  "mcp-tool",
-  "prompt",
-  "subagent",
-  "in-process-plugin",
-  "declarative-action",
-]).annotate({
+export const CANONICAL_HOOK_TOOL_IDS = [
+  "file.read",
+  "file.write",
+  "file.edit",
+  "shell.exec",
+  "web.fetch",
+  "mcp.call",
+] as const;
+
+/** @experimental This API is unstable and may change without notice. */
+export const CanonicalHookToolIdSchema = Schema.Literals(CANONICAL_HOOK_TOOL_IDS).annotate({
+  identifier: "CanonicalHookToolId",
+  title: "Canonical Hook Tool ID",
+  description: "Vendor-neutral tool identity used by portable hook matchers.",
+  examples: ["file.write", "file.edit", "shell.exec"],
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type CanonicalHookToolId = Schema.Schema.Type<typeof CanonicalHookToolIdSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookToolMappingSchema = Schema.Struct({
+  nativeName: Schema.NonEmptyString,
+  canonical: CanonicalHookToolIdSchema,
+  sources: Schema.NonEmptyArray(UrlSchema),
+  lastVerified: LastVerifiedDateSchema,
+}).annotate({
+  identifier: "HookToolMapping",
+  title: "Hook Tool Mapping",
+  description: "Native tool name with its canonical AXM tool identity and provenance.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookToolMapping = Schema.Schema.Type<typeof HookToolMappingSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HookMechanismFamilySchema = Schema.Literals(["command-stdin", "raw"]).annotate({
   identifier: "HookMechanismFamily",
   title: "Hook Mechanism Family",
   description: "How a native hook system invokes a hook.",
-  examples: ["command-stdin", "in-process-plugin", "declarative-action"],
+  examples: ["command-stdin", "raw"],
 });
 
 /** @experimental This API is unstable and may change without notice. */
 export type HookMechanismFamily = Schema.Schema.Type<typeof HookMechanismFamilySchema>;
-
-const HookMechanismFamiliesSchema = Schema.Array(HookMechanismFamilySchema).pipe(
-  Schema.check(Schema.isUnique()),
-);
 
 const NonEmptyHookMechanismFamiliesSchema = Schema.NonEmptyArray(HookMechanismFamilySchema).pipe(
   Schema.check(Schema.isUnique()),
@@ -1075,10 +1080,6 @@ export const HookMatcherKindSchema = Schema.Literals([
 
 /** @experimental This API is unstable and may change without notice. */
 export type HookMatcherKind = Schema.Schema.Type<typeof HookMatcherKindSchema>;
-
-const HookMatcherKindsSchema = Schema.Array(HookMatcherKindSchema).pipe(
-  Schema.check(Schema.isUnique()),
-);
 
 /** @experimental This API is unstable and may change without notice. */
 export const HookMatcherSchema = Schema.Struct({
@@ -1142,8 +1143,6 @@ export const HookDecisionCapabilitySchema = Schema.Union([
 /** @experimental This API is unstable and may change without notice. */
 export type HookDecisionCapability = Schema.Schema.Type<typeof HookDecisionCapabilitySchema>;
 
-const HookDecisionCapabilitiesSchema = Schema.Array(HookDecisionCapabilitySchema);
-
 /** @experimental This API is unstable and may change without notice. */
 export const HookEventMappingSchema = Schema.Struct({
   nativeName: Schema.NonEmptyString,
@@ -1160,21 +1159,6 @@ export const HookEventMappingSchema = Schema.Struct({
 
 /** @experimental This API is unstable and may change without notice. */
 export type HookEventMapping = Schema.Schema.Type<typeof HookEventMappingSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const HooksCanonicalModelSchema = Schema.Struct({
-  events: Schema.Array(CanonicalHookEventIdSchema).pipe(Schema.check(Schema.isUnique())),
-  mechanism: HookMechanismFamiliesSchema,
-  matcherKinds: HookMatcherKindsSchema,
-  decision: HookDecisionCapabilitiesSchema,
-}).annotate({
-  identifier: "HooksCanonicalModel",
-  title: "Hooks Canonical Model",
-  description: "Vendor-neutral hook capability projection for an agent.",
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type HooksCanonicalModel = Schema.Schema.Type<typeof HooksCanonicalModelSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const HooksSerializerSchema = Schema.Literals(["command-stdin"]).annotate({
@@ -1252,26 +1236,25 @@ const HooksAvailableNativeCapabilitySchema = Schema.Struct({
   mechanism: NonEmptyHookMechanismFamiliesSchema,
   configFiles: Schema.Array(ConfigFileLocationSchema),
   events: Schema.NonEmptyArray(HookEventMappingSchema),
+  tools: Schema.Array(HookToolMappingSchema),
+});
+
+const HooksUnmodeledNativeCapabilitySchema = Schema.Struct({
+  ...AvailableNativeCapabilityBaseFields,
+  modeling: Schema.Literal("native-unmodeled"),
 });
 
 const HooksExtensionCapabilityStruct = Schema.Struct({
   native: Schema.Union([
     HooksAvailableNativeCapabilitySchema,
+    HooksUnmodeledNativeCapabilitySchema,
     Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
-  canonical: HooksCanonicalModelSchema,
-  axm: Schema.Union([
-    Schema.Struct({
-      support: ActiveAxmSupportSchema,
-      lastVerified: LastVerifiedDateSchema,
-      writer: Schema.NullOr(HooksWriterSchema),
-    }),
-    Schema.Struct({
-      support: InactiveAxmSupportSchema,
-      reason: Schema.optionalKey(Schema.NonEmptyString),
-      writer: Schema.NullOr(HooksWriterSchema),
-    }),
-  ]),
+  axm: Schema.Struct({
+    writer: Schema.NullOr(HooksWriterSchema),
+    verified: Schema.NullOr(LastVerifiedDateSchema),
+    reason: Schema.optionalKey(Schema.NonEmptyString),
+  }),
 });
 
 /** @experimental This API is unstable and may change without notice. */
@@ -1279,35 +1262,20 @@ export const HooksExtensionCapabilitySchema = HooksExtensionCapabilityStruct.pip
   Schema.check(
     Schema.makeFilter((capability: Schema.Schema.Type<typeof HooksExtensionCapabilityStruct>) => {
       const issues: Array<Schema.FilterIssue> = [];
-      const activeSourcesIssue = requireSourcesForActiveAxmSupport(capability);
-      if (activeSourcesIssue !== undefined) issues.push(activeSourcesIssue);
-
-      const canonicalEvents = new Set<string>(capability.canonical.events);
-      const canonicalMechanisms = new Set<string>(capability.canonical.mechanism);
-      const canonicalMatcherKinds = new Set<string>(capability.canonical.matcherKinds);
+      if (capability.axm.writer !== null && capability.native.sources.length === 0) {
+        issues.push({
+          path: ["native", "sources"],
+          issue: "Hook writer claims require at least one native source.",
+        });
+      }
 
       if ("events" in capability.native) {
-        for (const mechanism of capability.native.mechanism) {
-          if (!canonicalMechanisms.has(mechanism)) {
-            issues.push({
-              path: ["canonical", "mechanism"],
-              issue: `Hook canonical mechanism list is missing ${mechanism}.`,
-            });
-          }
-        }
-        for (const event of capability.native.events) {
-          if (!canonicalEvents.has(event.canonical)) {
-            issues.push({
-              path: ["canonical", "events"],
-              issue: `Hook canonical event list is missing ${event.canonical}.`,
-            });
-          }
-          if (!canonicalMatcherKinds.has(event.matcher.kind)) {
-            issues.push({
-              path: ["canonical", "matcherKinds"],
-              issue: `Hook canonical matcher list is missing ${event.matcher.kind}.`,
-            });
-          }
+        const nativeToolNames = new Set(capability.native.tools.map((tool) => tool.nativeName));
+        if (nativeToolNames.size !== capability.native.tools.length) {
+          issues.push({
+            path: ["native", "tools"],
+            issue: "Hook native tool mappings require unique nativeName values.",
+          });
         }
       }
 

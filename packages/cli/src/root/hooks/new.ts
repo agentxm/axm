@@ -47,13 +47,13 @@ const MAX_NAME_LENGTH = 64;
 
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
 const HOOK_EVENTS = [
-  "PreToolUse",
-  "PostToolUse",
-  "UserPromptSubmit",
-  "SessionStart",
-  "Stop",
-  "SubagentStop",
-  "PreCompact",
+  "tool.pre",
+  "tool.post",
+  "prompt.submit",
+  "session.start",
+  "turn.end",
+  "subagent.stop",
+  "compaction.pre",
 ] as const satisfies readonly HookEvent[];
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
@@ -191,7 +191,7 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
   // 4. Apply matcher default for tool-scoped events
   const matcher = Option.isSome(args.matcher)
     ? args.matcher.value
-    : args.event === "PreToolUse" || args.event === "PostToolUse"
+    : args.event === "tool.pre" || args.event === "tool.post"
       ? "Write|Edit"
       : undefined;
 
@@ -318,11 +318,11 @@ const newConfig = {
     Flag.withDefault("bash" as const),
   ),
   event: Flag.choice("event", HOOK_EVENTS).pipe(
-    Flag.withDescription("Agent hook event to bind to"),
-    Flag.withDefault("PreToolUse" as const),
+    Flag.withDescription("Canonical hook event to bind to"),
+    Flag.withDefault("tool.pre" as const),
   ),
   matcher: Flag.string("matcher").pipe(
-    Flag.withDescription("Tool matcher for PreToolUse/PostToolUse (e.g., Write|Edit)"),
+    Flag.withDescription("Raw native matcher for tool.pre/tool.post (e.g., Write|Edit)"),
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create the hook without confirmation")),
@@ -352,7 +352,7 @@ export const newCommand = Command.make(
   Command.withExamples([
     { command: "axm hooks new tool-audit", description: "Scaffold a new hook" },
     {
-      command: "axm hooks new tool-audit --event PostToolUse --matcher Bash",
+      command: "axm hooks new tool-audit --event tool.post --matcher Bash",
       description: "Bind to a specific event and tool matcher",
     },
     {

@@ -29,11 +29,9 @@ const unsupportedCapability = {
 } as const;
 const unsupportedHookCapability = {
   ...unsupportedCapability,
-  canonical: {
-    events: [],
-    mechanism: [],
-    matcherKinds: [],
-    decision: [],
+  axm: {
+    writer: null,
+    verified: null,
   },
 } as const;
 const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
@@ -93,10 +91,8 @@ describe("agent capability catalog", () => {
       onExcessProperty: "error",
     });
     for (const agent of decoded) {
-      for (const [type, capability] of Object.entries(agent.capabilities)) {
-        expect(Object.keys(capability).sort()).toEqual(
-          type === "hook" ? ["axm", "canonical", "native"] : ["axm", "native"],
-        );
+      for (const capability of Object.values(agent.capabilities)) {
+        expect(Object.keys(capability).sort()).toEqual(["axm", "native"]);
       }
     }
   });
@@ -108,15 +104,16 @@ describe("agent capability catalog", () => {
     for (const id of ["codex", "cursor", "opencode"]) {
       const hook = byId.get(id)?.capabilities.hook;
       expect(hook?.native.availability).toEqual({ via: "native" });
+      expect(hook?.native).toMatchObject({ modeling: "native-unmodeled" });
       expect(hook?.axm).toMatchObject({
-        support: "unsupported",
         writer: null,
       });
       expect(hook?.axm).toHaveProperty("reason");
     }
   });
-  it("keeps every native hook event mapped to the canonical hook registry", () => {
+  it("keeps the canonical hook registry equal to witnessed native hook events", () => {
     const ids = new Set<string>(CANONICAL_HOOK_EVENT_IDS);
+    const witnessed = new Set<string>();
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
       onExcessProperty: "error",
     });
@@ -125,8 +122,10 @@ describe("agent capability catalog", () => {
       if (!("events" in hook.native)) continue;
       for (const event of hook.native.events) {
         expect(ids, `${agent.id} hook event ${event.nativeName}`).toContain(event.canonical);
+        witnessed.add(event.canonical);
       }
     }
+    expect([...witnessed].sort()).toEqual([...ids].sort());
   });
   it("AgentIdSchema rejects ids outside the verified catalog", () => {
     const decode = Schema.decodeUnknownResult(AgentIdSchema);

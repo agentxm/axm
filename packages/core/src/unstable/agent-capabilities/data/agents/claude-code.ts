@@ -275,28 +275,46 @@ export const claudeCodeAgent = {
             lastVerified: "2026-06-02",
           },
         ],
-      },
-      canonical: {
-        events: [
-          "tool.pre",
-          "tool.post",
-          "prompt.submit",
-          "session.start",
-          "turn.end",
-          "subagent.stop",
-          "compaction.pre",
-        ],
-        mechanism: ["command-stdin"],
-        matcherKinds: ["regex", "none-imperative"],
-        decision: [
-          { kind: "observe" },
-          { kind: "block", outcomes: ["allow", "deny", "ask"] },
-          { kind: "modify", operations: ["modify-input", "inject-context"] },
+        tools: [
+          {
+            nativeName: "Read",
+            canonical: "file.read",
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "Write",
+            canonical: "file.write",
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "Edit",
+            canonical: "file.edit",
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "MultiEdit",
+            canonical: "file.edit",
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "Bash",
+            canonical: "shell.exec",
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
+          {
+            nativeName: "WebFetch",
+            canonical: "web.fetch",
+            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
+            lastVerified: "2026-06-02",
+          },
         ],
       },
       axm: {
-        support: "supported",
-        lastVerified: "2026-06-02",
         writer: {
           serializer: "command-stdin",
           configFiles: [
@@ -320,6 +338,7 @@ export const claudeCodeAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
+        verified: "2026-06-02",
       },
     },
   },

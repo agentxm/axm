@@ -7,9 +7,14 @@
   "description": "Blocks writes that look like secrets.",
   "runtime": "bash",
   "entrypoint": "src/hook.sh",
-  "bindings": [{ "event": "PreToolUse", "matcher": "Write|Edit|MultiEdit" }],
+  "bindings": [
+    {
+      "on": "tool.pre",
+      "match": { "tools": ["file.write", "file.edit"] },
+      "requires": { "decision": { "kind": "block" } }
+    }
+  ],
   "timeoutMs": 5000,
-  "blocking": true,
   "capabilities": {
     "network": false,
     "filesystemWrite": false,

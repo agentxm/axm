@@ -209,6 +209,157 @@
     "HookEvent": {
       "type": "string",
       "enum": [
+        "session.start",
+        "prompt.submit",
+        "turn.end",
+        "tool.pre",
+        "tool.post",
+        "subagent.stop",
+        "compaction.pre"
+      ],
+      "title": "Hook Event",
+      "description": "Canonical AXM hook event this extension binds to.",
+      "examples": ["tool.pre", "tool.post", "prompt.submit"]
+    },
+    "CanonicalHookToolId": {
+      "type": "string",
+      "enum": ["file.read", "file.write", "file.edit", "shell.exec", "web.fetch", "mcp.call"],
+      "title": "Canonical Hook Tool ID",
+      "description": "Vendor-neutral tool identity used by portable hook matchers.",
+      "examples": ["file.write", "file.edit", "shell.exec"]
+    },
+    "HookMatch": {
+      "type": "object",
+      "properties": {
+        "tools": {
+          "anyOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "allOf": [{ "uniqueItems": true }],
+              "items": [{ "$ref": "#/definitions/CanonicalHookToolId" }],
+              "additionalItems": { "$ref": "#/definitions/CanonicalHookToolId" }
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Hook Match",
+      "description": "Portable hook matcher expressed over AXM canonical tool IDs."
+    },
+    "HookBindingTarget": {
+      "type": "object",
+      "properties": {
+        "matcherRaw": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Hook Binding Target",
+      "description": "Target-agent-specific hook binding escape hatches."
+    },
+    "HookBlockOutcome": {
+      "type": "string",
+      "enum": ["allow", "deny", "ask"],
+      "title": "Hook Block Outcome",
+      "description": "Decision outcome available to blocking hook systems."
+    },
+    "HookModifyOperation": {
+      "type": "string",
+      "enum": ["modify-input", "inject-context", "modify-output", "synthesize", "redact"],
+      "title": "Hook Modify Operation",
+      "description": "Transform operation available to modifying hook systems."
+    },
+    "HookDecisionRequirement": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": { "kind": { "type": "string", "enum": ["observe"] } },
+          "required": ["kind"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "enum": ["block"] },
+            "outcomes": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "allOf": [{ "uniqueItems": true }],
+                  "items": [{ "$ref": "#/definitions/HookBlockOutcome" }],
+                  "additionalItems": { "$ref": "#/definitions/HookBlockOutcome" }
+                },
+                { "type": "null" }
+              ]
+            }
+          },
+          "required": ["kind"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "enum": ["modify"] },
+            "operations": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "allOf": [{ "uniqueItems": true }],
+                  "items": [{ "$ref": "#/definitions/HookModifyOperation" }],
+                  "additionalItems": { "$ref": "#/definitions/HookModifyOperation" }
+                },
+                { "type": "null" }
+              ]
+            }
+          },
+          "required": ["kind"],
+          "additionalProperties": false
+        }
+      ],
+      "title": "Hook Decision Requirement",
+      "description": "Decision capability a hook binding requires from the target agent event."
+    },
+    "CanonicalHookBinding": {
+      "type": "object",
+      "properties": {
+        "on": { "$ref": "#/definitions/HookEvent" },
+        "match": { "anyOf": [{ "$ref": "#/definitions/HookMatch" }, { "type": "null" }] },
+        "matcherRaw": {
+          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+        },
+        "targets": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/HookBindingTarget" }
+            },
+            { "type": "null" }
+          ]
+        },
+        "requires": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": { "decision": { "$ref": "#/definitions/HookDecisionRequirement" } },
+              "required": ["decision"],
+              "additionalProperties": false
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["on"],
+      "additionalProperties": false,
+      "title": "Canonical Hook Binding",
+      "description": "Universal hook event binding expressed in AXM canonical vocabulary."
+    },
+    "LegacyHookEvent": {
+      "type": "string",
+      "enum": [
         "PreToolUse",
         "PostToolUse",
         "UserPromptSubmit",
@@ -217,19 +368,24 @@
         "SubagentStop",
         "PreCompact"
       ],
-      "title": "Hook Event",
-      "description": "Agent hook event this extension binds to."
+      "title": "Legacy Hook Event",
+      "description": "Deprecated Claude-compatible hook event name accepted as a decode alias."
     },
     "HookBinding": {
-      "type": "object",
-      "properties": {
-        "event": { "$ref": "#/definitions/HookEvent" },
-        "matcher": {
-          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+      "anyOf": [
+        { "$ref": "#/definitions/CanonicalHookBinding" },
+        {
+          "type": "object",
+          "properties": {
+            "event": { "$ref": "#/definitions/LegacyHookEvent" },
+            "matcher": {
+              "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
+            }
+          },
+          "required": ["event"],
+          "additionalProperties": false
         }
-      },
-      "required": ["event"],
-      "additionalProperties": false
+      ]
     },
     "HookCapabilities": {
       "type": "object",

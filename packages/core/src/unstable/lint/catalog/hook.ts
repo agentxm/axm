@@ -5,11 +5,13 @@ import { entrypointExistsRule } from "./hook/entrypoint-exists.js";
 import { manifestKeysRecognizedRule } from "./hook/manifest-keys-recognized.js";
 import { manifestPresentRule } from "./hook/manifest-present.js";
 import { manifestSchemaValidRule } from "./hook/manifest-schema-valid.js";
+import { matcherRawPortabilityRule } from "./hook/matcher-raw-portability.js";
 
 export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
   manifestPresentRule,
   manifestSchemaValidRule,
   manifestKeysRecognizedRule,
+  matcherRawPortabilityRule,
   entrypointExistsRule,
 ];
 

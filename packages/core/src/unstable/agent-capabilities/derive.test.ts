@@ -5,12 +5,14 @@ import {
   agentCapabilityStatus,
   agentSupportsType,
   axmIntegrationStatus,
+  canonicalCoverage,
   deriveAgentDescriptor,
   deriveHookPortability,
   getSupportedAgentsForExtension,
   getSupportedAgentsForExtensionType,
   getSupportedAgentsForExtensionTypes,
   getSupportedExtensionTypesForAgent,
+  installable,
   listCapabilities,
   toNativeAgent,
 } from "./index.js";
@@ -30,11 +32,9 @@ const unsupportedCapability = {
 } as const;
 const unsupportedHookCapability = {
   ...unsupportedCapability,
-  canonical: {
-    events: [],
-    mechanism: [],
-    matcherKinds: [],
-    decision: [],
+  axm: {
+    writer: null,
+    verified: null,
   },
 } as const;
 const baseAgent = {
@@ -422,11 +422,36 @@ describe("agent capability derivation", () => {
       standardsCompliance: "full",
     });
     expect(deriveHookPortability(agentById("amp"), requirement)).toMatchObject({
-      standardsCompliance: "partial",
+      standardsCompliance: "none",
+      reason: "Amp has no modeled native hook events.",
     });
     expect(deriveHookPortability(agentById("warp"), requirement)).toMatchObject({
       standardsCompliance: "none",
     });
+  });
+  it("derives canonical hook coverage from native events and tools", () => {
+    expect(canonicalCoverage(agentById("claude-code"))).toMatchObject({
+      events: [
+        "tool.pre",
+        "tool.post",
+        "prompt.submit",
+        "session.start",
+        "turn.end",
+        "subagent.stop",
+        "compaction.pre",
+      ],
+      tools: ["file.read", "file.write", "file.edit", "shell.exec", "web.fetch"],
+      mechanism: ["command-stdin"],
+      matcherKinds: ["regex", "none-imperative"],
+    });
+  });
+  it("treats decision subfields as advisory during hook installability checks", () => {
+    expect(
+      installable(agentById("claude-code"), {
+        on: "turn.end",
+        requires: { decision: { kind: "block", outcomes: ["ask"] } },
+      }),
+    ).toMatchObject({ installable: true });
   });
   it("derives descriptors with explicit rootDir and own-file instructions", () => {
     expect(

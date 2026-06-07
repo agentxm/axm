@@ -24,7 +24,11 @@ import type { LocalHookRef } from "./refs.js";
 const writeHookPackage = (
   packageRoot: string,
   name: string,
-  options?: { readonly timeoutMs?: number },
+  options?: {
+    readonly timeoutMs?: number;
+    readonly bindings?: ReadonlyArray<Record<string, unknown>>;
+    readonly blocking?: boolean;
+  },
 ) => {
   mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
   writeFileSync(
@@ -37,8 +41,9 @@ const writeHookPackage = (
         version: "1.0.0",
         runtime: "bash",
         entrypoint: "src/hook.sh",
-        bindings: [{ event: "PreToolUse", matcher: "Write|Edit" }],
+        bindings: options?.bindings ?? [{ on: "tool.pre", matcherRaw: "Write|Edit" }],
         ...(options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+        ...(options?.blocking === undefined ? {} : { blocking: options.blocking }),
       },
       null,
       2,
@@ -123,47 +128,83 @@ describe("HookManager", () => {
     }),
   );
 
-  it.effect("writes Gemini CLI hooks from catalog writer metadata", () =>
+  it.effect("serializes structured canonical tool matchers for Claude Code", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
       try {
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
-        writeHookPackage(packageRoot, "identity-check", { timeoutMs: 5000 });
+        writeHookPackage(packageRoot, "shell-check", {
+          bindings: [{ on: "tool.pre", match: { tools: ["shell.exec"] } }],
+        });
 
         yield* Effect.gen(function* () {
           const manager = yield* HookManager;
           yield* manager.materializeInstall({
-            ref: makeLocalHookRef("identity-check", packageRoot),
+            ref: makeLocalHookRef("shell-check", packageRoot),
           });
-        }).pipe(
-          Effect.provide(
-            makeHookManagerLayer(workspaceRoot, {
-              configuredAgents: ["claude-code", "gemini-cli"],
-            }),
-          ),
-        );
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot)));
 
         const claudeRaw = readFileSync(
           nodePath.join(workspaceRoot, ".claude", "settings.json"),
           "utf8",
         );
-        expect(claudeRaw).toContain('"PreToolUse"');
-        expect(claudeRaw).toContain('"matcher": "Write|Edit"');
-        expect(claudeRaw).toContain('"timeout": 5');
-        expect(claudeRaw).not.toContain('"name": "identity-check"');
-
-        const geminiRaw = readFileSync(
-          nodePath.join(workspaceRoot, ".gemini", "settings.json"),
-          "utf8",
-        );
-        expect(geminiRaw).toContain('"BeforeTool"');
-        expect(geminiRaw).toContain('"matcher": "/Write|Edit/"');
-        expect(geminiRaw).toContain('"name": "identity-check"');
-        expect(geminiRaw).toContain('"timeout": 5000');
-        expect(geminiRaw).toContain(".axm/extensions/external/hooks/identity-check/src/hook.sh");
+        expect(claudeRaw).toContain('"matcher": "Bash"');
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
     }),
+  );
+
+  it.effect("fails before writing settings when a configured agent has no writer", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
+      try {
+        const settingsPath = nodePath.join(workspaceRoot, ".codex", "hooks.json");
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "unsupported-agent");
+
+        const error = yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          yield* manager.materializeInstall({
+            ref: makeLocalHookRef("unsupported-event", packageRoot),
+          });
+        }).pipe(
+          Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["codex"] })),
+          Effect.flip,
+        );
+
+        expect(error.detail).toContain("AXM has not built a hook writer for Codex");
+        expect(existsSync(settingsPath)).toBe(false);
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect(
+    "fails before writing settings when a block decision is required on observe-only event",
+    () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
+        try {
+          const settingsPath = nodePath.join(workspaceRoot, ".claude", "settings.json");
+          const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+          writeHookPackage(packageRoot, "decision-check", {
+            bindings: [{ on: "session.start", requires: { decision: { kind: "block" } } }],
+          });
+
+          const error = yield* Effect.gen(function* () {
+            const manager = yield* HookManager;
+            yield* manager.materializeInstall({
+              ref: makeLocalHookRef("decision-check", packageRoot),
+            });
+          }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot)), Effect.flip);
+
+          expect(error.detail).toContain("cannot satisfy block decisions");
+          expect(existsSync(settingsPath)).toBe(false);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
   );
 });

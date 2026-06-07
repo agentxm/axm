@@ -18,9 +18,13 @@ import {
   type Agent,
   type AgentExtensionCapability,
   type CanonicalHookEventId,
+  type CanonicalHookToolId,
   type Detection,
+  type HookBlockOutcome,
   type HookDecisionCapability,
+  type HookEventMapping,
   type HookMechanismFamily,
+  type HookModifyOperation,
   type Scope,
   type LeafExtensionType,
   type McpConfigTarget,
@@ -68,8 +72,10 @@ export type AgentCapabilityStatus =
   | "plugin-deprecated"
   | "none";
 
+type SupportBearingCapability = Exclude<AgentExtensionCapability, Agent["capabilities"]["hook"]>;
+
 /** @experimental This API is unstable and may change without notice. */
-export type AxmIntegrationStatus = AgentExtensionCapability["axm"]["support"];
+export type AxmIntegrationStatus = SupportBearingCapability["axm"]["support"] | "writer";
 
 /** @experimental This API is unstable and may change without notice. */
 export const agentCapabilityStatus = (
@@ -87,11 +93,18 @@ export const agentCapabilityStatus = (
 
 /** @experimental This API is unstable and may change without notice. */
 export const axmIntegrationStatus = (capability: AgentExtensionCapability): AxmIntegrationStatus =>
-  capability.axm.support;
+  "support" in capability.axm
+    ? capability.axm.support
+    : capability.axm.writer === null
+      ? "unsupported"
+      : "writer";
 
 /** @experimental This API is unstable and may change without notice. */
 export const isCapabilitySupported = (capability: AgentExtensionCapability): boolean =>
-  capability.axm.support === SUPPORTED_AXM_SUPPORT && capability.native.availability.via !== "none";
+  "support" in capability.axm
+    ? capability.axm.support === SUPPORTED_AXM_SUPPORT &&
+      capability.native.availability.via !== "none"
+    : capability.axm.writer !== null && capability.native.availability.via !== "none";
 
 const catalogAgentIds = new Set<string>(AGENT_IDS);
 
@@ -265,7 +278,9 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
   for (const type of LEAF_EXTENSION_TYPES) {
     const capability = agent.capabilities[type];
     if (
-      capability.axm.support !== "unsupported" ||
+      ("support" in capability.axm
+        ? capability.axm.support !== "unsupported"
+        : capability.axm.writer !== null || capability.axm.verified !== null) ||
       capability.native.availability.via !== "none" ||
       capability.native.sources.length > 0 ||
       capability.native.docs.length > 0 ||
@@ -318,6 +333,40 @@ export const getSupportedAgentsForExtension = (
 export type HookDecisionKind = HookDecisionCapability["kind"];
 
 /** @experimental This API is unstable and may change without notice. */
+export type HookDecisionRequirement =
+  | { readonly kind: "observe" }
+  | { readonly kind: "block"; readonly outcomes?: ReadonlyArray<HookBlockOutcome> | undefined }
+  | {
+      readonly kind: "modify";
+      readonly operations?: ReadonlyArray<HookModifyOperation> | undefined;
+    };
+
+/** @experimental This API is unstable and may change without notice. */
+export interface HookInstallBinding {
+  readonly on: CanonicalHookEventId;
+  readonly match?:
+    | {
+        readonly tools?: ReadonlyArray<CanonicalHookToolId> | undefined;
+      }
+    | undefined;
+  readonly matcherRaw?: string | undefined;
+  readonly targets?:
+    | Readonly<Record<string, { readonly matcherRaw?: string | undefined }>>
+    | undefined;
+  readonly requires?:
+    | {
+        readonly decision: HookDecisionRequirement;
+      }
+    | undefined;
+}
+
+/** @experimental This API is unstable and may change without notice. */
+export interface HookInstallabilityVerdict {
+  readonly installable: boolean;
+  readonly reason: string;
+}
+
+/** @experimental This API is unstable and may change without notice. */
 export interface HookPortabilityRequirement {
   readonly events: ReadonlyArray<CanonicalHookEventId>;
   readonly mechanisms: ReadonlyArray<HookMechanismFamily>;
@@ -339,6 +388,108 @@ const missingValues = <T extends string>(
   available: ReadonlySet<T>,
 ): ReadonlyArray<T> => required.filter((value) => !available.has(value));
 
+const unique = <T extends string>(values: ReadonlyArray<T>): ReadonlyArray<T> =>
+  Array.from(new Set(values));
+
+/** @experimental This API is unstable and may change without notice. */
+export const canonicalCoverage = (agent: Agent) => {
+  const hook = agent.capabilities.hook;
+  if (!("events" in hook.native)) {
+    return {
+      events: [],
+      tools: [],
+      mechanism: [],
+      matcherKinds: [],
+      decision: [],
+    };
+  }
+
+  return {
+    events: unique(hook.native.events.map((event) => event.canonical)),
+    tools: unique(hook.native.tools.map((tool) => tool.canonical)),
+    mechanism: unique(hook.native.mechanism),
+    matcherKinds: unique(hook.native.events.map((event) => event.matcher.kind)),
+    decision: hook.native.events.flatMap((event) => event.decision),
+  };
+};
+
+const hookEventForBinding = (
+  agent: Agent,
+  binding: HookInstallBinding,
+): HookEventMapping | undefined => {
+  const native = agent.capabilities.hook.native;
+  if (!("events" in native)) return undefined;
+  return native.events.find((event) => event.canonical === binding.on);
+};
+
+const targetMatcherRaw = (agent: Agent, binding: HookInstallBinding): string | undefined =>
+  binding.targets?.[agent.id]?.matcherRaw ?? binding.matcherRaw;
+
+const bindingRequiresMatcher = (agent: Agent, binding: HookInstallBinding): boolean =>
+  targetMatcherRaw(agent, binding) !== undefined || (binding.match?.tools?.length ?? 0) > 0;
+
+const decisionRequirementSatisfied = (
+  available: ReadonlyArray<HookDecisionCapability>,
+  required: HookDecisionRequirement,
+): boolean => available.some((decision) => decision.kind === required.kind);
+
+/** @experimental This API is unstable and may change without notice. */
+export const installable = (
+  agent: Agent,
+  binding: HookInstallBinding,
+): HookInstallabilityVerdict => {
+  const hook = agent.capabilities.hook;
+  if (hook.native.availability.via === "none") {
+    return { installable: false, reason: `${agent.name} has no hook system.` };
+  }
+  if (!("events" in hook.native)) {
+    return { installable: false, reason: `${agent.name} has no modeled hook events.` };
+  }
+  if (hook.axm.writer === null) {
+    return { installable: false, reason: `AXM has not built a hook writer for ${agent.name}.` };
+  }
+
+  const event = hookEventForBinding(agent, binding);
+  if (event === undefined) {
+    return {
+      installable: false,
+      reason: `${agent.name} does not support ${binding.on}.`,
+    };
+  }
+
+  if (bindingRequiresMatcher(agent, binding) && event.matcher.kind === "none-imperative") {
+    return {
+      installable: false,
+      reason: `${agent.name} cannot express a matcher for ${binding.on}.`,
+    };
+  }
+
+  const tools = binding.match?.tools ?? [];
+  if (tools.length > 0) {
+    const nativeTools = new Set(hook.native.tools.map((tool) => tool.canonical));
+    const missingTools = missingValues(tools, nativeTools);
+    if (missingTools.length > 0) {
+      return {
+        installable: false,
+        reason: `${agent.name} cannot express matcher tool(s): ${missingTools.join(", ")}.`,
+      };
+    }
+  }
+
+  const requiredDecision = binding.requires?.decision;
+  if (
+    requiredDecision !== undefined &&
+    !decisionRequirementSatisfied(event.decision, requiredDecision)
+  ) {
+    return {
+      installable: false,
+      reason: `${agent.name} cannot satisfy ${requiredDecision.kind} decisions for ${binding.on}.`,
+    };
+  }
+
+  return { installable: true, reason: `${agent.name} can install ${binding.on}.` };
+};
+
 /** @experimental This API is unstable and may change without notice. */
 export const deriveHookPortability = (
   agent: Agent,
@@ -358,7 +509,8 @@ export const deriveHookPortability = (
     };
   }
 
-  const eventIds = new Set<CanonicalHookEventId>(hook.canonical.events);
+  const coverage = canonicalCoverage(agent);
+  const eventIds = new Set<CanonicalHookEventId>(coverage.events);
   const missingEvents = missingValues(requirement.events, eventIds);
   if (missingEvents.length > 0) {
     return {
@@ -367,7 +519,7 @@ export const deriveHookPortability = (
     };
   }
 
-  const mechanisms = new Set<HookMechanismFamily>(hook.canonical.mechanism);
+  const mechanisms = new Set<HookMechanismFamily>(coverage.mechanism);
   const missingMechanisms = missingValues(requirement.mechanisms, mechanisms);
   const decisions = hook.native.events.flatMap((event) => event.decision);
   const availableDecisionKinds = hookDecisionKinds(decisions);
@@ -379,7 +531,7 @@ export const deriveHookPortability = (
     ...(missingDecisions.length === 0
       ? []
       : [`missing decision(s): ${missingDecisions.join(", ")}`]),
-    ...(hook.axm.support === SUPPORTED_AXM_SUPPORT ? [] : [`AXM support is ${hook.axm.support}`]),
+    ...(hook.axm.writer !== null ? [] : ["AXM has no writer"]),
   ];
 
   if (partialReasons.length > 0) {

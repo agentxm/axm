@@ -34,7 +34,7 @@ const createManagedHookPackage = (root: string, owner: string, name: string, ver
         version,
         runtime: "bash",
         entrypoint: "src/hook.sh",
-        bindings: [{ event: "PreToolUse", matcher: "Write|Edit" }],
+        bindings: [{ on: "tool.pre", matcherRaw: "Write|Edit" }],
       },
       null,
       2,

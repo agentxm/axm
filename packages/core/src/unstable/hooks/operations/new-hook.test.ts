@@ -29,7 +29,7 @@ const makeOp = (name: string, opts: Partial<NewHookOperation["args"]> = {}): New
     name,
     owner: normalizeHandle(opts.owner ?? "@acme"),
     runtime: opts.runtime ?? "bash",
-    event: opts.event ?? "PreToolUse",
+    event: opts.event ?? "tool.pre",
     matcher: opts.matcher ?? "Write|Edit",
     force: opts.force ?? false,
   },
@@ -79,7 +79,7 @@ describe("new-hook operation", () => {
       expect(manifest.version).toBe("0.1.0");
       expect(manifest.runtime).toBe("bash");
       expect(manifest.entrypoint).toBe("src/hook.sh");
-      expect(manifest.bindings).toEqual([{ event: "PreToolUse", matcher: "Write|Edit" }]);
+      expect(manifest.bindings).toEqual([{ on: "tool.pre", matcherRaw: "Write|Edit" }]);
       expect(manifest.$schema).toBe("https://axm.sh/schemas/hook.schema.json");
 
       const entrypointPath = path.join(hookDir(tempDir, "tool-audit"), "src", "hook.sh");
@@ -92,11 +92,11 @@ describe("new-hook operation", () => {
 
   it.effect("drops the matcher for non-tool events", () =>
     Effect.gen(function* () {
-      yield* newHook(makeOp("on-start", { event: "SessionStart", matcher: "Write|Edit" }));
+      yield* newHook(makeOp("on-start", { event: "session.start", matcher: "Write|Edit" }));
 
       const manifestPath = path.join(hookDir(tempDir, "on-start"), "hook.json");
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.bindings).toEqual([{ event: "SessionStart" }]);
+      expect(manifest.bindings).toEqual([{ on: "session.start" }]);
     }).pipe(Effect.provide(testLayer())),
   );
 

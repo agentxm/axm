@@ -165,57 +165,12 @@ export const piAgent = {
         docs: [],
         sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
         scopes: ["user", "project"],
-        mechanism: ["in-process-plugin"],
-        configFiles: [],
-        events: [
-          {
-            nativeName: "pre_tool_call_decide",
-            canonical: "tool.pre",
-            matcher: {
-              kind: "none-imperative",
-              example: null,
-              notes: "Extension code branches imperatively.",
-            },
-            decision: [
-              { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny", "ask"] },
-              { kind: "modify", operations: ["modify-input"] },
-            ],
-            sources: [
-              "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md",
-            ],
-            lastVerified: "2026-06-06",
-          },
-          {
-            nativeName: "post_tool_call",
-            canonical: "tool.post",
-            matcher: {
-              kind: "none-imperative",
-              example: null,
-              notes: "Extension code branches imperatively.",
-            },
-            decision: [{ kind: "observe" }, { kind: "modify", operations: ["modify-output"] }],
-            sources: [
-              "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md",
-            ],
-            lastVerified: "2026-06-06",
-          },
-        ],
-      },
-      canonical: {
-        events: ["tool.pre", "tool.post"],
-        mechanism: ["in-process-plugin"],
-        matcherKinds: ["none-imperative"],
-        decision: [
-          { kind: "observe" },
-          { kind: "block", outcomes: ["allow", "deny", "ask"] },
-          { kind: "modify", operations: ["modify-input", "modify-output"] },
-        ],
+        modeling: "native-unmodeled",
       },
       axm: {
-        support: "unsupported",
-        reason: "AXM has not implemented Pi extension hook writers.",
         writer: null,
+        verified: null,
+        reason: "AXM has not implemented Pi extension hook writers.",
       },
     },
   },

@@ -177,7 +177,7 @@ describe("hooks enable/disable no-op output", () => {
           name: decodeExtensionNameSync("workspace-baseline"),
           owner: Option.some("@acme"),
           runtime: "bash",
-          event: "PreToolUse",
+          event: "tool.pre",
           matcher: Option.some("Bash"),
           yes: true,
           force: false,

@@ -16,6 +16,7 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "./coding-agent.js";
+import { addCommandViaResolve, removeCommandViaResolve } from "./command-sync.js";
 import { augmentCodingAgent } from "./augment/service.js";
 import { claudeCodeCodingAgent } from "./claude-code/service.js";
 import { codexCodingAgent } from "./codex/service.js";
@@ -27,7 +28,9 @@ import { kiloCodingAgent } from "./kilo/service.js";
 import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
 import { rooCodingAgent } from "./roo/service.js";
+import { addSubagentViaResolve, removeSubagentViaResolve } from "./subagent-sync.js";
 import { windsurfCodingAgent } from "./windsurf/service.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "./mcp-sync.js";
 import { AGENTS } from "./registry.js";
 import { AGENT_IDS, isConfigurableAgentId } from "./types.js";
 import type { AgentDescriptor, AgentId } from "./types.js";
@@ -36,57 +39,72 @@ const UNIVERSAL_AGENT_ID = "universal";
 
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
-const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => ({
-  id: descriptor.id,
-  resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
-    Effect.gen(function* () {
-      const path = yield* Path.Path;
-      return {
-        _tag: "supported",
-        dir: path.resolve(workspaceRoot, descriptor.skills.dir),
-      } as const;
-    }),
-  addMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: `MCP add is not supported for ${descriptor.id}`,
-    } as const),
-  removeMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: `MCP remove is not supported for ${descriptor.id}`,
-    } as const),
-  resolveEffectiveCommandsDir: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: `Commands are not supported for ${descriptor.id}`,
-    } as const),
-  addCommand: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: `Command add is not supported for ${descriptor.id}`,
-    } as const),
-  removeCommand: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: `Command remove is not supported for ${descriptor.id}`,
-    } as const),
-  resolveEffectiveSubagentsDir: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: `Subagents are not supported for ${descriptor.id}`,
-    } as const),
-  addSubagent: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: `Subagent add is not supported for ${descriptor.id}`,
-    } as const),
-  removeSubagent: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: `Subagent remove is not supported for ${descriptor.id}`,
-    } as const),
-});
+const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => {
+  const commandSyncConfig = { agentId: descriptor.id };
+  const agent: CodingAgent = {
+    id: descriptor.id,
+    resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        return {
+          _tag: "supported",
+          dir: path.resolve(workspaceRoot, descriptor.skills.dir),
+        } as const;
+      }),
+    addMcpServer: (args) => addMcpServerFromManifest(descriptor.id, args),
+    removeMcpServer: (args) => removeMcpServerFromManifest(descriptor.id, args),
+    resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
+      Effect.gen(function* () {
+        if (descriptor.commands === undefined) {
+          return {
+            _tag: "unsupported",
+            reason: `Commands are not supported for ${descriptor.id}`,
+          } as const;
+        }
+        if (scope === "user") {
+          return {
+            _tag: "unsupported",
+            reason: `${descriptor.name} does not support user-scope commands`,
+          } as const;
+        }
+        const path = yield* Path.Path;
+        return {
+          _tag: "supported",
+          dir: path.resolve(workspaceRoot, descriptor.commands.dir),
+          warnings: [],
+        } as const;
+      }),
+    addCommand: (args) =>
+      addCommandViaResolve(agent.resolveEffectiveCommandsDir(args), args, commandSyncConfig),
+    removeCommand: (args) =>
+      removeCommandViaResolve(agent.resolveEffectiveCommandsDir(args), args, commandSyncConfig),
+    resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
+      Effect.gen(function* () {
+        if (descriptor.subagents === undefined) {
+          return {
+            _tag: "unsupported",
+            reason: `Subagents are not supported for ${descriptor.id}`,
+          } as const;
+        }
+        if (scope === "user") {
+          return {
+            _tag: "unsupported",
+            reason: `${descriptor.name} does not support user-scope subagents`,
+          } as const;
+        }
+        const path = yield* Path.Path;
+        return {
+          _tag: "supported",
+          dir: path.resolve(workspaceRoot, descriptor.subagents.dir),
+          warnings: [],
+        } as const;
+      }),
+    addSubagent: (args) => addSubagentViaResolve(agent.resolveEffectiveSubagentsDir(args), args),
+    removeSubagent: (args) =>
+      removeSubagentViaResolve(agent.resolveEffectiveSubagentsDir(args), args),
+  };
+  return agent;
+};
 
 const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
   switch (id) {

@@ -120,19 +120,20 @@ describe("mcps add output", () => {
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Add MCP server",
           totalSteps: 2,
-          warningCount: 2,
+          warningCount: 1,
         });
         const steps = planResultSteps(result);
         expect(steps[1]).toMatchObject({
           label: "Sync demo to configured agents",
           status: "applied",
-          message: "Synced demo to 3 agents with 2 warnings",
+          message: "Synced demo to 4 agents with 1 warning",
+          warnings: ["gemini-cli: gemini-cli agent does not support inline remote MCP servers"],
           artifact: {
             path: "agent MCP configs",
             scope: "project",
-            agents: ["claude-code", "cursor", "codex"],
+            agents: ["claude-code", "cursor", "codex", "antigravity"],
             change: "created",
-            fileCount: 3,
+            fileCount: 4,
             targets: [
               {
                 path: ".mcp.json",
@@ -149,12 +150,18 @@ describe("mcps add output", () => {
                 change: "created",
                 agentIds: ["codex"],
               },
+              {
+                path: ".agents/mcp_config.json",
+                change: "created",
+                agentIds: ["antigravity"],
+              },
             ],
           },
         });
         expect(fs.existsSync(path.join(tempDir, ".mcp.json"))).toBe(true);
         expect(fs.existsSync(path.join(tempDir, ".cursor", "mcp.json"))).toBe(true);
         expect(fs.existsSync(path.join(tempDir, ".codex", "config.toml"))).toBe(true);
+        expect(fs.existsSync(path.join(tempDir, ".agents", "mcp_config.json"))).toBe(true);
       }),
     );
   });

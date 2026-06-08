@@ -33,7 +33,7 @@ export const zencoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -69,7 +69,7 @@ export const zencoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -110,7 +110,7 @@ export const zencoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -149,7 +149,7 @@ export const zencoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -170,16 +170,24 @@ export const zencoderAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Zencoder added MCP tool permission prompts in April 2026. The docs describe user-visible MCP permission control, not a stable AXM-writable permission file.",
       docs: [],
-      sources: [],
+      sources: ["https://docs.zencoder.ai/changelog/april-2026"],
+      scopes: ["user"],
+      mechanism: ["ui-only"],
+      configFiles: [],
+      grammar: null,
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
+      lastVerified: "2026-06-06",
       writer: null,
+      reason: "AXM has not implemented a Zencoder permission grant writer.",
     },
   },
 } as const satisfies Agent;

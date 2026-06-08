@@ -182,7 +182,7 @@ const validateRelativePath = (
   });
 
 /**
- * Resolve an agent's root directory (e.g., `.claude` for `claude-code`).
+ * Resolve an agent's content root directory (e.g., `.claude` for `claude-code`).
  *
  * The agent registry exposes per-subject directories like `.claude/skills`;
  * the builder writes the entire `agentDirs[agentId]` tree under the agent's
@@ -190,13 +190,21 @@ const validateRelativePath = (
  * not registered, the builder falls back to `.<agentId>` so callers can
  * still synthesize directories for hypothetical agents.
  */
-const resolveAgentRoot = (agentId: string): string => {
+const resolveAgentContentRoot = (agentId: string): string => {
   const isKnown = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
   if (!isKnown(agentId)) return `.${agentId}`;
   const descriptor = AGENTS[agentId];
   const skillsDir = descriptor.skills.dir;
   const firstSegment = skillsDir.split("/")[0];
   return firstSegment !== undefined && firstSegment.length > 0 ? firstSegment : `.${agentId}`;
+};
+
+const resolveAgentSettingsRoot = (agentId: string): string => {
+  const isKnown = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+  if (!isKnown(agentId)) return `.${agentId}`;
+  const descriptor = AGENTS[agentId];
+  if (typeof descriptor.rootDir === "string") return descriptor.rootDir;
+  return resolveAgentContentRoot(agentId);
 };
 
 const join = (...parts: ReadonlyArray<string>): string => {
@@ -414,7 +422,7 @@ const writeScope = (
     }
     if (scope.agentDirs !== undefined) {
       for (const [agentId, tree] of Object.entries(scope.agentDirs)) {
-        const agentRoot = resolveAgentRoot(agentId);
+        const agentRoot = resolveAgentContentRoot(agentId);
         yield* writeTree(files, join(scopeRoot, agentRoot), tree, `agentDirs[${agentId}]`);
       }
     }
@@ -423,7 +431,7 @@ const writeScope = (
     }
     if (scope.agentSettings !== undefined) {
       for (const [agentId, fileSpec] of Object.entries(scope.agentSettings)) {
-        const agentRoot = resolveAgentRoot(agentId);
+        const agentRoot = resolveAgentSettingsRoot(agentId);
         const agentSettingsPath = join(scopeRoot, agentRoot, "settings.json");
         writeFileSpec(files, agentSettingsPath, fileSpec, "json");
       }
@@ -666,7 +674,7 @@ export const mcpConfigDrift = (workspaceRoot: string, userHome: string): Fixture
 });
 
 /**
- * Same skill name in three actual surfaces: `.claude/skills/`, `.codex/skills/`,
+ * Same skill name across agent skill dirs (`.claude/skills/`, `.agents/skills/`)
  * and canonical AXM storage.
  */
 export const sameNameAcrossOrigins = (workspaceRoot: string, userHome: string): FixtureSpec => ({

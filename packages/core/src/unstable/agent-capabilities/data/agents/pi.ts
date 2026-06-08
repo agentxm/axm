@@ -34,7 +34,7 @@ export const piAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -51,7 +51,7 @@ export const piAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -155,7 +155,7 @@ export const piAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },

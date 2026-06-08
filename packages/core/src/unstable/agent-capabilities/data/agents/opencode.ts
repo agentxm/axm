@@ -25,7 +25,7 @@ export const opencodeAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://opencode.ai/docs"],
+        sources: ["https://opencode.ai/docs/skills/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -33,7 +33,7 @@ export const opencodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -43,13 +43,13 @@ export const opencodeAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://opencode.ai/docs"],
+        sources: ["https://opencode.ai/docs/commands/"],
         scopes: ["user", "project"],
         directory: ".opencode/commands",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -71,7 +71,7 @@ export const opencodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-05",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcp",
@@ -119,14 +119,14 @@ export const opencodeAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://opencode.ai/docs"],
+        sources: ["https://opencode.ai/docs/agents/"],
         scopes: ["user", "project"],
         directory: ".opencode/agents",
         layout: "directory",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -146,15 +146,23 @@ export const opencodeAgent = {
     },
     rule: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "OpenCode reads AGENTS.md project rules, a global ~/.config/opencode/AGENTS.md, and Claude-compatible CLAUDE.md fallbacks. AXM can target the universal AGENTS.md project file.",
         docs: [],
-        sources: [],
+        sources: ["https://opencode.ai/docs/rules/"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        kind: "agents-md",
+        files: ["AGENTS.md"],
+        nestedDiscovery: true,
+        importSyntax: null,
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
+        status: "supported",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -172,23 +180,79 @@ export const opencodeAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
         reason: "AXM has not implemented in-process plugin hook writers.",
       },
     },
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,
       docs: [],
-      sources: [],
+      sources: ["https://opencode.ai/docs/permissions/", "https://opencode.ai/docs/config/"],
+      scopes: ["user", "project"],
+      mechanism: ["config-file"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.config/opencode/opencode.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: "opencode.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "glob",
+        example: "axm *",
+        notes:
+          'Permission values are "allow", "ask", or "deny". Object rules are pattern matched, and the last matching rule wins.',
+      },
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
-      status: "unsupported",
-      lastVerified: null,
-      writer: null,
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: {
+        grants: {
+          shell: {
+            target: "opencode.json",
+            patch: {
+              permission: {
+                bash: {
+                  "*": "ask",
+                  "${tool} *": "allow",
+                },
+              },
+            },
+            template: null,
+          },
+          filesystem: {
+            target: "opencode.json",
+            patch: {
+              permission: {
+                external_directory: {
+                  "${workspaceRoot}/**": "allow",
+                },
+                read: {
+                  "${workspaceRoot}/**": "allow",
+                },
+                edit: {
+                  "${workspaceRoot}/**": "allow",
+                },
+              },
+            },
+            template: null,
+          },
+        },
+      },
     },
   },
 } as const satisfies Agent;

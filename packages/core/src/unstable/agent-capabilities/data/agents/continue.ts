@@ -33,7 +33,7 @@ export const continueAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -49,22 +49,35 @@ export const continueAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Continue agent-mode tools include MCP servers configured as tools in Continue config. AXM does not currently write Continue's YAML/config package format.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://docs.continue.dev/guides/configuring-models-rules-tools",
+          "https://docs.continue.dev/reference/config",
+        ],
+        scopes: ["user", "project"],
+        standardsCompliance: "partial",
+        convention: "vendor",
+        transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: {
+          variables: "none",
+          defaults: false,
+        },
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
+        lastVerified: "2026-06-06",
         writer: null,
+        reason: "AXM has not implemented a Continue MCP config writer.",
       },
     },
     subagent: {
@@ -113,7 +126,7 @@ export const continueAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },

@@ -6,6 +6,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { claudeCodeCodingAgent } from "./claude-code/service.js";
+import { codexCodingAgent } from "./codex/service.js";
 import { geminiCliCodingAgent } from "./gemini-cli/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
 import { handle } from "../test-helpers.js";
@@ -40,6 +41,24 @@ describe("coding-agent services", () => {
         });
 
         expect(outcome._tag).toBe("supported");
+        if (outcome._tag === "supported") {
+          expect(outcome.dir).toContain(".agents/skills");
+        }
+      }),
+    ),
+  );
+
+  it.effect("codex resolves skills directory", () =>
+    withNode(
+      Effect.gen(function* () {
+        const outcome = yield* codexCodingAgent.resolveEffectiveSkillsDir({
+          workspaceRoot: "/workspace",
+        });
+
+        expect(outcome._tag).toBe("supported");
+        if (outcome._tag === "supported") {
+          expect(outcome.dir).toContain(".agents/skills");
+        }
       }),
     ),
   );

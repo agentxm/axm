@@ -33,7 +33,7 @@ export const ibmBobAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -70,7 +70,7 @@ export const ibmBobAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-19",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -119,7 +119,7 @@ export const ibmBobAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-19",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -155,7 +155,7 @@ export const ibmBobAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-19",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -176,16 +176,27 @@ export const ibmBobAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "IBM Bob custom modes define tool access groups and file permissions, including read, edit, command, and mcp groups. AXM has not implemented a custom_modes permission writer.",
       docs: [],
-      sources: [],
+      sources: [
+        "https://bob.ibm.com/docs/ide/features/modes",
+        "https://bob.ibm.com/docs/ide/configuration/custom-modes",
+      ],
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "ui-only"],
+      configFiles: [],
+      grammar: null,
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
+      lastVerified: "2026-06-06",
       writer: null,
+      reason: "AXM has not implemented an IBM Bob custom-modes permission writer.",
     },
   },
 } as const satisfies Agent;

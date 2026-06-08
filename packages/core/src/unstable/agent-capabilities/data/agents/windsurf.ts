@@ -1,9 +1,9 @@
 import type { Agent } from "../../schema.js";
 export const windsurfAgent = {
   id: "windsurf",
-  name: "Windsurf",
+  name: "Devin Desktop (Windsurf)",
   vendor: "Cognition",
-  homepage: "https://windsurf.com",
+  homepage: "https://devin.ai/desktop",
   interfaces: ["ide-extension"],
   family: "cognition",
   rootDir: ".windsurf",
@@ -14,8 +14,12 @@ export const windsurfAgent = {
   },
   docs: [
     {
-      label: "Windsurf documentation",
-      url: "https://docs.windsurf.com",
+      label: "Devin Desktop documentation",
+      url: "https://docs.devin.ai/desktop",
+    },
+    {
+      label: "Windsurf is now Devin Desktop",
+      url: "https://devin.ai/blog/windsurf-is-now-devin-desktop",
     },
   ],
   capabilities: {
@@ -24,9 +28,9 @@ export const windsurfAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Cascade reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills (user) with progressive disclosure.\n",
+          "Devin Desktop reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills (user) with progressive disclosure. It also discovers universal .agents/skills paths.\n",
         docs: [],
-        sources: ["https://docs.windsurf.com/windsurf/cascade/skills"],
+        sources: ["https://docs.devin.ai/desktop/cascade/skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -34,7 +38,7 @@ export const windsurfAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -43,15 +47,15 @@ export const windsurfAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Windsurf Workflows are slash-command-invoked Markdown prompts under .windsurf/workflows (project) and ~/.codeium/windsurf/global_workflows (user).\n",
+          "Devin Desktop Workflows are slash-command-invoked Markdown prompts under .windsurf/workflows (project) and ~/.codeium/windsurf/global_workflows (user). AXM's Windsurf command copier still targets .windsurf/commands, so this catalog entry reflects the documented native path while the implementation needs follow-up.\n",
         docs: [],
-        sources: ["https://docs.windsurf.com/windsurf/cascade/workflows"],
+        sources: ["https://docs.devin.ai/desktop/cascade/workflows"],
         scopes: ["user", "project"],
         directory: ".windsurf/workflows",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -61,19 +65,19 @@ export const windsurfAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://docs.windsurf.com/windsurf/cascade/mcp"],
+        sources: ["https://docs.devin.ai/desktop/cascade/mcp"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio"],
+        transports: ["stdio", "http"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "braced",
           defaults: false,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-16",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -90,7 +94,13 @@ export const windsurfAgent = {
               command: "split",
               envKey: "env",
             },
-            remote: null,
+            remote: {
+              typeField: null,
+              urlKey: {
+                "streamable-http": "serverUrl",
+              },
+              headersKey: "headers",
+            },
             transform: null,
           },
         },
@@ -103,7 +113,7 @@ export const windsurfAgent = {
         notes:
           "Cascade exposes only built-in and internal subagents plus multi-agent sessions; no user-authorable custom subagent extension type is documented.\n",
         docs: [],
-        sources: ["https://docs.windsurf.com/windsurf/cascade/agents-md"],
+        sources: ["https://docs.devin.ai/desktop/cascade/agents-md"],
       },
       axm: {
         status: "unsupported",
@@ -131,7 +141,7 @@ export const windsurfAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://docs.windsurf.com/windsurf/cascade/agents-md"],
+        sources: ["https://docs.devin.ai/desktop/cascade/agents-md"],
         scopes: ["project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -143,22 +153,148 @@ export const windsurfAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-16",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Devin Desktop/Cascade hooks are direct per-event command arrays in hooks.json. AXM's generic hook writer emits grouped command-stdin hooks and cannot serialize this shape yet.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+        scopes: ["user", "project"],
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.codeium/windsurf/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".windsurf/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "pre_read_code",
+            canonical: "tool.pre",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "post_read_code",
+            canonical: "tool.post",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "pre_write_code",
+            canonical: "tool.pre",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "post_write_code",
+            canonical: "tool.post",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "pre_run_command",
+            canonical: "tool.pre",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "post_run_command",
+            canonical: "tool.post",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "pre_mcp_tool_use",
+            canonical: "tool.pre",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "post_mcp_tool_use",
+            canonical: "tool.post",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "pre_user_prompt",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "post_cascade_response",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+        tools: [
+          {
+            nativeName: "read_code",
+            canonical: "file.read",
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "write_code",
+            canonical: "file.write",
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "run_command",
+            canonical: "shell.exec",
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "mcp_tool_use",
+            canonical: "mcp.call",
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-06-06",
+          },
+        ],
       },
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
+        reason: "AXM has not implemented a Devin Desktop/Cascade hooks writer.",
       },
     },
   },
@@ -168,10 +304,7 @@ export const windsurfAgent = {
       vendorStatus: { state: "active" },
       notes: null,
       docs: [],
-      sources: [
-        "https://docs.windsurf.com/windsurf/terminal",
-        "https://docs.windsurf.com/windsurf/cascade",
-      ],
+      sources: ["https://docs.devin.ai/desktop/terminal", "https://docs.devin.ai/desktop/cascade"],
       scopes: ["user"],
       mechanism: ["config-file", "ui-only"],
       configFiles: [
@@ -200,7 +333,7 @@ export const windsurfAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-05-18",
+      lastVerified: "2026-06-06",
       writer: {
         grants: {
           shell: {

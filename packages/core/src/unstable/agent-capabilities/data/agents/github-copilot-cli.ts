@@ -57,7 +57,7 @@ export const githubCopilotCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-05",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -99,7 +99,7 @@ export const githubCopilotCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-05",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -160,7 +160,7 @@ export const githubCopilotCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-05",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -198,22 +198,29 @@ export const githubCopilotCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-05",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "GitHub Copilot CLI supports shell-command hooks at session, prompt, task, permission, tool-use, notification, and error lifecycle points. AXM models the surface but does not serialize GitHub hook configs yet.\n",
         docs: [],
-        sources: [],
+        sources: [
+          "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/overview",
+          "https://docs.github.com/en/copilot/reference/hooks-reference",
+        ],
+        scopes: ["user", "project"],
+        modeling: "native-unmodeled",
       },
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
+        reason: "AXM has not implemented a GitHub Copilot CLI hook writer.",
       },
     },
   },
@@ -255,7 +262,7 @@ export const githubCopilotCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-05",
+      lastVerified: "2026-06-06",
       writer: {
         grants: {
           shell: {

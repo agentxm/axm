@@ -21,6 +21,7 @@ import {
 } from "../command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { CLAUDE_CODE_COMMANDS_PROJECT_DIR } from "../claude-code/service.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 import { selectRenderer } from "../../commands/renderers/index.js";
 import { insertManagedFileBanner, managedFileFormatForPath } from "../../extensions/index.js";
 
@@ -90,19 +91,11 @@ export const augmentCodingAgent: CodingAgent = {
       const path = yield* Path.Path;
       return {
         _tag: "supported",
-        dir: path.resolve(workspaceRoot, ".augment/rules"),
+        dir: path.resolve(workspaceRoot, ".augment/skills"),
       } as const;
     }),
-  addMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: "MCP add is not supported for augment",
-    } as const),
-  removeMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: "MCP remove is not supported for augment",
-    } as const),
+  addMcpServer: (args) => addMcpServerFromManifest("augment", args),
+  removeMcpServer: (args) => removeMcpServerFromManifest("augment", args),
   resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;

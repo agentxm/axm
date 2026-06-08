@@ -25,7 +25,7 @@ export const junieAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://www.jetbrains.com/help/junie"],
+        sources: ["https://junie.jetbrains.com/docs/agent-skills.html"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -33,7 +33,7 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -43,13 +43,13 @@ export const junieAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://www.jetbrains.com/help/junie"],
+        sources: ["https://junie.jetbrains.com/docs/custom-slash-commands.html"],
         scopes: ["user", "project"],
         directory: ".junie/commands",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -59,11 +59,11 @@ export const junieAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://www.jetbrains.com/help/junie/mcp.html"],
-        scopes: ["user"],
+        sources: ["https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html"],
+        scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio", "http", "sse"],
+        transports: ["stdio", "http"],
         mcpEnvExpansion: {
           variables: "none",
           defaults: false,
@@ -71,15 +71,20 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcpServers",
             nativeEnabled: true,
             targets: [
               {
+                scope: "project",
+                path: ".junie/mcp/mcp.json",
+                format: "json",
+              },
+              {
                 scope: "user",
-                path: "~/.junie/mcp.json",
+                path: "~/.junie/mcp/mcp.json",
                 format: "json",
               },
             ],
@@ -89,13 +94,7 @@ export const junieAgent = {
               envKey: "env",
             },
             remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
-                },
-              },
+              typeField: null,
               urlKey: {
                 "streamable-http": "url",
                 sse: "url",
@@ -113,14 +112,14 @@ export const junieAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://www.jetbrains.com/help/junie"],
+        sources: ["https://junie.jetbrains.com/docs/junie-cli-configuration.html"],
         scopes: ["user", "project"],
         directory: ".junie/agents",
         layout: "directory",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -142,51 +141,90 @@ export const junieAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
+        notes:
+          "Junie CLI reads persistent project guidance from .junie/AGENTS.md and suggests importing AGENTS.md-style files from other agents into that location.",
         docs: [],
-        sources: ["https://www.jetbrains.com/help/junie/customize-guidelines.html"],
+        sources: [
+          "https://junie.jetbrains.com/docs/guidelines-and-memory.html",
+          "https://junie.jetbrains.com/docs/junie-cli-usage.html",
+        ],
         scopes: ["project"],
-        standardsCompliance: "partial",
+        standardsCompliance: "parity",
         convention: "vendor",
-        kind: "rules-dir",
-        files: ["*.md"],
+        kind: "own-file",
+        files: [".junie/AGENTS.md"],
         nestedDiscovery: false,
         importSyntax: null,
-        directory: ".junie/guidelines.md",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Junie CLI EAP hooks currently support only SessionStart command hooks from user config or explicit --config-location files. Default project hooks are ignored for safety, so AXM does not write Junie hooks yet.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://junie.jetbrains.com/docs/junie-cli-hooks.html",
+          "https://junie.jetbrains.com/docs/junie-cli-configuration.html",
+        ],
+        scopes: ["user"],
+        modeling: "native-unmodeled",
       },
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
+        reason: "AXM has no trusted project hook writer target for Junie CLI hooks.",
       },
     },
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Junie CLI uses the Action Allowlist for terminal commands, MCP tools, and other sensitive actions; brave mode allows all sensitive actions for a session.",
       docs: [],
-      sources: [],
+      sources: [
+        "https://junie.jetbrains.com/docs/junie-cli-usage.html",
+        "https://junie.jetbrains.com/docs/action-allowlist.html",
+      ],
+      scopes: ["user"],
+      mechanism: ["config-file", "ui-only"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.junie/allowlist.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "user",
+          path: "~/.junie/config.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "regex",
+        example: "^\\Qaxm \\E[^\\s;&|<>@$]+.*$",
+        notes:
+          "Terminal rules can be exact commands, Java regular expressions, or standard regular expressions.",
+      },
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
+      lastVerified: "2026-06-06",
       writer: null,
+      reason: "AXM has not implemented a Junie Action Allowlist writer.",
     },
   },
 } as const satisfies Agent;

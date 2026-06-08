@@ -47,6 +47,11 @@ const prefersCliFlags = (permissions: PermissionsExtensionCapability): boolean =
   permissions.native.mechanism.includes("cli-flag") &&
   ("configFiles" in permissions.native ? permissions.native.configFiles.length === 0 : true);
 
+const looksLikeRunnableAxmCommand = (example: string): boolean => /^axm\s/.test(example);
+
+const descriptionExample = (example: string | undefined): string | undefined =>
+  example === undefined || looksLikeRunnableAxmCommand(example) ? undefined : example;
+
 /**
  * Build one permission suggestion per cataloged agent with permissions data.
  */
@@ -69,6 +74,7 @@ export const buildPermissionSuggestions = (
         const target = preferredTarget(permissions);
         const example =
           "grammar" in permissions.native ? permissions.native.grammar?.example : undefined;
+        const inlineExample = descriptionExample(example);
         const docUrl = permissions.native.sources[0];
 
         const description =
@@ -77,7 +83,7 @@ export const buildPermissionSuggestions = (
               ? `Allow AXM in ${agent.name} with \`${example}\``
               : `Configure ${agent.name} to allow AXM without per-call prompts`
             : `Allow AXM in ${agent.name} by adding ${
-                example === undefined ? "" : `\`${example}\` `
+                inlineExample === undefined ? "a permission rule " : `\`${inlineExample}\` `
               }to \`${target.path}\``;
 
         return docUrl === undefined ? [{ description }] : [{ description, url: docUrl }];

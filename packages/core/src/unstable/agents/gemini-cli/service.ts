@@ -18,7 +18,7 @@ import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-syn
 import { getHome } from "../constants.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 
-const GEMINI_DOCS_DEFAULT_DIR = ".gemini/skills";
+const GEMINI_DOCS_DEFAULT_DIR = ".agents/skills";
 const GEMINI_ENV_OVERRIDE = "AXM_GEMINI_CLI_SKILLS_DIR";
 
 /** @experimental */

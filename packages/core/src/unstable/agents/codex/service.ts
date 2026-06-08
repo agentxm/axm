@@ -35,7 +35,7 @@ export const codexCodingAgent: CodingAgent = {
       const path = yield* Path.Path;
       return {
         _tag: "supported",
-        dir: path.resolve(workspaceRoot, ".codex/skills"),
+        dir: path.resolve(workspaceRoot, ".agents/skills"),
       } as const;
     }),
   addMcpServer: (args) => addMcpServerFromManifest("codex", args),

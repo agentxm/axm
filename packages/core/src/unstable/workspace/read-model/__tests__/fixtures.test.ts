@@ -523,14 +523,14 @@ describe("named scenario constructors", () => {
   );
 
   it.effect(
-    "sameNameAcrossOrigins → same skill name appears in claude, codex, and canonical AXM",
+    "sameNameAcrossOrigins → same skill name appears in claude, standard agent skills, and canonical AXM",
     () =>
       Effect.gen(function* () {
         const deps = yield* buildFixture(sameNameAcrossOrigins(WORKSPACE_ROOT, USER_HOME));
         expect(yield* exists(deps, `${WORKSPACE_ROOT}/.claude/skills/some-skill/SKILL.md`)).toBe(
           true,
         );
-        expect(yield* exists(deps, `${WORKSPACE_ROOT}/.codex/skills/some-skill/SKILL.md`)).toBe(
+        expect(yield* exists(deps, `${WORKSPACE_ROOT}/.agents/skills/some-skill/SKILL.md`)).toBe(
           true,
         );
         expect(

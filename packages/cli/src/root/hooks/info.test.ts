@@ -68,13 +68,13 @@ describe("hooks-info.handler", () => {
             },
             {
               agent: "Codex",
-              status: "excluded",
-              reason: "Codex has no modeled hook events.",
+              status: "installable",
+              reason: "All bindings are supported.",
             },
             {
               agent: "Gemini CLI",
-              status: "excluded",
-              reason: "Gemini CLI has no modeled hook events.",
+              status: "installable",
+              reason: "All bindings are supported.",
             },
           ]),
         });

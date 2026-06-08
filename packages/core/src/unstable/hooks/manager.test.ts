@@ -159,7 +159,7 @@ describe("HookManager", () => {
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
       try {
-        const settingsPath = nodePath.join(workspaceRoot, ".codex", "hooks.json");
+        const settingsPath = nodePath.join(workspaceRoot, ".windsurf", "settings.json");
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
         writeHookPackage(packageRoot, "unsupported-agent");
 
@@ -169,11 +169,13 @@ describe("HookManager", () => {
             ref: makeLocalHookRef("unsupported-event", packageRoot),
           });
         }).pipe(
-          Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["codex"] })),
+          Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["windsurf"] })),
           Effect.flip,
         );
 
-        expect(error.detail).toContain("AXM has not built a hook writer for Codex");
+        expect(error.detail).toContain(
+          "AXM has not built a hook writer for Devin Desktop (Windsurf)",
+        );
         expect(existsSync(settingsPath)).toBe(false);
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });

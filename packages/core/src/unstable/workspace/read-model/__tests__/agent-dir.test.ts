@@ -10,12 +10,21 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { AGENTS } from "../../../agents/registry.js";
+import type { AgentId } from "../../../agents/types.js";
 import { buildFixture } from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeAgentDirScanner } from "../scanners/agent-dir.js";
 
 const WORKSPACE_ROOT = "/ws";
 const USER_HOME = "/home/user";
+
+const expectedSkillAgentIdsFor = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> => {
+  const dirs = new Set(agentIds.map((agentId) => AGENTS[agentId].skills.dir));
+  return Object.values(AGENTS)
+    .filter((agent) => dirs.has(agent.skills.dir))
+    .map((agent) => agent.id)
+    .sort();
+};
 
 const runScanner = (
   spec: Parameters<typeof buildFixture>[0],
@@ -103,9 +112,10 @@ describe("agent-dir scanner", () => {
         },
       });
       const matches = occurrences.filter((o) => o.type === "skill" && o.name === "some-skill");
-      expect(matches).toHaveLength(2);
+      const expectedAgentIds = expectedSkillAgentIdsFor(["claude-code", "codex"]);
+      expect(matches).toHaveLength(expectedAgentIds.length);
       const agentIds = matches.map((o) => o.agentId).sort();
-      expect(agentIds).toEqual(["claude-code", "codex"]);
+      expect(agentIds).toEqual(expectedAgentIds);
       // Distinct contentLocations.
       expect(new Set(matches.map((o) => o.contentLocation)).size).toBe(2);
     }).pipe(Effect.provide(Path.layer)),

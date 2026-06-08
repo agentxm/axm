@@ -24,7 +24,7 @@ describe("DefaultCodingAgentRepository", () => {
   it.effect("returns fallback MCP contract for configured agents without custom adapter", () =>
     Effect.gen(function* () {
       const [agent] = yield* DefaultCodingAgentRepository.getConfiguredAgents();
-      expect(agent?.id).toBe("amp");
+      expect(agent?.id).toBe("adal");
       if (!agent) {
         throw new Error("Expected configured agent");
       }
@@ -38,7 +38,7 @@ describe("DefaultCodingAgentRepository", () => {
       });
       expect(addOutcome).toEqual({
         _tag: "unsupported",
-        reason: "MCP add is not supported for amp",
+        reason: "adal does not have MCP config support",
       });
 
       const removeOutcome = yield* agent.removeMcpServer({
@@ -47,9 +47,9 @@ describe("DefaultCodingAgentRepository", () => {
       });
       expect(removeOutcome).toEqual({
         _tag: "unsupported",
-        reason: "MCP remove is not supported for amp",
+        reason: "adal does not have MCP config support",
       });
-    }).pipe(Effect.provide(withWorkspace(["amp"]))),
+    }).pipe(Effect.provide(withWorkspace(["adal"]))),
   );
 
   it.effect("returns configured known agents", () =>
@@ -59,6 +59,36 @@ describe("DefaultCodingAgentRepository", () => {
       expect(agents[0]).toBe(claudeCodeCodingAgent);
       expect(agents[1]).toBe(cursorCodingAgent);
     }).pipe(Effect.provide(withWorkspace(["claude-code", "cursor"]))),
+  );
+
+  it.effect("uses descriptor command and subagent directories for fallback agents", () =>
+    Effect.gen(function* () {
+      const [agent] = yield* DefaultCodingAgentRepository.getConfiguredAgents();
+      expect(agent?.id).toBe("qoder");
+      if (!agent) {
+        throw new Error("Expected configured agent");
+      }
+
+      const commands = yield* agent.resolveEffectiveCommandsDir({
+        workspaceRoot: "/workspace",
+        scope: "project",
+      });
+      expect(commands).toEqual({
+        _tag: "supported",
+        dir: "/workspace/.qoder/commands",
+        warnings: [],
+      });
+
+      const subagents = yield* agent.resolveEffectiveSubagentsDir({
+        workspaceRoot: "/workspace",
+        scope: "project",
+      });
+      expect(subagents).toEqual({
+        _tag: "supported",
+        dir: "/workspace/.qoder/agents",
+        warnings: [],
+      });
+    }).pipe(Effect.provide(withWorkspace(["qoder"]))),
   );
 
   it.effect("prepends universal to materialization agents", () =>

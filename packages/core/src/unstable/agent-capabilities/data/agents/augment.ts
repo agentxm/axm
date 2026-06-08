@@ -23,17 +23,18 @@ export const augmentAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Auggie loads skills from .augment/skills, .claude/skills, and .agents/skills at both user and workspace scope. AXM writes the native Augment project directory.",
         docs: [],
         sources: ["https://docs.augmentcode.com/cli/skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".augment/rules",
+        directory: ".augment/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -49,22 +50,63 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Auggie persists MCP server configuration in ~/.augment/settings.json. The CLI also supports per-run --mcp-config overrides that are not represented by AXM writers.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.augmentcode.com/cli/integrations"],
+        scopes: ["user"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: {
+          variables: "braced",
+          defaults: false,
+        },
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
+        status: "supported",
+        lastVerified: "2026-06-06",
+        writer: {
+          config: {
+            serversKey: "mcpServers",
+            nativeEnabled: true,
+            targets: [
+              {
+                scope: "user",
+                path: "~/.augment/settings.json",
+                format: "json",
+              },
+            ],
+            stdio: {
+              typeField: null,
+              command: "split",
+              envKey: "env",
+            },
+            remote: {
+              typeField: {
+                name: "type",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
+              },
+              urlKey: {
+                "streamable-http": "url",
+                sse: "url",
+              },
+              headersKey: "headers",
+            },
+            transform: null,
+          },
+        },
       },
     },
     subagent: {
@@ -80,7 +122,7 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -115,37 +157,188 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Auggie hooks run command hooks from settings files and use JSON on stdin/stdout. Native Auggie also exposes SessionEnd and Notification, plus metadata options not represented in AXM's portable hook manifest.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.augmentcode.com/cli/hooks"],
+        scopes: ["user", "project"],
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.augment/settings.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".augment/settings.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".augment/settings.local.json",
+            format: "json",
+            gitignored: true,
+          },
+        ],
+        events: [
+          {
+            nativeName: "SessionStart",
+            canonical: "session.start",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://docs.augmentcode.com/cli/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PreToolUse",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "launch-process|save-file", notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://docs.augmentcode.com/cli/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PostToolUse",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "launch-process|save-file", notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://docs.augmentcode.com/cli/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "Stop",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://docs.augmentcode.com/cli/hooks"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+        tools: [
+          {
+            nativeName: "view",
+            canonical: "file.read",
+            sources: ["https://docs.augmentcode.com/cli/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "save-file",
+            canonical: "file.write",
+            sources: ["https://docs.augmentcode.com/cli/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "str-replace-editor",
+            canonical: "file.edit",
+            sources: ["https://docs.augmentcode.com/cli/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "launch-process",
+            canonical: "shell.exec",
+            sources: ["https://docs.augmentcode.com/cli/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "web-fetch",
+            canonical: "web.fetch",
+            sources: ["https://docs.augmentcode.com/cli/hooks"],
+            lastVerified: "2026-06-06",
+          },
+        ],
       },
       axm: {
-        status: "unsupported",
-        writer: null,
-        lastVerified: null,
+        status: "supported",
+        writer: {
+          serializer: "command-stdin",
+          configFiles: [
+            {
+              scope: "project",
+              path: ".augment/settings.json",
+              format: "json",
+              gitignored: false,
+            },
+          ],
+          settingsKey: "hooks",
+          eventMap: "native.events",
+          matcherKind: "regex",
+          matcherSerialization: "bare",
+          timeoutSerialization: "milliseconds",
+          commandNameSerialization: "omit",
+        },
+        lastVerified: "2026-06-06",
       },
     },
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Auggie CLI evaluates toolPermissions top-to-bottom with first match winning. Tool permissions are CLI-only and use ~/.augment/settings.json.",
       docs: [],
-      sources: [],
+      sources: ["https://docs.augmentcode.com/cli/permissions"],
+      scopes: ["user"],
+      mechanism: ["config-file"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.augment/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "regex",
+        example: "^axm(\\s|$)",
+        notes:
+          "Rules contain toolName plus permission.type allow/deny/ask-user; shell commands can be constrained with shellInputRegex.",
+      },
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
-      status: "unsupported",
-      lastVerified: null,
-      writer: null,
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: {
+        grants: {
+          shell: {
+            target: "~/.augment/settings.json",
+            patch: {
+              toolPermissions: [
+                {
+                  toolName: "launch-process",
+                  shellInputRegex: "^${tool}(\\s|$)",
+                  permission: { type: "allow" },
+                },
+              ],
+            },
+            template: null,
+          },
+          filesystem: {
+            target: "~/.augment/settings.json",
+            patch: {
+              toolPermissions: [
+                { toolName: "view", permission: { type: "allow" } },
+                { toolName: "str-replace-editor", permission: { type: "allow" } },
+                { toolName: "save-file", permission: { type: "allow" } },
+              ],
+            },
+            template: null,
+          },
+        },
+      },
     },
   },
 } as const satisfies Agent;

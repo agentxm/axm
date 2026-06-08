@@ -27,13 +27,13 @@ export const ampAgent = {
         docs: [],
         sources: ["https://ampcode.com/manual#agent-skills"],
         scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
+        standardsCompliance: "partial",
+        convention: "vendor",
         directory: ".agents/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -53,33 +53,71 @@ export const ampAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Amp supports always-available MCP servers through the amp.mcpServers settings key, and skill-scoped MCP servers through mcp.json inside a skill directory.",
         docs: [],
-        sources: [],
+        sources: ["https://ampcode.com/manual#MCP"],
+        scopes: ["user"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: {
+          variables: "braced",
+          defaults: false,
+        },
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
+        lastVerified: "2026-06-06",
         writer: null,
+        reason: "AXM has not implemented an Amp MCP writer for the amp.mcpServers settings key.",
       },
     },
     subagent: {
       native: {
-        availability: { via: "native" },
+        availability: {
+          via: "plugin",
+          provider: "first-party",
+          plugin: {
+            name: "Amp plugin API",
+            homepage: "https://ampcode.com/manual",
+            author: "Amp",
+            distribution: {
+              mechanism: "agent-native",
+              installHint: "Save a plugin under .amp/plugins and reload plugins.",
+              packageRef: null,
+            },
+            detection: {
+              paths: [
+                {
+                  scope: "project",
+                  path: ".amp/plugins",
+                  kind: "dir",
+                },
+                {
+                  scope: "user",
+                  path: "~/.config/amp/plugins",
+                  kind: "dir",
+                },
+              ],
+              configKeys: [],
+            },
+          },
+        },
         vendorStatus: { state: "active" },
-        notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
+        notes:
+          "Amp has built-in automatic subagents and first-party plugin APIs for custom subagent-like tools, but no documented Markdown subagent directory that AXM can materialize.",
         docs: [],
-        sources: ["https://ampcode.com/manual#subagents"],
+        sources: ["https://ampcode.com/manual#subagents", "https://ampcode.com/manual#plugins"],
         scopes: ["user", "project"],
-        directory: ".agents/agents",
-        layout: "directory",
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-05-20",
+        status: "unsupported",
+        lastVerified: "2026-06-06",
         writer: null,
+        reason: "AXM has not implemented Amp plugin/subagent materialization.",
       },
     },
     files: {
@@ -113,7 +151,7 @@ export const ampAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -131,7 +169,7 @@ export const ampAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
         reason: "AXM has not implemented Amp plugin or declarative-action hook writers.",
       },
     },

@@ -33,7 +33,7 @@ export const kiroCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -43,13 +43,13 @@ export const kiroCliAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://kiro.dev/docs/cli/"],
+        sources: ["https://kiro.dev/docs/cli/reference/slash-commands/"],
         scopes: ["user", "project"],
         directory: ".kiro/prompts",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -71,7 +71,7 @@ export const kiroCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -125,7 +125,7 @@ export const kiroCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -147,21 +147,22 @@ export const kiroCliAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Kiro CLI steering files live under .kiro/steering and can be always-on, conditional, or manually referenced.",
         docs: [],
         sources: ["https://kiro.dev/docs/cli/steering/"],
         scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
+        standardsCompliance: "partial",
+        convention: "vendor",
         directory: ".kiro/steering",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
+        kind: "rules-dir",
+        files: ["*.md"],
         nestedDiscovery: true,
         importSyntax: null,
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -182,23 +183,51 @@ export const kiroCliAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
         reason: "AXM has not implemented a Kiro CLI hooks writer.",
       },
     },
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Kiro CLI custom agent configuration supports allowedTools, toolsSettings, and the hooks/MCP tools settings surfaces. The public docs do not define a single default AXM-writable permission grant target.",
       docs: [],
-      sources: [],
+      sources: [
+        "https://kiro.dev/docs/cli/custom-agents/configuration-reference/",
+        "https://kiro.dev/docs/cli/commands/",
+      ],
+      scopes: ["user", "project"],
+      mechanism: ["config-file"],
+      configFiles: [
+        {
+          scope: "project",
+          path: ".kiro/agents/*.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "user",
+          path: "~/.kiro/agents/*.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "tool-call",
+        example: 'allowedTools: ["Read", "Write", "Bash"]',
+        notes: "Permission rules are embedded in custom agent configuration files.",
+      },
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
+      lastVerified: "2026-06-06",
       writer: null,
+      reason: "AXM has not implemented a Kiro CLI custom-agent permission grant writer.",
     },
   },
 } as const satisfies Agent;

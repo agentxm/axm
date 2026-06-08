@@ -34,7 +34,7 @@ export const hermesAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -66,9 +66,10 @@ export const hermesAgent = {
         transports: ["stdio", "http"],
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-05-20",
+        status: "unsupported",
+        lastVerified: "2026-06-06",
         writer: null,
+        reason: "AXM has not implemented a YAML MCP config writer for Hermes.",
       },
     },
     subagent: {
@@ -117,7 +118,7 @@ export const hermesAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },

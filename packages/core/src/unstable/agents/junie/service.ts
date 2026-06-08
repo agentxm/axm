@@ -5,6 +5,7 @@
  */
 
 import { makeProjectOnlyCodingAgent } from "../project-only-agent.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 
 /** @experimental */
 export const JUNIE_COMMANDS_PROJECT_DIR = ".junie/commands";
@@ -18,4 +19,8 @@ export const junieCodingAgent = makeProjectOnlyCodingAgent({
   skillsProjectDir: ".junie/skills",
   commandsProjectDir: JUNIE_COMMANDS_PROJECT_DIR,
   subagentsProjectDir: JUNIE_SUBAGENTS_PROJECT_DIR,
+  mcp: {
+    addMcpServer: (args) => addMcpServerFromManifest("junie", args),
+    removeMcpServer: (args) => removeMcpServerFromManifest("junie", args),
+  },
 });

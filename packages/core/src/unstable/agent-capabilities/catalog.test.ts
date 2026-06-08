@@ -98,12 +98,28 @@ describe("agent capability catalog", () => {
       }
     }
   });
-  it("models native hooks for Codex, Cursor, and OpenCode without AXM writers", () => {
+  it("models native hooks for Codex with an AXM writer", () => {
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
       onExcessProperty: "error",
     });
     const byId = new Map(decoded.map((agent) => [agent.id, agent]));
-    for (const id of ["codex", "cursor", "opencode"]) {
+    const hook = byId.get("codex")?.capabilities.hook;
+    expect(hook?.native.availability).toEqual({ via: "native" });
+    expect(hook?.native).toHaveProperty("events");
+    expect(hook?.axm).toMatchObject({
+      status: "supported",
+      writer: {
+        serializer: "command-stdin",
+        settingsKey: "hooks",
+      },
+    });
+  });
+  it("models native hooks for Cursor and OpenCode without AXM writers", () => {
+    const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
+      onExcessProperty: "error",
+    });
+    const byId = new Map(decoded.map((agent) => [agent.id, agent]));
+    for (const id of ["cursor", "opencode"]) {
       const hook = byId.get(id)?.capabilities.hook;
       expect(hook?.native.availability).toEqual({ via: "native" });
       expect(hook?.native).toMatchObject({ modeling: "native-unmodeled" });

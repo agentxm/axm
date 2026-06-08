@@ -44,11 +44,11 @@ export const codexAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".codex/skills",
+        directory: ".agents/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -73,7 +73,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -95,7 +95,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-16",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcp_servers",
@@ -143,7 +143,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -178,7 +178,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-16",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -187,21 +187,142 @@ export const codexAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Codex lifecycle hooks are distinct from the legacy notify command; AXM models the native hook surface but does not serialize Codex hooks yet.",
+          "Codex lifecycle hooks are command hooks loaded from hooks.json or inline [hooks] tables next to active config layers.",
         docs: [],
-        sources: [
-          "https://github.com/openai/codex/blob/main/docs/config.md",
-          "https://github.com/openai/codex/issues/16226",
-          "https://github.com/openai/codex/issues/17331",
-        ],
+        sources: ["https://developers.openai.com/codex/hooks"],
         scopes: ["user", "project"],
-        modeling: "native-unmodeled",
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.codex/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".codex/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "PreToolUse",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "Bash|apply_patch", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PermissionRequest",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "Bash|apply_patch", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PostToolUse",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "Bash|apply_patch", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "UserPromptSubmit",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "SessionStart",
+            canonical: "session.start",
+            matcher: {
+              kind: "regex",
+              example: "startup|resume|clear|compact",
+              notes: null,
+            },
+            decision: [{ kind: "observe" }],
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "Stop",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "SubagentStop",
+            canonical: "subagent.stop",
+            matcher: { kind: "regex", example: null, notes: "Matcher filters subagent type." },
+            decision: [{ kind: "observe" }],
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PreCompact",
+            canonical: "compaction.pre",
+            matcher: { kind: "regex", example: "manual|auto", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+        tools: [
+          {
+            nativeName: "apply_patch",
+            canonical: "file.edit",
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "Edit",
+            canonical: "file.edit",
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "Write",
+            canonical: "file.write",
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "Bash",
+            canonical: "shell.exec",
+            sources: ["https://developers.openai.com/codex/hooks"],
+            lastVerified: "2026-06-06",
+          },
+        ],
       },
       axm: {
-        status: "unsupported",
-        writer: null,
-        lastVerified: null,
-        reason: "AXM has not implemented a Codex hooks writer.",
+        status: "supported",
+        writer: {
+          serializer: "command-stdin",
+          configFiles: [
+            {
+              scope: "project",
+              path: ".codex/hooks.json",
+              format: "json",
+              gitignored: false,
+            },
+          ],
+          settingsKey: "hooks",
+          eventMap: "native.events",
+          matcherKind: "regex",
+          matcherSerialization: "bare",
+          timeoutSerialization: "seconds",
+          commandNameSerialization: "omit",
+        },
+        lastVerified: "2026-06-06",
       },
     },
   },
@@ -213,9 +334,7 @@ export const codexAgent = {
       docs: [],
       sources: [
         "https://developers.openai.com/codex/config-reference",
-        "https://developers.openai.com/codex/config-advanced",
-        "https://developers.openai.com/codex/security",
-        "https://developers.openai.com/codex/rules",
+        "https://developers.openai.com/codex/permissions",
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
@@ -228,64 +347,72 @@ export const codexAgent = {
         },
         {
           scope: "user",
-          path: "~/.codex/rules/${tool}.rules",
-          format: "starlark",
+          path: "~/.codex/axm.config.toml",
+          format: "toml",
           gitignored: false,
         },
       ],
       grammar: {
-        style: "starlark-rule",
-        example: 'prefix_rule(pattern=["axm"], decision="allow")',
+        style: "glob",
+        example: '[permissions.agentxm.filesystem.":workspace_roots"] "." = "write"',
         notes:
-          "Per-command allowlisting is Starlark prefix_rule() in ~/.codex/rules/*.rules. Sandbox and approval mode live separately in config.toml. Most restrictive match wins (forbidden > prompt > allow).\n",
+          "Permission profiles combine filesystem, network, and workspace-root rules. Narrower deny rules remain in force over broader readable or writable paths.\n",
       },
       prerequisites: [
         {
-          key: "sandbox_mode",
-          value: "workspace-write",
+          key: "default_permissions",
+          value: "agentxm",
           scope: "user",
-          note: "Required to grant project write access.",
-        },
-        {
-          key: "approval_policy",
-          value: "never",
-          scope: "user",
-          note: "Suppresses approval prompts.",
+          note: "Selects the named permission profile.",
         },
       ],
       cliFlags: [
         {
-          flag: "--full-auto",
-          note: "Equivalent one-shot bypass of prompts and sandbox restrictions.",
+          flag: "--yolo",
+          note: "Alias for danger-full-access; use only when broad local access is intentional.",
         },
         {
-          flag: "--sandbox workspace-write",
-          note: null,
-        },
-        {
-          flag: "--ask-for-approval never",
-          note: null,
+          flag: "--dangerously-bypass-approvals-and-sandbox",
+          note: "Runs without local sandbox restrictions.",
         },
       ],
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-05-18",
+      lastVerified: "2026-06-06",
       writer: {
         grants: {
           shell: {
-            target: "~/.codex/rules/${tool}.rules",
-            patch: null,
-            template:
-              'prefix_rule(\n    pattern = ["${tool}"],\n    decision = "allow",\n    justification = "${tool} CLI trusted in this workspace.",\n)\n',
+            target: "~/.codex/axm.config.toml",
+            patch: {
+              default_permissions: "agentxm",
+              permissions: {
+                agentxm: {
+                  extends: ":workspace",
+                },
+              },
+            },
+            template: null,
           },
           filesystem: {
-            target: "~/.codex/config.toml",
+            target: "~/.codex/axm.config.toml",
             patch: {
-              sandbox_mode: "workspace-write",
-              sandbox_workspace_write: {
-                writable_roots: ["${workspaceRoot}"],
-                network_access: true,
+              default_permissions: "agentxm",
+              permissions: {
+                agentxm: {
+                  extends: ":workspace",
+                  workspace_roots: {
+                    "${workspaceRoot}": true,
+                  },
+                  filesystem: {
+                    ":workspace_roots": {
+                      ".": "write",
+                    },
+                  },
+                  network: {
+                    enabled: true,
+                  },
+                },
               },
             },
             template: null,

@@ -45,7 +45,7 @@ export const cursorAgent = {
         notes:
           "Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI; it also loads .claude/skills and .codex/skills for cross-tool compatibility.\n",
         docs: [],
-        sources: ["https://cursor.com/docs/context/skills", "https://cursor.com/changelog/2-4"],
+        sources: ["https://cursor.com/docs/skills.md"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -53,7 +53,7 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -73,7 +73,7 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -95,7 +95,7 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-16",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -132,14 +132,14 @@ export const cursorAgent = {
         notes:
           "Custom subagents are Markdown files with YAML frontmatter under .cursor/agents (project) or ~/.cursor/agents (user); added in Cursor 2.4.\n",
         docs: [],
-        sources: ["https://cursor.com/docs/subagents", "https://cursor.com/changelog/2-4"],
+        sources: ["https://cursor.com/docs/subagents.md"],
         scopes: ["user", "project"],
         directory: ".cursor/agents",
         layout: "directory",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -163,7 +163,7 @@ export const cursorAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://docs.cursor.com/en/cli/using"],
+        sources: ["https://cursor.com/docs/rules.md"],
         scopes: ["project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -175,7 +175,7 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-16",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -184,20 +184,16 @@ export const cursorAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Cursor hooks run custom scripts around agent-loop stages. AXM models the native surface but does not serialize Cursor hooks yet.",
+          "Cursor hooks run custom scripts around agent-loop stages. The native hooks.json shape is a direct event-to-command array, not AXM's current grouped command-stdin serializer shape.",
         docs: [],
-        sources: [
-          "https://cursor.com/blog/hooks-partners",
-          "https://cursor.com/blog/enterprise/",
-          "https://cursor.com/changelog/1-7",
-        ],
+        sources: ["https://cursor.com/docs/hooks.md"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
       },
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
         reason: "AXM has not implemented a Cursor hooks writer.",
       },
     },
@@ -209,10 +205,9 @@ export const cursorAgent = {
       notes: null,
       docs: [],
       sources: [
-        "https://cursor.com/docs/reference/permissions",
-        "https://cursor.com/docs/reference/sandbox",
+        "https://cursor.com/docs/cli/reference/permissions.md",
+        "https://cursor.com/docs/cli/reference/parameters.md",
         "https://cursor.com/docs/agent/tools/terminal",
-        "https://cursor.com/docs/cli/reference/permissions",
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "ui-only", "cli-flag"],
@@ -265,17 +260,17 @@ export const cursorAgent = {
       cliFlags: [
         {
           flag: "--force",
-          note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
+          note: "Force allow commands unless explicitly denied.",
         },
         {
           flag: "--yolo",
-          note: "Bypasses cursor-agent prompts (community-documented; verify against --help).",
+          note: "Alias for --force.",
         },
       ],
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-05-18",
+      lastVerified: "2026-06-06",
       writer: {
         grants: {
           shell: {

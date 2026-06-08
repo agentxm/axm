@@ -6,7 +6,7 @@ export const kiloAgent = {
   homepage: "https://kilo.ai",
   interfaces: ["cli", "ide-extension"],
   family: null,
-  rootDir: ".kilocode",
+  rootDir: ".kilo",
   lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
@@ -23,17 +23,18 @@ export const kiloAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Kilo Code loads Kilo-specific .kilo/skills and also supports .agents/skills and .claude/skills compatibility directories.",
         docs: [],
         sources: ["https://kilo.ai/docs/customize/skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".kilocode/skills",
+        directory: ".kilo/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -49,7 +50,7 @@ export const kiloAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -70,54 +71,10 @@ export const kiloAgent = {
         },
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-05-20",
-        writer: {
-          config: {
-            serversKey: "mcp",
-            nativeEnabled: true,
-            targets: [
-              {
-                scope: "user",
-                path: "~/.config/kilo/kilo.jsonc",
-                format: "jsonc",
-              },
-              {
-                scope: "project",
-                path: "kilo.jsonc",
-                format: "jsonc",
-              },
-              {
-                scope: "project",
-                path: ".kilo/kilo.jsonc",
-                format: "jsonc",
-              },
-            ],
-            stdio: {
-              typeField: {
-                name: "type",
-                value: "local",
-              },
-              command: "array",
-              envKey: "environment",
-            },
-            remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "remote",
-                  sse: "remote",
-                },
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
-            transform: null,
-          },
-        },
+        status: "unsupported",
+        lastVerified: "2026-06-06",
+        writer: null,
+        reason: "The current AXM Kilo Code service returns MCP add/remove as unsupported.",
       },
     },
     subagent: {
@@ -133,7 +90,7 @@ export const kiloAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -157,7 +114,7 @@ export const kiloAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://kilo.ai/docs/agent-behavior/custom-instructions"],
+        sources: ["https://kilo.ai/docs/customize/custom-instructions"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -168,7 +125,7 @@ export const kiloAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -189,16 +146,81 @@ export const kiloAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,
       docs: [],
-      sources: [],
+      sources: [
+        "https://kilo.ai/docs/code-with-ai/platforms/cli",
+        "https://kilo.ai/docs/getting-started/settings/auto-approving-actions",
+      ],
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "ui-only"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.config/kilo/kilo.jsonc",
+          format: "jsonc",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: "kilo.jsonc",
+          format: "jsonc",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".kilo/kilo.jsonc",
+          format: "jsonc",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "glob",
+        example: "axm *",
+        notes:
+          'Permission values are "allow", "ask", or "deny". Object rules are wildcard matched, and the last matching rule wins.',
+      },
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
-      status: "unsupported",
-      lastVerified: null,
-      writer: null,
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: {
+        grants: {
+          shell: {
+            target: "kilo.jsonc",
+            patch: {
+              permission: {
+                bash: {
+                  "*": "ask",
+                  "${tool} *": "allow",
+                },
+              },
+            },
+            template: null,
+          },
+          filesystem: {
+            target: "kilo.jsonc",
+            patch: {
+              permission: {
+                external_directory: {
+                  "${workspaceRoot}/**": "allow",
+                },
+                read: {
+                  "${workspaceRoot}/**": "allow",
+                },
+                edit: {
+                  "${workspaceRoot}/**": "allow",
+                },
+              },
+            },
+            template: null,
+          },
+        },
+      },
     },
   },
 } as const satisfies Agent;

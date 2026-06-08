@@ -33,7 +33,7 @@ export const openhandsAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -68,9 +68,10 @@ export const openhandsAgent = {
         transports: ["stdio"],
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-05-20",
+        status: "unsupported",
+        lastVerified: "2026-06-06",
         writer: null,
+        reason: "AXM has not implemented an OpenHands MCP writer.",
       },
     },
     subagent: {
@@ -118,7 +119,7 @@ export const openhandsAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },

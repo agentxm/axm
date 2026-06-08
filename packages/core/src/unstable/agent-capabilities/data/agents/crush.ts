@@ -29,11 +29,11 @@ export const crushAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".crush/skills",
+        directory: ".agents/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -61,15 +61,15 @@ export const crushAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        transports: ["stdio", "http"],
+        transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
-          variables: "none",
-          defaults: false,
+          variables: "braced",
+          defaults: true,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcp",
@@ -155,37 +155,72 @@ export const crushAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Crush currently supports PreToolUse hooks in crush.json/.crush.json with direct event arrays. The native shape is Claude Code-compatible conceptually but not AXM's grouped command-hook JSON writer shape.",
         docs: [],
-        sources: [],
+        sources: ["https://github.com/charmbracelet/crush/tree/main/docs/hooks"],
+        scopes: ["user", "project"],
+        modeling: "native-unmodeled",
       },
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
+        reason: "AXM has not implemented a Crush hook writer.",
       },
     },
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Crush can allow broad built-in tools through permissions.allowed_tools and can bypass prompts with --yolo. This does not provide a narrow shell-command grant for AXM.",
       docs: [],
-      sources: [],
+      sources: ["https://github.com/charmbracelet/crush"],
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "project",
+          path: "crush.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "user",
+          path: "~/.config/crush/crush.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "prefix",
+        example: '"permissions": { "allowed_tools": ["view", "edit", "bash"] }',
+        notes:
+          "allowed_tools grants whole tools such as bash; it cannot narrowly grant only the axm command.",
+      },
+      prerequisites: [],
+      cliFlags: [
+        {
+          flag: "--yolo",
+          note: "Skips all permission prompts for the workspace.",
+        },
+      ],
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
+      lastVerified: "2026-06-06",
       writer: null,
+      reason: "AXM has not implemented a narrow Crush permission grant writer.",
     },
   },
 } as const satisfies Agent;

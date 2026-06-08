@@ -182,9 +182,11 @@ describe("agent capability derivation", () => {
       "kode",
       "mistral-vibe",
       "mux",
+      "opencode",
       "openhands",
       "pi",
       "qoder",
+      "qwen-code",
       "roo",
       "trae-cn",
       "trae",
@@ -199,11 +201,11 @@ describe("agent capability derivation", () => {
     expect(
       getSupportedAgentsForExtensionTypes(["rule", "subagent"], AGENTS).map((agent) => agent.id),
     ).toEqual([
-      "amp",
       "augment",
       "claude-code",
       "codex",
       "cursor",
+      "devin",
       "gemini-cli",
       "github-copilot-cli",
       "ibm-bob",
@@ -213,7 +215,9 @@ describe("agent capability derivation", () => {
       "kode",
       "mistral-vibe",
       "mux",
+      "opencode",
       "qoder",
+      "qwen-code",
       "roo",
       "zencoder",
     ]);
@@ -226,22 +230,22 @@ describe("agent capability derivation", () => {
       ).map((agent) => agent.id),
     ).toEqual([
       "antigravity",
+      "augment",
       "claude-code",
+      "cline",
       "codex",
       "crush",
       "cursor",
+      "devin",
       "gemini-cli",
       "github-copilot-cli",
-      "grok-cli",
-      "hermes",
       "ibm-bob",
       "junie",
-      "kilo",
       "kiro-cli",
       "mistral-vibe",
-      "openhands",
+      "opencode",
       "qoder",
-      "roo",
+      "qwen-code",
       "trae-cn",
       "trae",
       "windsurf",
@@ -293,7 +297,7 @@ describe("agent capability derivation", () => {
       {
         type: "hook",
         agentStatus: "native",
-        axmStatus: "unsupported",
+        axmStatus: "writer",
       },
     ]);
   });
@@ -413,7 +417,7 @@ describe("agent capability derivation", () => {
     expect(serialized).not.toContain('"writer"');
     expect(native.capabilities.skill).toMatchObject({
       availability: { via: "native" },
-      directory: ".codex/skills",
+      directory: ".agents/skills",
     });
   });
   it("derives hook portability verdicts from canonical event and AXM support", () => {

@@ -12,6 +12,7 @@ import {
   removeCommandViaResolve,
   type CommandSyncConfig,
 } from "../command-sync.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 
 /** @experimental */
@@ -38,16 +39,8 @@ export const kiroCliCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, ".kiro/skills"),
       } as const;
     }),
-  addMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: "MCP add is not supported for kiro-cli",
-    } as const),
-  removeMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: "MCP remove is not supported for kiro-cli",
-    } as const),
+  addMcpServer: (args) => addMcpServerFromManifest("kiro-cli", args),
+  removeMcpServer: (args) => removeMcpServerFromManifest("kiro-cli", args),
   resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;

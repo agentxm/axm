@@ -18,11 +18,11 @@ const SOURCE = "AGENTS.md";
  * Every agent NOT listed here is expected to resolve to `native` (reads the
  * shared source file directly), so the ~40 agents-md agents need no upkeep.
  */
-const EXPECTED_WRITE: ReadonlyArray<AgentId> = ["claude-code", "gemini-cli"];
+const EXPECTED_WRITE: ReadonlyArray<AgentId> = ["claude-code", "gemini-cli", "junie"];
 const EXPECTED_ADAPTER: ReadonlyArray<AgentId> = [
   "cline",
   "continue",
-  "junie",
+  "kiro-cli",
   "roo",
   "trae",
   "trae-cn",
@@ -48,9 +48,7 @@ const EXPECTED_SKIP: ReadonlyArray<AgentId> = [
   "mcpjam",
   "neovate",
   "openclaw",
-  "opencode",
   "pochi",
-  "qwen-code",
   "replit",
   "rovodev",
   "tabnine-cli",

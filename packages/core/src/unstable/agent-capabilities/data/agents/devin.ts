@@ -29,7 +29,7 @@ export const devinAgent = {
           "Devin also reads universal .agents/skills locations; AXM targets the native .devin/skills project path and XDG user path.\n",
         docs: [],
         sources: [
-          "https://cli.devin.ai/docs/extensibility/skills/overview",
+          "https://docs.devin.ai/cli/extensibility/skills/overview",
           "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
         ],
         scopes: ["user", "project"],
@@ -39,7 +39,7 @@ export const devinAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -59,29 +59,79 @@ export const devinAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Devin CLI stores MCP servers under mcpServers in layered config files. Remote URL servers default to Streamable HTTP and can fall back to SSE.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.devin.ai/cli/extensibility/mcp/configuration"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: {
+          variables: "none",
+          defaults: false,
+        },
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
+        status: "supported",
+        lastVerified: "2026-06-06",
+        writer: {
+          config: {
+            serversKey: "mcpServers",
+            nativeEnabled: true,
+            targets: [
+              {
+                scope: "project",
+                path: ".devin/config.json",
+                format: "json",
+              },
+              {
+                scope: "user",
+                path: "~/.config/devin/config.json",
+                format: "json",
+              },
+            ],
+            stdio: {
+              typeField: null,
+              command: "split",
+              envKey: "env",
+            },
+            remote: {
+              typeField: {
+                name: "transport",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
+              },
+              urlKey: {
+                "streamable-http": "url",
+                sse: "url",
+              },
+              headersKey: "headers",
+            },
+            transform: null,
+          },
+        },
       },
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Custom Devin CLI subagents are AGENT.md files under .devin/agents, .agents/agents, or the global Devin agents directory. Claude Code .claude/agents/*.md files are also imported.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.devin.ai/cli/subagents"],
+        scopes: ["user", "project"],
+        directory: ".devin/agents",
+        layout: "directory",
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
+        status: "supported",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -105,7 +155,7 @@ export const devinAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://cli.devin.ai/docs/extensibility/rules-agents-md"],
+        sources: ["https://docs.devin.ai/cli/extensibility/rules-agents-md"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -116,37 +166,205 @@ export const devinAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Devin CLI hooks are compatible with Claude Code hooks. AXM writes to the hooks key in .devin/config.json rather than the standalone hooks.v1.json file.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
+        scopes: ["user", "project"],
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "project",
+            path: ".devin/config.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".devin/config.local.json",
+            format: "json",
+            gitignored: true,
+          },
+          {
+            scope: "user",
+            path: "~/.config/devin/config.json",
+            format: "json",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "SessionStart",
+            canonical: "session.start",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "UserPromptSubmit",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PreToolUse",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "exec|edit|write", notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["deny"] }],
+            sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PostToolUse",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "exec|edit|write", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "Stop",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+        tools: [
+          {
+            nativeName: "read",
+            canonical: "file.read",
+            sources: ["https://docs.devin.ai/cli/reference/permissions"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "write",
+            canonical: "file.write",
+            sources: ["https://docs.devin.ai/cli/reference/permissions"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "edit",
+            canonical: "file.edit",
+            sources: ["https://docs.devin.ai/cli/reference/permissions"],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "exec",
+            canonical: "shell.exec",
+            sources: ["https://docs.devin.ai/cli/reference/permissions"],
+            lastVerified: "2026-06-06",
+          },
+        ],
       },
       axm: {
-        status: "unsupported",
-        writer: null,
-        lastVerified: null,
+        status: "supported",
+        writer: {
+          serializer: "command-stdin",
+          configFiles: [
+            {
+              scope: "project",
+              path: ".devin/config.json",
+              format: "json",
+              gitignored: false,
+            },
+          ],
+          settingsKey: "hooks",
+          eventMap: "native.events",
+          matcherKind: "regex",
+          matcherSerialization: "bare",
+          timeoutSerialization: "seconds",
+          commandNameSerialization: "omit",
+        },
+        lastVerified: "2026-06-06",
       },
     },
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Devin CLI permissions use allow/ask/deny arrays in layered config files. Rules cover scope matchers such as Read/Write/Exec/Fetch and tool names such as read/edit/grep/glob/exec.",
       docs: [],
-      sources: [],
+      sources: ["https://docs.devin.ai/cli/reference/permissions"],
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "project",
+          path: ".devin/config.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".devin/config.local.json",
+          format: "json",
+          gitignored: true,
+        },
+        {
+          scope: "user",
+          path: "~/.config/devin/config.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "tool-call",
+        example: "Exec(axm)",
+        notes:
+          "Exec rules match shell command prefixes as complete words; Read/Write rules use glob-style path scopes.",
+      },
+      prerequisites: [],
+      cliFlags: [
+        {
+          flag: "--permission-mode",
+          note: "Selects modes such as normal, accept edits, bypass, or autonomous with sandboxing.",
+        },
+        {
+          flag: "--sandbox",
+          note: "Enables OS-level sandboxing and autonomous permission behavior.",
+        },
+      ],
     },
     axm: {
-      status: "unsupported",
-      lastVerified: null,
-      writer: null,
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: {
+        grants: {
+          shell: {
+            target: ".devin/config.json",
+            patch: {
+              permissions: {
+                allow: ["Exec(${tool})"],
+              },
+            },
+            template: null,
+          },
+          filesystem: {
+            target: ".devin/config.json",
+            patch: {
+              permissions: {
+                allow: ["Read(**)", "Write(**)", "edit"],
+              },
+            },
+            template: null,
+          },
+        },
+      },
     },
   },
 } as const satisfies Agent;

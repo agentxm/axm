@@ -5,11 +5,12 @@
  * Spec requirement coverage:
  *
  * - Single agent-rendered skill is one actual entry.
- * - Same skill in two agent dirs is two distinct actual entries.
- * - Same skill across two agent dirs and canonical AXM is three actual
- *   entries.
- * - Same skill across two agent dirs and external AXM is three actual
- *   entries.
+ * - Same skill in two materialized agent dirs emits one actual entry per
+ *   catalog agent that reads those dirs.
+ * - Same skill across agent dirs and canonical AXM includes the canonical
+ *   occurrence.
+ * - Same skill across agent dirs and external AXM includes the external
+ *   occurrence.
  * - Duplicate scanner observations of one physical occurrence collapse to
  *   one entry with one stable occurrence identity (the live composition
  *   exposes only one scanner per origin per scope, so this is verified
@@ -22,11 +23,12 @@
  * `contentRoot` string. Two entries with the same `(scope, type, origin,
  * contentRoot)` triple share identity; differing in any field gives distinct
  * identities. For agent-dir occurrences, `origin` includes the `agentId` so
- * `(claude-code, codex)` produce distinct identities.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { AGENTS } from "../../../../agents/registry.js";
+import type { AgentId } from "../../../../agents/types.js";
 import type { FixtureSpec } from "../../__fixtures__/builder.js";
 import {
   expectFirst,
@@ -57,6 +59,14 @@ const spec = (project: NonNullable<FixtureSpec["project"]>): FixtureSpec => ({
 });
 
 const runActual = (s: FixtureSpec) => runScenario(s, (ctx) => ctx.scope("project").skills.actual);
+
+const expectedSkillAgentIdsFor = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> => {
+  const dirs = new Set(agentIds.map((agentId) => AGENTS[agentId].skills.dir));
+  return Object.values(AGENTS)
+    .filter((agent) => dirs.has(agent.skills.dir))
+    .map((agent) => agent.id)
+    .sort();
+};
 
 describe("actual-occurrence shape", () => {
   it.effect("single agent-rendered skill produces exactly one actual entry", () =>
@@ -95,14 +105,15 @@ describe("actual-occurrence shape", () => {
         }),
       );
       const matches = actuals.filter((a) => a.key.name === "some-skill");
-      expect(matches).toHaveLength(2);
+      const expectedAgentIds = expectedSkillAgentIdsFor(["claude-code", "codex"]);
+      expect(matches).toHaveLength(expectedAgentIds.length);
       const agentIds = matches
         .flatMap((a) => (a.origin._tag === "agent-skill-dir" ? [a.origin.agentId] : []))
         .map((id) => String(id))
         .sort();
-      expect(agentIds).toEqual(["claude-code", "codex"]);
+      expect(agentIds).toEqual(expectedAgentIds);
       // Distinct identities.
-      expect(new Set(matches.map(identityKey)).size).toBe(2);
+      expect(new Set(matches.map(identityKey)).size).toBe(expectedAgentIds.length);
     }),
   );
 
@@ -124,15 +135,19 @@ describe("actual-occurrence shape", () => {
         }),
       );
       const matches = actuals.filter((a) => a.key.name === "some-skill");
-      expect(matches).toHaveLength(3);
+      const expectedAgentIds = expectedSkillAgentIdsFor(["claude-code", "codex"]);
+      expect(matches).toHaveLength(expectedAgentIds.length + 1);
       const originTags = matches.map((a) => a.origin._tag).sort();
-      expect(originTags).toEqual(["agent-skill-dir", "agent-skill-dir", "canonical-axm-skill"]);
+      expect(originTags.filter((tag) => tag === "agent-skill-dir")).toHaveLength(
+        expectedAgentIds.length,
+      );
+      expect(originTags).toContain("canonical-axm-skill");
       const agentIds = matches
         .flatMap((a) => (a.origin._tag === "agent-skill-dir" ? [a.origin.agentId] : []))
         .map((id) => String(id))
         .sort();
-      expect(agentIds).toEqual(["claude-code", "codex"]);
-      expect(new Set(matches.map(identityKey)).size).toBe(3);
+      expect(agentIds).toEqual(expectedAgentIds);
+      expect(new Set(matches.map(identityKey)).size).toBe(expectedAgentIds.length + 1);
     }),
   );
 
@@ -154,10 +169,14 @@ describe("actual-occurrence shape", () => {
         }),
       );
       const matches = actuals.filter((a) => a.key.name === "some-skill");
-      expect(matches).toHaveLength(3);
+      const expectedAgentIds = expectedSkillAgentIdsFor(["claude-code", "codex"]);
+      expect(matches).toHaveLength(expectedAgentIds.length + 1);
       const originTags = matches.map((a) => a.origin._tag).sort();
-      expect(originTags).toEqual(["agent-skill-dir", "agent-skill-dir", "external-axm-skill"]);
-      expect(new Set(matches.map(identityKey)).size).toBe(3);
+      expect(originTags.filter((tag) => tag === "agent-skill-dir")).toHaveLength(
+        expectedAgentIds.length,
+      );
+      expect(originTags).toContain("external-axm-skill");
+      expect(new Set(matches.map(identityKey)).size).toBe(expectedAgentIds.length + 1);
     }),
   );
 });
@@ -210,8 +229,7 @@ describe("occurrence identity", () => {
       );
       const matches = actuals.filter((a) => a.key.name === "some-skill");
       const identities = new Set(matches.map(identityKey));
-      // Two distinct physical paths → two distinct identity strings.
-      expect(identities.size).toBe(2);
+      expect(identities.size).toBe(expectedSkillAgentIdsFor(["claude-code", "codex"]).length);
     }),
   );
 });

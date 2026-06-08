@@ -33,7 +33,7 @@ export const clineAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -53,16 +53,57 @@ export const clineAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Cline supports MCP in both the extension and CLI. The CLI MCP config is ~/.cline/mcp.json; extension config is exposed through the MCP settings UI.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.cline.bot/mcp/configuring-mcp-servers"],
+        scopes: ["user"],
+        standardsCompliance: "partial",
+        convention: "vendor",
+        transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: {
+          variables: "none",
+          defaults: false,
+        },
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
+        status: "supported",
+        lastVerified: "2026-06-06",
+        writer: {
+          config: {
+            serversKey: "mcpServers",
+            nativeEnabled: true,
+            targets: [
+              {
+                scope: "user",
+                path: "~/.cline/mcp.json",
+                format: "json",
+              },
+            ],
+            stdio: {
+              typeField: null,
+              command: "split",
+              envKey: "env",
+            },
+            remote: {
+              typeField: {
+                name: "type",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
+              },
+              urlKey: {
+                "streamable-http": "url",
+                sse: "url",
+              },
+              headersKey: "headers",
+            },
+            transform: null,
+          },
+        },
       },
     },
     subagent: {
@@ -111,37 +152,52 @@ export const clineAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Cline stores executable hooks under ~/Documents/Cline/Hooks and .clinerules/hooks. The native script-directory shape is not compatible with AXM's grouped JSON command-hook writer.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.cline.bot/customization/hooks"],
+        scopes: ["user", "project"],
+        modeling: "native-unmodeled",
       },
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
+        reason: "AXM has not implemented a Cline hook script directory writer.",
       },
     },
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Cline exposes auto-approve controls in the extension/CLI UI and toolPolicies in the SDK. The public docs do not define a stable AXM-writable project permission grant file.",
       docs: [],
-      sources: [],
+      sources: [
+        "https://docs.cline.bot/cline-cli/interactive-mode",
+        "https://docs.cline.bot/sdk/guides/permission-handling",
+      ],
+      scopes: ["user"],
+      mechanism: ["ui-only"],
+      configFiles: [],
+      grammar: null,
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
+      lastVerified: "2026-06-06",
       writer: null,
+      reason: "AXM has not implemented a Cline permission grant writer.",
     },
   },
 } as const satisfies Agent;

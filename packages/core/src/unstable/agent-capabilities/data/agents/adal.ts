@@ -33,7 +33,7 @@ export const adalAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -53,16 +53,29 @@ export const adalAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "AdaL manages MCP servers through the /mcp CLI flow and stores OAuth tokens under ~/.adal/mcp-auth; the docs describe add/remove/test actions rather than a stable editable config file.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://docs.sylph.ai/features/mcp-support-proposed",
+          "https://raw.githubusercontent.com/SylphAI-Inc/adal-cli/main/docs-site/docs/03-features/mcp-support-proposed.md",
+        ],
+        scopes: ["user"],
+        standardsCompliance: "partial",
+        convention: "vendor",
+        transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: {
+          variables: "braced",
+          defaults: false,
+        },
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
+        lastVerified: "2026-06-06",
         writer: null,
+        reason: "AXM has not implemented an AdaL MCP writer for the CLI-managed MCP store.",
       },
     },
     subagent: {
@@ -110,7 +123,7 @@ export const adalAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -131,16 +144,28 @@ export const adalAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "AdaL exposes /permissions to configure approval behavior, but the public docs do not document a stable settings file shape for AXM to patch.",
       docs: [],
-      sources: [],
+      sources: [
+        "https://docs.sylph.ai/features/slash-commands",
+        "https://raw.githubusercontent.com/SylphAI-Inc/adal-cli/main/docs-site/docs/03-features/slash-commands.md",
+      ],
+      scopes: ["user"],
+      mechanism: ["ui-only"],
+      configFiles: [],
+      grammar: null,
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
+      lastVerified: "2026-06-06",
       writer: null,
+      reason:
+        "AXM has not implemented an AdaL permission writer for the interactive /permissions surface.",
     },
   },
 } as const satisfies Agent;

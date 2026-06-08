@@ -7,7 +7,12 @@ export const geminiCliAgent = {
   interfaces: ["cli"],
   family: "google",
   rootDir: ".gemini",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "deprecated",
+    since: "2026-05-19",
+    note: "Google is transitioning individual/free/AI Pro/Ultra Gemini CLI users to Antigravity CLI on June 18, 2026; enterprise/API-key access remains available.",
+    supersededBy: "antigravity",
+  },
   detection: {
     project: { markers: [] },
     user: {
@@ -34,17 +39,15 @@ export const geminiCliAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: [
-          "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md",
-        ],
+        sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/skills.md"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
-        convention: "vendor",
-        directory: ".gemini/skills",
+        convention: "universal",
+        directory: ".agents/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-16",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -63,7 +66,7 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -74,20 +77,20 @@ export const geminiCliAgent = {
         notes: null,
         docs: [],
         sources: [
-          "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md",
+          "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md",
         ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio"],
         mcpEnvExpansion: {
-          variables: "none",
-          defaults: false,
+          variables: "braced",
+          defaults: true,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-16",
+        lastVerified: "2026-06-06",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -129,7 +132,7 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-18",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -152,7 +155,7 @@ export const geminiCliAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Consumer access (free, AI Pro, AI Ultra) ends 2026-06-18; Antigravity CLI succeeds Gemini CLI for those tiers. Enterprise customers on paid API keys retain access.\n",
+          "Consumer access (free, AI Pro, AI Ultra) ends 2026-06-18; Antigravity CLI succeeds Gemini CLI for those tiers. Enterprise customers on paid API keys retain access. The contextFileName setting can also point Gemini CLI at AGENTS.md.\n",
         docs: [],
         sources: [
           "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md",
@@ -168,7 +171,7 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -177,20 +180,181 @@ export const geminiCliAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Gemini CLI hooks run command hooks from settings files and use JSON on stdin/stdout. AXM has not implemented a Gemini CLI hook writer.",
+          "Gemini CLI hooks run command hooks from settings files and use JSON on stdin/stdout. Native Gemini CLI exposes additional events such as SessionEnd, BeforeModel, AfterModel, BeforeToolSelection, and Notification; this catalog maps the subset covered by AXM's canonical hook event registry.",
         docs: [],
         sources: [
-          "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/writing-hooks.md",
+          "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/index.md",
+          "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
           "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
         ],
         scopes: ["user", "project"],
-        modeling: "native-unmodeled",
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.gemini/settings.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".gemini/settings.json",
+            format: "json",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "SessionStart",
+            canonical: "session.start",
+            matcher: {
+              kind: "regex",
+              example: "startup|resume|clear",
+              notes:
+                "Gemini CLI lifecycle matchers are exact strings; AXM serializes raw matcher text.",
+            },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "BeforeAgent",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "modify", operations: ["inject-context"] },
+            ],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "AfterAgent",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "modify", operations: ["inject-context"] },
+            ],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "BeforeTool",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "write_file|replace", notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "modify", operations: ["modify-input"] },
+            ],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "AfterTool",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "write_file|replace", notes: null },
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "modify", operations: ["inject-context"] },
+            ],
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "PreCompress",
+            canonical: "compaction.pre",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/index.md"],
+            lastVerified: "2026-06-06",
+          },
+        ],
+        tools: [
+          {
+            nativeName: "read_file",
+            canonical: "file.read",
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "read_many_files",
+            canonical: "file.read",
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "write_file",
+            canonical: "file.write",
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "replace",
+            canonical: "file.edit",
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "run_shell_command",
+            canonical: "shell.exec",
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "web_fetch",
+            canonical: "web.fetch",
+            sources: [
+              "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
+            ],
+            lastVerified: "2026-06-06",
+          },
+        ],
       },
       axm: {
-        status: "unsupported",
-        writer: null,
-        lastVerified: null,
-        reason: "AXM has not implemented a Gemini CLI hooks writer.",
+        status: "supported",
+        writer: {
+          serializer: "command-stdin",
+          configFiles: [
+            {
+              scope: "project",
+              path: ".gemini/settings.json",
+              format: "json",
+              gitignored: false,
+            },
+          ],
+          settingsKey: "hooks",
+          eventMap: "native.events",
+          matcherKind: "regex",
+          matcherSerialization: "bare",
+          timeoutSerialization: "milliseconds",
+          commandNameSerialization: "manifest",
+        },
+        lastVerified: "2026-06-06",
       },
     },
   },
@@ -201,8 +365,8 @@ export const geminiCliAgent = {
       notes: null,
       docs: [],
       sources: [
-        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/settings.md",
-        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md",
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/policy-engine.md",
         "https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/shell.md",
         "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/trusted-folders.md",
       ],
@@ -224,9 +388,9 @@ export const geminiCliAgent = {
       ],
       grammar: {
         style: "prefix",
-        example: "run_shell_command(axm)",
+        example: "ShellTool(axm)",
         notes:
-          "tools.core is prefix-matched and currently documented in docs/tools/shell.md. The newer Policy Engine is replacing --allowed-tools; tools.core is still functional but transitional.\n",
+          "The current configuration reference exposes coreTools/excludeTools and the policy engine; command-specific ShellTool rules are simple string matches and should not be treated as a strong security boundary.\n",
       },
       prerequisites: [
         {
@@ -249,7 +413,7 @@ export const geminiCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-05-18",
+      lastVerified: "2026-06-06",
       writer: {
         grants: {
           shell: {
@@ -262,7 +426,7 @@ export const geminiCliAgent = {
                 enablePermanentToolApproval: true,
               },
               tools: {
-                core: ["run_shell_command(${tool})"],
+                allowed: ["run_shell_command(${tool})"],
               },
             },
             template: null,

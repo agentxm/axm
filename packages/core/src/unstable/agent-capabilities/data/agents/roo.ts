@@ -23,7 +23,8 @@ export const rooAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Roo Code supports Roo-specific .roo/skills and cross-agent .agents/skills locations, including mode-specific skill directories.",
         docs: [],
         sources: ["https://docs.roocode.com/features/skills"],
         scopes: ["user", "project"],
@@ -33,7 +34,7 @@ export const rooAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -43,13 +44,13 @@ export const rooAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://docs.roocode.com"],
+        sources: ["https://docs.roocode.com/features/slash-commands"],
         scopes: ["user", "project"],
         directory: ".roo/commands",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -65,51 +66,15 @@ export const rooAgent = {
         convention: "universal",
         transports: ["stdio", "http"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "braced",
           defaults: false,
         },
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-05-20",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            nativeEnabled: true,
-            targets: [
-              {
-                scope: "project",
-                path: ".roo/mcp.json",
-                format: "json",
-              },
-              {
-                scope: "user",
-                path: "~/.roo/mcp.json",
-                format: "json",
-              },
-            ],
-            stdio: {
-              typeField: null,
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "http",
-                },
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
-            transform: null,
-          },
-        },
+        status: "unsupported",
+        lastVerified: "2026-06-06",
+        writer: null,
+        reason: "The current AXM Roo Code service returns MCP add/remove as unsupported.",
       },
     },
     subagent: {
@@ -125,7 +90,7 @@ export const rooAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -147,9 +112,10 @@ export const rooAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
+        notes:
+          "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella; Roo also loads AGENTS.md when agent rules are enabled.",
         docs: [],
-        sources: ["https://docs.roocode.com/features/rules"],
+        sources: ["https://docs.roocode.com/features/custom-instructions"],
         scopes: ["user", "project"],
         standardsCompliance: "partial",
         convention: "vendor",
@@ -161,7 +127,7 @@ export const rooAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-20",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -182,16 +148,31 @@ export const rooAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Roo Code exposes auto-approval controls through the extension settings UI, including read, write, command, MCP, browser, and mode-switch approvals. The docs do not describe a stable AXM-writable permission config file for these controls.",
       docs: [],
-      sources: [],
+      sources: ["https://docs.roocode.com/features/auto-approving-actions"],
+      scopes: ["user"],
+      mechanism: ["ui-only"],
+      configFiles: [],
+      grammar: null,
+      prerequisites: [
+        {
+          key: "Auto-Approve Settings",
+          value: "enabled per operation",
+          scope: "user",
+          note: "Configure in Roo Code's Auto-Approve Settings panel.",
+        },
+      ],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
+      lastVerified: "2026-06-06",
       writer: null,
+      reason: "AXM has not implemented Roo Code permission grant writing.",
     },
   },
 } as const satisfies Agent;

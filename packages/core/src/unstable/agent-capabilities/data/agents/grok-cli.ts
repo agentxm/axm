@@ -34,22 +34,29 @@ export const grokCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-19",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
     command: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Grok exposes pager-local slash commands, skills-as-commands, and user-level custom commands discovered from ~/.agents/commands.\n",
         docs: [],
-        sources: [],
+        sources: [
+          "https://docs.x.ai/build/features/skills-plugins-marketplaces",
+          "https://docs.x.ai/build/modes-and-commands",
+        ],
+        scopes: ["user"],
+        directory: "~/.agents/commands",
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
+        lastVerified: "2026-06-06",
         writer: null,
+        reason: "AXM has not implemented Grok CLI command installation.",
       },
     },
     "mcp-server": {
@@ -66,9 +73,10 @@ export const grokCliAgent = {
         transports: ["stdio", "http", "sse"],
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-05-19",
+        status: "unsupported",
+        lastVerified: "2026-06-06",
         writer: null,
+        reason: "AXM has not implemented a Grok CLI MCP config writer.",
       },
     },
     subagent: {
@@ -117,7 +125,7 @@ export const grokCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-19",
+        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -135,23 +143,48 @@ export const grokCliAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
+        lastVerified: "2026-06-06",
         reason: "AXM has not implemented a Grok CLI hooks writer.",
       },
     },
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Grok exposes permission prompting mode through config.toml and the --always-approve CLI flag, but docs do not describe per-tool allow/deny grant rules.",
       docs: [],
-      sources: [],
+      sources: ["https://docs.x.ai/build/modes-and-commands"],
+      scopes: ["user"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.grok/config.toml",
+          format: "toml",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "prefix",
+        example: 'permission_mode = "always-approve"',
+        notes:
+          "The documented permission mode is a coarse approval prompt setting, not a per-tool grant grammar.",
+      },
+      prerequisites: [],
+      cliFlags: [
+        {
+          flag: "--always-approve",
+          note: "Skip permission prompts for tool calls.",
+        },
+      ],
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
+      lastVerified: "2026-06-06",
       writer: null,
+      reason: "AXM has not implemented Grok CLI permission grant writing.",
     },
   },
 } as const satisfies Agent;

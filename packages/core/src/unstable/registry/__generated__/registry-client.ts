@@ -449,21 +449,23 @@ export type ExtensionType =
   | "command"
   | "mcp-server"
   | "subagent"
-  | "context"
+  | "files"
   | "rule"
+  | "hook"
   | "pack";
 export const ExtensionType = Schema.Literals([
   "skill",
   "command",
   "mcp-server",
   "subagent",
-  "context",
+  "files",
   "rule",
+  "hook",
   "pack",
 ]).annotate({
   title: "Extension Type",
   description:
-    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, or pack.",
+    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, or pack.",
 });
 export type Version = string;
 export const Version = Schema.String.check(
@@ -710,11 +712,15 @@ export const PutCollaboratorBody = Schema.Struct({
   title: "Put Collaborator Body",
   description: "Request body for assigning a collaborator role on an extension.",
 });
+export type UpsertGrantBody = { readonly role: "read" | "write" };
+export const UpsertGrantBody = Schema.Struct({ role: Schema.Literals(["read", "write"]) }).annotate(
+  { title: "Upsert Grant Body" },
+);
 export type ExtensionFqn = string;
 export const ExtensionFqn = Schema.String.check(
   Schema.isPattern(
     new RegExp(
-      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|context|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
     ),
     {
       title: "Extension FQN",
@@ -953,11 +959,23 @@ export const CreateTokenRequest = Schema.Struct({
   title: "Create Token Request",
   description: "Request body for creating a new personal access token.",
 });
-export type UpsertTeamGrantBody = { readonly teamId: TeamId; readonly role: "read" | "write" };
-export const UpsertTeamGrantBody = Schema.Struct({
-  teamId: TeamId,
+export type ExtensionGrantEntry = {
+  readonly subject:
+    | { readonly kind: "user"; readonly userId: UserId }
+    | { readonly kind: "team"; readonly teamId: TeamId };
+  readonly role: "read" | "write";
+  readonly grantedBy: UserId | null;
+  readonly createdAt: string;
+};
+export const ExtensionGrantEntry = Schema.Struct({
+  subject: Schema.Union([
+    Schema.Struct({ kind: Schema.Literal("user"), userId: UserId }),
+    Schema.Struct({ kind: Schema.Literal("team"), teamId: TeamId }),
+  ]),
   role: Schema.Literals(["read", "write"]),
-}).annotate({ title: "Upsert Team Grant Body" });
+  grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
+  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+}).annotate({ title: "Extension Grant Entry" });
 export type TeamGrant = {
   readonly teamId: TeamId;
   readonly role: "read" | "write";
@@ -970,13 +988,11 @@ export const TeamGrant = Schema.Struct({
   grantedBy: Schema.String,
   grantedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 }).annotate({ title: "Team Grant" });
-export type MaintainerTarget =
-  | { readonly kind: "user"; readonly userId: UserId }
-  | { readonly kind: "team"; readonly teamId: TeamId };
-export const MaintainerTarget = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("user"), userId: UserId }),
-  Schema.Struct({ kind: Schema.Literal("team"), teamId: TeamId }),
-]).annotate({ title: "Maintainer Target" });
+export type UpsertTeamGrantBody = { readonly teamId: TeamId; readonly role: "read" | "write" };
+export const UpsertTeamGrantBody = Schema.Struct({
+  teamId: TeamId,
+  role: Schema.Literals(["read", "write"]),
+}).annotate({ title: "Upsert Team Grant Body" });
 export type Maintainer =
   | {
       readonly kind: "user";
@@ -1023,6 +1039,13 @@ export const Maintainer = Schema.Union([
     assignedBy: Schema.Union([UserId, Schema.Null]),
   }),
 ]).annotate({ title: "Maintainer" });
+export type MaintainerTarget =
+  | { readonly kind: "user"; readonly userId: UserId }
+  | { readonly kind: "team"; readonly teamId: TeamId };
+export const MaintainerTarget = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("user"), userId: UserId }),
+  Schema.Struct({ kind: Schema.Literal("team"), teamId: TeamId }),
+]).annotate({ title: "Maintainer Target" });
 export type Team = {
   readonly id: TeamId;
   readonly organizationId: OrgId;
@@ -1173,6 +1196,10 @@ export const TokenListResponse = Schema.Struct({
     Schema.Null,
   ]),
 }).annotate({ title: "Token List Response", description: "A page of your access tokens." });
+export type ExtensionGrantsResponse = { readonly grants: ReadonlyArray<ExtensionGrantEntry> };
+export const ExtensionGrantsResponse = Schema.Struct({
+  grants: Schema.Array(ExtensionGrantEntry),
+}).annotate({ title: "Extension Grants Response" });
 export type TeamList = { readonly items: ReadonlyArray<Team>; readonly nextCursor: string | null };
 export const TeamList = Schema.Struct({
   items: Schema.Array(Team),
@@ -2062,6 +2089,16 @@ export type CollaboratorsDeleteCollaborator404 = ProblemDetails;
 export const CollaboratorsDeleteCollaborator404 = ProblemDetails;
 export type CollaboratorsDeleteCollaborator409 = ProblemDetails;
 export const CollaboratorsDeleteCollaborator409 = ProblemDetails;
+export type TeamGrantsListExtensionGrants200 = ExtensionGrantsResponse;
+export const TeamGrantsListExtensionGrants200 = ExtensionGrantsResponse;
+export type TeamGrantsListExtensionGrants400 = DecodeErrorResponse;
+export const TeamGrantsListExtensionGrants400 = DecodeErrorResponse;
+export type TeamGrantsListExtensionGrants401 = ProblemDetails;
+export const TeamGrantsListExtensionGrants401 = ProblemDetails;
+export type TeamGrantsListExtensionGrants403 = ForbiddenError | ForbiddenError;
+export const TeamGrantsListExtensionGrants403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type TeamGrantsListExtensionGrants404 = ProblemDetails;
+export const TeamGrantsListExtensionGrants404 = ProblemDetails;
 export type TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
 export const TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
 export type TeamGrantsUpsertTeamExtensionGrant200 = TeamGrant;
@@ -2079,6 +2116,72 @@ export type TeamGrantsUpsertTeamExtensionGrant404 = ProblemDetails;
 export const TeamGrantsUpsertTeamExtensionGrant404 = ProblemDetails;
 export type TeamGrantsUpsertTeamExtensionGrant422 = ProblemDetails;
 export const TeamGrantsUpsertTeamExtensionGrant422 = ProblemDetails;
+export type TeamGrantsUpsertUserExtensionGrantRequestJson = UpsertGrantBody;
+export const TeamGrantsUpsertUserExtensionGrantRequestJson = UpsertGrantBody;
+export type TeamGrantsUpsertUserExtensionGrant200 = {
+  readonly userId: UserId;
+  readonly role: string;
+  readonly grantedBy: UserId | null;
+  readonly createdAt: string;
+};
+export const TeamGrantsUpsertUserExtensionGrant200 = Schema.Struct({
+  userId: UserId,
+  role: Schema.String,
+  grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
+  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+});
+export type TeamGrantsUpsertUserExtensionGrant400 = ProblemDetails | DecodeErrorResponse;
+export const TeamGrantsUpsertUserExtensionGrant400 = Schema.Union([
+  ProblemDetails,
+  DecodeErrorResponse,
+]);
+export type TeamGrantsUpsertUserExtensionGrant401 = ProblemDetails;
+export const TeamGrantsUpsertUserExtensionGrant401 = ProblemDetails;
+export type TeamGrantsUpsertUserExtensionGrant403 = ForbiddenError | ForbiddenError;
+export const TeamGrantsUpsertUserExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type TeamGrantsUpsertUserExtensionGrant404 = ProblemDetails;
+export const TeamGrantsUpsertUserExtensionGrant404 = ProblemDetails;
+export type TeamGrantsDeleteUserExtensionGrant400 = DecodeErrorResponse;
+export const TeamGrantsDeleteUserExtensionGrant400 = DecodeErrorResponse;
+export type TeamGrantsDeleteUserExtensionGrant401 = ProblemDetails;
+export const TeamGrantsDeleteUserExtensionGrant401 = ProblemDetails;
+export type TeamGrantsDeleteUserExtensionGrant403 = ForbiddenError | ForbiddenError;
+export const TeamGrantsDeleteUserExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type TeamGrantsDeleteUserExtensionGrant404 = ProblemDetails;
+export const TeamGrantsDeleteUserExtensionGrant404 = ProblemDetails;
+export type TeamGrantsDeleteUserExtensionGrant409 = ProblemDetails;
+export const TeamGrantsDeleteUserExtensionGrant409 = ProblemDetails;
+export type TeamGrantsUpsertTeamExtensionGrantByIdRequestJson = UpsertGrantBody;
+export const TeamGrantsUpsertTeamExtensionGrantByIdRequestJson = UpsertGrantBody;
+export type TeamGrantsUpsertTeamExtensionGrantById200 = TeamGrant;
+export const TeamGrantsUpsertTeamExtensionGrantById200 = TeamGrant;
+export type TeamGrantsUpsertTeamExtensionGrantById400 = ProblemDetails | DecodeErrorResponse;
+export const TeamGrantsUpsertTeamExtensionGrantById400 = Schema.Union([
+  ProblemDetails,
+  DecodeErrorResponse,
+]);
+export type TeamGrantsUpsertTeamExtensionGrantById401 = ProblemDetails;
+export const TeamGrantsUpsertTeamExtensionGrantById401 = ProblemDetails;
+export type TeamGrantsUpsertTeamExtensionGrantById403 = ForbiddenError | ForbiddenError;
+export const TeamGrantsUpsertTeamExtensionGrantById403 = Schema.Union([
+  ForbiddenError,
+  ForbiddenError,
+]);
+export type TeamGrantsUpsertTeamExtensionGrantById404 = ProblemDetails;
+export const TeamGrantsUpsertTeamExtensionGrantById404 = ProblemDetails;
+export type TeamGrantsUpsertTeamExtensionGrantById422 = ProblemDetails;
+export const TeamGrantsUpsertTeamExtensionGrantById422 = ProblemDetails;
+export type TeamGrantsDeleteTeamExtensionGrantById400 = DecodeErrorResponse;
+export const TeamGrantsDeleteTeamExtensionGrantById400 = DecodeErrorResponse;
+export type TeamGrantsDeleteTeamExtensionGrantById401 = ProblemDetails;
+export const TeamGrantsDeleteTeamExtensionGrantById401 = ProblemDetails;
+export type TeamGrantsDeleteTeamExtensionGrantById403 = ForbiddenError | ForbiddenError;
+export const TeamGrantsDeleteTeamExtensionGrantById403 = Schema.Union([
+  ForbiddenError,
+  ForbiddenError,
+]);
+export type TeamGrantsDeleteTeamExtensionGrantById404 = ProblemDetails;
+export const TeamGrantsDeleteTeamExtensionGrantById404 = ProblemDetails;
 export type TeamGrantsDeleteTeamExtensionGrant400 = DecodeErrorResponse;
 export const TeamGrantsDeleteTeamExtensionGrant400 = DecodeErrorResponse;
 export type TeamGrantsDeleteTeamExtensionGrant401 = ProblemDetails;
@@ -2087,6 +2190,16 @@ export type TeamGrantsDeleteTeamExtensionGrant403 = ForbiddenError | ForbiddenEr
 export const TeamGrantsDeleteTeamExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
 export type TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
 export const TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
+export type MaintainerGetMaintainer200 = Maintainer;
+export const MaintainerGetMaintainer200 = Maintainer;
+export type MaintainerGetMaintainer400 = DecodeErrorResponse;
+export const MaintainerGetMaintainer400 = DecodeErrorResponse;
+export type MaintainerGetMaintainer401 = ProblemDetails;
+export const MaintainerGetMaintainer401 = ProblemDetails;
+export type MaintainerGetMaintainer403 = ForbiddenError | ForbiddenError;
+export const MaintainerGetMaintainer403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type MaintainerGetMaintainer404 = ProblemDetails;
+export const MaintainerGetMaintainer404 = ProblemDetails;
 export type MaintainerSetMaintainerRequestJson = MaintainerTarget;
 export const MaintainerSetMaintainerRequestJson = MaintainerTarget;
 export type MaintainerSetMaintainer200 = Maintainer;
@@ -3019,6 +3132,31 @@ export const make = (
           }),
         ),
       ),
+    TeamGrantsListExtensionGrants: (owner, type, name, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/grants`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(TeamGrantsListExtensionGrants200),
+            "400": decodeError(
+              "TeamGrantsListExtensionGrants400",
+              TeamGrantsListExtensionGrants400,
+            ),
+            "401": decodeError(
+              "TeamGrantsListExtensionGrants401",
+              TeamGrantsListExtensionGrants401,
+            ),
+            "403": decodeError(
+              "TeamGrantsListExtensionGrants403",
+              TeamGrantsListExtensionGrants403,
+            ),
+            "404": decodeError(
+              "TeamGrantsListExtensionGrants404",
+              TeamGrantsListExtensionGrants404,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     TeamGrantsUpsertTeamExtensionGrant: (owner, type, name, options) =>
       HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/grants`).pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
@@ -3049,6 +3187,120 @@ export const make = (
           }),
         ),
       ),
+    TeamGrantsUpsertUserExtensionGrant: (owner, type, name, userId, options) =>
+      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/grants/user/${userId}`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(TeamGrantsUpsertUserExtensionGrant200),
+            "400": decodeError(
+              "TeamGrantsUpsertUserExtensionGrant400",
+              TeamGrantsUpsertUserExtensionGrant400,
+            ),
+            "401": decodeError(
+              "TeamGrantsUpsertUserExtensionGrant401",
+              TeamGrantsUpsertUserExtensionGrant401,
+            ),
+            "403": decodeError(
+              "TeamGrantsUpsertUserExtensionGrant403",
+              TeamGrantsUpsertUserExtensionGrant403,
+            ),
+            "404": decodeError(
+              "TeamGrantsUpsertUserExtensionGrant404",
+              TeamGrantsUpsertUserExtensionGrant404,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    TeamGrantsDeleteUserExtensionGrant: (owner, type, name, userId, options) =>
+      HttpClientRequest.delete(
+        `/v1/extensions/${owner}/${type}/${name}/grants/user/${userId}`,
+      ).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError(
+              "TeamGrantsDeleteUserExtensionGrant400",
+              TeamGrantsDeleteUserExtensionGrant400,
+            ),
+            "401": decodeError(
+              "TeamGrantsDeleteUserExtensionGrant401",
+              TeamGrantsDeleteUserExtensionGrant401,
+            ),
+            "403": decodeError(
+              "TeamGrantsDeleteUserExtensionGrant403",
+              TeamGrantsDeleteUserExtensionGrant403,
+            ),
+            "404": decodeError(
+              "TeamGrantsDeleteUserExtensionGrant404",
+              TeamGrantsDeleteUserExtensionGrant404,
+            ),
+            "409": decodeError(
+              "TeamGrantsDeleteUserExtensionGrant409",
+              TeamGrantsDeleteUserExtensionGrant409,
+            ),
+            "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    TeamGrantsUpsertTeamExtensionGrantById: (owner, type, name, teamId, options) =>
+      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/grants/team/${teamId}`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(TeamGrantsUpsertTeamExtensionGrantById200),
+            "400": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrantById400",
+              TeamGrantsUpsertTeamExtensionGrantById400,
+            ),
+            "401": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrantById401",
+              TeamGrantsUpsertTeamExtensionGrantById401,
+            ),
+            "403": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrantById403",
+              TeamGrantsUpsertTeamExtensionGrantById403,
+            ),
+            "404": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrantById404",
+              TeamGrantsUpsertTeamExtensionGrantById404,
+            ),
+            "422": decodeError(
+              "TeamGrantsUpsertTeamExtensionGrantById422",
+              TeamGrantsUpsertTeamExtensionGrantById422,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    TeamGrantsDeleteTeamExtensionGrantById: (owner, type, name, teamId, options) =>
+      HttpClientRequest.delete(
+        `/v1/extensions/${owner}/${type}/${name}/grants/team/${teamId}`,
+      ).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError(
+              "TeamGrantsDeleteTeamExtensionGrantById400",
+              TeamGrantsDeleteTeamExtensionGrantById400,
+            ),
+            "401": decodeError(
+              "TeamGrantsDeleteTeamExtensionGrantById401",
+              TeamGrantsDeleteTeamExtensionGrantById401,
+            ),
+            "403": decodeError(
+              "TeamGrantsDeleteTeamExtensionGrantById403",
+              TeamGrantsDeleteTeamExtensionGrantById403,
+            ),
+            "404": decodeError(
+              "TeamGrantsDeleteTeamExtensionGrantById404",
+              TeamGrantsDeleteTeamExtensionGrantById404,
+            ),
+            "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     TeamGrantsDeleteTeamExtensionGrant: (owner, type, name, teamId, options) =>
       HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/grants/${teamId}`).pipe(
         withResponse(options?.config)(
@@ -3070,6 +3322,19 @@ export const make = (
               TeamGrantsDeleteTeamExtensionGrant404,
             ),
             "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    MaintainerGetMaintainer: (owner, type, name, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/maintainer`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(MaintainerGetMaintainer200),
+            "400": decodeError("MaintainerGetMaintainer400", MaintainerGetMaintainer400),
+            "401": decodeError("MaintainerGetMaintainer401", MaintainerGetMaintainer401),
+            "403": decodeError("MaintainerGetMaintainer403", MaintainerGetMaintainer403),
+            "404": decodeError("MaintainerGetMaintainer404", MaintainerGetMaintainer404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3879,6 +4144,35 @@ export interface RegistryClient {
       >
   >;
   /**
+   * List extension grants
+   */
+  readonly TeamGrantsListExtensionGrants: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof TeamGrantsListExtensionGrants200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "TeamGrantsListExtensionGrants400",
+        typeof TeamGrantsListExtensionGrants400.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsListExtensionGrants401",
+        typeof TeamGrantsListExtensionGrants401.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsListExtensionGrants403",
+        typeof TeamGrantsListExtensionGrants403.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsListExtensionGrants404",
+        typeof TeamGrantsListExtensionGrants404.Type
+      >
+  >;
+  /**
    * Creates or updates a grant of a team's access to this extension. The team must belong to the same organization that owns the extension (otherwise 422). Only team admins or organization owners/admins may grant.
    */
   readonly TeamGrantsUpsertTeamExtensionGrant: <Config extends OperationConfig>(
@@ -3915,6 +4209,140 @@ export interface RegistryClient {
       >
   >;
   /**
+   * Adds or updates the user grant identified by userId on the extension.
+   */
+  readonly TeamGrantsUpsertUserExtensionGrant: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    userId: string,
+    options: {
+      readonly payload: typeof TeamGrantsUpsertUserExtensionGrantRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof TeamGrantsUpsertUserExtensionGrant200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "TeamGrantsUpsertUserExtensionGrant400",
+        typeof TeamGrantsUpsertUserExtensionGrant400.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertUserExtensionGrant401",
+        typeof TeamGrantsUpsertUserExtensionGrant401.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertUserExtensionGrant403",
+        typeof TeamGrantsUpsertUserExtensionGrant403.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertUserExtensionGrant404",
+        typeof TeamGrantsUpsertUserExtensionGrant404.Type
+      >
+  >;
+  /**
+   * Removes the user grant identified by userId from the extension.
+   */
+  readonly TeamGrantsDeleteUserExtensionGrant: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    userId: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "TeamGrantsDeleteUserExtensionGrant400",
+        typeof TeamGrantsDeleteUserExtensionGrant400.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteUserExtensionGrant401",
+        typeof TeamGrantsDeleteUserExtensionGrant401.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteUserExtensionGrant403",
+        typeof TeamGrantsDeleteUserExtensionGrant403.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteUserExtensionGrant404",
+        typeof TeamGrantsDeleteUserExtensionGrant404.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteUserExtensionGrant409",
+        typeof TeamGrantsDeleteUserExtensionGrant409.Type
+      >
+  >;
+  /**
+   * Adds or updates the team grant identified by teamId on the extension.
+   */
+  readonly TeamGrantsUpsertTeamExtensionGrantById: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    teamId: string,
+    options: {
+      readonly payload: typeof TeamGrantsUpsertTeamExtensionGrantByIdRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof TeamGrantsUpsertTeamExtensionGrantById200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrantById400",
+        typeof TeamGrantsUpsertTeamExtensionGrantById400.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrantById401",
+        typeof TeamGrantsUpsertTeamExtensionGrantById401.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrantById403",
+        typeof TeamGrantsUpsertTeamExtensionGrantById403.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrantById404",
+        typeof TeamGrantsUpsertTeamExtensionGrantById404.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsUpsertTeamExtensionGrantById422",
+        typeof TeamGrantsUpsertTeamExtensionGrantById422.Type
+      >
+  >;
+  /**
+   * Removes the team grant identified by teamId from the extension.
+   */
+  readonly TeamGrantsDeleteTeamExtensionGrantById: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    teamId: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "TeamGrantsDeleteTeamExtensionGrantById400",
+        typeof TeamGrantsDeleteTeamExtensionGrantById400.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteTeamExtensionGrantById401",
+        typeof TeamGrantsDeleteTeamExtensionGrantById401.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteTeamExtensionGrantById403",
+        typeof TeamGrantsDeleteTeamExtensionGrantById403.Type
+      >
+    | RegistryClientError<
+        "TeamGrantsDeleteTeamExtensionGrantById404",
+        typeof TeamGrantsDeleteTeamExtensionGrantById404.Type
+      >
+  >;
+  /**
    * Removes a team's grant on this extension. Idempotent — deleting a non-existent grant still returns 204.
    */
   readonly TeamGrantsDeleteTeamExtensionGrant: <Config extends OperationConfig>(
@@ -3943,6 +4371,23 @@ export interface RegistryClient {
         "TeamGrantsDeleteTeamExtensionGrant404",
         typeof TeamGrantsDeleteTeamExtensionGrant404.Type
       >
+  >;
+  /**
+   * Returns the apex maintainer for an extension, or none when org-owner fallback is active.
+   */
+  readonly MaintainerGetMaintainer: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof MaintainerGetMaintainer200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"MaintainerGetMaintainer400", typeof MaintainerGetMaintainer400.Type>
+    | RegistryClientError<"MaintainerGetMaintainer401", typeof MaintainerGetMaintainer401.Type>
+    | RegistryClientError<"MaintainerGetMaintainer403", typeof MaintainerGetMaintainer403.Type>
+    | RegistryClientError<"MaintainerGetMaintainer404", typeof MaintainerGetMaintainer404.Type>
   >;
   /**
    * Sets or transfers the apex maintainer for an extension to an eligible user or team.

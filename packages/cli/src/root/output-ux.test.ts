@@ -100,7 +100,7 @@ const planResultCallPattern =
   /\b(?:PlanResolutionDocumentFields|PlanResolutionResultSchema|SetupDocumentFields|UpgradeDocumentFields|LoginDocumentFields|LoginNoOpDocumentFields|LogoutDocumentFields|CreatedTokenDocumentFields|RevokeTokenDocumentFields|LintFixJsonDocumentFields)\b/;
 
 const readQueryResultCallPattern =
-  /\b(?:AgentsListOutputSchema|DiscoverOutputSchema|HelpTopicResultSchema|HelpTopicsResultSchema|InstructionsStatusOutputSchema|LintJsonDocumentFields|McpServerGetResultSchema|OutdatedDocumentFields|TokenDocumentFields|TokenListDocumentFields|ViewDocumentFields|WhoamiDocumentFields|Schema\.Array\(Schema\.String\)|Schema\.String)\b/;
+  /\b(?:AgentsListOutputSchema|DiscoverOutputSchema|GrantListOutputSchema|HelpTopicResultSchema|HelpTopicsResultSchema|InstructionsStatusOutputSchema|LintJsonDocumentFields|MaintainerOutputSchema|McpServerGetResultSchema|OutdatedDocumentFields|TokenDocumentFields|TokenListDocumentFields|ViewDocumentFields|WhoamiDocumentFields|Schema\.Array\(Schema\.String\)|Schema\.String)\b/;
 
 const visibleLiteralText = (literal: string): string =>
   literal.startsWith("`") ? literal.replace(templateExpressionPattern, "") : literal;

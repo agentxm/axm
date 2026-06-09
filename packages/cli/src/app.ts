@@ -40,7 +40,9 @@ import { tokenCommand } from "./root/auth/token.js";
 import { upgradeCommand } from "./root/upgrade/upgrade.js";
 import { lintCommand } from "./root/lint/command.js";
 import { discoverCommand } from "./root/discover/command.js";
+import { grantCommand } from "./root/grant/command.js";
 import { installCommand } from "./root/install/command.js";
+import { maintainerCommand } from "./root/maintainer/command.js";
 import { outdatedCommand } from "./root/outdated/command.js";
 import { uninstallCommand } from "./root/uninstall/command.js";
 import { pruneCommand } from "./root/prune/command.js";
@@ -93,6 +95,8 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         outdatedCommand,
         viewCommand,
         versionCommand,
+        grantCommand,
+        maintainerCommand,
       ],
     },
     {

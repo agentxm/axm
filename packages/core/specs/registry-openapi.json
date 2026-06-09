@@ -2917,6 +2917,79 @@
       }
     },
     "/v1/extensions/{owner}/{type}/{name}/grants": {
+      "get": {
+        "tags": ["TeamGrants"],
+        "operationId": "TeamGrants.listExtensionGrants",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "ExtensionGrantsResponse",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExtensionGrantsResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "List extension grants"
+      },
       "post": {
         "tags": ["TeamGrants"],
         "operationId": "TeamGrants.upsertTeamExtensionGrant",
@@ -3009,6 +3082,365 @@
         }
       }
     },
+    "/v1/extensions/{owner}/{type}/{name}/grants/user/{userId}": {
+      "put": {
+        "tags": ["TeamGrants"],
+        "operationId": "TeamGrants.upsertUserExtensionGrant",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/UserId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": { "$ref": "#/components/schemas/UserId" },
+                    "role": { "type": "string" },
+                    "grantedBy": {
+                      "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }],
+                      "readOnly": true
+                    },
+                    "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
+                  },
+                  "required": ["userId", "role", "grantedBy", "createdAt"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Adds or updates the user grant identified by userId on the extension.",
+        "summary": "Add or update a user extension grant",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/UpsertGrantBody" } }
+          },
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": ["TeamGrants"],
+        "operationId": "TeamGrants.deleteUserExtensionGrant",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/UserId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "204": { "description": "<No Content>" },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Removes the user grant identified by userId from the extension.",
+        "summary": "Remove a user extension grant"
+      }
+    },
+    "/v1/extensions/{owner}/{type}/{name}/grants/team/{teamId}": {
+      "put": {
+        "tags": ["TeamGrants"],
+        "operationId": "TeamGrants.upsertTeamExtensionGrantById",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "TeamGrant",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TeamGrant" } }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Adds or updates the team grant identified by teamId on the extension.",
+        "summary": "Add or update a team extension grant",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/UpsertGrantBody" } }
+          },
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": ["TeamGrants"],
+        "operationId": "TeamGrants.deleteTeamExtensionGrantById",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/TeamId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "204": { "description": "<No Content>" },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Removes the team grant identified by teamId from the extension.",
+        "summary": "Remove a team extension grant"
+      }
+    },
     "/v1/extensions/{owner}/{type}/{name}/grants/{teamId}": {
       "delete": {
         "tags": ["TeamGrants"],
@@ -3085,6 +3517,78 @@
       }
     },
     "/v1/extensions/{owner}/{type}/{name}/maintainer": {
+      "get": {
+        "tags": ["Maintainer"],
+        "operationId": "Maintainer.getMaintainer",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Maintainer",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Maintainer" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "description": "Returns the apex maintainer for an extension, or none when org-owner fallback is active.",
+        "summary": "Get extension maintainer"
+      },
       "put": {
         "tags": ["Maintainer"],
         "operationId": "Maintainer.setMaintainer",
@@ -4553,9 +5057,9 @@
       },
       "ExtensionType": {
         "type": "string",
-        "enum": ["skill", "command", "mcp-server", "subagent", "context", "rule", "pack"],
+        "enum": ["skill", "command", "mcp-server", "subagent", "files", "rule", "hook", "pack"],
         "title": "Extension Type",
-        "description": "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, or pack."
+        "description": "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, or pack."
       },
       "Version": {
         "type": "string",
@@ -4640,7 +5144,7 @@
       },
       "ExtensionTypePlural": {
         "type": "string",
-        "enum": ["skills", "commands", "mcps", "subagents", "context", "rules", "packs"],
+        "enum": ["skills", "commands", "mcps", "subagents", "files", "rules", "hooks", "packs"],
         "title": "Extension Type (Plural)",
         "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, commands, packs)."
       },
@@ -4956,15 +5460,60 @@
         "title": "Put Collaborator Body",
         "description": "Request body for assigning a collaborator role on an extension."
       },
-      "UpsertTeamGrantBody": {
+      "ExtensionGrantEntry": {
         "type": "object",
         "properties": {
-          "teamId": { "$ref": "#/components/schemas/TeamId" },
-          "role": { "type": "string", "enum": ["read", "write"] }
+          "subject": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "enum": ["user"] },
+                  "userId": { "$ref": "#/components/schemas/UserId" }
+                },
+                "required": ["kind", "userId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "enum": ["team"] },
+                  "teamId": { "$ref": "#/components/schemas/TeamId" }
+                },
+                "required": ["kind", "teamId"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "role": { "type": "string", "enum": ["read", "write"] },
+          "grantedBy": {
+            "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }],
+            "readOnly": true
+          },
+          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
         },
-        "required": ["teamId", "role"],
+        "required": ["subject", "role", "grantedBy", "createdAt"],
         "additionalProperties": false,
-        "title": "Upsert Team Grant Body"
+        "title": "Extension Grant Entry"
+      },
+      "ExtensionGrantsResponse": {
+        "type": "object",
+        "properties": {
+          "grants": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ExtensionGrantEntry" }
+          }
+        },
+        "required": ["grants"],
+        "additionalProperties": false,
+        "title": "Extension Grants Response"
+      },
+      "UpsertGrantBody": {
+        "type": "object",
+        "properties": { "role": { "type": "string", "enum": ["read", "write"] } },
+        "required": ["role"],
+        "additionalProperties": false,
+        "title": "Upsert Grant Body"
       },
       "TeamGrant": {
         "type": "object",
@@ -4978,28 +5527,15 @@
         "additionalProperties": false,
         "title": "Team Grant"
       },
-      "MaintainerTarget": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["user"] },
-              "userId": { "$ref": "#/components/schemas/UserId" }
-            },
-            "required": ["kind", "userId"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["team"] },
-              "teamId": { "$ref": "#/components/schemas/TeamId" }
-            },
-            "required": ["kind", "teamId"],
-            "additionalProperties": false
-          }
-        ],
-        "title": "Maintainer Target"
+      "UpsertTeamGrantBody": {
+        "type": "object",
+        "properties": {
+          "teamId": { "$ref": "#/components/schemas/TeamId" },
+          "role": { "type": "string", "enum": ["read", "write"] }
+        },
+        "required": ["teamId", "role"],
+        "additionalProperties": false,
+        "title": "Upsert Team Grant Body"
       },
       "Maintainer": {
         "anyOf": [
@@ -5059,11 +5595,34 @@
         ],
         "title": "Maintainer"
       },
+      "MaintainerTarget": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["user"] },
+              "userId": { "$ref": "#/components/schemas/UserId" }
+            },
+            "required": ["kind", "userId"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["team"] },
+              "teamId": { "$ref": "#/components/schemas/TeamId" }
+            },
+            "required": ["kind", "teamId"],
+            "additionalProperties": false
+          }
+        ],
+        "title": "Maintainer Target"
+      },
       "ExtensionFqn": {
         "type": "string",
         "allOf": [
           {
-            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|context|rules|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
             "title": "Extension FQN",
             "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
             "examples": ["@acme/skills/code-review", "@my-org/commands/format"]

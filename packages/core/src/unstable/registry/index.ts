@@ -51,6 +51,25 @@ export { createLocalRegistryClient } from "./local-client.js";
 // Remote client
 export { createRemoteRegistryClient } from "./remote-client.js";
 
+export type {
+  ExtensionGrantEntry,
+  ExtensionGrantRole,
+  ExtensionGrantsResponse,
+  ExtensionMaintainer,
+  ExtensionMaintainerTarget,
+  RegistryExtensionReference,
+} from "./admin-client.js";
+export {
+  clearExtensionMaintainer,
+  deleteTeamExtensionGrant,
+  deleteUserExtensionGrant,
+  getExtensionMaintainer,
+  listExtensionGrants,
+  setExtensionMaintainer,
+  upsertTeamExtensionGrant,
+  upsertUserExtensionGrant,
+} from "./admin-client.js";
+
 // Error mapping helpers
 export {
   buildNetworkSuggestions,

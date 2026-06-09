@@ -28,7 +28,7 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   settings: "What AXM tracks in the .axm/settings.json workspace state file.",
   "settings-schema": "JSON Schema for the .axm/settings.json file.",
   mcps: "How MCP server extensions work and how AXM installs and manages them.",
-  "mcp-server-schema": "JSON Schema for an MCP server manifest.",
+  "mcp-schema": "JSON Schema for an MCP server manifest.",
   "axm-lock-schema": "JSON Schema for the AXM lockfile.",
   "axm-package-meta-schema": "JSON Schema for package-native AXM extension metadata.",
   "exit-codes": "Exit codes returned by AXM commands and what each one means.",

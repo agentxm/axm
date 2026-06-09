@@ -73,7 +73,7 @@ describe("coding-agent services", () => {
             const canonicalPath = `${workspaceRoot}/.axm/extensions/mcp/mcps/chrome-devtools-mcp`;
             mkdirSync(canonicalPath, { recursive: true });
             writeFileSync(
-              `${canonicalPath}/mcp-server.json`,
+              `${canonicalPath}/mcp.json`,
               JSON.stringify({
                 owner: "@mcp",
                 type: "mcp-server",

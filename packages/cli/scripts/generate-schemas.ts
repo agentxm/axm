@@ -60,7 +60,7 @@ const schemas: SchemaConfig[] = [
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
-    name: "mcp-server.schema.json",
+    name: "mcp.schema.json",
     schema: McpServerManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },

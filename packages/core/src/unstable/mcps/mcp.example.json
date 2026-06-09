@@ -1,5 +1,5 @@
 {
-  "$schema": "https://axm.sh/schemas/mcp-server.schema.json",
+  "$schema": "https://axm.sh/schemas/mcp.schema.json",
   "owner": "@acme",
   "type": "mcp-server",
   "name": "database-mcp",

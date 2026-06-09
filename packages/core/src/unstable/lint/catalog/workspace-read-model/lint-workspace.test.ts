@@ -118,7 +118,7 @@ const fixture = (packJson: object | string): FixtureSpec => ({
         _tag: "valid",
         contents: manifestFixtures.subagent,
       },
-      "@acme/mcps/bad-mcp/mcp-server.json": {
+      "@acme/mcps/bad-mcp/mcp.json": {
         _tag: "valid",
         contents: manifestFixtures.mcpServer,
       },

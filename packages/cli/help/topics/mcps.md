@@ -7,15 +7,15 @@ not hand-maintain `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, and
 friends in parallel.
 
 MCP server packages live in
-`./.axm/extensions/<@owner>/mcps/<name>/mcp-server.json`. Unlike skills and
+`./.axm/extensions/<@owner>/mcps/<name>/mcp.json`. Unlike skills and
 subagents, an MCP server has no `src/` body — the whole definition lives in the
 manifest.
 
-## mcp-server.json
+## mcp.json
 
-[`mcp-server.json`](https://axm.sh/schemas/mcp-server.schema.json)
+[`mcp.json`](https://axm.sh/schemas/mcp.schema.json)
 
-Run `axm help mcp-server-schema` to print the raw JSON Schema.
+Run `axm help mcp-schema` to print the raw JSON Schema.
 
 The manifest's `server` field embeds a verbatim MCP registry `server.json`
 [ServerDetail](https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json),
@@ -73,7 +73,7 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
 
 Authoring commands mirror the other extension types:
 
-- `axm mcps new <name>` — scaffold an `mcp-server.json` under your workspace
+- `axm mcps new <name>` — scaffold an `mcp.json` under your workspace
   owner.
 - `axm mcps version @owner/mcps/<name> <patch|minor|major>` — bump the manifest
   version.
@@ -143,12 +143,12 @@ configs through `axm sync` or `axm lint --fix`.
 Never store literal tokens in `.axm/settings.json`. Put secrets in `env` or
 `headers` as `${VAR}` references and let each agent resolve them from the
 environment at runtime. `axm lint` flags secret-looking literals through
-`workspace/mcp-server-no-secret-literal`, and `mcp-server.json` marks sensitive
+`workspace/mcp-server-no-secret-literal`, and `mcp.json` marks sensitive
 inputs with `isSecret` so installers prompt for them instead of hardcoding.
 
 ## Recommended packs
 
-Name the pack(s) your server ships with in `mcp-server.json` `recommendedPacks`,
+Name the pack(s) your server ships with in `mcp.json` `recommendedPacks`,
 using the bare pack reference — no version range:
 
 ```json
@@ -164,6 +164,6 @@ See `axm help packs` for pack authoring and `standalone` semantics.
 ## Where to go next
 
 - `axm mcps --help` — full MCP server subcommand surface
-- `axm help mcp-server-schema` — raw `mcp-server.json` JSON Schema
+- `axm help mcp-schema` — raw `mcp.json` JSON Schema
 - `axm help settings` — workspace state, `mcpServers`, and `mcpServersConfig`
 - `axm help packs` — bundling MCP server extensions with extension packs

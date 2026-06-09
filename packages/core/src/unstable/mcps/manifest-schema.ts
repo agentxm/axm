@@ -16,14 +16,14 @@ import {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const MCP_SERVER_MANIFEST_FILENAME = "mcp-server.json";
+export const MCP_SERVER_MANIFEST_FILENAME = "mcp.json";
 
 /**
  * URL for the MCP server manifest JSON Schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const MCP_SERVER_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/mcp-server.schema.json";
+export const MCP_SERVER_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/mcp.schema.json";
 
 /** @experimental This API is unstable and may change without notice. */
 export const MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL =
@@ -323,15 +323,14 @@ export const McpRegistryServerDetailSchema = Schema.Struct({
 }).annotate({
   identifier: "McpRegistryServerDetail",
   title: "MCP Registry Server Detail",
-  description:
-    "Verbatim MCP registry server.json ServerDetail embedded in AXM mcp-server.json manifests.",
+  description: "Verbatim MCP registry server.json ServerDetail embedded in AXM mcp.json manifests.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
 export type McpRegistryServerDetail = Schema.Schema.Type<typeof McpRegistryServerDetailSchema>;
 
 /**
- * Schema for MCP server manifest files (mcp-server.json).
+ * Schema for MCP server manifest files (mcp.json).
  *
  * MCP servers provide Model Context Protocol endpoints that
  * extend coding agent capabilities with external tools and resources.

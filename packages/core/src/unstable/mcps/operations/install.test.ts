@@ -292,7 +292,7 @@ describe("installMcpServer", () => {
     const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcps", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
-      path.join(canonicalPath, "mcp-server.json"),
+      path.join(canonicalPath, "mcp.json"),
       JSON.stringify({
         owner,
         type: "mcp-server",
@@ -370,7 +370,7 @@ describe("installMcpServer", () => {
           "mcps",
           "my-server",
         );
-        expect(fs.existsSync(path.join(canonicalPath, "mcp-server.json"))).toBe(true);
+        expect(fs.existsSync(path.join(canonicalPath, "mcp.json"))).toBe(true);
       }),
     );
 
@@ -379,7 +379,7 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         const canonicalPath = setupRegistryCanonical(base, "@community");
         fs.writeFileSync(
-          path.join(canonicalPath, "mcp-server.json"),
+          path.join(canonicalPath, "mcp.json"),
           JSON.stringify({
             owner: "@community",
             type: "mcp-server",

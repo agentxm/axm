@@ -48,7 +48,7 @@ describe("configured extensions to disk refs", () => {
         name: "deploy",
         version: "1.0.0",
       });
-      writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/mcps/browser/mcp-server.json"), {
+      writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/mcps/browser/mcp.json"), {
         owner: "@acme",
         type: "mcp-server",
         name: "browser",

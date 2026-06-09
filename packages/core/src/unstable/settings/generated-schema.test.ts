@@ -27,7 +27,7 @@ const generatedSchemaNames = [
   "settings.schema.json",
   "skill.schema.json",
   "command.schema.json",
-  "mcp-server.schema.json",
+  "mcp.schema.json",
   "subagent.schema.json",
   "pack.schema.json",
   "files.schema.json",

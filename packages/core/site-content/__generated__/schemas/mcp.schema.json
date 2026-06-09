@@ -578,7 +578,7 @@
       "required": ["name", "description", "version"],
       "additionalProperties": false,
       "title": "MCP Registry Server Detail",
-      "description": "Verbatim MCP registry server.json ServerDetail embedded in AXM mcp-server.json manifests."
+      "description": "Verbatim MCP registry server.json ServerDetail embedded in AXM mcp.json manifests."
     },
     "McpServerManifest": {
       "type": "object",

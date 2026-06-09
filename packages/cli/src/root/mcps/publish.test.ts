@@ -14,7 +14,7 @@ const createManagedMcpServer = (baseDir: string, owner: string, name: string) =>
   const srcDir = path.join(extensionDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
-    path.join(extensionDir, "mcp-server.json"),
+    path.join(extensionDir, "mcp.json"),
     JSON.stringify(
       {
         owner,

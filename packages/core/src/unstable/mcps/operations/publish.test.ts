@@ -91,10 +91,7 @@ describe("publishMcpServer", () => {
       },
       ...manifest,
     };
-    fs.writeFileSync(
-      path.join(extensionDir, "mcp-server.json"),
-      JSON.stringify(defaultManifest, null, 2),
-    );
+    fs.writeFileSync(path.join(extensionDir, "mcp.json"), JSON.stringify(defaultManifest, null, 2));
 
     fs.writeFileSync(path.join(srcDir, "content.md"), `# ${name}`);
 

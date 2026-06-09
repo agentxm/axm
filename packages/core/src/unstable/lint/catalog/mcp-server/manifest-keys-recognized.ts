@@ -5,13 +5,13 @@ import { McpServerManifestSchema } from "../../../mcps/manifest-schema.js";
 import { enumerateUnknownTopLevelKeys, structFieldKeys } from "../shared/schema-rule.js";
 
 const RULE_ID = "mcp-server/manifest-keys-recognized";
-const MCP_SERVER_JSON = "mcp-server.json";
+const MCP_SERVER_JSON = "mcp.json";
 
 const allowedKeys = structFieldKeys(McpServerManifestSchema);
 
 export const manifestKeysRecognizedRule: AdvisoryRule<McpServerRuleContext> = {
   id: RULE_ID,
-  description: "mcp-server.json uses only supported top-level fields.",
+  description: "mcp.json uses only supported top-level fields.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

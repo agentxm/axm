@@ -177,7 +177,7 @@ const publishMcpServerToRegistry = async (registryPath: string, name: string) =>
     );
 
     fs.writeFileSync(
-      path.join(archiveWorkspace.path, "mcp-server.json"),
+      path.join(archiveWorkspace.path, "mcp.json"),
       JSON.stringify(
         {
           owner: OWNER,

@@ -80,7 +80,7 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
       TEST_NAMESPACE,
       "mcps",
       "managed-mcp",
-      "mcp-server.json",
+      "mcp.json",
     ),
     {
       owner: TEST_NAMESPACE,

@@ -23,7 +23,7 @@ invocable: true
    - `skill/*` and `workspace/skills-managed` → `axm help skills`
    - `subagent/*` → `axm help subagents`
    - `command/*` → `axm help commands`
-   - `mcp-server/*` → `axm help mcp-server-schema`
+   - `mcp-server/*` → `axm help mcp-schema`
    - `context/*` → `axm help context`
    - `hook/*` → `axm help hook-schema`
    - `pack/*` → `axm help packs`
@@ -32,7 +32,7 @@ invocable: true
 
 ### CLI Introspection
 
-Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guidance (skills, subagents, commands, mcp-server-schema, context, packs, settings, exit-codes, etc.).
+Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guidance (skills, subagents, commands, mcp-schema, context, packs, settings, exit-codes, etc.).
 
 ## Quick Reference
 

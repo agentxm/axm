@@ -35,7 +35,7 @@ const MANIFEST_FILES = {
   commands: { filename: "command.json", type: "command" },
   skills: { filename: "skill.json", type: "skill" },
   subagents: { filename: "subagent.json", type: "subagent" },
-  mcps: { filename: "mcp-server.json", type: "mcp-server" },
+  mcps: { filename: "mcp.json", type: "mcp-server" },
   packs: { filename: "pack.json", type: "pack" },
 } as const;
 

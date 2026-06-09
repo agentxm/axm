@@ -89,7 +89,7 @@ describe("axm mcps new", () => {
       expect(result.exitCode).toBe(0);
 
       const packageDir = path.join(temp.path, ".axm", "extensions", "@test", "mcps", "context");
-      const manifest = readJson(path.join(packageDir, "mcp-server.json"));
+      const manifest = readJson(path.join(packageDir, "mcp.json"));
       expect(manifest["owner"]).toBe("@test");
       expect(manifest["type"]).toBe("mcp-server");
       expect(manifest["name"]).toBe("context");
@@ -107,7 +107,7 @@ describe("axm mcps new", () => {
       expect(lockfile).toContain("context:");
       expect(lockfile).toContain("resolvedVersion: 0.1.0");
       expect(result.stdout + result.stderr).toContain(
-        "Edit `.axm/extensions/@test/mcps/context/mcp-server.json`",
+        "Edit `.axm/extensions/@test/mcps/context/mcp.json`",
       );
     } finally {
       temp.cleanup();

@@ -43,7 +43,7 @@ describe("manifestFilenameForType", () => {
   it("maps supported extension types to manifest files", () => {
     expect(manifestFilenameForType("skill")).toBe("skill.json");
     expect(manifestFilenameForType("command")).toBe("command.json");
-    expect(manifestFilenameForType("mcp-server")).toBe("mcp-server.json");
+    expect(manifestFilenameForType("mcp-server")).toBe("mcp.json");
     expect(manifestFilenameForType("subagent")).toBe("subagent.json");
     expect(manifestFilenameForType("pack")).toBe("pack.json");
     expect(manifestFilenameForType("files")).toBe("files.json");

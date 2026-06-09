@@ -157,10 +157,7 @@ describe("MCP registry server schema mirror", () => {
   it("tracks the upstream ServerDetail contract embedded in AXM manifests", () => {
     const upstream = readJson(new URL("upstream/server.schema.json", import.meta.url));
     const generated = readJson(
-      new URL(
-        "../../../site-content/__generated__/schemas/mcp-server.schema.json",
-        import.meta.url,
-      ),
+      new URL("../../../site-content/__generated__/schemas/mcp.schema.json", import.meta.url),
     );
 
     const upstreamServerDetail = upstream.definitions.ServerDetail;

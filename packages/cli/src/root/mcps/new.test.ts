@@ -65,9 +65,7 @@ describe("mcps-new.handler", () => {
         });
 
         const packageDir = path.join(tempDir, ".axm", "extensions", "@acme", "mcps", "context");
-        const manifest = JSON.parse(
-          fs.readFileSync(path.join(packageDir, "mcp-server.json"), "utf-8"),
-        );
+        const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, "mcp.json"), "utf-8"));
         expect(manifest).toMatchObject({
           owner: "@acme",
           type: "mcp-server",
@@ -97,7 +95,7 @@ describe("mcps-new.handler", () => {
         expect(rendererState.suggestions).toEqual([
           {
             description:
-              "Edit `.axm/extensions/@acme/mcps/context/mcp-server.json` to configure the MCP server",
+              "Edit `.axm/extensions/@acme/mcps/context/mcp.json` to configure the MCP server",
           },
         ]);
       }),

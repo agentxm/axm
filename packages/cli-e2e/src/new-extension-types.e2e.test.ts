@@ -124,6 +124,7 @@ describe("axm hooks new", () => {
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@test",
+        agents: ["claude-code"],
       }));
 
       const settingsPath = path.join(temp.path, ".claude", "settings.json");

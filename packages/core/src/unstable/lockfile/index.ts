@@ -71,7 +71,12 @@ export {
 export { LOCKFILE_NAME } from "./lockfile.js";
 export type { LockfileUpdate } from "./lockfile.js";
 
-export { applyLockfileUpdates, commitLockfileUpdates, writeLockfile } from "./lockfile.js";
+export {
+  applyLockfileUpdates,
+  commitLockfileSnapshotUpdate,
+  commitLockfileUpdates,
+  writeLockfile,
+} from "./lockfile.js";
 export {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,

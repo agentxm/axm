@@ -2,10 +2,11 @@
  * WorkspaceMutations mutation facade implementation.
  *
  * This is the sole public gateway for all settings and lockfile read/write
- * operations. It reads through `WorkspaceReadModel` and calls the write I/O
- * functions (`writeSettings`, `writeLockfile`) directly while managing mutation
- * serialization via a single Semaphore(1). No other service should perform
- * settings or lockfile I/O in production; the per-service semaphores in
+ * operations. It reads through `WorkspaceReadModel`, writes settings directly,
+ * and commits lockfile snapshots through the lockfile module so cross-process
+ * updates are serialized and merged per entry. It also serializes in-process
+ * mutations via a single Semaphore(1). No other service should perform settings
+ * or lockfile I/O in production; the per-service semaphores in
  * `settings/service.ts` and `lockfile/service.ts` have been removed.
  *
  * Supporting logic is split into focused modules:
@@ -25,9 +26,9 @@ import * as Semaphore from "effect/Semaphore";
 import {
   LOCKFILE_NAME,
   LOCKFILE_VERSION,
+  commitLockfileSnapshotUpdate,
   makeRegistryLibraryLockEntry,
   makeRegistryPackLockEntry,
-  writeLockfile,
   type RegistryLibraryLockEntry,
   type RegistryPackLockEntry,
   type FilesLockMap,
@@ -647,7 +648,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setFiles")),
 
@@ -668,7 +673,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setFilesLock")),
 
@@ -698,7 +707,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : currentLockfile;
 
             yield* writeSettings(workspaceDir, remainingSettings).pipe(Effect.provide(fsLayer));
-            yield* writeLockfile(workspaceDir, remainingLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              remainingLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeFiles")),
 
@@ -725,10 +738,15 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             if (!(name in currentLockedContext)) return;
             const { [name]: _, ...remainingContext } = currentLockedContext;
             void _;
-            yield* writeLockfile(workspaceDir, {
+            const updatedLockfile = {
               ...currentLockfile,
               files: remainingContext,
-            }).pipe(Effect.provide(fsLayer));
+            };
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeFilesLock")),
 
@@ -800,7 +818,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLockedRules = currentLockfile.rules ?? {};
             const previous = currentLockedRules[name];
-            yield* writeLockfile(workspaceDir, {
+            const updatedLockfile = {
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
@@ -810,7 +828,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   updatedAt: new Date(),
                 },
               },
-            }).pipe(Effect.provide(fsLayer));
+            };
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setRule")),
 
@@ -820,7 +843,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLockedRules = currentLockfile.rules ?? {};
             const previous = currentLockedRules[name];
-            yield* writeLockfile(workspaceDir, {
+            const updatedLockfile = {
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
@@ -830,7 +853,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   updatedAt: new Date(),
                 },
               },
-            }).pipe(Effect.provide(fsLayer));
+            };
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setRuleLock")),
 
@@ -860,7 +888,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : currentLockfile;
 
             yield* writeSettings(workspaceDir, remainingSettings).pipe(Effect.provide(fsLayer));
-            yield* writeLockfile(workspaceDir, remainingLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              remainingLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeRule")),
 
@@ -887,10 +919,15 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             if (!(name in currentLockedRules)) return;
             const { [name]: _, ...remainingRules } = currentLockedRules;
             void _;
-            yield* writeLockfile(workspaceDir, {
+            const updatedLockfile = {
               ...currentLockfile,
               rules: remainingRules,
-            }).pipe(Effect.provide(fsLayer));
+            };
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeRuleLock")),
 
@@ -962,7 +999,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLockedHooks = currentLockfile.hooks ?? {};
             const previous = currentLockedHooks[name];
-            yield* writeLockfile(workspaceDir, {
+            const updatedLockfile = {
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
@@ -972,7 +1009,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   updatedAt: new Date(),
                 },
               },
-            }).pipe(Effect.provide(fsLayer));
+            };
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setHook")),
 
@@ -982,7 +1024,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const currentLockedHooks = currentLockfile.hooks ?? {};
             const previous = currentLockedHooks[name];
-            yield* writeLockfile(workspaceDir, {
+            const updatedLockfile = {
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
@@ -992,7 +1034,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   updatedAt: new Date(),
                 },
               },
-            }).pipe(Effect.provide(fsLayer));
+            };
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setHookLock")),
 
@@ -1022,7 +1069,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : currentLockfile;
 
             yield* writeSettings(workspaceDir, remainingSettings).pipe(Effect.provide(fsLayer));
-            yield* writeLockfile(workspaceDir, remainingLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              remainingLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeHook")),
 
@@ -1049,10 +1100,15 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             if (!(name in currentLockedHooks)) return;
             const { [name]: _, ...remainingHooks } = currentLockedHooks;
             void _;
-            yield* writeLockfile(workspaceDir, {
+            const updatedLockfile = {
               ...currentLockfile,
               hooks: remainingHooks,
-            }).pipe(Effect.provide(fsLayer));
+            };
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeHookLock")),
 
@@ -1173,7 +1229,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSkill")),
 
@@ -1195,7 +1255,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSkillLock")),
 
@@ -1221,7 +1285,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               const { [name]: __, ...remainingLockSkills } = currentLockfile.skills;
               void __;
               const updatedLockfile = { ...currentLockfile, skills: remainingLockSkills };
-              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+              yield* commitLockfileSnapshotUpdate(
+                workspaceDir,
+                currentLockfile,
+                updatedLockfile,
+              ).pipe(Effect.provide(fsLayer));
             }
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeSkill")),
@@ -1290,7 +1358,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: { ...oldEntry, agents: [...agents] },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1406,7 +1478,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setPack")),
 
@@ -1443,7 +1519,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               const { [name]: __, ...remainingLockedPacks } = currentLockedPacks;
               void __;
               const updatedLockfile = { ...currentLockfile, packs: remainingLockedPacks };
-              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+              yield* commitLockfileSnapshotUpdate(
+                workspaceDir,
+                currentLockfile,
+                updatedLockfile,
+              ).pipe(Effect.provide(fsLayer));
             }
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removePack")),
@@ -1494,7 +1574,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setLibrary")),
 
@@ -1526,7 +1610,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: removedLock, ...remainingLockedLibraries } = currentLockedLibraries;
             void removedLock;
             const updatedLockfile = { ...currentLockfile, libraries: remainingLockedLibraries };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeLibrary")),
 
@@ -1579,7 +1667,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setCommand")),
 
@@ -1599,7 +1691,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1628,7 +1724,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ...currentLockfile,
                 commands: remainingLockedCommands,
               };
-              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+              yield* commitLockfileSnapshotUpdate(
+                workspaceDir,
+                currentLockfile,
+                updatedLockfile,
+              ).pipe(Effect.provide(fsLayer));
             }
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeCommand")),
@@ -1723,7 +1823,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSubagent")),
 
@@ -1746,7 +1850,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1775,7 +1883,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ...currentLockfile,
                 subagents: remainingLockedSubagents,
               };
-              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+              yield* commitLockfileSnapshotUpdate(
+                workspaceDir,
+                currentLockfile,
+                updatedLockfile,
+              ).pipe(Effect.provide(fsLayer));
             }
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeSubagent")),
@@ -1832,7 +1944,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remaining } = currentLockedSubagents;
             void _;
             const updatedLockfile = { ...currentLockfile, subagents: remaining };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeSubagentLock")),
 
@@ -1904,7 +2020,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setMcpServer")),
 
@@ -1924,7 +2044,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 },
               },
             };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1989,7 +2113,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ...currentLockfile,
                 mcpServers: remainingLockedMcpServers,
               };
-              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+              yield* commitLockfileSnapshotUpdate(
+                workspaceDir,
+                currentLockfile,
+                updatedLockfile,
+              ).pipe(Effect.provide(fsLayer));
             }
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeMcpServer")),
@@ -2006,7 +2134,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingSkills } = currentLockfile.skills;
             void _;
             const updatedLockfile = { ...currentLockfile, skills: remainingSkills };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removeSkillLock")),
 
@@ -2032,7 +2164,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingCommands } = currentLockedCommands;
             void _;
             const updatedLockfile = { ...currentLockfile, commands: remainingCommands };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -2058,7 +2194,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingMcpServers } = currentLockedMcpServers;
             void _;
             const updatedLockfile = { ...currentLockfile, mcpServers: remainingMcpServers };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -2084,7 +2224,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingPacks } = currentLockedPacks;
             void _;
             const updatedLockfile = { ...currentLockfile, packs: remainingPacks };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -2110,7 +2254,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingLibraries } = currentLockedLibraries;
             void _;
             const updatedLockfile = { ...currentLockfile, libraries: remainingLibraries };
-            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -2166,7 +2314,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     [target.name]: { ...entry, retainedByPack: true },
                   },
                 };
-                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                yield* commitLockfileSnapshotUpdate(
+                  workspaceDir,
+                  currentLockfile,
+                  updatedLockfile,
+                ).pipe(Effect.provide(fsLayer));
                 break;
               }
               case "command": {
@@ -2180,7 +2332,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     [target.name]: { ...entry, retainedByPack: true },
                   },
                 };
-                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                yield* commitLockfileSnapshotUpdate(
+                  workspaceDir,
+                  currentLockfile,
+                  updatedLockfile,
+                ).pipe(Effect.provide(fsLayer));
                 break;
               }
               case "mcp-server": {
@@ -2194,7 +2350,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     [target.name]: { ...entry, retainedByPack: true },
                   },
                 };
-                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                yield* commitLockfileSnapshotUpdate(
+                  workspaceDir,
+                  currentLockfile,
+                  updatedLockfile,
+                ).pipe(Effect.provide(fsLayer));
                 break;
               }
               case "files": {
@@ -2208,7 +2368,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     [target.name]: { ...entry, retainedByPack: true },
                   },
                 };
-                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                yield* commitLockfileSnapshotUpdate(
+                  workspaceDir,
+                  currentLockfile,
+                  updatedLockfile,
+                ).pipe(Effect.provide(fsLayer));
                 break;
               }
               case "rule": {
@@ -2222,7 +2386,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     [target.name]: { ...entry, retainedByPack: true },
                   },
                 };
-                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                yield* commitLockfileSnapshotUpdate(
+                  workspaceDir,
+                  currentLockfile,
+                  updatedLockfile,
+                ).pipe(Effect.provide(fsLayer));
                 break;
               }
               case "hook": {
@@ -2236,7 +2404,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     [target.name]: { ...entry, retainedByPack: true },
                   },
                 };
-                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                yield* commitLockfileSnapshotUpdate(
+                  workspaceDir,
+                  currentLockfile,
+                  updatedLockfile,
+                ).pipe(Effect.provide(fsLayer));
                 break;
               }
               case "pack":

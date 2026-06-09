@@ -4,10 +4,25 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
+import * as TestClock from "effect/testing/TestClock";
 import YAML from "yaml";
-import { MaterializedFileTargetSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
-import { applyLockfileUpdates, commitLockfileUpdates, writeLockfile } from "./lockfile.js";
+import {
+  LockfileSchema,
+  MaterializedFileTargetSchema,
+  type Lockfile,
+  type SkillLockEntry,
+} from "./schema.js";
+import {
+  applyLockfileUpdates,
+  commitLockfileSnapshotUpdate,
+  commitLockfileUpdates,
+  writeLockfile,
+} from "./lockfile.js";
 
 describe("lockfile", () => {
   let tempDir: string;
@@ -24,6 +39,11 @@ describe("lockfile", () => {
 
   const withContext = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
     effect.pipe(Effect.provide(NodeServices.layer));
+
+  const tempNames = (): ReadonlyArray<string> =>
+    fs.existsSync(axmDir)
+      ? fs.readdirSync(axmDir).filter((entry) => entry.startsWith("axm-lock.yaml.tmp."))
+      : [];
 
   const createTestEntry = (
     overrides?: Partial<Extract<SkillLockEntry, { readonly type: "github" }>>,
@@ -101,6 +121,77 @@ describe("lockfile", () => {
 
           const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
           expect(result.skills["commit"]).toBeDefined();
+        }),
+      ),
+    );
+
+    it.effect("removes the temp file when the atomic rename fails", () =>
+      Effect.gen(function* () {
+        const realFs = yield* FileSystem.FileSystem;
+        const failingFs: FileSystem.FileSystem = {
+          ...realFs,
+          rename: (oldPath, newPath) =>
+            newPath.endsWith("axm-lock.yaml") && oldPath.includes("axm-lock.yaml.tmp.")
+              ? Effect.fail(
+                  PlatformError.systemError({
+                    _tag: "Unknown",
+                    module: "FileSystem",
+                    method: "rename",
+                    pathOrDescriptor: oldPath,
+                  }),
+                )
+              : realFs.rename(oldPath, newPath),
+        };
+        const lockfile: Lockfile = {
+          lockfileVersion: 1,
+          skills: {
+            "pr-review": createTestEntry(),
+          },
+        };
+
+        const result = yield* writeLockfile(axmDir, lockfile).pipe(
+          Effect.provide(Layer.succeed(FileSystem.FileSystem, failingFs)),
+          Effect.result,
+        );
+
+        expect(result._tag).toBe("Failure");
+        expect(tempNames()).toEqual([]);
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect("sweeps stale temp files before writing", () =>
+      withContext(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml.tmp.old.bad123"), "stale");
+          const lockfile: Lockfile = {
+            lockfileVersion: 1,
+            skills: {
+              "pr-review": createTestEntry(),
+            },
+          };
+
+          yield* writeLockfile(axmDir, lockfile);
+
+          expect(tempNames()).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("keeps the YAML bytes identical to the existing encoder output", () =>
+      withContext(
+        Effect.gen(function* () {
+          const lockfile: Lockfile = {
+            lockfileVersion: 1,
+            skills: {
+              "pr-review": createTestEntry(),
+            },
+          };
+          const baseline = YAML.stringify(Schema.encodeSync(LockfileSchema)(lockfile));
+
+          yield* writeLockfile(axmDir, lockfile);
+
+          expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8")).toBe(baseline);
         }),
       ),
     );
@@ -190,6 +281,132 @@ describe("lockfile", () => {
           const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
           expect(result.files.baseline.materializedTargets[0].region).toBe("toc");
         }),
+      ),
+    );
+
+    it.effect("rereads under the lock so concurrent stale-base updates preserve both entries", () =>
+      withContext(
+        Effect.gen(function* () {
+          const staleBase: Lockfile = {
+            lockfileVersion: 1,
+            skills: {},
+          };
+
+          yield* Effect.all(
+            [
+              commitLockfileUpdates(axmDir, staleBase, [
+                (current) => ({
+                  ...current,
+                  skills: {
+                    ...current.skills,
+                    alpha: createTestEntry({ repo: "alpha" }),
+                  },
+                }),
+              ]),
+              commitLockfileUpdates(axmDir, staleBase, [
+                (current) => ({
+                  ...current,
+                  skills: {
+                    ...current.skills,
+                    beta: createTestEntry({ repo: "beta" }),
+                  },
+                }),
+              ]),
+            ],
+            { concurrency: "unbounded" },
+          );
+
+          const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(Object.keys(result.skills).sort()).toEqual(["alpha", "beta"]);
+          expect(tempNames()).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("commits snapshot diffs without dropping independent fresh entries", () =>
+      withContext(
+        Effect.gen(function* () {
+          const base: Lockfile = {
+            lockfileVersion: 1,
+            skills: {
+              base: createTestEntry({ repo: "base" }),
+            },
+          };
+          yield* writeLockfile(axmDir, base);
+
+          const firstNext: Lockfile = {
+            ...base,
+            skills: {
+              ...base.skills,
+              alpha: createTestEntry({ repo: "alpha" }),
+            },
+          };
+          const secondNext: Lockfile = {
+            ...base,
+            skills: {
+              beta: createTestEntry({ repo: "beta" }),
+            },
+          };
+
+          yield* commitLockfileSnapshotUpdate(axmDir, base, firstNext);
+          yield* commitLockfileSnapshotUpdate(axmDir, base, secondNext);
+
+          const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(Object.keys(result.skills).sort()).toEqual(["alpha", "beta"]);
+        }),
+      ),
+    );
+
+    it.effect("breaks a stale advisory lock and releases its own lock", () =>
+      withContext(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          const lockPath = path.join(axmDir, "axm-lock.yaml.lock");
+          fs.writeFileSync(lockPath, "stale");
+          fs.utimesSync(lockPath, new Date(Date.now() - 60_000), new Date(Date.now() - 60_000));
+
+          const lockfile: Lockfile = {
+            lockfileVersion: 1,
+            skills: {},
+          };
+
+          yield* writeLockfile(axmDir, lockfile);
+
+          expect(fs.existsSync(lockPath)).toBe(false);
+          expect(tempNames()).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("waits for an active advisory lock before writing", () =>
+      withContext(
+        Effect.scoped(
+          Effect.gen(function* () {
+            fs.mkdirSync(axmDir, { recursive: true });
+            const lockPath = path.join(axmDir, "axm-lock.yaml.lock");
+            fs.writeFileSync(lockPath, "active");
+
+            const lockfile: Lockfile = {
+              lockfileVersion: 1,
+              skills: {
+                "pr-review": createTestEntry(),
+              },
+            };
+
+            const fiber = yield* Effect.forkChild(writeLockfile(axmDir, lockfile));
+            yield* TestClock.adjust("10 millis");
+
+            expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(false);
+            fs.rmSync(lockPath);
+
+            yield* TestClock.adjust("50 millis");
+            yield* Fiber.join(fiber);
+
+            expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(true);
+            expect(fs.existsSync(lockPath)).toBe(false);
+            expect(tempNames()).toEqual([]);
+          }),
+        ),
       ),
     );
   });

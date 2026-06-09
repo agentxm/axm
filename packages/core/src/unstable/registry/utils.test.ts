@@ -18,7 +18,14 @@ import { afterEach, beforeEach } from "vitest";
 import type { VersionEntry } from "./schema.js";
 import { exactVersion, handle } from "../test-helpers.js";
 import { computeIntegrity } from "../utils/index.js";
-import { extensionDir, extractZip, pluralizeType, selectVersion } from "./utils.js";
+import { filterMatureVersions, parseMinimumReleaseAge } from "./release-age-policy.js";
+import {
+  extensionDir,
+  extractZip,
+  pluralizeType,
+  resolveVersionEntryWithReleaseAge,
+  selectVersion,
+} from "./utils.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -49,6 +56,49 @@ describe("selectVersion", () => {
   it("returns None for empty versions", () => {
     const result = selectVersion([]);
     expect(Option.isNone(result)).toBe(true);
+  });
+});
+
+describe("minimum release age", () => {
+  it("parses duration strings", () => {
+    expect(Option.getOrThrow(parseMinimumReleaseAge("24h"))).toBe(86_400_000);
+    expect(Option.getOrThrow(parseMinimumReleaseAge("1440m"))).toBe(86_400_000);
+    expect(Option.getOrThrow(parseMinimumReleaseAge("0s"))).toBe(0);
+    expect(Option.isNone(parseMinimumReleaseAge("tomorrow"))).toBe(true);
+  });
+
+  it("filters versions newer than the configured age", () => {
+    const policy = { minimumAgeMs: 24 * 60 * 60 * 1000, now: new Date("2025-01-03T00:00:00Z") };
+    const versions = [
+      makeVersionEntry({
+        version: exactVersion("1.3.0"),
+        published: "2025-01-02T23:00:00Z",
+      }),
+      makeVersionEntry({
+        version: exactVersion("1.2.0"),
+        published: "2025-01-01T00:00:00Z",
+      }),
+    ];
+
+    expect(filterMatureVersions(versions, policy).map((entry) => entry.version)).toEqual(["1.2.0"]);
+  });
+
+  it("resolves the newest mature version when release age is enforced", () => {
+    const policy = { minimumAgeMs: 24 * 60 * 60 * 1000, now: new Date("2025-01-03T00:00:00Z") };
+    const versions = [
+      makeVersionEntry({
+        version: exactVersion("1.3.0"),
+        published: "2025-01-02T23:00:00Z",
+      }),
+      makeVersionEntry({
+        version: exactVersion("1.2.0"),
+        published: "2025-01-01T00:00:00Z",
+      }),
+    ];
+
+    const result = resolveVersionEntryWithReleaseAge(versions, Option.none(), Option.some(policy));
+
+    expect(Option.getOrThrow(result).version).toBe("1.2.0");
   });
 });
 

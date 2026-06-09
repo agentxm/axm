@@ -47,6 +47,7 @@ import type {
   InstructionsConfigValue,
   McpServerEntry,
   McpServersMap,
+  MinimumReleaseAge,
   PackEntry,
   PacksMap,
   RuleEntry,
@@ -375,6 +376,8 @@ export interface WorkspaceMutationsService {
   readonly records: WorkspaceReadModelRecords;
   /** Resolve owner: project settings -> user-scope settings -> Option.none(). */
   readonly getConfiguredOwner: () => Effect.Effect<Option.Option<Handle>, AppError>;
+  /** Resolve minimumReleaseAge: project settings -> user-scope settings -> default. */
+  readonly getMinimumReleaseAge: () => Effect.Effect<MinimumReleaseAge, AppError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
   /** Ignored skill patterns from settings. */

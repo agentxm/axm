@@ -26,7 +26,7 @@ import {
   packagesToPackageUrlParts,
   createRegistryClient,
   extractZip,
-  resolveVersionEntry,
+  resolveVersionEntryWithReleaseAge,
 } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
 import {
@@ -96,11 +96,19 @@ const getSupportedExtensionRefs = (
 ): ReadonlyArray<ExtensionRef> =>
   Array.getSomes(entries.map((entry) => toExtensionRef(entry, source)));
 
+const needsIndexBackedResolution = (options: FindOptions): boolean =>
+  Option.isSome(options.versionRange) || Option.isSome(options.releaseAgePolicy ?? Option.none());
+
 const manifestFromIndex = (
   index: ExtensionIndex,
   versionRange: Option.Option<string>,
+  releaseAgePolicy: FindOptions["releaseAgePolicy"],
 ): Option.Option<RegistryExtensionManifest> => {
-  const selectedVersion = resolveVersionEntry(index.versions, versionRange);
+  const selectedVersion = resolveVersionEntryWithReleaseAge(
+    index.versions,
+    versionRange,
+    releaseAgePolicy ?? Option.none(),
+  );
   if (Option.isNone(selectedVersion)) return Option.none();
 
   const version = selectedVersion.value;
@@ -154,7 +162,8 @@ const findWithVersionRange = (
                   Effect.map((indexOption) =>
                     Option.match(indexOption, {
                       onNone: () => Option.none<RegistryExtensionManifest>(),
-                      onSome: (index) => manifestFromIndex(index, options.versionRange),
+                      onSome: (index) =>
+                        manifestFromIndex(index, options.versionRange, options.releaseAgePolicy),
                     }),
                   ),
                 ),
@@ -184,7 +193,12 @@ const findWithVersionRange = (
                           Effect.map((indexOption) =>
                             Option.match(indexOption, {
                               onNone: () => Option.none<RegistryExtensionManifest>(),
-                              onSome: (index) => manifestFromIndex(index, options.versionRange),
+                              onSome: (index) =>
+                                manifestFromIndex(
+                                  index,
+                                  options.versionRange,
+                                  options.releaseAgePolicy,
+                                ),
                             }),
                           ),
                         ),
@@ -413,7 +427,7 @@ export const createLocalRegistrySourceHostProvider = (
         ? [options.owner.value]
         : entries.filter((d) => d.startsWith("@")).map((entry) => decodeHandleSync(entry));
 
-      if (Option.isSome(options.versionRange)) {
+      if (needsIndexBackedResolution(options)) {
         return yield* findWithVersionRange(client, source, namespaces, options);
       }
 
@@ -465,7 +479,7 @@ export const createRemoteRegistrySourceHostProvider = (
   find: (source, options) =>
     Effect.gen(function* () {
       const owner: Handle | "*" = Option.isSome(options.owner) ? options.owner.value : "*";
-      if (Option.isSome(options.versionRange) && owner !== "*") {
+      if (needsIndexBackedResolution(options) && owner !== "*") {
         return yield* findWithVersionRange(client, source, [owner], options);
       }
       const searchOptions =

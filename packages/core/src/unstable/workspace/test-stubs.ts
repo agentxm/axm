@@ -154,6 +154,7 @@ export const makeBaseWorkspaceMock = (
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
     getConfiguredOwner: () => Effect.succeed(Option.none()),
+    getMinimumReleaseAge: () => Effect.succeed("24h"),
     addConfiguredSource: () => Effect.void,
     getIgnoredSkillPatterns: emptyArr,
     getConfiguredSkillEntries: () => Effect.succeed({}),

@@ -88,5 +88,16 @@ export {
   extractZip,
   pluralizeType,
   resolveVersionEntry,
+  resolveVersionEntryWithReleaseAge,
   selectVersion,
 } from "./utils.js";
+
+export {
+  DEFAULT_MINIMUM_RELEASE_AGE,
+  DEFAULT_MINIMUM_RELEASE_AGE_MS,
+  filterMatureVersions,
+  isVersionEntryMature,
+  parseMinimumReleaseAge,
+  releaseAgeHoldbackWarning,
+} from "./release-age-policy.js";
+export type { ReleaseAgePolicy } from "./release-age-policy.js";

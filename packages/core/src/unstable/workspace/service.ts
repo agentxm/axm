@@ -59,6 +59,7 @@ import {
   type InstructionsConfigValue,
   type McpServerEntry,
   type McpServersMap,
+  type MinimumReleaseAge,
   type SkillEntry,
   type SubagentEntry,
   type PackEntry,
@@ -72,6 +73,7 @@ import {
   type SourceHostConfig,
   writeSettings,
 } from "../settings/index.js";
+import { DEFAULT_MINIMUM_RELEASE_AGE } from "../registry/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 
@@ -509,6 +511,22 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           if (globalSettings.owner) return Option.some(globalSettings.owner);
           return Option.none<Handle>();
         }),
+
+      getMinimumReleaseAge: Effect.fn("WorkspaceMutations.getMinimumReleaseAge")(function* () {
+        const scopedSettings = yield* readSettingsSafe(workspaceDir);
+        if (scopedSettings.minimumReleaseAge !== undefined) {
+          return scopedSettings.minimumReleaseAge;
+        }
+
+        if (options.scope === "project") {
+          const globalSettings = yield* readSettingsSafe(globalDir);
+          if (globalSettings.minimumReleaseAge !== undefined) {
+            return globalSettings.minimumReleaseAge;
+          }
+        }
+
+        return DEFAULT_MINIMUM_RELEASE_AGE satisfies MinimumReleaseAge;
+      }),
 
       addConfiguredSource: (source: SourceHostConfig) =>
         withMutex(

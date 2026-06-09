@@ -39,6 +39,19 @@ describe("Settings schema", () => {
       expect(result.owner).toBe("@myorg");
     });
 
+    it("accepts minimumReleaseAge duration strings", () => {
+      const input = { minimumReleaseAge: "24h" };
+      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
+
+      expect(result.minimumReleaseAge).toBe("24h");
+    });
+
+    it("rejects invalid minimumReleaseAge values", () => {
+      const input = { minimumReleaseAge: "one day" };
+
+      expect(() => Schema.decodeUnknownSync(SettingsSchema)(input)).toThrow();
+    });
+
     it("rejects bare owner values without @", () => {
       const input = { owner: "myorg" };
 

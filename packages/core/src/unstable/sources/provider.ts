@@ -14,6 +14,7 @@ import type * as Option from "effect/Option";
 import type { AppError } from "../app-error/index.js";
 import type { ExtensionType, Handle } from "../extensions/index.js";
 import type { ExtensionRef } from "../extensions/refs.js";
+import type { ReleaseAgePolicy } from "../registry/index.js";
 import type { Source } from "./types.js";
 
 // -----------------------------------------------------------------------------
@@ -35,6 +36,8 @@ export interface FindOptions {
   /** Registry owner filter (e.g. "@acme"). */
   readonly owner: Option.Option<Handle>;
   readonly versionRange: Option.Option<string>;
+  /** Optional registry release-age policy. Omitted for explicit attended installs. */
+  readonly releaseAgePolicy?: Option.Option<ReleaseAgePolicy>;
 }
 
 // -----------------------------------------------------------------------------

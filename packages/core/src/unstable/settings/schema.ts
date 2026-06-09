@@ -312,6 +312,22 @@ export const TelemetryModeSchema = Schema.Union([
 /** @experimental */
 export type TelemetryMode = Schema.Schema.Type<typeof TelemetryModeSchema>;
 
+export const MinimumReleaseAgeSchema = Schema.String.check(
+  Schema.isPattern(/^\d+(ms|s|m|h|d)$/, {
+    message: "minimumReleaseAge must be a duration such as 24h, 1440m, or 0s",
+  }),
+).annotate({
+  identifier: "MinimumReleaseAge",
+  title: "Minimum Release Age",
+  description:
+    "Minimum age for registry versions during unattended resolution. Use 0s to disable the holdback.",
+  default: "24h",
+  examples: ["24h", "1440m", "0s"],
+});
+
+/** @experimental */
+export type MinimumReleaseAge = Schema.Schema.Type<typeof MinimumReleaseAgeSchema>;
+
 /**
  * Context Files input and workspace variable values.
  *
@@ -1394,6 +1410,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "$schema",
   "telemetry",
   "owner",
+  "minimumReleaseAge",
   "sources",
   "vars",
   "agents",
@@ -1419,6 +1436,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * Settings define workspace configuration for AXM including:
  * - owner: Workspace owner handle used for new/scaffold and reconciliation of non-registry sources
+ * - minimumReleaseAge: Minimum published age for registry versions during unattended resolution
  * - sources: Source provider configurations
  * - vars: Scalar workspace variables available to Context Files templates
  * - agents: List of agent IDs to sync extensions to
@@ -1455,6 +1473,12 @@ export const SettingsSchema = Schema.Struct({
   owner: Schema.optionalKey(
     Schema.Union([HandleSchema]).annotate({
       description: "Default owner handle used when AXM scaffolds or resolves workspace extensions.",
+    }),
+  ),
+  minimumReleaseAge: Schema.optionalKey(
+    Schema.Union([MinimumReleaseAgeSchema]).annotate({
+      description:
+        "Minimum published age for registry versions during unattended sync/update resolution. Defaults to 24h; use 0s to disable.",
     }),
   ),
   agents: Schema.optionalKey(

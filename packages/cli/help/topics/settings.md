@@ -12,6 +12,10 @@ Run `axm help settings-schema` to print the raw JSON Schema.
 
 `owner` is the default handle AXM uses when creating or resolving workspace-owned extensions.
 
+`minimumReleaseAge` controls unattended registry resolution for `axm sync` and
+update commands. It defaults to `"24h"` so brand-new versions are held until
+they have aged for 24 hours; use `"0s"` to disable the holdback.
+
 `agents` lists the coding agents AXM syncs into. Use `axm agents list`,
 `axm agents add <id>`, and `axm agents remove <id>` instead of hand-editing
 this array; the commands also reconcile per-agent managed artifacts for

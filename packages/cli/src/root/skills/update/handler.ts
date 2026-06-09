@@ -25,7 +25,13 @@ import {
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
-import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
+import {
+  createRegistryClient,
+  filterMatureVersions,
+  parseMinimumReleaseAge,
+  releaseAgeHoldbackWarning,
+  type ReleaseAgePolicy,
+} from "@agentxm/client-core/unstable/registry";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@agentxm/client-core/unstable/skills";
@@ -215,6 +221,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       readonly skillNames: ReadonlyArray<string>;
       readonly owner: Option.Option<Handle>;
       readonly versionRange: Option.Option<string>;
+      readonly releaseAgePolicy?: Option.Option<ReleaseAgePolicy>;
     },
   ) =>
     sources
@@ -223,6 +230,9 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         type: "skill",
         owner: options.owner,
         versionRange: options.versionRange,
+        ...(options.releaseAgePolicy === undefined
+          ? {}
+          : { releaseAgePolicy: options.releaseAgePolicy }),
       })
       .pipe(
         Effect.map((refs) =>
@@ -236,12 +246,16 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     lookupName,
     userConstraint,
     packConstraints,
+    releaseAgePolicy,
+    minimumReleaseAge,
   }: {
     readonly source: RegistrySource;
     readonly owner: Handle;
     readonly lookupName: ExtensionName;
     readonly userConstraint: Option.Option<string>;
     readonly packConstraints: ReadonlyArray<PackConstraint>;
+    readonly releaseAgePolicy: ReleaseAgePolicy;
+    readonly minimumReleaseAge: string;
   }) =>
     Effect.gen(function* () {
       const location =
@@ -262,8 +276,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
       const skillFqn = `${owner}/skills/${lookupName}`;
       const constraints: SkillConstraints = { userConstraint, packConstraints };
-      const versions = indexOption.value.versions.map((entry) => entry.version);
-      const [latestVersion] = versions;
+      const [latestEntry] = indexOption.value.versions;
+      const latestVersion = latestEntry?.version;
       if (latestVersion === undefined) {
         return yield* makeAppError({
           code: "internal",
@@ -273,7 +287,18 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         });
       }
 
-      const resolvedVersion = resolveConstrainedVersion(versions, constraints, skillFqn);
+      const matureVersions = filterMatureVersions(indexOption.value.versions, releaseAgePolicy).map(
+        (entry) => entry.version,
+      );
+      if (matureVersions.length === 0) {
+        return Option.none<{
+          readonly ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>;
+          readonly versionRange: Option.Option<string>;
+          readonly warnings: ReadonlyArray<string>;
+        }>();
+      }
+
+      const resolvedVersion = resolveConstrainedVersion(matureVersions, constraints, skillFqn);
       if (Option.isNone(resolvedVersion)) {
         const constraintLabel = Option.match(userConstraint, {
           onNone: () => "the configured constraints",
@@ -290,6 +315,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         skillNames: [lookupName],
         owner: Option.some(owner),
         versionRange: Option.some(resolvedVersion.value.resolvedVersion),
+        releaseAgePolicy: Option.some(releaseAgePolicy),
       });
       const exactRef = exactRefs.find(
         (ref): ref is Extract<SkillExtensionRef, { readonly refType: "registry" }> =>
@@ -310,6 +336,16 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         ref: exactRef,
         versionRange: userConstraint,
         warnings: [
+          ...(resolvedVersion.value.resolvedVersion === latestVersion
+            ? []
+            : [
+                releaseAgeHoldbackWarning({
+                  fqn: skillFqn,
+                  selectedVersion: resolvedVersion.value.resolvedVersion,
+                  heldVersion: latestVersion,
+                  minimumReleaseAge,
+                }),
+              ]),
           ...resolvedVersion.value.warnings,
           ...detectHoldbackWarnings(
             latestVersion,
@@ -336,6 +372,16 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     filteredEntries,
     ([name, sourceStr]) =>
       Effect.gen(function* () {
+        const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
+        const minimumAgeMs = parseMinimumReleaseAge(minimumReleaseAge);
+        if (Option.isNone(minimumAgeMs)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Invalid minimumReleaseAge "${minimumReleaseAge}"`,
+            recover: "Use a duration such as 24h, 1440m, or 0s.",
+          });
+        }
+        const releaseAgePolicy = { minimumAgeMs: minimumAgeMs.value, now: new Date() };
         const source = yield* resolveSource(sourceStr);
         const registryPattern = toRegistrySkillPattern(sourceStr);
 
@@ -352,6 +398,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
                 : Option.some(registryPattern.value.versionRange),
             packConstraints:
               packConstraintMap.get(`${registryPattern.value.owner}/skills/${lookupName}`) ?? [],
+            releaseAgePolicy,
+            minimumReleaseAge,
           });
           if (Option.isSome(registryResolved)) {
             return {
@@ -372,6 +420,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           skillNames: [name],
           owner: requestedOwner,
           versionRange: Option.none(),
+          releaseAgePolicy: Option.some(releaseAgePolicy),
         });
         const skillRef = namedRefs.find((r) => r.skill.name === name);
 

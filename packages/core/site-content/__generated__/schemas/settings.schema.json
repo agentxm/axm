@@ -19,6 +19,18 @@
         }
       ]
     },
+    "MinimumReleaseAge": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^\\d+(ms|s|m|h|d)$",
+          "title": "Minimum Release Age",
+          "description": "Minimum age for registry versions during unattended resolution. Use 0s to disable the holdback.",
+          "default": "24h",
+          "examples": ["24h", "1440m", "0s"]
+        }
+      ]
+    },
     "ConfigurableAgentId": {
       "type": "string",
       "enum": [
@@ -777,6 +789,10 @@
         "owner": {
           "anyOf": [{ "$ref": "#/definitions/Handle" }],
           "description": "Default owner handle used when AXM scaffolds or resolves workspace extensions."
+        },
+        "minimumReleaseAge": {
+          "anyOf": [{ "$ref": "#/definitions/MinimumReleaseAge" }],
+          "description": "Minimum published age for registry versions during unattended sync/update resolution. Defaults to 24h; use 0s to disable."
         },
         "agents": {
           "type": "array",

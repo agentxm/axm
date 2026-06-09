@@ -19,6 +19,7 @@ import type { Handle } from "../extensions/handle.js";
 import { resolveVersionInRange } from "../version-constraints/version-constraints.js";
 import { toExtensionTypePlural, type ExtensionType } from "../extensions/index.js";
 import type { VersionEntry } from "./schema.js";
+import { filterMatureVersions, type ReleaseAgePolicy } from "./release-age-policy.js";
 
 // -----------------------------------------------------------------------------
 // Version Selection
@@ -53,6 +54,18 @@ export const resolveVersionEntry = (
   return Option.fromUndefinedOr(
     versions.find((candidate) => candidate.version === resolved.value.version),
   );
+};
+
+export const resolveVersionEntryWithReleaseAge = (
+  versions: ReadonlyArray<VersionEntry>,
+  versionRange: Option.Option<string>,
+  releaseAgePolicy: Option.Option<ReleaseAgePolicy>,
+): Option.Option<VersionEntry> => {
+  if (Option.isNone(releaseAgePolicy)) {
+    return resolveVersionEntry(versions, versionRange);
+  }
+
+  return resolveVersionEntry(filterMatureVersions(versions, releaseAgePolicy.value), versionRange);
 };
 
 // -----------------------------------------------------------------------------

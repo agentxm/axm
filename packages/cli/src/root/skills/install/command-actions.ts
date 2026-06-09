@@ -25,6 +25,11 @@ import type { VersionRange } from "@agentxm/client-core/unstable/version-constra
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 import type { Source, InputParseResult } from "@agentxm/client-core/unstable/sources";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import {
+  createRegistryClient,
+  isVersionEntryMature,
+  parseMinimumReleaseAge,
+} from "@agentxm/client-core/unstable/registry";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { SkillPathSource } from "@agentxm/client-core/unstable/workspace";
@@ -39,7 +44,12 @@ import { buildInstallOperation, sanitizeName } from "@agentxm/client-core/unstab
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/client-core/unstable/plan";
-import type { Plan, PlanSection } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepResult,
+  Plan,
+  PlanSection,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import {
   formatPackageDisplay,
   PackageUrlPartsSchema,
@@ -210,6 +220,34 @@ const artifactTargetAgentIds = (
   agentIds: ReadonlyArray<InstallableSkillTarget["agentId"]>,
 ): ReadonlyArray<string> => agentIds.filter((agentId) => agentId !== UNIVERSAL_AGENT_ID);
 
+const appendWarningToResult =
+  (warning: string) =>
+  (result: JobStepResult): JobStepResult => {
+    if (result.result === "error") return result;
+    return {
+      ...result,
+      warnings: [...(result.warnings ?? []), warning],
+      message: result.message.length === 0 ? warning : `${result.message}; ${warning}`,
+    };
+  };
+
+const withPlanWarning = (step: PlannedJobStep, warning: Option.Option<string>): PlannedJobStep => {
+  if (Option.isNone(warning) || step.readiness === "error") return step;
+
+  if (step.readiness === "warn") {
+    return {
+      ...step,
+      run: step.run.pipe(Effect.map(appendWarningToResult(warning.value))),
+    };
+  }
+
+  return {
+    ...step,
+    message: warning.value,
+    run: step.run.pipe(Effect.map(appendWarningToResult(warning.value))),
+  };
+};
+
 /**
  * Extract compatible packages from a skill ref.
  *
@@ -342,6 +380,41 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           Effect.provideService(Path.Path, pathSvc),
         );
       });
+
+    const brandNewReleaseAgeWarning = (ref: SkillExtensionRef, installedBefore: boolean) =>
+      Effect.gen(function* () {
+        if (installedBefore || ref.refType !== "registry") return Option.none<string>();
+
+        const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
+        const minimumAgeMs = parseMinimumReleaseAge(minimumReleaseAge);
+        if (Option.isNone(minimumAgeMs) || minimumAgeMs.value <= 0) {
+          return Option.none<string>();
+        }
+
+        const location =
+          ref.source.location.protocol === "file:"
+            ? ref.source.location.pathname
+            : ref.source.location.href;
+        const client = yield* createRegistryClient(location);
+        const index = yield* client.getExtensionIndex({
+          owner: ref.owner,
+          type: "skill",
+          name: ref.name,
+        });
+        if (Option.isNone(index)) return Option.none<string>();
+
+        const versionEntry = index.value.versions.find((entry) => entry.version === ref.version);
+        if (versionEntry === undefined) return Option.none<string>();
+        if (
+          isVersionEntryMature(versionEntry, { minimumAgeMs: minimumAgeMs.value, now: new Date() })
+        ) {
+          return Option.none<string>();
+        }
+
+        return Option.some(
+          `Installing brand-new version ${ref.owner}/skills/${ref.name}@${ref.version}; it is newer than minimumReleaseAge ${minimumReleaseAge}`,
+        );
+      }).pipe(Effect.catch(() => Effect.succeed(Option.none<string>())));
 
     const targetChangeBeforeInstall = ({
       linkPath,
@@ -667,14 +740,23 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                   } satisfies JobStepArtifact;
                 });
 
-              return buildInstallOperation(skillMgr, {
-                ref,
-                versionRange: entry.versionRange,
-                installedBefore: skillMgr
-                  .isInstalled({ target: { type: "skill", name: ref.skill.name } })
-                  .pipe(Effect.catch(() => Effect.succeed(false))),
-                buildArtifact,
-              });
+              const installedBefore = yield* skillMgr
+                .isInstalled({ target: { type: "skill", name: ref.skill.name } })
+                .pipe(Effect.catch(() => Effect.succeed(false)));
+              const releaseAgeWarning = yield* brandNewReleaseAgeWarning(ref, installedBefore).pipe(
+                Effect.provideService(FileSystem.FileSystem, fsSvc),
+                Effect.provideService(Path.Path, pathSvc),
+              );
+
+              return withPlanWarning(
+                buildInstallOperation(skillMgr, {
+                  ref,
+                  versionRange: entry.versionRange,
+                  installedBefore: Effect.succeed(installedBefore),
+                  buildArtifact,
+                }),
+                releaseAgeWarning,
+              );
             }),
           { concurrency: 1 },
         );

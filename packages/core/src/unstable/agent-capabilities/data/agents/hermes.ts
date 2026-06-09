@@ -57,7 +57,7 @@ export const hermesAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Hermes declares MCP servers under mcp_servers in ~/.hermes/config.yaml. The YAML config dialect is outside AXM's current native MCP writer formats.\n",
+          "Hermes declares MCP servers under mcp_servers in ~/.hermes/config.yaml. AXM writes that YAML file directly with per-entry x-axm metadata, preserving user-authored servers and coexisting with hermes mcp commands.\n",
         docs: [],
         sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp"],
         scopes: ["user"],
@@ -66,10 +66,22 @@ export const hermesAgent = {
         transports: ["stdio", "http"],
       },
       axm: {
-        status: "unsupported",
-        lastVerified: "2026-06-06",
-        writer: null,
-        reason: "AXM has not implemented a YAML MCP config writer for Hermes.",
+        status: "supported",
+        lastVerified: "2026-06-09",
+        writer: {
+          config: {
+            serversKey: "mcp_servers",
+            nativeEnabled: true,
+            targets: [{ scope: "user", path: "~/.hermes/config.yaml", format: "yaml" }],
+            stdio: { typeField: null, command: "split", envKey: "env" },
+            remote: {
+              typeField: null,
+              urlKey: { "streamable-http": "url" },
+              headersKey: "headers",
+            },
+            transform: null,
+          },
+        },
       },
     },
     subagent: {

@@ -747,13 +747,14 @@ export const ConfigFileFormatSchema = Schema.Literals([
   "json",
   "jsonc",
   "toml",
+  "yaml",
   "starlark",
   "vscode-settings",
 ]).annotate({
   identifier: "ConfigFileFormat",
   title: "Config File Format",
   description: "Serialization format used by an agent's permission config file.",
-  examples: ["json", "toml", "vscode-settings"],
+  examples: ["json", "toml", "yaml", "vscode-settings"],
 });
 
 /** @experimental This API is unstable and may change without notice. */

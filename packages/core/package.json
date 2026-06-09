@@ -209,6 +209,10 @@
       "types": "./dist/src/unstable/toml/index.d.ts",
       "default": "./dist/src/unstable/toml/index.js"
     },
+    "./unstable/yaml": {
+      "types": "./dist/src/unstable/yaml/index.d.ts",
+      "default": "./dist/src/unstable/yaml/index.js"
+    },
     "./unstable/discover": {
       "types": "./dist/src/unstable/discover/index.d.ts",
       "default": "./dist/src/unstable/discover/index.js"
@@ -248,7 +252,8 @@
     "proper-lockfile": "^4.1.2",
     "semver": "catalog:",
     "simple-git": "catalog:",
-    "spdx-expression-parse": "3.0.1"
+    "spdx-expression-parse": "3.0.1",
+    "yaml": "catalog:"
   },
   "devDependencies": {
     "@agentxm/client-utils": "workspace:^",
@@ -260,7 +265,6 @@
     "@types/spdx-expression-parse": "4.0.0",
     "swagger2openapi": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "yaml": "catalog:"
+    "vitest": "catalog:"
   }
 }

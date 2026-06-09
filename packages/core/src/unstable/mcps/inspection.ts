@@ -20,6 +20,7 @@ import {
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { McpServerEntry } from "../settings/index.js";
 import { parseTomlValue, stringifyToml, stringifyTomlKey } from "../toml/index.js";
+import { managedYamlNames as readManagedYamlNames, readYamlEntry } from "../yaml/index.js";
 import { resolveAgentMcpConfigTargetPath } from "./config-writer.js";
 import { isAxmManagedMcpEntry } from "./metadata.js";
 import { diffAgentEntry, projectExpectedEntry, type ExpectedAgentEntry } from "./projection.js";
@@ -134,6 +135,24 @@ const readJsonEntry = (
     return isRecord(entry) ? Option.some(entry) : Option.none();
   });
 
+const mapYamlError = (configPath: string, error: unknown): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: `Invalid MCP config YAML: ${configPath}`,
+    cause: error,
+  });
+
+const readYamlConfigEntry = (
+  configPath: string,
+  raw: string,
+  serversKey: string,
+  serverName: string,
+): Effect.Effect<Option.Option<Readonly<Record<string, unknown>>>, AppError> =>
+  Effect.sync(() => readYamlEntry(raw, serversKey, serverName)).pipe(
+    Effect.map((entry) => Option.fromUndefinedOr(entry)),
+    Effect.mapError((error) => mapYamlError(configPath, error)),
+  );
+
 const managedTomlStart = (serverName: string): string =>
   `# axm managed mcp-server ${serverName} start`;
 
@@ -235,12 +254,10 @@ const inspectActual = (args: {
         : { status: "drift", fields: ["entry"], actual };
     }
 
-    const actual = yield* readJsonEntry(
-      args.configPath,
-      raw.value,
-      args.serversKey,
-      args.serverName,
-    );
+    const actual =
+      args.target.format === "yaml"
+        ? yield* readYamlConfigEntry(args.configPath, raw.value, args.serversKey, args.serverName)
+        : yield* readJsonEntry(args.configPath, raw.value, args.serversKey, args.serverName);
     if (Option.isNone(actual)) return { status: "absent", fields: [] };
     if (!isAxmManagedMcpEntry(actual.value)) {
       return { status: "unmanaged", fields: [], actual: actual.value };
@@ -374,6 +391,15 @@ const managedJsonNames = (
     );
   });
 
+const managedYamlNames = (
+  configPath: string,
+  raw: string,
+  serversKey: string,
+): Effect.Effect<ReadonlyArray<string>, AppError> =>
+  Effect.sync(() => readManagedYamlNames(raw, serversKey, isAxmManagedMcpEntry)).pipe(
+    Effect.mapError((error) => mapYamlError(configPath, error)),
+  );
+
 const managedTomlNames = (raw: string): ReadonlyArray<string> => {
   const names: Array<string> = [];
   const pattern = /^# axm managed mcp-server ([a-z0-9][a-z0-9-]*) start$/gm;
@@ -414,14 +440,27 @@ export const collectManagedAgentMcpServers = (
                 );
                 const raw = yield* readOptional(absolutePath);
                 if (Option.isNone(raw)) return [];
-                const names =
-                  target.format === "toml"
-                    ? managedTomlNames(raw.value)
-                    : yield* managedJsonNames(
+                const names = yield* Effect.gen(function* () {
+                  switch (target.format) {
+                    case "toml":
+                      return managedTomlNames(raw.value);
+                    case "yaml":
+                      return yield* managedYamlNames(
                         absolutePath,
                         raw.value,
                         capability.axm.writer.config.serversKey,
                       );
+                    case "json":
+                    case "jsonc":
+                    case "starlark":
+                    case "vscode-settings":
+                      return yield* managedJsonNames(
+                        absolutePath,
+                        raw.value,
+                        capability.axm.writer.config.serversKey,
+                      );
+                  }
+                });
                 return names.map((serverName) => ({
                   agentId,
                   serverName,

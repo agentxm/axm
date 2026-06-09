@@ -34,6 +34,7 @@ import {
 import { projectExpectedEntry } from "../mcps/projection.js";
 import { resolveMcpServer } from "../mcps/resolution.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer.js";
+import { managedYamlNames } from "../yaml/index.js";
 import type {
   AddMcpServerArgs,
   McpServerSyncOutcome,
@@ -321,6 +322,23 @@ const collectManagedTomlServerNames = (
   return names;
 };
 
+const collectManagedYamlServerNames = (
+  configPath: string,
+  raw: string,
+  serversKey: string,
+  declaredServerNames: ReadonlySet<string>,
+): Effect.Effect<ReadonlyArray<string>, AppError> =>
+  Effect.sync(() => managedYamlNames(raw, serversKey, isAxmManagedMcpEntry)).pipe(
+    Effect.map((names) => names.filter((name) => !declaredServerNames.has(name))),
+    Effect.mapError((error) =>
+      makeAppError({
+        code: "validation",
+        detail: `Invalid MCP config YAML: ${configPath}`,
+        cause: error,
+      }),
+    ),
+  );
+
 const upsertJsonConfigServer = (
   configPath: string,
   serverName: string,
@@ -605,15 +623,29 @@ export const pruneManagedMcpServersForAgent = (
           const configPath = yield* resolveMcpConfigTargetPath(args.workspaceRoot, target);
           const raw = yield* readOptionalConfig(configPath);
           if (Option.isNone(raw)) return;
-          const staleNames =
-            target.format === "toml"
-              ? collectManagedTomlServerNames(raw.value, args.declaredServerNames)
-              : yield* collectManagedJsonServerNames(
+          const staleNames = yield* Effect.gen(function* () {
+            switch (target.format) {
+              case "toml":
+                return collectManagedTomlServerNames(raw.value, args.declaredServerNames);
+              case "yaml":
+                return yield* collectManagedYamlServerNames(
                   configPath,
                   raw.value,
                   config.serversKey,
                   args.declaredServerNames,
                 );
+              case "json":
+              case "jsonc":
+              case "starlark":
+              case "vscode-settings":
+                return yield* collectManagedJsonServerNames(
+                  configPath,
+                  raw.value,
+                  config.serversKey,
+                  args.declaredServerNames,
+                );
+            }
+          });
           yield* Effect.forEach(
             staleNames,
             (serverName) =>

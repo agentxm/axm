@@ -239,6 +239,7 @@ describe("agent capability derivation", () => {
       "devin",
       "gemini-cli",
       "github-copilot-cli",
+      "hermes",
       "ibm-bob",
       "junie",
       "kiro-cli",

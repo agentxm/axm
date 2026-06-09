@@ -14,6 +14,7 @@ import { getHome } from "../agents/constants.js";
 import { isPathSafe } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { stringifyToml } from "../toml/index.js";
+import { deleteYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
 import type { McpConfigTarget, McpServersKey } from "../agent-capabilities/index.js";
 
 export interface WriteAgentMcpConfigArgs {
@@ -218,6 +219,40 @@ const removeJsonLike = (args: {
     );
   });
 
+const mapYamlError = (configPath: string, error: unknown): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: `Invalid MCP config YAML: ${configPath}`,
+    cause: error,
+  });
+
+const upsertYaml = (args: {
+  readonly configPath: string;
+  readonly raw: string;
+  readonly serversKey: string;
+  readonly serverName: string;
+  readonly entry: Readonly<Record<string, unknown>>;
+}): Effect.Effect<string, AppError> =>
+  Effect.sync(() => setYamlEntry(args.raw, args.serversKey, args.serverName, args.entry)).pipe(
+    Effect.mapError((error) => mapYamlError(args.configPath, error)),
+  );
+
+const removeYaml = (args: {
+  readonly configPath: string;
+  readonly raw: string;
+  readonly serversKey: string;
+  readonly serverName: string;
+  readonly nativeEnabled: boolean;
+  readonly disableOnly: boolean;
+}): Effect.Effect<string, AppError> =>
+  Effect.sync(() => {
+    if (args.raw.trim().length === 0) return args.raw;
+    if (args.disableOnly && args.nativeEnabled) {
+      return setYamlScalar(args.raw, [args.serversKey, args.serverName, "enabled"], false);
+    }
+    return deleteYamlEntry(args.raw, args.serversKey, args.serverName);
+  }).pipe(Effect.mapError((error) => mapYamlError(args.configPath, error)));
+
 const managedTomlStart = (serverName: string): string =>
   `# axm managed mcp-server ${serverName} start`;
 
@@ -270,21 +305,36 @@ export const writeAgentMcpConfig = (
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
     const raw = yield* readExisting(configPath);
-    const next =
-      target.format === "toml"
-        ? upsertToml({
+    const next = yield* Effect.gen(function* () {
+      switch (target.format) {
+        case "toml":
+          return upsertToml({
             raw,
             serversKey: args.serversKey,
             serverName: args.serverName,
             entry: args.entry,
-          })
-        : yield* upsertJsonLike({
+          });
+        case "yaml":
+          return yield* upsertYaml({
             configPath,
             raw,
             serversKey: args.serversKey,
             serverName: args.serverName,
             entry: args.entry,
           });
+        case "json":
+        case "jsonc":
+        case "starlark":
+        case "vscode-settings":
+          return yield* upsertJsonLike({
+            configPath,
+            raw,
+            serversKey: args.serversKey,
+            serverName: args.serverName,
+            entry: args.entry,
+          });
+      }
+    });
     return yield* writeIfChanged(configPath, target.path, raw, next);
   });
 
@@ -295,15 +345,17 @@ export const removeAgentMcpConfig = (
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
     const raw = yield* readExisting(configPath);
-    const next =
-      target.format === "toml"
-        ? removeToml({
+    const next = yield* Effect.gen(function* () {
+      switch (target.format) {
+        case "toml":
+          return removeToml({
             raw,
             serverName: args.serverName,
             disableOnly: args.disableOnly,
             nativeEnabled: args.nativeEnabled,
-          })
-        : yield* removeJsonLike({
+          });
+        case "yaml":
+          return yield* removeYaml({
             configPath,
             raw,
             serversKey: args.serversKey,
@@ -311,5 +363,19 @@ export const removeAgentMcpConfig = (
             nativeEnabled: args.nativeEnabled,
             disableOnly: args.disableOnly,
           });
+        case "json":
+        case "jsonc":
+        case "starlark":
+        case "vscode-settings":
+          return yield* removeJsonLike({
+            configPath,
+            raw,
+            serversKey: args.serversKey,
+            serverName: args.serverName,
+            nativeEnabled: args.nativeEnabled,
+            disableOnly: args.disableOnly,
+          });
+      }
+    });
     return yield* writeIfChanged(configPath, target.path, raw, next);
   });

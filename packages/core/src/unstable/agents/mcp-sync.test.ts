@@ -10,10 +10,12 @@ import { handle } from "../test-helpers.js";
 import {
   addMcpServerMixed,
   pruneManagedMcpServersForAgent,
+  removeMcpServerFromManifest,
   removeMcpServerMixed,
   runCliInvocation,
   syncInlineMcpServerToAgent,
 } from "./mcp-sync.js";
+import { readYamlEntry } from "../yaml/index.js";
 
 const addArgs = (workspaceRoot: string) => ({
   workspaceRoot,
@@ -25,6 +27,24 @@ const addArgs = (workspaceRoot: string) => ({
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
+
+const withHome = <A, E, R>(home: string, effect: Effect.Effect<A, E, R>) =>
+  Effect.acquireUseRelease(
+    Effect.sync(() => {
+      const previous = process.env["HOME"];
+      process.env["HOME"] = home;
+      return previous;
+    }),
+    () => effect,
+    (previous) =>
+      Effect.sync(() => {
+        if (previous === undefined) {
+          delete process.env["HOME"];
+        } else {
+          process.env["HOME"] = previous;
+        }
+      }),
+  );
 
 describe("mcp-sync helpers", () => {
   it.effect("captures output and redacts secrets from CLI output", () =>
@@ -386,6 +406,128 @@ describe("mcp-sync helpers", () => {
           const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
           expect(config).toContain('"linear"');
           expect(config).not.toContain('"stale"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("syncs, disables, removes, and prunes Hermes YAML MCP entries", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-hermes-"));
+        try {
+          yield* withHome(
+            workspaceRoot,
+            Effect.gen(function* () {
+              const stdioOutcome = yield* syncInlineMcpServerToAgent("hermes", {
+                workspaceRoot,
+                serverName: "context",
+                scope: "user",
+                entry: {
+                  source: "inline",
+                  command: "npx",
+                  args: ["-y", "@acme/context-mcp"],
+                  enabled: true,
+                  authored: false,
+                  env: { ACME_TOKEN: "${ACME_TOKEN}" },
+                },
+              });
+              expect(stdioOutcome).toEqual({
+                _tag: "success",
+                targets: [{ path: "~/.hermes/config.yaml", change: "created" }],
+                warnings: ["env.ACME_TOKEN: does not expand environment reference ${ACME_TOKEN}"],
+              });
+
+              const remoteOutcome = yield* syncInlineMcpServerToAgent("hermes", {
+                workspaceRoot,
+                serverName: "stripe",
+                scope: "user",
+                entry: {
+                  source: "inline",
+                  url: "https://mcp.stripe.com",
+                  headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
+                  enabled: true,
+                  authored: false,
+                  env: {},
+                },
+              });
+              expect(remoteOutcome).toEqual({
+                _tag: "success",
+                targets: [{ path: "~/.hermes/config.yaml", change: "updated" }],
+              });
+
+              const fs = yield* FileSystem.FileSystem;
+              const configPath = `${workspaceRoot}/.hermes/config.yaml`;
+              let raw = yield* fs.readFileString(configPath);
+              expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
+                "x-axm": { managed: true, source: "inline" },
+                enabled: true,
+                command: "npx",
+                args: ["-y", "@acme/context-mcp"],
+                env: { ACME_TOKEN: "${ACME_TOKEN}" },
+              });
+              expect(readYamlEntry(raw, "mcp_servers", "stripe")).toMatchObject({
+                "x-axm": { managed: true, source: "inline" },
+                enabled: true,
+                url: "https://mcp.stripe.com",
+                headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
+              });
+
+              const disableOutcome = yield* removeMcpServerFromManifest("hermes", {
+                workspaceRoot,
+                serverName: "context",
+                scope: "user",
+                disableOnly: true,
+              });
+              expect(disableOutcome).toEqual({
+                _tag: "success",
+                targets: [{ path: "~/.hermes/config.yaml", change: "updated" }],
+              });
+              raw = yield* fs.readFileString(configPath);
+              expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
+                enabled: false,
+              });
+
+              const removeOutcome = yield* removeMcpServerFromManifest("hermes", {
+                workspaceRoot,
+                serverName: "stripe",
+                scope: "user",
+                disableOnly: false,
+              });
+              expect(removeOutcome).toEqual({
+                _tag: "success",
+                targets: [{ path: "~/.hermes/config.yaml", change: "updated" }],
+              });
+              raw = yield* fs.readFileString(configPath);
+              expect(readYamlEntry(raw, "mcp_servers", "stripe")).toBeUndefined();
+
+              yield* syncInlineMcpServerToAgent("hermes", {
+                workspaceRoot,
+                serverName: "stale",
+                scope: "user",
+                entry: {
+                  source: "inline",
+                  command: "stale-mcp",
+                  enabled: true,
+                  authored: false,
+                  env: {},
+                },
+              });
+              const pruneOutcome = yield* pruneManagedMcpServersForAgent("hermes", {
+                workspaceRoot,
+                scope: "user",
+                declaredServerNames: new Set(["context"]),
+              });
+              expect(pruneOutcome).toEqual({ _tag: "success" });
+              raw = yield* fs.readFileString(configPath);
+              expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
+                enabled: false,
+              });
+              expect(readYamlEntry(raw, "mcp_servers", "stale")).toBeUndefined();
+            }),
+          );
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

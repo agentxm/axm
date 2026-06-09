@@ -327,6 +327,9 @@ importers:
       spdx-expression-parse:
         specifier: 3.0.1
         version: 3.0.1
+      yaml:
+        specifier: 'catalog:'
+        version: 2.8.4
     devDependencies:
       '@agentxm/client-utils':
         specifier: workspace:^
@@ -358,9 +361,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.5(@types/node@25.1.0)(vite@8.0.11(@types/node@25.1.0)(esbuild@0.27.2)(yaml@2.8.4))
-      yaml:
-        specifier: 'catalog:'
-        version: 2.8.4
 
   packages/e2e-utils:
     dependencies:

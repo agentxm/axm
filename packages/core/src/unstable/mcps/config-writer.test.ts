@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import * as Result from "effect/Result";
+import { parseYaml, readYamlEntry } from "../yaml/index.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "./config-writer.js";
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -134,6 +135,161 @@ describe("agent MCP config writer", () => {
           expect(raw).toBe('model = "gpt-5"\n');
           expect(existsSync(`${configPath}.bak`)).toBe(false);
           expect(removeResult.targets).toEqual([{ path: "agent.toml", change: "updated" }]);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("writes Hermes-style YAML stdio entries without touching user content", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-yaml-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "config.yaml");
+          writeFileSync(
+            configPath,
+            [
+              "# keep top",
+              "model: hermes-4",
+              "mcp_servers:",
+              "  # user-owned",
+              "  filesystem:",
+              "    command: npx",
+              "    timeout: 30",
+              "",
+            ].join("\n"),
+          );
+
+          const result = yield* writeAgentMcpConfig({
+            workspaceRoot,
+            serverName: "context",
+            serversKey: "mcp_servers",
+            target: { scope: "project", path: "config.yaml", format: "yaml" },
+            entry: {
+              "x-axm": { managed: true, source: "inline" },
+              enabled: true,
+              command: "npx",
+              args: ["-y", "@acme/context-mcp"],
+              env: { ACME_TOKEN: "secret" },
+            },
+          });
+
+          const raw = readFileSync(configPath, "utf8");
+          expect(raw).toContain("# keep top");
+          expect(raw).toContain("# user-owned");
+          expect(raw).toContain("timeout: 30");
+          expect(readYamlEntry(raw, "mcp_servers", "filesystem")).toMatchObject({
+            command: "npx",
+            timeout: 30,
+          });
+          expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
+            "x-axm": { managed: true, source: "inline" },
+            enabled: true,
+            command: "npx",
+            args: ["-y", "@acme/context-mcp"],
+            env: { ACME_TOKEN: "secret" },
+          });
+          expect(result.targets).toEqual([{ path: "config.yaml", change: "updated" }]);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("writes Hermes-style YAML HTTP entries", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-yaml-http-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "config.yaml");
+
+          yield* writeAgentMcpConfig({
+            workspaceRoot,
+            serverName: "stripe",
+            serversKey: "mcp_servers",
+            target: { scope: "project", path: "config.yaml", format: "yaml" },
+            entry: {
+              "x-axm": { managed: true, source: "inline" },
+              enabled: true,
+              url: "https://mcp.stripe.com",
+              headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
+            },
+          });
+
+          expect(parseYaml(readFileSync(configPath, "utf8"))).toMatchObject({
+            mcp_servers: {
+              stripe: {
+                "x-axm": { managed: true, source: "inline" },
+                enabled: true,
+                url: "https://mcp.stripe.com",
+                headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
+              },
+            },
+          });
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("removes and disables Hermes-style YAML entries", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-yaml-remove-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "config.yaml");
+          writeFileSync(
+            configPath,
+            [
+              "mcp_servers:",
+              "  filesystem:",
+              "    command: npx",
+              "  context:",
+              "    x-axm:",
+              "      managed: true",
+              "      source: inline",
+              "    enabled: true",
+              "    command: npx",
+              "",
+            ].join("\n"),
+          );
+
+          const disableResult = yield* removeAgentMcpConfig({
+            workspaceRoot,
+            serverName: "context",
+            serversKey: "mcp_servers",
+            target: { scope: "project", path: "config.yaml", format: "yaml" },
+            nativeEnabled: true,
+            disableOnly: true,
+          });
+
+          expect(
+            readYamlEntry(readFileSync(configPath, "utf8"), "mcp_servers", "context"),
+          ).toMatchObject({
+            enabled: false,
+            command: "npx",
+          });
+          expect(disableResult.targets).toEqual([{ path: "config.yaml", change: "updated" }]);
+
+          const removeResult = yield* removeAgentMcpConfig({
+            workspaceRoot,
+            serverName: "context",
+            serversKey: "mcp_servers",
+            target: { scope: "project", path: "config.yaml", format: "yaml" },
+            nativeEnabled: true,
+            disableOnly: false,
+          });
+
+          const raw = readFileSync(configPath, "utf8");
+          expect(readYamlEntry(raw, "mcp_servers", "context")).toBeUndefined();
+          expect(readYamlEntry(raw, "mcp_servers", "filesystem")).toMatchObject({
+            command: "npx",
+          });
+          expect(removeResult.targets).toEqual([{ path: "config.yaml", change: "updated" }]);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

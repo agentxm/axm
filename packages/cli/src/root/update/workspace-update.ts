@@ -4,12 +4,13 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   type Plan,
   type PlanSection,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
+import { buildInstallCommandPlan } from "@agentxm/client-core/unstable/workflows";
 import {
   WorkspaceMutations,
   resolveConfiguredCommand,
@@ -34,6 +35,7 @@ import { InstallFilesCommandWorkflowActions } from "../files/install/command-act
 import type { InstallFilesCommandIntent } from "../files/install/intent.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
+import { InstallLibraryCommandWorkflowActions } from "../libraries/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
@@ -45,7 +47,7 @@ import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import type { InstallSubagentCommandIntent } from "../subagents/install/intent.js";
 
-export type WorkspaceUpdatableType = InstallableExtensionType;
+export type WorkspaceUpdatableType = InstallableExtensionType | "library";
 
 type StepOrigin = "direct" | "dependency";
 
@@ -73,7 +75,8 @@ type WorkspaceUpdateCollectorContext =
   | InstallRuleCommandWorkflowActions
   | InstallSubagentCommandWorkflowActions
   | InstallMcpServerCommandWorkflowActions
-  | InstallPackCommandWorkflowActions;
+  | InstallPackCommandWorkflowActions
+  | InstallLibraryCommandWorkflowActions;
 
 interface WorkspaceUpdateCollector {
   readonly type: WorkspaceUpdatableType;
@@ -98,7 +101,11 @@ const noConfiguredMessage = (type: Option.Option<WorkspaceUpdatableType>): strin
   Option.match(type, {
     onNone: () => "No configured extensions.",
     onSome: (value) =>
-      `No configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(value)]}.`,
+      value === "library"
+        ? "No configured Libraries."
+        : `No configured ${
+            extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(value)]
+          }.`,
   });
 
 const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
@@ -256,6 +263,7 @@ const resolvePackRef = (name: string, source: string) =>
         ({
           packToInstall: ref,
           versionRange,
+          unattended: true,
         }) satisfies InstallPackCommandIntent,
     ),
   );
@@ -415,6 +423,43 @@ const collectPackPlans = () =>
     });
   });
 
+const collectLibraryPlans = () =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const actions = yield* InstallLibraryCommandWorkflowActions;
+    const configured = yield* ws.getConfiguredLibraryEntries();
+    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+
+    const plans = yield* Effect.forEach(
+      entries,
+      ([, entry]) =>
+        buildInstallCommandPlan({ source: entry.source, unattended: true }, actions).pipe(
+          Effect.mapError((error) =>
+            error._tag === "PromptCancelled"
+              ? makeAppError({
+                  code: "internal",
+                  detail: "Library workspace update was cancelled unexpectedly",
+                })
+              : error,
+          ),
+        ),
+      { concurrency: "unbounded" },
+    );
+
+    return {
+      plans,
+      fragments: plans.flatMap((plan) => {
+        const steps = flattenPlanSteps(plan);
+        const directIndex = steps.length - 1;
+        return steps.map((step, index) => ({
+          key: step.key ?? step.label,
+          origin: index === directIndex ? "direct" : "dependency",
+          step,
+        }));
+      }),
+    } satisfies CollectedWorkspaceUpdatePlans;
+  });
+
 const workspaceUpdateCollectors: ReadonlyArray<WorkspaceUpdateCollector> = [
   { type: "skill" as const, collect: collectSkillPlans },
   { type: "command" as const, collect: collectCommandPlans },
@@ -424,6 +469,7 @@ const workspaceUpdateCollectors: ReadonlyArray<WorkspaceUpdateCollector> = [
   { type: "subagent" as const, collect: collectSubagentPlans },
   { type: "mcp-server" as const, collect: collectMcpServerPlans },
   { type: "pack" as const, collect: collectPackPlans },
+  { type: "library" as const, collect: collectLibraryPlans },
 ];
 
 const makePlan = (

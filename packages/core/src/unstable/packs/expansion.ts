@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   decodeExtensionNameSync,
@@ -25,6 +26,7 @@ import type {
 } from "../workspace/service-interface.js";
 import type { Lockfile } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
+import type { ReleaseAgePolicy } from "../registry/index.js";
 import { resolvePackDependencies } from "./dependency-resolution.js";
 
 // -----------------------------------------------------------------------------
@@ -49,10 +51,11 @@ export const expandPackInstallRefs = (args: {
   readonly pack: PackRef;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly sources: SourceHostProvidersService;
+  readonly releaseAgePolicy?: Option.Option<ReleaseAgePolicy>;
 }): Effect.Effect<ReadonlyArray<ExtensionRef>, AppError> =>
   Effect.gen(function* () {
-    const { pack, supportedDependencyTypes, sources } = args;
-    const resolved = yield* resolvePackDependencies(pack, sources);
+    const { pack, supportedDependencyTypes, sources, releaseAgePolicy } = args;
+    const resolved = yield* resolvePackDependencies(pack, sources, releaseAgePolicy);
 
     const deps = resolved.dependencyRefs.filter((ref) =>
       supportedDependencyTypes.includes(ref.type),

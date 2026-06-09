@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
@@ -57,6 +57,10 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import {
+  parseMinimumReleaseAge,
+  type ReleaseAgePolicy,
+} from "@agentxm/client-core/unstable/registry";
 import type {
   CommandExtensionTarget,
   FilesExtensionTarget,
@@ -76,6 +80,7 @@ import { parseRegistryInstallTarget } from "../../shared/registry-install-target
 /** Raw handler args from the CLI parser. */
 export interface InstallPackHandlerArgs {
   readonly source: string;
+  readonly unattended?: boolean;
 }
 
 /** Parsed and validated pack install args. */
@@ -86,6 +91,7 @@ export interface ParsedPackInstallArgs {
   readonly resolvedInput: string;
   readonly inputKind: "name-input" | "name-input-with-version" | "registry-pattern-input";
   readonly sourceResolution?: string;
+  readonly unattended: boolean;
 }
 
 /** Source request for pack registry lookup. */
@@ -372,6 +378,26 @@ const registrySourceArtifact = (args: {
   };
 };
 
+const resolveReleaseAgePolicy = (
+  ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
+  unattended: boolean,
+): Effect.Effect<Option.Option<ReleaseAgePolicy>, AppError> =>
+  Effect.gen(function* () {
+    if (!unattended) return Option.none<ReleaseAgePolicy>();
+
+    const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
+    const minimumAgeMs = parseMinimumReleaseAge(minimumReleaseAge);
+    if (Option.isNone(minimumAgeMs)) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Invalid minimumReleaseAge "${minimumReleaseAge}"`,
+        recover: "Use a duration such as 24h, 1440m, or 0s.",
+      });
+    }
+
+    return Option.some({ minimumAgeMs: minimumAgeMs.value, now: new Date() });
+  });
+
 // -----------------------------------------------------------------------------
 // Service Tag
 // -----------------------------------------------------------------------------
@@ -450,6 +476,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 packName: parsed.success.name,
                 versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
                 resolvedInput: trimmed,
+                unattended: args.unattended ?? false,
               };
             }
 
@@ -490,6 +517,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               versionRange,
               resolvedInput,
               sourceResolution: `${trimmed} -> ${resolvedInput}`,
+              unattended: args.unattended ?? false,
             };
           }
 
@@ -740,6 +768,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         return {
           packToInstall: packRef,
           versionRange: parsed.versionRange,
+          unattended: parsed.unattended,
           ...(discovery.diagnosticLines !== undefined
             ? { diagnosticLines: discovery.diagnosticLines }
             : {}),
@@ -748,6 +777,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
     const buildPlan = (intent: InstallPackCommandIntent) =>
       Effect.gen(function* () {
+        const releaseAgePolicy = yield* resolveReleaseAgePolicy(ws, intent.unattended ?? false);
         const refs = yield* expandPackInstallRefs({
           pack: intent.packToInstall,
           supportedDependencyTypes: [
@@ -760,6 +790,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             "hook",
           ],
           sources,
+          releaseAgePolicy,
         });
         const lockedPack = yield* ws.getLockedPack(intent.packToInstall.pack.name);
         const [

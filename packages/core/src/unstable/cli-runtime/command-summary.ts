@@ -14,6 +14,7 @@ export type SubjectType =
   | "hook"
   | "subagent"
   | "pack"
+  | "library"
   | "mcp-server"
   | "mixed"
   | "unknown";

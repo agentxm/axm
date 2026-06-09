@@ -37,11 +37,17 @@ export type {
   GetExtensionIndexArgs,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
+  GetLibraryArgs,
   PublishExtensionArgs,
   PublishExtensionResponse,
   OwnerExistsResponse,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
+  RegistryLibrary,
+  RegistryLibraryDetail,
+  RegistryLibraryMaintainer,
+  RegistryLibraryMember,
+  RegistryLibraryVisibility,
 } from "./client.js";
 export { createRegistryClient } from "./client.js";
 

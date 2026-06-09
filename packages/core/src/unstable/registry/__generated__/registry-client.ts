@@ -702,6 +702,45 @@ export const PublishIdentityMismatchEntry = Schema.Struct({
   title: "Identity Mismatch Entry",
   description: "Single divergent identity field between URL-path and archive.",
 });
+export type LibraryId = string;
+export const LibraryId = Schema.String.check(
+  Schema.isPattern(new RegExp("^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Library ID",
+    description:
+      "Identifies a workspace-owned installable collection of extension identities in the registry.",
+    examples: ["lib_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type LibraryName = string;
+export const LibraryName = Schema.String.annotate({
+  title: "Library Name",
+  description:
+    "Canonical Library name within an owner namespace. Uses the same normalized slug grammar as handles.",
+  examples: ["frontend", "team-tools"],
+});
+export type LibraryVisibility = "public" | "internal" | "private";
+export const LibraryVisibility = Schema.Literals(["public", "internal", "private"]).annotate({
+  title: "Library Visibility",
+});
+export type LibraryMemberId = string;
+export const LibraryMemberId = Schema.String.check(
+  Schema.isPattern(new RegExp("^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Library Member ID",
+    description:
+      "Identifies an extension identity membership inside an installable registry library.",
+    examples: ["lmem_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type UpdateLibraryBody = {
+  readonly title?: string | null;
+  readonly description?: string | null | null;
+};
+export const UpdateLibraryBody = Schema.Struct({
+  title: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  description: Schema.optionalKey(
+    Schema.Union([Schema.Union([Schema.String, Schema.Null]), Schema.Null]),
+  ),
+}).annotate({ title: "Update Library Body" });
 export type PutCollaboratorBody = { readonly role: "write" | "read" };
 export const PutCollaboratorBody = Schema.Struct({
   role: Schema.Literals(["write", "read"]).annotate({
@@ -883,6 +922,7 @@ export type ForbiddenError = {
     | "add_team_member_not_authorized"
     | "remove_team_member_not_authorized"
     | "change_team_member_role_not_authorized"
+    | "library_mutation_not_authorized"
     | "team_extension_grant_delete_not_authorized"
     | "team_extension_grant_not_authorized"
     | "publish/quota-exceeded"
@@ -911,6 +951,7 @@ export const ForbiddenError = Schema.Struct({
     "add_team_member_not_authorized",
     "remove_team_member_not_authorized",
     "change_team_member_role_not_authorized",
+    "library_mutation_not_authorized",
     "team_extension_grant_delete_not_authorized",
     "team_extension_grant_not_authorized",
     "publish/quota-exceeded",
@@ -959,6 +1000,59 @@ export const CreateTokenRequest = Schema.Struct({
   title: "Create Token Request",
   description: "Request body for creating a new personal access token.",
 });
+export type LibraryMaintainer =
+  | {
+      readonly kind: "user";
+      readonly userId: UserId;
+      readonly assignedAt: string | null;
+      readonly assignedBy: UserId | null;
+    }
+  | {
+      readonly kind: "team";
+      readonly teamId: TeamId;
+      readonly assignedAt: string | null;
+      readonly assignedBy: UserId | null;
+    }
+  | {
+      readonly kind: "none";
+      readonly assignedAt: string | null;
+      readonly assignedBy: UserId | null;
+    };
+export const LibraryMaintainer = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("user"),
+    userId: UserId,
+    assignedAt: Schema.Union([
+      Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      Schema.Null,
+    ]),
+    assignedBy: Schema.Union([UserId, Schema.Null]),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("team"),
+    teamId: TeamId,
+    assignedAt: Schema.Union([
+      Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      Schema.Null,
+    ]),
+    assignedBy: Schema.Union([UserId, Schema.Null]),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("none"),
+    assignedAt: Schema.Union([
+      Schema.String.annotate({ readOnly: true, format: "date-time" }),
+      Schema.Null,
+    ]),
+    assignedBy: Schema.Union([UserId, Schema.Null]),
+  }),
+]).annotate({ title: "Library Maintainer" });
+export type LibraryMaintainerTarget =
+  | { readonly kind: "user"; readonly userId: UserId }
+  | { readonly kind: "team"; readonly teamId: TeamId };
+export const LibraryMaintainerTarget = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("user"), userId: UserId }),
+  Schema.Struct({ kind: Schema.Literal("team"), teamId: TeamId }),
+]).annotate({ title: "Library Maintainer Target" });
 export type ExtensionGrantEntry = {
   readonly subject:
     | { readonly kind: "user"; readonly userId: UserId }
@@ -1164,6 +1258,42 @@ export const PublishLintFinding = Schema.Struct({
   title: "Publish Lint Finding",
   description: "One lint finding produced against the publish subject.",
 });
+export type CreateLibraryBody = {
+  readonly name: LibraryName;
+  readonly title: string;
+  readonly description?: string | null | null;
+  readonly visibility?: LibraryVisibility | null;
+};
+export const CreateLibraryBody = Schema.Struct({
+  name: LibraryName,
+  title: Schema.String,
+  description: Schema.optionalKey(
+    Schema.Union([Schema.Union([Schema.String, Schema.Null]), Schema.Null]),
+  ),
+  visibility: Schema.optionalKey(Schema.Union([LibraryVisibility, Schema.Null])),
+}).annotate({ title: "Create Library Body" });
+export type PatchLibraryVisibilityBody = { readonly visibility: LibraryVisibility };
+export const PatchLibraryVisibilityBody = Schema.Struct({ visibility: LibraryVisibility }).annotate(
+  { title: "Patch Library Visibility Body" },
+);
+export type LibraryMember = {
+  readonly id: LibraryMemberId;
+  readonly libraryId: LibraryId;
+  readonly extensionId: string;
+  readonly extensionOwner: Handle;
+  readonly extensionType: ExtensionType;
+  readonly extensionName: ExtensionName;
+  readonly addedAt: string;
+};
+export const LibraryMember = Schema.Struct({
+  id: LibraryMemberId,
+  libraryId: LibraryId,
+  extensionId: Schema.String,
+  extensionOwner: Handle,
+  extensionType: ExtensionType,
+  extensionName: ExtensionName,
+  addedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+}).annotate({ title: "Library Member" });
 export type AuthMeResponse = {
   readonly user: AuthMeUser;
   readonly orgs: ReadonlyArray<never>;
@@ -1196,6 +1326,50 @@ export const TokenListResponse = Schema.Struct({
     Schema.Null,
   ]),
 }).annotate({ title: "Token List Response", description: "A page of your access tokens." });
+export type Library = {
+  readonly id: LibraryId;
+  readonly owner: Handle;
+  readonly name: LibraryName;
+  readonly title: string;
+  readonly description: string | null;
+  readonly visibility: LibraryVisibility;
+  readonly maintainer: LibraryMaintainer;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+};
+export const Library = Schema.Struct({
+  id: LibraryId,
+  owner: Handle,
+  name: LibraryName,
+  title: Schema.String,
+  description: Schema.Union([Schema.String, Schema.Null]),
+  visibility: LibraryVisibility,
+  maintainer: LibraryMaintainer,
+  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+}).annotate({ title: "Library" });
+export type CreatedLibrary = {
+  readonly id: LibraryId;
+  readonly owner: Handle;
+  readonly name: LibraryName;
+  readonly title: string;
+  readonly description: string | null;
+  readonly visibility: LibraryVisibility;
+  readonly maintainer: LibraryMaintainer;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+};
+export const CreatedLibrary = Schema.Struct({
+  id: LibraryId,
+  owner: Handle,
+  name: LibraryName,
+  title: Schema.String,
+  description: Schema.Union([Schema.String, Schema.Null]),
+  visibility: LibraryVisibility,
+  maintainer: LibraryMaintainer,
+  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+}).annotate({ title: "Created Library" });
 export type ExtensionGrantsResponse = { readonly grants: ReadonlyArray<ExtensionGrantEntry> };
 export const ExtensionGrantsResponse = Schema.Struct({
   grants: Schema.Array(ExtensionGrantEntry),
@@ -1283,6 +1457,18 @@ export const ExtensionLintFailedError = Schema.Struct({
   displayRoot: Schema.String,
   findings: Schema.Array(PublishLintFinding),
 });
+export type LibraryDetail = {
+  readonly library: Library;
+  readonly members: ReadonlyArray<LibraryMember>;
+  readonly hiddenMemberCount: number;
+};
+export const LibraryDetail = Schema.Struct({
+  library: Library,
+  members: Schema.Array(LibraryMember),
+  hiddenMemberCount: Schema.Number.check(Schema.isInt())
+    .check(Schema.isFinite())
+    .check(Schema.isGreaterThanOrEqualTo(0)),
+}).annotate({ title: "Library Detail" });
 // schemas
 export type MetaGet200 = MetaResponse;
 export const MetaGet200 = MetaResponse;
@@ -2028,6 +2214,124 @@ export type ExtensionsUnyankVersion403 = ForbiddenError;
 export const ExtensionsUnyankVersion403 = ForbiddenError;
 export type ExtensionsUnyankVersion404 = ProblemDetails;
 export const ExtensionsUnyankVersion404 = ProblemDetails;
+export type LibrariesListLibraries200 = { readonly libraries: ReadonlyArray<Library> };
+export const LibrariesListLibraries200 = Schema.Struct({ libraries: Schema.Array(Library) });
+export type LibrariesListLibraries400 = DecodeErrorResponse;
+export const LibrariesListLibraries400 = DecodeErrorResponse;
+export type LibrariesListLibraries404 = ProblemDetails;
+export const LibrariesListLibraries404 = ProblemDetails;
+export type LibrariesCreateLibraryRequestJson = CreateLibraryBody;
+export const LibrariesCreateLibraryRequestJson = CreateLibraryBody;
+export type LibrariesCreateLibrary201 = CreatedLibrary;
+export const LibrariesCreateLibrary201 = CreatedLibrary;
+export type LibrariesCreateLibrary400 = ProblemDetails | DecodeErrorResponse;
+export const LibrariesCreateLibrary400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type LibrariesCreateLibrary401 = ProblemDetails;
+export const LibrariesCreateLibrary401 = ProblemDetails;
+export type LibrariesCreateLibrary403 = ForbiddenError | ForbiddenError;
+export const LibrariesCreateLibrary403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type LibrariesCreateLibrary404 = ProblemDetails;
+export const LibrariesCreateLibrary404 = ProblemDetails;
+export type LibrariesCreateLibrary409 = ProblemDetails;
+export const LibrariesCreateLibrary409 = ProblemDetails;
+export type LibrariesCreateLibrary422 = ProblemDetails;
+export const LibrariesCreateLibrary422 = ProblemDetails;
+export type LibrariesGetLibrary200 = LibraryDetail;
+export const LibrariesGetLibrary200 = LibraryDetail;
+export type LibrariesGetLibrary400 = DecodeErrorResponse;
+export const LibrariesGetLibrary400 = DecodeErrorResponse;
+export type LibrariesGetLibrary404 = ProblemDetails;
+export const LibrariesGetLibrary404 = ProblemDetails;
+export type LibrariesGetLibrary422 = ProblemDetails;
+export const LibrariesGetLibrary422 = ProblemDetails;
+export type LibrariesDeleteLibrary400 = DecodeErrorResponse;
+export const LibrariesDeleteLibrary400 = DecodeErrorResponse;
+export type LibrariesDeleteLibrary401 = ProblemDetails;
+export const LibrariesDeleteLibrary401 = ProblemDetails;
+export type LibrariesDeleteLibrary403 = ForbiddenError | ForbiddenError;
+export const LibrariesDeleteLibrary403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type LibrariesDeleteLibrary404 = ProblemDetails;
+export const LibrariesDeleteLibrary404 = ProblemDetails;
+export type LibrariesDeleteLibrary422 = ProblemDetails;
+export const LibrariesDeleteLibrary422 = ProblemDetails;
+export type LibrariesUpdateLibraryRequestJson = UpdateLibraryBody;
+export const LibrariesUpdateLibraryRequestJson = UpdateLibraryBody;
+export type LibrariesUpdateLibrary200 = Library;
+export const LibrariesUpdateLibrary200 = Library;
+export type LibrariesUpdateLibrary400 = ProblemDetails | DecodeErrorResponse;
+export const LibrariesUpdateLibrary400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type LibrariesUpdateLibrary401 = ProblemDetails;
+export const LibrariesUpdateLibrary401 = ProblemDetails;
+export type LibrariesUpdateLibrary403 = ForbiddenError | ForbiddenError;
+export const LibrariesUpdateLibrary403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type LibrariesUpdateLibrary404 = ProblemDetails;
+export const LibrariesUpdateLibrary404 = ProblemDetails;
+export type LibrariesUpdateLibrary422 = ProblemDetails;
+export const LibrariesUpdateLibrary422 = ProblemDetails;
+export type LibrariesSetLibraryVisibilityRequestJson = PatchLibraryVisibilityBody;
+export const LibrariesSetLibraryVisibilityRequestJson = PatchLibraryVisibilityBody;
+export type LibrariesSetLibraryVisibility200 = Library;
+export const LibrariesSetLibraryVisibility200 = Library;
+export type LibrariesSetLibraryVisibility400 = DecodeErrorResponse;
+export const LibrariesSetLibraryVisibility400 = DecodeErrorResponse;
+export type LibrariesSetLibraryVisibility401 = ProblemDetails;
+export const LibrariesSetLibraryVisibility401 = ProblemDetails;
+export type LibrariesSetLibraryVisibility403 = ForbiddenError | ForbiddenError;
+export const LibrariesSetLibraryVisibility403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type LibrariesSetLibraryVisibility404 = ProblemDetails;
+export const LibrariesSetLibraryVisibility404 = ProblemDetails;
+export type LibrariesSetLibraryVisibility422 = ProblemDetails;
+export const LibrariesSetLibraryVisibility422 = ProblemDetails;
+export type LibrariesSetLibraryMaintainerRequestJson = LibraryMaintainerTarget;
+export const LibrariesSetLibraryMaintainerRequestJson = LibraryMaintainerTarget;
+export type LibrariesSetLibraryMaintainer200 = LibraryMaintainer;
+export const LibrariesSetLibraryMaintainer200 = LibraryMaintainer;
+export type LibrariesSetLibraryMaintainer400 = DecodeErrorResponse;
+export const LibrariesSetLibraryMaintainer400 = DecodeErrorResponse;
+export type LibrariesSetLibraryMaintainer401 = ProblemDetails;
+export const LibrariesSetLibraryMaintainer401 = ProblemDetails;
+export type LibrariesSetLibraryMaintainer403 = ForbiddenError | ForbiddenError;
+export const LibrariesSetLibraryMaintainer403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type LibrariesSetLibraryMaintainer404 = ProblemDetails;
+export const LibrariesSetLibraryMaintainer404 = ProblemDetails;
+export type LibrariesSetLibraryMaintainer422 = ProblemDetails;
+export const LibrariesSetLibraryMaintainer422 = ProblemDetails;
+export type LibrariesClearLibraryMaintainer200 = LibraryMaintainer;
+export const LibrariesClearLibraryMaintainer200 = LibraryMaintainer;
+export type LibrariesClearLibraryMaintainer400 = DecodeErrorResponse;
+export const LibrariesClearLibraryMaintainer400 = DecodeErrorResponse;
+export type LibrariesClearLibraryMaintainer401 = ProblemDetails;
+export const LibrariesClearLibraryMaintainer401 = ProblemDetails;
+export type LibrariesClearLibraryMaintainer403 = ForbiddenError | ForbiddenError;
+export const LibrariesClearLibraryMaintainer403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type LibrariesClearLibraryMaintainer404 = ProblemDetails;
+export const LibrariesClearLibraryMaintainer404 = ProblemDetails;
+export type LibrariesClearLibraryMaintainer422 = ProblemDetails;
+export const LibrariesClearLibraryMaintainer422 = ProblemDetails;
+export type LibrariesAddLibraryMember200 = LibraryMember;
+export const LibrariesAddLibraryMember200 = LibraryMember;
+export type LibrariesAddLibraryMember400 = DecodeErrorResponse;
+export const LibrariesAddLibraryMember400 = DecodeErrorResponse;
+export type LibrariesAddLibraryMember401 = ProblemDetails;
+export const LibrariesAddLibraryMember401 = ProblemDetails;
+export type LibrariesAddLibraryMember403 = ForbiddenError | ForbiddenError;
+export const LibrariesAddLibraryMember403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type LibrariesAddLibraryMember404 = ProblemDetails;
+export const LibrariesAddLibraryMember404 = ProblemDetails;
+export type LibrariesAddLibraryMember409 = ProblemDetails;
+export const LibrariesAddLibraryMember409 = ProblemDetails;
+export type LibrariesAddLibraryMember422 = ProblemDetails;
+export const LibrariesAddLibraryMember422 = ProblemDetails;
+export type LibrariesRemoveLibraryMember400 = DecodeErrorResponse;
+export const LibrariesRemoveLibraryMember400 = DecodeErrorResponse;
+export type LibrariesRemoveLibraryMember401 = ProblemDetails;
+export const LibrariesRemoveLibraryMember401 = ProblemDetails;
+export type LibrariesRemoveLibraryMember403 = ForbiddenError | ForbiddenError;
+export const LibrariesRemoveLibraryMember403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type LibrariesRemoveLibraryMember404 = ProblemDetails;
+export const LibrariesRemoveLibraryMember404 = ProblemDetails;
+export type LibrariesRemoveLibraryMember422 = ProblemDetails;
+export const LibrariesRemoveLibraryMember422 = ProblemDetails;
 export type CollaboratorsListCollaborators200 = {
   readonly collaborators: ReadonlyArray<{
     readonly userId: UserId;
@@ -3050,6 +3354,210 @@ export const make = (
           }),
         ),
       ),
+    LibrariesListLibraries: (owner, options) =>
+      HttpClientRequest.get(`/v1/libraries/${owner}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesListLibraries200),
+            "400": decodeError("LibrariesListLibraries400", LibrariesListLibraries400),
+            "404": decodeError("LibrariesListLibraries404", LibrariesListLibraries404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesCreateLibrary: (owner, options) =>
+      HttpClientRequest.post(`/v1/libraries/${owner}`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesCreateLibrary201),
+            "400": decodeError("LibrariesCreateLibrary400", LibrariesCreateLibrary400),
+            "401": decodeError("LibrariesCreateLibrary401", LibrariesCreateLibrary401),
+            "403": decodeError("LibrariesCreateLibrary403", LibrariesCreateLibrary403),
+            "404": decodeError("LibrariesCreateLibrary404", LibrariesCreateLibrary404),
+            "409": decodeError("LibrariesCreateLibrary409", LibrariesCreateLibrary409),
+            "422": decodeError("LibrariesCreateLibrary422", LibrariesCreateLibrary422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesGetLibrary: (owner, name, options) =>
+      HttpClientRequest.get(`/v1/libraries/${owner}/${name}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesGetLibrary200),
+            "400": decodeError("LibrariesGetLibrary400", LibrariesGetLibrary400),
+            "404": decodeError("LibrariesGetLibrary404", LibrariesGetLibrary404),
+            "422": decodeError("LibrariesGetLibrary422", LibrariesGetLibrary422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesDeleteLibrary: (owner, name, options) =>
+      HttpClientRequest.delete(`/v1/libraries/${owner}/${name}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError("LibrariesDeleteLibrary400", LibrariesDeleteLibrary400),
+            "401": decodeError("LibrariesDeleteLibrary401", LibrariesDeleteLibrary401),
+            "403": decodeError("LibrariesDeleteLibrary403", LibrariesDeleteLibrary403),
+            "404": decodeError("LibrariesDeleteLibrary404", LibrariesDeleteLibrary404),
+            "422": decodeError("LibrariesDeleteLibrary422", LibrariesDeleteLibrary422),
+            "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesUpdateLibrary: (owner, name, options) =>
+      HttpClientRequest.patch(`/v1/libraries/${owner}/${name}`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesUpdateLibrary200),
+            "400": decodeError("LibrariesUpdateLibrary400", LibrariesUpdateLibrary400),
+            "401": decodeError("LibrariesUpdateLibrary401", LibrariesUpdateLibrary401),
+            "403": decodeError("LibrariesUpdateLibrary403", LibrariesUpdateLibrary403),
+            "404": decodeError("LibrariesUpdateLibrary404", LibrariesUpdateLibrary404),
+            "422": decodeError("LibrariesUpdateLibrary422", LibrariesUpdateLibrary422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesSetLibraryVisibility: (owner, name, options) =>
+      HttpClientRequest.patch(`/v1/libraries/${owner}/${name}/visibility`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesSetLibraryVisibility200),
+            "400": decodeError(
+              "LibrariesSetLibraryVisibility400",
+              LibrariesSetLibraryVisibility400,
+            ),
+            "401": decodeError(
+              "LibrariesSetLibraryVisibility401",
+              LibrariesSetLibraryVisibility401,
+            ),
+            "403": decodeError(
+              "LibrariesSetLibraryVisibility403",
+              LibrariesSetLibraryVisibility403,
+            ),
+            "404": decodeError(
+              "LibrariesSetLibraryVisibility404",
+              LibrariesSetLibraryVisibility404,
+            ),
+            "422": decodeError(
+              "LibrariesSetLibraryVisibility422",
+              LibrariesSetLibraryVisibility422,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesSetLibraryMaintainer: (owner, name, options) =>
+      HttpClientRequest.put(`/v1/libraries/${owner}/${name}/maintainer`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesSetLibraryMaintainer200),
+            "400": decodeError(
+              "LibrariesSetLibraryMaintainer400",
+              LibrariesSetLibraryMaintainer400,
+            ),
+            "401": decodeError(
+              "LibrariesSetLibraryMaintainer401",
+              LibrariesSetLibraryMaintainer401,
+            ),
+            "403": decodeError(
+              "LibrariesSetLibraryMaintainer403",
+              LibrariesSetLibraryMaintainer403,
+            ),
+            "404": decodeError(
+              "LibrariesSetLibraryMaintainer404",
+              LibrariesSetLibraryMaintainer404,
+            ),
+            "422": decodeError(
+              "LibrariesSetLibraryMaintainer422",
+              LibrariesSetLibraryMaintainer422,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesClearLibraryMaintainer: (owner, name, options) =>
+      HttpClientRequest.delete(`/v1/libraries/${owner}/${name}/maintainer`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesClearLibraryMaintainer200),
+            "400": decodeError(
+              "LibrariesClearLibraryMaintainer400",
+              LibrariesClearLibraryMaintainer400,
+            ),
+            "401": decodeError(
+              "LibrariesClearLibraryMaintainer401",
+              LibrariesClearLibraryMaintainer401,
+            ),
+            "403": decodeError(
+              "LibrariesClearLibraryMaintainer403",
+              LibrariesClearLibraryMaintainer403,
+            ),
+            "404": decodeError(
+              "LibrariesClearLibraryMaintainer404",
+              LibrariesClearLibraryMaintainer404,
+            ),
+            "422": decodeError(
+              "LibrariesClearLibraryMaintainer422",
+              LibrariesClearLibraryMaintainer422,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesAddLibraryMember: (
+      owner,
+      name,
+      extensionOwner,
+      extensionType,
+      extensionName,
+      options,
+    ) =>
+      HttpClientRequest.put(
+        `/v1/libraries/${owner}/${name}/members/${extensionOwner}/${extensionType}/${extensionName}`,
+      ).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesAddLibraryMember200),
+            "400": decodeError("LibrariesAddLibraryMember400", LibrariesAddLibraryMember400),
+            "401": decodeError("LibrariesAddLibraryMember401", LibrariesAddLibraryMember401),
+            "403": decodeError("LibrariesAddLibraryMember403", LibrariesAddLibraryMember403),
+            "404": decodeError("LibrariesAddLibraryMember404", LibrariesAddLibraryMember404),
+            "409": decodeError("LibrariesAddLibraryMember409", LibrariesAddLibraryMember409),
+            "422": decodeError("LibrariesAddLibraryMember422", LibrariesAddLibraryMember422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesRemoveLibraryMember: (
+      owner,
+      name,
+      extensionOwner,
+      extensionType,
+      extensionName,
+      options,
+    ) =>
+      HttpClientRequest.delete(
+        `/v1/libraries/${owner}/${name}/members/${extensionOwner}/${extensionType}/${extensionName}`,
+      ).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError("LibrariesRemoveLibraryMember400", LibrariesRemoveLibraryMember400),
+            "401": decodeError("LibrariesRemoveLibraryMember401", LibrariesRemoveLibraryMember401),
+            "403": decodeError("LibrariesRemoveLibraryMember403", LibrariesRemoveLibraryMember403),
+            "404": decodeError("LibrariesRemoveLibraryMember404", LibrariesRemoveLibraryMember404),
+            "422": decodeError("LibrariesRemoveLibraryMember422", LibrariesRemoveLibraryMember422),
+            "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     CollaboratorsListCollaborators: (owner, type, name, options) =>
       HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/collaborators`).pipe(
         withResponse(options?.config)(
@@ -4046,6 +4554,249 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
     | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
     | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
+  >;
+  /**
+   * List owner Libraries
+   */
+  readonly LibrariesListLibraries: <Config extends OperationConfig>(
+    owner: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesListLibraries200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"LibrariesListLibraries400", typeof LibrariesListLibraries400.Type>
+    | RegistryClientError<"LibrariesListLibraries404", typeof LibrariesListLibraries404.Type>
+  >;
+  /**
+   * Create a Library
+   */
+  readonly LibrariesCreateLibrary: <Config extends OperationConfig>(
+    owner: string,
+    options: {
+      readonly payload: typeof LibrariesCreateLibraryRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesCreateLibrary201.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"LibrariesCreateLibrary400", typeof LibrariesCreateLibrary400.Type>
+    | RegistryClientError<"LibrariesCreateLibrary401", typeof LibrariesCreateLibrary401.Type>
+    | RegistryClientError<"LibrariesCreateLibrary403", typeof LibrariesCreateLibrary403.Type>
+    | RegistryClientError<"LibrariesCreateLibrary404", typeof LibrariesCreateLibrary404.Type>
+    | RegistryClientError<"LibrariesCreateLibrary409", typeof LibrariesCreateLibrary409.Type>
+    | RegistryClientError<"LibrariesCreateLibrary422", typeof LibrariesCreateLibrary422.Type>
+  >;
+  /**
+   * Get a Library
+   */
+  readonly LibrariesGetLibrary: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesGetLibrary200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"LibrariesGetLibrary400", typeof LibrariesGetLibrary400.Type>
+    | RegistryClientError<"LibrariesGetLibrary404", typeof LibrariesGetLibrary404.Type>
+    | RegistryClientError<"LibrariesGetLibrary422", typeof LibrariesGetLibrary422.Type>
+  >;
+  /**
+   * Delete a Library
+   */
+  readonly LibrariesDeleteLibrary: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"LibrariesDeleteLibrary400", typeof LibrariesDeleteLibrary400.Type>
+    | RegistryClientError<"LibrariesDeleteLibrary401", typeof LibrariesDeleteLibrary401.Type>
+    | RegistryClientError<"LibrariesDeleteLibrary403", typeof LibrariesDeleteLibrary403.Type>
+    | RegistryClientError<"LibrariesDeleteLibrary404", typeof LibrariesDeleteLibrary404.Type>
+    | RegistryClientError<"LibrariesDeleteLibrary422", typeof LibrariesDeleteLibrary422.Type>
+  >;
+  /**
+   * Update a Library
+   */
+  readonly LibrariesUpdateLibrary: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: {
+      readonly payload: typeof LibrariesUpdateLibraryRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesUpdateLibrary200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"LibrariesUpdateLibrary400", typeof LibrariesUpdateLibrary400.Type>
+    | RegistryClientError<"LibrariesUpdateLibrary401", typeof LibrariesUpdateLibrary401.Type>
+    | RegistryClientError<"LibrariesUpdateLibrary403", typeof LibrariesUpdateLibrary403.Type>
+    | RegistryClientError<"LibrariesUpdateLibrary404", typeof LibrariesUpdateLibrary404.Type>
+    | RegistryClientError<"LibrariesUpdateLibrary422", typeof LibrariesUpdateLibrary422.Type>
+  >;
+  /**
+   * Set Library visibility
+   */
+  readonly LibrariesSetLibraryVisibility: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: {
+      readonly payload: typeof LibrariesSetLibraryVisibilityRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesSetLibraryVisibility200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "LibrariesSetLibraryVisibility400",
+        typeof LibrariesSetLibraryVisibility400.Type
+      >
+    | RegistryClientError<
+        "LibrariesSetLibraryVisibility401",
+        typeof LibrariesSetLibraryVisibility401.Type
+      >
+    | RegistryClientError<
+        "LibrariesSetLibraryVisibility403",
+        typeof LibrariesSetLibraryVisibility403.Type
+      >
+    | RegistryClientError<
+        "LibrariesSetLibraryVisibility404",
+        typeof LibrariesSetLibraryVisibility404.Type
+      >
+    | RegistryClientError<
+        "LibrariesSetLibraryVisibility422",
+        typeof LibrariesSetLibraryVisibility422.Type
+      >
+  >;
+  /**
+   * Set Library maintainer
+   */
+  readonly LibrariesSetLibraryMaintainer: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: {
+      readonly payload: typeof LibrariesSetLibraryMaintainerRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesSetLibraryMaintainer200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "LibrariesSetLibraryMaintainer400",
+        typeof LibrariesSetLibraryMaintainer400.Type
+      >
+    | RegistryClientError<
+        "LibrariesSetLibraryMaintainer401",
+        typeof LibrariesSetLibraryMaintainer401.Type
+      >
+    | RegistryClientError<
+        "LibrariesSetLibraryMaintainer403",
+        typeof LibrariesSetLibraryMaintainer403.Type
+      >
+    | RegistryClientError<
+        "LibrariesSetLibraryMaintainer404",
+        typeof LibrariesSetLibraryMaintainer404.Type
+      >
+    | RegistryClientError<
+        "LibrariesSetLibraryMaintainer422",
+        typeof LibrariesSetLibraryMaintainer422.Type
+      >
+  >;
+  /**
+   * Clear Library maintainer
+   */
+  readonly LibrariesClearLibraryMaintainer: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesClearLibraryMaintainer200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "LibrariesClearLibraryMaintainer400",
+        typeof LibrariesClearLibraryMaintainer400.Type
+      >
+    | RegistryClientError<
+        "LibrariesClearLibraryMaintainer401",
+        typeof LibrariesClearLibraryMaintainer401.Type
+      >
+    | RegistryClientError<
+        "LibrariesClearLibraryMaintainer403",
+        typeof LibrariesClearLibraryMaintainer403.Type
+      >
+    | RegistryClientError<
+        "LibrariesClearLibraryMaintainer404",
+        typeof LibrariesClearLibraryMaintainer404.Type
+      >
+    | RegistryClientError<
+        "LibrariesClearLibraryMaintainer422",
+        typeof LibrariesClearLibraryMaintainer422.Type
+      >
+  >;
+  /**
+   * Add a Library member
+   */
+  readonly LibrariesAddLibraryMember: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    extensionOwner: string,
+    extensionType: string,
+    extensionName: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesAddLibraryMember200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"LibrariesAddLibraryMember400", typeof LibrariesAddLibraryMember400.Type>
+    | RegistryClientError<"LibrariesAddLibraryMember401", typeof LibrariesAddLibraryMember401.Type>
+    | RegistryClientError<"LibrariesAddLibraryMember403", typeof LibrariesAddLibraryMember403.Type>
+    | RegistryClientError<"LibrariesAddLibraryMember404", typeof LibrariesAddLibraryMember404.Type>
+    | RegistryClientError<"LibrariesAddLibraryMember409", typeof LibrariesAddLibraryMember409.Type>
+    | RegistryClientError<"LibrariesAddLibraryMember422", typeof LibrariesAddLibraryMember422.Type>
+  >;
+  /**
+   * Remove a Library member
+   */
+  readonly LibrariesRemoveLibraryMember: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    extensionOwner: string,
+    extensionType: string,
+    extensionName: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "LibrariesRemoveLibraryMember400",
+        typeof LibrariesRemoveLibraryMember400.Type
+      >
+    | RegistryClientError<
+        "LibrariesRemoveLibraryMember401",
+        typeof LibrariesRemoveLibraryMember401.Type
+      >
+    | RegistryClientError<
+        "LibrariesRemoveLibraryMember403",
+        typeof LibrariesRemoveLibraryMember403.Type
+      >
+    | RegistryClientError<
+        "LibrariesRemoveLibraryMember404",
+        typeof LibrariesRemoveLibraryMember404.Type
+      >
+    | RegistryClientError<
+        "LibrariesRemoveLibraryMember422",
+        typeof LibrariesRemoveLibraryMember422.Type
+      >
   >;
   /**
    * List extension collaborators

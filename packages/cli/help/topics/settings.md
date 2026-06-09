@@ -76,7 +76,15 @@ Let AXM edit settings for routine install, remove, enable, disable, agent, and
 source changes. Hand-edit settings when reviewing generated changes, adding
 source hosts, or adjusting `lint.rules`.
 
-Set `authored: true` only for extensions you expect to edit in this workspace. Omit `authored` otherwise — `false` is the default and should not be written explicitly. Likewise, omit `enabled` unless you are disabling an entry with `enabled: false`.
+Set `authored: true` only for extensions you expect to edit in this workspace. AXM then treats the entry as locally owned and changes three behaviors:
+
+- **Uninstall preserves files** — removing the entry leaves its directory under `.axm/extensions/` in place instead of deleting it.
+- **Update keeps the local source** — install and update operations retain the entry's existing source rather than repointing it to a registry FQN.
+- **Enable re-resolves locally** — re-enabling resolves the extension from the local managed copy instead of the registry.
+
+Omit `authored` otherwise — `false` is the default and should not be written explicitly. Likewise, omit `enabled` unless you are disabling an entry with `enabled: false`.
+
+Because authored extensions stay locally owned, keep them disabled (`enabled: false`) unless you are actively maintaining them.
 
 ## Ignoring Extensions
 

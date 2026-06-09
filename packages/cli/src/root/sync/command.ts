@@ -19,11 +19,11 @@ export const syncCommand = Command.make("sync", syncConfig, ({ scope, dryRun, fo
   handleSync({ dryRun, force }).pipe(withWorkspace(scope), withRuntime("sync")),
 ).pipe(
   withArgvTracking(syncConfig),
-  Command.withDescription("Materialize workspace files from the axm lockfile"),
+  Command.withDescription("Resolve configured Libraries and materialize workspace files"),
   Command.withExamples([
     {
       command: "axm sync",
-      description: "Rebuild managed workspace files from .axm/axm-lock.yaml",
+      description: "Re-resolve Library subscriptions and rebuild managed workspace files",
     },
     {
       command: "axm sync --dry-run",

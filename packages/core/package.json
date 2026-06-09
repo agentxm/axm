@@ -83,6 +83,10 @@
       "types": "./dist/src/unstable/lockfile/index.d.ts",
       "default": "./dist/src/unstable/lockfile/index.js"
     },
+    "./unstable/libraries": {
+      "types": "./dist/src/unstable/libraries/index.d.ts",
+      "default": "./dist/src/unstable/libraries/index.js"
+    },
     "./unstable/schema": {
       "types": "./dist/src/unstable/schema/index.d.ts",
       "default": "./dist/src/unstable/schema/index.js"

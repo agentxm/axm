@@ -11,6 +11,7 @@ import {
   toInstallableExtensionType,
   type InstallableExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
+import { parseLibraryRef } from "@agentxm/client-core/unstable/libraries";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
@@ -18,7 +19,7 @@ const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSche
 export const rootUpdatableTypeSegments = installableExtensionTypePluralSegments;
 export const RootUpdatableTypeSegmentSchema = InstallableExtensionTypePluralSchema;
 export type RootUpdatableTypeSegment = typeof RootUpdatableTypeSegmentSchema.Type;
-export type RootUpdatableType = InstallableExtensionType;
+export type RootUpdatableType = InstallableExtensionType | "library";
 
 export interface RootUpdateIntent {
   readonly source: string;
@@ -26,8 +27,9 @@ export interface RootUpdateIntent {
 }
 
 const rootUpdateFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
+const rootLibraryUpdateFqnGrammar = "@<handle>/libraries/<name>";
 
-const supportedRootUpdateTypes = rootUpdatableTypeSegments.join(", ");
+const supportedRootUpdateTypes = [...rootUpdatableTypeSegments, "libraries"].join(", ");
 
 const rootUpdateRegistryOnlyHowToFix = (source: string): string => {
   const parsed = parseInputPattern(source);
@@ -63,6 +65,26 @@ export const resolveRootUpdateIntent = (input: string) =>
         detail: "Root update only accepts registry FQNs",
         suggestions: [{ description: rootUpdateRegistryOnlyHowToFix(source) }],
       });
+    }
+
+    if (pluralType === "libraries") {
+      const libraryRef = parseLibraryRef(source);
+      if (libraryRef === undefined) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: "Library update source must be a bare Library ref",
+          suggestions: [
+            {
+              description: `Use ${rootLibraryUpdateFqnGrammar}. Libraries do not accept version suffixes.`,
+            },
+          ],
+        });
+      }
+
+      return {
+        source,
+        type: "library",
+      } satisfies RootUpdateIntent;
     }
 
     const parsed = yield* decodeRegistrySourceRef(source).pipe(

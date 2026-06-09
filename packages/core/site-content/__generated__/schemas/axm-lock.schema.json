@@ -206,6 +206,74 @@
       "title": "Pack Lock Entry",
       "description": "Pinned version info for an installed pack from a registry."
     },
+    "LibraryLockEntry": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["registry"] },
+        "owner": { "$ref": "#/definitions/Handle" },
+        "name": { "$ref": "#/definitions/ExtensionName" },
+        "sourceName": { "type": "string" },
+        "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+        "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+        "resolvedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+        "membershipDigest": { "type": "string" },
+        "resolvedSkills": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedCommands": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedMcpServers": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedSubagents": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedFiles": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedRules": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedHooks": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        }
+      },
+      "required": [
+        "type",
+        "owner",
+        "name",
+        "sourceName",
+        "installedAt",
+        "updatedAt",
+        "resolvedAt",
+        "membershipDigest",
+        "resolvedSkills",
+        "resolvedCommands",
+        "resolvedMcpServers",
+        "resolvedSubagents",
+        "resolvedFiles",
+        "resolvedRules",
+        "resolvedHooks"
+      ],
+      "additionalProperties": false,
+      "title": "Library Lock Entry",
+      "description": "Pinned membership snapshot for an installed Library subscription."
+    },
     "Lockfile": {
       "type": "object",
       "properties": {
@@ -2107,6 +2175,15 @@
         "packs": {
           "anyOf": [
             { "type": "object", "additionalProperties": { "$ref": "#/definitions/PackLockEntry" } },
+            { "type": "null" }
+          ]
+        },
+        "libraries": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/LibraryLockEntry" }
+            },
             { "type": "null" }
           ]
         }

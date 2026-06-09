@@ -2628,6 +2628,776 @@
         "summary": "Un-yank an extension version"
       }
     },
+    "/v1/libraries/{owner}": {
+      "get": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.listLibraries",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "libraries": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Library" }
+                    }
+                  },
+                  "required": ["libraries"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "List owner Libraries"
+      },
+      "post": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.createLibrary",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "201": {
+            "description": "CreatedLibrary",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/CreatedLibrary" } }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Create a Library",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateLibraryBody" } }
+          },
+          "required": true
+        }
+      }
+    },
+    "/v1/libraries/{owner}/{name}": {
+      "get": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.getLibrary",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "LibraryDetail",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/LibraryDetail" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Get a Library"
+      },
+      "patch": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.updateLibrary",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Library",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Library" } }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Update a Library",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/UpdateLibraryBody" } }
+          },
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.deleteLibrary",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "204": { "description": "<No Content>" },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Delete a Library"
+      }
+    },
+    "/v1/libraries/{owner}/{name}/visibility": {
+      "patch": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.setLibraryVisibility",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Library",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Library" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Set Library visibility",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PatchLibraryVisibilityBody" }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/v1/libraries/{owner}/{name}/maintainer": {
+      "put": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.setLibraryMaintainer",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "LibraryMaintainer",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/LibraryMaintainer" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Set Library maintainer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LibraryMaintainerTarget" }
+            }
+          },
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.clearLibraryMaintainer",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "LibraryMaintainer",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/LibraryMaintainer" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Clear Library maintainer"
+      }
+    },
+    "/v1/libraries/{owner}/{name}/members/{extensionOwner}/{extensionType}/{extensionName}": {
+      "put": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.addLibraryMember",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          },
+          {
+            "name": "extensionOwner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "extensionType",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "extensionName",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "LibraryMember",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/LibraryMember" } }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Add a Library member"
+      },
+      "delete": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.removeLibraryMember",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          },
+          {
+            "name": "extensionOwner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "extensionType",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "extensionName",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "204": { "description": "<No Content>" },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Remove a Library member"
+      }
+    },
     "/v1/extensions/{owner}/{type}/{name}/collaborators": {
       "get": {
         "tags": ["Collaborators"],
@@ -4718,6 +5488,7 @@
               "add_team_member_not_authorized",
               "remove_team_member_not_authorized",
               "change_team_member_role_not_authorized",
+              "library_mutation_not_authorized",
               "team_extension_grant_delete_not_authorized",
               "team_extension_grant_not_authorized",
               "publish/quota-exceeded",
@@ -5445,6 +6216,242 @@
         ],
         "additionalProperties": false
       },
+      "LibraryId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Library ID",
+            "description": "Identifies a workspace-owned installable collection of extension identities in the registry.",
+            "examples": ["lib_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "LibraryName": {
+        "type": "string",
+        "title": "Library Name",
+        "description": "Canonical Library name within an owner namespace. Uses the same normalized slug grammar as handles.",
+        "examples": ["frontend", "team-tools"]
+      },
+      "LibraryVisibility": {
+        "type": "string",
+        "enum": ["public", "internal", "private"],
+        "title": "Library Visibility"
+      },
+      "LibraryMaintainer": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["user"] },
+              "userId": { "$ref": "#/components/schemas/UserId" },
+              "assignedAt": {
+                "anyOf": [
+                  { "type": "string", "readOnly": true, "format": "date-time" },
+                  { "type": "null" }
+                ]
+              },
+              "assignedBy": {
+                "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
+              }
+            },
+            "required": ["kind", "userId", "assignedAt", "assignedBy"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["team"] },
+              "teamId": { "$ref": "#/components/schemas/TeamId" },
+              "assignedAt": {
+                "anyOf": [
+                  { "type": "string", "readOnly": true, "format": "date-time" },
+                  { "type": "null" }
+                ]
+              },
+              "assignedBy": {
+                "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
+              }
+            },
+            "required": ["kind", "teamId", "assignedAt", "assignedBy"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["none"] },
+              "assignedAt": {
+                "anyOf": [
+                  { "type": "string", "readOnly": true, "format": "date-time" },
+                  { "type": "null" }
+                ]
+              },
+              "assignedBy": {
+                "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }]
+              }
+            },
+            "required": ["kind", "assignedAt", "assignedBy"],
+            "additionalProperties": false
+          }
+        ],
+        "title": "Library Maintainer"
+      },
+      "Library": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/LibraryId" },
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "name": { "$ref": "#/components/schemas/LibraryName" },
+          "title": { "type": "string" },
+          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "visibility": { "$ref": "#/components/schemas/LibraryVisibility" },
+          "maintainer": { "$ref": "#/components/schemas/LibraryMaintainer" },
+          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" },
+          "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+        },
+        "required": [
+          "id",
+          "owner",
+          "name",
+          "title",
+          "description",
+          "visibility",
+          "maintainer",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false,
+        "title": "Library"
+      },
+      "LibraryMemberId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Library Member ID",
+            "description": "Identifies an extension identity membership inside an installable registry library.",
+            "examples": ["lmem_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "LibraryMember": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/LibraryMemberId" },
+          "libraryId": { "$ref": "#/components/schemas/LibraryId" },
+          "extensionId": { "type": "string" },
+          "extensionOwner": { "$ref": "#/components/schemas/Handle" },
+          "extensionType": { "$ref": "#/components/schemas/ExtensionType" },
+          "extensionName": { "$ref": "#/components/schemas/ExtensionName" },
+          "addedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+        },
+        "required": [
+          "id",
+          "libraryId",
+          "extensionId",
+          "extensionOwner",
+          "extensionType",
+          "extensionName",
+          "addedAt"
+        ],
+        "additionalProperties": false,
+        "title": "Library Member"
+      },
+      "LibraryDetail": {
+        "type": "object",
+        "properties": {
+          "library": { "$ref": "#/components/schemas/Library" },
+          "members": { "type": "array", "items": { "$ref": "#/components/schemas/LibraryMember" } },
+          "hiddenMemberCount": { "type": "integer", "allOf": [{ "minimum": 0 }] }
+        },
+        "required": ["library", "members", "hiddenMemberCount"],
+        "additionalProperties": false,
+        "title": "Library Detail"
+      },
+      "CreateLibraryBody": {
+        "type": "object",
+        "properties": {
+          "name": { "$ref": "#/components/schemas/LibraryName" },
+          "title": { "type": "string" },
+          "description": {
+            "anyOf": [{ "anyOf": [{ "type": "string" }, { "type": "null" }] }, { "type": "null" }]
+          },
+          "visibility": {
+            "anyOf": [{ "$ref": "#/components/schemas/LibraryVisibility" }, { "type": "null" }]
+          }
+        },
+        "required": ["name", "title"],
+        "additionalProperties": false,
+        "title": "Create Library Body"
+      },
+      "CreatedLibrary": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/LibraryId" },
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "name": { "$ref": "#/components/schemas/LibraryName" },
+          "title": { "type": "string" },
+          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "visibility": { "$ref": "#/components/schemas/LibraryVisibility" },
+          "maintainer": { "$ref": "#/components/schemas/LibraryMaintainer" },
+          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" },
+          "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+        },
+        "required": [
+          "id",
+          "owner",
+          "name",
+          "title",
+          "description",
+          "visibility",
+          "maintainer",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false,
+        "title": "Created Library"
+      },
+      "UpdateLibraryBody": {
+        "type": "object",
+        "properties": {
+          "title": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "description": {
+            "anyOf": [{ "anyOf": [{ "type": "string" }, { "type": "null" }] }, { "type": "null" }]
+          }
+        },
+        "additionalProperties": false,
+        "title": "Update Library Body"
+      },
+      "PatchLibraryVisibilityBody": {
+        "type": "object",
+        "properties": { "visibility": { "$ref": "#/components/schemas/LibraryVisibility" } },
+        "required": ["visibility"],
+        "additionalProperties": false,
+        "title": "Patch Library Visibility Body"
+      },
+      "LibraryMaintainerTarget": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["user"] },
+              "userId": { "$ref": "#/components/schemas/UserId" }
+            },
+            "required": ["kind", "userId"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["team"] },
+              "teamId": { "$ref": "#/components/schemas/TeamId" }
+            },
+            "required": ["kind", "teamId"],
+            "additionalProperties": false
+          }
+        ],
+        "title": "Library Maintainer Target"
+      },
       "PutCollaboratorBody": {
         "type": "object",
         "properties": {
@@ -5699,6 +6706,7 @@
     { "name": "Owners" },
     { "name": "OrgsTeams" },
     { "name": "Extensions" },
+    { "name": "Libraries" },
     { "name": "Collaborators" },
     { "name": "TeamGrants" },
     { "name": "Maintainer" },

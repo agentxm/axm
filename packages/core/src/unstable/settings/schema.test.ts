@@ -16,6 +16,7 @@ import {
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,
+  LibrariesMapSchema,
   SettingsSchema,
   SkillsMapSchema,
   SourceHostConfigSchema,
@@ -64,6 +65,7 @@ describe("Settings schema", () => {
         sources: [{ name: "github", type: "github", url: "https://github.com" }],
         agents: ["claude-code", "cursor"],
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
+        libraries: { frontend: "@wayne/libraries/frontend" },
         skillsConfig: { ignore: ["legacy-*"] },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
@@ -73,6 +75,13 @@ describe("Settings schema", () => {
       expect(result.skills).toEqual({
         "grappling-hook": {
           source: "@wayne/skills/grappling-hook@^1.0.0",
+          enabled: true,
+          authored: false,
+        },
+      });
+      expect(result.libraries).toEqual({
+        frontend: {
+          source: "@wayne/libraries/frontend",
           enabled: true,
           authored: false,
         },
@@ -1328,6 +1337,30 @@ describe("Settings schema", () => {
         enabled: true,
         authored: false,
       });
+    });
+  });
+
+  describe("libraries", () => {
+    it("accepts compact library subscriptions", () => {
+      const result = Schema.decodeUnknownSync(LibrariesMapSchema)({
+        frontend: "@acme/libraries/frontend",
+      });
+
+      expect(result).toEqual({
+        frontend: {
+          source: "@acme/libraries/frontend",
+          enabled: true,
+          authored: false,
+        },
+      });
+    });
+
+    it("rejects versioned library subscriptions", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(LibrariesMapSchema)({
+          frontend: "@acme/libraries/frontend@1.0.0",
+        }),
+      ).toThrow();
     });
   });
 });

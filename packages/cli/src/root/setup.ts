@@ -147,7 +147,7 @@ interface SetupSkillInstallerService {
     readonly yes: boolean;
     readonly force: boolean;
     readonly preview: boolean;
-  }) => Effect.Effect<void, AppError | PromptCancelled>;
+  }) => Effect.Effect<void, AppError | PromptCancelled, Verbosity>;
 }
 
 export class SetupSkillInstaller extends ServiceMap.Service<

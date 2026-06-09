@@ -4,12 +4,13 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   type Plan,
   type PlanSection,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
+import { buildInstallCommandPlan } from "@agentxm/client-core/unstable/workflows";
 import {
   WorkspaceMutations,
   resolveConfiguredCommand,
@@ -34,6 +35,7 @@ import { InstallFilesCommandWorkflowActions } from "../files/install/command-act
 import type { InstallFilesCommandIntent } from "../files/install/intent.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
+import { InstallLibraryCommandWorkflowActions } from "../libraries/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
@@ -45,7 +47,7 @@ import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import type { InstallSubagentCommandIntent } from "../subagents/install/intent.js";
 
-export type WorkspaceInstallableType = InstallableExtensionType;
+export type WorkspaceInstallableType = InstallableExtensionType | "library";
 
 type StepOrigin = "direct" | "dependency";
 
@@ -58,6 +60,10 @@ interface StepFragment {
 interface CollectedWorkspaceInstallPlans {
   readonly plans: ReadonlyArray<Plan>;
   readonly fragments: ReadonlyArray<StepFragment>;
+}
+
+interface WorkspaceInstallCollectorArgs {
+  readonly frozen: boolean;
 }
 
 type WorkspaceInstallCollectorContext =
@@ -73,15 +79,14 @@ type WorkspaceInstallCollectorContext =
   | InstallRuleCommandWorkflowActions
   | InstallSubagentCommandWorkflowActions
   | InstallMcpServerCommandWorkflowActions
-  | InstallPackCommandWorkflowActions;
+  | InstallPackCommandWorkflowActions
+  | InstallLibraryCommandWorkflowActions;
 
 interface WorkspaceInstallCollector {
   readonly type: WorkspaceInstallableType;
-  readonly collect: () => Effect.Effect<
-    CollectedWorkspaceInstallPlans,
-    AppError,
-    WorkspaceInstallCollectorContext
-  >;
+  readonly collect: (
+    args: WorkspaceInstallCollectorArgs,
+  ) => Effect.Effect<CollectedWorkspaceInstallPlans, AppError, WorkspaceInstallCollectorContext>;
 }
 
 export type WorkspaceInstallPlanResult =
@@ -98,7 +103,11 @@ const noConfiguredMessage = (type: Option.Option<WorkspaceInstallableType>): str
   Option.match(type, {
     onNone: () => "No configured extensions.",
     onSome: (value) =>
-      `No configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(value)]}.`,
+      value === "library"
+        ? "No configured Libraries."
+        : `No configured ${
+            extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(value)]
+          }.`,
   });
 
 const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
@@ -256,6 +265,7 @@ const resolvePackRef = (name: string, source: string) =>
         ({
           packToInstall: ref,
           versionRange,
+          unattended: true,
         }) satisfies InstallPackCommandIntent,
     ),
   );
@@ -415,6 +425,46 @@ const collectPackPlans = () =>
     });
   });
 
+const collectLibraryPlans = (args: WorkspaceInstallCollectorArgs) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const actions = yield* InstallLibraryCommandWorkflowActions;
+    const configured = yield* ws.getConfiguredLibraryEntries();
+    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+
+    const plans = yield* Effect.forEach(
+      entries,
+      ([, entry]) =>
+        buildInstallCommandPlan(
+          { source: entry.source, unattended: true, frozen: args.frozen },
+          actions,
+        ).pipe(
+          Effect.mapError((error) =>
+            error._tag === "PromptCancelled"
+              ? makeAppError({
+                  code: "internal",
+                  detail: "Library workspace install was cancelled unexpectedly",
+                })
+              : error,
+          ),
+        ),
+      { concurrency: "unbounded" },
+    );
+
+    return {
+      plans,
+      fragments: plans.flatMap((plan) => {
+        const steps = flattenPlanSteps(plan);
+        const directIndex = args.frozen ? -1 : steps.length - 1;
+        return steps.map((step, index) => ({
+          key: step.key ?? step.label,
+          origin: index === directIndex ? "direct" : "dependency",
+          step,
+        }));
+      }),
+    } satisfies CollectedWorkspaceInstallPlans;
+  });
+
 const workspaceInstallCollectors: ReadonlyArray<WorkspaceInstallCollector> = [
   { type: "skill" as const, collect: collectSkillPlans },
   { type: "command" as const, collect: collectCommandPlans },
@@ -424,6 +474,7 @@ const workspaceInstallCollectors: ReadonlyArray<WorkspaceInstallCollector> = [
   { type: "subagent" as const, collect: collectSubagentPlans },
   { type: "mcp-server" as const, collect: collectMcpServerPlans },
   { type: "pack" as const, collect: collectPackPlans },
+  { type: "library" as const, collect: collectLibraryPlans },
 ];
 
 const makePlan = (
@@ -443,14 +494,20 @@ export const buildWorkspaceInstallPlan = (args: {
   readonly type: Option.Option<WorkspaceInstallableType>;
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
+  readonly frozen?: boolean;
 }) =>
   Effect.gen(function* () {
     const selectedCollectors = workspaceInstallCollectors.filter(({ type }) =>
       matchesRequestedType(args.type, type),
     );
-    const collections = yield* Effect.forEach(selectedCollectors, ({ collect }) => collect(), {
-      concurrency: "unbounded",
-    });
+    const collectorArgs: WorkspaceInstallCollectorArgs = { frozen: args.frozen ?? false };
+    const collections = yield* Effect.forEach(
+      selectedCollectors,
+      ({ collect }) => collect(collectorArgs),
+      {
+        concurrency: "unbounded",
+      },
+    );
     const fragments = mergeFragments(collections);
 
     if (fragments.length === 0) {

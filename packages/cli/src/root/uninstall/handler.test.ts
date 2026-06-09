@@ -24,6 +24,10 @@ import {
   type UninstallHookHandlerArgs,
 } from "../hooks/uninstall/command-actions.js";
 import {
+  UninstallLibraryCommandWorkflowActions,
+  type UninstallLibraryHandlerArgs,
+} from "../libraries/uninstall/command-actions.js";
+import {
   UninstallPackCommandWorkflowActions,
   type UninstallPackHandlerArgs,
 } from "../packs/uninstall/command-actions.js";
@@ -179,6 +183,16 @@ describe("root uninstall handler", () => {
       buildUninstallPlan: () => Effect.succeed(makePlan("pack")),
     };
 
+    const libraryActions = {
+      parseArgs: (args: UninstallLibraryHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({ type: "library", name: args.name });
+          return {};
+        }),
+      finalizeIntent: () => Effect.succeed({}),
+      buildUninstallPlan: () => Effect.succeed(makePlan("library")),
+    };
+
     const fullLayer = Layer.mergeAll(
       ctx.fullLayer,
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
@@ -237,6 +251,13 @@ describe("root uninstall handler", () => {
           typeof UninstallPackCommandWorkflowActions
         >,
       ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
+        UninstallLibraryCommandWorkflowActions,
+        libraryActions as unknown as ServiceMap.Service.Shape<
+          typeof UninstallLibraryCommandWorkflowActions
+        >,
+      ),
     );
 
     return {
@@ -271,6 +292,7 @@ describe("root uninstall handler", () => {
           "@acme/hooks/tool-audit",
           "@acme/subagents/researcher",
           "@acme/packs/frontend-tools",
+          "@acme/libraries/frontend-team",
         ] as const;
 
         yield* Effect.forEach(sources, (source) => provide(handleUninstall({ source, ...flags })));
@@ -284,6 +306,7 @@ describe("root uninstall handler", () => {
           { type: "hook", name: "tool-audit" },
           { type: "subagent", name: "researcher" },
           { type: "pack", name: "frontend-tools" },
+          { type: "library", name: "frontend-team" },
         ]);
       }),
   );

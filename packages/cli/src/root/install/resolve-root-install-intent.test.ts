@@ -14,6 +14,7 @@ describe("resolveRootInstallIntent", () => {
         { source: "@acme/subagents/researcher", type: "subagent" },
         { source: "@ac/files/policy", type: "files" },
         { source: "@acme/packs/frontend-tools", type: "pack" },
+        { source: "@acme/libraries/frontend", type: "library" },
       ] as const;
 
       const results = yield* Effect.forEach(cases, ({ source }) =>
@@ -73,7 +74,21 @@ describe("resolveRootInstallIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcps, subagents, files, rules, hooks, packs");
+      ).toContain("skills, commands, mcps, subagents, files, rules, hooks, packs, libraries");
+    }),
+  );
+
+  it.effect("rejects versioned library refs", () =>
+    Effect.gen(function* () {
+      const error = yield* resolveRootInstallIntent("@acme/libraries/frontend@1.0.0").pipe(
+        Effect.flip,
+      );
+      const appError = getAppError(error);
+
+      expect(appError.code).toBe("validation");
+      expect(
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
+      ).toContain("@<handle>/libraries/<name>");
     }),
   );
 });

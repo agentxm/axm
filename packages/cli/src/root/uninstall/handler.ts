@@ -28,6 +28,10 @@ import {
   type UninstallHookHandlerArgs,
 } from "../hooks/uninstall/command-actions.js";
 import {
+  UninstallLibraryCommandWorkflowActions,
+  type UninstallLibraryHandlerArgs,
+} from "../libraries/uninstall/command-actions.js";
+import {
   UninstallPackCommandWorkflowActions,
   type UninstallPackHandlerArgs,
 } from "../packs/uninstall/command-actions.js";
@@ -78,6 +82,8 @@ const uninstallSuggestions = (type: RootUninstallableType): ReadonlyArray<Sugges
       return [{ description: "Inspect installed subagents", cmd: "axm subagents list" }];
     case "pack":
       return [{ description: "Inspect installed packs", cmd: "axm packs list" }];
+    case "library":
+      return [{ description: "Inspect configured Library subscriptions", cmd: "axm install" }];
   }
 };
 
@@ -105,6 +111,8 @@ const uninstallNoOpMessage = (
       return "No subagents uninstalled.";
     case "pack":
       return "No packs uninstalled.";
+    case "library":
+      return "No Library subscriptions uninstalled.";
   }
 };
 
@@ -152,6 +160,11 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
         case "pack": {
           const actions = yield* UninstallPackCommandWorkflowActions;
           const uninstallArgs: UninstallPackHandlerArgs = { name: intent.name };
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
+        }
+        case "library": {
+          const actions = yield* UninstallLibraryCommandWorkflowActions;
+          const uninstallArgs: UninstallLibraryHandlerArgs = { name: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
         }
       }

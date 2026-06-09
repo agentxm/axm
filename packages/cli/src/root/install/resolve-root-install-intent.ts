@@ -11,6 +11,7 @@ import {
   toInstallableExtensionType,
   type InstallableExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
+import { parseLibraryRef } from "@agentxm/client-core/unstable/libraries";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
@@ -18,7 +19,7 @@ const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSche
 export const rootInstallableTypeSegments = installableExtensionTypePluralSegments;
 export const RootInstallableTypeSegmentSchema = InstallableExtensionTypePluralSchema;
 export type RootInstallableTypeSegment = typeof RootInstallableTypeSegmentSchema.Type;
-export type RootInstallableType = InstallableExtensionType;
+export type RootInstallableType = InstallableExtensionType | "library";
 
 export interface RootInstallIntent {
   readonly source: string;
@@ -26,8 +27,9 @@ export interface RootInstallIntent {
 }
 
 const rootInstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
+const rootLibraryInstallFqnGrammar = "@<handle>/libraries/<name>";
 
-const supportedRootInstallTypes = rootInstallableTypeSegments.join(", ");
+const supportedRootInstallTypes = [...rootInstallableTypeSegments, "libraries"].join(", ");
 
 const rootInstallRegistryOnlyHowToFix = (source: string): string => {
   const parsed = parseInputPattern(source);
@@ -82,6 +84,26 @@ export const resolveRootInstallIntent = (input: string) =>
         detail: "Root install needs a registry FQN or source locator",
         suggestions: [{ description: rootInstallRegistryOnlyHowToFix(source) }],
       });
+    }
+
+    if (pluralType === "libraries") {
+      const libraryRef = parseLibraryRef(source);
+      if (libraryRef === undefined) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: "Library install source must be a bare Library ref",
+          suggestions: [
+            {
+              description: `Use ${rootLibraryInstallFqnGrammar}. Libraries do not accept version suffixes.`,
+            },
+          ],
+        });
+      }
+
+      return {
+        source,
+        type: "library",
+      } satisfies RootInstallIntent;
     }
 
     const parsed = yield* decodeRegistrySourceRef(source).pipe(

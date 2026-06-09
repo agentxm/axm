@@ -32,6 +32,7 @@ export const makeStubRegistryClient = (indices: ReadonlyArray<ExtensionIndex>): 
     },
     getExtensionsByScope: () => Effect.die("not used"),
     ownerExists: () => Effect.die("not used"),
+    getLibrary: () => Effect.die("not used"),
     getExtensionPackage: () => Effect.die("not used"),
     publishExtension: () => Effect.die("not used"),
     extensionExists: () => Effect.die("not used"),

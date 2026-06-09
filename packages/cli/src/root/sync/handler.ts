@@ -77,6 +77,7 @@ import {
   resolveConfiguredRule,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
+import { runWorkspaceInstall } from "../install/workspace-install-handler.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 export interface HandleSyncArgs {
@@ -86,6 +87,9 @@ export interface HandleSyncArgs {
 
 const PLAN_NAME = "Sync workspace";
 const PLAN_DESCRIPTION = "Materialize extensions from settings and on-disk extension content";
+const LIBRARY_SYNC_PLAN_NAME = "Resolve Library subscriptions";
+const LIBRARY_SYNC_PLAN_DESCRIPTION =
+  "Re-resolve configured Libraries before materializing workspace files";
 
 const dependencyEntries = (
   dependencies: Readonly<Record<string, unknown>>,
@@ -646,6 +650,69 @@ const previewPlan = (plan: Plan): PlanResolution => ({
   jobs: plan.jobs,
 });
 
+const mergeSyncResolution = (
+  primary: Option.Option<PlanResolution>,
+  extra: Option.Option<PlanResolution>,
+): Option.Option<PlanResolution> =>
+  Option.match(primary, {
+    onNone: () => extra,
+    onSome: (primaryResolution) =>
+      Option.match(extra, {
+        onNone: () => primary,
+        onSome: (extraResolution) => {
+          if (
+            primaryResolution._tag === "ExecutedPlan" &&
+            extraResolution._tag === "ExecutedPlan"
+          ) {
+            return Option.some({
+              _tag: "ExecutedPlan" as const,
+              name: PLAN_NAME,
+              description: Option.some(PLAN_DESCRIPTION),
+              jobs: [...primaryResolution.jobs, ...extraResolution.jobs],
+            });
+          }
+
+          if (
+            primaryResolution._tag === "PreviewedPlan" &&
+            extraResolution._tag === "PreviewedPlan"
+          ) {
+            return Option.some({
+              _tag: "PreviewedPlan" as const,
+              name: PLAN_NAME,
+              description: Option.some(PLAN_DESCRIPTION),
+              jobs: [...primaryResolution.jobs, ...extraResolution.jobs],
+            });
+          }
+
+          return primary;
+        },
+      }),
+  });
+
+const collectLibrarySubscriptionResolution = (args: {
+  readonly dryRun: boolean;
+  readonly force: boolean;
+}) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const configured = yield* ws.getConfiguredLibraryEntries();
+    const hasEnabledLibrary = Object.values(configured).some((entry) => entry.enabled);
+    if (!hasEnabledLibrary) {
+      return Option.none<PlanResolution>();
+    }
+
+    return yield* runWorkspaceInstall({
+      type: Option.some("library"),
+      planName: LIBRARY_SYNC_PLAN_NAME,
+      planDescription: Option.some(LIBRARY_SYNC_PLAN_DESCRIPTION),
+      flags: {
+        yes: true,
+        force: args.force,
+        preview: args.dryRun,
+      },
+    });
+  });
+
 const regionLabel = (count: number): string => (count === 1 ? "region" : "regions");
 
 const fileLabel = (count: number): string => (count === 1 ? "file" : "files");
@@ -891,10 +958,15 @@ const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function
 // aliases are synced only after that phase has finished.
 
 export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
+  const libraryResolution = yield* collectLibrarySubscriptionResolution(args);
   const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({ force: args.force });
   const workspaceGeneratorStep = yield* collectWorkspaceGeneratorStep();
 
-  if (steps.length === 0 && Option.isNone(workspaceGeneratorStep)) {
+  if (
+    Option.isNone(libraryResolution) &&
+    steps.length === 0 &&
+    Option.isNone(workspaceGeneratorStep)
+  ) {
     yield* renderInstructionPhase(args.dryRun);
     if (!args.dryRun) {
       yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
@@ -907,12 +979,28 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
     return;
   }
 
+  if (
+    Option.isSome(libraryResolution) &&
+    steps.length === 0 &&
+    Option.isNone(workspaceGeneratorStep)
+  ) {
+    yield* renderInstructionPhase(args.dryRun);
+    if (!args.dryRun) {
+      yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
+    }
+    yield* emitPlanResolutionResult("sync", libraryResolution.value);
+    return;
+  }
+
   const plan = makeSyncPlan({ materializeSteps: steps, workspaceGeneratorStep });
 
   if (args.dryRun) {
     yield* displayPlan(plan);
     yield* renderInstructionPhase(true);
-    yield* emitPlanResolutionResult("sync", previewPlan(plan));
+    const resolution = mergeSyncResolution(libraryResolution, Option.some(previewPlan(plan)));
+    if (Option.isSome(resolution)) {
+      yield* emitPlanResolutionResult("sync", resolution.value);
+    }
     return;
   }
 
@@ -920,5 +1008,8 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
   yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
   yield* renderInstructionPhase(false);
   yield* displayPlan(executed);
-  yield* emitPlanResolutionResult("sync", executed);
+  const resolution = mergeSyncResolution(libraryResolution, Option.some(executed));
+  if (Option.isSome(resolution)) {
+    yield* emitPlanResolutionResult("sync", resolution.value);
+  }
 });

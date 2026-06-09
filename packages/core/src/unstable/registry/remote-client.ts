@@ -39,11 +39,14 @@ import type {
   GetExtensionPackageResponse,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
+  GetLibraryArgs,
   OwnerExistsResponse,
   PublishExtensionArgs,
   PublishExtensionResponse,
   RegistryClient,
   RegistryExtensionManifest,
+  RegistryLibraryDetail,
+  RegistryLibraryMaintainer,
 } from "./client.js";
 import {
   isRegistryClientError,
@@ -63,6 +66,7 @@ import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
   ExtensionsGet200,
   ExtensionsListByOwner200,
+  LibrariesGetLibrary200,
 } from "./__generated__/registry-client.js";
 
 // -----------------------------------------------------------------------------
@@ -107,6 +111,60 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
       packages: v.packages === null || v.packages === undefined ? undefined : v.packages,
     })),
   });
+
+const mapLibraryMaintainer = (
+  maintainer: LibrariesGetLibrary200["library"]["maintainer"],
+): RegistryLibraryMaintainer => {
+  switch (maintainer.kind) {
+    case "user":
+      return {
+        kind: "user",
+        userId: maintainer.userId,
+        assignedAt: maintainer.assignedAt,
+        assignedBy: maintainer.assignedBy,
+      };
+    case "team":
+      return {
+        kind: "team",
+        teamId: maintainer.teamId,
+        assignedAt: maintainer.assignedAt,
+        assignedBy: maintainer.assignedBy,
+      };
+    case "none":
+      return {
+        kind: "none",
+        assignedAt: maintainer.assignedAt,
+        assignedBy: maintainer.assignedBy,
+      };
+  }
+};
+
+const normalizeHiddenMemberCount = (value: LibrariesGetLibrary200["hiddenMemberCount"]): number =>
+  typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+const mapToLibraryDetail = (response: LibrariesGetLibrary200): RegistryLibraryDetail => ({
+  library: {
+    id: response.library.id,
+    owner: decodeHandleSync(response.library.owner),
+    name: decodeExtensionNameSync(response.library.name),
+    title: response.library.title,
+    description: response.library.description,
+    visibility: response.library.visibility,
+    maintainer: mapLibraryMaintainer(response.library.maintainer),
+    createdAt: response.library.createdAt,
+    updatedAt: response.library.updatedAt,
+  },
+  members: response.members.map((member) => ({
+    id: member.id,
+    libraryId: member.libraryId,
+    extensionId: member.extensionId,
+    extensionOwner: decodeHandleSync(member.extensionOwner),
+    extensionType: narrowExtensionType(member.extensionType),
+    extensionName: decodeExtensionNameSync(member.extensionName),
+    addedAt: member.addedAt,
+  })),
+  hiddenMemberCount: normalizeHiddenMemberCount(response.hiddenMemberCount),
+});
 
 /**
  * Convert an ExtensionIndex + version constraint to a RegistryExtensionManifest.
@@ -208,6 +266,17 @@ export const createRemoteRegistryClient = (
       Effect.catch((e) => mapDiscoveryErrorWithNotFound(e, "REGISTRY_REMOTE_DISCOVERY")),
     );
 
+  // ---------------------------------------------------------------------------
+  // getLibrary
+  // ---------------------------------------------------------------------------
+  const getLibrary = (
+    args: GetLibraryArgs,
+  ): Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError> =>
+    client.LibrariesGetLibrary(args.owner, args.name, undefined).pipe(
+      Effect.map((response) => Option.some(mapToLibraryDetail(response))),
+      Effect.catch((e) => mapLibraryErrorWithNotFound(e)),
+    );
+
   /**
    * Map discovery errors, treating 404 as Option.none().
    */
@@ -220,6 +289,15 @@ export const createRemoteRegistryClient = (
       return Effect.succeed(Option.none<ExtensionIndex>());
     }
     return Effect.fail(mapDiscoveryError(e, prefix));
+  };
+
+  const mapLibraryErrorWithNotFound = (
+    e: unknown,
+  ): Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError> => {
+    if (isRegistryClientError("LibrariesGetLibrary404")(e)) {
+      return Effect.succeed(Option.none<RegistryLibraryDetail>());
+    }
+    return Effect.fail(mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY"));
   };
 
   /**
@@ -730,6 +808,7 @@ export const createRemoteRegistryClient = (
 
   return {
     getExtensionIndex,
+    getLibrary,
     getExtensionsByScope,
     ownerExists,
     getExtensionPackage,

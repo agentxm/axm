@@ -14,6 +14,7 @@ describe("resolveRootUninstallIntent", () => {
         { source: "@acme/subagents/researcher", type: "subagent", name: "researcher" },
         { source: "@ac/files/policy", type: "files", name: "policy" },
         { source: "@acme/packs/frontend-tools@1.2.3", type: "pack", name: "frontend-tools" },
+        { source: "@acme/libraries/frontend", type: "library", name: "frontend" },
       ] as const;
 
       const results = yield* Effect.forEach(cases, ({ source }) =>
@@ -75,7 +76,21 @@ describe("resolveRootUninstallIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("skills, commands, mcps, subagents, files, rules, hooks, packs");
+      ).toContain("skills, commands, mcps, subagents, files, rules, hooks, packs, libraries");
+    }),
+  );
+
+  it.effect("rejects versioned library refs", () =>
+    Effect.gen(function* () {
+      const error = yield* resolveRootUninstallIntent("@acme/libraries/frontend@1.0.0").pipe(
+        Effect.flip,
+      );
+      const appError = getAppError(error);
+
+      expect(appError.code).toBe("validation");
+      expect(
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
+      ).toContain("@<handle>/libraries/<name>");
     }),
   );
 });

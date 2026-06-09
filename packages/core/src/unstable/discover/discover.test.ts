@@ -31,6 +31,7 @@ const makeStubClient = (
     getExtensionsByScope: () => notImplemented,
     ownerExists: () => notImplemented,
     getExtensionIndex: () => notImplemented,
+    getLibrary: () => notImplemented,
     getExtensionPackage: () => notImplemented,
     publishExtension: () => notImplemented,
     extensionExists: () => notImplemented,

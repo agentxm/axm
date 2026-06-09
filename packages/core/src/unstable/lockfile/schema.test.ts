@@ -5,6 +5,7 @@ import {
   LOCKFILE_VERSION,
   CommandLockEntrySchema,
   FilesLockEntrySchema,
+  LibraryLockEntrySchema,
   LockfileSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
@@ -168,6 +169,65 @@ describe("lockfile schema", () => {
         strict: true,
         maxDepth: 3,
       });
+    });
+
+    it("accepts library lock entries with membership digest and resolved members", () => {
+      const input = {
+        lockfileVersion: LOCKFILE_VERSION,
+        skills: {},
+        libraries: {
+          frontend: {
+            type: "registry",
+            owner: "@acme",
+            name: "frontend",
+            sourceName: "default",
+            membershipDigest: "sha256-members",
+            resolvedAt: "2025-01-15T10:30:00Z",
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+            resolvedSkills: {
+              "@acme/skills/reviewer": "1.2.3",
+            },
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: {},
+            resolvedFiles: {},
+            resolvedRules: {},
+            resolvedHooks: {},
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
+
+      expect(result.libraries?.["frontend"]?.membershipDigest).toBe("sha256-members");
+      expect(result.libraries?.["frontend"]?.resolvedSkills).toEqual({
+        "@acme/skills/reviewer": "1.2.3",
+      });
+    });
+
+    it("rejects library lock entries with ranged resolved member versions", () => {
+      const input = {
+        type: "registry",
+        owner: "@acme",
+        name: "frontend",
+        sourceName: "default",
+        membershipDigest: "sha256-members",
+        resolvedAt: "2025-01-15T10:30:00Z",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {
+          "@acme/skills/reviewer": "^1.2.3",
+        },
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+        resolvedSubagents: {},
+        resolvedFiles: {},
+        resolvedRules: {},
+        resolvedHooks: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(LibraryLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects context lock entries with absolute target paths", () => {

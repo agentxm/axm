@@ -9,6 +9,7 @@ import type { RegistrySource } from "../sources/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { PackRef } from "./refs.js";
 import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
+import type { ReleaseAgePolicy } from "../registry/index.js";
 import { buildRegistrySkillRef } from "../skills/registry-ref-builder.js";
 import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
 import { buildRegistryMcpServerRef } from "../mcps/registry-ref-builder.js";
@@ -73,6 +74,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
   fqn: string,
   constraint: VersionRange,
   sources: SourceHostProvidersService,
+  releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
 ): Effect.Effect<ResolvedDependency<T>, AppError> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
@@ -90,6 +92,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
         type: expectedType,
         owner: Option.some(parsed.owner),
         versionRange: Option.some<string>(constraint),
+        ...(releaseAgePolicy === undefined ? {} : { releaseAgePolicy }),
       }),
     );
 
@@ -134,10 +137,12 @@ const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
   dependencies: ReadonlyArray<readonly [string, VersionRange]>,
   expectedType: T,
   sources: SourceHostProvidersService,
+  releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
 ): Effect.Effect<ReadonlyArray<ResolvedDependency<T>>, AppError> =>
   Effect.forEach(
     dependencies,
-    ([fqn, constraint]) => resolveDependencyRef(pack, expectedType, fqn, constraint, sources),
+    ([fqn, constraint]) =>
+      resolveDependencyRef(pack, expectedType, fqn, constraint, sources, releaseAgePolicy),
     { concurrency: "unbounded" },
   );
 
@@ -187,6 +192,7 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
 export const resolvePackDependencies = (
   pack: PackRef,
   sources: SourceHostProvidersService,
+  releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
 ): Effect.Effect<ResolvedPackDependencies, AppError> =>
   Effect.gen(function* () {
     const dependencies = partitionDependencies(pack.pack.dependencies);
@@ -202,28 +208,50 @@ export const resolvePackDependencies = (
       dependencies.skills,
       "skill",
       sources,
+      releaseAgePolicy,
     );
     const resolvedCommands = yield* resolveDependencyGroup(
       pack,
       dependencies.commands,
       "command",
       sources,
+      releaseAgePolicy,
     );
     const resolvedMcpServers = yield* resolveDependencyGroup(
       pack,
       dependencies.mcpServers,
       "mcp-server",
       sources,
+      releaseAgePolicy,
     );
     const resolvedSubagents = yield* resolveDependencyGroup(
       pack,
       dependencies.subagents,
       "subagent",
       sources,
+      releaseAgePolicy,
     );
-    const resolvedFiles = yield* resolveDependencyGroup(pack, dependencies.files, "files", sources);
-    const resolvedRules = yield* resolveDependencyGroup(pack, dependencies.rules, "rule", sources);
-    const resolvedHooks = yield* resolveDependencyGroup(pack, dependencies.hooks, "hook", sources);
+    const resolvedFiles = yield* resolveDependencyGroup(
+      pack,
+      dependencies.files,
+      "files",
+      sources,
+      releaseAgePolicy,
+    );
+    const resolvedRules = yield* resolveDependencyGroup(
+      pack,
+      dependencies.rules,
+      "rule",
+      sources,
+      releaseAgePolicy,
+    );
+    const resolvedHooks = yield* resolveDependencyGroup(
+      pack,
+      dependencies.hooks,
+      "hook",
+      sources,
+      releaseAgePolicy,
+    );
 
     return {
       resolvedSkills: toResolvedMap(resolvedSkills),

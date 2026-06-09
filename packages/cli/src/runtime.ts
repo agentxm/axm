@@ -48,6 +48,8 @@ import { InstallFilesCommandWorkflowActionsLive } from "./root/files/install/com
 import { UninstallFilesCommandWorkflowActionsLive } from "./root/files/uninstall/command-actions.js";
 import { InstallHookCommandWorkflowActionsLive } from "./root/hooks/install/command-actions.js";
 import { UninstallHookCommandWorkflowActionsLive } from "./root/hooks/uninstall/command-actions.js";
+import { InstallLibraryCommandWorkflowActionsLive } from "./root/libraries/install/command-actions.js";
+import { UninstallLibraryCommandWorkflowActionsLive } from "./root/libraries/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/install/command-actions.js";
 import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/uninstall/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
@@ -254,6 +256,10 @@ const makeWorkspaceProgramLayer = (
     Layer.mergeAll(InstallPackCommandWorkflowActionsLive, UninstallPackCommandWorkflowActionsLive),
     PackManagerLive,
   );
+  const librariesLayer = Layer.mergeAll(
+    InstallLibraryCommandWorkflowActionsLive,
+    UninstallLibraryCommandWorkflowActionsLive,
+  );
   const coreExtensions = Layer.mergeAll(
     commandsLayer,
     filesLayer,
@@ -263,7 +269,8 @@ const makeWorkspaceProgramLayer = (
     skillsLayer,
     subagentsLayer,
   );
-  const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
+  const extensionActionsLayer = Layer.mergeAll(packsLayer, librariesLayer);
+  const extensionsLayer = Layer.provideMerge(extensionActionsLayer, coreExtensions);
 
   return Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
 };

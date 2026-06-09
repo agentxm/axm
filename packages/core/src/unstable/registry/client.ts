@@ -90,6 +90,21 @@ export interface GetExtensionIndexArgs {
 }
 
 // -----------------------------------------------------------------------------
+// Get Library Args
+// -----------------------------------------------------------------------------
+
+/**
+ * Options for fetching a registry Library and its viewer-visible members.
+ *
+ * - `owner`: owner in the registry path (e.g. `"@acme"`)
+ * - `name`: Library name
+ */
+export interface GetLibraryArgs {
+  readonly owner: Handle;
+  readonly name: ExtensionName;
+}
+
+// -----------------------------------------------------------------------------
 // Publish Extension Args
 // -----------------------------------------------------------------------------
 
@@ -236,6 +251,55 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly packages: ReadonlyArray<PackageUrlParts>;
 }
 
+export type RegistryLibraryVisibility = "public" | "internal" | "private";
+
+export type RegistryLibraryMaintainer =
+  | {
+      readonly kind: "user";
+      readonly userId: string;
+      readonly assignedAt: string | null;
+      readonly assignedBy: string | null;
+    }
+  | {
+      readonly kind: "team";
+      readonly teamId: string;
+      readonly assignedAt: string | null;
+      readonly assignedBy: string | null;
+    }
+  | {
+      readonly kind: "none";
+      readonly assignedAt: string | null;
+      readonly assignedBy: string | null;
+    };
+
+export interface RegistryLibrary {
+  readonly id: string;
+  readonly owner: Handle;
+  readonly name: ExtensionName;
+  readonly title: string;
+  readonly description: string | null;
+  readonly visibility: RegistryLibraryVisibility;
+  readonly maintainer: RegistryLibraryMaintainer;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface RegistryLibraryMember {
+  readonly id: string;
+  readonly libraryId: string;
+  readonly extensionId: string;
+  readonly extensionOwner: Handle;
+  readonly extensionType: ExtensionType;
+  readonly extensionName: ExtensionName;
+  readonly addedAt: string;
+}
+
+export interface RegistryLibraryDetail {
+  readonly library: RegistryLibrary;
+  readonly members: ReadonlyArray<RegistryLibraryMember>;
+  readonly hiddenMemberCount: number;
+}
+
 // -----------------------------------------------------------------------------
 // Registry Client Interface
 // -----------------------------------------------------------------------------
@@ -256,6 +320,9 @@ export interface RegistryClient {
   readonly getExtensionIndex: (
     args: GetExtensionIndexArgs,
   ) => Effect.Effect<Option.Option<ExtensionIndex>, AppError>;
+  readonly getLibrary: (
+    args: GetLibraryArgs,
+  ) => Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError>;
   readonly getExtensionPackage: (
     args: GetExtensionPackageArgs,
   ) => Effect.Effect<GetExtensionPackageResponse, AppError>;

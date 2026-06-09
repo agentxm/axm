@@ -14,6 +14,7 @@ describe("resolveRootUpdateIntent", () => {
         { source: "@acme/subagents/researcher", type: "subagent" },
         { source: "@ac/files/policy", type: "files" },
         { source: "@acme/packs/frontend-tools", type: "pack" },
+        { source: "@acme/libraries/frontend", type: "library" },
       ] as const;
 
       const results = yield* Effect.forEach(cases, ({ source }) => resolveRootUpdateIntent(source));
@@ -62,6 +63,21 @@ describe("resolveRootUpdateIntent", () => {
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
       ).toContain("@<handle>/<plural-type>/<name>[@<version>]");
+    }),
+  );
+
+  it.effect("rejects versioned library refs", () =>
+    Effect.gen(function* () {
+      const error = yield* resolveRootUpdateIntent("@acme/libraries/frontend@^1.0.0").pipe(
+        Effect.flip,
+      );
+      const appError = getAppError(error);
+
+      expect(appError.code).toBe("validation");
+      expect(appError.detail).toBe("Library update source must be a bare Library ref");
+      expect(
+        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
+      ).toContain("Libraries do not accept version suffixes");
     }),
   );
 

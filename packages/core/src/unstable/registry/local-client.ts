@@ -357,6 +357,8 @@ export const createLocalRegistryClient = (
       return Option.some(yield* readExtensionIndex(fs, idxPath));
     }),
 
+  getLibrary: () => Effect.succeed(Option.none()),
+
   getExtensionPackage: (args: GetExtensionPackageArgs) =>
     Effect.gen(function* () {
       const owner = args.owner;

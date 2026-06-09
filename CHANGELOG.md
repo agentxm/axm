@@ -1,3 +1,13 @@
+## 0.17.0 (2026-06-09)
+
+### 🚀 Features
+
+- Add extension grant and maintainer commands, and enforce minimum release age for unattended registry resolution. ([5c63584a](https://github.com/agentxm/axm/commit/5c63584a))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## Unreleased
 
 ### ⚠️ Breaking Changes

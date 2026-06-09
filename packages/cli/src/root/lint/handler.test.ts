@@ -460,6 +460,7 @@ describe("axm lint handler", () => {
 
   it.effect("--fix repairs configured instruction-file drift", () => {
     const { provide, rendererState } = makeLayers();
+    fs.mkdirSync(path.join(tempDir, ".git"));
     writeSettings({
       agents: ["claude-code"],
       rulesConfig: {

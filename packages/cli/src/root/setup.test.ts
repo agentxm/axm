@@ -437,6 +437,8 @@ describe("setup.handler", () => {
 
       return provide(
         Effect.gen(function* () {
+          fs.mkdirSync(path.join(tempDir, ".git"));
+
           yield* handleSetup({ scope: "project", agents: ["claude-code"], yes: true });
 
           const settings = readJson(path.join(tempDir, ".axm", "settings.json"));
@@ -450,6 +452,20 @@ describe("setup.handler", () => {
           expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
             "**/CLAUDE.md",
           );
+        }),
+      );
+    });
+
+    it.effect("enables instruction sync without writing gitignore outside a git workspace", () => {
+      const { provide } = makeSetupTestContext();
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"], yes: true });
+
+          expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(true);
+          expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(true);
+          expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
         }),
       );
     });

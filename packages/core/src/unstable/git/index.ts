@@ -5,4 +5,5 @@
  * @packageDocumentation
  */
 
+export { findGitRoot, isGitManaged } from "./detect.js";
 export { getTreeSha, shallowClone } from "./operations.js";

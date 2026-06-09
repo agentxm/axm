@@ -8,6 +8,7 @@ import {
   managedFileFormatForPath,
   stripManagedFileBanner,
 } from "../extensions/index.js";
+import { isGitManaged } from "../git/detect.js";
 import { type InstructionsConfig } from "../settings/index.js";
 import { createSymlink } from "../utils/create-symlink.js";
 import { AGENTS } from "./registry.js";
@@ -537,6 +538,9 @@ const writeGitignoreRegion = (args: {
   readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
+    const gitManaged = yield* isGitManaged(args.workspaceRoot);
+    if (!gitManaged) return Option.none<string>();
+
     const filePath = yield* instructionGitignorePath(args.workspaceRoot);
     const region = desiredGitignoreRegion({
       desired: args.desired,
@@ -564,6 +568,15 @@ export const getInstructionsGitignoreStatus = (args: {
 }): Effect.Effect<InstructionsGitignoreStatus, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const file = yield* instructionGitignorePath(args.workspaceRoot);
+    const gitManaged = yield* isGitManaged(args.workspaceRoot);
+    if (!gitManaged) {
+      return {
+        file,
+        desired: false,
+        current: true,
+      };
+    }
+
     const currentContent = yield* readFileOption(file);
     const current = Option.isSome(currentContent) && hasManagedRegion(currentContent.value);
     const region = desiredGitignoreRegion({

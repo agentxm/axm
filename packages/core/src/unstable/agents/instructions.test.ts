@@ -6,6 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import {
+  getInstructionsGitignoreStatus,
   getInstructionsStatus,
   listInstructionAliases,
   normalizeMarkdownBody,
@@ -82,6 +83,7 @@ describe("agent instructions", () => {
   it.effect("syncs configured own-file agents from AGENTS.md as symlinks", () =>
     run(
       Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
 
         const result = yield* syncInstructions({
@@ -109,6 +111,98 @@ describe("agent instructions", () => {
         expect(gitignore).toContain("**/CLAUDE.md");
         expect(gitignore).toContain("**/GEMINI.md");
         expect(gitignore).not.toContain("**/AGENTS.md");
+      }),
+    ),
+  );
+
+  it.effect("does not write gitignore entries outside a git workspace", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+
+        const result = yield* syncInstructions({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          force: false,
+          dryRun: false,
+        });
+        const status = yield* getInstructionsGitignoreStatus({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+        });
+
+        expect(result.written).not.toContain(path.join(tempDir, ".gitignore"));
+        expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
+        expect(status).toEqual({
+          file: path.join(tempDir, ".gitignore"),
+          desired: false,
+          current: true,
+        });
+      }),
+    ),
+  );
+
+  it.effect("does not report a dry-run gitignore write outside a git workspace", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+
+        const result = yield* syncInstructions({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          force: false,
+          dryRun: true,
+        });
+
+        expect(result.written).not.toContain(path.join(tempDir, ".gitignore"));
+        expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("writes gitignore entries when the workspace has a .git file", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, ".git"), "gitdir: ../.git/worktrees/demo\n");
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+
+        const result = yield* syncInstructions({
+          workspaceRoot: tempDir,
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          force: false,
+          dryRun: false,
+        });
+
+        expect(result.written).toEqual(expect.arrayContaining([path.join(tempDir, ".gitignore")]));
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
+          "**/CLAUDE.md",
+        );
+      }),
+    ),
+  );
+
+  it.effect("writes gitignore entries when the git root is an ancestor", () =>
+    run(
+      Effect.gen(function* () {
+        const nested = path.join(tempDir, "packages", "demo");
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.mkdirSync(nested, { recursive: true });
+        fs.writeFileSync(path.join(nested, "AGENTS.md"), "# Workspace\n");
+
+        const result = yield* syncInstructions({
+          workspaceRoot: nested,
+          configuredAgents: ["claude-code"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: true },
+          force: false,
+          dryRun: false,
+        });
+
+        expect(result.written).toEqual(expect.arrayContaining([path.join(nested, ".gitignore")]));
+        expect(fs.readFileSync(path.join(nested, ".gitignore"), "utf-8")).toContain("**/CLAUDE.md");
       }),
     ),
   );
@@ -180,6 +274,7 @@ describe("agent instructions", () => {
   it.effect("removes the managed gitignore block when gitignoreAliases is disabled", () =>
     run(
       Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
 
         yield* syncInstructions({

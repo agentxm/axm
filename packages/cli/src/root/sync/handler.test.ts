@@ -524,6 +524,32 @@ describe("root sync handler", () => {
     }),
   );
 
+  it.effect("omits instruction gitignore work from non-git dry-runs", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeSettings(tempDir, {
+        agents: ["claude-code"],
+        rulesConfig: {
+          instructions: {
+            fileName: "AGENTS.md",
+            gitignoreAliases: true,
+          },
+        },
+      });
+      fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+
+      yield* provide(handleSync({ dryRun: true, force: false }));
+
+      expectPreviewedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 1,
+      });
+      const rendered = rendererState.logs.map((entry) => entry.message).join("\n");
+      expect(rendered).not.toContain("instruction gitignore entries");
+      expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
+    }),
+  );
+
   it.effect("removes managed subagent files for agents removed from settings", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();

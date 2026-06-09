@@ -26,10 +26,12 @@ import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import {
   buildMaterializeOperation,
   configuredCommandsToDiskRefs,
+  enabledConfiguredEntries,
   configuredMcpServersToDiskRefs,
   configuredSkillsToDiskRefs,
   configuredSubagentsToDiskRefs,
   parseRegistrySourceRef,
+  isConfiguredEntryEnabled,
   sanitizeName,
   targetFromRef,
   toLabelWithCompanions,
@@ -92,20 +94,6 @@ const LIBRARY_SYNC_PLAN_DESCRIPTION =
   "Re-resolve configured Libraries before materializing workspace files";
 
 const dependencyEntries = (
-  dependencies: Readonly<Record<string, unknown>>,
-  type: ExtensionTypePlural,
-) => {
-  const entries: Record<string, { source: string; enabled: boolean; packagingKind: "native" }> = {};
-  for (const fqn of Object.keys(dependencies)) {
-    const parsed = parseRegistrySourceRef(fqn);
-    if (parsed !== undefined && parsed.type === type) {
-      entries[parsed.name] = { source: fqn, enabled: true, packagingKind: "native" };
-    }
-  }
-  return entries;
-};
-
-const enabledDependencyEntries = (
   dependencies: Readonly<Record<string, unknown>>,
   type: ExtensionTypePlural,
 ) => {
@@ -398,29 +386,29 @@ const buildMcpServerPruneOperation = ({
 });
 
 const configuredFilesToRefs = (
-  entries: Readonly<Record<string, { readonly source: string; readonly enabled?: boolean }>>,
+  entries: Readonly<Record<string, { readonly source: string; readonly enabled: boolean }>>,
 ) =>
   Effect.forEach(
-    Object.entries(entries).filter(([, entry]) => entry.enabled !== false),
+    enabledConfiguredEntries(entries),
     ([name, entry]) =>
       resolveConfiguredFiles(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
     { concurrency: "unbounded" },
   );
 
 const configuredRulesToRefs = (
-  entries: Readonly<Record<string, { readonly source: string; readonly enabled?: boolean }>>,
+  entries: Readonly<Record<string, { readonly source: string; readonly enabled: boolean }>>,
 ) =>
   Effect.forEach(
-    Object.entries(entries).filter(([, entry]) => entry.enabled !== false),
+    enabledConfiguredEntries(entries),
     ([name, entry]) => resolveConfiguredRule(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
     { concurrency: "unbounded" },
   );
 
 const configuredHooksToRefs = (
-  entries: Readonly<Record<string, { readonly source: string; readonly enabled?: boolean }>>,
+  entries: Readonly<Record<string, { readonly source: string; readonly enabled: boolean }>>,
 ) =>
   Effect.forEach(
-    Object.entries(entries).filter(([, entry]) => entry.enabled !== false),
+    enabledConfiguredEntries(entries),
     ([name, entry]) => resolveConfiguredHook(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
     { concurrency: "unbounded" },
   );
@@ -482,14 +470,14 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         env,
         Object.assign(
           {},
-          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "skills")),
+          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "skills")),
         ),
       ),
       configuredCommandsToDiskRefs(
         env,
         Object.assign(
           {},
-          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "commands")),
+          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "commands")),
         ),
       ),
       configuredMcpServersToDiskRefs(
@@ -503,25 +491,25 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         env,
         Object.assign(
           {},
-          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "subagents")),
+          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "subagents")),
         ),
       ),
       configuredFilesToRefs(
         Object.assign(
           {},
-          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "files")),
+          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "files")),
         ),
       ),
       configuredRulesToRefs(
         Object.assign(
           {},
-          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "rules")),
+          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "rules")),
         ),
       ),
       configuredHooksToRefs(
         Object.assign(
           {},
-          ...packRefs.map((ref) => enabledDependencyEntries(ref.pack.dependencies, "hooks")),
+          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "hooks")),
         ),
       ),
     ],
@@ -541,9 +529,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     ...packSubagentRefs.filter((ref) => !directSubagentNames.has(ref.subagent.name)),
   ];
   const declaredMcpServerNames = new Set([
-    ...Object.entries(configuredMcpServerEntries)
-      .filter(([, entry]) => entry.enabled)
-      .map(([name]) => name),
+    ...enabledConfiguredEntries(configuredMcpServerEntries).map(([name]) => name),
     ...packMcpServerRefs.map((ref) => ref.server.name),
   ]);
   const skillMaterializeStep = (ref: SkillExtensionRef) =>
@@ -580,7 +566,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         buildMcpServerSyncOperation({ ref, fs, path, ws, renderer, agentRepo }),
       ),
       ...Object.entries(configuredMcpServerEntries)
-        .filter(([, entry]) => entry.enabled && isInlineMcpServerEntry(entry))
+        .filter(([, entry]) => isConfiguredEntryEnabled(entry) && isInlineMcpServerEntry(entry))
         .map(([name, entry]) =>
           buildInlineMcpServerSyncOperation({
             name,
@@ -696,7 +682,7 @@ const collectLibrarySubscriptionResolution = (args: {
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const configured = yield* ws.getConfiguredLibraryEntries();
-    const hasEnabledLibrary = Object.values(configured).some((entry) => entry.enabled);
+    const hasEnabledLibrary = Object.values(configured).some(isConfiguredEntryEnabled);
     if (!hasEnabledLibrary) {
       return Option.none<PlanResolution>();
     }

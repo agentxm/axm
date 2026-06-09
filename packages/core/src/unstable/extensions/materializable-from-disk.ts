@@ -29,6 +29,7 @@ import type { RegistrySource } from "../sources/types.js";
 import type { Handle } from "./handle.js";
 import type { PackRef } from "../packs/refs.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
+import { enabledConfiguredEntries } from "./configured-entry.js";
 
 interface DiskRefEnv {
   readonly fs: FileSystem.FileSystem;
@@ -119,7 +120,7 @@ export const configuredSkillsToDiskRefs = (
   configured: Readonly<Record<string, ConfiguredSkill>>,
 ): Effect.Effect<ReadonlyArray<SkillExtensionRef>, AppError> =>
   Effect.forEach(
-    Object.entries(configured).filter(([, entry]) => entry.enabled),
+    enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
       Effect.gen(function* () {
         const location = yield* resolveRegistryDiskLocation(
@@ -168,7 +169,7 @@ export const configuredCommandsToDiskRefs = (
   configured: Readonly<Record<string, ConfiguredExtensionRef & { readonly enabled: boolean }>>,
 ): Effect.Effect<ReadonlyArray<CommandExtensionRef>, AppError> =>
   Effect.forEach(
-    Object.entries(configured).filter(([, entry]) => entry.enabled),
+    enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
       Effect.gen(function* () {
         const location = yield* resolveRegistryDiskLocation(
@@ -213,7 +214,7 @@ export const configuredMcpServersToDiskRefs = (
   configured: Readonly<Record<string, ConfiguredExtensionRef>>,
 ): Effect.Effect<ReadonlyArray<McpServerExtensionRef>, AppError> =>
   Effect.forEach(
-    Object.entries(configured),
+    enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
       Effect.gen(function* () {
         const location = yield* resolveRegistryDiskLocation(
@@ -258,7 +259,7 @@ export const configuredSubagentsToDiskRefs = (
   configured: Readonly<Record<string, ConfiguredSubagent>>,
 ): Effect.Effect<ReadonlyArray<SubagentExtensionRef>, AppError> =>
   Effect.forEach(
-    Object.entries(configured).filter(([, entry]) => entry.enabled),
+    enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
       Effect.gen(function* () {
         const location = yield* resolveRegistryDiskLocation(

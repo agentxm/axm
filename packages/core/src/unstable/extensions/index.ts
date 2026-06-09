@@ -145,6 +145,12 @@ export type { ExtensionRef } from "./refs.js";
 // Shared utilities
 export { sanitizeName, copyExtensionDirectory, validatePathSafety } from "./utils.js";
 
+export {
+  enabledConfiguredEntries,
+  isConfiguredEntryEnabled,
+  type ConfiguredEntryEnabledState,
+} from "./configured-entry.js";
+
 // Reconciliation utilities
 export { readAndDecodeManifest } from "./reconciliation-utils.js";
 

@@ -24,6 +24,7 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
+  enabledConfiguredEntries,
   extensionTypePluralSentenceLabels,
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
@@ -275,7 +276,7 @@ const collectSkillPlans = () =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSkillCommandWorkflowActions;
     const configured = yield* ws.records.getConfiguredSkills();
-    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -294,7 +295,7 @@ const collectCommandPlans = () =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallCommandCommandWorkflowActions;
     const configured = yield* ws.records.getConfiguredCommands();
-    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -313,7 +314,7 @@ const collectFilePlans = () =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallFilesCommandWorkflowActions;
     const configured = yield* ws.getConfiguredFilesEntries();
-    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -332,7 +333,7 @@ const collectRulePlans = () =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallRuleCommandWorkflowActions;
     const configured = yield* ws.getConfiguredRuleEntries();
-    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -351,7 +352,7 @@ const collectHookPlans = () =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallHookCommandWorkflowActions;
     const configured = yield* ws.getConfiguredHookEntries();
-    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -370,7 +371,7 @@ const collectSubagentPlans = () =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSubagentCommandWorkflowActions;
     const configured = yield* ws.records.getConfiguredSubagents();
-    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -389,7 +390,7 @@ const collectMcpServerPlans = () =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallMcpServerCommandWorkflowActions;
     const configured = yield* ws.records.getConfiguredMcpServers();
-    const entries = Object.entries(configured);
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,
@@ -430,7 +431,7 @@ const collectLibraryPlans = (args: WorkspaceInstallCollectorArgs) =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallLibraryCommandWorkflowActions;
     const configured = yield* ws.getConfiguredLibraryEntries();
-    const entries = Object.entries(configured).filter(([, entry]) => entry.enabled);
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,

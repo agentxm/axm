@@ -20,6 +20,7 @@ import {
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
+  enabledConfiguredEntries,
   formatFqn,
 } from "../extensions/index.js";
 import { copyExtensionDirectory, validatePathSafety } from "../extensions/utils.js";
@@ -587,7 +588,7 @@ export const FilesManagerLive = Layer.effect(
         const configured = yield* ws.getConfiguredFilesEntries();
         const refs = yield* Effect.scoped(
           Effect.forEach(
-            Object.entries(configured).filter(([, entry]) => entry.enabled),
+            enabledConfiguredEntries(configured),
             ([name, entry]) =>
               provide(resolveConfiguredFiles(name, entry.source)).pipe(
                 Effect.map(({ ref }) => ref),

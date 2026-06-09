@@ -26,6 +26,7 @@ import { computeSourceHash } from "../extensions/rendered-files.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
+  enabledConfiguredEntries,
   formatFqn,
 } from "../extensions/index.js";
 import { copyExtensionDirectory, validatePathSafety } from "../extensions/utils.js";
@@ -955,7 +956,7 @@ export const HookManagerLive = Layer.effect(
         const configured = yield* ws.getConfiguredHookEntries();
         const refs = yield* Effect.scoped(
           Effect.forEach(
-            Object.entries(configured).filter(([, entry]) => entry.enabled),
+            enabledConfiguredEntries(configured),
             ([name, entry]) =>
               provide(resolveConfiguredHook(name, entry.source)).pipe(Effect.map(({ ref }) => ref)),
             { concurrency: "unbounded" },

@@ -6,6 +6,7 @@
 
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
+import { enabledConfiguredEntries } from "../extensions/index.js";
 import {
   CommandsMapSchema,
   FilesEntrySchema,
@@ -87,6 +88,19 @@ describe("Settings schema", () => {
         },
       });
       expect(result.skillsConfig?.ignore).toEqual(["legacy-*"]);
+    });
+
+    it("defaults omitted enabled flags to enabled entries", () => {
+      const entry = Schema.decodeUnknownSync(McpServerEntrySchema)({
+        source: "@wayne/mcps/bat-computer",
+      });
+
+      expect(entry.enabled).toBe(true);
+      expect(
+        enabledConfiguredEntries({
+          "bat-computer": entry,
+        }).map(([name]) => name),
+      ).toEqual(["bat-computer"]);
     });
 
     it("round-trips feature config blocks through schema encode", () => {

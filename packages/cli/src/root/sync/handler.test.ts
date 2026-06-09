@@ -68,6 +68,29 @@ const writeCommandExtension = (baseDir: string, name: string) => {
   );
 };
 
+const writeMcpServerExtension = (baseDir: string, name: string) => {
+  const mcpServerDir = path.join(baseDir, ".axm", "extensions", "@acme", "mcps", name);
+  writeJson(path.join(mcpServerDir, "mcp.json"), {
+    owner: "@acme",
+    type: "mcp-server",
+    name,
+    version: "1.0.0",
+    server: {
+      name: `io.github.acme/${name}`,
+      description: "Test MCP server",
+      version: "1.0.0",
+      packages: [
+        {
+          registryType: "npm",
+          identifier: `@acme/${name}-mcp`,
+          version: "1.0.0",
+          transport: { type: "stdio" },
+        },
+      ],
+    },
+  });
+};
+
 const writeRenderedSubagent = (
   baseDir: string,
   agentDir: string,
@@ -202,6 +225,80 @@ describe("root sync handler", () => {
       ]);
       const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
       expect(config.mcpServers).toEqual({});
+    }),
+  );
+
+  it.effect("prunes disabled managed MCP server configs without re-materializing them", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code", "cursor", "codex"],
+        mcps: {
+          browser: "@acme/mcps/browser",
+        },
+      });
+      writeMcpServerExtension(tempDir, "browser");
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"browser"');
+      expect(fs.readFileSync(path.join(tempDir, ".cursor", "mcp.json"), "utf8")).toContain(
+        '"browser"',
+      );
+      expect(fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8")).toContain(
+        "browser",
+      );
+
+      rendererState.results.length = 0;
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code", "cursor", "codex"],
+        mcps: {
+          browser: {
+            source: "@acme/mcps/browser",
+            enabled: false,
+            authored: true,
+          },
+        },
+      });
+
+      yield* provide(handleSync({ dryRun: true, force: false }));
+
+      const preview = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 1,
+      });
+      const previewSteps = planResultSteps(preview);
+      expect(previewSteps).toMatchObject([
+        {
+          label: "mcp-server stale managed entries",
+          status: "ready",
+        },
+      ]);
+      expect(JSON.stringify(previewSteps)).not.toContain("browser");
+
+      rendererState.results.length = 0;
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      const applied = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 1,
+      });
+      expect(planResultSteps(applied)).toMatchObject([
+        {
+          label: "mcp-server stale managed entries",
+          status: "applied",
+        },
+      ]);
+
+      const claudeConfig = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
+      const cursorConfig = JSON.parse(
+        fs.readFileSync(path.join(tempDir, ".cursor", "mcp.json"), "utf8"),
+      );
+      const codexConfig = fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8");
+      expect(claudeConfig.mcpServers).toEqual({});
+      expect(cursorConfig.mcpServers).toEqual({});
+      expect(codexConfig).not.toContain("browser");
     }),
   );
 

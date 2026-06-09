@@ -16,6 +16,7 @@ import { makeAppError } from "../app-error/index.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
+  enabledConfiguredEntries,
   formatFqn,
 } from "../extensions/index.js";
 import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
@@ -583,7 +584,7 @@ export const RuleManagerLive = Layer.effect(
         const configured = yield* ws.getConfiguredRuleEntries();
         const refs = yield* Effect.scoped(
           Effect.forEach(
-            Object.entries(configured).filter(([, entry]) => entry.enabled),
+            enabledConfiguredEntries(configured),
             ([name, entry]) =>
               provide(resolveConfiguredRule(name, entry.source)).pipe(Effect.map(({ ref }) => ref)),
             { concurrency: "unbounded" },

@@ -122,4 +122,42 @@ describe("configured extensions to disk refs", () => {
       expect(refs).toEqual([]);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
+
+  it.effect("skips disabled MCP server entries from on-disk manifests", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const env = { fs, path, baseDir: tempDir };
+
+      writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/mcps/browser/mcp.json"), {
+        owner: "@acme",
+        type: "mcp-server",
+        name: "browser",
+        version: "1.0.0",
+        server: {
+          name: "io.github.acme/browser",
+          description: "Browser MCP server",
+          version: "1.0.0",
+          packages: [
+            {
+              registryType: "npm",
+              identifier: "@acme/browser-mcp",
+              version: "1.0.0",
+              transport: { type: "stdio" },
+            },
+          ],
+        },
+      });
+
+      const refs = yield* configuredMcpServersToDiskRefs(env, {
+        browser: {
+          source: "@acme/mcps/browser",
+          enabled: false,
+          packagingKind: "native",
+        },
+      });
+
+      expect(refs).toEqual([]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });

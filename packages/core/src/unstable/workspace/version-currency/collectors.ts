@@ -16,7 +16,7 @@ import * as Record from "effect/Record";
 import type { AppError } from "../../app-error/index.js";
 import type { ExtensionName, ExtensionType } from "../../extensions/index.js";
 import { parseRegistrySourcePatternParts } from "../../extensions/registry-source.js";
-import { toExtensionTypePlural } from "../../extensions/index.js";
+import { isConfiguredEntryEnabled, toExtensionTypePlural } from "../../extensions/index.js";
 import type { RegistryClient } from "../../registry/client.js";
 import type { Version, VersionRange } from "../../version-constraints/version-constraints.js";
 import type { Handle } from "../../extensions/handle.js";
@@ -84,9 +84,6 @@ interface ConfiguredEntryWithoutEnabled {
 
 type AnyConfiguredEntry = ConfiguredEntryWithEnabled | ConfiguredEntryWithoutEnabled;
 
-const isEnabled = (entry: AnyConfiguredEntry): boolean =>
-  "enabled" in entry ? entry.enabled : true;
-
 /** Type guard for registry lock entries. */
 const isRegistryLock = (lock: { readonly type: string }): lock is RegistryLockFields =>
   lock.type === "registry";
@@ -110,7 +107,7 @@ const collectCurrency = <
 
     // Pre-filter to enabled, registry-sourced entries with lock data
     const eligible = Object.entries(configured).flatMap(([localName, configEntry]) => {
-      if (!isEnabled(configEntry)) return [];
+      if ("enabled" in configEntry && !isConfiguredEntryEnabled(configEntry)) return [];
       const lockEntry = locked[localName];
       if (lockEntry === undefined) return [];
       if (!isRegistryLock(lockEntry)) return [];

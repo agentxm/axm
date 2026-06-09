@@ -68,8 +68,8 @@ describe("example files", () => {
     expect(result.version).toBe("1.0.0");
   });
 
-  it("mcp-server.example.json conforms to McpServerManifestSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "mcps/mcp-server.example.json"));
+  it("mcp.example.json conforms to McpServerManifestSchema", () => {
+    const example = readJsonFile(path.join(CORE_UNSTABLE, "mcps/mcp.example.json"));
     const result = Schema.decodeUnknownSync(McpServerManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.owner).toBe("@acme");

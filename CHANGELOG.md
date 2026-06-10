@@ -1,3 +1,13 @@
+## 0.18.0 (2026-06-10)
+
+### 🚀 Features
+
+- Add library installs, MCP manifest schema rename, and lockfile snapshot serialization ([c1a822e3](https://github.com/agentxm/axm/commit/c1a822e3))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.17.0 (2026-06-09)
 
 ### 🚀 Features

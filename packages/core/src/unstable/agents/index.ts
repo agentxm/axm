@@ -85,12 +85,6 @@ export { CodingAgentRepository } from "./coding-agent.js";
 
 // Constants (path helpers)
 export { getHome, getConfigHome } from "./constants.js";
-export {
-  agentSkillsDir,
-  optionalAgentCommandsDir,
-  requiredAgentCommandsDir,
-  requiredAgentSubagentsDir,
-} from "./descriptor-paths.js";
 
 // Command sync helpers
 export {

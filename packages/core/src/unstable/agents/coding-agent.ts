@@ -19,7 +19,7 @@ import type { CommandFrontmatter } from "../commands/command-content.js";
 import type { CommandManifest } from "../commands/manifest-schema.js";
 import type { Handle } from "../extensions/handle.js";
 import type { RenderedFilePath } from "../extensions/rendered-files.js";
-import type { ArtifactChange } from "../plan/index.js";
+import type { ArtifactChange } from "../plan/plan.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { WorkspaceMutations } from "../workspace/service-interface.js";

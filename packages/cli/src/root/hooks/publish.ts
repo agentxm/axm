@@ -14,12 +14,12 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { withPublishArtifact } from "@agentxm/client-core/unstable/publish";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { resolveManifestVersionInfo } from "../shared/extension-version.js";
+import { withPublishArtifact } from "../shared/publish-artifact.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 

@@ -36,7 +36,7 @@ import type * as Path from "effect/Path";
 import { type ExtensionType, decodeExtensionNameSync } from "../../../extensions/common.js";
 import { decodeHandleSync, type Handle } from "../../../extensions/handle.js";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
-import { AXM_DIR_NAME } from "../../constants.js";
+import { AXM_DIR_NAME } from "../../paths.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import {

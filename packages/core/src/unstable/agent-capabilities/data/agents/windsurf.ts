@@ -47,7 +47,7 @@ export const windsurfAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Devin Desktop Workflows are slash-command-invoked Markdown prompts under .windsurf/workflows (project) and ~/.codeium/windsurf/global_workflows (user). AXM's Windsurf command copier still targets .windsurf/commands, so this catalog entry reflects the documented native path while the implementation needs follow-up.\n",
+          "Devin Desktop Workflows are slash-command-invoked Markdown prompts under .windsurf/workflows (project) and ~/.codeium/windsurf/global_workflows (user).\n",
         docs: [],
         sources: ["https://docs.devin.ai/desktop/cascade/workflows"],
         scopes: ["user", "project"],

@@ -15,7 +15,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodePurl, decodeAxmMeta, readFileOptional } from "./reader-io.js";
+import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const opamType = Schema.decodeUnknownSync(PackageTypeSchema)("opam");

@@ -13,6 +13,7 @@ import {
   InstallMethod,
   type InstallMethodType,
 } from "@agentxm/client-core/unstable/install-method";
+import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/unstable/plan";
 import {
   resolveLatestVersion,
   DEFAULT_GITHUB_REPO,
@@ -45,7 +46,7 @@ const UpgradePlanStepArtifactSchema = Schema.Struct({
   path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),
   version: Schema.optional(Schema.String),
-  change: Schema.Literals(["created", "updated", "unchanged", "removed"] as const),
+  change: ArtifactChangeSchema,
   previousVersion: Schema.optional(Schema.String),
 });
 
@@ -446,9 +447,7 @@ const upgradeMessage = (result: UpgradeCoreResult): string => {
 
 const upgradeArtifactPath = (result: UpgradeCoreResult): string => result.delegatedCommand ?? "axm";
 
-const upgradeArtifactChange = (
-  status: UpgradeCoreResult["status"],
-): "created" | "updated" | "unchanged" | "removed" => {
+const upgradeArtifactChange = (status: UpgradeCoreResult["status"]): ArtifactChange => {
   switch (status) {
     case "upgraded":
     case "reinstalled":

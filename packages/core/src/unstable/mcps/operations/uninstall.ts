@@ -16,10 +16,13 @@ import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { appendWarningsToMessage } from "../../plan/index.js";
+import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { canonicalExtensionPath, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import {
+  canonicalExtensionPathForLockEntry,
+  REGISTRY_EXTENSIONS_DIR,
+} from "../../extensions/index.js";
 import {
   agentConfigTarget,
   mcpServerArtifact,
@@ -241,11 +244,13 @@ export const uninstallMcpServer: (
 
     // Determine canonical path from lock entry or scan
     if (lockEntry?.type === "registry") {
-      const canonicalPath = canonicalExtensionPath(path, base, "mcps", {
-        type: "registry",
-        owner: lockEntry.owner,
-        name: lockEntry.name,
-      });
+      const canonicalPath = canonicalExtensionPathForLockEntry(
+        path,
+        base,
+        "mcps",
+        op.args.serverName,
+        lockEntry,
+      );
       yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
     } else if (installedOnDisk) {
       // Remove from all known locations

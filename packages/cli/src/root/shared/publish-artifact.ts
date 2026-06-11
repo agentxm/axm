@@ -1,4 +1,4 @@
-import type { JobStepArtifact, JobStepResult } from "../plan/plan.js";
+import type { JobStepArtifact, JobStepResult } from "@agentxm/client-core/unstable/plan";
 
 export const publishArtifact = (args: {
   readonly path: string;
@@ -28,5 +28,5 @@ export const withPublishArtifact = (args: {
       scope: args.scope,
       version: args.version,
     }),
-  };
+  } satisfies JobStepResult;
 };

@@ -19,6 +19,7 @@ import type {
   PlanResolution,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
+import { ArtifactChangeSchema } from "@agentxm/client-core/unstable/plan";
 
 const StepStatusSchema = Schema.Literals([
   "ready",
@@ -37,7 +38,7 @@ const StepStatusSchema = Schema.Literals([
 
 const StepArtifactTargetSchema = Schema.Struct({
   path: Schema.String,
-  change: Schema.Literals(["created", "updated", "unchanged", "removed"] as const),
+  change: ArtifactChangeSchema,
   agentIds: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({
   identifier: "StepArtifactTarget",
@@ -50,7 +51,7 @@ const StepArtifactSchema = Schema.Struct({
   scope: Schema.Literals(["project", "user"] as const),
   agents: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.optional(Schema.String),
-  change: Schema.Literals(["created", "updated", "unchanged", "removed"] as const),
+  change: ArtifactChangeSchema,
   previousVersion: Schema.optional(Schema.String),
   fileCount: Schema.optional(Schema.Number),
   targets: Schema.optional(Schema.Array(StepArtifactTargetSchema)),

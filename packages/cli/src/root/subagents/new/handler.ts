@@ -6,8 +6,6 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
   decodeExtensionNameSync,
-  EXTENSION_NAME_MAX_LENGTH,
-  EXTENSION_NAME_PATTERN,
   formatFqn,
   normalizeHandle,
   type ExtensionName,
@@ -32,6 +30,8 @@ import { previewOrApplyLocalPlan } from "../../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
 import { emitScaffoldSuccess } from "../../shared/scaffold-success.js";
 
+const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+const MAX_NAME_LENGTH = 64;
 const INITIAL_VERSION = decodeVersionSync("0.0.1");
 
 export interface SubagentsNewHandlerArgs {
@@ -66,8 +66,8 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   // 2. Validate name
   if (
     args.name.length === 0 ||
-    args.name.length > EXTENSION_NAME_MAX_LENGTH ||
-    !EXTENSION_NAME_PATTERN.test(args.name)
+    args.name.length > MAX_NAME_LENGTH ||
+    !NAME_PATTERN.test(args.name)
   ) {
     return yield* makeAppError({
       code: "validation",

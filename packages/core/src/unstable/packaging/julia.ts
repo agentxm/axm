@@ -16,7 +16,7 @@ import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { parseTomlValue } from "../toml/index.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodePurl, decodeAxmMeta, readFileOptional } from "./reader-io.js";
+import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const juliaType = Schema.decodeUnknownSync(PackageTypeSchema)("julia");

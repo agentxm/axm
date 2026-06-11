@@ -5,10 +5,9 @@ const RULE_ID = "command/manifest-present";
 const COMMAND_JSON = "command.json";
 
 export const manifestPresentRule = makeManifestPresentRule<CommandRuleContext>({
-  id: RULE_ID,
+  ruleId: RULE_ID,
   description: "Commands include a root command.json manifest.",
   manifestFile: COMMAND_JSON,
-  message:
+  missingMessage:
     "command.json is missing. Create command.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
-  exists: (context, manifestFile) => context.files.exists(manifestFile),
 });

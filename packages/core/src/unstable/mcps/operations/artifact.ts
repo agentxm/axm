@@ -1,5 +1,5 @@
 import type { AgentId } from "../../agents/index.js";
-import { canonicalExtensionRelativePath } from "../../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../../plan/plan.js";
 
@@ -11,11 +11,7 @@ export const mcpServerVersion = (entry: McpServerLockEntry): string | undefined 
 
 export const mcpServerSourcePath = (entry: McpServerLockEntry): string =>
   entry.type === "registry"
-    ? canonicalExtensionRelativePath("mcps", {
-        type: "registry",
-        owner: entry.owner,
-        name: entry.name,
-      })
+    ? `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/mcps/${entry.name}`
     : MCP_CONFIG_SURFACE;
 
 export const agentConfigTarget = (

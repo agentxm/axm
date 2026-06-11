@@ -5,10 +5,9 @@ import { FILES_JSON } from "./helpers.js";
 const RULE_ID = "files/manifest-present";
 
 export const manifestPresentRule = makeManifestPresentRule<FilesRuleContext>({
-  id: RULE_ID,
+  ruleId: RULE_ID,
   description: "files packages include a root files.json manifest.",
   manifestFile: FILES_JSON,
-  message:
+  missingMessage:
     "files.json is missing. Create files.json with the required manifest fields (`owner`, `type`, `name`, `version`, `contents`).",
-  exists: (context, manifestFile) => context.files.exists(manifestFile),
 });

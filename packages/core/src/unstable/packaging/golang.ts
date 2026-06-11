@@ -13,9 +13,9 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { envWithDefault } from "../utils/environment.js";
+import { readEnv } from "../utils/index.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodePurl, decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
+import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const golangType = Schema.decodeUnknownSync(PackageTypeSchema)("golang");
@@ -119,7 +119,7 @@ const parseGoMod = (content: string, source: string): ReadonlyArray<DetectedPack
 /**
  * Resolve the GOPATH, defaulting to ~/go when not set.
  */
-const resolveGopath = () => envWithDefault("GOPATH", `${os.homedir()}/go`);
+const resolveGopath = () => Effect.sync(() => readEnv("GOPATH") ?? `${os.homedir()}/go`);
 
 /**
  * Go module package detector.

@@ -11,8 +11,12 @@
 
 // Scope utilities
 export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
-
-export { AXM_DIR_NAME } from "./constants.js";
+export {
+  AXM_DIR_NAME,
+  getUserScopeDir,
+  resolveUserScopeDir,
+  resolveUserScopeDirPure,
+} from "./paths.js";
 
 // Read-model record conversion helpers
 export {

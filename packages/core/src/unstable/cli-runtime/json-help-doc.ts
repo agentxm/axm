@@ -2,7 +2,50 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 
-type ArgDoc = NonNullable<HelpDoc["args"]>[number];
+export interface JsonFlagDoc {
+  readonly name: string;
+  readonly aliases: ReadonlyArray<string>;
+  readonly type: string;
+  readonly required: boolean;
+  readonly description?: string | undefined;
+}
+
+export interface JsonArgDoc {
+  readonly name: string;
+  readonly type: string;
+  readonly required: boolean;
+  readonly variadic: boolean;
+  readonly description?: string | undefined;
+}
+
+export interface JsonSubcommandDoc {
+  readonly name: string;
+  readonly alias?: string | undefined;
+  readonly shortDescription?: string | undefined;
+  readonly description?: string | undefined;
+}
+
+export interface JsonSubcommandGroupDoc {
+  readonly group?: string | undefined;
+  readonly commands: ReadonlyArray<JsonSubcommandDoc>;
+}
+
+export interface JsonExampleDoc {
+  readonly command: string;
+  readonly description?: string | undefined;
+}
+
+export interface JsonHelpDoc {
+  readonly type: "help";
+  readonly description: string;
+  readonly usage: string;
+  readonly flags: ReadonlyArray<JsonFlagDoc>;
+  readonly globalFlags?: ReadonlyArray<JsonFlagDoc> | undefined;
+  readonly args?: ReadonlyArray<JsonArgDoc> | undefined;
+  readonly subcommands?: ReadonlyArray<JsonSubcommandGroupDoc> | undefined;
+  readonly examples?: ReadonlyArray<JsonExampleDoc> | undefined;
+  readonly learnMore?: string | undefined;
+}
 
 export const JsonFlagDocSchema = Schema.Struct({
   name: Schema.String,
@@ -12,8 +55,6 @@ export const JsonFlagDocSchema = Schema.Struct({
   description: Schema.optional(Schema.String),
 });
 
-export type JsonFlagDoc = Schema.Schema.Type<typeof JsonFlagDocSchema>;
-
 export const JsonArgDocSchema = Schema.Struct({
   name: Schema.String,
   type: Schema.String,
@@ -22,8 +63,6 @@ export const JsonArgDocSchema = Schema.Struct({
   description: Schema.optional(Schema.String),
 });
 
-export type JsonArgDoc = Schema.Schema.Type<typeof JsonArgDocSchema>;
-
 export const JsonSubcommandDocSchema = Schema.Struct({
   name: Schema.String,
   alias: Schema.optional(Schema.String),
@@ -31,21 +70,15 @@ export const JsonSubcommandDocSchema = Schema.Struct({
   description: Schema.optional(Schema.String),
 });
 
-export type JsonSubcommandDoc = Schema.Schema.Type<typeof JsonSubcommandDocSchema>;
-
 export const JsonSubcommandGroupDocSchema = Schema.Struct({
   group: Schema.optional(Schema.String),
   commands: Schema.Array(JsonSubcommandDocSchema),
 });
 
-export type JsonSubcommandGroupDoc = Schema.Schema.Type<typeof JsonSubcommandGroupDocSchema>;
-
 export const JsonExampleDocSchema = Schema.Struct({
   command: Schema.String,
   description: Schema.optional(Schema.String),
 });
-
-export type JsonExampleDoc = Schema.Schema.Type<typeof JsonExampleDocSchema>;
 
 export const JsonHelpDocSchema = Schema.Struct({
   type: Schema.Literal("help"),
@@ -59,15 +92,19 @@ export const JsonHelpDocSchema = Schema.Struct({
   learnMore: Schema.optional(Schema.String),
 });
 
-export type JsonHelpDoc = Schema.Schema.Type<typeof JsonHelpDocSchema>;
-
 export const JsonVersionDocSchema = Schema.Struct({
   type: Schema.Literal("version"),
   name: Schema.String,
   version: Schema.String,
 });
 
-export type JsonVersionDoc = Schema.Schema.Type<typeof JsonVersionDocSchema>;
+export type JsonVersionDoc = typeof JsonVersionDocSchema.Type;
+
+export const isSubcommandDoc = (doc: HelpDoc): boolean => {
+  const beforeBrackets = doc.usage.replace(/\s*[[<].*$/, "").trim();
+  const tokens = beforeBrackets.split(/\s+/).filter((token) => token.length > 0);
+  return tokens.length > 1;
+};
 
 export const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
   name: flag.name,
@@ -75,14 +112,6 @@ export const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
   type: flag.type,
   required: flag.required,
   description: Option.getOrUndefined(flag.description),
-});
-
-const toJsonArgDoc = (arg: ArgDoc): JsonArgDoc => ({
-  name: arg.name,
-  type: arg.type,
-  required: arg.required,
-  variadic: arg.variadic,
-  description: Option.getOrUndefined(arg.description),
 });
 
 export const toJsonHelpDoc = (
@@ -94,7 +123,13 @@ export const toJsonHelpDoc = (
   usage: doc.usage,
   flags: doc.flags.map(toJsonFlagDoc),
   globalFlags: doc.globalFlags?.map(toJsonFlagDoc),
-  args: doc.args?.map(toJsonArgDoc),
+  args: doc.args?.map((arg) => ({
+    name: arg.name,
+    type: arg.type,
+    required: arg.required,
+    variadic: arg.variadic,
+    description: Option.getOrUndefined(arg.description),
+  })),
   subcommands: doc.subcommands?.map((group) => ({
     group: group.group,
     commands: group.commands.map((command) => ({
@@ -111,10 +146,4 @@ export const toJsonHelpDoc = (
   ...(options?.learnMore !== undefined && options.learnMore !== ""
     ? { learnMore: options.learnMore }
     : {}),
-});
-
-export const makeJsonVersionDoc = (name: string, version: string): JsonVersionDoc => ({
-  type: "version",
-  name,
-  version,
 });

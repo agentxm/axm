@@ -18,21 +18,21 @@ import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-syn
 import { getHome } from "../constants.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 import {
-  agentSkillsDir,
-  requiredAgentCommandsDir,
-  requiredAgentSubagentsDir,
+  agentCommandsProjectDir,
+  agentSkillsProjectDir,
+  agentSubagentsProjectDir,
 } from "../descriptor-paths.js";
 
-const GEMINI_DOCS_DEFAULT_DIR = agentSkillsDir("gemini-cli");
+const GEMINI_DOCS_DEFAULT_DIR = agentSkillsProjectDir("gemini-cli");
 const GEMINI_ENV_OVERRIDE = "AXM_GEMINI_CLI_SKILLS_DIR";
 
 /** @experimental */
-export const GEMINI_CLI_COMMANDS_PROJECT_DIR = requiredAgentCommandsDir("gemini-cli");
+export const GEMINI_CLI_COMMANDS_PROJECT_DIR = agentCommandsProjectDir("gemini-cli");
 
 /** @experimental */
-export const GEMINI_CLI_SUBAGENTS_PROJECT_DIR = requiredAgentSubagentsDir("gemini-cli");
+export const GEMINI_CLI_SUBAGENTS_PROJECT_DIR = agentSubagentsProjectDir("gemini-cli");
 /** @experimental */
-export const GEMINI_CLI_SUBAGENTS_USER_DIR = GEMINI_CLI_SUBAGENTS_PROJECT_DIR;
+export const GEMINI_CLI_SUBAGENTS_USER_DIR = ".gemini/agents";
 
 const geminiCommandConfig: CommandSyncConfig = {
   agentId: "gemini-cli",

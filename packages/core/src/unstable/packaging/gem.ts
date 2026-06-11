@@ -16,7 +16,7 @@ import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { envWithDefault } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodePurl, decodeAxmMeta, readFileOptional } from "./reader-io.js";
+import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const gemType = Schema.decodeUnknownSync(PackageTypeSchema)("gem");

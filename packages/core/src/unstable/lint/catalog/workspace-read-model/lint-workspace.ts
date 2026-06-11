@@ -25,7 +25,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
-import { AXM_DIR_NAME } from "../../../workspace/constants.js";
 import {
   getInstructionsGitignoreStatus,
   getInstructionsStatus,
@@ -37,6 +36,7 @@ import {
   WorkspaceReadModelConfig,
   type WorkspaceReadModel,
 } from "../../../workspace/read-model/service.js";
+import { AXM_DIR_NAME } from "../../../workspace/paths.js";
 import type { WorkspaceRootEscape } from "../../../workspace/read-model/errors.js";
 import type {
   ActualCommand,

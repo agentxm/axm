@@ -15,16 +15,16 @@ import {
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import {
-  agentSkillsDir,
-  requiredAgentCommandsDir,
-  requiredAgentSubagentsDir,
+  agentCommandsProjectDir,
+  agentSkillsProjectDir,
+  agentSubagentsProjectDir,
 } from "../descriptor-paths.js";
 
 /** @experimental */
-export const KIRO_COMMANDS_PROJECT_DIR = requiredAgentCommandsDir("kiro-cli");
+export const KIRO_COMMANDS_PROJECT_DIR = agentCommandsProjectDir("kiro-cli");
 
 /** @experimental */
-export const KIRO_SUBAGENTS_PROJECT_DIR = requiredAgentSubagentsDir("kiro-cli");
+export const KIRO_SUBAGENTS_PROJECT_DIR = agentSubagentsProjectDir("kiro-cli");
 
 const kiroCommandConfig: CommandSyncConfig = {
   agentId: "kiro-cli",
@@ -41,7 +41,7 @@ export const kiroCliCodingAgent: CodingAgent = {
       const path = yield* Path.Path;
       return {
         _tag: "supported",
-        dir: path.resolve(workspaceRoot, agentSkillsDir("kiro-cli")),
+        dir: path.resolve(workspaceRoot, agentSkillsProjectDir("kiro-cli")),
       } as const;
     }),
   addMcpServer: (args) => addMcpServerFromManifest("kiro-cli", args),

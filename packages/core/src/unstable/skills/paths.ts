@@ -7,7 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { computeExtensionPaths, type ExtensionPathSource } from "../extensions/index.js";
+import { computeExtensionPaths } from "../extensions/extension-paths.js";
+import type { Handle } from "../extensions/handle.js";
 import type { AbsolutePath } from "../utils/path-types.js";
 
 /**
@@ -16,7 +17,9 @@ import type { AbsolutePath } from "../utils/path-types.js";
  * Registry refs carry an owner for the canonical path; all other ref types
  * use the shared external extensions directory.
  */
-export type SkillPathSource = ExtensionPathSource;
+export type SkillPathSource =
+  | { readonly refType: "registry"; readonly owner: Handle }
+  | { readonly refType: "git-hosted" | "local" };
 
 /**
  * Computed paths for an installed skill directory.
@@ -47,9 +50,9 @@ export const computeSkillPaths = (
   source: SkillPathSource,
   sanitizedName: string,
 ): SkillDirPaths => {
-  const paths = computeExtensionPaths(join, base, "skills", source, sanitizedName);
+  const paths = computeExtensionPaths(join, base, source, "skills", sanitizedName);
   return {
     canonicalPath: paths.canonicalPath,
-    skillSrcPath: paths.sourcePath,
+    skillSrcPath: paths.extensionSrcPath,
   };
 };

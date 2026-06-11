@@ -20,10 +20,9 @@ const RULE_ID = "pack/manifest-present";
 const PACK_JSON = "pack.json";
 
 export const manifestPresentRule = makeManifestPresentRule<PackRuleContext>({
-  id: RULE_ID,
+  ruleId: RULE_ID,
   description: "Packs include a root pack.json manifest.",
   manifestFile: PACK_JSON,
-  message:
+  missingMessage:
     "pack.json is missing. Create pack.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
-  exists: (context, manifestFile) => context.files.exists(manifestFile),
 });

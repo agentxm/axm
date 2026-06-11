@@ -10,9 +10,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { CodingAgentRepository, syncInlineMcpServerToAgent } from "../../agents/index.js";
 import type { McpServerSyncOutcome } from "../../agents/coding-agent.js";
-import { canonicalExtensionPath, normalizeHandle } from "../../extensions/index.js";
+import { canonicalExtensionPathForLockEntry, normalizeHandle } from "../../extensions/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { appendWarningsToMessage } from "../../plan/index.js";
+import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
@@ -22,21 +22,6 @@ export type EnableMcpServerOperation = Operation<
   "enable-mcp-server",
   { readonly serverName: string }
 >;
-
-const canonicalPathFor = (
-  path: Path.Path,
-  base: string,
-  name: string,
-  lockEntry: McpServerLockEntry,
-): string =>
-  canonicalExtensionPath(
-    path,
-    base,
-    "mcps",
-    lockEntry.type === "registry"
-      ? { type: "registry", owner: lockEntry.owner, name: lockEntry.name }
-      : { type: "external", name },
-  );
 
 const formatAgentSyncWarnings = (
   serverName: string,
@@ -140,7 +125,13 @@ export const enableMcpServer = (
       };
     }
 
-    const canonicalPath = canonicalPathFor(path, ws.baseDir, op.args.serverName, lockEntry.value);
+    const canonicalPath = canonicalExtensionPathForLockEntry(
+      path,
+      ws.baseDir,
+      "mcps",
+      op.args.serverName,
+      lockEntry.value,
+    );
     const exists = yield* fs.exists(canonicalPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return yield* makeAppError({

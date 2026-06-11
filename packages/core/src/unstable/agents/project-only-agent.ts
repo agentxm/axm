@@ -2,8 +2,8 @@
  * Factory for project-only coding agent implementations.
  *
  * Most agents share the same structure: project-scoped skills directory,
- * project-scoped commands directory, project-scoped subagents directory,
- * no user scope, and optionally MCP support via a strategy object.
+ * optional project-scoped commands directory, optional project-scoped subagents
+ * directory, no user scope, and optionally MCP support via a strategy object.
  * This factory eliminates the boilerplate.
  *
  * @experimental This API is unstable and may change without notice.
@@ -26,11 +26,6 @@ import { addSubagentViaResolve, removeSubagentViaResolve } from "./subagent-sync
 import type { AgentId } from "./types.js";
 import type * as FileSystem from "effect/FileSystem";
 import type { AppError } from "../app-error/index.js";
-import {
-  agentSkillsDir,
-  optionalAgentCommandsDir,
-  requiredAgentSubagentsDir,
-} from "./descriptor-paths.js";
 
 /**
  * MCP handler pair for agents that support MCP server management.
@@ -52,11 +47,11 @@ export interface ProjectOnlyAgentConfig {
   readonly agentId: AgentId;
   /** Display name for error messages (e.g. "Junie", "Cursor"). */
   readonly displayName: string;
-  /** Skills directory relative to workspace root. Defaults to the agent catalog. */
-  readonly skillsProjectDir?: string;
-  /** Commands directory relative to workspace root. Defaults to the agent catalog when supported. */
+  /** Skills directory relative to workspace root (e.g. ".junie/skills"). */
+  readonly skillsProjectDir: string;
+  /** Commands directory relative to workspace root (e.g. ".junie/commands"). */
   readonly commandsProjectDir?: string;
-  /** Subagents directory relative to workspace root. Defaults to the agent catalog. */
+  /** Subagents directory relative to workspace root (e.g. ".junie/agents"). */
   readonly subagentsProjectDir?: string;
   /** Optional MCP handlers. When omitted, MCP operations return "unsupported". */
   readonly mcp?: McpHandlers;
@@ -65,17 +60,14 @@ export interface ProjectOnlyAgentConfig {
 /**
  * Create a CodingAgent for an agent that only supports project-scoped
  * skills, commands, and subagents. The returned agent rejects user-scope
- * operations and, unless MCP handlers are provided, reports MCP as unsupported.
+ * operations, reports omitted capabilities as unsupported, and unless MCP
+ * handlers are provided, reports MCP as unsupported.
  */
 export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): CodingAgent => {
   const commandSyncConfig: CommandSyncConfig = {
     agentId: config.agentId,
   };
   const { mcp } = config;
-  const skillsProjectDir = config.skillsProjectDir ?? agentSkillsDir(config.agentId);
-  const commandsProjectDir = config.commandsProjectDir ?? optionalAgentCommandsDir(config.agentId);
-  const subagentsProjectDir =
-    config.subagentsProjectDir ?? requiredAgentSubagentsDir(config.agentId);
 
   const agent: CodingAgent = {
     id: config.agentId,
@@ -84,7 +76,7 @@ export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): Codi
         const path = yield* Path.Path;
         return {
           _tag: "supported",
-          dir: path.resolve(workspaceRoot, skillsProjectDir),
+          dir: path.resolve(workspaceRoot, config.skillsProjectDir),
         } as const;
       }),
     addMcpServer: mcp
@@ -103,7 +95,7 @@ export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): Codi
           } as const),
     resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
       Effect.gen(function* () {
-        if (commandsProjectDir === undefined) {
+        if (config.commandsProjectDir === undefined) {
           return {
             _tag: "unsupported",
             reason: `${config.displayName} does not support custom commands`,
@@ -118,7 +110,7 @@ export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): Codi
         const path = yield* Path.Path;
         return {
           _tag: "supported",
-          dir: path.resolve(workspaceRoot, commandsProjectDir),
+          dir: path.resolve(workspaceRoot, config.commandsProjectDir),
           warnings: [],
         } as const;
       }),
@@ -129,6 +121,12 @@ export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): Codi
     resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
+        if (config.subagentsProjectDir === undefined) {
+          return {
+            _tag: "unsupported",
+            reason: `${config.displayName} does not support custom subagents`,
+          } as const;
+        }
         if (scope === "user") {
           return {
             _tag: "unsupported",
@@ -137,7 +135,7 @@ export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): Codi
         }
         return {
           _tag: "supported",
-          dir: path.resolve(workspaceRoot, subagentsProjectDir),
+          dir: path.resolve(workspaceRoot, config.subagentsProjectDir),
           warnings: [],
         } as const;
       }),

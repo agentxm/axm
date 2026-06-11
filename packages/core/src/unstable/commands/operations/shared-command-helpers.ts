@@ -26,12 +26,9 @@ import { commandContentFilename } from "../paths.js";
 import type { LossyRenderingWarning } from "../rendering-warnings.js";
 import type { CodingAgent, CommandSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
-import {
-  collectWorkspaceRenderedFiles,
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-} from "../../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, EXTERNAL_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { decodeExtensionNameSync, decodeHandleSync } from "../../extensions/index.js";
+import { makeWorkspaceRelativePath } from "../../utils/path-types.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
@@ -262,13 +259,23 @@ export const renderToAgents = (args: RenderToAgentsArgs) =>
     const successOutcomes = outcomes.flatMap((r) =>
       r.outcome._tag === "success" ? [{ agentId: r.agentId, outcome: r.outcome }] : [],
     );
-    const { successfulAgents, rawRenderedFiles } = collectWorkspaceRenderedFiles(
-      path,
-      args.workspaceRoot,
-      successOutcomes.map(({ agentId, outcome }) => ({
-        agentId,
-        renderedFilePaths: [outcome.renderedFilePath],
-      })),
+    const successfulAgents = successOutcomes.map((r) => r.agentId);
+    const renderedFileEntries = successOutcomes.flatMap((r) => {
+      const relativePath = makeWorkspaceRelativePath(
+        path,
+        args.workspaceRoot,
+        r.outcome.renderedFilePath,
+      );
+      // User-scope renders (e.g. Codex's ~/.codex/prompts) resolve outside the
+      // workspace root. Lockfiles only track workspace-relative paths, so we
+      // skip recording these entries rather than failing. The agent surfaces a
+      // warning about the user-scope fallback.
+      if (Option.isNone(relativePath)) return [];
+      const entries: Array<{ path: string }> = [{ path: relativePath.value }];
+      return [[r.agentId, entries] as const];
+    });
+    const rawRenderedFiles: Record<string, Array<{ path: string }>> = Object.fromEntries(
+      renderedFileEntries,
     );
 
     return { outcomes, successfulAgents, rawRenderedFiles } satisfies RenderToAgentsResult;

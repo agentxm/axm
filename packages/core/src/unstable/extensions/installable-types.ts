@@ -1,40 +1,48 @@
 import * as Schema from "effect/Schema";
 
 import {
+  extensionTypeFromPlural,
   extensionTypePluralSegments,
   extensionTypes,
+  extensionTypeToPlural,
+  isExtensionType,
   isExtensionTypePlural,
-  toExtensionType,
-  toExtensionTypePlural,
-  type ExtensionType,
-  type ExtensionTypePlural,
 } from "./common.js";
 
 export const installableExtensionTypes = extensionTypes;
 
-export type InstallableExtensionType = ExtensionType;
-
-const installableExtensionTypeSet = new Set<string>(installableExtensionTypes);
+export type InstallableExtensionType = (typeof installableExtensionTypes)[number];
 
 export const isInstallableExtensionType = (
-  value: ExtensionType,
-): value is InstallableExtensionType => installableExtensionTypeSet.has(value);
+  value: string | undefined,
+): value is InstallableExtensionType => isExtensionType(value);
 
 export const installableExtensionTypePluralSegments = extensionTypePluralSegments;
 
-export type InstallableExtensionTypePlural = ExtensionTypePlural;
+export type InstallableExtensionTypePlural =
+  (typeof installableExtensionTypePluralSegments)[number];
 
 export const isInstallableExtensionTypePlural = (
   value: string | undefined,
 ): value is InstallableExtensionTypePlural => isExtensionTypePlural(value);
 
+const installableExtensionTypeFromPlural: Record<
+  InstallableExtensionTypePlural,
+  InstallableExtensionType
+> = extensionTypeFromPlural;
+
+const installableExtensionTypeToPlural: Record<
+  InstallableExtensionType,
+  InstallableExtensionTypePlural
+> = extensionTypeToPlural;
+
 export const toInstallableExtensionType = (
   segment: InstallableExtensionTypePlural,
-): InstallableExtensionType => toExtensionType(segment);
+): InstallableExtensionType => installableExtensionTypeFromPlural[segment];
 
 export const toInstallableExtensionTypePlural = (
   type: InstallableExtensionType,
-): InstallableExtensionTypePlural => toExtensionTypePlural(type);
+): InstallableExtensionTypePlural => installableExtensionTypeToPlural[type];
 
 export const InstallableExtensionTypeSchema = Schema.Literals(installableExtensionTypes).annotate({
   identifier: "InstallableExtensionType",

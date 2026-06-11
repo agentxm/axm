@@ -7,8 +7,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { computeExtensionPaths, type ExtensionPathSource } from "../extensions/index.js";
-import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
+import {
+  computeExtensionPaths,
+  extensionContentFilename,
+  extensionContentPath,
+} from "../extensions/extension-paths.js";
+import type { Handle } from "../extensions/handle.js";
+import type { AbsolutePath } from "../utils/path-types.js";
 
 /**
  * Minimal structural discriminant for determining subagent path layout.
@@ -18,7 +23,9 @@ import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.j
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SubagentPathSource = ExtensionPathSource;
+export type SubagentPathSource =
+  | { readonly refType: "registry"; readonly owner: Handle }
+  | { readonly refType: "git-hosted" | "local" };
 
 /**
  * Computed paths for an installed subagent directory.
@@ -42,7 +49,7 @@ export interface SubagentDirPaths {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const subagentContentFilename = (name: string): string => `${name}.md`;
+export const subagentContentFilename = extensionContentFilename;
 
 /**
  * Content path for subagent instructions.
@@ -53,7 +60,7 @@ export const subagentContentPath = (
   join: (...paths: string[]) => string,
   root: string,
   name: string,
-): AbsolutePath => decodeAbsolutePathSync(join(root, subagentContentFilename(name)));
+): AbsolutePath => extensionContentPath(join, root, name);
 
 /**
  * Pure function to compute subagent directory paths.
@@ -71,9 +78,9 @@ export const computeSubagentPaths = (
   source: SubagentPathSource,
   sanitizedName: string,
 ): SubagentDirPaths => {
-  const paths = computeExtensionPaths(join, base, "subagents", source, sanitizedName);
+  const paths = computeExtensionPaths(join, base, source, "subagents", sanitizedName);
   return {
     canonicalPath: paths.canonicalPath,
-    subagentSrcPath: paths.sourcePath,
+    subagentSrcPath: paths.extensionSrcPath,
   };
 };

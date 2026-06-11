@@ -13,9 +13,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envOption } from "../utils/environment.js";
+import { readEnv } from "../utils/index.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
+import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const cpanType = Schema.decodeUnknownSync(PackageTypeSchema)("cpan");
@@ -193,11 +193,9 @@ export const cpanReader: PackageReader = {
       const path = yield* Path.Path;
 
       // Default Perl local::lib path
-      const perl5lib = yield* envOption("PERL5LIB");
-      const perlLocalLibRoot = yield* envOption("PERL_LOCAL_LIB_ROOT");
-      const libPath = Option.isSome(perl5lib)
-        ? perl5lib.value
-        : Option.getOrElse(perlLocalLibRoot, () => "local/lib/perl5");
+      const libPath = yield* Effect.sync(
+        () => readEnv("PERL5LIB") ?? readEnv("PERL_LOCAL_LIB_ROOT") ?? "local/lib/perl5",
+      );
 
       const distName = pkg.purl.name;
       const version = pkg.purl.version;

@@ -14,7 +14,7 @@ import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { envOption } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodePurl, decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
+import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const condaType = Schema.decodeUnknownSync(PackageTypeSchema)("conda");

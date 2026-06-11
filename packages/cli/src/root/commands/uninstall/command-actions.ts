@@ -23,7 +23,6 @@ import {
   uninstallCommand,
   type UninstallCommandOperation,
 } from "@agentxm/client-core/unstable/commands";
-import { workspaceRetentionPolicy } from "@agentxm/client-core/unstable/extensions";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallCommandCommandIntent } from "./intent.js";
@@ -140,7 +139,6 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
         const lockEntryByName = new Map(
           intent.targets.map((target, index) => [target.name, lockEntries[index] ?? Option.none()]),
         );
-        const retentionPolicy = workspaceRetentionPolicy(ws);
         const steps: ReadonlyArray<PlannedJobStep> = intent.targets.map((target) => {
           const op = {
             name: "uninstall-command",
@@ -149,12 +147,10 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
 
           const run = Effect.gen(function* () {
             const lockEntry = lockEntryByName.get(target.name) ?? Option.none();
-            const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
-              target,
-            });
+            const stillRequiredByPack = yield* ws.isExtensionRequiredByInstalledPack(target);
             if (stillRequiredByPack) {
               yield* ws.removeCommandSettings(target.name);
-              yield* retentionPolicy.markDependencyRetainedInLockfile({ target });
+              yield* ws.markDependencyRetainedInLockfile(target);
               return {
                 result: "success",
                 message: "Kept on disk because dependency is still required by an installed pack",

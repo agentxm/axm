@@ -7,33 +7,31 @@
 import type * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
-import {
-  discoverManifestPackagesInDir,
-  type DiscoveredManifestPackage,
-  type ManifestPackageDiscoveryOptions,
-} from "../extensions/discovery-scan.js";
+import { discoverManifestPackagesInDir } from "../extensions/manifest-package-discovery.js";
 import {
   RULE_MANIFEST_FILENAME,
   RuleManifestSchema,
   type RuleManifest,
 } from "./manifest-schema.js";
 
-export type DiscoveredRulePackage = DiscoveredManifestPackage<"rule", RuleManifest>;
+export interface DiscoveredRulePackage {
+  readonly type: "rule";
+  readonly manifest: RuleManifest;
+  readonly location: string;
+}
 
-export type RulePackageDiscoveryOptions = ManifestPackageDiscoveryOptions;
+export interface RulePackageDiscoveryOptions {
+  readonly fullDepth: boolean;
+}
+
+const discoverRulePackagesInDir = discoverManifestPackagesInDir({
+  type: "rule",
+  manifestFilename: RULE_MANIFEST_FILENAME,
+  manifestSchema: RuleManifestSchema,
+});
 
 export const rulePackagesInDir = (
   searchPath: string,
   options: RulePackageDiscoveryOptions,
 ): Effect.Effect<ReadonlyArray<DiscoveredRulePackage>, never, FileSystem.FileSystem | Path.Path> =>
-  discoverManifestPackagesInDir(
-    {
-      type: "rule",
-      manifestFilename: RULE_MANIFEST_FILENAME,
-      decodeManifest: Schema.decodeUnknownEffect(RuleManifestSchema),
-      manifestName: (manifest) => manifest.name,
-    },
-    searchPath,
-    options,
-  );
+  discoverRulePackagesInDir(searchPath, options);

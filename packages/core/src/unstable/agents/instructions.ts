@@ -2,7 +2,6 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { AXM_DIR_NAME } from "../workspace/constants.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   insertManagedFileBanner,
@@ -12,6 +11,7 @@ import {
 import { isGitManaged } from "../git/detect.js";
 import { type InstructionsConfig } from "../settings/index.js";
 import { createSymlink } from "../utils/create-symlink.js";
+import { AXM_DIR_NAME } from "../workspace/paths.js";
 import { AGENTS } from "./registry.js";
 import type { AgentDescriptor, AgentId, AgentInstructionsDescriptor } from "./types.js";
 
@@ -169,7 +169,7 @@ const toInstructionHealth = (args: {
 };
 
 const shouldSkipDir = (name: string): boolean =>
-  name === ".git" || name === AXM_DIR_NAME || name === "node_modules" || name === "dist";
+  name === ".git" || name === ".axm" || name === "node_modules" || name === "dist";
 
 const readDirSafe = (dir: string) =>
   Effect.gen(function* () {

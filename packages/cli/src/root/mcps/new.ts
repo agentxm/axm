@@ -6,10 +6,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   decodeExtensionNameSync,
-  EXTENSION_NAME_MAX_LENGTH,
-  EXTENSION_NAME_PATTERN,
   formatFqn,
-  normalizeHandle,
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
@@ -44,9 +41,8 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-name.js";
 import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
-
-const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
 
 const mcpNewArtifactOutput = (
   resolution: PlanResolution,
@@ -96,16 +92,12 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
   const ws = yield* WorkspaceMutations;
   const agentRepo = yield* CodingAgentRepository;
   const owner = Option.isSome(args.owner)
-    ? normalizeOwner(args.owner.value)
+    ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("MCP server creation");
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "mcp-server", name: args.name });
 
-  if (
-    args.name.length === 0 ||
-    args.name.length > EXTENSION_NAME_MAX_LENGTH ||
-    !EXTENSION_NAME_PATTERN.test(args.name)
-  ) {
+  if (!isValidScaffoldName(args.name)) {
     return yield* makeAppError({
       code: "validation",
       detail: `Invalid MCP server name: "${args.name}"`,

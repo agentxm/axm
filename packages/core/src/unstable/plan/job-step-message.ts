@@ -1,5 +1,5 @@
 /**
- * Message helpers for plan job step results.
+ * Job-step message helpers.
  *
  * @experimental This API is unstable and may change without notice.
  */

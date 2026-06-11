@@ -15,19 +15,15 @@ import {
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { getHome } from "../constants.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
-import {
-  agentSkillsDir,
-  requiredAgentCommandsDir,
-  requiredAgentSubagentsDir,
-} from "../descriptor-paths.js";
+import { agentSkillsProjectDir, agentSubagentsProjectDir } from "../descriptor-paths.js";
 
 /** @experimental */
-export const CODEX_COMMANDS_USER_DIR = requiredAgentCommandsDir("codex");
+export const CODEX_COMMANDS_USER_DIR = ".codex/prompts";
 
 /** @experimental */
-export const CODEX_SUBAGENTS_PROJECT_DIR = requiredAgentSubagentsDir("codex");
+export const CODEX_SUBAGENTS_PROJECT_DIR = agentSubagentsProjectDir("codex");
 /** @experimental */
-export const CODEX_SUBAGENTS_USER_DIR = CODEX_SUBAGENTS_PROJECT_DIR;
+export const CODEX_SUBAGENTS_USER_DIR = ".codex/agents";
 
 const codexCommandConfig: CommandSyncConfig = {
   agentId: "codex",
@@ -40,7 +36,7 @@ export const codexCodingAgent: CodingAgent = {
       const path = yield* Path.Path;
       return {
         _tag: "supported",
-        dir: path.resolve(workspaceRoot, agentSkillsDir("codex")),
+        dir: path.resolve(workspaceRoot, agentSkillsProjectDir("codex")),
       } as const;
     }),
   addMcpServer: (args) => addMcpServerFromManifest("codex", args),

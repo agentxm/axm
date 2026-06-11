@@ -32,22 +32,22 @@ import type {
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import {
+  computeIntegrity,
   createSymlink,
   isPathSafe,
   makeWorkspaceRelativeSourcePath,
   removeFromAllCanonicalLocations,
+  stripFileProtocol,
 } from "../../utils/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { validatePathSafety } from "../../extensions/index.js";
+import { errInstallFailed, makeAppError } from "../../app-error/index.js";
+import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
-import { appendWarningsToMessage } from "../../plan/index.js";
+import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepArtifact, JobStepArtifactTarget, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import {
-  materializeExternalPackage,
-  materializeRegistryPackage,
-} from "../../extensions/materialization.js";
 import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
 import { computeSkillSourceHash } from "./source-hash.js";
@@ -101,8 +101,6 @@ export type InstallableSkillTargetLocation = {
 };
 
 const UNIVERSAL_AGENT_ID = "universal";
-const SKILL_CANONICAL_COPY_FAILURE_DETAIL =
-  "Skill files could not be copied to the canonical location";
 
 export const artifactAgentIdsFromTargets = (
   targets: ReadonlyArray<InstallableSkillTarget>,
@@ -305,6 +303,23 @@ const artifactChangeFromTargets = (
 // Shared helpers
 // -----------------------------------------------------------------------------
 
+const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+
+    yield* removeFromAllCanonicalLocations(fs, ws.baseDir, "skills", sanitizedName, path);
+    yield* copyExtensionDirectory(sourcePath, copyTarget).pipe(
+      Effect.mapError((e) =>
+        errInstallFailed({
+          message: "Skill files could not be copied to the canonical location",
+          cause: e,
+        }),
+      ),
+    );
+  });
+
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
 export { computeSkillSourceHash } from "./source-hash.js";
@@ -337,54 +352,34 @@ export const buildRenderedFilesFromResults = (
 
 const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
     });
-    yield* materializeExternalPackage({
-      baseDir: ws.baseDir,
-      canonicalPath: skillSrcPath,
-      sourceLocation: ref.location,
-      packageLabel: "skill",
-      copyFailureDetail: SKILL_CANONICAL_COPY_FAILURE_DETAIL,
-      prepareDestination: removeFromAllCanonicalLocations(
-        fs,
-        ws.baseDir,
-        "skills",
-        sanitizedName,
-        path,
-      ),
-    });
+    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+
+    const sourcePath = stripFileProtocol(ref.location);
+    yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
 
     return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
   });
 
 const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
     const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
     });
-    yield* materializeExternalPackage({
-      baseDir: ws.baseDir,
-      canonicalPath: skillSrcPath,
-      sourceLocation: ref.location,
-      packageLabel: "skill",
-      copyFailureDetail: SKILL_CANONICAL_COPY_FAILURE_DETAIL,
-      prepareDestination: removeFromAllCanonicalLocations(
-        fs,
-        ws.baseDir,
-        "skills",
-        sanitizedName,
-        path,
-      ),
-    });
+    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+
+    const sourcePath = stripFileProtocol(ref.location);
+    const isSelfCopy = path.resolve(sourcePath) === path.resolve(skillSrcPath);
+    if (!isSelfCopy) {
+      yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
+    }
 
     return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
   });
@@ -396,31 +391,65 @@ const installFromRegistry = (
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
     const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: "registry",
       owner: ref.owner,
     });
-    yield* materializeRegistryPackage({
-      baseDir: ws.baseDir,
-      canonicalPath,
-      sourceLocation: ref.source.location,
-      owner: ref.owner,
-      type: "skill",
-      name: ref.name,
-      version: ref.version,
-      integrity: ref.integrity,
-      copyFailureDetail: SKILL_CANONICAL_COPY_FAILURE_DETAIL,
-      prepareDestination: removeFromAllCanonicalLocations(
-        fs,
-        ws.baseDir,
-        "skills",
-        sanitizedName,
-        path,
+    yield* validatePathSafety(ws.baseDir, canonicalPath);
+
+    // Synthetic refs from publish may have no integrity — use existing canonical
+    const canonicalExists = yield* fs.exists(canonicalPath).pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to check if canonical path exists: ${canonicalPath}`,
+          cause: e,
+        }),
       ),
-    });
+    );
+    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+
+    if (!useExisting) {
+      const locationStr =
+        ref.source.location.protocol === "file:"
+          ? ref.source.location.pathname
+          : ref.source.location.href;
+      const client = yield* createRegistryClient(locationStr);
+      const { archive } = yield* client.getExtensionPackage({
+        owner: ref.owner,
+        type: "skill",
+        name: ref.name,
+        version: Option.some(ref.version),
+      });
+
+      if (Option.isSome(ref.integrity)) {
+        const actualIntegrity = yield* computeIntegrity(archive);
+        if (actualIntegrity !== ref.integrity.value) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+          });
+        }
+      }
+
+      const tmpDir = yield* fs.makeTempDirectory().pipe(
+        Effect.mapError((e) =>
+          errInstallFailed({
+            message: "Temporary directory for registry install could not be created",
+            cause: e,
+          }),
+        ),
+      );
+      yield* Effect.ensuring(
+        Effect.gen(function* () {
+          yield* extractZip(archive, tmpDir);
+          yield* preCleanAndCopy(sanitizedName, tmpDir, canonicalPath);
+        }),
+        fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+      );
+    }
 
     return { skillSrcPath, versionRange } satisfies MaterializedSkill;
   });

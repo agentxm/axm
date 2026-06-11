@@ -26,4 +26,3 @@ export {
   type PublishArchiveInput,
   type PublishInput,
 } from "./input-normalization.js";
-export { publishArtifact, withPublishArtifact } from "./artifact.js";

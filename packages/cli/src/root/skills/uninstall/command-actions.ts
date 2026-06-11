@@ -29,7 +29,6 @@ import {
   REGISTRY_EXTENSIONS_DIR,
   buildUninstallOperation,
   sanitizeName,
-  workspaceRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { SkillExtensionTarget } from "@agentxm/client-core/unstable/workspace";
@@ -42,6 +41,7 @@ import type {
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import type { UninstallSkillCommandIntent } from "./intent.js";
+import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -149,7 +149,7 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<Plan, AppError> =>
       Effect.succeed(
         (() => {
-          const retentionPolicy = workspaceRetentionPolicy(ws);
+          const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
           const steps: PlannedJobStep[] = intent.skillsToUninstall.map((entry) => {
             const target: SkillExtensionTarget = {

@@ -403,77 +403,56 @@ const EnabledEntryCanonicalSchema = Schema.Struct({
   authored: Schema.Boolean,
 });
 
+const decodeEnabledEntry = (entry: string | EnabledEntryObject): EnabledEntry =>
+  typeof entry === "string"
+    ? { source: entry, enabled: true, authored: false }
+    : {
+        source: entry.source,
+        enabled: entry.enabled ?? true,
+        authored: entry.authored ?? false,
+      };
+
+const encodeEnabledEntry = (entry: EnabledEntry): string | EnabledEntryObject => {
+  if (entry.enabled && !entry.authored) return entry.source;
+  const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+    source: entry.source,
+  };
+  if (!entry.enabled) obj.enabled = false;
+  if (entry.authored) obj.authored = true;
+  return obj;
+};
+
 const enabledEntryTransformation = {
-  decode: (entry: string | EnabledEntryObject): EnabledEntry =>
-    typeof entry === "string"
-      ? { source: entry, enabled: true, authored: false }
-      : {
-          source: entry.source,
-          enabled: entry.enabled ?? true,
-          authored: entry.authored ?? false,
-        },
-  encode: (entry: EnabledEntry): string | EnabledEntryObject => {
-    if (entry.enabled && !entry.authored) return entry.source;
-    const obj: { source: string; enabled?: boolean; authored?: boolean } = {
-      source: entry.source,
-    };
-    if (!entry.enabled) obj.enabled = false;
-    if (entry.authored) obj.authored = true;
-    return obj;
+  decode: decodeEnabledEntry,
+  encode: encodeEnabledEntry,
+};
+
+const compactEnabledEntry = (
+  objectSchema: Schema.Codec<EnabledEntryObject, EnabledEntryObject>,
+  annotations: {
+    readonly identifier: string;
+    readonly title: string;
+    readonly description: string;
+    readonly examples: ReadonlyArray<string | EnabledEntryObject>;
   },
-};
-
-const enabledSourceEntryObjectSchema = (args: {
-  readonly label: string;
-  readonly fqnType: string;
-  readonly title: string;
-  readonly description: string;
-}) =>
-  Schema.Struct({
-    source: entrySourceFieldSchema(args.label, args.fqnType),
-    enabled: enabledFieldSchema,
-    authored: authoredFieldSchema,
-  }).annotate({
-    title: args.title,
-    description: args.description,
-  });
-
-const AuthoredEntryCanonicalSchema = Schema.Struct({
-  source: Schema.String,
-  authored: Schema.Boolean,
-});
-
-const authoredEntryTransformation = {
-  decode: (entry: string | AuthoredEntryObject): AuthoredEntry =>
-    typeof entry === "string"
-      ? { source: entry, authored: false }
-      : { source: entry.source, authored: entry.authored ?? false },
-  encode: (entry: AuthoredEntry): string | AuthoredEntryObject =>
-    entry.authored ? { source: entry.source, authored: true } : entry.source,
-};
-
-const authoredSourceEntryObjectSchema = (args: {
-  readonly label: string;
-  readonly fqnType: string;
-  readonly title: string;
-  readonly description: string;
-}) =>
-  Schema.Struct({
-    source: entrySourceFieldSchema(args.label, args.fqnType),
-    authored: authoredFieldSchema,
-  }).annotate({
-    title: args.title,
-    description: args.description,
-  });
+) =>
+  compactOrVerboseEntry(
+    objectSchema,
+    EnabledEntryCanonicalSchema,
+    enabledEntryTransformation,
+    annotations,
+  );
 
 /**
  * Managed skill with source and optional config flags.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillEntryObjectSchema = enabledSourceEntryObjectSchema({
-  label: "skill",
-  fqnType: "skills",
+export const SkillEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("skill", "skills"),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
+}).annotate({
   title: "Skill Entry Object",
   description: "A skill entry with source and optional enabled/authored flags.",
 });
@@ -487,20 +466,15 @@ export const SkillEntryObjectSchema = enabledSourceEntryObjectSchema({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillEntrySchema = compactOrVerboseEntry(
-  SkillEntryObjectSchema,
-  EnabledEntryCanonicalSchema,
-  enabledEntryTransformation,
-  {
-    identifier: "SkillEntry",
-    title: "Skill Entry",
-    description: "A skill entry: a source string, or an object with source plus optional flags.",
-    examples: [
-      "@acme/skills/code-review@^1.0.0",
-      { source: "github:acme/agent-extensions", enabled: false },
-    ],
-  },
-);
+export const SkillEntrySchema = compactEnabledEntry(SkillEntryObjectSchema, {
+  identifier: "SkillEntry",
+  title: "Skill Entry",
+  description: "A skill entry: a source string, or an object with source plus optional flags.",
+  examples: [
+    "@acme/skills/code-review@^1.0.0",
+    { source: "github:acme/agent-extensions", enabled: false },
+  ],
+});
 
 /**
  * Inferred type for SkillEntry schema.
@@ -539,9 +513,11 @@ export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandEntryObjectSchema = enabledSourceEntryObjectSchema({
-  label: "command",
-  fqnType: "commands",
+export const CommandEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("command", "commands"),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
+}).annotate({
   title: "Command Entry Object",
   description: "A command entry with source and optional enabled/authored flags.",
 });
@@ -555,20 +531,15 @@ export const CommandEntryObjectSchema = enabledSourceEntryObjectSchema({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandEntrySchema = compactOrVerboseEntry(
-  CommandEntryObjectSchema,
-  EnabledEntryCanonicalSchema,
-  enabledEntryTransformation,
-  {
-    identifier: "CommandEntry",
-    title: "Command Entry",
-    description: "A command entry: a source string, or an object with source plus optional flags.",
-    examples: [
-      "@acme/commands/code-review@^1.0.0",
-      { source: "github:acme/agent-extensions", enabled: false },
-    ],
-  },
-);
+export const CommandEntrySchema = compactEnabledEntry(CommandEntryObjectSchema, {
+  identifier: "CommandEntry",
+  title: "Command Entry",
+  description: "A command entry: a source string, or an object with source plus optional flags.",
+  examples: [
+    "@acme/commands/code-review@^1.0.0",
+    { source: "github:acme/agent-extensions", enabled: false },
+  ],
+});
 
 /**
  * Inferred type for CommandEntry schema.
@@ -705,9 +676,11 @@ export type FilesMap = Schema.Schema.Type<typeof FilesMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleEntryObjectSchema = enabledSourceEntryObjectSchema({
-  label: "rule",
-  fqnType: "rules",
+export const RuleEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("rule", "rules"),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
+}).annotate({
   title: "Rule Entry Object",
   description: "A rule entry with source and optional enabled/authored flags.",
 });
@@ -717,20 +690,15 @@ export const RuleEntryObjectSchema = enabledSourceEntryObjectSchema({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleEntrySchema = compactOrVerboseEntry(
-  RuleEntryObjectSchema,
-  EnabledEntryCanonicalSchema,
-  enabledEntryTransformation,
-  {
-    identifier: "RuleEntry",
-    title: "Rule Entry",
-    description: "A rule entry: a source string, or an object with source plus optional flags.",
-    examples: [
-      "@acme/rules/api-conventions@^1.0.0",
-      { source: "@acme/rules/api-conventions@^1.0.0", enabled: false },
-    ],
-  },
-);
+export const RuleEntrySchema = compactEnabledEntry(RuleEntryObjectSchema, {
+  identifier: "RuleEntry",
+  title: "Rule Entry",
+  description: "A rule entry: a source string, or an object with source plus optional flags.",
+  examples: [
+    "@acme/rules/api-conventions@^1.0.0",
+    { source: "@acme/rules/api-conventions@^1.0.0", enabled: false },
+  ],
+});
 
 /** @experimental */
 export type RuleEntry = Schema.Schema.Type<typeof RuleEntrySchema>;
@@ -758,9 +726,11 @@ export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookEntryObjectSchema = enabledSourceEntryObjectSchema({
-  label: "hook",
-  fqnType: "hooks",
+export const HookEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("hook", "hooks"),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
+}).annotate({
   title: "Hook Entry Object",
   description: "A hook entry with source and optional enabled/authored flags.",
 });
@@ -770,20 +740,15 @@ export const HookEntryObjectSchema = enabledSourceEntryObjectSchema({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookEntrySchema = compactOrVerboseEntry(
-  HookEntryObjectSchema,
-  EnabledEntryCanonicalSchema,
-  enabledEntryTransformation,
-  {
-    identifier: "HookEntry",
-    title: "Hook Entry",
-    description: "A hook entry: a source string, or an object with source plus optional flags.",
-    examples: [
-      "@acme/hooks/block-secrets@^1.0.0",
-      { source: "@acme/hooks/block-secrets@^1.0.0", enabled: false },
-    ],
-  },
-);
+export const HookEntrySchema = compactEnabledEntry(HookEntryObjectSchema, {
+  identifier: "HookEntry",
+  title: "Hook Entry",
+  description: "A hook entry: a source string, or an object with source plus optional flags.",
+  examples: [
+    "@acme/hooks/block-secrets@^1.0.0",
+    { source: "@acme/hooks/block-secrets@^1.0.0", enabled: false },
+  ],
+});
 
 /** @experimental */
 export type HookEntry = Schema.Schema.Type<typeof HookEntrySchema>;
@@ -1007,9 +972,11 @@ export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentEntryObjectSchema = enabledSourceEntryObjectSchema({
-  label: "subagent",
-  fqnType: "subagents",
+export const SubagentEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("subagent", "subagents"),
+  enabled: enabledFieldSchema,
+  authored: authoredFieldSchema,
+}).annotate({
   title: "Subagent Entry Object",
   description: "A subagent entry with source and optional enabled/authored flags.",
 });
@@ -1023,20 +990,15 @@ export const SubagentEntryObjectSchema = enabledSourceEntryObjectSchema({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentEntrySchema = compactOrVerboseEntry(
-  SubagentEntryObjectSchema,
-  EnabledEntryCanonicalSchema,
-  enabledEntryTransformation,
-  {
-    identifier: "SubagentEntry",
-    title: "Subagent Entry",
-    description: "A subagent entry: a source string, or an object with source plus optional flags.",
-    examples: [
-      "@acme/subagents/reviewer@^1.0.0",
-      { source: "github:acme/agent-extensions", enabled: false },
-    ],
-  },
-);
+export const SubagentEntrySchema = compactEnabledEntry(SubagentEntryObjectSchema, {
+  identifier: "SubagentEntry",
+  title: "Subagent Entry",
+  description: "A subagent entry: a source string, or an object with source plus optional flags.",
+  examples: [
+    "@acme/subagents/reviewer@^1.0.0",
+    { source: "github:acme/agent-extensions", enabled: false },
+  ],
+});
 
 /**
  * Inferred type for SubagentEntry schema.
@@ -1082,9 +1044,10 @@ export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackEntryObjectSchema = authoredSourceEntryObjectSchema({
-  label: "pack",
-  fqnType: "packs",
+export const PackEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("pack", "packs"),
+  authored: authoredFieldSchema,
+}).annotate({
   title: "Pack Entry Object",
   description: "A pack entry with source and optional authored flag.",
 });
@@ -1099,8 +1062,18 @@ export const PackEntryObjectSchema = authoredSourceEntryObjectSchema({
  */
 export const PackEntrySchema = compactOrVerboseEntry(
   PackEntryObjectSchema,
-  AuthoredEntryCanonicalSchema,
-  authoredEntryTransformation,
+  Schema.Struct({
+    source: Schema.String,
+    authored: Schema.Boolean,
+  }),
+  {
+    decode: (entry: string | AuthoredEntryObject): AuthoredEntry =>
+      typeof entry === "string"
+        ? { source: entry, authored: false }
+        : { source: entry.source, authored: entry.authored ?? false },
+    encode: (entry: AuthoredEntry): string | AuthoredEntryObject =>
+      entry.authored ? { source: entry.source, authored: true } : entry.source,
+  },
   {
     identifier: "PackEntry",
     title: "Pack Entry",

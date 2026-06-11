@@ -33,7 +33,6 @@ import {
   normalizeHandle,
   parseRegistrySourcePatternParts,
   toLabel,
-  workspaceRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
@@ -43,6 +42,7 @@ import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
+import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -181,7 +181,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           } satisfies Plan;
         }
 
-        const retentionPolicy = workspaceRetentionPolicy(ws);
+        const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
         // Load lockfile and settings for orphan computation
         const lockedPacks = yield* ws.getLockedPacks();

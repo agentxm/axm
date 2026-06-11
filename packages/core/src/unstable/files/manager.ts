@@ -18,19 +18,14 @@ import {
   REGISTRY_EXTENSIONS_DIR,
   enabledConfiguredEntries,
   formatFqn,
-} from "../extensions/index.js";
-import {
+  markerFqnForRef,
   materializeExternalPackage,
   materializeRegistryPackage,
-} from "../extensions/materialization.js";
+} from "../extensions/index.js";
 import { computeSourceHash } from "../extensions/rendered-files.js";
-import {
-  gitHostedLockSourceFields,
-  localLockSourceFields,
-  registryLockSourceFields,
-} from "../lockfile/entry-helpers.js";
 import type { FilesLockEntry, MaterializedFileTarget } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
+import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import type { ExtensionManager, FilesExtensionTarget } from "../workspace/service-interface.js";
@@ -63,23 +58,18 @@ export class FilesManager extends ServiceMap.Service<
 const decodeFilesManifest = Schema.decodeUnknownEffect(FilesManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const commonLockFields = (now: Date) => ({
-  installedAt: now,
-  updatedAt: now,
-});
-
 const registryFilesLockEntry = (
   ref: RegistryFilesRef,
   now: Date,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
   materializedTargets: ReadonlyArray<MaterializedFileTarget>,
 ): FilesLockEntry => ({
-  ...registryLockSourceFields({
-    owner: ref.owner,
-    name: ref.name,
-    version: decodeVersionSync(ref.version),
-    integrity: ref.integrity,
-  }),
+  type: "registry",
+  owner: ref.owner,
+  name: ref.name,
+  resolvedVersion: decodeVersionSync(ref.version),
+  integrity: Option.getOrElse(ref.integrity, () => ""),
+  sourceName: "default",
   resolvedInputs,
   materializedTargets,
   ...commonLockFields(now),
@@ -98,7 +88,7 @@ const gitFilesLockEntry = (
   };
 
   return {
-    ...gitHostedLockSourceFields(ref.source, ref.gitTreeSha),
+    ...gitSourceLockFields(ref.source, ref.gitTreeSha),
     ...common,
   };
 };
@@ -110,7 +100,8 @@ const localFilesLockEntry = (
   materializedTargets: ReadonlyArray<MaterializedFileTarget>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ): FilesLockEntry => ({
-  ...localLockSourceFields({ source: ref.source, workspaceRelativeLocalSourcePath }),
+  type: "local",
+  path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   resolvedInputs,
   materializedTargets,
   ...commonLockFields(now),
@@ -127,9 +118,7 @@ const defaultInputs = (manifest: FilesManifest): Readonly<Record<string, FileInp
 };
 
 const markerExtForRef = (ref: FilesExtensionRef, manifest: FilesManifest): string =>
-  ref.refType === "registry"
-    ? formatFqn({ owner: ref.owner, type: "files", name: ref.file.name })
-    : formatFqn({ owner: manifest.owner, type: "files", name: manifest.name });
+  markerFqnForRef({ ref, manifest, type: "files", name: ref.file.name });
 
 export const FilesManagerLive = Layer.effect(
   FilesManager,
@@ -163,42 +152,52 @@ export const FilesManagerLive = Layer.effect(
 
     const materializeFromRegistry = (ref: RegistryFilesRef) =>
       provide(
-        Effect.gen(function* () {
-          const canonicalPath = path.join(
+        materializeRegistryPackage({
+          baseDir,
+          canonicalPath: path.join(
             baseDir,
             REGISTRY_EXTENSIONS_DIR,
             ref.owner,
             FILES_EXTENSION_DIR,
             ref.name,
-          );
-          return yield* materializeRegistryPackage({
-            baseDir,
-            canonicalPath,
-            sourceLocation: ref.source.location,
-            owner: ref.owner,
-            type: "files",
-            name: ref.name,
-            version: ref.version,
-            integrity: ref.integrity,
-          });
+          ),
+          sourceLocation: ref.source.location,
+          owner: ref.owner,
+          type: "files",
+          name: ref.name,
+          version: ref.version,
+          integrity: ref.integrity,
+          messages: {
+            existsFailureDetail: (canonicalPath) =>
+              `Failed to check if canonical files package path exists: ${canonicalPath}`,
+            integrityMismatchCode: "network",
+            integrityMismatchDetail: `Integrity mismatch for file:${ref.name}@${ref.version}`,
+            tempDirectoryFailureDetail:
+              "Temporary directory for registry file install could not be created",
+            createDirectoryFailureDetail: (canonicalPath) =>
+              `Failed to create canonical files package directory: ${canonicalPath}`,
+            inspectExtractedFailureDetail: "Extracted files package directory could not be read",
+            copyEntryFailureCode: "validation",
+            copyEntryFailureDetail: (entry) =>
+              `Failed to copy registry files package entry: ${entry}`,
+          },
         }),
       );
 
     const materializeFromExternal = (ref: GitHostedFilesRef | LocalFilesRef) =>
       provide(
-        Effect.gen(function* () {
-          const canonicalPath = path.join(
+        materializeExternalPackage({
+          baseDir,
+          canonicalPath: path.join(
             baseDir,
             EXTERNAL_EXTENSIONS_DIR,
             FILES_EXTENSION_DIR,
             ref.file.name,
-          );
-          return yield* materializeExternalPackage({
-            baseDir,
-            canonicalPath,
-            sourceLocation: ref.location,
-            packageLabel: "files package",
-          });
+          ),
+          sourceLocation: ref.location,
+          copyFailureCode: "validation",
+          copyFailureDetail: (canonicalPath) =>
+            `Failed to copy files package files to ${canonicalPath}`,
         }),
       );
 

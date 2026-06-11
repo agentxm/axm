@@ -16,7 +16,7 @@ import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { stringifyToml } from "../toml/index.js";
 import { deleteYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
 import type { McpConfigTarget, McpServersKey } from "../agent-capabilities/index.js";
-import type { ArtifactChange } from "../plan/index.js";
+import type { ArtifactChange } from "../plan/plan.js";
 
 export interface WriteAgentMcpConfigArgs {
   readonly workspaceRoot: string;

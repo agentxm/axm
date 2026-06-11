@@ -157,21 +157,21 @@ describe("axm lint handler", () => {
         pathArg: Option.none(),
         scope: "project",
         cwd: "/tmp/cwd-fixture",
-        homeDir: "/home/fixture",
-        axmUserHome: Option.none(),
+        userScopeDir: "/home/fixture/.axm",
+        pathDirname: (path) => path.split("/").slice(0, -1).join("/"),
       });
       expect(root).toBe("/tmp/cwd-fixture");
     });
   });
 
-  it.effect("resolveLintRoot honors axmUserHome override in user scope", () => {
+  it.effect("resolveLintRoot returns the parent of the resolved user-scope dir", () => {
     return Effect.sync(() => {
       const root = resolveLintRoot({
         pathArg: Option.none(),
         scope: "user",
         cwd: "/tmp/cwd-fixture",
-        homeDir: "/home/fixture",
-        axmUserHome: Option.some("/tmp/axm-user-home-test"),
+        userScopeDir: "/tmp/axm-user-home-test/.axm",
+        pathDirname: (path) => path.split("/").slice(0, -1).join("/"),
       });
       expect(root).toBe("/tmp/axm-user-home-test");
     });

@@ -8,10 +8,8 @@
  */
 
 import * as crypto from "node:crypto";
-import * as Option from "effect/Option";
-import type { Path } from "effect/Path";
 import * as Schema from "effect/Schema";
-import { makeWorkspaceRelativePath, RelativePathSchema } from "../utils/path-types.js";
+import { RelativePathSchema } from "../utils/path-types.js";
 
 /**
  * Branded string for content source hashes.
@@ -73,45 +71,6 @@ export const RenderedFilesMapSchema = Schema.Record(
  * @experimental This API is unstable and may change without notice.
  */
 export type RenderedFilesMap = Schema.Schema.Type<typeof RenderedFilesMapSchema>;
-
-export interface RenderedFilePathOutcome {
-  readonly agentId: string;
-  readonly renderedFilePaths: ReadonlyArray<string>;
-}
-
-export interface WorkspaceRenderedFilesResult {
-  readonly successfulAgents: ReadonlyArray<string>;
-  readonly rawRenderedFiles: Record<string, Array<{ path: string }>>;
-  readonly escapedPaths: ReadonlyArray<string>;
-}
-
-export const collectWorkspaceRenderedFiles = (
-  path: Path,
-  workspaceRoot: string,
-  outcomes: ReadonlyArray<RenderedFilePathOutcome>,
-): WorkspaceRenderedFilesResult => {
-  const successfulAgents: Array<string> = [];
-  const escapedPaths: Array<string> = [];
-  const renderedFiles: Record<string, Array<{ path: string }>> = {};
-
-  for (const outcome of outcomes) {
-    successfulAgents.push(outcome.agentId);
-    const entries: Array<{ path: string }> = [];
-    for (const renderedFilePath of outcome.renderedFilePaths) {
-      const relativePath = makeWorkspaceRelativePath(path, workspaceRoot, renderedFilePath);
-      if (Option.isNone(relativePath)) {
-        escapedPaths.push(renderedFilePath);
-        continue;
-      }
-      entries.push({ path: relativePath.value });
-    }
-    if (entries.length > 0) {
-      renderedFiles[outcome.agentId] = entries;
-    }
-  }
-
-  return { successfulAgents, rawRenderedFiles: renderedFiles, escapedPaths };
-};
 
 const decodeSourceHash = Schema.decodeUnknownSync(SourceHashSchema);
 

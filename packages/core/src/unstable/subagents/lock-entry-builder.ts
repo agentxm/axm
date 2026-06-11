@@ -8,12 +8,8 @@
  */
 
 import * as Option from "effect/Option";
-import {
-  gitHostedLockSourceFields,
-  localLockSourceFields,
-  registryLockSourceFields,
-} from "../lockfile/entry-helpers.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
+import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import type { SubagentExtensionRef } from "./refs.js";
 
 // -----------------------------------------------------------------------------
@@ -22,9 +18,17 @@ import type { SubagentExtensionRef } from "./refs.js";
 
 const commonFields = (agents: ReadonlyArray<string>, now: Date) => ({
   agents: [...agents],
-  installedAt: now,
-  updatedAt: now,
+  ...commonLockFields(now),
 });
+
+const localSourceLockPath = (
+  sourcePath: string,
+  workspaceRelativeLocalSourcePath: Option.Option<string>,
+): string => Option.getOrElse(workspaceRelativeLocalSourcePath, () => sourcePath);
+
+// -----------------------------------------------------------------------------
+// Implementation
+// -----------------------------------------------------------------------------
 
 /**
  * Build a SubagentLockEntry from any ref type.
@@ -42,24 +46,25 @@ export const buildSubagentLockEntry = (
   switch (ref.refType) {
     case "git-hosted":
       return {
-        ...gitHostedLockSourceFields(ref.source, ref.gitTreeSha),
+        ...gitSourceLockFields(ref.source, ref.gitTreeSha),
         ...common,
       };
 
     case "local":
       return {
-        ...localLockSourceFields({ source: ref.source, workspaceRelativeLocalSourcePath }),
+        type: "local",
+        path: localSourceLockPath(ref.source.path, workspaceRelativeLocalSourcePath),
         ...common,
       };
 
     case "registry":
       return {
-        ...registryLockSourceFields({
-          owner: ref.owner,
-          name: ref.subagent.name,
-          version: ref.version,
-          integrity: ref.integrity,
-        }),
+        type: "registry",
+        owner: ref.owner,
+        name: ref.subagent.name,
+        resolvedVersion: ref.version,
+        integrity: Option.getOrElse(ref.integrity, () => ""),
+        sourceName: "default",
         ...common,
       };
   }

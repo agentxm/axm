@@ -77,7 +77,6 @@ export {
   commitLockfileUpdates,
   writeLockfile,
 } from "./lockfile.js";
-export { optionalLockField } from "./entry-helpers.js";
 export {
   validateExactResolvedVersion,
   validateExactResolvedVersionMap,

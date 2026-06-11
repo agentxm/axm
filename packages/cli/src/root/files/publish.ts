@@ -28,14 +28,13 @@ import {
 } from "@agentxm/client-core/unstable/files";
 import type { JobStepResult, Plan } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { publishArtifact } from "@agentxm/client-core/unstable/publish";
 import { createRegistryClient, type VersionEntry } from "@agentxm/client-core/unstable/registry";
 import { buildZipArchive, computeIntegrity } from "@agentxm/client-core/unstable/utils";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
-import { checkPublishVersionPreflightForLocalVersion } from "../shared/publish-preflight.js";
+import { publishArtifact } from "../shared/publish-artifact.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 
 const decodeManifest = Schema.decodeUnknownEffect(FilesManifestSchema);
@@ -64,6 +63,11 @@ const toAppError = (error: AppError | unknown): AppError =>
         detail: "Failed to publish files package",
         cause: error,
       });
+
+const isUnsupportedRegistryTypeError = (error: unknown): boolean =>
+  isAppError(error) &&
+  error.code === "internal" &&
+  error.detail.includes("Remote discovery response does not match expected schema");
 
 const readFilesPublishSubject = (input: string) =>
   Effect.gen(function* () {
@@ -147,23 +151,52 @@ const resolveFilesPublishRegistry = (registry: Option.Option<string>) =>
 const checkFilesPublishVersionPreflight = (args: {
   readonly subject: FilesPublishSubject;
   readonly registry: FilesPublishRegistry;
-}) => {
-  const manifestPath = `.axm/extensions/${args.subject.owner}/files/${args.subject.name}/${FILES_MANIFEST_FILENAME}`;
-  return checkPublishVersionPreflightForLocalVersion({
-    fqn: args.subject.fqn,
-    type: "files",
-    version: args.subject.manifest.version,
-    registryName: args.registry.name,
-    registryUrl: args.registry.url,
-    force: false,
-    checkVersionOrder: false,
-    duplicateVersionSuggestions: [
-      {
-        description: `Bump the version in \`${manifestPath}\`.`,
-      },
-    ],
+}) =>
+  Effect.gen(function* () {
+    const client = yield* createRegistryClient(args.registry.url);
+    const indexOption = yield* client
+      .getExtensionIndex({
+        owner: args.subject.owner,
+        type: "files",
+        name: args.subject.name,
+      })
+      .pipe(
+        Effect.catch((error) =>
+          isUnsupportedRegistryTypeError(error)
+            ? Effect.fail(
+                makeAppError({
+                  code: "unavailable",
+                  detail: `Registry source "${args.registry.name}" does not support files package publish checks.`,
+                  suggestions: [
+                    {
+                      description:
+                        "Use another registry source or retry after the registry supports files packages.",
+                    },
+                  ],
+                  cause: error,
+                }),
+              )
+            : Effect.fail(error),
+        ),
+      );
+
+    if (Option.isNone(indexOption)) return;
+
+    const existingVersion = indexOption.value.versions.find(
+      (entry) => entry.version === args.subject.manifest.version,
+    );
+    if (existingVersion === undefined) return;
+
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Cannot publish: version ${args.subject.manifest.version} is already published for ${args.subject.fqn}. Published versions are immutable.`,
+      suggestions: [
+        {
+          description: `Bump the version in \`.axm/extensions/${args.subject.owner}/files/${args.subject.name}/${FILES_MANIFEST_FILENAME}\`.`,
+        },
+      ],
+    });
   });
-};
 
 const publishFiles = (args: {
   readonly subject: FilesPublishSubject;

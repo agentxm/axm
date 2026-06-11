@@ -15,9 +15,9 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { extractTomlQuotedStrings } from "../toml/index.js";
-import { envOption } from "../utils/environment.js";
+import { readEnv } from "../utils/index.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
+import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
@@ -76,10 +76,6 @@ const parseDependencyLine = (
     version: extractExactVersion(versionPart),
   };
 };
-
-// ---------------------------------------------------------------------------
-// File helpers
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // File parsers
@@ -429,10 +425,10 @@ const resolveSitePackages = () =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    const virtualEnv = yield* envOption("VIRTUAL_ENV");
-    if (Option.isSome(virtualEnv)) {
+    const virtualEnv = yield* Effect.sync(() => readEnv("VIRTUAL_ENV"));
+    if (virtualEnv) {
       // Scan for python* directories under lib/
-      const libDir = path.join(virtualEnv.value, "lib");
+      const libDir = path.join(virtualEnv, "lib");
       const libExists = yield* fs.exists(libDir).pipe(Effect.catch(() => Effect.succeed(false)));
       if (libExists) {
         const entries = yield* fs.readDirectory(libDir).pipe(

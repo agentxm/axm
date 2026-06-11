@@ -288,7 +288,7 @@ export const nonPackExtensionTypePluralSegments = [
 export type NonPackExtensionTypePlural = (typeof nonPackExtensionTypePluralSegments)[number];
 
 const NON_PACK_EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = nonPackExtensionTypePluralSegments.join("|");
-export const EXTENSION_NAME_MAX_LENGTH = 64;
+const EXTENSION_NAME_MAX_LENGTH = 64;
 const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";
 const EXTENSION_NAME_BRAND = "ExtensionName" as const;
 

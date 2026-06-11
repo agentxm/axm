@@ -16,16 +16,16 @@ import {
 } from "../command-sync.js";
 import { addRooSubagent, removeRooSubagent } from "../subagent-sync.js";
 import {
-  agentSkillsDir,
-  requiredAgentCommandsDir,
-  requiredAgentSubagentsDir,
+  agentCommandsProjectDir,
+  agentSkillsProjectDir,
+  agentSubagentsProjectDir,
 } from "../descriptor-paths.js";
 
 /** @experimental */
-export const ROO_COMMANDS_PROJECT_DIR = requiredAgentCommandsDir("roo");
+export const ROO_COMMANDS_PROJECT_DIR = agentCommandsProjectDir("roo");
 
 /** @experimental */
-export const ROO_ROOMODES_FILE = requiredAgentSubagentsDir("roo");
+export const ROO_ROOMODES_FILE = agentSubagentsProjectDir("roo");
 
 const rooCommandConfig: CommandSyncConfig = {
   agentId: "roo",
@@ -38,7 +38,7 @@ export const rooCodingAgent: CodingAgent = {
       const path = yield* Path.Path;
       return {
         _tag: "supported",
-        dir: path.resolve(workspaceRoot, agentSkillsDir("roo")),
+        dir: path.resolve(workspaceRoot, agentSkillsProjectDir("roo")),
       } as const;
     }),
   addMcpServer: () =>

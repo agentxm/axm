@@ -8,7 +8,6 @@ import {
   buildUninstallOperation,
   parseExtensionFqnParts,
   toLabel,
-  type UninstallRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unstable/files";
@@ -27,6 +26,7 @@ import type {
   LibrariesLockMap,
   ResolvedExtensionMap,
 } from "@agentxm/client-core/unstable/lockfile";
+import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 
 export interface UninstallLibraryHandlerArgs {
   readonly name: string;
@@ -194,11 +194,7 @@ export const UninstallLibraryCommandWorkflowActionsLive = Layer.effect(
             }),
         });
 
-        const retentionPolicy: UninstallRetentionPolicy = {
-          isRequiredByInstalledPack: (args) => ws.isExtensionRequiredByInstalledPack(args.target),
-          markDependencyRetainedInLockfile: (args) =>
-            ws.markDependencyRetainedInLockfile(args.target),
-        };
+        const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
         const removeStep = buildRemoveLibraryStep({
           name: intent.name,

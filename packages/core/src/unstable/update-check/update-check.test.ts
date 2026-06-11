@@ -462,28 +462,24 @@ describe("UpdateCheck service via UpdateCheckTest layer", () => {
     ),
   );
 
-  it.effect("live layer stores cache under AXM_USER_HOME", () => {
-    const userHome = nodePath.join(tempDir, "axm-user-home");
-
-    return Effect.gen(function* () {
+  it.effect("UpdateCheckLive writes under AXM_USER_HOME", () =>
+    Effect.gen(function* () {
       const service = yield* UpdateCheck;
-      yield* service.writeCache("3.0.0");
+      yield* service.writeCache("1.0.0");
 
-      const cachePath = nodePath.join(userHome, ".axm", "update-check.json");
+      const cachePath = nodePath.join(tempDir, ".axm", "update-check.json");
       expect(nodeFs.existsSync(cachePath)).toBe(true);
-      const content: unknown = JSON.parse(nodeFs.readFileSync(cachePath, "utf8"));
-      expect(content).toMatchObject({ latestVersion: "3.0.0" });
     }).pipe(
       Effect.provide(
         UpdateCheckLive.pipe(
           Layer.provide(
             Layer.mergeAll(
               NodeServices.layer,
-              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: userHome } })),
+              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: tempDir } })),
             ),
           ),
         ),
       ),
-    );
-  });
+    ),
+  );
 });

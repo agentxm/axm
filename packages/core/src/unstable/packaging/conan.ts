@@ -11,14 +11,13 @@
 
 // Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
 import * as os from "node:os";
-
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { envWithDefault } from "../utils/environment.js";
+import { readEnv } from "../utils/index.js";
 import { PackageTypeSchema } from "./package-type.js";
 import { decodeAxmMeta, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -232,7 +231,8 @@ const decodeConanDataAxm = Schema.decodeUnknownResult(ConanDataAxmSchema);
  * Resolve the Conan cache directory.
  * Checks CONAN_USER_HOME, then defaults to ~/.conan2.
  */
-const resolveConanCache = () => envWithDefault("CONAN_USER_HOME", `${os.homedir()}/.conan2`);
+const resolveConanCache = () =>
+  Effect.sync(() => readEnv("CONAN_USER_HOME") ?? `${os.homedir()}/.conan2`);
 
 /**
  * Conan package reader.

@@ -9,12 +9,8 @@
  */
 
 import * as Option from "effect/Option";
-import {
-  gitHostedLockSourceFields,
-  localLockSourceFields,
-  registryLockSourceFields,
-} from "../lockfile/entry-helpers.js";
 import type { SkillLockEntry } from "../lockfile/schema.js";
+import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 
 // -----------------------------------------------------------------------------
@@ -43,6 +39,9 @@ const commonFields = (input: SourceToLockEntryInput) => ({
   updatedAt: input.now,
 });
 
+const localSourceLockPath = (input: SourceToLockEntryInput, sourcePath: string): string =>
+  Option.getOrElse(input.workspaceRelativeLocalSourcePath ?? Option.none(), () => sourcePath);
+
 // -----------------------------------------------------------------------------
 // Implementation
 // -----------------------------------------------------------------------------
@@ -60,28 +59,25 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
   switch (ref.refType) {
     case "git-hosted":
       return {
-        ...gitHostedLockSourceFields(ref.source, ref.gitTreeSha),
+        ...gitSourceLockFields(ref.source, ref.gitTreeSha),
         ...common,
       };
 
     case "local":
       return {
-        ...localLockSourceFields({
-          source: ref.source,
-          workspaceRelativeLocalSourcePath: input.workspaceRelativeLocalSourcePath,
-        }),
+        type: "local",
+        path: localSourceLockPath(input, ref.source.path),
         ...common,
       };
 
     case "registry":
       return {
-        ...registryLockSourceFields({
-          owner: ref.owner,
-          name: ref.skill.name,
-          version: ref.version,
-          integrity: ref.integrity,
-          sourceName: input.sourceName,
-        }),
+        type: "registry",
+        owner: ref.owner,
+        name: ref.skill.name,
+        resolvedVersion: ref.version,
+        integrity: Option.getOrElse(ref.integrity, () => ""),
+        sourceName: Option.getOrElse(input.sourceName, () => "default"),
         ...common,
       };
   }

@@ -5,10 +5,7 @@ import * as Option from "effect/Option";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unstable/files";
-import {
-  buildUninstallOperation,
-  workspaceRetentionPolicy,
-} from "@agentxm/client-core/unstable/extensions";
+import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { FilesLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type {
   JobStepArtifact,
@@ -21,6 +18,7 @@ import type { FilesExtensionTarget } from "@agentxm/client-core/unstable/workspa
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallFilesCommandIntent } from "./intent.js";
+import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 
 export interface UninstallFilesHandlerArgs {
   readonly name: string;
@@ -159,7 +157,7 @@ export const UninstallFilesCommandWorkflowActionsLive = Layer.effect(
               withFilesUninstallArtifact(
                 buildUninstallOperation<FilesExtensionRef>(
                   filesManager,
-                  workspaceRetentionPolicy(ws),
+                  makeWorkspaceRetentionPolicy(ws),
                   { target },
                 ),
                 ws.scope,

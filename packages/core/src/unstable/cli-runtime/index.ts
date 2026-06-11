@@ -33,7 +33,7 @@ export {
   JsonSubcommandDocSchema,
   JsonSubcommandGroupDocSchema,
   JsonVersionDocSchema,
-  makeJsonVersionDoc,
+  isSubcommandDoc,
   toJsonFlagDoc,
   toJsonHelpDoc,
   type JsonArgDoc,
@@ -43,7 +43,7 @@ export {
   type JsonSubcommandDoc,
   type JsonSubcommandGroupDoc,
   type JsonVersionDoc,
-} from "./help-json-document.js";
+} from "./json-help-doc.js";
 export { EffectCliExit, effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 export { resolveFormatFromArgv, resolveFormat } from "./resolve-format.js";
 export { handleError, classifyError, type ErrorClassification } from "./handle-error.js";

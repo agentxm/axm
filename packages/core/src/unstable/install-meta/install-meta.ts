@@ -2,7 +2,7 @@
  * InstallMeta service — reads and writes `install-meta.json`.
  *
  * The metadata file lives at `~/.axm/install-meta.json` (Unix)
- * or `%USERPROFILE%\.axm\install-meta.json` (Windows).
+ * or `$AXM_USER_HOME/.axm/install-meta.json` when AXM_USER_HOME is set.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
 import { InstallMethodLiteral } from "../install-method/install-method.js";
-import { getUserScopeDir } from "../workspace/paths.js";
+import { resolveUserScopeDir } from "../workspace/paths.js";
 
 // -----------------------------------------------------------------------------
 // Schema
@@ -76,7 +76,7 @@ export class InstallMeta extends ServiceMap.Service<InstallMeta, InstallMetaServ
 // Data directory resolution
 // -----------------------------------------------------------------------------
 
-const resolveDataDir = () => getUserScopeDir();
+const resolveDataDir = resolveUserScopeDir;
 
 // -----------------------------------------------------------------------------
 // Constants

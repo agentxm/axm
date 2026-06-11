@@ -4,7 +4,7 @@
  * Thin surface over {@link runLint}. Responsibilities:
  *
  * 1. Resolve workspace root + scope (project: cwd (or `<path>`), user:
- *    `$AXM_USER_HOME` or `$HOME/.axm`, ignoring `<path>`).
+ *    `$AXM_USER_HOME` or `$HOME`, ignoring `<path>`).
  * 2. Load `.axm/settings.json` (if present) to recover the configured
  *    `lint.rules` overrides.
  * 3. Build a `LintWorkspace` (rule context + flat projection) from the
@@ -21,7 +21,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -76,23 +75,23 @@ import {
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredSkill,
+  getUserScopeDir,
   AXM_DIR_NAME,
   type WorkspaceScope,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import { SETTINGS_FILENAME, SettingsSchema } from "@agentxm/client-core/unstable/settings";
+import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
 import {
   buildInstallOperation,
   buildUninstallOperation,
   normalizeHandle,
   parseRegistrySourcePatternParts,
-  type UninstallRetentionPolicy,
-  workspaceRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { Settings } from "@agentxm/client-core/unstable/settings";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import * as os from "node:os";
 import { PlanResolutionResultSchema, toPlanResolutionResult } from "../../json-output.js";
+import { makeWorkspaceRetentionPolicyEffect as makeRetentionPolicy } from "../shared/workspace-retention-policy.js";
 
 // -----------------------------------------------------------------------------
 // Handler args
@@ -116,8 +115,8 @@ export interface HandleLintArgs {
  * - `--scope=project` (default): use the optional `<path>` argument if
  *   provided, otherwise the caller-supplied `cwd` (defaulting to
  *   `process.cwd()` when loaded via {@link resolveLintRootEffect}).
- * - `--scope=user`: prefer `$AXM_USER_HOME`, then the caller-supplied
- *   home directory (defaulting to `os.homedir()`). Ignores `<path>`.
+ * - `--scope=user`: use the parent of the resolved user-scope `.axm`
+ *   directory. Ignores `<path>`.
  *
  * XDG layout: v1 honors `AXM_USER_HOME` as an override; full
  * `XDG_DATA_HOME`/`XDG_CONFIG_HOME` integration is deferred to a follow-up
@@ -129,14 +128,11 @@ export const resolveLintRoot = (args: {
   readonly pathArg: Option.Option<string>;
   readonly scope: WorkspaceScope;
   readonly cwd: string;
-  readonly homeDir: string;
-  readonly axmUserHome: Option.Option<string>;
+  readonly userScopeDir: string;
+  readonly pathDirname: (path: string) => string;
 }): string => {
   if (args.scope === "user") {
-    return Option.match(args.axmUserHome, {
-      onNone: () => args.homeDir,
-      onSome: (v) => v,
-    });
+    return args.pathDirname(args.userScopeDir);
   }
   return Option.match(args.pathArg, {
     onNone: () => args.cwd,
@@ -145,26 +141,23 @@ export const resolveLintRoot = (args: {
 };
 
 /**
- * Effectful wrapper around {@link resolveLintRoot} that loads `cwd`,
- * `os.homedir()`, and `$AXM_USER_HOME` via Effect Config / the standard
- * runtime primitives. The CLI handler calls this once at entry.
+ * Effectful wrapper around {@link resolveLintRoot}. The CLI handler calls this
+ * once at entry.
  */
-const axmUserHomeConfig = Config.option(Config.string("AXM_USER_HOME"));
-
 const resolveLintRootEffect = (args: {
   readonly pathArg: Option.Option<string>;
   readonly scope: WorkspaceScope;
-}): Effect.Effect<string> =>
+}) =>
   Effect.gen(function* () {
-    const axmUserHomeRaw = yield* Effect.orDie(axmUserHomeConfig.asEffect());
+    const path = yield* Path.Path;
     const cwd = yield* Effect.sync(() => process.cwd());
-    const homeDir = yield* Effect.sync(() => os.homedir());
+    const userScopeDir = yield* getUserScopeDir();
     return resolveLintRoot({
       pathArg: args.pathArg,
       scope: args.scope,
       cwd,
-      homeDir,
-      axmUserHome: axmUserHomeRaw.pipe(Option.filter((v) => v.length > 0)),
+      userScopeDir,
+      pathDirname: path.dirname,
     });
   });
 
@@ -195,7 +188,7 @@ const loadLintConfig = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const settingsPath = path.join(workspaceRoot, AXM_DIR_NAME, SETTINGS_FILENAME);
+    const settingsPath = path.join(workspaceRoot, AXM_DIR_NAME, "settings.json");
     const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return {};
@@ -235,7 +228,7 @@ const loadInstructionsState = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const settingsPath = path.join(workspaceRoot, AXM_DIR_NAME, SETTINGS_FILENAME);
+    const settingsPath = path.join(workspaceRoot, AXM_DIR_NAME, "settings.json");
     const raw = yield* fs.readFileString(settingsPath).pipe(Effect.catch(() => Effect.succeed("")));
     if (raw.length === 0) return Option.none();
     const parsed = yield* Effect.try({
@@ -777,28 +770,6 @@ const adaptIntent = (
         return unmapped(op.name, "unknown operation");
       }
     }
-  });
-
-// -----------------------------------------------------------------------------
-// Retention policy (for uninstall steps)
-// -----------------------------------------------------------------------------
-
-/**
- * Build the {@link UninstallRetentionPolicy} the uninstall plan-step builder
- * captures at construction time. `axm lint --fix` uninstall ops always
- * originate from `workspace/*` rules emitting orphan entries; retention
- * tracking uses the standard workspace service methods.
- *
- * @internal
- */
-const makeRetentionPolicy = (): Effect.Effect<
-  UninstallRetentionPolicy,
-  never,
-  WorkspaceMutations
-> =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return workspaceRetentionPolicy(ws);
   });
 
 // -----------------------------------------------------------------------------

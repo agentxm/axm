@@ -19,9 +19,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../../../app-error/index.js";
 import {
-  EXTENSION_DISCOVERY_MAX_DEPTH,
-  EXTENSION_DISCOVERY_SKIPPED_DIRECTORIES,
-} from "../../../extensions/discovery-scan.js";
+  DISCOVERY_MAX_DEPTH,
+  DISCOVERY_SKIPPED_DIRECTORIES,
+} from "../../../extensions/discovery-walk.js";
 import { envOption } from "../../../utils/index.js";
 
 /**
@@ -179,7 +179,7 @@ const recursiveScan = (
   installInternalSkills: Option.Option<string>,
 ): Effect.Effect<readonly DiscoveredSkill[], never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    if (depth > EXTENSION_DISCOVERY_MAX_DEPTH) return [] satisfies readonly DiscoveredSkill[];
+    if (depth > DISCOVERY_MAX_DEPTH) return [] satisfies readonly DiscoveredSkill[];
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
@@ -189,8 +189,7 @@ const recursiveScan = (
       entries.value,
       (entry) =>
         Effect.gen(function* () {
-          if (EXTENSION_DISCOVERY_SKIPPED_DIRECTORIES.has(entry))
-            return [] satisfies DiscoveredSkill[];
+          if (DISCOVERY_SKIPPED_DIRECTORIES.has(entry)) return [] satisfies DiscoveredSkill[];
 
           const fullPath = path.join(dir, entry);
           const stat = yield* fs.stat(fullPath).pipe(Effect.option);

@@ -17,7 +17,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { toJobStepResult } from "../shared/job-step-result.js";
+import { toJobStepResult } from "./job-step-result.js";
 import { combinePlanSections, makeAgentSection } from "./preview-sections.js";
 
 export interface EnableCommandHandlerArgs {

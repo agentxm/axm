@@ -2,26 +2,49 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { AppError } from "../app-error/index.js";
-import { insertManagedFileBanner } from "../extensions/index.js";
-import {
-  materializeExternalPackage,
-  materializeRegistryPackage,
-} from "../extensions/materialization.js";
+import { type AppError, makeAppError } from "../app-error/index.js";
+import { insertManagedFileBanner, validatePathSafety } from "../extensions/index.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { SkillExtensionRef } from "./refs.js";
 import { computeSkillPaths, type SkillPathSource } from "./paths.js";
 import {
+  computeIntegrity,
   createSymlink,
   isPathSafe,
   makeWorkspaceRelativeSourcePath,
   removeFromAllCanonicalLocations,
+  stripFileProtocol,
 } from "../utils/index.js";
+import { createRegistryClient, extractZip } from "../registry/index.js";
 
 export type ProvideFs = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
 ) => Effect.Effect<A, E, Exclude<R, FileSystem.FileSystem | Path.Path>>;
+
+const preCleanAndCopy = (
+  fs: FileSystem.FileSystem,
+  pathService: Path.Path,
+  baseDir: string,
+  sanitizedName: string,
+  sourcePath: string,
+  copyTarget: string,
+  provide: ProvideFs,
+) =>
+  Effect.gen(function* () {
+    yield* removeFromAllCanonicalLocations(fs, baseDir, "skills", sanitizedName, pathService);
+    yield* provide(
+      copyExtensionDirectory(sourcePath, copyTarget).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to copy skill files to ${copyTarget}`,
+            cause: error,
+          }),
+        ),
+      ),
+    );
+  });
 
 const materializeGitHosted = (
   ref: Extract<SkillExtensionRef, { refType: "git-hosted" }>,
@@ -38,20 +61,16 @@ const materializeGitHosted = (
       { refType: ref.refType },
       sanitizedName,
     );
-    yield* provide(
-      materializeExternalPackage({
-        baseDir,
-        canonicalPath: skillSrcPath,
-        sourceLocation: ref.location,
-        packageLabel: "skill",
-        prepareDestination: removeFromAllCanonicalLocations(
-          fs,
-          baseDir,
-          "skills",
-          sanitizedName,
-          pathService,
-        ),
-      }),
+    yield* validatePathSafety(baseDir, skillSrcPath);
+    const sourcePath = stripFileProtocol(ref.location);
+    yield* preCleanAndCopy(
+      fs,
+      pathService,
+      baseDir,
+      sanitizedName,
+      sourcePath,
+      skillSrcPath,
+      provide,
     );
     return skillSrcPath;
   });
@@ -71,21 +90,20 @@ const materializeLocal = (
       { refType: ref.refType },
       sanitizedName,
     );
-    yield* provide(
-      materializeExternalPackage({
+    yield* validatePathSafety(baseDir, skillSrcPath);
+    const sourcePath = stripFileProtocol(ref.location);
+    const isSelfCopy = pathService.resolve(sourcePath) === pathService.resolve(skillSrcPath);
+    if (!isSelfCopy) {
+      yield* preCleanAndCopy(
+        fs,
+        pathService,
         baseDir,
-        canonicalPath: skillSrcPath,
-        sourceLocation: ref.location,
-        packageLabel: "skill",
-        prepareDestination: removeFromAllCanonicalLocations(
-          fs,
-          baseDir,
-          "skills",
-          sanitizedName,
-          pathService,
-        ),
-      }),
-    );
+        sanitizedName,
+        sourcePath,
+        skillSrcPath,
+        provide,
+      );
+    }
     return skillSrcPath;
   });
 
@@ -105,25 +123,67 @@ const materializeRegistry = (
       source,
       sanitizedName,
     );
-    yield* provide(
-      materializeRegistryPackage({
-        baseDir,
-        canonicalPath,
-        sourceLocation: ref.source.location,
+    yield* validatePathSafety(baseDir, canonicalPath);
+
+    const canonicalExists = yield* fs.exists(canonicalPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to check if canonical path exists: ${canonicalPath}`,
+          cause: error,
+        }),
+      ),
+    );
+    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+
+    if (!useExisting) {
+      const locationStr =
+        ref.source.location.protocol === "file:"
+          ? ref.source.location.pathname
+          : ref.source.location.href;
+      const client = yield* provide(createRegistryClient(locationStr));
+      const { archive } = yield* client.getExtensionPackage({
         owner: ref.owner,
         type: "skill",
         name: ref.name,
-        version: ref.version,
-        integrity: ref.integrity,
-        prepareDestination: removeFromAllCanonicalLocations(
-          fs,
-          baseDir,
-          "skills",
-          sanitizedName,
-          pathService,
+        version: Option.some(ref.version),
+      });
+
+      if (Option.isSome(ref.integrity)) {
+        const actualIntegrity = yield* computeIntegrity(archive);
+        if (actualIntegrity !== ref.integrity.value) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+          });
+        }
+      }
+
+      const tmpDir = yield* fs.makeTempDirectory().pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "validation",
+            detail: `Temporary directory for registry install could not be created`,
+            cause: error,
+          }),
         ),
-      }),
-    );
+      );
+      yield* Effect.ensuring(
+        Effect.gen(function* () {
+          yield* provide(extractZip(archive, tmpDir));
+          yield* preCleanAndCopy(
+            fs,
+            pathService,
+            baseDir,
+            sanitizedName,
+            tmpDir,
+            canonicalPath,
+            provide,
+          );
+        }),
+        fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+      );
+    }
 
     return skillSrcPath;
   });

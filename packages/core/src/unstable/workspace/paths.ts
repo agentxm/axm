@@ -14,7 +14,6 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAbsolutePath, type AbsolutePath } from "../utils/path-types.js";
-import { AXM_DIR_NAME } from "./constants.js";
 import type { WorkspaceScope } from "./scope.js";
 
 export interface WorkspaceLocation {
@@ -26,6 +25,8 @@ export interface WorkspaceLocation {
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
+
+export const AXM_DIR_NAME = ".axm";
 
 /**
  * Returns the user-scope axm directory path.
@@ -50,7 +51,12 @@ export interface WorkspaceLocation {
  */
 const axmUserHomeConfig = Config.option(Config.string("AXM_USER_HOME"));
 
-export const getUserScopeDir = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
+export const resolveUserScopeDirPure = (
+  pathJoin: (...segments: ReadonlyArray<string>) => string,
+  homeDir: string,
+): string => pathJoin(homeDir, AXM_DIR_NAME);
+
+export const resolveUserScopeDir = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const axmUserHome = yield* Effect.orDie(axmUserHomeConfig.asEffect());
@@ -58,8 +64,10 @@ export const getUserScopeDir = (): Effect.Effect<AbsolutePath, never, Path.Path>
       onNone: () => os.homedir(),
       onSome: (value) => value,
     });
-    return makeAbsolutePath(path, path.join(home, AXM_DIR_NAME));
+    return makeAbsolutePath(path, resolveUserScopeDirPure(path.join, home));
   });
+
+export const getUserScopeDir = resolveUserScopeDir;
 
 /**
  * Returns the project-level axm directory path (./.axm).

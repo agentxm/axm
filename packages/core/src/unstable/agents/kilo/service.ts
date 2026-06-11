@@ -18,19 +18,15 @@ import {
   type CommandSyncConfig,
 } from "../command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
-import {
-  agentSkillsDir,
-  requiredAgentCommandsDir,
-  requiredAgentSubagentsDir,
-} from "../descriptor-paths.js";
+import { agentSkillsProjectDir, agentSubagentsProjectDir } from "../descriptor-paths.js";
 
 /** @experimental */
-export const KILO_COMMANDS_OPENCODE_DIR = requiredAgentCommandsDir("opencode");
+export const KILO_COMMANDS_OPENCODE_DIR = ".opencode/commands";
 /** @experimental */
-export const KILO_COMMANDS_FALLBACK_DIR = requiredAgentCommandsDir("kilo");
+export const KILO_COMMANDS_FALLBACK_DIR = ".kilo/commands";
 
 /** @experimental */
-export const KILO_SUBAGENTS_PROJECT_DIR = requiredAgentSubagentsDir("kilo");
+export const KILO_SUBAGENTS_PROJECT_DIR = agentSubagentsProjectDir("kilo");
 
 const kiloCommandConfig: CommandSyncConfig = {
   agentId: "kilo",
@@ -61,7 +57,7 @@ export const kiloCodingAgent: CodingAgent = {
       const path = yield* Path.Path;
       return {
         _tag: "supported",
-        dir: path.resolve(workspaceRoot, agentSkillsDir("kilo")),
+        dir: path.resolve(workspaceRoot, agentSkillsProjectDir("kilo")),
       } as const;
     }),
   addMcpServer: () =>

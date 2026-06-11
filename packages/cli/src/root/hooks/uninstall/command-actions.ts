@@ -9,7 +9,6 @@ import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   buildUninstallOperation,
-  workspaceRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type {
@@ -23,6 +22,7 @@ import type { HookExtensionTarget } from "@agentxm/client-core/unstable/workspac
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallHookCommandIntent } from "./intent.js";
+import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 
 export interface UninstallHookHandlerArgs {
   readonly name: string;
@@ -150,7 +150,7 @@ export const UninstallHookCommandWorkflowActionsLive = Layer.effect(
               withHookUninstallArtifact({
                 step: buildUninstallOperation<HookExtensionRef>(
                   hookManager,
-                  workspaceRetentionPolicy(ws),
+                  makeWorkspaceRetentionPolicy(ws),
                   { target },
                 ),
                 scope: ws.scope,

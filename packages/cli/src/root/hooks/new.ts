@@ -8,10 +8,7 @@ import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   buildNewExtensionStep,
   decodeExtensionNameSync,
-  EXTENSION_NAME_MAX_LENGTH,
-  EXTENSION_NAME_PATTERN,
   REGISTRY_EXTENSIONS_DIR,
-  normalizeHandle,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import type {
@@ -31,6 +28,7 @@ import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
+  JobStepResult,
   Plan,
   PlanResolution,
   PlannedJobStep,
@@ -40,6 +38,11 @@ import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import {
+  isValidScaffoldName,
+  normalizeScaffoldOwner,
+  scaffoldNameValidationSuggestion,
+} from "../shared/scaffold-name.js";
 import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -139,26 +142,27 @@ export interface HooksNewHandlerArgs {
   readonly preview: boolean;
 }
 
-const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
+const toJobStepResult = (result: {
+  readonly result: string;
+  readonly message: string;
+  readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
+}): JobStepResult =>
+  result.result === "error" && result.error != null
+    ? { result: "error", message: result.message, error: result.error }
+    : { result: "success", message: result.message };
 
 export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: HooksNewHandlerArgs) {
   // 1. Resolve owner
   const owner = Option.isSome(args.owner)
-    ? normalizeOwner(args.owner.value)
+    ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("hook creation");
 
   // 2. Validate name
-  if (
-    args.name.length === 0 ||
-    args.name.length > EXTENSION_NAME_MAX_LENGTH ||
-    !EXTENSION_NAME_PATTERN.test(args.name)
-  ) {
+  if (!isValidScaffoldName(args.name)) {
     return yield* makeAppError({
       code: "validation",
       detail: `Invalid hook name: "${args.name}"`,
-      suggestions: [
-        { description: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)" },
-      ],
+      suggestions: [{ description: scaffoldNameValidationSuggestion }],
     });
   }
 
@@ -248,6 +252,7 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
       authored: true,
     }),
     scaffold: newHook(op).pipe(
+      Effect.map(toJobStepResult),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(WorkspaceMutations, ws),

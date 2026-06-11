@@ -14,9 +14,9 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { envWithDefault } from "../utils/environment.js";
+import { readEnv } from "../utils/index.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodePurl, decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
+import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const nugetType = Schema.decodeUnknownSync(PackageTypeSchema)("nuget");
@@ -235,7 +235,7 @@ export const nugetDetector: PackageDetector = {
  * Resolve the NuGet packages folder path.
  */
 const resolveNugetPackagesFolder = () =>
-  envWithDefault("NUGET_PACKAGES", `${os.homedir()}/.nuget/packages`);
+  Effect.sync(() => readEnv("NUGET_PACKAGES") ?? `${os.homedir()}/.nuget/packages`);
 
 /**
  * NuGet package reader.

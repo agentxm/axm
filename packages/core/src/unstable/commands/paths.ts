@@ -8,8 +8,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { computeExtensionPaths, type ExtensionPathSource } from "../extensions/index.js";
-import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
+import {
+  computeExtensionPaths,
+  extensionContentFilename,
+  extensionContentPath,
+} from "../extensions/extension-paths.js";
+import type { Handle } from "../extensions/handle.js";
+import type { AbsolutePath } from "../utils/path-types.js";
 
 /**
  * Minimal structural discriminant for determining command path layout.
@@ -19,7 +24,9 @@ import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.j
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type CommandPathSource = ExtensionPathSource;
+export type CommandPathSource =
+  | { readonly refType: "registry"; readonly owner: Handle }
+  | { readonly refType: "git-hosted" | "local" };
 
 /**
  * Computed paths for an installed command directory.
@@ -43,7 +50,7 @@ export interface CommandDirPaths {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const commandContentFilename = (name: string): string => `${name}.md`;
+export const commandContentFilename = extensionContentFilename;
 
 /**
  * Content path for a command's prompt body.
@@ -54,7 +61,7 @@ export const commandContentPath = (
   join: (...paths: string[]) => string,
   root: string,
   name: string,
-): AbsolutePath => decodeAbsolutePathSync(join(root, commandContentFilename(name)));
+): AbsolutePath => extensionContentPath(join, root, name);
 
 /**
  * Pure function to compute command directory paths.
@@ -72,9 +79,9 @@ export const computeCommandPaths = (
   source: CommandPathSource,
   sanitizedName: string,
 ): CommandDirPaths => {
-  const paths = computeExtensionPaths(join, base, "commands", source, sanitizedName);
+  const paths = computeExtensionPaths(join, base, source, "commands", sanitizedName);
   return {
     canonicalPath: paths.canonicalPath,
-    commandSrcPath: paths.sourcePath,
+    commandSrcPath: paths.extensionSrcPath,
   };
 };

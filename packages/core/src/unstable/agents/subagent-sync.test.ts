@@ -9,6 +9,7 @@ import { claudeCodeCodingAgent } from "./claude-code/service.js";
 import { codexCodingAgent } from "./codex/service.js";
 import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import { rooCodingAgent } from "./roo/service.js";
+import { windsurfCodingAgent } from "./windsurf/service.js";
 import type { AddSubagentArgs, CodingAgent, RemoveSubagentArgs } from "./coding-agent.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
 import { RenderedFilePathSchema } from "../extensions/rendered-files.js";
@@ -159,6 +160,23 @@ describe("resolveEffectiveSubagentsDir", () => {
             scope: "user",
           });
           expect(outcome._tag).toBe("unsupported");
+        }),
+      ),
+    );
+  });
+
+  describe("windsurf", () => {
+    it.effect("returns unsupported because the catalog has no custom subagent path", () =>
+      withNode(
+        Effect.gen(function* () {
+          const outcome = yield* windsurfCodingAgent.resolveEffectiveSubagentsDir({
+            workspaceRoot: "/workspace",
+            scope: "project",
+          });
+          expect(outcome).toEqual({
+            _tag: "unsupported",
+            reason: "Windsurf does not support custom subagents",
+          });
         }),
       ),
     );

@@ -13,7 +13,7 @@ import { BRANDING } from "@agentxm/client-core/unstable/branding";
 import {
   JsonHelpDocSchema,
   JsonVersionDocSchema,
-  makeJsonVersionDoc,
+  isSubcommandDoc,
   toJsonHelpDoc,
 } from "@agentxm/client-core/unstable/cli-runtime";
 
@@ -47,20 +47,6 @@ export const formatLearnMore = (
       : [`  ${command.padEnd(width)}  ${description}`],
   );
   return ["LEARN MORE", ...lines].join("\n");
-};
-
-/**
- * Determines whether a HelpDoc represents a subcommand (as opposed to the
- * root command) by counting the command tokens in the usage string that
- * precede any bracketed placeholder like `[flags]` or `<subcommand>`.
- *
- * Root usage: `"axm <subcommand> [flags]"` => 1 token ("axm")
- * Subcommand: `"axm skills install [flags]"` => 3 tokens
- */
-const isSubcommandDoc = (doc: HelpDoc): boolean => {
-  const beforeBrackets = doc.usage.replace(/\s*[[<].*$/, "").trim();
-  const tokens = beforeBrackets.split(/\s+/).filter((t) => t.length > 0);
-  return tokens.length > 1;
 };
 
 const getLearnMore = (doc: HelpDoc): string =>
@@ -548,7 +534,11 @@ export const makeAxmFormatter = (options?: {
     formatVersion: (name: string, version: string): string =>
       json
         ? JSON.stringify(
-            Schema.encodeSync(JsonVersionDocSchema)(makeJsonVersionDoc(name, version)),
+            Schema.encodeSync(JsonVersionDocSchema)({
+              type: "version",
+              name,
+              version,
+            }),
             null,
             2,
           )

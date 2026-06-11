@@ -10,7 +10,6 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { withPublishArtifact } from "@agentxm/client-core/unstable/publish";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
@@ -19,6 +18,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { resolveManifestVersionInfo } from "../shared/extension-version.js";
+import { withPublishArtifact } from "../shared/publish-artifact.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";

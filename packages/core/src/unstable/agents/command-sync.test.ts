@@ -16,6 +16,7 @@ import { junieCodingAgent } from "./junie/service.js";
 import { kiloCodingAgent } from "./kilo/service.js";
 import { rooCodingAgent } from "./roo/service.js";
 import { kiroCliCodingAgent } from "./kiro-cli/service.js";
+import { windsurfCodingAgent } from "./windsurf/service.js";
 import * as Option from "effect/Option";
 import type { AddCommandArgs, CodingAgent, RemoveCommandArgs } from "./coding-agent.js";
 import { addCommandViaResolve, writeCommandFile } from "./command-sync.js";
@@ -261,6 +262,23 @@ describe("resolveEffectiveCommandsDir", () => {
     );
   });
 
+  describe("windsurf", () => {
+    it.effect("resolves project scope to catalog workflow dir", () =>
+      withNode(
+        Effect.gen(function* () {
+          const outcome = yield* windsurfCodingAgent.resolveEffectiveCommandsDir({
+            workspaceRoot: "/workspace",
+            scope: "project",
+          });
+          expect(outcome._tag).toBe("supported");
+          if (outcome._tag === "supported") {
+            expect(outcome.dir).toContain(".windsurf/workflows");
+          }
+        }),
+      ),
+    );
+  });
+
   describe("kilo", () => {
     it.effect("falls back to .kilo/commands when .opencode/commands does not exist", () =>
       withNode(
@@ -399,6 +417,7 @@ describe("addCommand", () => {
   testAddCommand(opencodeCodingAgent, ".opencode/commands/test-cmd.md");
   testAddCommand(augmentCodingAgent, ".augment/commands/test-cmd.md");
   testAddCommand(junieCodingAgent, ".junie/commands/test-cmd.md");
+  testAddCommand(windsurfCodingAgent, ".windsurf/workflows/test-cmd.md");
   testAddCommand(rooCodingAgent, ".roo/commands/test-cmd.md");
   testAddCommand(kiloCodingAgent, ".kilo/commands/test-cmd.md");
   testAddCommand(kiroCliCodingAgent, ".kiro/prompts/test-cmd.txt");

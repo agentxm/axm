@@ -5,10 +5,9 @@ const RULE_ID = "subagent/manifest-present";
 const SUBAGENT_JSON = "subagent.json";
 
 export const manifestPresentRule = makeManifestPresentRule<SubagentRuleContext>({
-  id: RULE_ID,
+  ruleId: RULE_ID,
   description: "Subagents include a root subagent.json manifest.",
   manifestFile: SUBAGENT_JSON,
-  message:
+  missingMessage:
     "subagent.json is missing. Create subagent.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
-  exists: (context, manifestFile) => context.files.exists(manifestFile),
 });

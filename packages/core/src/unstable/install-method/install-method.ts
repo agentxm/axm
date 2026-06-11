@@ -17,8 +17,8 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
-import { AXM_DIR_NAME } from "../workspace/constants.js";
-import { getUserScopeDir } from "../workspace/paths.js";
+import { envOption } from "../utils/index.js";
+import { resolveUserScopeDirPure } from "../workspace/paths.js";
 
 // -----------------------------------------------------------------------------
 // Tagged union type
@@ -104,7 +104,6 @@ export interface InstallMethodInputs {
   readonly execPath: string;
   readonly importMetaUrl: string;
   readonly homeDir: string;
-  readonly axmDataDir?: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -179,7 +178,7 @@ export const detectFromInputs = (inputs: InstallMethodInputs) =>
     if (Option.isSome(npmResult)) return npmResult.value;
 
     // Priority 4: install-meta.json fallback
-    const metaDir = inputs.axmDataDir ?? path.join(inputs.homeDir, AXM_DIR_NAME);
+    const metaDir = resolveUserScopeDirPure(path.join, inputs.homeDir);
     const metaPath = path.join(metaDir, "install-meta.json");
     const metaResult = yield* readInstallMeta(fs, metaPath);
     if (Option.isSome(metaResult)) {
@@ -204,6 +203,25 @@ const readInstallMeta = (fs: FileSystem.FileSystem, metaPath: string) =>
     return Option.some(decoded.value.method);
   });
 
+const selectHomeDir = (
+  platform: string,
+  home: Option.Option<string>,
+  userProfile: Option.Option<string>,
+  homePath: Option.Option<string>,
+): string => {
+  if (platform === "win32") {
+    if (Option.isSome(userProfile)) return userProfile.value;
+    if (Option.isSome(home)) return home.value;
+    if (Option.isSome(homePath)) return homePath.value;
+    return "/tmp";
+  }
+
+  if (Option.isSome(home)) return home.value;
+  if (Option.isSome(userProfile)) return userProfile.value;
+  if (Option.isSome(homePath)) return homePath.value;
+  return "/tmp";
+};
+
 // -----------------------------------------------------------------------------
 // Live layer
 // -----------------------------------------------------------------------------
@@ -214,14 +232,17 @@ export const InstallMethodLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
 
-    const axmDataDir = yield* getUserScopeDir();
-    const homeDir = pathService.dirname(axmDataDir);
+    // Capture runtime inputs once at layer construction
+    const platform = yield* Effect.sync(() => process.platform);
+    const home = yield* envOption("HOME");
+    const userProfile = yield* envOption("USERPROFILE");
+    const homePath = yield* envOption("HOMEPATH");
+    const homeDir = selectHomeDir(platform, home, userProfile, homePath);
 
     const inputs: InstallMethodInputs = {
       execPath: process.execPath,
       importMetaUrl: import.meta.url,
       homeDir,
-      axmDataDir,
     };
 
     const detect: InstallMethodService["detect"] = () =>

@@ -14,9 +14,15 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { makeWorkspaceRelativeSourcePath } from "../../utils/index.js";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import {
+  computeIntegrity,
+  isPathSafe,
+  makeWorkspaceRelativeSourcePath,
+  stripFileProtocol,
+} from "../../utils/index.js";
+import { errInstallFailed, makeAppError, type AppError } from "../../app-error/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
+import { createRegistryClient, extractZip } from "../../registry/index.js";
 import type { Operation, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
@@ -25,10 +31,7 @@ import {
   computeSourceHash,
 } from "../../extensions/index.js";
 import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
-import {
-  materializeExternalPackage,
-  materializeRegistryPackage,
-} from "../../extensions/materialization.js";
+import { copyExtensionDirectory, validatePathSafety } from "../../extensions/utils.js";
 import type {
   CommandExtensionRef,
   GitHostedCommandRef,
@@ -75,6 +78,7 @@ export type InstallCommandOperation = Operation<"install-command", InstallComman
 
 const installFromRegistry = (ref: RegistryCommandRef) =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
@@ -86,21 +90,99 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
       ref.name,
     );
 
-    return yield* materializeRegistryPackage({
-      baseDir: ws.baseDir,
-      canonicalPath,
-      sourceLocation: ref.source.location,
-      owner: ref.owner,
-      type: "command",
-      name: ref.name,
-      version: ref.version,
-      integrity: ref.integrity,
-    });
+    if (!isPathSafe(ws.baseDir, canonicalPath)) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Path traversal detected: ${canonicalPath}`,
+      });
+    }
+
+    // Empty integrity with existing canonical → skip fetch (synthetic refs from publish)
+    const canonicalExists = yield* fs.exists(canonicalPath).pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to check if canonical path exists: ${canonicalPath}`,
+          cause: e,
+        }),
+      ),
+    );
+    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+
+    if (!useExisting) {
+      const locationStr =
+        ref.source.location.protocol === "file:"
+          ? ref.source.location.pathname
+          : ref.source.location.href;
+      const client = yield* createRegistryClient(locationStr);
+      const { archive } = yield* client.getExtensionPackage({
+        owner: ref.owner,
+        type: "command",
+        name: ref.name,
+        version: Option.some(ref.version),
+      });
+
+      if (Option.isSome(ref.integrity)) {
+        const actualIntegrity = yield* computeIntegrity(archive);
+        if (actualIntegrity !== ref.integrity.value) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+          });
+        }
+      }
+
+      const tmpDir = yield* fs.makeTempDirectory().pipe(
+        Effect.mapError((e) =>
+          errInstallFailed({
+            message: "Temporary directory for registry install could not be created",
+            cause: e,
+          }),
+        ),
+      );
+      yield* Effect.ensuring(
+        Effect.gen(function* () {
+          yield* extractZip(archive, tmpDir);
+          // Remove existing canonical and copy fresh
+          yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
+          yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
+            Effect.mapError((e) =>
+              errInstallFailed({
+                message: `Failed to create canonical directory: ${canonicalPath}`,
+                cause: e,
+              }),
+            ),
+          );
+          // Copy extracted files to canonical
+          const entries = yield* fs.readDirectory(tmpDir).pipe(
+            Effect.mapError((e) =>
+              errInstallFailed({
+                message: "Extracted directory could not be read",
+                cause: e,
+              }),
+            ),
+          );
+          yield* Effect.forEach(
+            entries,
+            (entry) => {
+              const src = path.join(tmpDir, entry);
+              const dest = path.join(canonicalPath, entry);
+              return fs.copy(src, dest).pipe(Effect.ignore);
+            },
+            { concurrency: "unbounded" },
+          );
+        }),
+        fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+      );
+    }
+
+    return canonicalPath;
   });
 
 // --- Git-hosted install ---
 const installFromGitHosted = (ref: GitHostedCommandRef) =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
@@ -110,12 +192,21 @@ const installFromGitHosted = (ref: GitHostedCommandRef) =>
       "commands",
       ref.command.name,
     );
-    return yield* materializeExternalPackage({
-      baseDir: ws.baseDir,
-      canonicalPath,
-      sourceLocation: ref.location,
-      packageLabel: "command",
-    });
+    yield* validatePathSafety(ws.baseDir, canonicalPath);
+
+    const sourcePath = stripFileProtocol(ref.location);
+    yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
+    yield* copyExtensionDirectory(sourcePath, canonicalPath).pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "validation",
+          detail: `Failed to copy command files to ${canonicalPath}`,
+          cause: e,
+        }),
+      ),
+    );
+
+    return canonicalPath;
   });
 
 // --- Local install ---
@@ -130,12 +221,25 @@ const installFromLocal = (ref: LocalCommandRef) =>
       "commands",
       ref.command.name,
     );
-    return yield* materializeExternalPackage({
-      baseDir: ws.baseDir,
-      canonicalPath,
-      sourceLocation: ref.location,
-      packageLabel: "command",
-    });
+    yield* validatePathSafety(ws.baseDir, canonicalPath);
+
+    const sourcePath = stripFileProtocol(ref.location);
+    const isSelfCopy = path.resolve(sourcePath) === path.resolve(canonicalPath);
+    if (!isSelfCopy) {
+      const fs = yield* FileSystem.FileSystem;
+      yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
+      yield* copyExtensionDirectory(sourcePath, canonicalPath).pipe(
+        Effect.mapError((e) =>
+          makeAppError({
+            code: "validation",
+            detail: `Failed to copy command files to ${canonicalPath}`,
+            cause: e,
+          }),
+        ),
+      );
+    }
+
+    return canonicalPath;
   });
 
 // --- Materialization dispatcher ---

@@ -26,11 +26,11 @@ const RULE_ID = "skill/manifest-present";
 const SKILL_JSON = "skill.json";
 
 export const manifestPresentRule = makeManifestPresentRule<SkillRuleContext>({
-  id: RULE_ID,
+  ruleId: RULE_ID,
   description: "Native skills include a root skill.json manifest.",
   manifestFile: SKILL_JSON,
-  message:
+  missingMessage:
     "skill.json is missing for this native skill. Create skill.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
-  exists: (context, manifestFile) => context.packageFiles.exists(manifestFile),
-  shouldCheck: (context) => context.subject.isNative,
+  getFiles: (context) => context.packageFiles,
+  applies: (context) => context.subject.isNative,
 });

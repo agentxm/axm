@@ -31,6 +31,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { computeSkillPaths, ensureSkillAgentArtifact } from "@agentxm/client-core/unstable/skills";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
+import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/unstable/plan";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -66,7 +67,7 @@ const SubagentSummarySchema = Schema.Struct({
 
 const SetupPlanStepArtifactTargetSchema = Schema.Struct({
   path: Schema.String,
-  change: Schema.Literals(["created", "updated", "unchanged", "removed"] as const),
+  change: ArtifactChangeSchema,
   agentIds: Schema.optional(Schema.Array(Schema.String)),
 });
 
@@ -75,7 +76,7 @@ const SetupPlanStepArtifactSchema = Schema.Struct({
   scope: Schema.Literals(["project", "user"] as const),
   agents: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.optional(Schema.String),
-  change: Schema.Literals(["created", "updated", "unchanged", "removed"] as const),
+  change: ArtifactChangeSchema,
   previousVersion: Schema.optional(Schema.String),
   fileCount: Schema.optional(Schema.Number),
   targets: Schema.optional(Schema.Array(SetupPlanStepArtifactTargetSchema)),
@@ -365,7 +366,7 @@ const setupStepStatus = (args: {
 const setupArtifactChange = (args: {
   readonly status: SetupStatus;
   readonly hasChange: boolean;
-}): "created" | "updated" | "unchanged" | "removed" => {
+}): ArtifactChange => {
   if (args.status === "preview") return "created";
   return args.hasChange ? "created" : "unchanged";
 };

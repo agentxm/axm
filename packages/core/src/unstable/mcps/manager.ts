@@ -14,13 +14,14 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
+import { computeIntegrity, isPathSafe } from "../utils/index.js";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "./refs.js";
 import type { McpServerLockEntry } from "../lockfile/index.js";
 import type { ExtensionManager, McpServerExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
-import { materializeRegistryPackage } from "../extensions/materialization.js";
+import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
@@ -115,18 +116,91 @@ export const McpServerManagerLive = Layer.effect(
           registryRef.name,
         );
 
-        yield* provide(
-          materializeRegistryPackage({
-            baseDir,
-            canonicalPath,
-            sourceLocation: registryRef.source.location,
+        if (!isPathSafe(baseDir, canonicalPath)) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Path traversal detected: ${canonicalPath}`,
+          });
+        }
+
+        const canonicalExists = yield* fs.exists(canonicalPath).pipe(
+          Effect.mapError((e) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to check if canonical path exists: ${canonicalPath}`,
+              cause: e,
+            }),
+          ),
+        );
+        const useExisting = Option.isNone(registryRef.integrity) && canonicalExists;
+
+        if (!useExisting) {
+          const locationStr =
+            registryRef.source.location.protocol === "file:"
+              ? registryRef.source.location.pathname
+              : registryRef.source.location.href;
+          const client = yield* provide(createRegistryClient(locationStr));
+          const { archive } = yield* client.getExtensionPackage({
             owner: registryRef.owner,
             type: "mcp-server",
             name: registryRef.name,
-            version: registryRef.version,
-            integrity: registryRef.integrity,
-          }),
-        );
+            version: Option.some(registryRef.version),
+          });
+
+          if (Option.isSome(registryRef.integrity)) {
+            const actualIntegrity = yield* computeIntegrity(archive);
+            if (actualIntegrity !== registryRef.integrity.value) {
+              return yield* makeAppError({
+                code: "internal",
+                detail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
+              });
+            }
+          }
+
+          const tmpDir = yield* fs.makeTempDirectory().pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "validation",
+                detail: `Temporary directory for registry install could not be created`,
+                cause: e,
+              }),
+            ),
+          );
+          yield* Effect.ensuring(
+            Effect.gen(function* () {
+              yield* provide(extractZip(archive, tmpDir));
+              yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
+              yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
+                Effect.mapError((e) =>
+                  makeAppError({
+                    code: "validation",
+                    detail: `Failed to create canonical directory: ${canonicalPath}`,
+                    cause: e,
+                  }),
+                ),
+              );
+              const entries = yield* fs.readDirectory(tmpDir).pipe(
+                Effect.mapError((e) =>
+                  makeAppError({
+                    code: "validation",
+                    detail: `Extracted directory could not be read`,
+                    cause: e,
+                  }),
+                ),
+              );
+              yield* Effect.forEach(
+                entries,
+                (entry) => {
+                  const src = path.join(tmpDir, entry);
+                  const dest = path.join(canonicalPath, entry);
+                  return fs.copy(src, dest).pipe(Effect.ignore);
+                },
+                { concurrency: "unbounded" },
+              );
+            }),
+            fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+          );
+        }
       }, Effect.asVoid);
 
     const materializeUninstall: ExtensionManager<McpServerExtensionRef>["materializeUninstall"] =

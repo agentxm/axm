@@ -12,7 +12,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "./package-type.js";
 import { PackageUrlPartsSchema, type PackageUrlParts } from "./package-url.js";
-import { decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
+import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const swiftType = Schema.decodeUnknownSync(PackageTypeSchema)("swift");

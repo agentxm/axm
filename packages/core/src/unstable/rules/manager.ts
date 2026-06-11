@@ -18,20 +18,15 @@ import {
   REGISTRY_EXTENSIONS_DIR,
   enabledConfiguredEntries,
   formatFqn,
-} from "../extensions/index.js";
-import {
+  markerFqnForRef,
   materializeExternalPackage,
   materializeRegistryPackage,
-} from "../extensions/materialization.js";
+} from "../extensions/index.js";
 import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
 import { computeSourceHash } from "../extensions/rendered-files.js";
-import {
-  gitHostedLockSourceFields,
-  localLockSourceFields,
-  registryLockSourceFields,
-} from "../lockfile/entry-helpers.js";
 import type { MaterializedFileTarget, RuleLockEntry } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
+import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import {
   commentStyleForTarget,
   replaceManagedRegion,
@@ -67,22 +62,17 @@ const RULES_REGION = "rules";
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const commonLockFields = (now: Date) => ({
-  installedAt: now,
-  updatedAt: now,
-});
-
 const registryRuleLockEntry = (
   ref: RegistryRuleRef,
   now: Date,
   materializedTargets: ReadonlyArray<MaterializedFileTarget>,
 ): RuleLockEntry => ({
-  ...registryLockSourceFields({
-    owner: ref.owner,
-    name: ref.name,
-    version: decodeVersionSync(ref.version),
-    integrity: ref.integrity,
-  }),
+  type: "registry",
+  owner: ref.owner,
+  name: ref.name,
+  resolvedVersion: decodeVersionSync(ref.version),
+  integrity: Option.getOrElse(ref.integrity, () => ""),
+  sourceName: "default",
   materializedTargets,
   ...commonLockFields(now),
 });
@@ -98,7 +88,7 @@ const gitRuleLockEntry = (
   };
 
   return {
-    ...gitHostedLockSourceFields(ref.source, ref.gitTreeSha),
+    ...gitSourceLockFields(ref.source, ref.gitTreeSha),
     ...common,
   };
 };
@@ -109,7 +99,8 @@ const localRuleLockEntry = (
   materializedTargets: ReadonlyArray<MaterializedFileTarget>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ): RuleLockEntry => ({
-  ...localLockSourceFields({ source: ref.source, workspaceRelativeLocalSourcePath }),
+  type: "local",
+  path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   materializedTargets,
   ...commonLockFields(now),
 });
@@ -153,42 +144,52 @@ export const RuleManagerLive = Layer.effect(
 
     const materializeFromRegistry = (ref: RegistryRuleRef) =>
       provide(
-        Effect.gen(function* () {
-          const canonicalPath = path.join(
+        materializeRegistryPackage({
+          baseDir,
+          canonicalPath: path.join(
             baseDir,
             REGISTRY_EXTENSIONS_DIR,
             ref.owner,
             RULE_EXTENSION_DIR,
             ref.name,
-          );
-          return yield* materializeRegistryPackage({
-            baseDir,
-            canonicalPath,
-            sourceLocation: ref.source.location,
-            owner: ref.owner,
-            type: "rule",
-            name: ref.name,
-            version: ref.version,
-            integrity: ref.integrity,
-          });
+          ),
+          sourceLocation: ref.source.location,
+          owner: ref.owner,
+          type: "rule",
+          name: ref.name,
+          version: ref.version,
+          integrity: ref.integrity,
+          messages: {
+            existsFailureDetail: (canonicalPath) =>
+              `Failed to check if canonical rule package path exists: ${canonicalPath}`,
+            integrityMismatchCode: "network",
+            integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
+            tempDirectoryFailureDetail:
+              "Temporary directory for registry rule install could not be created",
+            createDirectoryFailureDetail: (canonicalPath) =>
+              `Failed to create registry rule directory: ${canonicalPath}`,
+            inspectExtractedFailureDetail: "Failed to inspect extracted registry rule package",
+            copyEntryFailureCode: "internal",
+            copyEntryFailureDetail: (entry) =>
+              `Failed to copy registry rule package entry: ${entry}`,
+          },
         }),
       );
 
     const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef) =>
       provide(
-        Effect.gen(function* () {
-          const canonicalPath = path.join(
+        materializeExternalPackage({
+          baseDir,
+          canonicalPath: path.join(
             baseDir,
             EXTERNAL_EXTENSIONS_DIR,
             RULE_EXTENSION_DIR,
             ref.rule.name,
-          );
-          return yield* materializeExternalPackage({
-            baseDir,
-            canonicalPath,
-            sourceLocation: ref.location,
-            packageLabel: "rule package",
-          });
+          ),
+          sourceLocation: ref.location,
+          copyFailureCode: "validation",
+          copyFailureDetail: (canonicalPath) =>
+            `Failed to copy rule package files to ${canonicalPath}`,
         }),
       );
 
@@ -259,9 +260,7 @@ export const RuleManagerLive = Layer.effect(
       );
 
     const markerForRef = (ref: RuleExtensionRef, manifest: RuleManifest): string =>
-      ref.refType === "registry"
-        ? formatFqn({ owner: ref.owner, type: "rule", name: ref.rule.name })
-        : formatFqn({ owner: manifest.owner, type: "rule", name: manifest.name });
+      markerFqnForRef({ ref, manifest, type: "rule", name: ref.rule.name });
 
     const renderRuleBlock = (args: {
       readonly marker: string;

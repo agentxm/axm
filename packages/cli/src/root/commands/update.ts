@@ -25,7 +25,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
-import { toJobStepResult } from "../shared/job-step-result.js";
+import { toJobStepResult } from "./job-step-result.js";
 import { combinePlanSections, makeItemSection } from "./preview-sections.js";
 
 export interface UpdateCommandHandlerArgs {

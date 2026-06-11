@@ -15,7 +15,6 @@ import type {
   ExtensionManager,
   ExtensionTarget,
   ExtensionTargetFor,
-  WorkspaceMutationsService,
 } from "../workspace/service-interface.js";
 
 // -----------------------------------------------------------------------------
@@ -111,17 +110,6 @@ export interface UninstallRetentionPolicy {
     readonly target: ExtensionTarget;
   }) => Effect.Effect<void, AppError, never>;
 }
-
-export const workspaceRetentionPolicy = (
-  workspace: Pick<
-    WorkspaceMutationsService,
-    "isExtensionRequiredByInstalledPack" | "markDependencyRetainedInLockfile"
-  >,
-): UninstallRetentionPolicy => ({
-  isRequiredByInstalledPack: (args) => workspace.isExtensionRequiredByInstalledPack(args.target),
-  markDependencyRetainedInLockfile: (args) =>
-    workspace.markDependencyRetainedInLockfile(args.target),
-});
 
 // -----------------------------------------------------------------------------
 // Install Operation

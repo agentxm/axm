@@ -17,10 +17,9 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-
-import { envOption } from "../utils/environment.js";
+import { readEnv } from "../utils/index.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodePurl, decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
+import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const jsrType = Schema.decodeUnknownSync(PackageTypeSchema)("jsr");
@@ -188,9 +187,9 @@ const decodeAxmContainer = Schema.decodeUnknownResult(AxmContainerSchema);
  * Uses $DENO_DIR if set, otherwise platform-specific defaults.
  */
 const resolveDenoDir = () =>
-  Effect.gen(function* () {
-    const denoDir = yield* envOption("DENO_DIR");
-    if (Option.isSome(denoDir) && denoDir.value !== "") return denoDir.value;
+  Effect.sync(() => {
+    const denoDir = readEnv("DENO_DIR");
+    if (denoDir !== undefined && denoDir !== "") return denoDir;
 
     // Platform-specific defaults
     if (process.platform === "darwin") {

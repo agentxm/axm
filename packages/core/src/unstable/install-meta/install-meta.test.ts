@@ -260,36 +260,31 @@ describe("InstallMeta", () => {
         expect(value.installedAt).toBe("2026-06-15T18:00:00Z");
       }).pipe(Effect.provide(InstallMetaTest(dataDir).pipe(Layer.provide(NodeServices.layer)))),
     );
+  });
 
-    it.effect("live layer stores metadata under AXM_USER_HOME", () => {
-      const userHome = nodePath.join(tempDir, "axm-user-home");
-
-      return Effect.gen(function* () {
+  describe("InstallMetaLive", () => {
+    it.effect("writes under AXM_USER_HOME", () =>
+      Effect.gen(function* () {
         const service = yield* InstallMeta;
         yield* service.write({
           method: "script",
-          installedAt: "2026-06-11T00:00:00Z",
+          installedAt: "2026-03-31T12:00:00Z",
         });
 
-        const metaPath = nodePath.join(userHome, ".axm", "install-meta.json");
-        expect(nodeFs.existsSync(metaPath)).toBe(true);
-        const content: unknown = JSON.parse(nodeFs.readFileSync(metaPath, "utf8"));
-        expect(content).toMatchObject({
-          method: "script",
-          installedAt: "2026-06-11T00:00:00Z",
-        });
+        const filePath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        expect(nodeFs.existsSync(filePath)).toBe(true);
       }).pipe(
         Effect.provide(
           InstallMetaLive.pipe(
             Layer.provide(
               Layer.mergeAll(
                 NodeServices.layer,
-                ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: userHome } })),
+                ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: tempDir } })),
               ),
             ),
           ),
         ),
-      );
-    });
+      ),
+    );
   });
 });

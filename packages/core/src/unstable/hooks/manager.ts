@@ -28,19 +28,14 @@ import {
   REGISTRY_EXTENSIONS_DIR,
   enabledConfiguredEntries,
   formatFqn,
-} from "../extensions/index.js";
-import {
+  markerFqnForRef,
   materializeExternalPackage,
   materializeRegistryPackage,
-} from "../extensions/materialization.js";
+} from "../extensions/index.js";
 import { validatePathSafety } from "../extensions/utils.js";
-import {
-  gitHostedLockSourceFields,
-  localLockSourceFields,
-  registryLockSourceFields,
-} from "../lockfile/entry-helpers.js";
 import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
 import type { HookLockEntry, MaterializedFileTarget } from "../lockfile/index.js";
+import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
@@ -70,22 +65,17 @@ export class HookManager extends ServiceMap.Service<
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const commonLockFields = (now: Date) => ({
-  installedAt: now,
-  updatedAt: now,
-});
-
 const registryHookLockEntry = (
   ref: RegistryHookRef,
   now: Date,
   materializedTargets: ReadonlyArray<MaterializedFileTarget>,
 ): HookLockEntry => ({
-  ...registryLockSourceFields({
-    owner: ref.owner,
-    name: ref.name,
-    version: decodeVersionSync(ref.version),
-    integrity: ref.integrity,
-  }),
+  type: "registry",
+  owner: ref.owner,
+  name: ref.name,
+  resolvedVersion: decodeVersionSync(ref.version),
+  integrity: Option.getOrElse(ref.integrity, () => ""),
+  sourceName: "default",
   materializedTargets,
   ...commonLockFields(now),
 });
@@ -101,7 +91,7 @@ const gitHookLockEntry = (
   };
 
   return {
-    ...gitHostedLockSourceFields(ref.source, ref.gitTreeSha),
+    ...gitSourceLockFields(ref.source, ref.gitTreeSha),
     ...common,
   };
 };
@@ -112,7 +102,8 @@ const localHookLockEntry = (
   materializedTargets: ReadonlyArray<MaterializedFileTarget>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ): HookLockEntry => ({
-  ...localLockSourceFields({ source: ref.source, workspaceRelativeLocalSourcePath }),
+  type: "local",
+  path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   materializedTargets,
   ...commonLockFields(now),
 });
@@ -519,42 +510,52 @@ export const HookManagerLive = Layer.effect(
 
     const materializeFromRegistry = (ref: RegistryHookRef) =>
       provide(
-        Effect.gen(function* () {
-          const canonicalPath = path.join(
+        materializeRegistryPackage({
+          baseDir,
+          canonicalPath: path.join(
             baseDir,
             REGISTRY_EXTENSIONS_DIR,
             ref.owner,
             HOOK_EXTENSION_DIR,
             ref.name,
-          );
-          return yield* materializeRegistryPackage({
-            baseDir,
-            canonicalPath,
-            sourceLocation: ref.source.location,
-            owner: ref.owner,
-            type: "hook",
-            name: ref.name,
-            version: ref.version,
-            integrity: ref.integrity,
-          });
+          ),
+          sourceLocation: ref.source.location,
+          owner: ref.owner,
+          type: "hook",
+          name: ref.name,
+          version: ref.version,
+          integrity: ref.integrity,
+          messages: {
+            existsFailureDetail: (canonicalPath) =>
+              `Failed to check if canonical hook package path exists: ${canonicalPath}`,
+            integrityMismatchCode: "network",
+            integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,
+            tempDirectoryFailureDetail:
+              "Temporary directory for registry hook install could not be created",
+            createDirectoryFailureDetail: (canonicalPath) =>
+              `Failed to create registry hook directory: ${canonicalPath}`,
+            inspectExtractedFailureDetail: "Failed to inspect extracted registry hook package",
+            copyEntryFailureCode: "internal",
+            copyEntryFailureDetail: (entry) =>
+              `Failed to copy registry hook package entry: ${entry}`,
+          },
         }),
       );
 
     const materializeFromExternal = (ref: GitHostedHookRef | LocalHookRef) =>
       provide(
-        Effect.gen(function* () {
-          const canonicalPath = path.join(
+        materializeExternalPackage({
+          baseDir,
+          canonicalPath: path.join(
             baseDir,
             EXTERNAL_EXTENSIONS_DIR,
             HOOK_EXTENSION_DIR,
             ref.hook.name,
-          );
-          return yield* materializeExternalPackage({
-            baseDir,
-            canonicalPath,
-            sourceLocation: ref.location,
-            packageLabel: "hook package",
-          });
+          ),
+          sourceLocation: ref.location,
+          copyFailureCode: "validation",
+          copyFailureDetail: (canonicalPath) =>
+            `Failed to copy hook package files to ${canonicalPath}`,
         }),
       );
 
@@ -614,9 +615,7 @@ export const HookManagerLive = Layer.effect(
       });
 
     const markerForRef = (ref: HookExtensionRef, manifest: HookManifest): string =>
-      ref.refType === "registry"
-        ? formatFqn({ owner: ref.owner, type: "hook", name: ref.hook.name })
-        : formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name });
+      markerFqnForRef({ ref, manifest, type: "hook", name: ref.hook.name });
 
     const renderHookRef = (args: {
       readonly ref: HookExtensionRef;

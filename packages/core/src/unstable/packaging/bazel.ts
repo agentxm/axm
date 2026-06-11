@@ -11,9 +11,9 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { envOption } from "../utils/environment.js";
+import { readEnv } from "../utils/index.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodePurl, decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
+import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const bazelType = Schema.decodeUnknownSync(PackageTypeSchema)("bazel");
@@ -157,13 +157,13 @@ export const bazelReader: PackageReader = {
       const projectDir = path.dirname(pkg.source);
 
       // Try to find output base from environment or common location
-      const outputBase = yield* envOption("BAZEL_OUTPUT_BASE");
+      const outputBase = readEnv("BAZEL_OUTPUT_BASE");
 
       // Candidate paths for axm.json
       const candidatePaths: Array<string> = [];
 
-      if (Option.isSome(outputBase)) {
-        candidatePaths.push(path.join(outputBase.value, "external", pkgName, "axm.json"));
+      if (outputBase !== undefined) {
+        candidatePaths.push(path.join(outputBase, "external", pkgName, "axm.json"));
       }
 
       // Also try project-local bazel-out external directory

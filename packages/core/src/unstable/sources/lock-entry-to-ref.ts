@@ -24,6 +24,7 @@ import type { PackRef } from "../packs/refs.js";
 import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { SubagentExtensionRef } from "../subagents/refs.js";
+import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { GitBasedSource, RegistrySource } from "./types.js";
 
 type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry | SubagentLockEntry;
@@ -178,7 +179,7 @@ const gitBasedSourceFromEntry = (
 };
 
 const lockEntryLocation = (baseDir: string, pluralType: string, name: string): string =>
-  fileHref(`${baseDir}/.axm/extensions/external/${pluralType}/${name}`);
+  fileHref(`${baseDir}/${AXM_DIR_NAME}/extensions/external/${pluralType}/${name}`);
 
 export const skillLockEntryToRef = (
   name: string,

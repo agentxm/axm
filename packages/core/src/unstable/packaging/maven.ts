@@ -16,7 +16,7 @@ import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { parseTomlStringEntries, readTomlSection } from "../toml/index.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { decodePurl, decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
+import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const mavenType = Schema.decodeUnknownSync(PackageTypeSchema)("maven");

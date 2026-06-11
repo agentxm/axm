@@ -11,7 +11,6 @@ import {
   buildNewExtensionStep,
   decodeExtensionNameSync,
   formatFqn,
-  normalizeHandle,
   REGISTRY_EXTENSIONS_DIR,
 } from "@agentxm/client-core/unstable/extensions";
 import {
@@ -40,6 +39,7 @@ import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
+import { normalizeScaffoldOwner } from "../shared/scaffold-name.js";
 
 const filesLockEntryVersion = (entry: FilesLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
@@ -124,7 +124,7 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
   const ws = yield* WorkspaceMutations;
   const manager = yield* FilesManager;
   const owner = Option.isSome(args.owner)
-    ? normalizeHandle(args.owner.value.startsWith("@") ? args.owner.value : `@${args.owner.value}`)
+    ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("files package creation");
   const name = decodeExtensionNameSync(args.name);
   const version = decodeVersionSync("0.1.0");

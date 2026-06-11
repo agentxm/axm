@@ -21,14 +21,13 @@ import {
   parseRegistrySourcePatternParts,
 } from "@agentxm/client-core/unstable/extensions";
 import { MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
+import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import {
-  resolvePublishExtensionInputs,
-  resolvePublishTargetRegistry,
-  type TargetRegistry,
-} from "../shared/publish-resolution.js";
-import { runMultiExtensionPublishPlan } from "../shared/publish-runner.js";
-import { toJobStepResult } from "../shared/job-step-result.js";
+  publishOperationResultToJobStepResult,
+  runMultiExtensionPublishPlan,
+} from "../shared/multi-extension-publish-runner.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { ADD_REGISTRY_SOURCE, SCAFFOLD_MANAGED_SKILL } from "../suggested-actions.js";
 
@@ -40,18 +39,97 @@ export interface PublishHandlerArgs {
   readonly preview: boolean;
 }
 
+interface TargetRegistry {
+  readonly registryName: string;
+  readonly registryUrl: string;
+}
+
+const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+
+    const globPatterns = extensions.filter((e) => isGlobPattern(e));
+    const literalInputs = extensions.filter((e) => !isGlobPattern(e));
+
+    if (globPatterns.length === 0) return literalInputs;
+
+    const installedSkills = yield* ws.records.getInstalledSkills();
+    const installedNames = Object.keys(installedSkills);
+    const globMatches = expandGlobs(globPatterns, installedNames);
+
+    if (globPatterns.length === extensions.length && globMatches.length === 0) {
+      return [];
+    }
+
+    const seen = new Set<string>(globMatches);
+    return [
+      ...globMatches,
+      ...literalInputs.filter((lit) => {
+        if (seen.has(lit)) return false;
+        seen.add(lit);
+        return true;
+      }),
+    ];
+  });
+
+const resolveTargetRegistry = (registry: Option.Option<string>) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to get registry sources: ${e._tag}`,
+          cause: e,
+        }),
+      ),
+    );
+
+    const [defaultRegistry] = registrySources;
+    if (defaultRegistry === undefined) {
+      return yield* makeAppError({
+        code: "usage",
+        detail: "No registry sources configured",
+        recover: "Add a registry source.",
+        cmd: ADD_REGISTRY_SOURCE.cmd,
+      });
+    }
+
+    if (Option.isNone(registry)) {
+      return {
+        registryName: defaultRegistry.name,
+        registryUrl: defaultRegistry.location.href,
+      } satisfies TargetRegistry;
+    }
+
+    const namedRegistry = yield* ws.getConfiguredSourceByName(registry.value).pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to lookup registry source "${registry.value}"`,
+          cause: e,
+        }),
+      ),
+    );
+
+    if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Registry source "${registry.value}" not found or not a registry source`,
+      });
+    }
+
+    return {
+      registryName: registry.value,
+      registryUrl: namedRegistry.value.location.href,
+    } satisfies TargetRegistry;
+  });
+
 /**
  * Handles the `axm skills publish` command.
  */
 export const handlePublish = Effect.fn("Publish.handle")(function* (args: PublishHandlerArgs) {
-  const targetRegistry = yield* resolvePublishTargetRegistry(args.registry, {
-    noRegistryError: {
-      code: "usage",
-      detail: "No registry sources configured",
-      recover: "Add a registry source.",
-      cmd: ADD_REGISTRY_SOURCE.cmd,
-    },
-  });
+  const targetRegistry = yield* resolveTargetRegistry(args.registry);
   if (args.preview) {
     yield* publishEffect(args, targetRegistry);
     return;
@@ -73,9 +151,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
   const base = ws.baseDir;
 
   // Step 1: Separate glob patterns from literal inputs, expand globs
-  const resolvedNames = yield* resolvePublishExtensionInputs(args.extensions, (ws) =>
-    Effect.map(ws.records.getInstalledSkills(), (installedSkills) => Object.keys(installedSkills)),
-  );
+  const resolvedNames = yield* resolveExtensionInputs(args.extensions);
   if (resolvedNames.length === 0) {
     yield* emitNoOpOutcome("skills.publish", {
       planName: "Publish skill",
@@ -173,16 +249,27 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     });
   });
 
+  yield* Effect.forEach(
+    extensionNames,
+    (extName) =>
+      checkPublishVersionPreflight({
+        fqn: extName,
+        type: "skill",
+        registryName: targetRegistry.registryName,
+        registryUrl: targetRegistry.registryUrl,
+        force: args.force,
+      }),
+    { concurrency: "unbounded" },
+  );
+
   yield* runMultiExtensionPublishPlan({
-    command: "skills.publish",
+    commandName: "skills.publish",
     planName: "Publish skill",
     subjectType: "skill",
-    sourceKind: "registry",
-    noun: "skill",
-    pluralNoun: "skills",
-    preflightType: "skill",
     extensionNames,
-    targetRegistry,
+    registryName: targetRegistry.registryName,
+    singularLabel: "skill",
+    pluralLabel: "skills",
     yes: args.yes,
     force: args.force,
     preview: args.preview,
@@ -196,7 +283,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
         readiness: "ready",
         label: `Publish ${extName}`,
         run: publishSkill(op).pipe(
-          Effect.map(toJobStepResult),
+          Effect.map(publishOperationResultToJobStepResult),
           Effect.provideService(WorkspaceMutations, ws),
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),

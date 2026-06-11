@@ -12,10 +12,12 @@ import * as Option from "effect/Option";
 import { IsoDateTimeStringSchema } from "../date-time.js";
 import {
   AuthorSchema,
+  BugsSchema,
   ExtensionDependencyConstraintMapSchema,
+  ExtensionNameSchema,
   ExtensionTypeSchema,
-} from "../extensions/index.js";
-import { BugsSchema, ExtensionNameSchema, RepositorySchema } from "../extensions/common.js";
+  RepositorySchema,
+} from "../extensions/common.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { CompanionPackageSchema } from "../package-urls/index.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";

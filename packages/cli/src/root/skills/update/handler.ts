@@ -499,8 +499,18 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
 
+  const toJobStepResult = (result: {
+    readonly result: string;
+    readonly message: string;
+    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
+  }): import("@agentxm/client-core/unstable/plan").JobStepResult =>
+    result.result === "error" && result.error != null
+      ? { result: "error", message: result.message, error: result.error }
+      : { result: "success", message: result.message };
+
   const makeRunClosure: import("./plan.js").MakeRunClosure = (op) =>
     installSkill(op).pipe(
+      Effect.map(toJobStepResult),
       Effect.map(appendWarningsToResult(warningsBySkill.get(op.args.ref.skill.name) ?? [])),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),

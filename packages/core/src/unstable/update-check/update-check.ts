@@ -1,7 +1,7 @@
 /**
  * UpdateCheck service — manages cached version checks and notifications.
  *
- * Reads/writes a `~/.axm/update-check.json` cache file, determines whether
+ * Reads/writes a user-scope `.axm/update-check.json` cache file, determines whether
  * the check should be skipped, and produces notification messages.
  *
  * @experimental This API is unstable and may change without notice.
@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 import * as semver from "semver";
 
-import { getUserScopeDir } from "../workspace/paths.js";
+import { resolveUserScopeDir } from "../workspace/paths.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -214,7 +214,7 @@ export const UpdateCheckLive = Layer.effect(
     const pathService = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
 
-    const dataDir = yield* getUserScopeDir();
+    const dataDir = yield* resolveUserScopeDir();
     const cachePath = pathService.join(dataDir, CACHE_FILENAME);
 
     const readCache: UpdateCheckService["readCache"] = () =>

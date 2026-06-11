@@ -28,7 +28,7 @@ import type { Bugs, Repository } from "../extensions/common.js";
 import type { DiscoverPackagesResponse } from "./discover-schema.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
-import { stripFileProtocol } from "../utils/fs-helpers.js";
+import { stripFileProtocol } from "../utils/index.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
@@ -363,7 +363,7 @@ export const createRegistryClient = (location: string) =>
       return createRemoteRegistryClient(location, httpClient);
     }
 
-    const localPath = stripFileProtocol(location);
+    const localPath = location.startsWith("file://") ? stripFileProtocol(location) : location;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     return createLocalRegistryClient(localPath, fs, path);

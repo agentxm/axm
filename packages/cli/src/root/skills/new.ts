@@ -7,8 +7,6 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
   decodeExtensionNameSync,
-  EXTENSION_NAME_MAX_LENGTH,
-  EXTENSION_NAME_PATTERN,
   formatFqn,
   normalizeHandle,
   type ExtensionName,
@@ -47,6 +45,9 @@ import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { SKILL_NAME_RULES } from "../suggested-actions.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
+const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+const MAX_NAME_LENGTH = 64;
+
 export interface SkillsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<string>;
@@ -73,8 +74,8 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   // 2. Validate name
   if (
     args.name.length === 0 ||
-    args.name.length > EXTENSION_NAME_MAX_LENGTH ||
-    !EXTENSION_NAME_PATTERN.test(args.name)
+    args.name.length > MAX_NAME_LENGTH ||
+    !NAME_PATTERN.test(args.name)
   ) {
     return yield* makeAppError({
       code: "validation",

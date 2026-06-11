@@ -25,16 +25,16 @@ import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sy
 import { selectRenderer } from "../../commands/renderers/index.js";
 import { insertManagedFileBanner, managedFileFormatForPath } from "../../extensions/index.js";
 import {
-  agentSkillsDir,
-  requiredAgentCommandsDir,
-  requiredAgentSubagentsDir,
+  agentCommandsProjectDir,
+  agentSkillsProjectDir,
+  agentSubagentsProjectDir,
 } from "../descriptor-paths.js";
 
 /** @experimental */
-export const AUGMENT_COMMANDS_PROJECT_DIR = requiredAgentCommandsDir("augment");
+export const AUGMENT_COMMANDS_PROJECT_DIR = agentCommandsProjectDir("augment");
 
 /** @experimental */
-export const AUGMENT_SUBAGENTS_PROJECT_DIR = requiredAgentSubagentsDir("augment");
+export const AUGMENT_SUBAGENTS_PROJECT_DIR = agentSubagentsProjectDir("augment");
 
 const augmentCommandConfig: CommandSyncConfig = {
   agentId: "augment",
@@ -96,7 +96,7 @@ export const augmentCodingAgent: CodingAgent = {
       const path = yield* Path.Path;
       return {
         _tag: "supported",
-        dir: path.resolve(workspaceRoot, agentSkillsDir("augment")),
+        dir: path.resolve(workspaceRoot, agentSkillsProjectDir("augment")),
       } as const;
     }),
   addMcpServer: (args) => addMcpServerFromManifest("augment", args),

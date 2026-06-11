@@ -70,6 +70,7 @@ import {
   createRegistryClient,
   parseMinimumReleaseAge,
 } from "@agentxm/client-core/unstable/registry";
+import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import type {
   RegistryLibraryDetail,
   RegistryLibraryMember,
@@ -1139,11 +1140,7 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
               otherLibraryMembers: otherLibraryTargetKeys(intent.ref.name, lockedLibraries),
             }),
         });
-        const retentionPolicy: UninstallRetentionPolicy = {
-          isRequiredByInstalledPack: (args) => ws.isExtensionRequiredByInstalledPack(args.target),
-          markDependencyRetainedInLockfile: (args) =>
-            ws.markDependencyRetainedInLockfile(args.target),
-        };
+        const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
         const uninstallSteps = droppedTargets.map((target) =>
           buildUninstallStep(managers, retentionPolicy, target),
         );

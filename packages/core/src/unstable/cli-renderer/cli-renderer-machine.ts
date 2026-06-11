@@ -23,6 +23,12 @@ import {
 } from "./cli-renderer.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
+import {
+  normalizeSuggestions,
+  taskCompletionMessage,
+  writeStdout,
+  writeStdoutLine,
+} from "./renderer-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Helpers — NDJSON event emission to stderr
@@ -41,14 +47,6 @@ const levelToLogLevel = (level: LogLevel): "info" | "warn" | "error" => {
   if (level === "error") return "error";
   return "info";
 };
-
-const normalizeSuggestions = (
-  suggestions: ReadonlyArray<SuggestedAction> | undefined,
-  options?: SuggestionOptions,
-): ReadonlyArray<SuggestedAction> =>
-  options?.withoutSuggestions === true || suggestions === undefined || suggestions.length === 0
-    ? []
-    : suggestions;
 
 const emitSuggestions = (
   suggestions: ReadonlyArray<SuggestedAction> | undefined,
@@ -157,30 +155,6 @@ const makeStreamProgressHandle = (
     },
   };
 };
-
-const taskCompletionMessage = (title: string, result: string | void): string => {
-  if (result === undefined || result.length === 0 || result === title) {
-    return title;
-  }
-  if (result.startsWith(`${title}:`) || result.startsWith(`${title} `)) {
-    return result;
-  }
-  return `${title}: ${result}`;
-};
-
-// ---------------------------------------------------------------------------
-// Stdout helpers
-// ---------------------------------------------------------------------------
-
-const writeStdout = (content: string) =>
-  Effect.sync(() => {
-    process.stdout.write(content);
-  });
-
-const writeStdoutLine = (content: string) =>
-  Effect.sync(() => {
-    process.stdout.write(content + "\n");
-  });
 
 const encodeJson = <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S) =>
   Schema.encodeEffect(schema)(data).pipe(Effect.orDie);

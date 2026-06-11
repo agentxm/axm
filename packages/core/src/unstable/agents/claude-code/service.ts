@@ -17,19 +17,24 @@ import {
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
 import { getHome } from "../constants.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
+import {
+  agentSkillsDir,
+  requiredAgentCommandsDir,
+  requiredAgentSubagentsDir,
+} from "../descriptor-paths.js";
 
-const CLAUDE_DOCS_DEFAULT_DIR = ".claude/skills";
+const CLAUDE_DOCS_DEFAULT_DIR = agentSkillsDir("claude-code");
 const CLAUDE_ENV_OVERRIDE = "AXM_CLAUDE_SKILLS_DIR";
 
 /** @experimental */
-export const CLAUDE_CODE_COMMANDS_PROJECT_DIR = ".claude/commands";
+export const CLAUDE_CODE_COMMANDS_PROJECT_DIR = requiredAgentCommandsDir("claude-code");
 /** @experimental */
-export const CLAUDE_CODE_COMMANDS_USER_DIR = ".claude/commands";
+export const CLAUDE_CODE_COMMANDS_USER_DIR = CLAUDE_CODE_COMMANDS_PROJECT_DIR;
 
 /** @experimental */
-export const CLAUDE_CODE_SUBAGENTS_PROJECT_DIR = ".claude/agents";
+export const CLAUDE_CODE_SUBAGENTS_PROJECT_DIR = requiredAgentSubagentsDir("claude-code");
 /** @experimental */
-export const CLAUDE_CODE_SUBAGENTS_USER_DIR = ".claude/agents";
+export const CLAUDE_CODE_SUBAGENTS_USER_DIR = CLAUDE_CODE_SUBAGENTS_PROJECT_DIR;
 
 const claudeCodeCommandConfig: CommandSyncConfig = {
   agentId: "claude-code",

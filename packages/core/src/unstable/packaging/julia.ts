@@ -15,24 +15,11 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { parseTomlValue } from "../toml/index.js";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { PackageUrlSchema } from "./package-url.js";
+import { decodePurl, decodeAxmMeta, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const juliaType = Schema.decodeUnknownSync(PackageTypeSchema)("julia");
-const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
-
-/**
- * Read a file as string, returning Option.none for NotFound and other errors.
- */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    return content;
-  });
 
 /** UUID pattern for Julia dependency values. */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

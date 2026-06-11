@@ -8,8 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
-import type { Handle } from "../extensions/handle.js";
+import { computeExtensionPaths, type ExtensionPathSource } from "../extensions/index.js";
 import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
 
 /**
@@ -20,9 +19,7 @@ import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.j
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type CommandPathSource =
-  | { readonly refType: "registry"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local" };
+export type CommandPathSource = ExtensionPathSource;
 
 /**
  * Computed paths for an installed command directory.
@@ -75,22 +72,9 @@ export const computeCommandPaths = (
   source: CommandPathSource,
   sanitizedName: string,
 ): CommandDirPaths => {
-  if (source.refType === "registry") {
-    const canonicalPath = join(
-      base,
-      REGISTRY_EXTENSIONS_DIR,
-      source.owner,
-      "commands",
-      sanitizedName,
-    );
-    return {
-      canonicalPath: decodeAbsolutePathSync(canonicalPath),
-      commandSrcPath: decodeAbsolutePathSync(join(canonicalPath, "src")),
-    };
-  }
-  const canonicalPath = join(base, EXTERNAL_EXTENSIONS_DIR, "commands", sanitizedName);
+  const paths = computeExtensionPaths(join, base, "commands", source, sanitizedName);
   return {
-    canonicalPath: decodeAbsolutePathSync(canonicalPath),
-    commandSrcPath: decodeAbsolutePathSync(canonicalPath),
+    canonicalPath: paths.canonicalPath,
+    commandSrcPath: paths.sourcePath,
   };
 };

@@ -11,11 +11,10 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { publishHook } from "@agentxm/client-core/unstable/hooks";
 import {
   previewOrApplyPlan,
-  type JobStepArtifact,
-  type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
+import { withPublishArtifact } from "@agentxm/client-core/unstable/publish";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitPlanResolutionResult } from "../../json-output.js";
@@ -23,37 +22,6 @@ import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { resolveManifestVersionInfo } from "../shared/extension-version.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
-
-const publishArtifact = (args: {
-  readonly path: string;
-  readonly scope: JobStepArtifact["scope"];
-  readonly version: string;
-}): JobStepArtifact => ({
-  path: args.path,
-  scope: args.scope,
-  version: args.version,
-  change: "created",
-  targets: [{ path: args.path, change: "created" }],
-});
-
-const withPublishArtifact = (args: {
-  readonly result: JobStepResult;
-  readonly fqn: string;
-  readonly scope: JobStepArtifact["scope"];
-  readonly version: string;
-}): JobStepResult => {
-  if (args.result.result === "error") return args.result;
-
-  const publishedPath = args.result.links?.html ?? `${args.fqn}@${args.version}`;
-  return {
-    ...args.result,
-    artifact: publishArtifact({
-      path: publishedPath,
-      scope: args.scope,
-      version: args.version,
-    }),
-  } satisfies JobStepResult;
-};
 
 export const handlePublishHook = Effect.fn("PublishHook.handle")(function* (args: {
   readonly name: string;

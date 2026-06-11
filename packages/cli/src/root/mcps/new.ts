@@ -6,6 +6,8 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   decodeExtensionNameSync,
+  EXTENSION_NAME_MAX_LENGTH,
+  EXTENSION_NAME_PATTERN,
   formatFqn,
   normalizeHandle,
   REGISTRY_EXTENSIONS_DIR,
@@ -43,9 +45,6 @@ import { withAuthRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
-
-const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
-const MAX_NAME_LENGTH = 64;
 
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
 
@@ -104,8 +103,8 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
 
   if (
     args.name.length === 0 ||
-    args.name.length > MAX_NAME_LENGTH ||
-    !NAME_PATTERN.test(args.name)
+    args.name.length > EXTENSION_NAME_MAX_LENGTH ||
+    !EXTENSION_NAME_PATTERN.test(args.name)
   ) {
     return yield* makeAppError({
       code: "validation",

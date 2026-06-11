@@ -11,35 +11,22 @@
 // Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
 import * as os from "node:os";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 
-// eslint-disable-next-line no-restricted-properties -- Centralized env var access for packaging detectors
-const readEnv = (name: string): string | undefined => process.env[name];
+import { envOption } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
+import { decodeAxmMeta, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageReader } from "./types.js";
 
 const huggingfaceType = Schema.decodeUnknownSync(PackageTypeSchema)("huggingface");
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Read a file as string, returning Option.none for NotFound and other errors.
- */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    return content;
-  });
 
 /**
  * Extract YAML frontmatter from a markdown file.
@@ -65,11 +52,15 @@ const decodeModelCardAxm = Schema.decodeUnknownResult(ModelCardAxmSchema);
  * Checks HF_HOME, HUGGINGFACE_HUB_CACHE, then defaults to ~/.cache/huggingface/hub.
  */
 const resolveHfCache = () =>
-  Effect.sync(
-    () =>
-      readEnv("HUGGINGFACE_HUB_CACHE") ??
-      (readEnv("HF_HOME") ? `${readEnv("HF_HOME")}/hub` : `${os.homedir()}/.cache/huggingface/hub`),
-  );
+  Effect.gen(function* () {
+    const hubCache = yield* envOption("HUGGINGFACE_HUB_CACHE");
+    if (Option.isSome(hubCache)) return hubCache.value;
+
+    const hfHome = yield* envOption("HF_HOME");
+    if (Option.isSome(hfHome)) return `${hfHome.value}/hub`;
+
+    return `${os.homedir()}/.cache/huggingface/hub`;
+  });
 
 // ---------------------------------------------------------------------------
 // Reader

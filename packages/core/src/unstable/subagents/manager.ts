@@ -20,13 +20,10 @@ import type { SubagentExtensionRef, RegistrySubagentRef } from "./refs.js";
 import type { ExtensionManager, SubagentExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { CodingAgentRepository } from "../agents/index.js";
-import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
+import { sanitizeName } from "../extensions/utils.js";
 import {
   removeFromAllCanonicalLocations,
-  stripFileProtocol,
   makeWorkspaceRelativeSourcePath,
-  makeWorkspaceRelativePath,
-  computeIntegrity,
 } from "../utils/index.js";
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "./paths.js";
 import type { SubagentPathSource } from "./paths.js";
@@ -35,8 +32,15 @@ import { warnOnOrphanOverrides } from "./rendering/overrides.js";
 import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
-import { createRegistryClient, extractZip } from "../registry/index.js";
-import { computeSourceHash, RenderedFilesMapSchema } from "../extensions/index.js";
+import {
+  materializeExternalPackage,
+  materializeRegistryPackage,
+} from "../extensions/materialization.js";
+import {
+  collectWorkspaceRenderedFiles,
+  computeSourceHash,
+  RenderedFilesMapSchema,
+} from "../extensions/index.js";
 import type { SubagentLockEntry } from "../lockfile/index.js";
 
 const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
@@ -127,97 +131,20 @@ export const SubagentManagerLive = Layer.effect(
         return { rawContent, parsed };
       });
 
-    // Copy source to canonical location
-    const copyToCanonical = (sourcePath: string, targetPath: string) =>
-      Effect.gen(function* () {
-        yield* fs.makeDirectory(path.dirname(targetPath), { recursive: true }).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to create directory for subagent: ${targetPath}`,
-              cause: error,
-            }),
-          ),
-        );
-        yield* provide(
-          copyExtensionDirectory(sourcePath, targetPath).pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to copy subagent files to ${targetPath}`,
-                cause: e,
-              }),
-            ),
-          ),
-        );
-      });
-
     // Materialize from registry
     const materializeFromRegistry = (ref: RegistrySubagentRef, canonicalPath: string) =>
-      Effect.gen(function* () {
-        const canonicalExists = yield* fs.exists(canonicalPath).pipe(
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to check if canonical path exists: ${canonicalPath}`,
-              cause: e,
-            }),
-          ),
-        );
-        const useExisting = Option.isNone(ref.integrity) && canonicalExists;
-
-        if (!useExisting) {
-          const locationStr =
-            ref.source.location.protocol === "file:"
-              ? ref.source.location.pathname
-              : ref.source.location.href;
-          const client = yield* provide(createRegistryClient(locationStr));
-          const { archive } = yield* client.getExtensionPackage({
-            owner: ref.owner,
-            type: "subagent",
-            name: ref.name,
-            version: Option.some(ref.version),
-          });
-
-          if (Option.isSome(ref.integrity)) {
-            const actualIntegrity = yield* computeIntegrity(archive);
-            if (actualIntegrity !== ref.integrity.value) {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-              });
-            }
-          }
-
-          const tmpDir = yield* fs.makeTempDirectory().pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "validation",
-                detail: `Temporary directory for registry install could not be created`,
-                cause: e,
-              }),
-            ),
-          );
-          yield* Effect.ensuring(
-            Effect.gen(function* () {
-              yield* provide(extractZip(archive, tmpDir));
-              yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
-              yield* provide(
-                copyExtensionDirectory(tmpDir, canonicalPath).pipe(
-                  Effect.mapError((e) =>
-                    makeAppError({
-                      code: "internal",
-                      detail: `Failed to copy subagent files to ${canonicalPath}`,
-                      cause: e,
-                    }),
-                  ),
-                ),
-              );
-            }),
-            fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
-          );
-        }
-      });
+      provide(
+        materializeRegistryPackage({
+          baseDir,
+          canonicalPath,
+          sourceLocation: ref.source.location,
+          owner: ref.owner,
+          type: "subagent",
+          name: ref.name,
+          version: ref.version,
+          integrity: ref.integrity,
+        }),
+      ).pipe(Effect.asVoid);
 
     // Materialize canonical source for any ref type
     const materializeCanonical = (
@@ -229,21 +156,39 @@ export const SubagentManagerLive = Layer.effect(
       Effect.gen(function* () {
         switch (ref.refType) {
           case "git-hosted": {
-            const sourcePath = stripFileProtocol(ref.location);
-            const isSelfCopy = path.resolve(sourcePath) === path.resolve(subagentSrcPath);
-            if (!isSelfCopy) {
-              yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
-              yield* copyToCanonical(sourcePath, subagentSrcPath);
-            }
+            yield* provide(
+              materializeExternalPackage({
+                baseDir,
+                canonicalPath: subagentSrcPath,
+                sourceLocation: ref.location,
+                packageLabel: "subagent",
+                prepareDestination: removeFromAllCanonicalLocations(
+                  fs,
+                  baseDir,
+                  "subagents",
+                  sanitized,
+                  path,
+                ),
+              }),
+            );
             break;
           }
           case "local": {
-            const sourcePath = stripFileProtocol(ref.location);
-            const isSelfCopy = path.resolve(sourcePath) === path.resolve(subagentSrcPath);
-            if (!isSelfCopy) {
-              yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
-              yield* copyToCanonical(sourcePath, subagentSrcPath);
-            }
+            yield* provide(
+              materializeExternalPackage({
+                baseDir,
+                canonicalPath: subagentSrcPath,
+                sourceLocation: ref.location,
+                packageLabel: "subagent",
+                prepareDestination: removeFromAllCanonicalLocations(
+                  fs,
+                  baseDir,
+                  "subagents",
+                  sanitized,
+                  path,
+                ),
+              }),
+            );
             break;
           }
           case "registry": {
@@ -316,32 +261,26 @@ export const SubagentManagerLive = Layer.effect(
               ),
           { concurrency: "unbounded" },
         );
-        const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
-        const successfulAgents: string[] = [];
-        yield* Effect.forEach(renderResults, ({ agentId, outcome }) => {
-          if (outcome._tag !== "success") return Effect.void;
-          successfulAgents.push(agentId);
-          return Effect.forEach(outcome.renderedFilePaths, (p) => {
-            const relativePath = makeWorkspaceRelativePath(path, baseDir, p);
-            if (Option.isNone(relativePath)) {
-              return Effect.fail(
-                makeAppError({
-                  code: "internal",
-                  detail: `Rendered subagent path escapes workspace root: ${p}`,
-                }),
-              );
-            }
-            return Effect.succeed({ path: relativePath.value });
-          }).pipe(
-            Effect.map((entries) => {
-              renderedFilesMap[agentId] = entries;
-            }),
-          );
-        });
+        const { successfulAgents, rawRenderedFiles, escapedPaths } = collectWorkspaceRenderedFiles(
+          path,
+          baseDir,
+          renderResults.flatMap(({ agentId, outcome }) =>
+            outcome._tag === "success"
+              ? [{ agentId, renderedFilePaths: outcome.renderedFilePaths }]
+              : [],
+          ),
+        );
+        const escapedPath = escapedPaths[0];
+        if (escapedPath !== undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Rendered subagent path escapes workspace root: ${escapedPath}`,
+          });
+        }
         lastInstallState.set(ref.subagent.name, {
           agents: successfulAgents,
           sourceHash: computeSourceHash(parsed.body),
-          renderedFiles: decodeRenderedFiles(renderedFilesMap),
+          renderedFiles: decodeRenderedFiles(rawRenderedFiles),
         });
       });
 

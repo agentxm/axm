@@ -76,16 +76,18 @@ import {
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredSkill,
+  AXM_DIR_NAME,
   type WorkspaceScope,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
+import { SETTINGS_FILENAME, SettingsSchema } from "@agentxm/client-core/unstable/settings";
 import {
   buildInstallOperation,
   buildUninstallOperation,
   normalizeHandle,
   parseRegistrySourcePatternParts,
   type UninstallRetentionPolicy,
+  workspaceRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { Settings } from "@agentxm/client-core/unstable/settings";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
@@ -193,7 +195,7 @@ const loadLintConfig = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const settingsPath = path.join(workspaceRoot, ".axm", "settings.json");
+    const settingsPath = path.join(workspaceRoot, AXM_DIR_NAME, SETTINGS_FILENAME);
     const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return {};
@@ -233,7 +235,7 @@ const loadInstructionsState = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const settingsPath = path.join(workspaceRoot, ".axm", "settings.json");
+    const settingsPath = path.join(workspaceRoot, AXM_DIR_NAME, SETTINGS_FILENAME);
     const raw = yield* fs.readFileString(settingsPath).pipe(Effect.catch(() => Effect.succeed("")));
     if (raw.length === 0) return Option.none();
     const parsed = yield* Effect.try({
@@ -796,10 +798,7 @@ const makeRetentionPolicy = (): Effect.Effect<
 > =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    return {
-      isRequiredByInstalledPack: (args) => ws.isExtensionRequiredByInstalledPack(args.target),
-      markDependencyRetainedInLockfile: (args) => ws.markDependencyRetainedInLockfile(args.target),
-    };
+    return workspaceRetentionPolicy(ws);
   });
 
 // -----------------------------------------------------------------------------

@@ -36,6 +36,7 @@ import type * as Path from "effect/Path";
 import { type ExtensionType, decodeExtensionNameSync } from "../../../extensions/common.js";
 import { decodeHandleSync, type Handle } from "../../../extensions/handle.js";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
+import { AXM_DIR_NAME } from "../../constants.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import {
@@ -310,7 +311,7 @@ const scanExternal = (
 const scanCanonicalExtensions = Effect.fn("workspace.read-model.scanner.canonical-extensions")(
   function* (deps: CanonicalExtensionsScannerDeps) {
     const { fs, path, workspaceRoot, diagnostics } = deps;
-    const extensionsRoot = path.join(workspaceRoot, ".axm", "extensions");
+    const extensionsRoot = path.join(workspaceRoot, AXM_DIR_NAME, "extensions");
 
     const ownerCandidates = yield* childEntries(
       SCANNER_NAME,

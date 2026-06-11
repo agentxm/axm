@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { AXM_DIR_NAME } from "../workspace/constants.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   insertManagedFileBanner,
@@ -168,7 +169,7 @@ const toInstructionHealth = (args: {
 };
 
 const shouldSkipDir = (name: string): boolean =>
-  name === ".git" || name === ".axm" || name === "node_modules" || name === "dist";
+  name === ".git" || name === AXM_DIR_NAME || name === "node_modules" || name === "dist";
 
 const readDirSafe = (dir: string) =>
   Effect.gen(function* () {
@@ -208,7 +209,7 @@ export const probeSymlinkSupport = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const tmpDir = path.join(workspaceRoot, ".axm", "tmp");
+    const tmpDir = path.join(workspaceRoot, AXM_DIR_NAME, "tmp");
     const probeDir = path.join(tmpDir, "instructions-symlink-probe");
     const target = path.join(probeDir, "target");
     const link = path.join(probeDir, "link");

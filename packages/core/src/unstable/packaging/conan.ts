@@ -12,35 +12,22 @@
 // Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
 import * as os from "node:os";
 
-// eslint-disable-next-line no-restricted-properties -- Centralized env var access for packaging detectors
-const readEnv = (name: string): string | undefined => process.env[name];
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
+import { envWithDefault } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
+import { decodeAxmMeta, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const conanType = Schema.decodeUnknownSync(PackageTypeSchema)("conan");
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Read a file as string, returning Option.none for NotFound and other errors.
- */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    return content;
-  });
 
 /**
  * Parse a Conan reference string like "name/version" or "name/version@user/channel".
@@ -245,8 +232,7 @@ const decodeConanDataAxm = Schema.decodeUnknownResult(ConanDataAxmSchema);
  * Resolve the Conan cache directory.
  * Checks CONAN_USER_HOME, then defaults to ~/.conan2.
  */
-const resolveConanCache = () =>
-  Effect.sync(() => readEnv("CONAN_USER_HOME") ?? `${os.homedir()}/.conan2`);
+const resolveConanCache = () => envWithDefault("CONAN_USER_HOME", `${os.homedir()}/.conan2`);
 
 /**
  * Conan package reader.

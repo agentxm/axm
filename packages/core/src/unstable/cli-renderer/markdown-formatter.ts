@@ -1,7 +1,8 @@
 import { lexer, type MarkedToken, type Token, type Tokens } from "marked";
 
 import type { ResolvedTableColumn } from "./cli-renderer.js";
-import { ANSI_BOLD, ANSI_CYAN, ANSI_DIM, ANSI_RESET, Symbols } from "./ansi-chrome.js";
+import { ANSI_BOLD, ANSI_CYAN, ANSI_DIM, Symbols } from "./ansi-chrome.js";
+import { annotate, repeat } from "./renderer-helpers.js";
 import { formatTable } from "./table-formatter.js";
 
 type MarkdownTableRow = { [key: string]: string };
@@ -9,12 +10,7 @@ type MarkdownTableRow = { [key: string]: string };
 const ANSI_PATTERN = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`, "g");
 const MIN_WRAP_WIDTH = 24;
 
-const annotate = (text: string, styles: ReadonlyArray<string>): string =>
-  styles.length === 0 ? text : `${styles.join("")}${text}${ANSI_RESET}`;
-
 const visibleLength = (text: string): number => text.replace(ANSI_PATTERN, "").length;
-
-const repeat = (value: string, count: number): string => value.repeat(Math.max(0, count));
 
 const isMarkedToken = (token: Token): token is MarkedToken => {
   switch (token.type) {

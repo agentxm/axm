@@ -13,6 +13,7 @@ import {
   type TaskLogGroupHandle,
   type TaskLogHandle,
 } from "./cli-renderer.js";
+import { annotate, indentedMessage, repeat, writeStderrLine } from "./renderer-helpers.js";
 
 const ESC = "\u001b[";
 export const ANSI_RESET = `${ESC}0m`;
@@ -31,9 +32,6 @@ const SPINNER_INTERVAL_MS = 80;
 const DEFAULT_TERMINAL_WIDTH = 80;
 const MIN_PROGRESS_BAR_WIDTH = 10;
 const MAX_PROGRESS_BAR_WIDTH = 40;
-
-const annotate = (text: string, styles: ReadonlyArray<string>): string =>
-  styles.length === 0 ? text : `${styles.join("")}${text}${ANSI_RESET}`;
 
 /**
  * Canonical CLI status glyph vocabulary.
@@ -82,13 +80,6 @@ const progressChars = (
   return { filled: "█", empty: "░" };
 };
 
-const writeStderr = (content: string) =>
-  Effect.sync(() => {
-    process.stderr.write(content);
-  });
-
-const writeStderrLine = (content: string) => writeStderr(`${content}\n`);
-
 const writePlainLine = (message: string, styles: ReadonlyArray<string> = []) =>
   writeStderrLine(styles.length === 0 ? message : annotate(message, styles));
 
@@ -110,8 +101,6 @@ const alignText = (text: string, width: number, alignment: "left" | "center" | "
   }
   return `${text}${" ".repeat(remaining)}`;
 };
-
-const repeat = (value: string, count: number): string => value.repeat(Math.max(0, count));
 
 const splitLines = (message: string): Array<string> => message.split("\n");
 
@@ -422,9 +411,6 @@ export const progress = (config: ProgressConfig, message?: string): Effect.Effec
         }),
     } satisfies ProgressHandle;
   });
-
-const indentedMessage = (depth: number, message: string): string =>
-  `${" ".repeat(depth)}${message}`;
 
 const groupedHandle = (depth: number): TaskLogGroupHandle => ({
   message: (message) => writeStderrLine(indentedMessage(depth, message)),

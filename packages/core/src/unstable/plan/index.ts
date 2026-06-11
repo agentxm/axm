@@ -22,6 +22,7 @@
 // Plan types
 export type {
   CancelledPlan,
+  ArtifactChange,
   CompletedJobStep,
   ErrorJobStep,
   ExecutedJob,
@@ -39,6 +40,9 @@ export type {
   ReadyJobStep,
   WarnJobStep,
 } from "./plan.js";
+
+export { ArtifactChangeSchema } from "./plan.js";
+export { appendWarningsToMessage } from "./job-step-message.js";
 
 // Apply plan + operation handler registry
 export { applyPlan, type OperationHandler } from "./apply-plan.js";

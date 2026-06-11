@@ -33,7 +33,7 @@ import {
   normalizeHandle,
   parseRegistrySourcePatternParts,
   toLabel,
-  type UninstallRetentionPolicy,
+  workspaceRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
@@ -181,11 +181,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           } satisfies Plan;
         }
 
-        const retentionPolicy: UninstallRetentionPolicy = {
-          isRequiredByInstalledPack: (args) => ws.isExtensionRequiredByInstalledPack(args.target),
-          markDependencyRetainedInLockfile: (args) =>
-            ws.markDependencyRetainedInLockfile(args.target),
-        };
+        const retentionPolicy = workspaceRetentionPolicy(ws);
 
         // Load lockfile and settings for orphan computation
         const lockedPacks = yield* ws.getLockedPacks();

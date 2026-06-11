@@ -8,8 +8,11 @@ import {
   extensionTypeToPlural,
   fqnInvalidErrorToAppError,
   parseFqn,
+  type ExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
+import type { Version } from "@agentxm/client-core/unstable/version-constraints";
+import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { resolveManifestVersionInfo, type VersionableExtensionType } from "./extension-version.js";
 
@@ -24,16 +27,25 @@ const isUnsupportedRegistryTypeError = (error: unknown): boolean =>
   typeof error.detail === "string" &&
   error.detail.includes("Remote discovery response does not match expected schema");
 
-export const checkPublishVersionPreflight = (args: {
+export const checkPublishVersionPreflightForLocalVersion = (args: {
   readonly fqn: string;
-  readonly type: VersionableExtensionType;
+  readonly type: ExtensionType;
+  readonly version: Version;
   readonly registryName: string;
   readonly registryUrl: string;
   readonly force: boolean;
+  readonly checkVersionOrder?: boolean;
+  readonly duplicateVersionSuggestions?: ReadonlyArray<SuggestedAction>;
+  readonly olderVersionSuggestions?: ReadonlyArray<SuggestedAction>;
 }) =>
   Effect.gen(function* () {
-    const local = yield* resolveManifestVersionInfo(args.fqn, args.type);
     const fqn = yield* Result.mapError(parseFqn(args.fqn), fqnInvalidErrorToAppError);
+    if (fqn.type !== args.type) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Expected ${extensionTypeToPlural[args.type]} handle, got ${args.fqn}`,
+      });
+    }
     const client = yield* createRegistryClient(args.registryUrl);
     const indexOption = yield* client
       .getExtensionIndex({
@@ -64,37 +76,58 @@ export const checkPublishVersionPreflight = (args: {
     if (Option.isNone(indexOption)) return;
 
     const existingVersion = indexOption.value.versions.find(
-      (entry) => entry.version === local.version,
+      (entry) => entry.version === args.version,
     );
     if (existingVersion !== undefined) {
       return yield* makeAppError({
         code: "conflict",
-        detail: `Cannot publish: version ${local.version} is already published for ${local.fqn}. Published versions are immutable.`,
-        suggestions: [
+        detail: `Cannot publish: version ${args.version} is already published for ${args.fqn}. Published versions are immutable.`,
+        suggestions: args.duplicateVersionSuggestions ?? [
           {
             description: "Bump the manifest version.",
-            cmd: `axm version ${local.fqn} patch`,
+            cmd: `axm version ${args.fqn} patch`,
           },
         ],
       });
     }
 
+    if (args.checkVersionOrder === false) return;
+
     const latest = indexOption.value.versions[0]?.version;
-    if (latest === undefined || semver.gt(local.version, latest)) return;
+    if (latest === undefined || semver.gt(args.version, latest)) return;
     if (args.force) return;
 
     const plural = extensionTypeToPlural[args.type];
     return yield* makeAppError({
       code: "conflict",
-      detail: `Cannot publish: local version ${local.version} is not greater than the latest published version ${latest}.`,
-      suggestions: [
+      detail: `Cannot publish: local version ${args.version} is not greater than the latest published version ${latest}.`,
+      suggestions: args.olderVersionSuggestions ?? [
         {
           description: "Bump the manifest version.",
-          cmd: `axm version ${local.fqn} patch`,
+          cmd: `axm version ${args.fqn} patch`,
         },
         {
           description: `Re-run with --force only if publishing an older unpublished ${plural} version is intentional`,
         },
       ],
+    });
+  });
+
+export const checkPublishVersionPreflight = (args: {
+  readonly fqn: string;
+  readonly type: VersionableExtensionType;
+  readonly registryName: string;
+  readonly registryUrl: string;
+  readonly force: boolean;
+}) =>
+  Effect.gen(function* () {
+    const local = yield* resolveManifestVersionInfo(args.fqn, args.type);
+    return yield* checkPublishVersionPreflightForLocalVersion({
+      fqn: local.fqn,
+      type: args.type,
+      version: local.version,
+      registryName: args.registryName,
+      registryUrl: args.registryUrl,
+      force: args.force,
     });
   });

@@ -23,6 +23,7 @@ import {
   type FileCommentStyle,
   type FileRegionMarkerIdentity,
 } from "./markers.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../extensions/constants.js";
 
 export interface RenderWorkspaceGeneratorRegionsArgs {
   readonly workspaceRoot: string;
@@ -106,8 +107,8 @@ const isIgnored = (
 const isAlwaysExcluded = (relativePath: string, basename: string): boolean =>
   basename === ".git" ||
   basename === "node_modules" ||
-  normalizeRelativePath(relativePath) === ".axm/extensions" ||
-  normalizeRelativePath(relativePath).startsWith(".axm/extensions/");
+  normalizeRelativePath(relativePath) === REGISTRY_EXTENSIONS_DIR ||
+  normalizeRelativePath(relativePath).startsWith(`${REGISTRY_EXTENSIONS_DIR}/`);
 
 const readRootGitignore = (
   workspaceRoot: string,

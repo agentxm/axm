@@ -17,6 +17,7 @@
 
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import type { AppError } from "../app-error/index.js";
 
 // -----------------------------------------------------------------------------
@@ -36,12 +37,21 @@ export interface Operation<TName extends string, TArgs> {
 // Step result types
 // -----------------------------------------------------------------------------
 
+export const ArtifactChangeSchema = Schema.Literals([
+  "created",
+  "updated",
+  "unchanged",
+  "removed",
+] as const);
+
+export type ArtifactChange = typeof ArtifactChangeSchema.Type;
+
 export interface JobStepArtifact {
   readonly path: string;
   readonly scope: "project" | "user";
   readonly agents?: ReadonlyArray<string>;
   readonly version?: string;
-  readonly change: "created" | "updated" | "unchanged" | "removed";
+  readonly change: ArtifactChange;
   readonly previousVersion?: string;
   readonly fileCount?: number;
   readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
@@ -49,7 +59,7 @@ export interface JobStepArtifact {
 
 export interface JobStepArtifactTarget {
   readonly path: string;
-  readonly change: "created" | "updated" | "unchanged" | "removed";
+  readonly change: ArtifactChange;
   readonly agentIds?: ReadonlyArray<string>;
 }
 

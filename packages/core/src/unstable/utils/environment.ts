@@ -43,34 +43,6 @@ export const isContainer = Effect.gen(function* () {
   return containerExists;
 });
 
-/**
- * Pure data-dir resolution given explicit home-directory inputs.
- * Shared by `resolveAxmDataDir` (reads process globals) and call sites
- * that supply inputs directly for testability.
- */
-export const resolveAxmDataDirPure = (
-  pathJoin: (...segments: ReadonlyArray<string>) => string,
-  homeDir: string,
-): string => {
-  return pathJoin(homeDir, ".axm");
-};
-
-/**
- * Resolve the axm data directory using platform conventions.
- *
- * - Unix: `~/.axm/`
- * - Windows: `%USERPROFILE%\.axm\`
- */
-export const resolveAxmDataDir = (pathJoin: (...segments: ReadonlyArray<string>) => string) =>
-  Effect.sync(() => {
-    const platform = process.platform;
-    const homeDir =
-      platform === "win32"
-        ? (readEnv("USERPROFILE") ?? readEnv("HOME") ?? readEnv("HOMEPATH") ?? "/tmp")
-        : (readEnv("HOME") ?? readEnv("USERPROFILE") ?? readEnv("HOMEPATH") ?? "/tmp");
-    return resolveAxmDataDirPure(pathJoin, homeDir);
-  });
-
 /** Returns true if /proc/version contains "microsoft". Requires FileSystem. */
 export const isWSL = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;

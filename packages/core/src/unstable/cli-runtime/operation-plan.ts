@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema";
+import { ArtifactChangeSchema } from "../plan/plan.js";
 
 const OperationPlanStepStatusSchema = Schema.Literals([
   "ready",
@@ -14,7 +15,7 @@ const OperationPlanStepArtifactSchema = Schema.Struct({
   path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),
   version: Schema.optional(Schema.String),
-  change: Schema.Literals(["created", "updated", "unchanged", "removed"] as const),
+  change: ArtifactChangeSchema,
   previousVersion: Schema.optional(Schema.String),
   fileCount: Schema.optional(Schema.Number),
 });

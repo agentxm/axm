@@ -15,15 +15,12 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { extractTomlQuotedStrings } from "../toml/index.js";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
+import { envOption } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
+import { decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
-// eslint-disable-next-line no-restricted-properties -- Centralized env var access for packaging detectors
-const readEnv = (name: string): string | undefined => process.env[name];
-
 const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
 
 // ---------------------------------------------------------------------------
 // Name normalization
@@ -83,31 +80,6 @@ const parseDependencyLine = (
 // ---------------------------------------------------------------------------
 // File helpers
 // ---------------------------------------------------------------------------
-
-/** Read a file as string, returning Option.none for NotFound and other errors. */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    return yield* fs.readFileString(filePath).pipe(Effect.option);
-  });
-
-/**
- * Parse JSON string, returning Option.none and logging a warning on failure.
- */
-const parseJsonOptional = (content: string, context: string) =>
-  Effect.gen(function* () {
-    const result = yield* Effect.try({
-      try: (): unknown => JSON.parse(content),
-      catch: () => ({ _tag: "JsonParseError" as const }),
-    }).pipe(Effect.option);
-
-    if (Option.isNone(result)) {
-      yield* Effect.logWarning(`Malformed JSON in ${context}, skipping`);
-      return Option.none<unknown>();
-    }
-
-    return Option.some(result.value);
-  });
 
 // ---------------------------------------------------------------------------
 // File parsers
@@ -457,10 +429,10 @@ const resolveSitePackages = () =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    const virtualEnv = yield* Effect.sync(() => readEnv("VIRTUAL_ENV"));
-    if (virtualEnv) {
+    const virtualEnv = yield* envOption("VIRTUAL_ENV");
+    if (Option.isSome(virtualEnv)) {
       // Scan for python* directories under lib/
-      const libDir = path.join(virtualEnv, "lib");
+      const libDir = path.join(virtualEnv.value, "lib");
       const libExists = yield* fs.exists(libDir).pipe(Effect.catch(() => Effect.succeed(false)));
       if (libExists) {
         const entries = yield* fs.readDirectory(libDir).pipe(

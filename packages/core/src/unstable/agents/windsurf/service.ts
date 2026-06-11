@@ -6,9 +6,10 @@
 
 import { makeProjectOnlyCodingAgent } from "../project-only-agent.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
+import { requiredAgentCommandsDir } from "../descriptor-paths.js";
 
 /** @experimental */
-export const WINDSURF_COMMANDS_PROJECT_DIR = ".windsurf/commands";
+export const WINDSURF_COMMANDS_PROJECT_DIR = requiredAgentCommandsDir("windsurf");
 
 /** @experimental */
 export const WINDSURF_SUBAGENTS_PROJECT_DIR = ".windsurf/agents";
@@ -16,8 +17,6 @@ export const WINDSURF_SUBAGENTS_PROJECT_DIR = ".windsurf/agents";
 export const windsurfCodingAgent = makeProjectOnlyCodingAgent({
   agentId: "windsurf",
   displayName: "Windsurf",
-  skillsProjectDir: ".windsurf/skills",
-  commandsProjectDir: WINDSURF_COMMANDS_PROJECT_DIR,
   subagentsProjectDir: WINDSURF_SUBAGENTS_PROJECT_DIR,
   mcp: {
     addMcpServer: (args) => addMcpServerFromManifest("windsurf", args),

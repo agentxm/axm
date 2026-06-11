@@ -10,12 +10,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { CodingAgentRepository, syncInlineMcpServerToAgent } from "../../agents/index.js";
 import type { McpServerSyncOutcome } from "../../agents/coding-agent.js";
-import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-  normalizeHandle,
-} from "../../extensions/index.js";
+import { canonicalExtensionPath, normalizeHandle } from "../../extensions/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
+import { appendWarningsToMessage } from "../../plan/index.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
@@ -32,9 +29,14 @@ const canonicalPathFor = (
   name: string,
   lockEntry: McpServerLockEntry,
 ): string =>
-  lockEntry.type === "registry"
-    ? path.join(base, REGISTRY_EXTENSIONS_DIR, lockEntry.owner, "mcps", lockEntry.name)
-    : path.join(base, EXTERNAL_EXTENSIONS_DIR, "mcps", name);
+  canonicalExtensionPath(
+    path,
+    base,
+    "mcps",
+    lockEntry.type === "registry"
+      ? { type: "registry", owner: lockEntry.owner, name: lockEntry.name }
+      : { type: "external", name },
+  );
 
 const formatAgentSyncWarnings = (
   serverName: string,
@@ -53,9 +55,6 @@ const formatAgentSyncWarnings = (
       .join(", ")}`,
   ];
 };
-
-const appendResultWarnings = (message: string, warnings: ReadonlyArray<string>): string =>
-  warnings.length === 0 ? message : `${message}; ${warnings.join("; ")}`;
 
 const enableArtifact = (args: {
   readonly lockEntry: McpServerLockEntry | undefined;
@@ -132,7 +131,7 @@ export const enableMcpServer = (
 
       return {
         result: "success",
-        message: appendResultWarnings(`Enabled ${op.args.serverName}`, warnings),
+        message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
         artifact: enableArtifact({
           lockEntry: lockEntry.value,
           scope: ws.scope,
@@ -178,7 +177,7 @@ export const enableMcpServer = (
 
     return {
       result: "success",
-      message: appendResultWarnings(`Enabled ${op.args.serverName}`, warnings),
+      message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
       artifact: enableArtifact({
         lockEntry: lockEntry.value,
         scope: ws.scope,

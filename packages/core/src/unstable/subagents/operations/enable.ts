@@ -20,7 +20,11 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { sanitizeName } from "../../extensions/utils.js";
-import { computeSourceHash, RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
+import {
+  collectWorkspaceRenderedFiles,
+  computeSourceHash,
+  RenderedFilesMapSchema,
+} from "../../extensions/rendered-files.js";
 import { makeWorkspaceRelativePath } from "../../utils/path-types.js";
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "../paths.js";
 import type { SubagentPathSource } from "../paths.js";
@@ -182,9 +186,7 @@ export const enableSubagent: OperationHandler<
       configuredAgents.map((a) => a.id),
     );
 
-    const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
-
-    yield* Effect.forEach(
+    const renderResults = yield* Effect.forEach(
       configuredAgents,
       (agent) =>
         agent
@@ -201,36 +203,32 @@ export const enableSubagent: OperationHandler<
             },
             force: false,
           })
-          .pipe(
-            Effect.flatMap((outcome) => {
-              if (outcome._tag !== "success") return Effect.void;
-              return Effect.forEach(outcome.renderedFilePaths, (p) => {
-                const relativePath = makeWorkspaceRelativePath(path, baseDir, p);
-                if (Option.isNone(relativePath)) {
-                  return Effect.fail(
-                    makeAppError({
-                      code: "internal",
-                      detail: `Rendered subagent path escapes workspace root: ${p}`,
-                    }),
-                  );
-                }
-                return Effect.succeed({ path: relativePath.value });
-              }).pipe(
-                Effect.map((entries) => {
-                  renderedFilesMap[agent.id] = entries;
-                }),
-              );
-            }),
-          ),
+          .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
       { concurrency: "unbounded" },
     );
+    const { rawRenderedFiles, escapedPaths } = collectWorkspaceRenderedFiles(
+      path,
+      baseDir,
+      renderResults.flatMap(({ agentId, outcome }) =>
+        outcome._tag === "success"
+          ? [{ agentId, renderedFilePaths: outcome.renderedFilePaths }]
+          : [],
+      ),
+    );
+    const escapedPath = escapedPaths[0];
+    if (escapedPath !== undefined) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Rendered subagent path escapes workspace root: ${escapedPath}`,
+      });
+    }
 
     // Update lockfile with rendered files and source hash
     const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
     const updatedLockEntry = {
       ...lockEntry,
       sourceHash: currentHash,
-      renderedFiles: decodeRenderedFiles(renderedFilesMap),
+      renderedFiles: decodeRenderedFiles(rawRenderedFiles),
     };
     yield* ws.setSubagentLock({ name: op.args.subagentName, lockEntry: updatedLockEntry });
 

@@ -7,8 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
-import type { Handle } from "../extensions/handle.js";
+import { computeExtensionPaths, type ExtensionPathSource } from "../extensions/index.js";
 import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
 
 /**
@@ -19,9 +18,7 @@ import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.j
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SubagentPathSource =
-  | { readonly refType: "registry"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local" };
+export type SubagentPathSource = ExtensionPathSource;
 
 /**
  * Computed paths for an installed subagent directory.
@@ -74,22 +71,9 @@ export const computeSubagentPaths = (
   source: SubagentPathSource,
   sanitizedName: string,
 ): SubagentDirPaths => {
-  if (source.refType === "registry") {
-    const canonicalPath = join(
-      base,
-      REGISTRY_EXTENSIONS_DIR,
-      source.owner,
-      "subagents",
-      sanitizedName,
-    );
-    return {
-      canonicalPath: decodeAbsolutePathSync(canonicalPath),
-      subagentSrcPath: decodeAbsolutePathSync(join(canonicalPath, "src")),
-    };
-  }
-  const canonicalPath = join(base, EXTERNAL_EXTENSIONS_DIR, "subagents", sanitizedName);
+  const paths = computeExtensionPaths(join, base, "subagents", source, sanitizedName);
   return {
-    canonicalPath: decodeAbsolutePathSync(canonicalPath),
-    subagentSrcPath: decodeAbsolutePathSync(canonicalPath),
+    canonicalPath: paths.canonicalPath,
+    subagentSrcPath: paths.sourcePath,
   };
 };

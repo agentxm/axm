@@ -9,52 +9,20 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
+import { envOption } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
+import { decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
-// eslint-disable-next-line no-restricted-properties -- Centralized env var access for packaging detectors
-const readEnv = (name: string): string | undefined => process.env[name];
-
 const cpanType = Schema.decodeUnknownSync(PackageTypeSchema)("cpan");
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Read a file as string, returning Option.none for NotFound and other errors.
- */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    return content;
-  });
-
-/**
- * Parse JSON string, returning Option.none and logging a warning on failure.
- */
-const parseJsonOptional = (content: string, context: string) =>
-  Effect.gen(function* () {
-    const result = yield* Effect.try({
-      try: (): unknown => JSON.parse(content),
-      catch: () => ({ _tag: "JsonParseError" as const }),
-    }).pipe(Effect.option);
-
-    if (Option.isNone(result)) {
-      yield* Effect.logWarning(`Malformed JSON in ${context}, skipping`);
-      return Option.none<unknown>();
-    }
-
-    return Option.some(result.value);
-  });
 
 /**
  * Convert a Perl module name to a CPAN distribution-style name.
@@ -225,9 +193,11 @@ export const cpanReader: PackageReader = {
       const path = yield* Path.Path;
 
       // Default Perl local::lib path
-      const libPath = yield* Effect.sync(
-        () => readEnv("PERL5LIB") ?? readEnv("PERL_LOCAL_LIB_ROOT") ?? "local/lib/perl5",
-      );
+      const perl5lib = yield* envOption("PERL5LIB");
+      const perlLocalLibRoot = yield* envOption("PERL_LOCAL_LIB_ROOT");
+      const libPath = Option.isSome(perl5lib)
+        ? perl5lib.value
+        : Option.getOrElse(perlLocalLibRoot, () => "local/lib/perl5");
 
       const distName = pkg.purl.name;
       const version = pkg.purl.version;

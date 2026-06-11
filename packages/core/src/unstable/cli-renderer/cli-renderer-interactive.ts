@@ -31,29 +31,18 @@ import { count } from "./count.js";
 import { getEntityView } from "./entity-registry.js";
 import { formatMarkdown } from "./markdown-formatter.js";
 import { resolveCliOutputPolicy, type CliOutputPolicy } from "./output-policy.js";
+import {
+  indentedMessage,
+  normalizeSuggestions,
+  taskCompletionMessage,
+  writeStderrLine,
+  writeStdout,
+  writeStdoutLine,
+} from "./renderer-helpers.js";
 import { formatTable, getTerminalWidth, pad } from "./table-formatter.js";
 
 const ANSI_DIM = "\u001b[2m";
 const ANSI_RESET = "\u001b[0m";
-
-// ---------------------------------------------------------------------------
-// Stdout helpers
-// ---------------------------------------------------------------------------
-
-const writeStdout = (content: string) =>
-  Effect.sync(() => {
-    process.stdout.write(content);
-  });
-
-const writeStdoutLine = (content: string) =>
-  Effect.sync(() => {
-    process.stdout.write(content + "\n");
-  });
-
-const writeStderrLine = (content: string) =>
-  Effect.sync(() => {
-    process.stderr.write(content + "\n");
-  });
 
 // ---------------------------------------------------------------------------
 // Detail formatter
@@ -180,16 +169,6 @@ const makeGenericDetailView = <T extends object>(item: T): DetailView<T> => {
 // InteractiveRenderer layer
 // ---------------------------------------------------------------------------
 
-const taskCompletionMessage = (title: string, result: string | void): string => {
-  if (result === undefined || result.length === 0 || result === title) {
-    return title;
-  }
-  if (result.startsWith(`${title}:`) || result.startsWith(`${title} `)) {
-    return result;
-  }
-  return `${title}: ${result}`;
-};
-
 const formatTerminalLink = (url: string, outputPolicy: CliOutputPolicy): string =>
   outputPolicy.colors ? `\u001b]8;;${url}\u001b\\${url}\u001b]8;;\u001b\\` : url;
 
@@ -266,9 +245,6 @@ const plainProgress = (
     : plainLine(chrome.Symbols.step, currentMessage).pipe(Effect.as(handle));
 };
 
-const indentedMessage = (depth: number, message: string): string =>
-  `${" ".repeat(depth)}${message}`;
-
 const plainTaskLogGroup = (depth: number): TaskLogGroupHandle => ({
   message: (message: string) => writeStderrLine(indentedMessage(depth, message)),
   error: (message: string) =>
@@ -289,14 +265,6 @@ const plainTaskLog = (config: TaskLogConfig): Effect.Effect<TaskLogHandle> =>
         writeStderrLine(indentedMessage(2, `${chrome.Symbols.success}  ${message}`)),
     } satisfies TaskLogHandle),
   );
-
-const normalizeSuggestions = (
-  suggestions: ReadonlyArray<SuggestedAction> | undefined,
-  options?: SuggestionOptions,
-): ReadonlyArray<SuggestedAction> =>
-  options?.withoutSuggestions === true || suggestions === undefined || suggestions.length === 0
-    ? []
-    : suggestions;
 
 const formatListSummary = (
   entity: string,

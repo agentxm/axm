@@ -1,6 +1,6 @@
 import * as Option from "effect/Option";
 import type { Path } from "effect/Path";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { canonicalExtensionRelativePath } from "../extensions/index.js";
 import type { CommandLockEntry } from "../lockfile/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../plan/plan.js";
 
@@ -113,8 +113,15 @@ export const commandUninstallArtifact = (args: {
   const lockEntry = args.lockEntry.value;
   const sourcePath =
     lockEntry.type === "registry"
-      ? `${REGISTRY_EXTENSIONS_DIR}/${lockEntry.owner}/commands/${lockEntry.name}`
-      : `${EXTERNAL_EXTENSIONS_DIR}/commands/${args.commandName}`;
+      ? canonicalExtensionRelativePath("commands", {
+          type: "registry",
+          owner: lockEntry.owner,
+          name: lockEntry.name,
+        })
+      : canonicalExtensionRelativePath("commands", {
+          type: "external",
+          name: args.commandName,
+        });
   const renderedTargets = renderedFileTargets(lockEntry.renderedFiles, args.change);
   const targets: ReadonlyArray<JobStepArtifactTarget> = [
     { path: ".axm/axm-lock.yaml", change: "updated" },

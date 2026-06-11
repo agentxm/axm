@@ -7,9 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
-import type { Handle } from "../extensions/handle.js";
-import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
+import { computeExtensionPaths, type ExtensionPathSource } from "../extensions/index.js";
+import type { AbsolutePath } from "../utils/path-types.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.
@@ -17,9 +16,7 @@ import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.j
  * Registry refs carry an owner for the canonical path; all other ref types
  * use the shared external extensions directory.
  */
-export type SkillPathSource =
-  | { readonly refType: "registry"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local" };
+export type SkillPathSource = ExtensionPathSource;
 
 /**
  * Computed paths for an installed skill directory.
@@ -50,22 +47,9 @@ export const computeSkillPaths = (
   source: SkillPathSource,
   sanitizedName: string,
 ): SkillDirPaths => {
-  if (source.refType === "registry") {
-    const canonicalPath = join(
-      base,
-      REGISTRY_EXTENSIONS_DIR,
-      source.owner,
-      "skills",
-      sanitizedName,
-    );
-    return {
-      canonicalPath: decodeAbsolutePathSync(canonicalPath),
-      skillSrcPath: decodeAbsolutePathSync(join(canonicalPath, "src")),
-    };
-  }
-  const canonicalPath = join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName);
+  const paths = computeExtensionPaths(join, base, "skills", source, sanitizedName);
   return {
-    canonicalPath: decodeAbsolutePathSync(canonicalPath),
-    skillSrcPath: decodeAbsolutePathSync(canonicalPath),
+    canonicalPath: paths.canonicalPath,
+    skillSrcPath: paths.sourcePath,
   };
 };

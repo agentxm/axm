@@ -19,9 +19,17 @@ import {
   enabledConfiguredEntries,
   formatFqn,
 } from "../extensions/index.js";
+import {
+  materializeExternalPackage,
+  materializeRegistryPackage,
+} from "../extensions/materialization.js";
 import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
 import { computeSourceHash } from "../extensions/rendered-files.js";
-import { copyExtensionDirectory, validatePathSafety } from "../extensions/utils.js";
+import {
+  gitHostedLockSourceFields,
+  localLockSourceFields,
+  registryLockSourceFields,
+} from "../lockfile/entry-helpers.js";
 import type { MaterializedFileTarget, RuleLockEntry } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
 import {
@@ -29,14 +37,9 @@ import {
   replaceManagedRegion,
   stripManagedRegion,
 } from "../managed-files/index.js";
-import { createRegistryClient, extractZip } from "../registry/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
-import {
-  computeIntegrity,
-  makeWorkspaceRelativeSourcePath,
-  stripFileProtocol,
-} from "../utils/index.js";
+import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type { ExtensionManager, RuleExtensionTarget } from "../workspace/service-interface.js";
@@ -69,23 +72,17 @@ const commonLockFields = (now: Date) => ({
   updatedAt: now,
 });
 
-const optionalField = <K extends string, V>(key: K, value: Option.Option<V>): { [P in K]?: V } => {
-  const fields: { [P in K]?: V } = {};
-  if (Option.isSome(value)) fields[key] = value.value;
-  return fields;
-};
-
 const registryRuleLockEntry = (
   ref: RegistryRuleRef,
   now: Date,
   materializedTargets: ReadonlyArray<MaterializedFileTarget>,
 ): RuleLockEntry => ({
-  type: "registry",
-  owner: ref.owner,
-  name: ref.name,
-  resolvedVersion: decodeVersionSync(ref.version),
-  integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: "default",
+  ...registryLockSourceFields({
+    owner: ref.owner,
+    name: ref.name,
+    version: decodeVersionSync(ref.version),
+    integrity: ref.integrity,
+  }),
   materializedTargets,
   ...commonLockFields(now),
 });
@@ -100,57 +97,10 @@ const gitRuleLockEntry = (
     ...commonLockFields(now),
   };
 
-  switch (ref.source.type) {
-    case "github":
-      return {
-        type: "github",
-        owner: ref.source.owner,
-        repo: ref.source.repo,
-        ...optionalField("ref", ref.source.ref),
-        ...optionalField("path", ref.source.subPath),
-        ...optionalField("gitTreeHash", ref.gitTreeSha),
-        ...common,
-      };
-    case "gitlab":
-      return {
-        type: "gitlab",
-        owner: ref.source.owner,
-        repo: ref.source.repo,
-        ...optionalField("ref", ref.source.ref),
-        ...optionalField("path", ref.source.subPath),
-        ...optionalField("gitTreeHash", ref.gitTreeSha),
-        ...common,
-      };
-    case "bitbucket":
-      return {
-        type: "bitbucket",
-        owner: ref.source.owner,
-        repo: ref.source.repo,
-        ...optionalField("ref", ref.source.ref),
-        ...optionalField("path", ref.source.subPath),
-        ...optionalField("gitTreeHash", ref.gitTreeSha),
-        ...common,
-      };
-    case "azurerepos":
-      return {
-        type: "azurerepos",
-        organization: ref.source.organization,
-        project: ref.source.project,
-        repo: ref.source.repo,
-        ...optionalField("ref", ref.source.ref),
-        ...optionalField("path", ref.source.subPath),
-        ...optionalField("gitTreeHash", ref.gitTreeSha),
-        ...common,
-      };
-    case "git":
-      return {
-        type: "git",
-        url: ref.source.url.href,
-        ...optionalField("ref", ref.source.ref),
-        ...optionalField("gitTreeHash", ref.gitTreeSha),
-        ...common,
-      };
-  }
+  return {
+    ...gitHostedLockSourceFields(ref.source, ref.gitTreeSha),
+    ...common,
+  };
 };
 
 const localRuleLockEntry = (
@@ -159,8 +109,7 @@ const localRuleLockEntry = (
   materializedTargets: ReadonlyArray<MaterializedFileTarget>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ): RuleLockEntry => ({
-  type: "local",
-  path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
+  ...localLockSourceFields({ source: ref.source, workspaceRelativeLocalSourcePath }),
   materializedTargets,
   ...commonLockFields(now),
 });
@@ -212,87 +161,16 @@ export const RuleManagerLive = Layer.effect(
             RULE_EXTENSION_DIR,
             ref.name,
           );
-          yield* validatePathSafety(baseDir, canonicalPath);
-
-          const canonicalExists = yield* fs
-            .exists(canonicalPath)
-            .pipe(Effect.orElseSucceed(() => false));
-          const useExisting = Option.isNone(ref.integrity) && canonicalExists;
-          if (useExisting) return canonicalPath;
-
-          const locationStr =
-            ref.source.location.protocol === "file:"
-              ? ref.source.location.pathname
-              : ref.source.location.href;
-          const client = yield* createRegistryClient(locationStr);
-          const { archive } = yield* client.getExtensionPackage({
+          return yield* materializeRegistryPackage({
+            baseDir,
+            canonicalPath,
+            sourceLocation: ref.source.location,
             owner: ref.owner,
             type: "rule",
             name: ref.name,
-            version: Option.some(ref.version),
+            version: ref.version,
+            integrity: ref.integrity,
           });
-
-          if (Option.isSome(ref.integrity)) {
-            const actualIntegrity = yield* computeIntegrity(archive);
-            if (actualIntegrity !== ref.integrity.value) {
-              return yield* makeAppError({
-                code: "network",
-                detail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
-              });
-            }
-          }
-
-          const tmpDir = yield* fs.makeTempDirectory().pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "validation",
-                detail: "Temporary directory for registry rule install could not be created",
-                cause: error,
-              }),
-            ),
-          );
-
-          yield* Effect.ensuring(
-            Effect.gen(function* () {
-              yield* provide(extractZip(archive, tmpDir));
-              yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
-              yield* fs.makeDirectory(canonicalPath, { recursive: true }).pipe(
-                Effect.mapError((error) =>
-                  makeAppError({
-                    code: "internal",
-                    detail: `Failed to create registry rule directory: ${canonicalPath}`,
-                    cause: error,
-                  }),
-                ),
-              );
-              const entries = yield* fs.readDirectory(tmpDir).pipe(
-                Effect.mapError((error) =>
-                  makeAppError({
-                    code: "internal",
-                    detail: "Failed to inspect extracted registry rule package",
-                    cause: error,
-                  }),
-                ),
-              );
-              yield* Effect.forEach(
-                entries,
-                (entry) =>
-                  fs.copy(path.join(tmpDir, entry), path.join(canonicalPath, entry)).pipe(
-                    Effect.mapError((error) =>
-                      makeAppError({
-                        code: "internal",
-                        detail: `Failed to copy registry rule package entry: ${entry}`,
-                        cause: error,
-                      }),
-                    ),
-                  ),
-                { concurrency: "unbounded" },
-              );
-            }),
-            fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
-          );
-
-          return canonicalPath;
         }),
       );
 
@@ -305,24 +183,12 @@ export const RuleManagerLive = Layer.effect(
             RULE_EXTENSION_DIR,
             ref.rule.name,
           );
-          yield* validatePathSafety(baseDir, canonicalPath);
-          const sourcePath = stripFileProtocol(ref.location);
-          const isSelfCopy = path.resolve(sourcePath) === path.resolve(canonicalPath);
-          if (!isSelfCopy) {
-            yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.ignore);
-            yield* provide(
-              copyExtensionDirectory(sourcePath, canonicalPath).pipe(
-                Effect.mapError((error) =>
-                  makeAppError({
-                    code: "validation",
-                    detail: `Failed to copy rule package files to ${canonicalPath}`,
-                    cause: error,
-                  }),
-                ),
-              ),
-            );
-          }
-          return canonicalPath;
+          return yield* materializeExternalPackage({
+            baseDir,
+            canonicalPath,
+            sourceLocation: ref.location,
+            packageLabel: "rule package",
+          });
         }),
       );
 

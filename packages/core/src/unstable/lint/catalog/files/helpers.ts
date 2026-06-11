@@ -12,6 +12,7 @@ import {
   type FileContentSource,
   type FilesManifest,
 } from "../../../files/manifest-schema.js";
+import { AXM_DIR_NAME } from "../../../workspace/constants.js";
 import type { FilesRuleContext } from "../../context.js";
 import type { AdvisoryFinding, Severity } from "../../rule.js";
 
@@ -67,7 +68,8 @@ export const isUnsafeWorkspaceTarget = (target: string): boolean => {
   }
   const normalized = target.replace(/\\/g, "/");
   return (
-    normalized.split("/").some((segment) => segment === "..") || normalized.startsWith(".axm/")
+    normalized.split("/").some((segment) => segment === "..") ||
+    normalized.startsWith(`${AXM_DIR_NAME}/`)
   );
 };
 

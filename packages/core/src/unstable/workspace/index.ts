@@ -12,6 +12,8 @@
 // Scope utilities
 export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
 
+export { AXM_DIR_NAME } from "./constants.js";
+
 // Read-model record conversion helpers
 export {
   toConfiguredCommandRecord,

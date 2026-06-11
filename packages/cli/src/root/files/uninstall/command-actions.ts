@@ -5,7 +5,10 @@ import * as Option from "effect/Option";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unstable/files";
-import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
+import {
+  buildUninstallOperation,
+  workspaceRetentionPolicy,
+} from "@agentxm/client-core/unstable/extensions";
 import type { FilesLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type {
   JobStepArtifact,
@@ -14,10 +17,7 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import type {
-  ExtensionTarget,
-  FilesExtensionTarget,
-} from "@agentxm/client-core/unstable/workspace";
+import type { FilesExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallFilesCommandIntent } from "./intent.js";
@@ -159,13 +159,7 @@ export const UninstallFilesCommandWorkflowActionsLive = Layer.effect(
               withFilesUninstallArtifact(
                 buildUninstallOperation<FilesExtensionRef>(
                   filesManager,
-                  {
-                    isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
-                      ws.isExtensionRequiredByInstalledPack(args.target),
-                    markDependencyRetainedInLockfile: (args: {
-                      readonly target: ExtensionTarget;
-                    }) => ws.markDependencyRetainedInLockfile(args.target),
-                  },
+                  workspaceRetentionPolicy(ws),
                   { target },
                 ),
                 ws.scope,

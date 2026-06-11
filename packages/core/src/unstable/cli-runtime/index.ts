@@ -25,6 +25,25 @@ export {
   type JsonSuccessEnvelope,
   type JsonErrorEnvelope,
 } from "./json-envelope.js";
+export {
+  JsonArgDocSchema,
+  JsonExampleDocSchema,
+  JsonFlagDocSchema,
+  JsonHelpDocSchema,
+  JsonSubcommandDocSchema,
+  JsonSubcommandGroupDocSchema,
+  JsonVersionDocSchema,
+  makeJsonVersionDoc,
+  toJsonFlagDoc,
+  toJsonHelpDoc,
+  type JsonArgDoc,
+  type JsonExampleDoc,
+  type JsonFlagDoc,
+  type JsonHelpDoc,
+  type JsonSubcommandDoc,
+  type JsonSubcommandGroupDoc,
+  type JsonVersionDoc,
+} from "./help-json-document.js";
 export { EffectCliExit, effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 export { resolveFormatFromArgv, resolveFormat } from "./resolve-format.js";
 export { handleError, classifyError, type ErrorClassification } from "./handle-error.js";

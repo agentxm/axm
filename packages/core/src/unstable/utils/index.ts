@@ -20,15 +20,6 @@ export {
 } from "./path-types.js";
 export { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 export { createSymlink, type SymlinkResult } from "./create-symlink.js";
-export {
-  envOption,
-  envWithDefault,
-  isContainer,
-  isRoot,
-  isSSH,
-  isWSL,
-  resolveAxmDataDir,
-  resolveAxmDataDirPure,
-} from "./environment.js";
+export { envOption, envWithDefault, isContainer, isRoot, isSSH, isWSL } from "./environment.js";
 export { expandGlob, expandGlobs, isGlobPattern } from "./glob.js";
 export { isLoopbackAddress } from "./network.js";

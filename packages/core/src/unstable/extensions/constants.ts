@@ -4,5 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-export const REGISTRY_EXTENSIONS_DIR = ".axm/extensions";
-export const EXTERNAL_EXTENSIONS_DIR = ".axm/extensions/external";
+import { AXM_DIR_NAME } from "../workspace/constants.js";
+
+export const REGISTRY_EXTENSIONS_DIR = `${AXM_DIR_NAME}/extensions`;
+export const EXTERNAL_EXTENSIONS_DIR = `${REGISTRY_EXTENSIONS_DIR}/external`;

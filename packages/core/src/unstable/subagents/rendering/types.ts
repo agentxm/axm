@@ -9,15 +9,10 @@
  */
 
 import type { LossyRenderingWarning } from "../../commands/rendering-warnings.js";
+import type { AgentOverrides } from "../../extensions/agent-overrides.js";
 import type { RelativePath } from "../../utils/path-types.js";
 
-/**
- * Per-agent override map applied as an RFC 7396 JSON Merge Patch on top of
- * the user's frontmatter for the target agent.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type AgentOverrides = Readonly<Record<string, unknown>>;
+export type { AgentOverrides } from "../../extensions/agent-overrides.js";
 
 /**
  * Renderer input — everything a subagent renderer needs to produce output.

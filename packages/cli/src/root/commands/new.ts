@@ -7,6 +7,8 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
   decodeExtensionNameSync,
+  EXTENSION_NAME_MAX_LENGTH,
+  EXTENSION_NAME_PATTERN,
   formatFqn,
   normalizeHandle,
   REGISTRY_EXTENSIONS_DIR,
@@ -35,11 +37,8 @@ import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
-import { toJobStepResult } from "./job-step-result.js";
+import { toJobStepResult } from "../shared/job-step-result.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
-
-const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
-const MAX_NAME_LENGTH = 64;
 
 export interface CommandsNewHandlerArgs {
   readonly name: ExtensionName;
@@ -107,8 +106,8 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   // 2. Validate name
   if (
     args.name.length === 0 ||
-    args.name.length > MAX_NAME_LENGTH ||
-    !NAME_PATTERN.test(args.name)
+    args.name.length > EXTENSION_NAME_MAX_LENGTH ||
+    !EXTENSION_NAME_PATTERN.test(args.name)
   ) {
     return yield* makeAppError({
       code: "validation",

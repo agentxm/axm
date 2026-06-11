@@ -230,6 +230,26 @@ describe("InstallMethod", () => {
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 
+    it.effect("reads install-meta.json from explicit axmDataDir", () =>
+      Effect.gen(function* () {
+        const dataDir = nodePath.join(tempDir, "custom-home", ".axm");
+        nodeFs.mkdirSync(dataDir, { recursive: true });
+        nodeFs.writeFileSync(
+          nodePath.join(dataDir, "install-meta.json"),
+          JSON.stringify({ method: "script" }),
+        );
+
+        const inputs: InstallMethodInputs = {
+          ...baseInputs,
+          axmDataDir: dataDir,
+          execPath: "/some/other/bin/bun",
+          importMetaUrl: "file:///some/other/path/main.ts",
+        };
+        const result = yield* detectFromInputs(inputs);
+        expect(result._tag).toBe("Script");
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
     it.effect("returns unknown for invalid JSON in install-meta.json", () =>
       Effect.gen(function* () {
         const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");

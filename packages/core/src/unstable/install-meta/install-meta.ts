@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
 import { InstallMethodLiteral } from "../install-method/install-method.js";
-import { resolveAxmDataDir } from "../utils/index.js";
+import { getUserScopeDir } from "../workspace/paths.js";
 
 // -----------------------------------------------------------------------------
 // Schema
@@ -76,7 +76,7 @@ export class InstallMeta extends ServiceMap.Service<InstallMeta, InstallMetaServ
 // Data directory resolution
 // -----------------------------------------------------------------------------
 
-const resolveDataDir = (pathService: Path.Path) => resolveAxmDataDir(pathService.join);
+const resolveDataDir = () => getUserScopeDir();
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -155,7 +155,7 @@ export const InstallMetaLive = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
-    const dataDir = yield* resolveDataDir(pathService);
+    const dataDir = yield* resolveDataDir();
 
     const read: InstallMetaService["read"] = () =>
       readInstallMeta(dataDir).pipe(

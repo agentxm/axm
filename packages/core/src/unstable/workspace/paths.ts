@@ -14,6 +14,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAbsolutePath, type AbsolutePath } from "../utils/path-types.js";
+import { AXM_DIR_NAME } from "./constants.js";
 import type { WorkspaceScope } from "./scope.js";
 
 export interface WorkspaceLocation {
@@ -57,7 +58,7 @@ export const getUserScopeDir = (): Effect.Effect<AbsolutePath, never, Path.Path>
       onNone: () => os.homedir(),
       onSome: (value) => value,
     });
-    return makeAbsolutePath(path, path.join(home, ".axm"));
+    return makeAbsolutePath(path, path.join(home, AXM_DIR_NAME));
   });
 
 /**
@@ -84,7 +85,7 @@ export const getProjectDir = (
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const baseDir = projectRoot ?? (yield* Effect.sync(() => process.cwd()));
-    return makeAbsolutePath(path, path.join(baseDir, ".axm"));
+    return makeAbsolutePath(path, path.join(baseDir, AXM_DIR_NAME));
   });
 
 /**

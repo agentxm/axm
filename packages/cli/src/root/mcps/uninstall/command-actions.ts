@@ -21,11 +21,11 @@ import {
   type McpServerExtensionRef,
 } from "@agentxm/client-core/unstable/mcps";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import type {
-  ExtensionTarget,
-  McpServerExtensionTarget,
-} from "@agentxm/client-core/unstable/workspace";
-import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
+import type { McpServerExtensionTarget } from "@agentxm/client-core/unstable/workspace";
+import {
+  buildUninstallOperation,
+  workspaceRetentionPolicy,
+} from "@agentxm/client-core/unstable/extensions";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
 
@@ -101,12 +101,7 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     const buildUninstallPlan = (
       intent: UninstallMcpServerCommandIntent,
     ): Effect.Effect<Plan, AppError> => {
-      const retentionPolicy = {
-        isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
-          ws.isExtensionRequiredByInstalledPack(args.target),
-        markDependencyRetainedInLockfile: (args: { readonly target: ExtensionTarget }) =>
-          ws.markDependencyRetainedInLockfile(args.target),
-      };
+      const retentionPolicy = workspaceRetentionPolicy(ws);
 
       const steps = intent.targets.map((target): PlannedJobStep => {
         const step = buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {

@@ -17,45 +17,13 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 
-// eslint-disable-next-line no-restricted-properties -- Centralized env var access for packaging detectors
-const readEnv = (name: string): string | undefined => process.env[name];
+import { envOption } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { PackageUrlSchema } from "./package-url.js";
+import { decodePurl, decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const jsrType = Schema.decodeUnknownSync(PackageTypeSchema)("jsr");
-const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
-
-/**
- * Read a file as string, returning Option.none for NotFound and other errors.
- */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    return content;
-  });
-
-/**
- * Parse JSON string, returning Option.none and logging a warning on failure.
- */
-const parseJsonOptional = (content: string, context: string) =>
-  Effect.gen(function* () {
-    const result = yield* Effect.try({
-      try: (): unknown => JSON.parse(content),
-      catch: () => ({ _tag: "JsonParseError" as const }),
-    }).pipe(Effect.option);
-
-    if (Option.isNone(result)) {
-      yield* Effect.logWarning(`Malformed JSON in ${context}, skipping`);
-      return Option.none<unknown>();
-    }
-
-    return Option.some(result.value);
-  });
 
 /**
  * Strip single-line (//) and multi-line comments from JSONC content.
@@ -220,9 +188,9 @@ const decodeAxmContainer = Schema.decodeUnknownResult(AxmContainerSchema);
  * Uses $DENO_DIR if set, otherwise platform-specific defaults.
  */
 const resolveDenoDir = () =>
-  Effect.sync(() => {
-    const denoDir = readEnv("DENO_DIR");
-    if (denoDir !== undefined && denoDir !== "") return denoDir;
+  Effect.gen(function* () {
+    const denoDir = yield* envOption("DENO_DIR");
+    if (Option.isSome(denoDir) && denoDir.value !== "") return denoDir.value;
 
     // Platform-specific defaults
     if (process.platform === "darwin") {

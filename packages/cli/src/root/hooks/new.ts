@@ -8,6 +8,8 @@ import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   buildNewExtensionStep,
   decodeExtensionNameSync,
+  EXTENSION_NAME_MAX_LENGTH,
+  EXTENSION_NAME_PATTERN,
   REGISTRY_EXTENSIONS_DIR,
   normalizeHandle,
   type ExtensionName,
@@ -29,7 +31,6 @@ import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
-  JobStepResult,
   Plan,
   PlanResolution,
   PlannedJobStep,
@@ -41,9 +42,6 @@ import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
-
-const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
-const MAX_NAME_LENGTH = 64;
 
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
 const HOOK_EVENTS = [
@@ -143,15 +141,6 @@ export interface HooksNewHandlerArgs {
 
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
 
-const toJobStepResult = (result: {
-  readonly result: string;
-  readonly message: string;
-  readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
-}): JobStepResult =>
-  result.result === "error" && result.error != null
-    ? { result: "error", message: result.message, error: result.error }
-    : { result: "success", message: result.message };
-
 export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: HooksNewHandlerArgs) {
   // 1. Resolve owner
   const owner = Option.isSome(args.owner)
@@ -161,8 +150,8 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
   // 2. Validate name
   if (
     args.name.length === 0 ||
-    args.name.length > MAX_NAME_LENGTH ||
-    !NAME_PATTERN.test(args.name)
+    args.name.length > EXTENSION_NAME_MAX_LENGTH ||
+    !EXTENSION_NAME_PATTERN.test(args.name)
   ) {
     return yield* makeAppError({
       code: "validation",
@@ -259,7 +248,6 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
       authored: true,
     }),
     scaffold: newHook(op).pipe(
-      Effect.map(toJobStepResult),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(WorkspaceMutations, ws),

@@ -18,6 +18,10 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../../../app-error/index.js";
+import {
+  EXTENSION_DISCOVERY_MAX_DEPTH,
+  EXTENSION_DISCOVERY_SKIPPED_DIRECTORIES,
+} from "../../../extensions/discovery-scan.js";
 import { envOption } from "../../../utils/index.js";
 
 /**
@@ -82,23 +86,6 @@ export const getPriorityDirectories = (): ReadonlyArray<string> => {
   const agentDirs = Array.dedupe(AGENT_IDS.map((id) => AGENTS[id].skills.dir));
   return [".", ...STATIC_PRIORITY_DIRECTORIES, ...agentDirs];
 };
-
-/**
- * Directories to skip during recursive Phase 3 scan.
- */
-const SKIPPED_DIRECTORIES = new Set([
-  "node_modules",
-  ".git",
-  ".axm",
-  "dist",
-  "build",
-  "__pycache__",
-]);
-
-/**
- * Maximum recursion depth for Phase 3.
- */
-const MAX_DEPTH = 5;
 
 // -----------------------------------------------------------------------------
 // Internal Skill Filtering
@@ -192,7 +179,7 @@ const recursiveScan = (
   installInternalSkills: Option.Option<string>,
 ): Effect.Effect<readonly DiscoveredSkill[], never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    if (depth > MAX_DEPTH) return [] satisfies readonly DiscoveredSkill[];
+    if (depth > EXTENSION_DISCOVERY_MAX_DEPTH) return [] satisfies readonly DiscoveredSkill[];
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
@@ -202,7 +189,8 @@ const recursiveScan = (
       entries.value,
       (entry) =>
         Effect.gen(function* () {
-          if (SKIPPED_DIRECTORIES.has(entry)) return [] satisfies DiscoveredSkill[];
+          if (EXTENSION_DISCOVERY_SKIPPED_DIRECTORIES.has(entry))
+            return [] satisfies DiscoveredSkill[];
 
           const fullPath = path.join(dir, entry);
           const stat = yield* fs.stat(fullPath).pipe(Effect.option);

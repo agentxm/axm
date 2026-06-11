@@ -11,34 +11,21 @@
 // Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
 import * as os from "node:os";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
+import { envWithDefault } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
 
-// eslint-disable-next-line no-restricted-properties -- Centralized env var access for packaging detectors
-const readEnv = (name: string): string | undefined => process.env[name];
+import { decodeAxmMeta, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const cranType = Schema.decodeUnknownSync(PackageTypeSchema)("cran");
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Read a file as string, returning Option.none for NotFound and other errors.
- */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    return content;
-  });
 
 /**
  * Parse a DESCRIPTION file into a key-value map.
@@ -171,8 +158,7 @@ export const cranDetector: PackageDetector = {
  * Resolve the R library path.
  * Checks R_LIBS_USER, then defaults to ~/R/library.
  */
-const resolveRLibPath = () =>
-  Effect.sync(() => readEnv("R_LIBS_USER") ?? `${os.homedir()}/R/library`);
+const resolveRLibPath = () => envWithDefault("R_LIBS_USER", `${os.homedir()}/R/library`);
 
 /**
  * CRAN package reader.

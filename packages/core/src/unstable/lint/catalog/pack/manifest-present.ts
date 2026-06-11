@@ -13,32 +13,17 @@
  * @packageDocumentation
  */
 
-import * as Effect from "effect/Effect";
 import type { PackRuleContext } from "../../context.js";
-import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { makeManifestPresentRule } from "../shared/manifest-present.js";
 
 const RULE_ID = "pack/manifest-present";
 const PACK_JSON = "pack.json";
 
-export const manifestPresentRule: AdvisoryRule<PackRuleContext> = {
+export const manifestPresentRule = makeManifestPresentRule<PackRuleContext>({
   id: RULE_ID,
   description: "Packs include a root pack.json manifest.",
-  kind: "advisory",
-  severity: "error",
-  check: (context) =>
-    Effect.map(context.files.exists(PACK_JSON), (present): ReadonlyArray<AdvisoryFinding> => {
-      if (present) {
-        return [];
-      }
-      return [
-        {
-          kind: "advisory",
-          ruleId: RULE_ID,
-          severity: "error",
-          message:
-            "pack.json is missing. Create pack.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
-          location: { file: PACK_JSON },
-        },
-      ];
-    }),
-};
+  manifestFile: PACK_JSON,
+  message:
+    "pack.json is missing. Create pack.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
+  exists: (context, manifestFile) => context.files.exists(manifestFile),
+});

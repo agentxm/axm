@@ -1,4 +1,4 @@
-import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import { canonicalExtensionRelativePath } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../../plan/plan.js";
 import { MANIFEST_FILENAME } from "../manifest-schema.js";
@@ -7,7 +7,7 @@ import { subagentContentFilename } from "../paths.js";
 export const SUBAGENT_CONFIG_SURFACE = ".axm (config/lockfile)";
 
 export const subagentSourcePath = (owner: Handle, name: string): string =>
-  `${REGISTRY_EXTENSIONS_DIR}/${owner}/subagents/${name}`;
+  canonicalExtensionRelativePath("subagents", { type: "registry", owner, name });
 
 export const subagentManifestSourcePath = (owner: Handle, name: string): string =>
   `${subagentSourcePath(owner, name)}/${MANIFEST_FILENAME}`;

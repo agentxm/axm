@@ -14,6 +14,7 @@ import { type Handle } from "../../extensions/handle.js";
 import { SETTINGS_FILENAME } from "../../settings/settings.js";
 import type { SourceHostConfig } from "../../settings/schema.js";
 import { makeAbsolutePath, type AbsolutePath } from "../../utils/path-types.js";
+import { AXM_DIR_NAME } from "../constants.js";
 import { AgentRootResolver } from "./agent-root-resolver.js";
 import { makeScopedAgentsApi, type ScopedAgentsApi } from "./agents/index.js";
 import { type AgentScannerObservations } from "./agents/types.js";
@@ -577,7 +578,7 @@ export const makeWorkspaceReadModel = (
 
     // Workspace path layout per scope.
     const workspaceRoot = scope === "project" ? projectRootResolved : userHomeResolved;
-    const axmDir = pathSvc.join(workspaceRoot, ".axm");
+    const axmDir = pathSvc.join(workspaceRoot, AXM_DIR_NAME);
     const settingsPath = makeAbsolutePath(pathSvc, pathSvc.join(axmDir, SETTINGS_FILENAME));
     const lockfilePath = makeAbsolutePath(pathSvc, pathSvc.join(axmDir, LOCKFILE_NAME));
 

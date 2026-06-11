@@ -11,6 +11,7 @@ export {
   AuthorSchema,
   CommonManifestBaseFields,
   ConfigurableAgentIdSchema,
+  EXTENSION_NAME_MAX_LENGTH,
   EXTENSION_NAME_PATTERN,
   ExtensionNameSchema,
   ExtensionTypePluralSchema,
@@ -116,7 +117,16 @@ export {
 } from "./fqn.js";
 
 // Constants
+export { AXM_DIR_NAME } from "../workspace/constants.js";
 export { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";
+export {
+  canonicalExtensionPath,
+  canonicalExtensionRelativePath,
+  computeExtensionPaths,
+  type CanonicalExtensionPathSource,
+  type ExtensionDirPaths,
+  type ExtensionPathSource,
+} from "./canonical-paths.js";
 
 export {
   UNIVERSAL_SKILLS_DIR,
@@ -170,6 +180,7 @@ export {
   toLabel,
   toLabelWithCompanions,
   toStepKey,
+  workspaceRetentionPolicy,
 } from "./operations.js";
 
 export {
@@ -185,10 +196,13 @@ export {
   RenderedFilePathSchema,
   RenderedFilesMapSchema,
   SourceHashSchema,
+  collectWorkspaceRenderedFiles,
   computeSourceHash,
   type RenderedFilePath,
+  type RenderedFilePathOutcome,
   type RenderedFilesMap,
   type SourceHash,
+  type WorkspaceRenderedFilesResult,
 } from "./rendered-files.js";
 
 // Frontmatter parsing

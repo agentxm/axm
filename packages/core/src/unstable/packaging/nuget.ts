@@ -14,17 +14,12 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
+import { envWithDefault } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { PackageUrlSchema } from "./package-url.js";
+import { decodePurl, decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
-// eslint-disable-next-line no-restricted-properties -- Centralized env var access for packaging detectors
-const readEnv = (name: string): string | undefined => process.env[name];
-
 const nugetType = Schema.decodeUnknownSync(PackageTypeSchema)("nuget");
-const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
 
 /**
  * Returns true if the version string is a NuGet version range.
@@ -149,34 +144,6 @@ const parsePackagesConfig = (content: string, source: string): ReadonlyArray<Det
 };
 
 /**
- * Read a file as string, returning Option.none for NotFound and other errors.
- */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    return content;
-  });
-
-/**
- * Parse JSON string, returning Option.none and logging a warning on failure.
- */
-const parseJsonOptional = (content: string, context: string) =>
-  Effect.gen(function* () {
-    const result = yield* Effect.try({
-      try: (): unknown => JSON.parse(content),
-      catch: () => ({ _tag: "JsonParseError" as const }),
-    }).pipe(Effect.option);
-
-    if (Option.isNone(result)) {
-      yield* Effect.logWarning(`Malformed JSON in ${context}, skipping`);
-      return Option.none<unknown>();
-    }
-
-    return Option.some(result.value);
-  });
-
-/**
  * Deduplicate packages by lowercased name.
  */
 const deduplicatePackages = (
@@ -268,7 +235,7 @@ export const nugetDetector: PackageDetector = {
  * Resolve the NuGet packages folder path.
  */
 const resolveNugetPackagesFolder = () =>
-  Effect.sync(() => readEnv("NUGET_PACKAGES") ?? `${os.homedir()}/.nuget/packages`);
+  envWithDefault("NUGET_PACKAGES", `${os.homedir()}/.nuget/packages`);
 
 /**
  * NuGet package reader.

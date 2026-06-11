@@ -15,24 +15,11 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { envWithDefault } from "../utils/environment.js";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { PackageUrlSchema } from "./package-url.js";
+import { decodePurl, decodeAxmMeta, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const gemType = Schema.decodeUnknownSync(PackageTypeSchema)("gem");
-const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
-
-/**
- * Read a file as string, returning Option.none for NotFound and other errors.
- */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    return content;
-  });
 
 /** Range operators that indicate non-exact version constraints. */
 const RANGE_OPERATORS = ["~>", ">=", "<=", ">", "<", "!="] as const;

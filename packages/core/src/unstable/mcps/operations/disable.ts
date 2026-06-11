@@ -12,6 +12,7 @@ import { CodingAgentRepository } from "../../agents/index.js";
 import type { AgentId } from "../../agents/index.js";
 import type { McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
+import { appendWarningsToMessage } from "../../plan/index.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
@@ -38,9 +39,6 @@ const formatAgentSyncWarnings = (
       .join(", ")}`,
   ];
 };
-
-const appendResultWarnings = (message: string, warnings: ReadonlyArray<string>): string =>
-  warnings.length === 0 ? message : `${message}; ${warnings.join("; ")}`;
 
 export const disableMcpServer = (
   op: DisableMcpServerOperation,
@@ -97,7 +95,7 @@ export const disableMcpServer = (
 
     return {
       result: "success",
-      message: appendResultWarnings(`Disabled ${op.args.serverName}`, warnings),
+      message: appendWarningsToMessage(`Disabled ${op.args.serverName}`, warnings),
       artifact: mcpServerArtifact({
         lockEntry: Option.getOrUndefined(lockEntry),
         scope: ws.scope,

@@ -6,51 +6,17 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
+import { envOption } from "../utils/environment.js";
 import { PackageTypeSchema } from "./package-type.js";
-import { PackageUrlSchema } from "./package-url.js";
+import { decodePurl, decodeAxmMeta, readFileOptional, parseJsonOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
-// eslint-disable-next-line no-restricted-properties -- Centralized env var access for packaging detectors
-const readEnv = (name: string): string | undefined => process.env[name];
-
 const bazelType = Schema.decodeUnknownSync(PackageTypeSchema)("bazel");
-const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);
-const decodeAxmMeta = Schema.decodeUnknownResult(AxmPackageMetaSchema);
-
-/**
- * Read a file as string, returning Option.none for NotFound and other errors.
- */
-const readFileOptional = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    return content;
-  });
-
-/**
- * Parse JSON string, returning Option.none and logging a warning on failure.
- */
-const parseJsonOptional = (content: string, context: string) =>
-  Effect.gen(function* () {
-    const result = yield* Effect.try({
-      try: (): unknown => JSON.parse(content),
-      catch: () => ({ _tag: "JsonParseError" as const }),
-    }).pipe(Effect.option);
-
-    if (Option.isNone(result)) {
-      yield* Effect.logWarning(`Malformed JSON in ${context}, skipping`);
-      return Option.none<unknown>();
-    }
-
-    return Option.some(result.value);
-  });
 
 /**
  * Parse MODULE.bazel content for bazel_dep() calls.
@@ -191,13 +157,13 @@ export const bazelReader: PackageReader = {
       const projectDir = path.dirname(pkg.source);
 
       // Try to find output base from environment or common location
-      const outputBase = readEnv("BAZEL_OUTPUT_BASE");
+      const outputBase = yield* envOption("BAZEL_OUTPUT_BASE");
 
       // Candidate paths for axm.json
       const candidatePaths: Array<string> = [];
 
-      if (outputBase !== undefined) {
-        candidatePaths.push(path.join(outputBase, "external", pkgName, "axm.json"));
+      if (Option.isSome(outputBase)) {
+        candidatePaths.push(path.join(outputBase.value, "external", pkgName, "axm.json"));
       }
 
       // Also try project-local bazel-out external directory

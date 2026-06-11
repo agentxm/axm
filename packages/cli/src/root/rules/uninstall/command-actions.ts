@@ -4,10 +4,13 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
+import {
+  buildUninstallOperation,
+  workspaceRetentionPolicy,
+} from "@agentxm/client-core/unstable/extensions";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
-import type { ExtensionTarget, RuleExtensionTarget } from "@agentxm/client-core/unstable/workspace";
+import type { RuleExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallRuleCommandIntent } from "./intent.js";
@@ -65,16 +68,9 @@ export const UninstallRuleCommandWorkflowActionsLive = Layer.effect(
           {
             concurrency: 1,
             steps: intent.targets.map((target) =>
-              buildUninstallOperation<RuleExtensionRef>(
-                ruleManager,
-                {
-                  isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
-                    ws.isExtensionRequiredByInstalledPack(args.target),
-                  markDependencyRetainedInLockfile: (args: { readonly target: ExtensionTarget }) =>
-                    ws.markDependencyRetainedInLockfile(args.target),
-                },
-                { target },
-              ),
+              buildUninstallOperation<RuleExtensionRef>(ruleManager, workspaceRetentionPolicy(ws), {
+                target,
+              }),
             ),
           },
         ],

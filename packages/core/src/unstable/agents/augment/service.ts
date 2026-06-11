@@ -24,12 +24,17 @@ import { CLAUDE_CODE_COMMANDS_PROJECT_DIR } from "../claude-code/service.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 import { selectRenderer } from "../../commands/renderers/index.js";
 import { insertManagedFileBanner, managedFileFormatForPath } from "../../extensions/index.js";
+import {
+  agentSkillsDir,
+  requiredAgentCommandsDir,
+  requiredAgentSubagentsDir,
+} from "../descriptor-paths.js";
 
 /** @experimental */
-export const AUGMENT_COMMANDS_PROJECT_DIR = ".augment/commands";
+export const AUGMENT_COMMANDS_PROJECT_DIR = requiredAgentCommandsDir("augment");
 
 /** @experimental */
-export const AUGMENT_SUBAGENTS_PROJECT_DIR = ".augment/agents";
+export const AUGMENT_SUBAGENTS_PROJECT_DIR = requiredAgentSubagentsDir("augment");
 
 const augmentCommandConfig: CommandSyncConfig = {
   agentId: "augment",
@@ -91,7 +96,7 @@ export const augmentCodingAgent: CodingAgent = {
       const path = yield* Path.Path;
       return {
         _tag: "supported",
-        dir: path.resolve(workspaceRoot, ".augment/skills"),
+        dir: path.resolve(workspaceRoot, agentSkillsDir("augment")),
       } as const;
     }),
   addMcpServer: (args) => addMcpServerFromManifest("augment", args),

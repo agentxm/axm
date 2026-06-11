@@ -14,7 +14,11 @@ import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { REGISTRY_EXTENSIONS_DIR, EXTERNAL_EXTENSIONS_DIR } from "../../extensions/index.js";
+import {
+  canonicalExtensionPath,
+  EXTERNAL_EXTENSIONS_DIR,
+  REGISTRY_EXTENSIONS_DIR,
+} from "../../extensions/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { checkInstalledOnDisk } from "./shared-command-helpers.js";
 
@@ -119,13 +123,11 @@ export const uninstallCommand: (
 
     // --- Remove canonical directory ---
     if (lockEntry?.type === "registry") {
-      const canonicalPath = path.join(
-        base,
-        REGISTRY_EXTENSIONS_DIR,
-        lockEntry.owner,
-        "commands",
-        lockEntry.name,
-      );
+      const canonicalPath = canonicalExtensionPath(path, base, "commands", {
+        type: "registry",
+        owner: lockEntry.owner,
+        name: lockEntry.name,
+      });
       yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
     } else if (installedOnDisk) {
       // Remove from all known locations
@@ -133,7 +135,10 @@ export const uninstallCommand: (
     }
 
     // Remove from external extensions dir too
-    const externalPath = path.join(base, EXTERNAL_EXTENSIONS_DIR, "commands", op.args.commandName);
+    const externalPath = canonicalExtensionPath(path, base, "commands", {
+      type: "external",
+      name: op.args.commandName,
+    });
     yield* fs.remove(externalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
 
     // Remove from settings + lockfile (swallow errors)

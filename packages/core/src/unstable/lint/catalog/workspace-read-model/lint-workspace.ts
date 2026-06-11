@@ -25,6 +25,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
+import { AXM_DIR_NAME } from "../../../workspace/constants.js";
 import {
   getInstructionsGitignoreStatus,
   getInstructionsStatus,
@@ -162,8 +163,8 @@ export const buildLintWorkspace = (
     const readModel = yield* makeWorkspaceReadModel(args.scope);
     const axmDir =
       args.scope === "user"
-        ? args.platform.path.join(args.userHome, ".axm")
-        : args.platform.path.join(args.workspaceRoot, ".axm");
+        ? args.platform.path.join(args.userHome, AXM_DIR_NAME)
+        : args.platform.path.join(args.workspaceRoot, AXM_DIR_NAME);
     const rule: WorkspaceRuleContext = {
       subject: { root: args.workspaceRoot, scope: args.scope },
       workspace: readModel,

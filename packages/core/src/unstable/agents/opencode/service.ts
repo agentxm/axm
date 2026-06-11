@@ -6,19 +6,17 @@
 
 import { makeProjectOnlyCodingAgent } from "../project-only-agent.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
+import { requiredAgentCommandsDir, requiredAgentSubagentsDir } from "../descriptor-paths.js";
 
 /** @experimental */
-export const OPENCODE_COMMANDS_PROJECT_DIR = ".opencode/commands";
+export const OPENCODE_COMMANDS_PROJECT_DIR = requiredAgentCommandsDir("opencode");
 
 /** @experimental */
-export const OPENCODE_SUBAGENTS_PROJECT_DIR = ".opencode/agents";
+export const OPENCODE_SUBAGENTS_PROJECT_DIR = requiredAgentSubagentsDir("opencode");
 
 export const opencodeCodingAgent = makeProjectOnlyCodingAgent({
   agentId: "opencode",
   displayName: "OpenCode",
-  skillsProjectDir: ".opencode/skills",
-  commandsProjectDir: OPENCODE_COMMANDS_PROJECT_DIR,
-  subagentsProjectDir: OPENCODE_SUBAGENTS_PROJECT_DIR,
   mcp: {
     addMcpServer: (args) => addMcpServerFromManifest("opencode", args),
     removeMcpServer: (args) => removeMcpServerFromManifest("opencode", args),

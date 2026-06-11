@@ -20,6 +20,10 @@ import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type { FindOptions, GitBasedSource, LocalSource } from "../../sources/index.js";
+import {
+  EXTENSION_DISCOVERY_MAX_DEPTH,
+  EXTENSION_DISCOVERY_SKIPPED_DIRECTORIES,
+} from "../../extensions/discovery-scan.js";
 
 type ExternalSource = GitBasedSource | LocalSource;
 
@@ -37,16 +41,6 @@ type SubagentDiscovery = {
   readonly description: Option.Option<string>;
   readonly location: string;
 };
-
-const SKIPPED_DIRECTORIES = new Set([
-  "node_modules",
-  ".git",
-  ".axm",
-  "dist",
-  "build",
-  "__pycache__",
-]);
-const MAX_DEPTH = 5;
 
 const matchesIdentity = (
   candidate: { readonly owner?: Handle; readonly name: string },
@@ -154,7 +148,7 @@ const manifestDirs = (
     depth: number,
   ): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem | Path.Path> =>
     Effect.gen(function* () {
-      if (depth > MAX_DEPTH) return [];
+      if (depth > EXTENSION_DISCOVERY_MAX_DEPTH) return [];
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
@@ -165,7 +159,7 @@ const manifestDirs = (
         entries.value,
         (entry) =>
           Effect.gen(function* () {
-            if (SKIPPED_DIRECTORIES.has(entry)) return [];
+            if (EXTENSION_DISCOVERY_SKIPPED_DIRECTORIES.has(entry)) return [];
             const fullPath = path.join(dir, entry);
             const stat = yield* fs.stat(fullPath).pipe(Effect.option);
             if (Option.isNone(stat) || stat.value.type !== "Directory") return [];

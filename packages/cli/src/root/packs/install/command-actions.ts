@@ -53,7 +53,7 @@ import {
   parseExtensionFqnParts,
   targetFromRef,
   toLabel,
-  type UninstallRetentionPolicy,
+  workspaceRetentionPolicy,
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
@@ -828,11 +828,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           { concurrency: "unbounded" },
         );
 
-        const retentionPolicy: UninstallRetentionPolicy = {
-          isRequiredByInstalledPack: (args) => ws.isExtensionRequiredByInstalledPack(args.target),
-          markDependencyRetainedInLockfile: (args) =>
-            ws.markDependencyRetainedInLockfile(args.target),
-        };
+        const retentionPolicy = workspaceRetentionPolicy(ws);
 
         const installSteps = refs.map((ref: ExtensionRef): PlannedJobStep => {
           const target = targetFromRef(ref);

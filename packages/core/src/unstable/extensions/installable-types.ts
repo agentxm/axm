@@ -1,19 +1,18 @@
 import * as Schema from "effect/Schema";
 
-import type { ExtensionType, ExtensionTypePlural } from "./common.js";
+import {
+  extensionTypePluralSegments,
+  extensionTypes,
+  isExtensionTypePlural,
+  toExtensionType,
+  toExtensionTypePlural,
+  type ExtensionType,
+  type ExtensionTypePlural,
+} from "./common.js";
 
-export const installableExtensionTypes = [
-  "skill",
-  "command",
-  "mcp-server",
-  "subagent",
-  "files",
-  "rule",
-  "hook",
-  "pack",
-] as const satisfies ReadonlyArray<ExtensionType>;
+export const installableExtensionTypes = extensionTypes;
 
-export type InstallableExtensionType = (typeof installableExtensionTypes)[number];
+export type InstallableExtensionType = ExtensionType;
 
 const installableExtensionTypeSet = new Set<string>(installableExtensionTypes);
 
@@ -21,62 +20,21 @@ export const isInstallableExtensionType = (
   value: ExtensionType,
 ): value is InstallableExtensionType => installableExtensionTypeSet.has(value);
 
-export const installableExtensionTypePluralSegments = [
-  "skills",
-  "commands",
-  "mcps",
-  "subagents",
-  "files",
-  "rules",
-  "hooks",
-  "packs",
-] as const satisfies ReadonlyArray<ExtensionTypePlural>;
+export const installableExtensionTypePluralSegments = extensionTypePluralSegments;
 
-export type InstallableExtensionTypePlural =
-  (typeof installableExtensionTypePluralSegments)[number];
-
-const installableExtensionTypePluralSet = new Set<string>(installableExtensionTypePluralSegments);
+export type InstallableExtensionTypePlural = ExtensionTypePlural;
 
 export const isInstallableExtensionTypePlural = (
   value: string | undefined,
-): value is InstallableExtensionTypePlural =>
-  value !== undefined && installableExtensionTypePluralSet.has(value);
-
-const installableExtensionTypeFromPlural: Record<
-  InstallableExtensionTypePlural,
-  InstallableExtensionType
-> = {
-  skills: "skill",
-  commands: "command",
-  mcps: "mcp-server",
-  subagents: "subagent",
-  files: "files",
-  rules: "rule",
-  hooks: "hook",
-  packs: "pack",
-};
-
-const installableExtensionTypeToPlural: Record<
-  InstallableExtensionType,
-  InstallableExtensionTypePlural
-> = {
-  skill: "skills",
-  command: "commands",
-  "mcp-server": "mcps",
-  subagent: "subagents",
-  files: "files",
-  rule: "rules",
-  hook: "hooks",
-  pack: "packs",
-};
+): value is InstallableExtensionTypePlural => isExtensionTypePlural(value);
 
 export const toInstallableExtensionType = (
   segment: InstallableExtensionTypePlural,
-): InstallableExtensionType => installableExtensionTypeFromPlural[segment];
+): InstallableExtensionType => toExtensionType(segment);
 
 export const toInstallableExtensionTypePlural = (
   type: InstallableExtensionType,
-): InstallableExtensionTypePlural => installableExtensionTypeToPlural[type];
+): InstallableExtensionTypePlural => toExtensionTypePlural(type);
 
 export const InstallableExtensionTypeSchema = Schema.Literals(installableExtensionTypes).annotate({
   identifier: "InstallableExtensionType",

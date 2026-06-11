@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { toJobStepResult } from "./job-step-result.js";
+import { toJobStepResult } from "../shared/job-step-result.js";
 
-describe("commands toJobStepResult", () => {
+describe("toJobStepResult", () => {
   it("preserves success artifacts", () => {
     const result = toJobStepResult({
       result: "success",

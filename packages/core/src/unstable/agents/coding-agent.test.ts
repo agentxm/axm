@@ -9,6 +9,7 @@ import { claudeCodeCodingAgent } from "./claude-code/service.js";
 import { codexCodingAgent } from "./codex/service.js";
 import { geminiCliCodingAgent } from "./gemini-cli/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
+import { windsurfCodingAgent } from "./windsurf/service.js";
 import { handle } from "../test-helpers.js";
 
 const opencodeMcpSyncTimeoutMs = 20_000;
@@ -58,6 +59,22 @@ describe("coding-agent services", () => {
         expect(outcome._tag).toBe("supported");
         if (outcome._tag === "supported") {
           expect(outcome.dir).toContain(".agents/skills");
+        }
+      }),
+    ),
+  );
+
+  it.effect("windsurf resolves commands to workflows directory", () =>
+    withNode(
+      Effect.gen(function* () {
+        const outcome = yield* windsurfCodingAgent.resolveEffectiveCommandsDir({
+          workspaceRoot: "/workspace",
+          scope: "project",
+        });
+
+        expect(outcome._tag).toBe("supported");
+        if (outcome._tag === "supported") {
+          expect(outcome.dir).toContain(".windsurf/workflows");
         }
       }),
     ),

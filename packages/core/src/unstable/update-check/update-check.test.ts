@@ -10,6 +10,7 @@ import * as nodePath from "node:path";
 import * as nodeFs from "node:fs";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -17,6 +18,7 @@ import * as Option from "effect/Option";
 import {
   type SkipCheckContext,
   UpdateCheck,
+  UpdateCheckLive,
   UpdateCheckTest,
   isCacheStale,
   notificationMessage,
@@ -459,4 +461,29 @@ describe("UpdateCheck service via UpdateCheckTest layer", () => {
       ),
     ),
   );
+
+  it.effect("live layer stores cache under AXM_USER_HOME", () => {
+    const userHome = nodePath.join(tempDir, "axm-user-home");
+
+    return Effect.gen(function* () {
+      const service = yield* UpdateCheck;
+      yield* service.writeCache("3.0.0");
+
+      const cachePath = nodePath.join(userHome, ".axm", "update-check.json");
+      expect(nodeFs.existsSync(cachePath)).toBe(true);
+      const content: unknown = JSON.parse(nodeFs.readFileSync(cachePath, "utf8"));
+      expect(content).toMatchObject({ latestVersion: "3.0.0" });
+    }).pipe(
+      Effect.provide(
+        UpdateCheckLive.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              NodeServices.layer,
+              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: userHome } })),
+            ),
+          ),
+        ),
+      ),
+    );
+  });
 });

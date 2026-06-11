@@ -25,6 +25,7 @@ import {
   type TreePayload,
 } from "./cli-renderer.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
+import { taskCompletionMessage } from "./renderer-helpers.js";
 
 // ---------------------------------------------------------------------------
 // TestRendererState — mutable state object capturing all CliRenderer calls
@@ -128,16 +129,6 @@ const makeMockProgressHandle = (state: TestRendererState, message: string): Prog
         }
       }),
   };
-};
-
-const taskCompletionMessage = (title: string, result: string | void): string => {
-  if (result === undefined || result.length === 0 || result === title) {
-    return title;
-  }
-  if (result.startsWith(`${title}:`) || result.startsWith(`${title} `)) {
-    return result;
-  }
-  return `${title}: ${result}`;
 };
 
 const makeTestRendererService = (

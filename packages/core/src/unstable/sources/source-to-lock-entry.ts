@@ -9,6 +9,11 @@
  */
 
 import * as Option from "effect/Option";
+import {
+  gitHostedLockSourceFields,
+  localLockSourceFields,
+  registryLockSourceFields,
+} from "../lockfile/entry-helpers.js";
 import type { SkillLockEntry } from "../lockfile/schema.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 
@@ -32,22 +37,11 @@ export interface SourceToLockEntryInput {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const optionalField = <K extends string, V>(key: K, value: Option.Option<V>): { [P in K]?: V } => {
-  const fields: { [P in K]?: V } = {};
-  if (Option.isSome(value)) {
-    fields[key] = value.value;
-  }
-  return fields;
-};
-
 const commonFields = (input: SourceToLockEntryInput) => ({
   agents: [...input.agents],
   installedAt: Option.getOrElse(input.existingInstalledAt, () => input.now),
   updatedAt: input.now,
 });
-
-const localSourceLockPath = (input: SourceToLockEntryInput, sourcePath: string): string =>
-  Option.getOrElse(input.workspaceRelativeLocalSourcePath ?? Option.none(), () => sourcePath);
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -64,80 +58,30 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
   const { ref } = input;
 
   switch (ref.refType) {
-    case "git-hosted": {
-      switch (ref.source.type) {
-        case "github":
-          return {
-            type: "github",
-            owner: ref.source.owner,
-            repo: ref.source.repo,
-            ...optionalField("ref", ref.source.ref),
-            ...optionalField("path", ref.source.subPath),
-            ...optionalField("gitTreeHash", ref.gitTreeSha),
-            ...common,
-          };
-
-        case "gitlab":
-          return {
-            type: "gitlab",
-            owner: ref.source.owner,
-            repo: ref.source.repo,
-            ...optionalField("ref", ref.source.ref),
-            ...optionalField("path", ref.source.subPath),
-            ...optionalField("gitTreeHash", ref.gitTreeSha),
-            ...common,
-          };
-
-        case "bitbucket":
-          return {
-            type: "bitbucket",
-            owner: ref.source.owner,
-            repo: ref.source.repo,
-            ...optionalField("ref", ref.source.ref),
-            ...optionalField("path", ref.source.subPath),
-            ...optionalField("gitTreeHash", ref.gitTreeSha),
-            ...common,
-          };
-
-        case "azurerepos":
-          return {
-            type: "azurerepos",
-            organization: ref.source.organization,
-            project: ref.source.project,
-            repo: ref.source.repo,
-            ...optionalField("ref", ref.source.ref),
-            ...optionalField("path", ref.source.subPath),
-            ...optionalField("gitTreeHash", ref.gitTreeSha),
-            ...common,
-          };
-
-        case "git":
-          return {
-            type: "git",
-            url: ref.source.url.href,
-            ...optionalField("ref", ref.source.ref),
-            ...optionalField("gitTreeHash", ref.gitTreeSha),
-            ...common,
-          };
-      }
-      break;
-    }
+    case "git-hosted":
+      return {
+        ...gitHostedLockSourceFields(ref.source, ref.gitTreeSha),
+        ...common,
+      };
 
     case "local":
       return {
-        type: "local",
-        path: localSourceLockPath(input, ref.source.path),
+        ...localLockSourceFields({
+          source: ref.source,
+          workspaceRelativeLocalSourcePath: input.workspaceRelativeLocalSourcePath,
+        }),
         ...common,
       };
 
     case "registry":
       return {
-        type: "registry",
-        owner: ref.owner,
-        name: ref.skill.name,
-        resolvedVersion: ref.version,
-        integrity: Option.getOrElse(ref.integrity, () => ""),
-        sourceName: Option.getOrElse(input.sourceName, () => "default"),
+        ...registryLockSourceFields({
+          owner: ref.owner,
+          name: ref.skill.name,
+          version: ref.version,
+          integrity: ref.integrity,
+          sourceName: input.sourceName,
+        }),
         ...common,
       };
   }

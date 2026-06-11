@@ -16,9 +16,10 @@ import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
+import { appendWarningsToMessage } from "../../plan/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import { canonicalExtensionPath, REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import {
   agentConfigTarget,
   mcpServerArtifact,
@@ -109,9 +110,6 @@ const summarizeAgentSync = (
     agentIds: outcomes.map(({ agentId }) => agentId),
   };
 };
-
-const appendResultWarnings = (message: string, warnings: ReadonlyArray<string>): string =>
-  warnings.length === 0 ? message : `${message}; ${warnings.join("; ")}`;
 
 const syncConfiguredAgentsOnUninstall = (args: {
   readonly wsBaseDir: string;
@@ -243,13 +241,11 @@ export const uninstallMcpServer: (
 
     // Determine canonical path from lock entry or scan
     if (lockEntry?.type === "registry") {
-      const canonicalPath = path.join(
-        base,
-        REGISTRY_EXTENSIONS_DIR,
-        lockEntry.owner,
-        "mcps",
-        lockEntry.name,
-      );
+      const canonicalPath = canonicalExtensionPath(path, base, "mcps", {
+        type: "registry",
+        owner: lockEntry.owner,
+        name: lockEntry.name,
+      });
       yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
     } else if (installedOnDisk) {
       // Remove from all known locations
@@ -281,7 +277,7 @@ export const uninstallMcpServer: (
 
     return {
       result: "success",
-      message: appendResultWarnings(
+      message: appendWarningsToMessage(
         `Uninstalled ${op.args.serverName} (canonical=success, agent-sync=${agentSync.status})`,
         warnings,
       ),

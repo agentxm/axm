@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 import * as semver from "semver";
 
-import { resolveAxmDataDir } from "../utils/index.js";
+import { getUserScopeDir } from "../workspace/paths.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -214,7 +214,7 @@ export const UpdateCheckLive = Layer.effect(
     const pathService = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
 
-    const dataDir = yield* resolveAxmDataDir(pathService.join);
+    const dataDir = yield* getUserScopeDir();
     const cachePath = pathService.join(dataDir, CACHE_FILENAME);
 
     const readCache: UpdateCheckService["readCache"] = () =>

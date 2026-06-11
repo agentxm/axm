@@ -58,7 +58,9 @@ import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-ou
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
 import type { VersionableExtensionType } from "../shared/extension-version.js";
+import { resolvePublishTargetRegistry, type TargetRegistry } from "../shared/publish-resolution.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
+import { toJobStepResult } from "../shared/job-step-result.js";
 
 export interface PublishPackHandlerArgs {
   readonly pack: string;
@@ -80,67 +82,12 @@ export type PackPublishOp =
   | PublishSubagentOperation
   | PublishHookOperation;
 
-interface TargetRegistry {
-  readonly registryName: string;
-  readonly registryUrl: string;
-}
-
 interface PublishVersionTarget {
   readonly fqn: string;
   readonly type: VersionableExtensionType;
 }
 
-const resolveTargetRegistry = (registry: Option.Option<string>) =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to get registry sources: ${e._tag}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    const [defaultRegistry] = registrySources;
-    if (defaultRegistry === undefined) {
-      return yield* makeAppError({
-        code: "usage",
-        detail: "No registry sources configured",
-        suggestions: [{ description: "Run the registry guard first." }],
-      });
-    }
-
-    if (Option.isNone(registry)) {
-      return {
-        registryName: defaultRegistry.name,
-        registryUrl: defaultRegistry.location.href,
-      } satisfies TargetRegistry;
-    }
-
-    const namedRegistry = yield* ws.getConfiguredSourceByName(registry.value).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to lookup registry source "${registry.value}"`,
-          cause: e,
-        }),
-      ),
-    );
-
-    if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: `Registry source "${registry.value}" not found or not a registry source`,
-      });
-    }
-
-    return {
-      registryName: registry.value,
-      registryUrl: namedRegistry.value.location.href,
-    } satisfies TargetRegistry;
-  });
+type ToJobStepResult = typeof toJobStepResult;
 
 /**
  * Handles the `axm packs publish` command.
@@ -148,7 +95,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
 export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   args: PublishPackHandlerArgs,
 ) {
-  const targetRegistry = yield* resolveTargetRegistry(args.registry);
+  const targetRegistry = yield* resolvePublishTargetRegistry(args.registry);
   if (args.preview) {
     yield* publishPackEffect(args, targetRegistry);
     return;
@@ -179,20 +126,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     );
-
-  const toJobStepResult = (result: {
-    readonly result: string;
-    readonly message: string;
-    readonly error?: AppError;
-    readonly links?: { readonly html: string };
-  }): JobStepResult =>
-    result.result === "error" && result.error !== undefined
-      ? { result: "error", message: result.message, error: result.error }
-      : {
-          result: "success",
-          message: result.message,
-          ...(result.links !== undefined ? { links: result.links } : {}),
-        };
 
   // Step 1: Resolve pack name. Bare names look up the configured pack entry
   // and parse its `source` to derive the owner.
@@ -483,12 +416,7 @@ const makeDependencyStep = (
   provideServices: <A, E>(
     effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
   ) => Effect.Effect<A, E, never>,
-  toJobStepResult: (result: {
-    readonly result: string;
-    readonly message: string;
-    readonly error?: AppError;
-    readonly links?: { readonly html: string };
-  }) => JobStepResult,
+  toJobStepResult: ToJobStepResult,
 ): Effect.Effect<PlannedJobStep, AppError> => {
   const label = `Publish dependency ${depFqn}`;
 

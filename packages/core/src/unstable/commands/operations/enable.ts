@@ -23,11 +23,7 @@ import type {
   JobStepResult,
 } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-  computeSourceHash,
-} from "../../extensions/index.js";
+import { canonicalExtensionPath, computeSourceHash } from "../../extensions/index.js";
 import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../../utils/path-types.js";
@@ -162,19 +158,14 @@ export const enableCommand: OperationHandler<
     // Lock-backed path: full enable with re-rendering
     const lockEntry = lockEntryOption.value;
 
-    // Determine canonical path from lock entry
-    let canonicalPath: string;
-    if (lockEntry.type === "registry") {
-      canonicalPath = path.join(
-        base,
-        REGISTRY_EXTENSIONS_DIR,
-        lockEntry.owner,
-        "commands",
-        lockEntry.name,
-      );
-    } else {
-      canonicalPath = path.join(base, EXTERNAL_EXTENSIONS_DIR, "commands", op.args.commandName);
-    }
+    const canonicalPath = canonicalExtensionPath(
+      path,
+      base,
+      "commands",
+      lockEntry.type === "registry"
+        ? { type: "registry", owner: lockEntry.owner, name: lockEntry.name }
+        : { type: "external", name: op.args.commandName },
+    );
 
     const exists = yield* fs.exists(canonicalPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {

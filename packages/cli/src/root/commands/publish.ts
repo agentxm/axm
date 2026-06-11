@@ -6,18 +6,8 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  forceFlag,
-  previewFlag,
-  Verbosity,
-  yesFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
-import {
-  setCommandSemanticProperties,
-  summarizeCommandOutcome,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -27,21 +17,22 @@ import {
   COMMAND_MANIFEST_FILENAME,
   commandContentFilename,
 } from "@agentxm/client-core/unstable/commands";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import type { PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import {
   REGISTRY_EXTENSIONS_DIR,
   fqnInvalidErrorToAppError,
   parseFqn,
   parseRegistrySourcePatternParts,
 } from "@agentxm/client-core/unstable/extensions";
-import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
-import { publishSuccessRender } from "../shared/publish-success.js";
+import {
+  resolvePublishExtensionInputs,
+  resolvePublishTargetRegistry,
+  type TargetRegistry,
+} from "../shared/publish-resolution.js";
+import { runMultiExtensionPublishPlan } from "../shared/publish-runner.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
-import { toJobStepResult } from "./job-step-result.js";
+import { toJobStepResult } from "../shared/job-step-result.js";
 
 export interface CommandsPublishHandlerArgs {
   readonly extensions: ReadonlyArray<string>;
@@ -51,98 +42,13 @@ export interface CommandsPublishHandlerArgs {
   readonly preview: boolean;
 }
 
-interface TargetRegistry {
-  readonly registryName: string;
-  readonly registryUrl: string;
-}
-
-const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-
-    const globPatterns = extensions.filter((e) => isGlobPattern(e));
-    const literalInputs = extensions.filter((e) => !isGlobPattern(e));
-
-    if (globPatterns.length === 0) return literalInputs;
-
-    const installedCommands = yield* ws.records.getInstalledCommands();
-    const installedNames = Object.keys(installedCommands);
-    const globMatches = expandGlobs(globPatterns, installedNames);
-
-    if (globPatterns.length === extensions.length && globMatches.length === 0) {
-      return [];
-    }
-
-    const seen = new Set<string>(globMatches);
-    return [
-      ...globMatches,
-      ...literalInputs.filter((lit) => {
-        if (seen.has(lit)) return false;
-        seen.add(lit);
-        return true;
-      }),
-    ];
-  });
-
-const resolveTargetRegistry = (registry: Option.Option<string>) =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to get registry sources: ${e._tag}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    const [defaultRegistry] = registrySources;
-    if (defaultRegistry === undefined) {
-      return yield* makeAppError({
-        code: "usage",
-        detail: "No registry sources configured",
-        suggestions: [{ description: "Run the registry guard first." }],
-      });
-    }
-
-    if (Option.isNone(registry)) {
-      return {
-        registryName: defaultRegistry.name,
-        registryUrl: defaultRegistry.location.href,
-      } satisfies TargetRegistry;
-    }
-
-    const namedRegistry = yield* ws.getConfiguredSourceByName(registry.value).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to lookup registry source "${registry.value}"`,
-          cause: e,
-        }),
-      ),
-    );
-
-    if (Option.isNone(namedRegistry) || namedRegistry.value.type !== "registry") {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: `Registry source "${registry.value}" not found or not a registry source`,
-      });
-    }
-
-    return {
-      registryName: registry.value,
-      registryUrl: namedRegistry.value.location.href,
-    } satisfies TargetRegistry;
-  });
-
 /**
  * Handles the `axm commands publish` command.
  */
 export const handleCommandsPublish = Effect.fn("CommandsPublish.handle")(function* (
   args: CommandsPublishHandlerArgs,
 ) {
-  const targetRegistry = yield* resolveTargetRegistry(args.registry);
+  const targetRegistry = yield* resolvePublishTargetRegistry(args.registry);
   if (args.preview) {
     yield* publishEffect(args, targetRegistry);
     return;
@@ -160,13 +66,15 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
   const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
-  const renderer = yield* CliRenderer;
-  const verbosity = yield* Verbosity;
 
   const base = ws.baseDir;
 
   // Step 1: Separate glob patterns from literal inputs, expand globs
-  const resolvedNames = yield* resolveExtensionInputs(args.extensions);
+  const resolvedNames = yield* resolvePublishExtensionInputs(args.extensions, (ws) =>
+    Effect.map(ws.records.getInstalledCommands(), (installedCommands) =>
+      Object.keys(installedCommands),
+    ),
+  );
   if (resolvedNames.length === 0) {
     yield* emitNoOpOutcome("commands.publish", {
       planName: "Publish command",
@@ -295,107 +203,37 @@ const publishEffect = Effect.fn("CommandsPublish.publishEffect")(function* (
     });
   });
 
-  yield* Effect.forEach(
+  yield* runMultiExtensionPublishPlan({
+    command: "commands.publish",
+    planName: "Publish command",
+    subjectType: "command",
+    sourceKind: "registry",
+    noun: "command",
+    pluralNoun: "commands",
+    preflightType: "command",
     extensionNames,
-    (extName) =>
-      checkPublishVersionPreflight({
-        fqn: extName,
-        type: "command",
-        registryName: targetRegistry.registryName,
-        registryUrl: targetRegistry.registryUrl,
-        force: args.force,
-      }),
-    { concurrency: "unbounded" },
-  );
-
-  // Step 4: Build multi-step plan with inline run closures
-  const steps: ReadonlyArray<PlannedJobStep> = extensionNames.map((extName): PlannedJobStep => {
-    const op = {
-      name: "publish-command",
-      args: { name: extName, registryName: targetRegistry.registryName },
-    } satisfies PublishCommandOperation;
-
-    return {
-      readiness: "ready",
-      label: `Publish ${extName}`,
-      run: publishCommandOp(op).pipe(
-        Effect.map(toJobStepResult),
-        Effect.provideService(WorkspaceMutations, ws),
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      ),
-    };
-  });
-
-  const description =
-    extensionNames.length === 1
-      ? `Publish ${extensionNames[0]} to registry "${targetRegistry.registryName}"`
-      : `Publish ${extensionNames.length} commands to registry "${targetRegistry.registryName}"`;
-
-  const plan: Plan = {
-    _tag: "Plan",
-    name: "Publish command",
-    description: Option.some(description),
-    jobs: [{ steps, concurrency: 1 as const }],
-  };
-
-  const resolvedPlan = yield* previewOrApplyPlan(plan, {
+    targetRegistry,
     yes: args.yes,
     force: args.force,
     preview: args.preview,
-    displayApplied: false,
+    makeStep: (extName): PlannedJobStep => {
+      const op = {
+        name: "publish-command",
+        args: { name: extName, registryName: targetRegistry.registryName },
+      } satisfies PublishCommandOperation;
+
+      return {
+        readiness: "ready",
+        label: `Publish ${extName}`,
+        run: publishCommandOp(op).pipe(
+          Effect.map(toJobStepResult),
+          Effect.provideService(WorkspaceMutations, ws),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        ),
+      };
+    },
   });
-
-  const failedStepErrors =
-    resolvedPlan._tag === "ExecutedPlan"
-      ? resolvedPlan.jobs
-          .flatMap((job) => job.steps)
-          .flatMap((step) => (step.result.result === "error" ? [step.result] : []))
-      : [];
-
-  if (failedStepErrors.length > 0) {
-    const [singleFailure] = failedStepErrors;
-    if (
-      failedStepErrors.length === 1 &&
-      singleFailure !== undefined &&
-      singleFailure.error.metadata?.response !== undefined
-    ) {
-      return yield* singleFailure.error;
-    }
-
-    return yield* makeAppError({
-      code: "internal",
-      detail: `Failed to publish ${failedStepErrors.length} command${failedStepErrors.length === 1 ? "" : "s"}`,
-    });
-  }
-
-  yield* setCommandSemanticProperties(
-    summarizeCommandOutcome(
-      planResolutionToSummary(resolvedPlan, {
-        subjectType: "command",
-        sourceKind: "registry",
-      }),
-    ),
-  );
-  const success =
-    resolvedPlan._tag === "ExecutedPlan" ? publishSuccessRender(resolvedPlan) : undefined;
-  const emitted = yield* emitPlanResolutionResult("commands.publish", resolvedPlan, {
-    ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
-  });
-  if (emitted) {
-    return;
-  }
-
-  if (success !== undefined) {
-    yield* renderer.success(
-      success.message,
-      verbosity.level === "quiet"
-        ? undefined
-        : {
-            ...(success.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
-          },
-    );
-  }
 });
 
 const publishConfig = {

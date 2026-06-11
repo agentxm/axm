@@ -14,6 +14,28 @@ The `src/` directory holds `SKILL.md` and any other files described by the [agen
 
 `SKILL.md` is Markdown with YAML frontmatter. Only `name` is required, and it must match both the manifest's `name` and the skill directory name. Everything else in the frontmatter passes through verbatim to the rendered agent file.
 
+## Invocation modes
+
+A skill can be invoked by the **model** (loaded automatically when its `description` matches the task) or by the **user** (run explicitly, e.g. `/skill-name`). By default it's **both**. Two optional frontmatter booleans narrow this:
+
+| Frontmatter                      | Model | User | Use for                                                                        |
+| -------------------------------- | ----- | ---- | ------------------------------------------------------------------------------ |
+| _(omit both)_                    | yes   | yes  | Default — most skills                                                          |
+| `disable-model-invocation: true` | no    | yes  | Side-effecting actions (deploy, commit, release) you don't want auto-triggered |
+| `user-invocable: false`          | yes   | no   | Background knowledge that isn't a meaningful command                           |
+
+```yaml
+---
+name: deploy-prod
+description: Deploy the current branch to production.
+disable-model-invocation: true
+---
+```
+
+These are **best-effort passthrough**: AXM copies them verbatim but does not validate them, and only some agents honor them (Claude Code, Cursor, VS Code Copilot). Others ignore the keys and keep the skill model-invokable (opencode, Amp, Antigravity), or gate invocation through their own config instead (Codex). Treat them as a portability hint, **not** an access-control guarantee.
+
+**When user-only behavior must hold across every agent, ship a `command` extension instead** — it materializes into each agent's native command system rather than relying on frontmatter the agent may ignore. See `axm help commands`.
+
 ## Authoring and editing skills
 
 The contents of `src/` are symlinked by AXM into each configured agent's skill directory, so you do not need to run `axm sync` after an edit. Run `axm sync` only if symlinks or copies are broken.

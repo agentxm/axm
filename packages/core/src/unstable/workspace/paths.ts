@@ -59,7 +59,7 @@ export const resolveUserScopeDirPure = (
 export const resolveUserScopeDir = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const axmUserHome = yield* Effect.orDie(axmUserHomeConfig.asEffect());
+    const axmUserHome = yield* Effect.orDie(axmUserHomeConfig);
     const home = Option.match(axmUserHome.pipe(Option.filter((value) => value.length > 0)), {
       onNone: () => os.homedir(),
       onSome: (value) => value,

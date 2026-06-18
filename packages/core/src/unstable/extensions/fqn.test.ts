@@ -124,7 +124,7 @@ describe("round-trip", () => {
   ].forEach((input) => {
     it.effect(`formatFqn(parseFqn(${input})) === ${input}`, () =>
       Effect.gen(function* () {
-        const parsed = yield* parseFqn(input);
+        const parsed = yield* Effect.fromResult(parseFqn(input));
         expect(formatFqn(parsed)).toBe(input);
       }),
     );

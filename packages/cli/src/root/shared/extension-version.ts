@@ -118,7 +118,9 @@ export const resolveManifestVersionInfo = (
     const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
-    const fqn = yield* Result.mapError(parseFqn(fqnInput), fqnInvalidErrorToAppError);
+    const fqn = yield* Effect.fromResult(
+      Result.mapError(parseFqn(fqnInput), fqnInvalidErrorToAppError),
+    );
 
     if (!isVersionableType(fqn.type) || fqn.type !== expectedType) {
       return yield* makeAppError({

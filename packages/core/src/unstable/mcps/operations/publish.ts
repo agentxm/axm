@@ -82,7 +82,9 @@ export const publishMcpServer: (
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const fqn = yield* Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError);
+    const fqn = yield* Effect.fromResult(
+      Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError),
+    );
 
     // Locate the extension directory
     const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "mcps", fqn.name);

@@ -34,6 +34,7 @@ const makeHarness = Effect.gen(function* () {
   const output: Array<string> = [];
   const terminal = Terminal.make({
     columns: Effect.succeed(80),
+    rows: Effect.succeed(24),
     readInput: Effect.succeed(Queue.asDequeue(queue)),
     readLine: Effect.succeed(""),
     display: (text) => {

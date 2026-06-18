@@ -1,8 +1,8 @@
 diff --git a/dist/OpenApiGenerator.js b/dist/OpenApiGenerator.js
-index d5a04f59d4ea843c7dcdfa594d51877490fad73f..01f99cfc896ad813c8070093a7fa76def8595b86 100644
+index 534258ff796e1badd58379c62689dc3fedca8bf3..b243b33cedd0b62e53cb40b02788addc85fb5054 100644
 --- a/dist/OpenApiGenerator.js
 +++ b/dist/OpenApiGenerator.js
-@@ -281,21 +281,27 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+@@ -306,21 +306,27 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
            });
          }
          const representable = [];
@@ -37,8 +37,8 @@ index d5a04f59d4ea843c7dcdfa594d51877490fad73f..01f99cfc896ad813c8070093a7fa76de
 +            if (isJsonMediaType(contentType.toLowerCase())) {
                continue;
              }
-             if (!Predicate.isObject(mediaType) || Predicate.isUndefined(mediaType.schema)) {
-@@ -350,10 +356,21 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
+             if (!Predicate.isObject(mediaType)) {
+@@ -402,10 +408,21 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
              op.sseSchema = addSchema(`${schemaId}${status}Sse`, sseResponseSchema, op);
            }
          }
@@ -64,7 +64,7 @@ index d5a04f59d4ea843c7dcdfa594d51877490fad73f..01f99cfc896ad813c8070093a7fa76de
            }
          }
          if (isEmptyResponse) {
-@@ -576,9 +593,28 @@ const isMultipartBinaryFiles = (value, singleFileRef) => {
+@@ -628,9 +645,28 @@ const isMultipartBinaryFiles = (value, singleFileRef) => {
    const items = value.items;
    return isMultipartBinaryFile(items) || Predicate.isObject(items) && items.$ref === singleFileRef;
  };
@@ -95,10 +95,10 @@ index d5a04f59d4ea843c7dcdfa594d51877490fad73f..01f99cfc896ad813c8070093a7fa76de
    const normalized = contentType.toLowerCase();
    if (isJsonMediaType(normalized)) {
 diff --git a/dist/OpenApiTransformer.js b/dist/OpenApiTransformer.js
-index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e976d89fe 100644
+index 2be3cde1c8e03e5d387233f7825dae8b525e522e..a7cd3136557f1e2f0b66d8f1f275d43812952f8a 100644
 --- a/dist/OpenApiTransformer.js
 +++ b/dist/OpenApiTransformer.js
-@@ -6,6 +6,7 @@ export class OpenApiTransformer extends /*#__PURE__*/Context.Service()("OpenApiT
+@@ -31,6 +31,7 @@ export class OpenApiTransformer extends /*#__PURE__*/Context.Service()("OpenApiT
  const computeImportRequirements = operations => {
    let eventStream = false;
    let octetStream = false;
@@ -106,7 +106,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
    for (const op of operations) {
      if (op.sseSchema) {
        eventStream = true;
-@@ -13,13 +14,19 @@ const computeImportRequirements = operations => {
+@@ -38,13 +39,19 @@ const computeImportRequirements = operations => {
      if (op.binaryResponse) {
        octetStream = true;
      }
@@ -124,10 +124,10 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
  const requiresStreaming = requirements => requirements.eventStream || requirements.octetStream;
 +// Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914: Route 4xx/5xx void statuses to error channel
 +const hasVoidErrors = operations => operations.some(op => Array.from(op.voidSchemas).some(Utils.isErrorStatus));
- export const makeTransformerSchema = () => {
-   const operationsToInterface = (_importName, name, operations) => {
-     const methods = [];
-@@ -64,13 +71,22 @@ ${clientErrorSource(name)}`;
+ /**
+  * Create the transformer used for schema-backed HttpClient output.
+  *
+@@ -101,13 +108,22 @@ ${clientErrorSource(name)}`;
        args.push(`options: { ${options.join("; ")} } | undefined`);
      }
      let success = "void";
@@ -152,7 +152,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
      const jsdoc = Utils.toComment(operation.description);
      const methodKey = `readonly "${operation.id}"`;
      const generic = `<Config extends OperationConfig>`;
-@@ -149,6 +165,10 @@ ${clientErrorSource(name)}`;
+@@ -186,6 +202,10 @@ ${clientErrorSource(name)}`;
      if (requirements.octetStream) {
        helpers.push(binaryRequestSource);
      }
@@ -163,7 +163,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
      return `export interface OperationConfig {
    /**
     * Whether or not the response should be included in the value returned from
-@@ -189,7 +209,11 @@ export const make = (
+@@ -226,7 +246,11 @@ export const make = (
          HttpClientResponse.schemaBodyJson(schema)(response),
          (cause) => Effect.fail(${name}Error(tag, cause, response)),
        )
@@ -176,7 +176,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
      httpClient,
      ${implMethods.join(",\n    ")}
    }
-@@ -219,16 +243,25 @@ export const make = (
+@@ -256,16 +280,25 @@ export const make = (
        pipeline.push(`HttpClientRequest.bodyJsonUnsafe(${payloadVarName})`);
      }
      const decodes = [];
@@ -204,7 +204,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
      });
      decodes.push(`orElse: unexpectedStatus`);
      const configAccessor = resolveConfigAccessor(operation, "options", "config");
-@@ -358,8 +391,12 @@ ${clientErrorSource(name)}`;
+@@ -419,8 +452,12 @@ ${clientErrorSource(name)}`;
        args.push(`options: { ${options.join("; ")} } | undefined`);
      }
      let success = "void";
@@ -219,7 +219,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
      }
      const errors = ["HttpClientError.HttpClientError"];
      if (operation.errorSchemas.size > 0) {
-@@ -367,6 +404,11 @@ ${clientErrorSource(name)}`;
+@@ -428,6 +465,11 @@ ${clientErrorSource(name)}`;
          errors.push(`${name}Error<"${schema}", ${schema}>`);
        }
      }
@@ -231,7 +231,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
      const jsdoc = Utils.toComment(operation.description);
      const methodKey = `readonly "${operation.id}"`;
      const generic = `<Config extends OperationConfig>`;
-@@ -445,6 +487,10 @@ ${clientErrorSource(name)}`;
+@@ -506,6 +548,10 @@ ${clientErrorSource(name)}`;
      if (requirements.octetStream) {
        helpers.push(binaryRequestSourceTs);
      }
@@ -242,7 +242,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
      return `export interface OperationConfig {
    /**
     * Whether or not the response should be included in the value returned from
-@@ -490,20 +536,38 @@ export const make = (
+@@ -551,20 +597,38 @@ export const make = (
          response.json as Effect.Effect<E, HttpClientError.HttpClientError>,
          (cause) => Effect.fail(${name}Error(tag, cause, response)),
        )
@@ -286,7 +286,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
        cases["2xx"] = decodeVoid
      }
      return withResponse(config)(HttpClientResponse.matchStatus(cases) as any)
-@@ -537,10 +601,16 @@ export const make = (
+@@ -598,10 +662,16 @@ export const make = (
      }
      const successCodesRaw = Array.from(operation.successSchemas.keys());
      const successCodes = successCodesRaw.map(_ => JSON.stringify(_)).join(", ");
@@ -305,7 +305,7 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
      return `"${operation.id}": (${params}) => ` + `HttpClientRequest.${operation.method}(${operation.pathTemplate})` + `.pipe(\n    ${pipeline.join(",\n    ")}\n  )`;
    };
    const operationToSseImpl = operation => {
-@@ -682,6 +752,9 @@ const binaryRequestSourceTs = `const binaryRequest = (request: HttpClientRequest
+@@ -755,6 +825,9 @@ const binaryRequestSourceTs = `const binaryRequest = (request: HttpClientRequest
        Effect.map((response) => response.stream),
        Stream.unwrap
      )`;
@@ -316,10 +316,10 @@ index b453563be8d588020f4b3f4619f1f64778584a03..781def8b76c0f5a9a29dc1c6fc59f87e
    readonly _tag: Tag
    readonly request: HttpClientRequest.HttpClientRequest
 diff --git a/dist/ParsedOperation.js b/dist/ParsedOperation.js
-index 4aadbb86580118bd042ef6690514127db06bbbc8..7722d1ae351769746a47cf9485f2a4a9d46e5eff 100644
+index 11925d45a6312db038a1cd60a1f2047bfff48fd8..fe5751cf2af3ea7306ddbc60af1409812aed53fe 100644
 --- a/dist/ParsedOperation.js
 +++ b/dist/ParsedOperation.js
-@@ -34,6 +34,7 @@ export const makeDeepMutable = options => ({
+@@ -40,6 +40,7 @@ export const makeDeepMutable = options => ({
    errorSchemas: new Map(),
    voidSchemas: new Set(),
    paramsOptional: true,
@@ -330,11 +330,11 @@ index 4aadbb86580118bd042ef6690514127db06bbbc8..7722d1ae351769746a47cf9485f2a4a9
  //# sourceMappingURL=ParsedOperation.js.map
 \ No newline at end of file
 diff --git a/dist/Utils.js b/dist/Utils.js
-index a50c4ce0f563a52f2641a50e77f08ed51c922405..004ab9baab5a529349e4d647fb8343017607f936 100644
+index c6506003ccae2a895140c51384892fa59fb5cd16..e6e37b070e2a9e08de54e649288e8f185bc84167 100644
 --- a/dist/Utils.js
 +++ b/dist/Utils.js
-@@ -39,4 +39,10 @@ export const spreadElementsInto = (source, destination) => {
-     destination.push(source[i]);
+@@ -67,6 +67,12 @@ export const nonEmptyString = a => {
+     }
    }
  };
 +// Effect-TS/effect-smol#1913 / Effect-TS/effect-smol#1914: helper used by patched #1914 branches
@@ -343,4 +343,6 @@ index a50c4ce0f563a52f2641a50e77f08ed51c922405..004ab9baab5a529349e4d647fb834301
 +  const major = Number(status[0]);
 +  return !Number.isNaN(major) && major >= 4;
 +};
- //# sourceMappingURL=Utils.js.map
+ /**
+  * Renders an optional description as a JSDoc block for generated TypeScript.
+  *

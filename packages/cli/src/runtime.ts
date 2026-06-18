@@ -87,11 +87,7 @@ export const axmGlobalFlags = [
 const RegistryUrlLayer = Layer.orDie(
   Layer.effect(
     RegistryUrl,
-    Effect.gen(function* () {
-      return yield* Config.string("AXM_REGISTRY_URL").pipe(
-        Config.withDefault("https://registry.agentxm.ai"),
-      );
-    }),
+    Config.string("AXM_REGISTRY_URL").pipe(Config.withDefault("https://registry.agentxm.ai")),
   ),
 );
 
@@ -120,7 +116,7 @@ export const runtimeBaseLayer = Layer.mergeAll(
 export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer);
 
 const debugLoggerLayer = Layer.unwrap(
-  Effect.map(Verbosity.asEffect(), (v) =>
+  Effect.map(Verbosity, (v) =>
     Logger.layer(v.isAtLeast("debug") ? [Logger.consolePretty()] : [], {
       mergeWithExisting: false,
     }),

@@ -824,7 +824,7 @@ export type AuthMeToken = {
   readonly id: string;
   readonly type: "session" | "pat" | "oidc";
   readonly name: string | null;
-  readonly permissions: unknown | null;
+  readonly permissions: Schema.Json | null;
   readonly scopes: ReadonlyArray<string>;
   readonly resource_restrictions: ResourceRestrictions;
   readonly expires_at: string;
@@ -841,7 +841,7 @@ export const AuthMeToken = Schema.Struct({
     Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
     Schema.Null,
   ]),
-  permissions: Schema.Union([Schema.Unknown, Schema.Null]).annotate({
+  permissions: Schema.Union([Schema.Json, Schema.Null]).annotate({
     description: "Structured permissions associated with this token.",
   }),
   scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
@@ -859,7 +859,7 @@ export type TokenListItem = {
   readonly name: string | null;
   readonly type: string;
   readonly scopes: ReadonlyArray<string>;
-  readonly permissions: unknown | null;
+  readonly permissions: Schema.Json | null;
   readonly created_at: IsoDateTimeString;
   readonly expires_at: IsoDateTimeString;
   readonly last_used_at: IsoDateTimeString | null;
@@ -872,7 +872,7 @@ export const TokenListItem = Schema.Struct({
   ]),
   type: Schema.String.annotate({ description: "Token type (e.g. 'pat', 'session')." }),
   scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
-  permissions: Schema.Union([Schema.Unknown, Schema.Null]).annotate({
+  permissions: Schema.Union([Schema.Json, Schema.Null]).annotate({
     description: "Structured permissions associated with this token.",
   }),
   created_at: IsoDateTimeString,
@@ -884,7 +884,7 @@ export type CreateTokenResponse = {
   readonly token: string;
   readonly name: string;
   readonly scopes: ReadonlyArray<string>;
-  readonly permissions: unknown;
+  readonly permissions: Schema.Json;
   readonly created_at: IsoDateTimeString;
   readonly expires_at: IsoDateTimeString;
 };
@@ -896,7 +896,7 @@ export const CreateTokenResponse = Schema.Struct({
   }),
   name: Schema.String,
   scopes: Schema.Array(Schema.String),
-  permissions: Schema.Unknown,
+  permissions: Schema.Json,
   created_at: IsoDateTimeString,
   expires_at: IsoDateTimeString,
 }).annotate({

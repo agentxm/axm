@@ -40,11 +40,15 @@ export const extractParamKinds = (
 // Tracking middleware
 // ---------------------------------------------------------------------------
 
-export const withArgvTracking = (config: Record<string, unknown>) =>
-  Command.provideSync(CommandArgv, (input: Record<string, unknown>) => ({
-    value: input,
-    paramKinds: extractParamKinds(config),
-  }));
+export const withArgvTracking =
+  (config: Record<string, unknown>) =>
+  <const Name extends string, Input extends Record<string, unknown>, ContextInput, E, R>(
+    self: Command.Command<Name, Input, ContextInput, E, R>,
+  ) =>
+    Command.provideSync(CommandArgv, (input: Input) => ({
+      value: input,
+      paramKinds: extractParamKinds(config),
+    }))(self);
 
 // ---------------------------------------------------------------------------
 // Serialization

@@ -50,7 +50,7 @@ const getTelemetry = (
     Layer.succeed(HttpClient.HttpClient, mock.client),
   );
 
-  return TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+  return TelemetryClient.pipe(Effect.provide(telemetryLayer));
 };
 
 describe("TelemetryClientLive", () => {
@@ -339,7 +339,7 @@ describe("TelemetryClientLive", () => {
           }),
           Layer.succeed(HttpClient.HttpClient, hangingClient),
         );
-        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+        const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
         yield* telemetry.trackEvent("command:start");
         yield* Effect.yieldNow;
@@ -362,7 +362,7 @@ describe("TelemetryClientLive", () => {
           }),
           Layer.succeed(HttpClient.HttpClient, failingClient),
         );
-        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+        const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
@@ -394,7 +394,7 @@ describe("TelemetryClientLive", () => {
           }),
           Layer.succeed(HttpClient.HttpClient, errorClient),
         );
-        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+        const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
@@ -431,7 +431,7 @@ describe("TelemetryClientLive", () => {
           }),
           Layer.succeed(HttpClient.HttpClient, transportErrorClient),
         );
-        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+        const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
@@ -476,7 +476,7 @@ describe("TelemetryClientLive", () => {
           }),
           Layer.succeed(HttpClient.HttpClient, error400Client),
         );
-        const telemetry = yield* TelemetryClient.asEffect().pipe(Effect.provide(telemetryLayer));
+        const telemetry = yield* TelemetryClient.pipe(Effect.provide(telemetryLayer));
 
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({

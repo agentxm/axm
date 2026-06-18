@@ -95,7 +95,7 @@ describe("WorkspaceMutationsService", () => {
     Layer.provide(workspaceLayer(options), BaseLayer);
 
   const getService = (options: WorkspaceMutationsOptions) =>
-    WorkspaceMutations.asEffect().pipe(Effect.provide(makeWsLayer(options)));
+    WorkspaceMutations.pipe(Effect.provide(makeWsLayer(options)));
 
   describe("baseDir", () => {
     it.effect("returns the parent of path", () =>

@@ -132,8 +132,8 @@ export const normalizePublishInput = (
     const { declaredIdentity, archive, digestHeader, guardrailLimits } = args;
     const entryReader = args.readEntry ?? defaultReadEntry;
 
-    yield* enforceArchiveContentType(archive.archiveContentType);
-    yield* enforceArchiveSizeLimit(archive.archiveBytes.length);
+    yield* Effect.fromResult(enforceArchiveContentType(archive.archiveContentType));
+    yield* Effect.fromResult(enforceArchiveSizeLimit(archive.archiveBytes.length));
 
     const entries = yield* validateArchive(archive.archiveBytes, guardrailLimits);
 
@@ -155,7 +155,9 @@ export const normalizePublishInput = (
       },
     });
 
-    yield* validateDeclaredManifestAlignment(declaredIdentity, manifest.identity);
+    yield* Effect.fromResult(
+      validateDeclaredManifestAlignment(declaredIdentity, manifest.identity),
+    );
 
     return {
       owner: declaredIdentity.owner,

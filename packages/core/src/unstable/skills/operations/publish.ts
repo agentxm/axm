@@ -78,7 +78,9 @@ export const publishSkill: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const fqn = yield* Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError);
+    const fqn = yield* Effect.fromResult(
+      Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError),
+    );
 
     // Locate the managed extension directory
     const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "skills", fqn.name);

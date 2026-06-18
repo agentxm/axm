@@ -20,6 +20,7 @@ const makeHarness = Effect.gen(function* () {
       Terminal.Terminal,
       Terminal.make({
         columns: Effect.succeed(80),
+        rows: Effect.succeed(24),
         readInput: Effect.succeed(Queue.asDequeue(queue)),
         readLine: Effect.succeed(""),
         display: () => Effect.void,

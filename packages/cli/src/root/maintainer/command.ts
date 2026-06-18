@@ -54,7 +54,9 @@ const MaintainerOutputSchema = Schema.Struct({
 
 const parseExtensionRef = (input: string): Effect.Effect<RegistryExtensionReference, AppError> =>
   Effect.gen(function* () {
-    const fqn = yield* Result.mapError(parseFqn(input), fqnInvalidErrorToAppError);
+    const fqn = yield* Effect.fromResult(
+      Result.mapError(parseFqn(input), fqnInvalidErrorToAppError),
+    );
     return {
       owner: fqn.owner,
       type: toExtensionTypePlural(fqn.type),

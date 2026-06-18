@@ -19,8 +19,8 @@ describe("resolveVerbosityFromArgv", () => {
     expect(resolveVerbosityFromArgv(["--verbose"])).toBe("verbose");
   });
 
-  it('returns "verbose" for -v', () => {
-    expect(resolveVerbosityFromArgv(["-v"])).toBe("verbose");
+  it('returns "normal" for -v because the CLI reserves it for --version', () => {
+    expect(resolveVerbosityFromArgv(["-v"])).toBe("normal");
   });
 
   it('returns "debug" for --debug', () => {
@@ -31,11 +31,11 @@ describe("resolveVerbosityFromArgv", () => {
     expect(resolveVerbosityFromArgv(["-vv"])).toBe("debug");
   });
 
-  it("last flag wins: -q -v returns verbose", () => {
-    expect(resolveVerbosityFromArgv(["-q", "-v"])).toBe("verbose");
+  it("last flag wins among verbosity flags: -q -v remains quiet", () => {
+    expect(resolveVerbosityFromArgv(["-q", "-v"])).toBe("quiet");
   });
 
-  it("last flag wins: -v -q returns quiet", () => {
+  it("ignores -v when resolving verbosity", () => {
     expect(resolveVerbosityFromArgv(["-v", "-q"])).toBe("quiet");
   });
 
@@ -44,10 +44,10 @@ describe("resolveVerbosityFromArgv", () => {
   });
 
   it("scans flags after -- (they are in raw argv)", () => {
-    expect(resolveVerbosityFromArgv(["--", "-v"])).toBe("verbose");
+    expect(resolveVerbosityFromArgv(["--", "--verbose"])).toBe("verbose");
   });
 
   it("ignores non-verbosity flags", () => {
-    expect(resolveVerbosityFromArgv(["--json", "--force", "-v"])).toBe("verbose");
+    expect(resolveVerbosityFromArgv(["--json", "--force", "-v"])).toBe("normal");
   });
 });

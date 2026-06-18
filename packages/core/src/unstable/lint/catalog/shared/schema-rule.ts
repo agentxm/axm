@@ -63,7 +63,7 @@ export const schemaDecodeFindings = <A, I>(
   if (Result.isSuccess(result)) {
     return Effect.succeed([]);
   }
-  return Effect.succeed(issuesToFindings(ruleId, severity, file, result.failure));
+  return Effect.succeed(issuesToFindings(ruleId, severity, file, result.failure.issue));
 };
 
 // -----------------------------------------------------------------------------

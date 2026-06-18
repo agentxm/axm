@@ -237,7 +237,9 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   })();
 
   // Parse owner and pack name from the full name
-  const fqn = yield* Result.mapError(parseFqn(packName), fqnInvalidErrorToAppError);
+  const fqn = yield* Effect.fromResult(
+    Result.mapError(parseFqn(packName), fqnInvalidErrorToAppError),
+  );
 
   // Step 2: Validate managed pack exists
   const manifestPath = yield* Effect.gen(function* () {

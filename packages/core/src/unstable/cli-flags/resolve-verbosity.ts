@@ -8,7 +8,7 @@ export const resolveVerbosityFromArgv = (argv: ReadonlyArray<string>): Verbosity
   for (let i = argv.length - 1; i >= 0; i--) {
     const arg = argv[i];
     if (arg === "--debug" || arg === "-vv") return "debug";
-    if (arg === "--verbose" || arg === "-v") return "verbose";
+    if (arg === "--verbose") return "verbose";
     if (arg === "--quiet" || arg === "-q") return "quiet";
   }
   return "normal";

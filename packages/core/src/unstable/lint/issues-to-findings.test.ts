@@ -44,7 +44,7 @@ const expectIssue = <A, I>(schema: Schema.Codec<A, I>, input: unknown): Issue =>
     errors: "all",
   });
   if (result._tag === "Failure") {
-    return result.failure;
+    return result.failure.issue;
   }
   throw new Error("expected schema decode to fail");
 };
@@ -239,12 +239,12 @@ describe("issuesToFindings", () => {
     );
 
     Result.match(result, {
-      onFailure: (issue) => {
+      onFailure: (error) => {
         const findings = issuesToFindings(
           "skill/manifest-schema-valid",
           "error",
           "skill.json",
-          issue,
+          error.issue,
         );
         expect(findings.length).toBeGreaterThan(0);
       },

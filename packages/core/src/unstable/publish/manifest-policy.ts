@@ -278,9 +278,11 @@ export const resolveManifest = (
       ),
     );
 
-    yield* validateManifestHasNoAgentsField(manifestEntry.fileName, parsed);
+    yield* Effect.fromResult(validateManifestHasNoAgentsField(manifestEntry.fileName, parsed));
     if (input.type === "command") {
-      yield* validateCommandManifestHasNoAgentOverridesField(manifestEntry.fileName, parsed);
+      yield* Effect.fromResult(
+        validateCommandManifestHasNoAgentOverridesField(manifestEntry.fileName, parsed),
+      );
     }
 
     const schema = manifestSchemaForType(input.type);

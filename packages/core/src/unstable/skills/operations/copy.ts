@@ -80,7 +80,9 @@ export const copySkill: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const fqn = yield* Result.mapError(parseFqn(op.args.targetName), fqnInvalidErrorToAppError);
+    const fqn = yield* Effect.fromResult(
+      Result.mapError(parseFqn(op.args.targetName), fqnInvalidErrorToAppError),
+    );
 
     // Target path in the managed extensions store
     const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.owner, "skills", fqn.name);

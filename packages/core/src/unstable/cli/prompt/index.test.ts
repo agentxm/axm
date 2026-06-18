@@ -20,6 +20,7 @@ const makeHarness = Effect.gen(function* () {
   const queue = yield* Queue.make<Terminal.UserInput, Cause.Done>();
   const terminal = Terminal.make({
     columns: Effect.succeed(80),
+    rows: Effect.succeed(24),
     display: () => Effect.void,
     readInput: Effect.succeed(Queue.asDequeue(queue)),
     readLine: Effect.succeed(""),
@@ -79,11 +80,9 @@ describe("AxmPrompt composability", () => {
       const harness = yield* makeHarness;
       yield* Queue.offer(harness.queue, makeUserInput("l"));
 
-      const result = yield* Effect.gen(function* () {
-        return yield* AxmPrompt.selectKey({
-          message: "Quick action",
-          choices: [{ key: "l", title: "List", value: "list" }],
-        });
+      const result = yield* AxmPrompt.selectKey({
+        message: "Quick action",
+        choices: [{ key: "l", title: "List", value: "list" }],
       }).pipe(Effect.provide(harness.layer));
 
       expect(result).toBe("list");

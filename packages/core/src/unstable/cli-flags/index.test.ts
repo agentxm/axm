@@ -91,7 +91,7 @@ describe("isNonInteractive resolution chain", () => {
 describe("TestFlagsLayer helper", () => {
   it.effect("defaults to nonInteractive: true, verbosity: normal", () =>
     Effect.gen(function* () {
-      const v = yield* Verbosity.asEffect().pipe(Effect.provide(TestFlagsLayer()));
+      const v = yield* Verbosity.pipe(Effect.provide(TestFlagsLayer()));
       const nonInteractive = yield* isNonInteractive.pipe(Effect.provide(TestFlagsLayer()));
       expect(nonInteractive).toBe(true);
       expect(v.level).toBe("normal");
@@ -102,7 +102,7 @@ describe("TestFlagsLayer helper", () => {
 
   it.effect("accepts verbose override", () =>
     Effect.gen(function* () {
-      const v = yield* Verbosity.asEffect().pipe(Effect.provide(TestFlagsLayer({ verbose: true })));
+      const v = yield* Verbosity.pipe(Effect.provide(TestFlagsLayer({ verbose: true })));
       expect(v.level).toBe("verbose");
       expect(v.isAtLeast("verbose")).toBe(true);
       expect(v.isAtLeast("debug")).toBe(false);
@@ -111,7 +111,7 @@ describe("TestFlagsLayer helper", () => {
 
   it.effect("accepts debug override (implies verbose)", () =>
     Effect.gen(function* () {
-      const v = yield* Verbosity.asEffect().pipe(Effect.provide(TestFlagsLayer({ debug: true })));
+      const v = yield* Verbosity.pipe(Effect.provide(TestFlagsLayer({ debug: true })));
       expect(v.level).toBe("debug");
       expect(v.isAtLeast("verbose")).toBe(true);
       expect(v.isAtLeast("debug")).toBe(true);
@@ -129,16 +129,14 @@ describe("TestFlagsLayer helper", () => {
 
   it.effect("accepts json override", () =>
     Effect.gen(function* () {
-      const json = yield* Effect.gen(function* () {
-        return yield* jsonFlag;
-      }).pipe(Effect.provide(TestFlagsLayer({ json: true })));
+      const json = yield* jsonFlag.pipe(Effect.provide(TestFlagsLayer({ json: true })));
       expect(Option.getOrElse(json, () => false)).toBe(true);
     }),
   );
 
   it.effect("accepts quiet override", () =>
     Effect.gen(function* () {
-      const v = yield* Verbosity.asEffect().pipe(Effect.provide(TestFlagsLayer({ quiet: true })));
+      const v = yield* Verbosity.pipe(Effect.provide(TestFlagsLayer({ quiet: true })));
       expect(v.level).toBe("quiet");
       expect(v.isAtLeast("normal")).toBe(false);
     }),

@@ -33,7 +33,9 @@ export const checkPublishVersionPreflight = (args: {
 }) =>
   Effect.gen(function* () {
     const local = yield* resolveManifestVersionInfo(args.fqn, args.type);
-    const fqn = yield* Result.mapError(parseFqn(args.fqn), fqnInvalidErrorToAppError);
+    const fqn = yield* Effect.fromResult(
+      Result.mapError(parseFqn(args.fqn), fqnInvalidErrorToAppError),
+    );
     const client = yield* createRegistryClient(args.registryUrl);
     const indexOption = yield* client
       .getExtensionIndex({

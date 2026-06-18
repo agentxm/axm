@@ -74,7 +74,9 @@ export const publishPack: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    const fqn = yield* Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError);
+    const fqn = yield* Effect.fromResult(
+      Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError),
+    );
 
     // Locate the managed pack directory
     const packDir = computePackPaths(path.join, base, fqn.owner, fqn.name).canonicalPath;

@@ -281,7 +281,9 @@ const supportedHandleHints = versionableTypes
 
 const inferVersionableType = (handle: string) =>
   Effect.gen(function* () {
-    const fqn = yield* Result.mapError(parseFqn(handle), fqnInvalidErrorToAppError);
+    const fqn = yield* Effect.fromResult(
+      Result.mapError(parseFqn(handle), fqnInvalidErrorToAppError),
+    );
     if (!isVersionableType(fqn.type)) {
       return yield* makeAppError({
         code: "validation",

@@ -73,6 +73,7 @@ const makeHarness = () => {
 
     const terminal = Terminal.make({
       columns: Effect.succeed(80),
+      rows: Effect.succeed(24),
       display: (text) =>
         Effect.sync(() => {
           output.push(text);

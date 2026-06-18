@@ -357,7 +357,7 @@ export const createRegistryClient = (location: string) =>
     if (location.startsWith("https://") || location.startsWith("http://")) {
       const ambientHttpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
       const httpClient = yield* Option.match(ambientHttpClient, {
-        onNone: () => HttpClient.HttpClient.asEffect().pipe(Effect.provide(FetchHttpClient.layer)),
+        onNone: () => HttpClient.HttpClient.pipe(Effect.provide(FetchHttpClient.layer)),
         onSome: (client) => Effect.succeed(client),
       });
       return createRemoteRegistryClient(location, httpClient);

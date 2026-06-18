@@ -45,6 +45,7 @@ const makeTerminal = Effect.gen(function* () {
   const terminal: TestTerminal = Object.assign(
     Terminal.make({
       columns: Effect.succeed(80),
+      rows: Effect.succeed(24),
       display: Console.log,
       readInput: Effect.succeed(Queue.asDequeue(queue)),
       readLine: Effect.succeed(""),

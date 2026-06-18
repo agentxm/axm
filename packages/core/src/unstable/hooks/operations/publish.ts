@@ -51,7 +51,9 @@ export const publishHook: (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const fqn = yield* Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError);
+    const fqn = yield* Effect.fromResult(
+      Result.mapError(parseFqn(op.args.name), fqnInvalidErrorToAppError),
+    );
 
     const extensionDir = path.join(
       ws.baseDir,

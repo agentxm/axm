@@ -19,7 +19,6 @@ export const jsonFlag = GlobalFlag.setting("axm-json")({
 
 export const verboseFlag = GlobalFlag.setting("axm-verbose")({
   flag: Flag.boolean("verbose").pipe(
-    Flag.withAlias("v"),
     Flag.withDescription("Show additional diagnostic details for errors"),
   ),
 });

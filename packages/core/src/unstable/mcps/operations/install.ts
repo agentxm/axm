@@ -13,7 +13,6 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Entry } from "@napi-rs/keyring";
 import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
@@ -89,25 +88,52 @@ const MCP_SECRET_SERVICE = "axm-mcp";
 const mcpSecretAccount = (serverName: string, inputName: string): string =>
   `${serverName}:${inputName}`;
 
+type KeyringEntry = {
+  readonly getPassword: () => string | null;
+  readonly setPassword: (password: string) => void;
+};
+
+type KeyringEntryConstructor = new (service: string, account: string) => KeyringEntry;
+
+type KeyringModule = {
+  readonly Entry: KeyringEntryConstructor;
+};
+
+const keyringModuleSpecifier = ["@napi-rs", "keyring"].join("/");
+
+const loadKeyringEntry = Effect.tryPromise({
+  try: async () => {
+    const keyring: KeyringModule = await import(keyringModuleSpecifier);
+    return keyring.Entry;
+  },
+  catch: () => undefined,
+});
+
 const saveMcpSecret = (serverName: string, inputName: string, value: string): Effect.Effect<void> =>
-  Effect.try({
-    try: () => {
-      const entry = new Entry(MCP_SECRET_SERVICE, mcpSecretAccount(serverName, inputName));
-      entry.setPassword(value);
-    },
-    catch: () => undefined,
+  Effect.gen(function* () {
+    const Entry = yield* loadKeyringEntry;
+    yield* Effect.try({
+      try: () => {
+        const entry = new Entry(MCP_SECRET_SERVICE, mcpSecretAccount(serverName, inputName));
+        entry.setPassword(value);
+      },
+      catch: () => undefined,
+    }).pipe(Effect.catch(() => Effect.void));
   }).pipe(Effect.catch(() => Effect.void));
 
 const loadMcpSecret = (
   serverName: string,
   inputName: string,
 ): Effect.Effect<Option.Option<string>> =>
-  Effect.try({
-    try: () => {
-      const entry = new Entry(MCP_SECRET_SERVICE, mcpSecretAccount(serverName, inputName));
-      return Option.fromNullOr(entry.getPassword());
-    },
-    catch: () => undefined,
+  Effect.gen(function* () {
+    const Entry = yield* loadKeyringEntry;
+    return yield* Effect.try({
+      try: () => {
+        const entry = new Entry(MCP_SECRET_SERVICE, mcpSecretAccount(serverName, inputName));
+        return Option.fromNullOr(entry.getPassword());
+      },
+      catch: () => undefined,
+    }).pipe(Effect.catch(() => Effect.succeed(Option.none())));
   }).pipe(Effect.catch(() => Effect.succeed(Option.none())));
 
 const maybeSecretInputName = (

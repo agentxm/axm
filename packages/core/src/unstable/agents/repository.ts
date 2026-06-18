@@ -149,7 +149,7 @@ const get = (id: AgentId) => fromId(id);
 const all = Effect.forEach(AGENT_IDS, (id) => fromId(id));
 
 const getConfiguredAgentIds = () =>
-  WorkspaceMutations.asEffect().pipe(Effect.flatMap((ws) => ws.getConfiguredAgents()));
+  WorkspaceMutations.pipe(Effect.flatMap((ws) => ws.getConfiguredAgents()));
 
 const getConfiguredAgents = () =>
   getConfiguredAgentIds().pipe(

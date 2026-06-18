@@ -17,7 +17,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { Entry } from "@napi-rs/keyring";
 import * as lockfile from "proper-lockfile";
 import { errAuthTokenRequired, type AppError, makeAppError } from "../app-error/index.js";
 import { isCI } from "../cli-flags/index.js";
@@ -63,6 +62,33 @@ const CONFIG_DIR_NAME = "axm";
 const DIR_PERMISSIONS = 0o700;
 const FILE_PERMISSIONS = 0o600;
 const KEYCHAIN_SERVICE = "axm";
+
+type KeyringEntry = {
+  readonly getPassword: () => string | null;
+  readonly setPassword: (password: string) => void;
+  readonly deletePassword: () => void;
+};
+
+type KeyringEntryConstructor = new (service: string, account: string) => KeyringEntry;
+
+type KeyringModule = {
+  readonly Entry: KeyringEntryConstructor;
+};
+
+const keyringModuleSpecifier = ["@napi-rs", "keyring"].join("/");
+
+const loadKeyringEntry = Effect.tryPromise({
+  try: async () => {
+    const keyring: KeyringModule = await import(keyringModuleSpecifier);
+    return keyring.Entry;
+  },
+  catch: (error) =>
+    makeAppError({
+      code: "auth",
+      detail: "OS keychain module could not be loaded",
+      cause: error,
+    }),
+});
 
 // -----------------------------------------------------------------------------
 // Internal helpers (take fs/path as args to avoid context leakage)
@@ -243,32 +269,32 @@ const keychainAccount = (registryUrl: string): string => `registry:${registryUrl
 const readKeychainCredentialFile = (
   registryUrl: string,
 ): Effect.Effect<Option.Option<CredentialFile>, AppError> =>
-  Effect.try({
-    try: () => {
-      const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
-      return entry.getPassword();
-    },
-    catch: (error) =>
-      makeAppError({
-        code: "auth",
-        detail: "OS keychain could not be read",
-        cause: error,
-      }),
-  }).pipe(
-    Effect.flatMap((content) => {
-      if (content === null) return Effect.succeed(Option.none<CredentialFile>());
-      return decodeCredentialFileFromJsonString(content).pipe(
-        Effect.map((file) => Option.some(file)),
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "auth",
-            detail: "Failed to parse OS keychain credentials",
-            cause: error,
-          }),
-        ),
-      );
-    }),
-  );
+  Effect.gen(function* () {
+    const Entry = yield* loadKeyringEntry;
+    const content = yield* Effect.try({
+      try: () => {
+        const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
+        return entry.getPassword();
+      },
+      catch: (error) =>
+        makeAppError({
+          code: "auth",
+          detail: "OS keychain could not be read",
+          cause: error,
+        }),
+    });
+    if (content === null) return Option.none<CredentialFile>();
+    return yield* decodeCredentialFileFromJsonString(content).pipe(
+      Effect.map((file) => Option.some(file)),
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "auth",
+          detail: "Failed to parse OS keychain credentials",
+          cause: error,
+        }),
+      ),
+    );
+  });
 
 const writeKeychainCredentialFile = (
   registryUrl: string,
@@ -285,6 +311,7 @@ const writeKeychainCredentialFile = (
       ),
     );
     const content = JSON.stringify(encoded);
+    const Entry = yield* loadKeyringEntry;
     yield* Effect.try({
       try: () => {
         const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
@@ -300,18 +327,21 @@ const writeKeychainCredentialFile = (
   });
 
 const deleteKeychainCredentialFile = (registryUrl: string): Effect.Effect<void, AppError> =>
-  Effect.try({
-    try: () => {
-      const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
-      entry.deletePassword();
-    },
-    catch: (error) =>
-      makeAppError({
-        code: "auth",
-        detail: "OS keychain credential could not be deleted",
-        cause: error,
-      }),
-  }).pipe(Effect.catch(() => Effect.void));
+  Effect.gen(function* () {
+    const Entry = yield* loadKeyringEntry;
+    yield* Effect.try({
+      try: () => {
+        const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
+        entry.deletePassword();
+      },
+      catch: (error) =>
+        makeAppError({
+          code: "auth",
+          detail: "OS keychain credential could not be deleted",
+          cause: error,
+        }),
+    }).pipe(Effect.catch(() => Effect.void));
+  });
 
 // -----------------------------------------------------------------------------
 // Tier selection based on environment

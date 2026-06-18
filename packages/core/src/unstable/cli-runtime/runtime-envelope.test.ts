@@ -44,7 +44,7 @@ const testLayer = (
 describe("makeFoundationLayer", () => {
   it.effect("provides CliRenderer service in text mode (interactive)", () =>
     Effect.gen(function* () {
-      const renderer = yield* CliRenderer.asEffect().pipe(Effect.provide(testLayer("text")));
+      const renderer = yield* CliRenderer.pipe(Effect.provide(testLayer("text")));
       expect(renderer).toBeDefined();
       expect(renderer.intro).toBeDefined();
       expect(renderer.table).toBeDefined();
@@ -53,7 +53,7 @@ describe("makeFoundationLayer", () => {
 
   it.effect("provides CliRenderer as MachineRenderer in json mode", () =>
     Effect.gen(function* () {
-      const renderer = yield* CliRenderer.asEffect().pipe(Effect.provide(testLayer("json")));
+      const renderer = yield* CliRenderer.pipe(Effect.provide(testLayer("json")));
       expect(renderer).toBeDefined();
       // Machine renderer: result() returns true
       const emitted = yield* renderer.result("test", Schema.String);
@@ -63,7 +63,7 @@ describe("makeFoundationLayer", () => {
 
   it.effect("provides CliRenderer as InteractiveRenderer when format is text", () =>
     Effect.gen(function* () {
-      const renderer = yield* CliRenderer.asEffect().pipe(Effect.provide(testLayer("text")));
+      const renderer = yield* CliRenderer.pipe(Effect.provide(testLayer("text")));
       // Interactive renderer: result() returns false (no machine output)
       const emitted = yield* renderer.result("test", Schema.String);
       expect(emitted).toBe(false);
@@ -72,7 +72,7 @@ describe("makeFoundationLayer", () => {
 
   it.effect("provides Verbosity service with default level", () =>
     Effect.gen(function* () {
-      const v = yield* Verbosity.asEffect().pipe(Effect.provide(testLayer("text")));
+      const v = yield* Verbosity.pipe(Effect.provide(testLayer("text")));
       expect(v.level).toBe("normal");
       expect(v.isAtLeast("normal")).toBe(true);
       expect(v.isAtLeast("verbose")).toBe(false);
@@ -81,7 +81,7 @@ describe("makeFoundationLayer", () => {
 
   it.effect("provides Verbosity service with custom level", () =>
     Effect.gen(function* () {
-      const v = yield* Verbosity.asEffect().pipe(
+      const v = yield* Verbosity.pipe(
         Effect.provide(testLayer("text", { verbosityLevel: "verbose" })),
       );
       expect(v.level).toBe("verbose");
@@ -92,7 +92,7 @@ describe("makeFoundationLayer", () => {
 
   it.effect("provides Verbosity at debug level", () =>
     Effect.gen(function* () {
-      const v = yield* Verbosity.asEffect().pipe(
+      const v = yield* Verbosity.pipe(
         Effect.provide(testLayer("text", { verbosityLevel: "debug" })),
       );
       expect(v.level).toBe("debug");
@@ -104,8 +104,8 @@ describe("makeFoundationLayer", () => {
     Effect.gen(function* () {
       const layer = testLayer("text", { verbosityLevel: "verbose" });
 
-      const renderer = yield* CliRenderer.asEffect().pipe(Effect.provide(layer));
-      const verbosity = yield* Verbosity.asEffect().pipe(Effect.provide(layer));
+      const renderer = yield* CliRenderer.pipe(Effect.provide(layer));
+      const verbosity = yield* Verbosity.pipe(Effect.provide(layer));
 
       expect(renderer).toBeDefined();
       expect(verbosity.level).toBe("verbose");

@@ -1,3 +1,13 @@
+## 0.19.0 (2026-06-18)
+
+### 🚀 Features
+
+- Upgrade Effect to 4.0.0-beta.84 and refresh the shared kernel. ([f1f13ea5](https://github.com/agentxm/axm/commit/f1f13ea5))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.18.0 (2026-06-10)
 
 ### 🚀 Features

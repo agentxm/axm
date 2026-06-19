@@ -1,3 +1,13 @@
+## 0.19.1 (2026-06-19)
+
+### 🩹 Fixes
+
+- Fix Git-hosted skill installs and source freshness reporting ([87c84498](https://github.com/agentxm/axm/commit/87c84498))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.19.0 (2026-06-18)
 
 ### 🚀 Features

@@ -116,7 +116,7 @@ describe("axm skills install", () => {
 
         expect(result.exitCode).toBe(0);
         const output = getOutput(result);
-        expect(output).toContain("Installed skill my-skill for 1 agent");
+        expect(output).toContain("Installed skill my-skill for 1 agent target");
         expect(output).toContain(".agents/skills/my-skill (created)");
         expect(output).toContain(".claude/skills/my-skill (created) [claude-code]");
         expect(output).toContain("1 file");

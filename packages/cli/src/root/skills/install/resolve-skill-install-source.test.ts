@@ -348,6 +348,30 @@ describe("resolveSkillInstallSource — local path", () => {
   });
 });
 
+describe("resolveSkillInstallSource — git SCP", () => {
+  it.effect("resolves GitHub SCP input for skill install", () => {
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "github", type: "github", url: new URL("https://github.com") },
+    ];
+
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillInstallSource(
+        parseInputOrThrow("git@github.com:vercel-labs/skills.git#main"),
+      ).pipe(Effect.provide(provideTestLayers(sources)));
+
+      expect(resolved.type).toBe("github");
+      if (resolved.type === "github") {
+        expect(resolved.owner).toBe("vercel-labs");
+        expect(resolved.repo).toBe("skills");
+        expect(resolved.ref).toEqual(Option.some("main"));
+        expect(Option.getOrUndefined(resolved.cloneUrl ?? Option.none())).toBe(
+          "ssh://git@github.com/vercel-labs/skills.git",
+        );
+      }
+    });
+  });
+});
+
 describe("resolveSkillRegistrySourceByName", () => {
   const tmpDirs: string[] = [];
 

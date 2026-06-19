@@ -98,6 +98,11 @@ export const createGitHostingSourceHostProvider = <
 export const buildCloneUrlForSource = (
   source: GitHubSource | GitLabSource | BitbucketSource | AzureReposSource,
 ): string => {
+  const explicitCloneUrl = Option.getOrUndefined(source.cloneUrl ?? Option.none());
+  if (explicitCloneUrl !== undefined) {
+    return explicitCloneUrl;
+  }
+
   switch (source.type) {
     case "github":
       return `${source.url.origin}/${source.owner}/${source.repo}.git`;

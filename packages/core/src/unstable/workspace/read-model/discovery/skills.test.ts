@@ -241,6 +241,82 @@ describe("skillsInDir", () => {
         }),
       ),
     );
+
+    it.effect("discovers category-nested skills in canonical skills containers", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          createSkillMd(
+            path.join(tempDir, "skills", "quality", "quality-md"),
+            "quality-md",
+            "Nested under a category",
+          );
+
+          const skills = yield* skillsInDir(tempDir, Option.none(), defaultOptions);
+
+          expect(skills.map((s) => s.skill.name)).toContain("quality-md");
+        }),
+      ),
+    );
+
+    it.effect("prefers canonical skills/ over agent skill-directory aliases", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const canonicalPath = path.join(tempDir, "skills", "quality");
+          createSkillMd(canonicalPath, "quality", "Canonical skill");
+
+          const agentSkillsDir = path.join(tempDir, ".agents", "skills");
+          fs.mkdirSync(agentSkillsDir, { recursive: true });
+          fs.symlinkSync(canonicalPath, path.join(agentSkillsDir, "quality"), "dir");
+
+          const skills = yield* skillsInDir(tempDir, Option.none(), defaultOptions);
+
+          const matchingSkills = skills.filter((s) => s.skill.name === "quality");
+          expect(matchingSkills).toHaveLength(1);
+          expect(at(matchingSkills, 0).location).toBe(`file://${canonicalPath}`);
+        }),
+      ),
+    );
+
+    it.effect("does not descend below a discovered skill directory", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          createSkillMd(path.join(tempDir, "skills", "outer"), "outer", "Outer skill");
+          createSkillMd(
+            path.join(tempDir, "skills", "outer", "inner"),
+            "inner",
+            "Nested inside a skill root",
+          );
+
+          const skills = yield* skillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
+
+          const names = skills.map((s) => s.skill.name);
+          expect(names).toContain("outer");
+          expect(names).not.toContain("inner");
+        }),
+      ),
+    );
+
+    it.effect("does not discover example category skills when priority skills are present", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          createSkillMd(path.join(tempDir, "skills", "real-skill"), "real-skill", "Real");
+          createSkillMd(
+            path.join(tempDir, "examples", "category", "demo"),
+            "demo",
+            "Example skill",
+          );
+
+          const skills = yield* skillsInDir(tempDir, Option.none(), defaultOptions);
+
+          const names = skills.map((s) => s.skill.name);
+          expect(names).toContain("real-skill");
+          expect(names).not.toContain("demo");
+        }),
+      ),
+    );
   });
 
   // ===========================================================================
@@ -727,7 +803,7 @@ describe("skillsInDir", () => {
       expect(dirs[0]).toBe(".");
 
       // Static dirs follow
-      const staticDirs = ["skills/.curated", "skills/.experimental", "skills/.system"];
+      const staticDirs = ["skills", "skills/.curated", "skills/.experimental", "skills/.system"];
       for (const staticDir of staticDirs) {
         expect(dirs).toContain(staticDir);
         expect(dirs.indexOf(staticDir)).toBeGreaterThan(0);

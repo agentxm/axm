@@ -172,6 +172,132 @@ describe("toPlanResolutionResult", () => {
     });
   });
 
+  it("omits failed step error details by default", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "quality",
+              result: {
+                result: "error",
+                message: "copy failed",
+                error: makeAppError({
+                  code: "internal",
+                  detail: "copy failed",
+                  cause: new Error("source missing"),
+                }),
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution).steps).toEqual([
+      {
+        label: "quality",
+        status: "failed",
+        message: "copy failed",
+        code: "internal",
+      },
+    ]);
+  });
+
+  it("includes failed step cause chains in verbose output", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "quality",
+              result: {
+                result: "error",
+                message: "copy failed",
+                error: makeAppError({
+                  code: "internal",
+                  detail: "copy failed",
+                  cause: new Error("source missing"),
+                }),
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution, { verbose: true }).steps).toEqual([
+      {
+        label: "quality",
+        status: "failed",
+        message: "copy failed",
+        code: "internal",
+        error: {
+          code: "internal",
+          message: "copy failed",
+          causes: [{ _tag: "Error", message: "source missing" }],
+        },
+      },
+    ]);
+  });
+
+  it("includes failed step cause stacks in debug output", () => {
+    const cause = new Error("source missing");
+    cause.stack = "Error: source missing\n    at copy";
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "quality",
+              result: {
+                result: "error",
+                message: "copy failed",
+                error: makeAppError({
+                  code: "internal",
+                  detail: "copy failed",
+                  cause,
+                }),
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution, { debug: true }).steps).toEqual([
+      {
+        label: "quality",
+        status: "failed",
+        message: "copy failed",
+        code: "internal",
+        error: {
+          code: "internal",
+          message: "copy failed",
+          causes: [
+            {
+              _tag: "Error",
+              message: "source missing",
+              stack: "Error: source missing\n    at copy",
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
   it("includes links on successful executed steps", () => {
     const resolution: ExecutedPlan = {
       _tag: "ExecutedPlan",
@@ -301,6 +427,73 @@ describe("toPlanResolutionResult", () => {
               agentIds: ["antigravity", "amp"],
             },
           ],
+        },
+      },
+    ]);
+  });
+
+  it("includes artifact source details only in debug output", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Install skill",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "quality",
+              result: {
+                result: "success",
+                message: "Installed quality",
+                artifact: {
+                  path: ".agents/skills/quality",
+                  scope: "project",
+                  change: "created",
+                  fileCount: 9,
+                  source: {
+                    type: "github",
+                    origin: "https://github.com/qualitymd/quality.md",
+                    directory: ".",
+                    gitTreeHash: "2ade2ca678e5f91a7d4dd31e74e84d1bcc3986eb",
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toPlanResolutionResult(resolution).steps).toEqual([
+      {
+        label: "quality",
+        status: "applied",
+        message: "Installed quality",
+        artifact: {
+          path: ".agents/skills/quality",
+          scope: "project",
+          change: "created",
+          fileCount: 9,
+        },
+      },
+    ]);
+    expect(toPlanResolutionResult(resolution, { debug: true }).steps).toEqual([
+      {
+        label: "quality",
+        status: "applied",
+        message: "Installed quality",
+        artifact: {
+          path: ".agents/skills/quality",
+          scope: "project",
+          change: "created",
+          fileCount: 9,
+          source: {
+            type: "github",
+            origin: "https://github.com/qualitymd/quality.md",
+            directory: ".",
+            gitTreeHash: "2ade2ca678e5f91a7d4dd31e74e84d1bcc3986eb",
+          },
         },
       },
     ]);

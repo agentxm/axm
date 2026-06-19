@@ -22,12 +22,11 @@ describe("axm skills install output UX", () => {
 
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
-      expect(output).toContain("Installed skill my-skill for 3 agents");
+      expect(output).toContain("Installed skill my-skill for 3 agent targets");
       expect(output).toContain(".agents/skills/my-skill (created) [antigravity, amp]");
       expect(output).toContain(".claude/skills/my-skill (created) [claude-code]");
       expect(output).toContain("1 file");
       expect(output).not.toContain("skill(s)");
-      expect(output).not.toContain("agent targets");
     } finally {
       temp.cleanup();
     }

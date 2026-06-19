@@ -222,16 +222,18 @@ describe("InstallLibraryCommandWorkflowActions", () => {
       });
       const intent = yield* runWithActions(
         (actions) =>
-          Effect.gen(function* () {
-            const parsed = yield* actions.parseArgs({
-              source: "@acme/libraries/frontend",
-              unattended: true,
-              frozen: true,
-            });
-            const requests = yield* actions.resolveSourceRequests(parsed);
-            const discovered = yield* actions.discoverRefs(requests);
-            return yield* actions.finalizeIntent(parsed, discovered);
-          }),
+          Effect.scoped(
+            Effect.gen(function* () {
+              const parsed = yield* actions.parseArgs({
+                source: "@acme/libraries/frontend",
+                unattended: true,
+                frozen: true,
+              });
+              const requests = yield* actions.resolveSourceRequests(parsed);
+              const discovered = yield* actions.discoverRefs(requests);
+              return yield* actions.finalizeIntent(parsed, discovered);
+            }),
+          ),
         { workspace: frozenWorkspace },
       );
 
@@ -280,24 +282,26 @@ describe("InstallLibraryCommandWorkflowActions", () => {
 
       const intent = yield* runWithActions(
         (actions) =>
-          Effect.gen(function* () {
-            const parsed = yield* actions.parseArgs({
-              source: "@acme/libraries/frontend",
-              unattended: false,
-            });
-            const requests = yield* actions.resolveSourceRequests(parsed);
-            const request = requests[0];
-            if (request === undefined) {
-              throw new Error("Expected Library source request");
-            }
-            return yield* actions.finalizeIntent(parsed, [
-              {
-                mode: "live",
-                library: makeLibraryDetail({ hiddenMemberCount: 2 }),
-                request,
-              },
-            ]);
-          }),
+          Effect.scoped(
+            Effect.gen(function* () {
+              const parsed = yield* actions.parseArgs({
+                source: "@acme/libraries/frontend",
+                unattended: false,
+              });
+              const requests = yield* actions.resolveSourceRequests(parsed);
+              const request = requests[0];
+              if (request === undefined) {
+                throw new Error("Expected Library source request");
+              }
+              return yield* actions.finalizeIntent(parsed, [
+                {
+                  mode: "live",
+                  library: makeLibraryDetail({ hiddenMemberCount: 2 }),
+                  request,
+                },
+              ]);
+            }),
+          ),
         { workspace: liveWorkspace, sourceHostProviders: sourceProviders },
       );
       const plan = yield* runWithActions((actions) => actions.buildPlan(intent), {
@@ -352,45 +356,47 @@ describe("InstallLibraryCommandWorkflowActions", () => {
 
       const intent = yield* runWithActions(
         (actions) =>
-          Effect.gen(function* () {
-            const parsed = yield* actions.parseArgs({
-              source: "@acme/libraries/frontend",
-              unattended: true,
-            });
-            const requests = yield* actions.resolveSourceRequests(parsed);
-            const request = requests[0];
-            if (request === undefined) {
-              throw new Error("Expected Library source request");
-            }
-            return yield* actions.finalizeIntent(parsed, [
-              {
-                mode: "live",
-                library: makeLibraryDetail({
-                  members: [
-                    {
-                      id: "library_member_01J0000000000000000000000",
-                      libraryId: "library_01J00000000000000000000000",
-                      extensionId: "ext_01J00000000000000000000000",
-                      extensionOwner: handle("@acme"),
-                      extensionType: "skill",
-                      extensionName: extensionName("reviewer"),
-                      addedAt: oldAddedAt,
-                    },
-                    {
-                      id: "library_member_01J0000000000000000000001",
-                      libraryId: "library_01J00000000000000000000000",
-                      extensionId: "ext_01J00000000000000000000001",
-                      extensionOwner: handle("@acme"),
-                      extensionType: "skill",
-                      extensionName: extensionName("beta"),
-                      addedAt: recentAddedAt,
-                    },
-                  ],
-                }),
-                request,
-              },
-            ]);
-          }),
+          Effect.scoped(
+            Effect.gen(function* () {
+              const parsed = yield* actions.parseArgs({
+                source: "@acme/libraries/frontend",
+                unattended: true,
+              });
+              const requests = yield* actions.resolveSourceRequests(parsed);
+              const request = requests[0];
+              if (request === undefined) {
+                throw new Error("Expected Library source request");
+              }
+              return yield* actions.finalizeIntent(parsed, [
+                {
+                  mode: "live",
+                  library: makeLibraryDetail({
+                    members: [
+                      {
+                        id: "library_member_01J0000000000000000000000",
+                        libraryId: "library_01J00000000000000000000000",
+                        extensionId: "ext_01J00000000000000000000000",
+                        extensionOwner: handle("@acme"),
+                        extensionType: "skill",
+                        extensionName: extensionName("reviewer"),
+                        addedAt: oldAddedAt,
+                      },
+                      {
+                        id: "library_member_01J0000000000000000000001",
+                        libraryId: "library_01J00000000000000000000000",
+                        extensionId: "ext_01J00000000000000000000001",
+                        extensionOwner: handle("@acme"),
+                        extensionType: "skill",
+                        extensionName: extensionName("beta"),
+                        addedAt: recentAddedAt,
+                      },
+                    ],
+                  }),
+                  request,
+                },
+              ]);
+            }),
+          ),
         { workspace: liveWorkspace, sourceHostProviders: sourceProviders },
       );
 

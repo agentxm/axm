@@ -37,6 +37,17 @@ describe("parseUrl", () => {
     }),
   );
 
+  it.effect("parses URL fragment as ref", () =>
+    Effect.gen(function* () {
+      const result = yield* parseUrl(new URL("https://github.com/acme/widgets#release"));
+
+      expect(result.owner).toBe("acme");
+      expect(result.repo).toBe("widgets");
+      expect(Option.getOrNull(result.ref)).toBe("release");
+      expect(Option.isNone(result.subPath)).toBe(true);
+    }),
+  );
+
   it.effect("parses URL with ref and subPath", () =>
     Effect.gen(function* () {
       const result = yield* parseUrl(new URL("https://github.com/acme/widgets/tree/main/src/lib"));

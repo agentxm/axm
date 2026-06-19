@@ -35,6 +35,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { SkillPathSource } from "@agentxm/client-core/unstable/workspace";
 import {
   computeSkillSourceHash,
+  gitHostedSkillArtifactSource,
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
   SkillManager,
@@ -530,49 +531,47 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
 
     const discoverRefs = (reqs: ReadonlyArray<SkillSourceRequest>) =>
       provide(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const req = reqs[0];
-            if (req === undefined) {
-              return yield* makeAppError({
-                code: "usage",
-                detail: "No source request to discover from",
-              });
-            }
+        Effect.gen(function* () {
+          const req = reqs[0];
+          if (req === undefined) {
+            return yield* makeAppError({
+              code: "usage",
+              detail: "No source request to discover from",
+            });
+          }
 
-            const discover = sources
-              .find(req.source, {
-                names: req.requestedSkills,
-                type: "skill" as const,
-                owner: req.requestedOwner,
-                versionRange: req.versionRange,
-              })
-              .pipe(
-                Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
-                Effect.mapError((error) => {
-                  return makeAppError({
-                    code: "usage",
-                    detail: "Failed to discover skills from source",
-                    recover: discoverHowToFix(req.source, error),
-                    cause: error,
-                  });
-                }),
-                Effect.flatMap((discoveredSkills) =>
-                  !Array.isReadonlyArrayEmpty(discoveredSkills)
-                    ? Effect.succeed(discoveredSkills)
-                    : Effect.fail(
-                        makeAppError({
-                          code: "not_found",
-                          detail: "No skills found in source",
-                          recover: noSkillsFoundHowToFix(req.source),
-                        }),
-                      ),
-                ),
-              );
+          const discover = sources
+            .find(req.source, {
+              names: req.requestedSkills,
+              type: "skill" as const,
+              owner: req.requestedOwner,
+              versionRange: req.versionRange,
+            })
+            .pipe(
+              Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
+              Effect.mapError((error) => {
+                return makeAppError({
+                  code: "usage",
+                  detail: "Failed to discover skills from source",
+                  recover: discoverHowToFix(req.source, error),
+                  cause: error,
+                });
+              }),
+              Effect.flatMap((discoveredSkills) =>
+                !Array.isReadonlyArrayEmpty(discoveredSkills)
+                  ? Effect.succeed(discoveredSkills)
+                  : Effect.fail(
+                      makeAppError({
+                        code: "not_found",
+                        detail: "No skills found in source",
+                        recover: noSkillsFoundHowToFix(req.source),
+                      }),
+                    ),
+              ),
+            );
 
-            return yield* discover;
-          }),
-        ),
+          return yield* discover;
+        }),
       );
 
     const finalizeIntent = (
@@ -725,6 +724,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                       ? "unchanged"
                       : "updated";
                   const artifactChange = artifactChangeFromTargets(fallbackChange, targets);
+                  const sourceDetails = gitHostedSkillArtifactSource(ref);
 
                   return {
                     path: rawDisplayPath.length === 0 ? "." : rawDisplayPath,
@@ -737,6 +737,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                       : {}),
                     fileCount,
                     ...(targets.length > 0 ? { targets } : {}),
+                    ...(sourceDetails !== undefined ? { source: sourceDetails } : {}),
                   } satisfies JobStepArtifact;
                 });
 

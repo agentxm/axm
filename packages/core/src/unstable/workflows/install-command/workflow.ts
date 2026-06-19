@@ -8,6 +8,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as Scope from "effect/Scope";
 import type { AppError } from "../../app-error/index.js";
 import type { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
 import type { Plan, PlanResolution } from "../../plan/plan.js";
@@ -34,7 +35,9 @@ export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, 
   readonly resolveSourceRequests: (
     parsed: Parsed,
   ) => Effect.Effect<ReadonlyArray<Req>, AppError | PromptCancelled>;
-  readonly discoverRefs: (reqs: ReadonlyArray<Req>) => Effect.Effect<ReadonlyArray<Ref>, AppError>;
+  readonly discoverRefs: (
+    reqs: ReadonlyArray<Req>,
+  ) => Effect.Effect<ReadonlyArray<Ref>, AppError, Scope.Scope>;
   readonly finalizeIntent: (
     parsed: Parsed,
     refs: ReadonlyArray<Ref>,
@@ -78,4 +81,7 @@ export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
   Effect.gen(function* () {
     const plan = yield* buildInstallCommandPlan(args, actions);
     return yield* previewOrApplyPlan(plan, flags);
-  }).pipe(Effect.map((resolution): PlanResolution => resolution));
+  }).pipe(
+    Effect.scoped,
+    Effect.map((resolution): PlanResolution => resolution),
+  );

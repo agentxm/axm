@@ -17,7 +17,10 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { copyExtensionDirectory } from "../../extensions/utils.js";
+import {
+  copyExtensionDirectory,
+  formatCopyExtensionDirectoryFailure,
+} from "../../extensions/utils.js";
 import {
   REGISTRY_EXTENSIONS_DIR,
   formatFqn,
@@ -96,13 +99,33 @@ export const copySkill: OperationHandler<
       });
     }
     const sourcePath = stripFileProtocol(ref.location);
+    const copyTarget = path.join(targetDir, "src");
+    const sourceExists = yield* fs
+      .exists(sourcePath)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!sourceExists) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: formatCopyExtensionDirectoryFailure({
+          sourcePath,
+          targetPath: copyTarget,
+          subject: "skill files",
+          sourceExists,
+        }),
+      });
+    }
 
     // Copy source files to src/ subdirectory (manifest stays at extension root)
-    yield* copyExtensionDirectory(sourcePath, path.join(targetDir, "src")).pipe(
+    yield* copyExtensionDirectory(sourcePath, copyTarget).pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
-          detail: `Failed to copy skill files to ${targetDir}`,
+          detail: formatCopyExtensionDirectoryFailure({
+            sourcePath,
+            targetPath: copyTarget,
+            subject: "skill files",
+            sourceExists,
+          }),
           cause: e,
         }),
       ),

@@ -151,6 +151,18 @@ describe("resolveSource", () => {
         }
       }),
     );
+
+    it.effect("resolves owner/repo/path as GitHub source with subpath", () =>
+      Effect.gen(function* () {
+        const result = yield* resolve("owner/repo/skills/find-skills");
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
+          expect(result.owner).toBe("owner");
+          expect(result.repo).toBe("repo");
+          expect(result.subPath).toEqual(Option.some("skills/find-skills"));
+        }
+      }),
+    );
   });
 
   describe("GitLab shorthand", () => {
@@ -354,6 +366,17 @@ describe("resolveSource", () => {
         }
       }),
     );
+
+    it.effect("git URL fragments are resolved as refs and stripped from clone URL", () =>
+      Effect.gen(function* () {
+        const result = yield* resolve("ssh://git@example.com/owner/repo.git#release");
+        expect(result.type).toBe("git");
+        if (result.type === "git") {
+          expect(result.url.href).toBe("ssh://git@example.com/owner/repo.git");
+          expect(result.ref).toEqual(Option.some("release"));
+        }
+      }),
+    );
   });
 
   describe("single config fallback", () => {
@@ -433,6 +456,24 @@ describe("resolveSource", () => {
         expect(result.type).toBe("github");
         if (result.type === "github") {
           expect(result.url).toEqual(new URL("https://github.com"));
+          expect(Option.getOrUndefined(result.cloneUrl ?? Option.none())).toBe(
+            "ssh://git@github.com/owner/repo.git",
+          );
+        }
+      }),
+    );
+
+    it.effect("SCP input uses fragment as ref", () =>
+      Effect.gen(function* () {
+        const result = yield* resolveSource("git@github.com:owner/repo.git#main").pipe(
+          Effect.provide(makeWorkspaceLayer(multiGitHubSources)),
+        );
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
+          expect(result.ref).toEqual(Option.some("main"));
+          expect(Option.getOrUndefined(result.cloneUrl ?? Option.none())).toBe(
+            "ssh://git@github.com/owner/repo.git",
+          );
         }
       }),
     );

@@ -18,13 +18,15 @@ import type { ExtensionType } from "@agentxm/client-core/unstable/extensions";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
 import type { Version } from "@agentxm/client-core/unstable/version-constraints";
 import {
-  collectAllCurrencyEntries,
+  collectAllUpdateEntries,
   collectCommandCurrency,
   collectMcpServerCurrency,
   collectPackCurrency,
   collectSkillCurrency,
+  collectSkillSourceFreshness,
   collectSubagentCurrency,
   type ExtensionCurrencyEntry,
+  type ExtensionUpdateEntry,
 } from "@agentxm/client-core/unstable/workspace";
 
 import { INSTALL_EXTENSION_FROM_REGISTRY } from "../suggested-actions.js";
@@ -42,12 +44,17 @@ export interface OutdatedHandlerArgs {
 // ---------------------------------------------------------------------------
 
 const OutdatedEntrySchema = Schema.Struct({
+  kind: Schema.String,
   ref: Schema.String,
   type: Schema.String,
-  installedVersion: Schema.String,
+  installedVersion: Schema.optional(Schema.String),
   constraint: Schema.optional(Schema.String),
   latestMatching: Schema.optional(Schema.String),
-  latestAvailable: Schema.String,
+  latestAvailable: Schema.optional(Schema.String),
+  source: Schema.optional(Schema.String),
+  installedTreeHash: Schema.optional(Schema.String),
+  currentTreeHash: Schema.optional(Schema.String),
+  reason: Schema.optional(Schema.String),
   status: Schema.String,
 });
 
@@ -96,7 +103,7 @@ const resolveDisplayVersion = (entry: ExtensionCurrencyEntry): Version =>
     ? entry.currency.latestAvailable
     : Option.getOrElse(entry.currency.latestMatching, () => entry.currency.latestAvailable);
 
-const entryToTableRow = (entry: ExtensionCurrencyEntry): OutdatedTableRow => ({
+const registryEntryToTableRow = (entry: ExtensionCurrencyEntry): OutdatedTableRow => ({
   extension: entry.ref,
   installed: entry.installedVersion,
   constraint: Option.getOrElse(entry.constraint, () => "-"),
@@ -106,7 +113,35 @@ const entryToTableRow = (entry: ExtensionCurrencyEntry): OutdatedTableRow => ({
   ),
 });
 
-const entryToJsonRow = (entry: ExtensionCurrencyEntry) => ({
+const formatTreeHash = (hash: Option.Option<string>): string =>
+  Option.match(hash, {
+    onNone: () => "-",
+    onSome: (value) => value.slice(0, 12),
+  });
+
+const sourceEntryToTableRow = (
+  entry: Extract<ExtensionUpdateEntry, { readonly kind: "source-freshness" }>,
+): OutdatedTableRow => ({
+  extension: entry.ref,
+  installed: formatTreeHash(entry.installedTreeHash),
+  constraint: "source",
+  latest: Option.getOrElse(
+    Option.map(entry.reason, (reason) => `unknown: ${reason}`),
+    () => formatTreeHash(entry.currentTreeHash),
+  ),
+});
+
+const entryToTableRow = (entry: ExtensionUpdateEntry): OutdatedTableRow => {
+  switch (entry.kind) {
+    case "registry-version":
+      return registryEntryToTableRow(entry);
+    case "source-freshness":
+      return sourceEntryToTableRow(entry);
+  }
+};
+
+const registryEntryToJsonRow = (entry: ExtensionCurrencyEntry) => ({
+  kind: entry.kind,
   ref: entry.ref,
   type: entry.type,
   installedVersion: entry.installedVersion,
@@ -121,6 +156,46 @@ const entryToJsonRow = (entry: ExtensionCurrencyEntry) => ({
   latestAvailable: entry.currency.latestAvailable,
   status: entry.currency.status,
 });
+
+const sourceEntryToJsonRow = (
+  entry: Extract<ExtensionUpdateEntry, { readonly kind: "source-freshness" }>,
+) => ({
+  kind: entry.kind,
+  ref: entry.ref,
+  type: entry.type,
+  source: entry.source,
+  ...Option.match(entry.installedTreeHash, {
+    onNone: () => ({}),
+    onSome: (hash) => ({ installedTreeHash: hash }),
+  }),
+  ...Option.match(entry.currentTreeHash, {
+    onNone: () => ({}),
+    onSome: (hash) => ({ currentTreeHash: hash }),
+  }),
+  ...Option.match(entry.reason, {
+    onNone: () => ({}),
+    onSome: (reason) => ({ reason }),
+  }),
+  status: entry.status,
+});
+
+const entryToJsonRow = (entry: ExtensionUpdateEntry) => {
+  switch (entry.kind) {
+    case "registry-version":
+      return registryEntryToJsonRow(entry);
+    case "source-freshness":
+      return sourceEntryToJsonRow(entry);
+  }
+};
+
+const isOutdated = (entry: ExtensionUpdateEntry): boolean => {
+  switch (entry.kind) {
+    case "registry-version":
+      return entry.currency.status !== "current";
+    case "source-freshness":
+      return entry.status !== "current";
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Summary
@@ -141,7 +216,7 @@ const defaultCollect = (type: Option.Option<ExtensionType>) =>
     const registryUrl = yield* RegistryUrl;
     const client = yield* createRegistryClient(registryUrl);
     return yield* Option.match(type, {
-      onNone: () => collectAllCurrencyEntries(client),
+      onNone: () => Effect.scoped(collectAllUpdateEntries(client)),
       onSome: (t) => collectByType(t, client),
     });
   });
@@ -149,7 +224,11 @@ const defaultCollect = (type: Option.Option<ExtensionType>) =>
 const collectByType = (type: ExtensionType, client: Parameters<typeof collectSkillCurrency>[0]) => {
   switch (type) {
     case "skill":
-      return collectSkillCurrency(client);
+      return Effect.scoped(
+        Effect.all([collectSkillCurrency(client), collectSkillSourceFreshness()], {
+          concurrency: "unbounded",
+        }).pipe(Effect.map(([registry, source]) => [...registry, ...source])),
+      );
     case "command":
       return collectCommandCurrency(client);
     case "mcp-server":
@@ -159,7 +238,7 @@ const collectByType = (type: ExtensionType, client: Parameters<typeof collectSki
     case "pack":
       return collectPackCurrency(client);
     default: {
-      const empty: ReadonlyArray<ExtensionCurrencyEntry> = [];
+      const empty: ReadonlyArray<ExtensionUpdateEntry> = [];
       return Effect.succeed(empty);
     }
   }
@@ -173,7 +252,7 @@ export const handleOutdatedWith = <E, R>(
   args: OutdatedHandlerArgs,
   collect: (
     type: Option.Option<ExtensionType>,
-  ) => Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, E, R>,
+  ) => Effect.Effect<ReadonlyArray<ExtensionUpdateEntry>, E, R>,
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -197,7 +276,7 @@ export const handleOutdatedWith = <E, R>(
       return;
     }
 
-    const outdated = entries.filter((e) => e.currency.status !== "current");
+    const outdated = entries.filter(isOutdated);
     const jsonRows = outdated.map(entryToJsonRow);
 
     if (

@@ -147,6 +147,62 @@ describe("runInstallCommandWorkflow", () => {
     }).pipe(Effect.provide(makeTestLayer()));
   });
 
+  it.effect("keeps scoped discovery resources alive while applying the install plan", () =>
+    Effect.gen(function* () {
+      let released = false;
+      let stepRan = false;
+
+      const actions: InstallExtensionCommandWorkflowActions<
+        TestArgs,
+        TestParsed,
+        TestReq,
+        TestRef,
+        TestIntent
+      > = {
+        parseArgs: () => Effect.succeed({ parsedName: "x" }),
+        resolveSourceRequests: () => Effect.succeed([{ source: "x" }]),
+        discoverRefs: () =>
+          Effect.acquireRelease(Effect.succeed([{ refName: "x" }]), () =>
+            Effect.sync(() => {
+              released = true;
+            }),
+          ),
+        finalizeIntent: () => Effect.succeed({ intentName: "x" }),
+        buildPlan: () =>
+          Effect.succeed({
+            _tag: "Plan" as const,
+            name: "scoped-source-install",
+            description: Option.none(),
+            jobs: [
+              {
+                concurrency: 1,
+                steps: [
+                  {
+                    readiness: "ready" as const,
+                    label: "Copy from scoped source",
+                    run: Effect.sync(() => {
+                      expect(released).toBe(false);
+                      stepRan = true;
+                      return { result: "success" as const, message: "copied" };
+                    }),
+                  },
+                ],
+              },
+            ],
+          }),
+      };
+
+      yield* runInstallCommandWorkflow({ name: "test" }, actions, {
+        yes: true,
+        force: false,
+        preview: false,
+      });
+
+      expect(stepRan).toBe(true);
+      expect(released).toBe(true);
+    }).pipe(Effect.provide(makeTestLayer())),
+  );
+
   it.effect("threads data between phases correctly", () =>
     Effect.gen(function* () {
       let capturedParsed: TestParsed | undefined;

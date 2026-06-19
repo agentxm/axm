@@ -46,6 +46,7 @@ import {
 import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
+import { refFromFragment, refFromUrlHash, stripUrlHash } from "./url-fragment.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -59,9 +60,67 @@ const isGenericGitUrl = (url: URL): boolean =>
 
 const genericGitSourceFromUrl = (url: URL): GitSource => ({
   type: "git",
-  url,
-  ref: Option.none(),
+  url: stripUrlHash(url),
+  ref: refFromUrlHash(url),
 });
+
+const withRefFallback = (params: SourceParams, ref: Option.Option<string>): SourceParams => {
+  if (Option.isNone(ref)) return params;
+
+  switch (params.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+    case "git":
+      return Option.isSome(params.ref) ? params : { ...params, ref };
+    case "registry":
+    case "local":
+    case "inline":
+      return params;
+  }
+};
+
+const withCloneUrl = (source: Source, cloneUrl: Option.Option<string>): Source => {
+  if (Option.isNone(cloneUrl)) return source;
+
+  switch (source.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+      return { ...source, cloneUrl };
+    case "git":
+    case "registry":
+    case "local":
+      return source;
+  }
+};
+
+const splitScpPathRef = (scp: {
+  readonly user: string;
+  readonly host: string;
+  readonly path: string;
+}) => {
+  const refIndex = scp.path.lastIndexOf("#");
+  if (refIndex < 0) {
+    return {
+      scp,
+      ref: Option.none<string>(),
+      cloneUrl: new URL(`ssh://${scp.user}@${scp.host}/${scp.path}`),
+    };
+  }
+
+  const path = scp.path.slice(0, refIndex);
+  const rawRef = scp.path.slice(refIndex + 1);
+  const ref = refFromFragment(rawRef);
+
+  return {
+    scp: { ...scp, path },
+    ref,
+    cloneUrl: new URL(`ssh://${scp.user}@${scp.host}/${path}`),
+  };
+};
 
 const firstSuccess = <A, E, R>(
   attempts: ReadonlyArray<Effect.Effect<A, E, R>>,
@@ -277,7 +336,8 @@ export const routeScpInput = (
 ) =>
   Effect.gen(function* () {
     const sources = yield* getConfiguredSources(input);
-    const scpInput = `${scp.user}@${scp.host}:${scp.path}`;
+    const scpParts = splitScpPathRef(scp);
+    const scpInput = `${scpParts.scp.user}@${scpParts.scp.host}:${scpParts.scp.path}`;
     const noMatch = makeAppError({
       code: "validation",
       detail: `No configured source matches SCP address "${scpInput}"`,
@@ -288,10 +348,13 @@ export const routeScpInput = (
       config: SourceHostConfig,
       parse: (input: string, hostname: string) => Effect.Effect<SourceParams, AppError>,
     ) =>
-      scp.host !== scpHostname
+      scpParts.scp.host !== scpHostname
         ? Effect.fail(noMatch)
-        : Effect.flatMap(parse(scpInput, scp.host), (params) =>
-            configToSource(config, params, input),
+        : Effect.flatMap(parse(scpInput, scpParts.scp.host), (params) =>
+            Effect.map(
+              configToSource(config, withRefFallback(params, scpParts.ref), input),
+              (source) => withCloneUrl(source, Option.some(scpParts.cloneUrl.href)),
+            ),
           );
 
     const tryMatch = Match.type<SourceHostConfig>().pipe(
@@ -306,11 +369,10 @@ export const routeScpInput = (
     );
 
     const attempts = Array.map(sources, tryMatch);
-    const genericGitSource = genericGitSourceFromUrl(
-      new URL(`ssh://${scp.user}@${scp.host}/${scp.path}`),
-    );
+    const genericGitSource = genericGitSourceFromUrl(scpParts.cloneUrl);
+    const genericGitSourceWithRef = { ...genericGitSource, ref: scpParts.ref };
     if (Array.isReadonlyArrayEmpty(attempts)) {
-      return genericGitSource;
+      return genericGitSourceWithRef;
     }
 
     for (const attempt of attempts) {
@@ -320,7 +382,7 @@ export const routeScpInput = (
       }
     }
 
-    return genericGitSource;
+    return genericGitSourceWithRef;
   });
 
 // -----------------------------------------------------------------------------
@@ -484,7 +546,10 @@ export const resolveSlashInputSource = (
   Effect.gen(function* () {
     const sources = yield* getConfiguredSources(input);
     const shorthandTypes = ["github", "gitlab", "bitbucket"] as const;
-    const shorthandBody = `${pattern.first}/${pattern.second}`;
+    const shorthandBody = Option.match(pattern.third, {
+      onNone: () => `${pattern.first}/${pattern.second}`,
+      onSome: (subPath) => `${pattern.first}/${pattern.second}//${subPath}`,
+    });
 
     if (Option.isSome(pattern.third)) {
       const type = registryExtensionTypeFromSegment(pattern.second);

@@ -1,9 +1,11 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import { makeAppError } from "../../../app-error/index.js";
 import { GitLabSourceParamsSchema, type GitLabSourceParams } from "../../../sources/types.js";
+import { refFromUrlHash } from "../../url-fragment.js";
 
 export const CANONICAL_HOSTNAME = "gitlab.com";
 
@@ -29,11 +31,16 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       }),
     );
   }
+  const fragmentRef = Option.getOrUndefined(refFromUrlHash(url));
   const decoded = decodeGitLabSourceParams({
     type: "gitlab",
     owner: match[1],
     repo: match[2],
-    ...(match[3] === undefined ? {} : { ref: match[3] }),
+    ...(match[3] === undefined
+      ? fragmentRef === undefined
+        ? {}
+        : { ref: fragmentRef }
+      : { ref: match[3] }),
     ...(match[4] === undefined ? {} : { subPath: match[4] }),
   });
   return Result.isSuccess(decoded)

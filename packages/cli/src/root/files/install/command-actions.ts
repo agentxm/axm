@@ -150,28 +150,26 @@ export const InstallFilesCommandWorkflowActionsLive = Layer.effect(
     const resolveSourceRequests = (parsed: ParsedFilesInstallArgs) => Effect.succeed([parsed]);
 
     const discoverRefs = (reqs: ReadonlyArray<FilesInstallSourceRequest>) =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const discovered = yield* Effect.forEach(
-            reqs,
-            (req) =>
-              sources
-                .find(req.source, {
-                  names: req.names,
-                  type: "files",
-                  owner: req.owner,
-                  versionRange: req.versionRange,
-                })
-                .pipe(
-                  Effect.map((refs) =>
-                    refs.filter((ref): ref is FilesExtensionRef => ref.type === "files"),
-                  ),
+      Effect.gen(function* () {
+        const discovered = yield* Effect.forEach(
+          reqs,
+          (req) =>
+            sources
+              .find(req.source, {
+                names: req.names,
+                type: "files",
+                owner: req.owner,
+                versionRange: req.versionRange,
+              })
+              .pipe(
+                Effect.map((refs) =>
+                  refs.filter((ref): ref is FilesExtensionRef => ref.type === "files"),
                 ),
-            { concurrency: "unbounded" },
-          );
-          return discovered.flat();
-        }),
-      );
+              ),
+          { concurrency: "unbounded" },
+        );
+        return discovered.flat();
+      });
 
     const finalizeIntent = (
       parsed: ParsedFilesInstallArgs,

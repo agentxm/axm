@@ -148,7 +148,12 @@ export type {
 export type { ExtensionRef } from "./refs.js";
 
 // Shared utilities
-export { sanitizeName, copyExtensionDirectory, validatePathSafety } from "./utils.js";
+export {
+  sanitizeName,
+  normalizeExtensionName,
+  copyExtensionDirectory,
+  validatePathSafety,
+} from "./utils.js";
 
 export {
   enabledConfiguredEntries,

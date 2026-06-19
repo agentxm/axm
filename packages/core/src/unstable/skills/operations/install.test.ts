@@ -243,6 +243,7 @@ const makeOp = (
     version?: Option.Option<string>;
     versionRange?: Option.Option<string>;
     gitTreeSha?: Option.Option<string>;
+    refSourcePath?: string;
     skipSettings?: boolean;
     strictUnknownAgents?: boolean;
     skill?: {
@@ -294,6 +295,7 @@ const makeOp = (
           refType: "git-hosted" as const,
           source,
           location,
+          ...(overrides.refSourcePath !== undefined ? { sourcePath: overrides.refSourcePath } : {}),
           gitTreeSha,
         } satisfies GitHostedSkillRef;
     }
@@ -690,7 +692,8 @@ describe("installSkill", () => {
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("could not be copied");
+        expect(result.message).toContain("Failed to copy skill files from /nonexistent/path");
+        expect(result.message).toContain("source does not exist");
       }),
     );
 
@@ -708,7 +711,8 @@ describe("installSkill", () => {
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("could not be copied");
+        expect(result.message).toContain("Failed to copy skill files from");
+        expect(result.message).toContain("source does not exist");
       }),
     );
   });
@@ -1263,6 +1267,39 @@ describe("installSkill", () => {
         const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
         const content = fs.readFileSync(path.join(canonical, "SKILL.md"), "utf-8");
         expect(content).toBe("# my-skill");
+      }),
+    );
+
+    it.effect("reports git-hosted source details on the install artifact", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+
+        const result = yield* installSkill(
+          makeOp({
+            source: {
+              type: "github",
+              url: new URL("https://github.com"),
+              owner: "qualitymd",
+              repo: "quality.md",
+              ref: Option.some("main"),
+              subPath: Option.none(),
+            },
+            sourcePath: src,
+            refSourcePath: "skills/quality",
+            gitTreeSha: Option.some("2ade2ca678e5f91a7d4dd31e74e84d1bcc3986eb"),
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+        if (result.result !== "success") return;
+        expect(result.artifact?.source).toEqual({
+          type: "github",
+          origin: "https://github.com/qualitymd/quality.md",
+          ref: "main",
+          directory: "skills/quality",
+          gitTreeHash: "2ade2ca678e5f91a7d4dd31e74e84d1bcc3986eb",
+        });
       }),
     );
 

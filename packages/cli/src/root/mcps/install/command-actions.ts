@@ -260,42 +260,38 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
         }),
       );
 
-    const discoverRefs = (
-      reqs: ReadonlyArray<McpServerInstallSourceRequest>,
-    ): Effect.Effect<ReadonlyArray<McpServerExtensionRef>, AppError> =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const allRefs = yield* Effect.forEach(
-            reqs,
-            (req) =>
-              sources
-                .find(req.source, {
-                  names: [req.serverName],
-                  type: "mcp-server",
-                  owner: Option.some(req.owner),
-                  versionRange: req.versionRange,
-                })
-                .pipe(
-                  Effect.mapError((error) =>
-                    makeAppError({
-                      code: "network",
-                      detail: "MCP server could not be fetched from registry",
-                      suggestions: [
-                        {
-                          description: "Verify the server name and registry configuration.",
-                        },
-                      ],
-                      cause: error,
-                    }),
-                  ),
+    const discoverRefs = (reqs: ReadonlyArray<McpServerInstallSourceRequest>) =>
+      Effect.gen(function* () {
+        const allRefs = yield* Effect.forEach(
+          reqs,
+          (req) =>
+            sources
+              .find(req.source, {
+                names: [req.serverName],
+                type: "mcp-server",
+                owner: Option.some(req.owner),
+                versionRange: req.versionRange,
+              })
+              .pipe(
+                Effect.mapError((error) =>
+                  makeAppError({
+                    code: "network",
+                    detail: "MCP server could not be fetched from registry",
+                    suggestions: [
+                      {
+                        description: "Verify the server name and registry configuration.",
+                      },
+                    ],
+                    cause: error,
+                  }),
                 ),
-            { concurrency: "unbounded" },
-          );
-          return allRefs
-            .flat()
-            .filter((ref): ref is McpServerExtensionRef => ref.type === "mcp-server");
-        }),
-      );
+              ),
+          { concurrency: "unbounded" },
+        );
+        return allRefs
+          .flat()
+          .filter((ref): ref is McpServerExtensionRef => ref.type === "mcp-server");
+      });
 
     const finalizeIntent = (
       parsed: ParsedMcpServerInstallArgs,

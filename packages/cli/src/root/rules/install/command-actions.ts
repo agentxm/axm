@@ -103,28 +103,26 @@ export const InstallRuleCommandWorkflowActionsLive = Layer.effect(
     const resolveSourceRequests = (parsed: ParsedRuleInstallArgs) => Effect.succeed([parsed]);
 
     const discoverRefs = (reqs: ReadonlyArray<RuleInstallSourceRequest>) =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const discovered = yield* Effect.forEach(
-            reqs,
-            (req) =>
-              sources
-                .find(req.source, {
-                  names: req.names,
-                  type: "rule",
-                  owner: req.owner,
-                  versionRange: req.versionRange,
-                })
-                .pipe(
-                  Effect.map((refs) =>
-                    refs.filter((ref): ref is RuleExtensionRef => ref.type === "rule"),
-                  ),
+      Effect.gen(function* () {
+        const discovered = yield* Effect.forEach(
+          reqs,
+          (req) =>
+            sources
+              .find(req.source, {
+                names: req.names,
+                type: "rule",
+                owner: req.owner,
+                versionRange: req.versionRange,
+              })
+              .pipe(
+                Effect.map((refs) =>
+                  refs.filter((ref): ref is RuleExtensionRef => ref.type === "rule"),
                 ),
-            { concurrency: "unbounded" },
-          );
-          return discovered.flat();
-        }),
-      );
+              ),
+          { concurrency: "unbounded" },
+        );
+        return discovered.flat();
+      });
 
     const finalizeIntent = (
       parsed: ParsedRuleInstallArgs,

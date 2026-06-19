@@ -261,40 +261,36 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
         },
       ]);
 
-    const discoverRefs = (
-      reqs: ReadonlyArray<CommandInstallSourceRequest>,
-    ): Effect.Effect<ReadonlyArray<CommandExtensionRef>, AppError> =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const allRefs = yield* Effect.forEach(
-            reqs,
-            (req) =>
-              sources
-                .find(req.source, {
-                  names: req.commandNames,
-                  type: "command",
-                  owner: req.owner,
-                  versionRange: req.versionRange,
-                })
-                .pipe(
-                  Effect.mapError((error) =>
-                    makeAppError({
-                      code: "network",
-                      detail: "Command could not be fetched from registry",
-                      suggestions: [
-                        {
-                          description: "Verify the command name and registry configuration.",
-                        },
-                      ],
-                      cause: error,
-                    }),
-                  ),
+    const discoverRefs = (reqs: ReadonlyArray<CommandInstallSourceRequest>) =>
+      Effect.gen(function* () {
+        const allRefs = yield* Effect.forEach(
+          reqs,
+          (req) =>
+            sources
+              .find(req.source, {
+                names: req.commandNames,
+                type: "command",
+                owner: req.owner,
+                versionRange: req.versionRange,
+              })
+              .pipe(
+                Effect.mapError((error) =>
+                  makeAppError({
+                    code: "network",
+                    detail: "Command could not be fetched from registry",
+                    suggestions: [
+                      {
+                        description: "Verify the command name and registry configuration.",
+                      },
+                    ],
+                    cause: error,
+                  }),
                 ),
-            { concurrency: "unbounded" },
-          );
-          return allRefs.flat().filter((ref): ref is CommandExtensionRef => ref.type === "command");
-        }),
-      );
+              ),
+          { concurrency: "unbounded" },
+        );
+        return allRefs.flat().filter((ref): ref is CommandExtensionRef => ref.type === "command");
+      });
 
     const finalizeIntent = (
       parsed: ParsedCommandInstallArgs,

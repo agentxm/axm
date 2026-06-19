@@ -319,53 +319,51 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
     const discoverRefs = (reqs: ReadonlyArray<SubagentSourceRequest>) =>
       provide(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const req = reqs[0];
-            if (req === undefined) {
-              return yield* makeAppError({
-                code: "usage",
-                detail: "No source request to discover from",
-              });
-            }
+        Effect.gen(function* () {
+          const req = reqs[0];
+          if (req === undefined) {
+            return yield* makeAppError({
+              code: "usage",
+              detail: "No source request to discover from",
+            });
+          }
 
-            return yield* sources
-              .find(req.source, {
-                names: req.requestedSubagents,
-                type: "subagent" as const,
-                owner: req.requestedOwner,
-                versionRange: req.versionRange,
-              })
-              .pipe(
-                Effect.map(
-                  Array.filter((ref): ref is SubagentExtensionRef => ref.type === "subagent"),
-                ),
-                Effect.mapError((error) => {
-                  return makeAppError({
-                    code: "usage",
-                    detail: "Failed to discover subagents from source",
-                    suggestions: [{ description: discoverHowToFix(req.source, error) }],
-                    cause: error,
-                  });
-                }),
-                Effect.flatMap((discoveredSubagents) =>
-                  !Array.isReadonlyArrayEmpty(discoveredSubagents)
-                    ? Effect.succeed(discoveredSubagents)
-                    : Effect.fail(
-                        makeAppError({
-                          code: "not_found",
-                          detail: "No subagents found in source",
-                          suggestions: [
-                            {
-                              description: noSubagentsFoundHowToFix(req.source),
-                            },
-                          ],
-                        }),
-                      ),
-                ),
-              );
-          }),
-        ),
+          return yield* sources
+            .find(req.source, {
+              names: req.requestedSubagents,
+              type: "subagent" as const,
+              owner: req.requestedOwner,
+              versionRange: req.versionRange,
+            })
+            .pipe(
+              Effect.map(
+                Array.filter((ref): ref is SubagentExtensionRef => ref.type === "subagent"),
+              ),
+              Effect.mapError((error) => {
+                return makeAppError({
+                  code: "usage",
+                  detail: "Failed to discover subagents from source",
+                  suggestions: [{ description: discoverHowToFix(req.source, error) }],
+                  cause: error,
+                });
+              }),
+              Effect.flatMap((discoveredSubagents) =>
+                !Array.isReadonlyArrayEmpty(discoveredSubagents)
+                  ? Effect.succeed(discoveredSubagents)
+                  : Effect.fail(
+                      makeAppError({
+                        code: "not_found",
+                        detail: "No subagents found in source",
+                        suggestions: [
+                          {
+                            description: noSubagentsFoundHowToFix(req.source),
+                          },
+                        ],
+                      }),
+                    ),
+              ),
+            );
+        }),
       );
 
     const finalizeIntent = (

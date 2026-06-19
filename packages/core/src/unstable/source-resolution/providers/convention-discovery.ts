@@ -19,7 +19,7 @@ import { hookPackagesInDir, type HookExtensionRef } from "../../hooks/index.js";
 import { rulePackagesInDir, type RuleExtensionRef } from "../../rules/index.js";
 import { MANIFEST_FILENAME, SubagentManifestSchema } from "../../subagents/manifest-schema.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
-import { decodeExtensionNameSync } from "../../extensions/index.js";
+import { normalizeExtensionName } from "../../extensions/index.js";
 import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
@@ -52,6 +52,14 @@ const matchesIdentity = (
     (candidate.owner !== undefined && candidate.owner === options.owner.value);
   return nameMatch && ownerMatch;
 };
+
+const matchesSkillIdentity = (
+  candidate: { readonly rawName: string; readonly normalizedName: ExtensionName },
+  options: FindOptions,
+): boolean =>
+  options.names.length === 0 ||
+  options.names.includes(candidate.rawName) ||
+  options.names.includes(candidate.normalizedName);
 
 const relativeDir = (basePath: string, location: string) =>
   Effect.gen(function* () {
@@ -87,16 +95,18 @@ const skillRefsInDir = (source: ExternalSource, basePath: string, options: FindO
     fullDepth: true,
     includeInternal: false,
   }).pipe(
-    Effect.map((skills) =>
-      skills.filter(({ skill }) => matchesIdentity({ name: skill.name }, options)),
-    ),
     Effect.flatMap((skills) =>
       Effect.forEach(
-        skills,
+        skills.filter(({ skill }) =>
+          matchesSkillIdentity(
+            { rawName: skill.name, normalizedName: normalizeExtensionName(skill.name) },
+            options,
+          ),
+        ),
         (discovered) =>
           Effect.gen(function* () {
             const skill = {
-              name: decodeExtensionNameSync(discovered.skill.name),
+              name: normalizeExtensionName(discovered.skill.name),
               description: Option.some(discovered.skill.description),
               metadata: discovered.skill.metadata,
             };
@@ -120,6 +130,7 @@ const skillRefsInDir = (source: ExternalSource, basePath: string, options: FindO
                   skill,
                   source,
                   location: discovered.location,
+                  sourcePath: yield* relativeDir(basePath, discovered.location),
                   gitTreeSha: yield* gitTreeShaFor(source, basePath, discovered.location),
                 } satisfies SkillExtensionRef;
             }

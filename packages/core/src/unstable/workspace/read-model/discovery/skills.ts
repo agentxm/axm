@@ -66,9 +66,10 @@ export interface DiscoveryOptions {
 const SKILL_FILENAME = "SKILL.md";
 
 /**
- * Non-agent static directories for Phase 2 priority scan.
+ * Canonical skill container directories for Phase 2 priority scan.
  */
 const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
+  "skills",
   "skills/.curated",
   "skills/.experimental",
   "skills/.system",
@@ -79,12 +80,12 @@ const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
  *
  * Composition:
  * 1. `.` (searchPath root) — always first, highest priority
- * 2. Non-agent static dirs: skills/.curated, skills/.experimental, skills/.system
+ * 2. Non-agent static dirs: skills, skills/.curated, skills/.experimental, skills/.system
  * 3. Agent dirs: unique `skills.dir` values from the AgentDescriptor registry
  */
 export const getPriorityDirectories = (): ReadonlyArray<string> => {
   const agentDirs = Array.dedupe(AGENT_IDS.map((id) => AGENTS[id].skills.dir));
-  return [".", ...STATIC_PRIORITY_DIRECTORIES, ...agentDirs];
+  return Array.dedupe([".", ...STATIC_PRIORITY_DIRECTORIES, ...agentDirs]);
 };
 
 // -----------------------------------------------------------------------------
@@ -133,6 +134,24 @@ const tryParseSkillInDir = (dir: string) =>
     return parseSkillMd(content.value);
   });
 
+const discoverSkillInDir = (
+  dir: string,
+  options: DiscoveryOptions,
+  installInternalSkills: Option.Option<string>,
+) =>
+  Effect.gen(function* () {
+    const skill = yield* tryParseSkillInDir(dir);
+    if (Option.isNone(skill)) return { foundSkillDir: false, skills: [] };
+    if (!shouldIncludeSkill(skill.value, options, installInternalSkills)) {
+      return { foundSkillDir: true, skills: [] };
+    }
+
+    return {
+      foundSkillDir: true,
+      skills: [makeDiscoveredSkill(skill.value, dir)],
+    };
+  });
+
 /**
  * Scan one level of children in a directory for skills.
  * Each immediate subdirectory is checked for a SKILL.md.
@@ -157,16 +176,80 @@ const scanDirectory = (
           if (Option.isNone(stat) || stat.value.type !== "Directory")
             return [] satisfies readonly DiscoveredSkill[];
 
-          const skill = yield* tryParseSkillInDir(fullPath);
-          if (Option.isNone(skill)) return [] satisfies DiscoveredSkill[];
-          if (!shouldIncludeSkill(skill.value, options, installInternalSkills))
-            return [] satisfies readonly DiscoveredSkill[];
-
-          return [makeDiscoveredSkill(skill.value, fullPath)] satisfies DiscoveredSkill[];
+          const discovered = yield* discoverSkillInDir(fullPath, options, installInternalSkills);
+          return discovered.skills;
         }),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => Array.flatten(results)));
   });
+
+/**
+ * Scan canonical skill containers. Each direct child may be either a skill
+ * directory or a category that contains skill directories one level deeper.
+ */
+const scanSkillContainerDirectory = (
+  dir: string,
+  options: DiscoveryOptions,
+  installInternalSkills: Option.Option<string>,
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
+    if (Option.isNone(entries)) return [];
+
+    return yield* Effect.forEach(
+      entries.value,
+      (entry) =>
+        Effect.gen(function* () {
+          if (DISCOVERY_SKIPPED_DIRECTORIES.has(entry)) return [] satisfies DiscoveredSkill[];
+
+          const fullPath = path.join(dir, entry);
+          const stat = yield* fs.stat(fullPath).pipe(Effect.option);
+          if (Option.isNone(stat) || stat.value.type !== "Directory")
+            return [] satisfies readonly DiscoveredSkill[];
+
+          const discovered = yield* discoverSkillInDir(fullPath, options, installInternalSkills);
+          if (discovered.foundSkillDir) return discovered.skills;
+
+          const childEntries = yield* fs.readDirectory(fullPath).pipe(Effect.option);
+          if (Option.isNone(childEntries)) return [] satisfies readonly DiscoveredSkill[];
+
+          return yield* Effect.forEach(
+            childEntries.value,
+            (childEntry) =>
+              Effect.gen(function* () {
+                if (DISCOVERY_SKIPPED_DIRECTORIES.has(childEntry))
+                  return [] satisfies DiscoveredSkill[];
+
+                const childPath = path.join(fullPath, childEntry);
+                const childStat = yield* fs.stat(childPath).pipe(Effect.option);
+                if (Option.isNone(childStat) || childStat.value.type !== "Directory")
+                  return [] satisfies readonly DiscoveredSkill[];
+
+                const childDiscovered = yield* discoverSkillInDir(
+                  childPath,
+                  options,
+                  installInternalSkills,
+                );
+                return childDiscovered.skills;
+              }),
+            { concurrency: "unbounded" },
+          ).pipe(Effect.map((results) => Array.flatten(results)));
+        }),
+      { concurrency: "unbounded" },
+    ).pipe(Effect.map((results) => Array.flatten(results)));
+  });
+
+const scanPriorityDirectory = (
+  priorityDir: string,
+  fullDir: string,
+  options: DiscoveryOptions,
+  installInternalSkills: Option.Option<string>,
+) =>
+  priorityDir === "."
+    ? scanDirectory(fullDir, options, installInternalSkills)
+    : scanSkillContainerDirectory(fullDir, options, installInternalSkills);
 
 /**
  * Recursive DFS scan with depth limit.
@@ -196,12 +279,8 @@ const recursiveScan = (
           if (Option.isNone(stat) || stat.value.type !== "Directory")
             return [] satisfies DiscoveredSkill[];
 
-          // Try to parse a skill in this directory
-          const skill = yield* tryParseSkillInDir(fullPath);
-          const current: readonly DiscoveredSkill[] =
-            Option.isSome(skill) && shouldIncludeSkill(skill.value, options, installInternalSkills)
-              ? [makeDiscoveredSkill(skill.value, fullPath)]
-              : ([] satisfies readonly DiscoveredSkill[]);
+          const discovered = yield* discoverSkillInDir(fullPath, options, installInternalSkills);
+          if (discovered.foundSkillDir) return discovered.skills;
 
           // Recurse into subdirectories
           const subResults = yield* recursiveScan(
@@ -210,7 +289,7 @@ const recursiveScan = (
             depth + 1,
             installInternalSkills,
           );
-          return [...current, ...subResults];
+          return subResults;
         }),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => Array.flatten(results)));
@@ -289,11 +368,19 @@ export const skillsInDir = (
     );
     // Deduplicate manifest dirs against static priority dirs
     const manifestDirsToAdd = manifestDirs.filter((d) => !priorityFullDirs.includes(d));
-    const allPriorityDirs = [...priorityFullDirs, ...manifestDirsToAdd];
+
+    const priorityEntries = [
+      ...priorityDirs.map((priorityDir) => ({
+        priorityDir,
+        fullDir: priorityDir === "." ? searchRoot : path.join(searchRoot, priorityDir),
+      })),
+      ...manifestDirsToAdd.map((fullDir) => ({ priorityDir: ".", fullDir })),
+    ];
 
     const phase2Skills = yield* Effect.forEach(
-      allPriorityDirs,
-      (fullDir) => scanDirectory(fullDir, options, installInternalSkills),
+      priorityEntries,
+      ({ priorityDir, fullDir }) =>
+        scanPriorityDirectory(priorityDir, fullDir, options, installInternalSkills),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => Array.flatten(results)));
 

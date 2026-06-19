@@ -37,7 +37,9 @@ const appliedInstallHeadline = (resolution: PlanResolution, fallbackSource: stri
   if (successfulSteps.length === 1 && firstStep !== undefined) {
     const agents = firstStep.agents;
     const targetPhrase =
-      agents === undefined || agents.length === 0 ? "" : ` for ${count(agents.length, "agent")}`;
+      agents === undefined || agents.length === 0
+        ? ""
+        : ` for ${count(agents.length, "agent target")}`;
     return `Installed skill ${firstStep.label}${targetPhrase}`;
   }
 

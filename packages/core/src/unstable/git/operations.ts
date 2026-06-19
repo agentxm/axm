@@ -16,19 +16,14 @@ import { type AppError, makeAppError } from "../app-error/index.js";
 // Internal Helpers
 // -----------------------------------------------------------------------------
 
-/**
- * Creates a simple-git instance with options that allow SSH passphrase prompts.
- * Using 'inherit' for stdio enables interactive authentication.
- */
 const createGit = (baseDir?: string): SimpleGit => {
   const options: Partial<SimpleGitOptions> = {
     baseDir: baseDir ?? process.cwd(),
     binary: "git",
     maxConcurrentProcesses: 1,
-    config: [],
   };
 
-  return simpleGit(options);
+  return simpleGit(options).env("GIT_TERMINAL_PROMPT", "0").env("GIT_LFS_SKIP_SMUDGE", "1");
 };
 
 type GitOperation = "clone" | "get-tree-sha";

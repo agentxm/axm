@@ -83,6 +83,28 @@ describe("copyExtensionDirectory", () => {
     ),
   );
 
+  it.effect("dereferences symlinked directories", () =>
+    withPlatform(
+      Effect.gen(function* () {
+        const realSource = path.join(tmpDir, "real-source");
+        const src = path.join(tmpDir, "src-link");
+        const dest = path.join(tmpDir, "dest");
+
+        fs.mkdirSync(realSource);
+        fs.writeFileSync(path.join(realSource, "SKILL.md"), "# Linked Skill");
+        fs.mkdirSync(path.join(realSource, "lib"));
+        fs.writeFileSync(path.join(realSource, "lib", "helper.md"), "helper");
+        fs.symlinkSync(realSource, src, "dir");
+
+        yield* copyExtensionDirectory(src, dest);
+
+        expect(fs.lstatSync(dest).isSymbolicLink()).toBe(false);
+        expect(fs.readFileSync(path.join(dest, "SKILL.md"), "utf-8")).toBe("# Linked Skill");
+        expect(fs.readFileSync(path.join(dest, "lib", "helper.md"), "utf-8")).toBe("helper");
+      }),
+    ),
+  );
+
   it.effect("creates destination directory if it does not exist", () =>
     withPlatform(
       Effect.gen(function* () {

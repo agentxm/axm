@@ -12,6 +12,7 @@ import {
   resolveShorthandInputSource,
   resolveIdentifier,
   resolveSlashInputSource,
+  routeScpInput,
   routeUrlInput,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -325,10 +326,11 @@ export const resolveSkillInstallSource = (
         );
       case "url-input":
         return yield* resolveSkillUrl(pattern.url, parseResult.originalInput);
+      case "git-scp-address":
+        return yield* routeScpInput(pattern, parseResult.originalInput);
       case "file-path-pattern":
         return { type: "local" as const, path: pattern.path };
       // Unsupported:
-      case "git-scp-address":
       case "glob-input":
         return yield* makeAppError({
           code: "internal",

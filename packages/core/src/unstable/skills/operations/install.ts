@@ -46,9 +46,18 @@ import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { Operation } from "../../plan/plan.js";
-import type { JobStepArtifact, JobStepArtifactTarget, JobStepResult } from "../../plan/plan.js";
+import type {
+  JobStepArtifact,
+  JobStepArtifactSource,
+  JobStepArtifactTarget,
+  JobStepResult,
+} from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { copyExtensionDirectory, sanitizeName } from "../../extensions/utils.js";
+import {
+  copyExtensionDirectory,
+  formatCopyExtensionDirectoryFailure,
+  sanitizeName,
+} from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
 import { computeSkillSourceHash } from "./source-hash.js";
 
@@ -299,6 +308,39 @@ const artifactChangeFromTargets = (
   return fallback === "updated" ? "updated" : "unchanged";
 };
 
+const gitHostedSourceOrigin = (ref: GitHostedSkillRef): string => {
+  const source = ref.source;
+  switch (source.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+      return `${source.url.origin}/${source.owner}/${source.repo}`;
+    case "azurerepos":
+      return `${source.url.origin}/${source.organization}/${source.project}/_git/${source.repo}`;
+    case "git":
+      return source.url.href;
+  }
+};
+
+export const gitHostedSkillArtifactSource = (
+  ref: SkillExtensionRef,
+): JobStepArtifactSource | undefined => {
+  if (ref.refType !== "git-hosted") return undefined;
+
+  const gitTreeHash = Option.getOrUndefined(ref.gitTreeSha);
+  const gitRef = Option.getOrUndefined(ref.source.ref);
+  const directory =
+    ref.sourcePath === undefined || ref.sourcePath.length === 0 ? "." : ref.sourcePath;
+
+  return {
+    type: ref.source.type,
+    origin: gitHostedSourceOrigin(ref),
+    ...(gitRef !== undefined ? { ref: gitRef } : {}),
+    directory,
+    ...(gitTreeHash !== undefined ? { gitTreeHash } : {}),
+  };
+};
+
 // -----------------------------------------------------------------------------
 // Shared helpers
 // -----------------------------------------------------------------------------
@@ -309,11 +351,30 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
+    const sourceExists = yield* fs
+      .exists(sourcePath)
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!sourceExists) {
+      return yield* errInstallFailed({
+        message: formatCopyExtensionDirectoryFailure({
+          sourcePath,
+          targetPath: copyTarget,
+          subject: "skill files",
+          sourceExists,
+        }),
+      });
+    }
+
     yield* removeFromAllCanonicalLocations(fs, ws.baseDir, "skills", sanitizedName, path);
     yield* copyExtensionDirectory(sourcePath, copyTarget).pipe(
       Effect.mapError((e) =>
         errInstallFailed({
-          message: "Skill files could not be copied to the canonical location",
+          message: formatCopyExtensionDirectoryFailure({
+            sourcePath,
+            targetPath: copyTarget,
+            subject: "skill files",
+            sourceExists,
+          }),
           cause: e,
         }),
       ),
@@ -803,6 +864,7 @@ export const installSkill: OperationHandler<
     const warnings = [unknownAgentWarning, skippedOutcomeWarning, writeWarning].filter(
       (warning): warning is string => warning !== undefined,
     );
+    const sourceDetails = gitHostedSkillArtifactSource(ref);
 
     return {
       result: "success",
@@ -818,6 +880,7 @@ export const installSkill: OperationHandler<
           : {}),
         fileCount,
         ...(artifactTargets.length > 0 ? { targets: artifactTargets } : {}),
+        ...(sourceDetails !== undefined ? { source: sourceDetails } : {}),
       },
     } satisfies JobStepResult;
   });

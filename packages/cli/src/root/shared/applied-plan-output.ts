@@ -3,6 +3,7 @@ import * as Option from "effect/Option";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+import { serializeErrorCauseChain } from "@agentxm/client-core/unstable/app-error";
 import type {
   CompletedJobStep,
   ExecutedPlan,
@@ -26,7 +27,22 @@ const formatArtifactTargets = (artifact: JobStepArtifact): string => {
     .join(", ");
 };
 
-const formatCompletedArtifactStep = (step: CompletedJobStep): string | undefined => {
+const formatArtifactSource = (artifact: JobStepArtifact): string | undefined => {
+  if (artifact.source === undefined) return undefined;
+  const source = artifact.source;
+  const details = [
+    `${source.type} ${source.origin}`,
+    source.ref === undefined ? undefined : `ref ${source.ref}`,
+    source.directory === undefined ? undefined : `dir ${source.directory}`,
+    source.gitTreeHash === undefined ? undefined : `tree ${source.gitTreeHash}`,
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+  return details.length === 0 ? undefined : `  source: ${details.join("   ")}`;
+};
+
+const formatCompletedArtifactStep = (
+  step: CompletedJobStep,
+  options: { readonly debug?: boolean } = {},
+): string | undefined => {
   if (step.result.result !== "success" || step.result.artifact === undefined) return undefined;
   const artifact = step.result.artifact;
   const details = [
@@ -34,15 +50,35 @@ const formatCompletedArtifactStep = (step: CompletedJobStep): string | undefined
     artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
     formatArtifactTargets(artifact),
   ].filter((part): part is string => part !== undefined && part.length > 0);
-  return `${step.label}   ${details.join("   ")}`;
+  const row = `${step.label}   ${details.join("   ")}`;
+  if (options.debug !== true) return row;
+  const source = formatArtifactSource(artifact);
+  return source === undefined ? row : `${row}\n${source}`;
 };
 
-const formatFailedStep = (step: CompletedJobStep): string | undefined => {
+const formatFailedStep = (
+  step: CompletedJobStep,
+  options: { readonly verbose?: boolean; readonly debug?: boolean } = {},
+): string | undefined => {
   if (step.result.result !== "error") return undefined;
   const message = step.result.message.trim();
-  return message.length === 0
-    ? `${step.label}   failed   ${step.result.error.code}`
-    : `${step.label}   failed   ${message}`;
+  const row =
+    message.length === 0
+      ? `${step.label}   failed   ${step.result.error.code}`
+      : `${step.label}   failed   ${message}`;
+  if (options.verbose !== true && options.debug !== true) return row;
+
+  const causes = serializeErrorCauseChain(step.result.error.cause, {
+    debug: options.debug === true,
+  });
+  if (causes.length === 0) return row;
+
+  const causeRows = causes.map((cause) => {
+    const code = cause.code === undefined ? "" : ` ${cause.code}`;
+    const stack = options.debug === true && cause.stack !== undefined ? `\n${cause.stack}` : "";
+    return `  cause: ${cause._tag}${code}: ${cause.message}${stack}`;
+  });
+  return [row, ...causeRows].join("\n");
 };
 
 const formatPlainSuccessStep = (step: CompletedJobStep): string | undefined => {
@@ -61,15 +97,18 @@ export const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefin
   return rows.length === 0 ? undefined : rows.join("\n");
 };
 
-export const summarizeExecutedOutcome = (plan: ExecutedPlan): string | undefined => {
+export const summarizeExecutedOutcome = (
+  plan: ExecutedPlan,
+  options: { readonly verbose?: boolean; readonly debug?: boolean } = {},
+): string | undefined => {
   const rows = plan.jobs
     .flatMap((job) => job.steps)
     .flatMap((step) => {
-      const artifactSummary = formatCompletedArtifactStep(step);
+      const artifactSummary = formatCompletedArtifactStep(step, { debug: options.debug === true });
       if (artifactSummary !== undefined) return [artifactSummary];
       const successSummary = formatPlainSuccessStep(step);
       if (successSummary !== undefined) return [successSummary];
-      const failedSummary = formatFailedStep(step);
+      const failedSummary = formatFailedStep(step, options);
       return failedSummary === undefined ? [] : [failedSummary];
     });
   return rows.length === 0 ? undefined : rows.join("\n");
@@ -125,6 +164,7 @@ export const emitAppliedPlanOutcome = <TCommand extends string>(args: {
   readonly failureSuggestions?: ReadonlyArray<SuggestedAction>;
 }) =>
   Effect.gen(function* () {
+    const verbosity = yield* Verbosity;
     const failed =
       args.resolution._tag === "ExecutedPlan" ? hasFailedSteps(args.resolution) : false;
     const suggestions = failed
@@ -132,7 +172,10 @@ export const emitAppliedPlanOutcome = <TCommand extends string>(args: {
       : args.suggestions;
     const summary =
       args.resolution._tag === "ExecutedPlan"
-        ? summarizeExecutedOutcome(args.resolution)
+        ? summarizeExecutedOutcome(args.resolution, {
+            verbose: verbosity.isAtLeast("verbose"),
+            debug: verbosity.level === "debug",
+          })
         : undefined;
     const resultOptions = summary === undefined ? { suggestions } : { summary, suggestions };
     const emitted = yield* emitPlanResolutionResult(
@@ -143,7 +186,6 @@ export const emitAppliedPlanOutcome = <TCommand extends string>(args: {
 
     if (args.resolution._tag === "ExecutedPlan") {
       const renderer = yield* CliRenderer;
-      const verbosity = yield* Verbosity;
       if (verbosity.isAtLeast("verbose")) {
         const description = Option.getOrUndefined(args.resolution.description);
         if (description !== undefined && description.length > 0) {

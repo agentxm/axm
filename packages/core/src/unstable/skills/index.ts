@@ -54,6 +54,7 @@ export {
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
   computeSkillSourceHash,
+  gitHostedSkillArtifactSource,
   groupInstallTargetsByDirectory,
   installSkill,
   skillArtifactFromTargets,

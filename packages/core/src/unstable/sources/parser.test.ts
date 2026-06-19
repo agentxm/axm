@@ -128,12 +128,22 @@ describe("parseInputPattern", () => {
       });
     });
 
-    it("returns None for slash pattern with three segments (unsupported)", () => {
-      expectNone("owner/repo/path");
+    it("classifies slash pattern with three segments as source path", () => {
+      expectSome("owner/repo/path", {
+        pattern: "slash-pattern",
+        first: "owner",
+        second: "repo",
+        third: Option.some("path"),
+      });
     });
 
-    it("returns None for slash pattern with more than three segments", () => {
-      expectNone("owner/repo/sub/path");
+    it("classifies slash pattern with more than three segments as source path", () => {
+      expectSome("owner/repo/sub/path", {
+        pattern: "slash-pattern",
+        first: "owner",
+        second: "repo",
+        third: Option.some("sub/path"),
+      });
     });
 
     it("returns None for slash pattern with invalid segment", () => {

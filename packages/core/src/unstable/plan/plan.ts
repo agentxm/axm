@@ -55,12 +55,21 @@ export interface JobStepArtifact {
   readonly previousVersion?: string;
   readonly fileCount?: number;
   readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
+  readonly source?: JobStepArtifactSource;
 }
 
 export interface JobStepArtifactTarget {
   readonly path: string;
   readonly change: ArtifactChange;
   readonly agentIds?: ReadonlyArray<string>;
+}
+
+export interface JobStepArtifactSource {
+  readonly type: string;
+  readonly origin: string;
+  readonly ref?: string;
+  readonly directory?: string;
+  readonly gitTreeHash?: string;
 }
 
 export type JobStepResult =

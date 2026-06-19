@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -14,7 +15,12 @@ import {
 } from "../test-stubs.js";
 import { WorkspaceMutations } from "../service-interface.js";
 import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "../../source-resolution/index.js";
+import {
   collectSkillCurrency,
+  collectSkillSourceFreshness,
   collectCommandCurrency,
   collectMcpServerCurrency,
   collectSubagentCurrency,
@@ -121,6 +127,82 @@ describe("collectSkillCurrency", () => {
 
       const entries = yield* collectSkillCurrency(client).pipe(Effect.provide(layer));
       expect(entries).toHaveLength(0);
+    }),
+  );
+});
+
+describe("collectSkillSourceFreshness", () => {
+  it.effect("returns changed freshness entries for Git-hosted skills with new tree hash", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredSources: () =>
+          Effect.succeed([
+            { name: "github", type: "github" as const, url: new URL("https://github.com") },
+          ]),
+        getConfiguredSkills: () =>
+          Effect.succeed({
+            "find-skills": {
+              source: "github:vercel-labs/skills//skills/find-skills",
+              enabled: true,
+              packagingKind: "non-native" as const,
+            },
+          }),
+        getLockedSkills: () =>
+          Effect.succeed({
+            "find-skills": {
+              type: "github" as const,
+              owner: "vercel-labs",
+              repo: "skills",
+              path: "skills/find-skills",
+              gitTreeHash: "old-tree",
+              agents: ["codex"],
+              installedAt: new Date("2025-01-01T00:00:00.000Z"),
+              updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+            },
+          }),
+      });
+
+      const sourceProviders: SourceHostProvidersService = {
+        find: () =>
+          Effect.succeed([
+            {
+              type: "skill",
+              refType: "git-hosted",
+              skill: {
+                name: decodeExtensionNameSync("find-skills"),
+                description: Option.some("Find skills"),
+                metadata: Option.none(),
+              },
+              source: {
+                type: "github",
+                url: new URL("https://github.com"),
+                owner: "vercel-labs",
+                repo: "skills",
+                ref: Option.none(),
+                subPath: Option.some("skills/find-skills"),
+              },
+              location: "file:///tmp/find-skills",
+              sourcePath: "skills/find-skills",
+              gitTreeSha: Option.some("new-tree"),
+            },
+          ]),
+        fetch: () => Effect.die(new Error("not used")),
+        cloneUrl: () => Option.none(),
+        origin: () => "https://github.com/vercel-labs/skills",
+      };
+      const layer = Layer.merge(
+        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
+        Layer.succeed(SourceHostProviders, sourceProviders),
+      );
+
+      const entries = yield* collectSkillSourceFreshness().pipe(Effect.provide(layer));
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.kind).toBe("source-freshness");
+      expect(entries[0]?.ref).toBe("skills/find-skills");
+      expect(entries[0]?.status).toBe("changed");
+      expect(entries[0]?.installedTreeHash).toEqual(Option.some("old-tree"));
+      expect(entries[0]?.currentTreeHash).toEqual(Option.some("new-tree"));
     }),
   );
 });

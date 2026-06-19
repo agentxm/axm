@@ -2,7 +2,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { ExtensionCurrencyEntry } from "@agentxm/client-core/unstable/workspace";
+import type {
+  ExtensionCurrencyEntry,
+  ExtensionSourceFreshnessEntry,
+} from "@agentxm/client-core/unstable/workspace";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-helpers.js";
@@ -21,6 +24,7 @@ const makeEntry = (
     readonly type: ExtensionCurrencyEntry["type"];
   },
 ): ExtensionCurrencyEntry => ({
+  kind: "registry-version",
   ref: overrides.ref,
   type: overrides.type,
   installedVersion: overrides.installedVersion ?? v("1.0.0"),
@@ -62,6 +66,17 @@ const currentPack: ExtensionCurrencyEntry = makeEntry({
   ref: "@acme/packs/frontend",
   type: "pack",
 });
+
+const changedSourceSkill: ExtensionSourceFreshnessEntry = {
+  kind: "source-freshness",
+  ref: "skills/find-skills",
+  type: "skill",
+  source: "github:vercel-labs/skills//skills/find-skills",
+  installedTreeHash: Option.some("1111111111111111111111111111111111111111"),
+  currentTreeHash: Option.some("2222222222222222222222222222222222222222"),
+  status: "changed",
+  reason: Option.none(),
+};
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -179,6 +194,7 @@ describe("outdated handler", () => {
             expect.objectContaining({
               data: expect.arrayContaining([
                 expect.objectContaining({
+                  kind: "registry-version",
                   ref: "@acme/skills/code-review",
                   type: "skill",
                   installedVersion: "1.0.0",
@@ -188,6 +204,7 @@ describe("outdated handler", () => {
                   status: "update-available",
                 }),
                 expect.objectContaining({
+                  kind: "registry-version",
                   ref: "@acme/commands/deploy",
                   type: "command",
                   installedVersion: "1.0.0",
@@ -232,6 +249,32 @@ describe("outdated handler", () => {
           expect(rendererState.logs).toEqual([]);
           expect(rendererState.results[1]?.data).toMatchObject({
             count: 1,
+            summary: "1 extension has updates available.",
+          });
+        }),
+      ),
+    );
+  });
+
+  it.effect("renders Git-hosted source freshness rows", () => {
+    const { baseLayer, rendererState } = makeCliTestContext();
+
+    return handleOutdatedWith({ type: Option.none() }, () =>
+      Effect.succeed([changedSourceSkill]),
+    ).pipe(
+      Effect.provide(baseLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(rendererState.results[1]?.data).toMatchObject({
+            count: 1,
+            items: [
+              expect.objectContaining({
+                extension: "skills/find-skills",
+                installed: "111111111111",
+                constraint: "source",
+                latest: "222222222222",
+              }),
+            ],
             summary: "1 extension has updates available.",
           });
         }),

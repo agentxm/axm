@@ -10,10 +10,14 @@
 export { checkCurrency, type CurrencyResult, type CurrencyStatus } from "./check-currency.js";
 export {
   collectAllCurrencyEntries,
+  collectAllUpdateEntries,
   collectCommandCurrency,
   collectMcpServerCurrency,
   collectPackCurrency,
+  collectSkillSourceFreshness,
   collectSkillCurrency,
   collectSubagentCurrency,
   type ExtensionCurrencyEntry,
+  type ExtensionSourceFreshnessEntry,
+  type ExtensionUpdateEntry,
 } from "./collectors.js";

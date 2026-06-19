@@ -255,6 +255,7 @@ export interface GitHubSourceParams {
   readonly repo: string;
   readonly ref: Option.Option<string>;
   readonly subPath: Option.Option<string>;
+  readonly cloneUrl?: Option.Option<string>;
 }
 
 /** @experimental */
@@ -264,6 +265,7 @@ export interface GitLabSourceParams {
   readonly repo: string;
   readonly ref: Option.Option<string>;
   readonly subPath: Option.Option<string>;
+  readonly cloneUrl?: Option.Option<string>;
 }
 
 /** @experimental */
@@ -273,6 +275,7 @@ export interface BitbucketSourceParams {
   readonly repo: string;
   readonly ref: Option.Option<string>;
   readonly subPath: Option.Option<string>;
+  readonly cloneUrl?: Option.Option<string>;
 }
 
 /** @experimental */
@@ -283,6 +286,7 @@ export interface AzureReposSourceParams {
   readonly repo: string;
   readonly ref: Option.Option<string>;
   readonly subPath: Option.Option<string>;
+  readonly cloneUrl?: Option.Option<string>;
 }
 
 /** @experimental */

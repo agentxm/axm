@@ -14,6 +14,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
 import { isPathSafe } from "../utils/index.js";
+import { decodeExtensionNameSync, type ExtensionName } from "./common.js";
 
 // -----------------------------------------------------------------------------
 // Name Sanitization
@@ -39,6 +40,22 @@ export const sanitizeName = (name: string): string => {
   result = result.slice(0, 255);
 
   return result || "unnamed-skill";
+};
+
+/**
+ * Converts a human-authored label into a valid AXM extension name.
+ */
+export const normalizeExtensionName = (name: string): ExtensionName => {
+  const normalized = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "")
+    .slice(0, 64)
+    .replace(/-+$/, "");
+
+  return decodeExtensionNameSync(normalized || "unnamed-extension");
 };
 
 // -----------------------------------------------------------------------------
@@ -133,6 +150,23 @@ export type CopyExtensionDirectoryOptions = {
    * (e.g. `README.md`) that the published package contains.
    */
   readonly forAgentArtifact?: boolean;
+};
+
+export type CopyExtensionDirectoryFailureDetails = {
+  readonly sourcePath: string;
+  readonly targetPath: string;
+  readonly subject?: string;
+  readonly sourceExists?: boolean;
+};
+
+export const formatCopyExtensionDirectoryFailure = ({
+  sourcePath,
+  targetPath,
+  subject = "extension files",
+  sourceExists,
+}: CopyExtensionDirectoryFailureDetails): string => {
+  const missingSource = sourceExists === false ? "; source does not exist" : "";
+  return `Failed to copy ${subject} from ${sourcePath} to ${targetPath}${missingSource}`;
 };
 
 /**

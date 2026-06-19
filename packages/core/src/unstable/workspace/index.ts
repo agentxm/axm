@@ -215,12 +215,16 @@ export {
 export {
   checkCurrency,
   collectAllCurrencyEntries,
+  collectAllUpdateEntries,
   collectCommandCurrency,
   collectMcpServerCurrency,
   collectPackCurrency,
   collectSkillCurrency,
+  collectSkillSourceFreshness,
   collectSubagentCurrency,
   type CurrencyResult,
   type CurrencyStatus,
   type ExtensionCurrencyEntry,
+  type ExtensionSourceFreshnessEntry,
+  type ExtensionUpdateEntry,
 } from "./version-currency/index.js";

@@ -3,6 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import {
   type SuggestedAction,
   type CommandOutcomeSummary,
@@ -20,6 +21,12 @@ import type {
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { ArtifactChangeSchema } from "@agentxm/client-core/unstable/plan";
+import { serializeErrorCauseChain } from "@agentxm/client-core/unstable/app-error";
+
+export interface PlanResolutionResultOptions {
+  readonly verbose?: boolean;
+  readonly debug?: boolean;
+}
 
 const StepStatusSchema = Schema.Literals([
   "ready",
@@ -46,6 +53,18 @@ const StepArtifactTargetSchema = Schema.Struct({
   description: "One materialized target surface for a plan step artifact.",
 });
 
+const StepArtifactSourceSchema = Schema.Struct({
+  type: Schema.String,
+  origin: Schema.String,
+  ref: Schema.optional(Schema.String),
+  directory: Schema.optional(Schema.String),
+  gitTreeHash: Schema.optional(Schema.String),
+}).annotate({
+  identifier: "StepArtifactSource",
+  title: "Plan Step Artifact Source",
+  description: "Optional source metadata describing where the artifact came from.",
+});
+
 const StepArtifactSchema = Schema.Struct({
   path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),
@@ -55,10 +74,32 @@ const StepArtifactSchema = Schema.Struct({
   previousVersion: Schema.optional(Schema.String),
   fileCount: Schema.optional(Schema.Number),
   targets: Schema.optional(Schema.Array(StepArtifactTargetSchema)),
+  source: Schema.optional(StepArtifactSourceSchema),
 }).annotate({
   identifier: "StepArtifact",
   title: "Plan Step Artifact",
   description: "Optional artifact metadata describing what changed and where.",
+});
+
+const ErrorCauseSchema = Schema.Struct({
+  _tag: Schema.String,
+  code: Schema.optional(Schema.String),
+  message: Schema.String,
+  stack: Schema.optional(Schema.String),
+}).annotate({
+  identifier: "ErrorCause",
+  title: "Error Cause",
+  description: "One serialized entry from a failed step error cause chain.",
+});
+
+const StepErrorSchema = Schema.Struct({
+  code: Schema.String,
+  message: Schema.String,
+  causes: Schema.optional(Schema.Array(ErrorCauseSchema)),
+}).annotate({
+  identifier: "StepError",
+  title: "Plan Step Error",
+  description: "Detailed error metadata for a failed plan step.",
 });
 
 const StepSchema = Schema.Struct({
@@ -67,6 +108,7 @@ const StepSchema = Schema.Struct({
   message: Schema.optional(Schema.String),
   warnings: Schema.optional(Schema.Array(Schema.String)),
   code: Schema.optional(Schema.String),
+  error: Schema.optional(StepErrorSchema),
   artifact: Schema.optional(StepArtifactSchema),
   links: Schema.optional(
     Schema.Struct({
@@ -82,8 +124,12 @@ const StepSchema = Schema.Struct({
 type Step = typeof StepSchema.Type;
 type StepArtifact = typeof StepArtifactSchema.Type;
 
-const artifactForJson = (artifact: JobStepArtifact): StepArtifact => {
-  const { targets, ...rest } = artifact;
+const artifactForJson = (
+  artifact: JobStepArtifact,
+  options: PlanResolutionResultOptions,
+): StepArtifact => {
+  const { targets, source, ...base } = artifact;
+  const rest = options.debug === true && source !== undefined ? { ...base, source } : base;
   if (targets === undefined) return rest;
   const additionalTargets = artifact.targets?.filter((target) => target.path !== artifact.path);
   return additionalTargets === undefined || additionalTargets.length === 0
@@ -143,7 +189,10 @@ const plannedStepToStep = (step: PlannedJobStep): Step => {
   }
 };
 
-const completedStepToStep = (step: CompletedJobStep): Step => {
+const completedStepToStep = (
+  step: CompletedJobStep,
+  options: PlanResolutionResultOptions,
+): Step => {
   if (step.result.result === "success") {
     const status = step.result.artifact?.change === "unchanged" ? "unchanged" : "applied";
     return {
@@ -154,18 +203,31 @@ const completedStepToStep = (step: CompletedJobStep): Step => {
         ? { warnings: step.result.warnings }
         : {}),
       ...(step.result.artifact !== undefined
-        ? { artifact: artifactForJson(step.result.artifact) }
+        ? { artifact: artifactForJson(step.result.artifact, options) }
         : {}),
       ...(step.result.links !== undefined ? { links: step.result.links } : {}),
     };
   }
 
   const code = step.result.error.code;
+  const includeErrorDetails = options.verbose === true || options.debug === true;
+  const causes = includeErrorDetails
+    ? serializeErrorCauseChain(step.result.error.cause, { debug: options.debug === true })
+    : [];
   return {
     label: step.label,
     status: step.result.message.includes("blocked") ? "blocked" : "failed",
     ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
     code,
+    ...(includeErrorDetails
+      ? {
+          error: {
+            code,
+            message: step.result.error.detail,
+            ...(causes.length > 0 ? { causes } : {}),
+          },
+        }
+      : {}),
   };
 };
 
@@ -175,7 +237,10 @@ const flattenExecutedSteps = (plan: ExecutedPlan): ReadonlyArray<CompletedJobSte
 const planDescription = (resolution: PlanResolution): string | undefined =>
   Option.getOrUndefined(resolution.description);
 
-export const toPlanResolutionResult = (resolution: PlanResolution): PlanResolutionResult => {
+export const toPlanResolutionResult = (
+  resolution: PlanResolution,
+  options: PlanResolutionResultOptions = {},
+): PlanResolutionResult => {
   switch (resolution._tag) {
     case "PreviewedPlan":
     case "CancelledPlan": {
@@ -200,7 +265,9 @@ export const toPlanResolutionResult = (resolution: PlanResolution): PlanResoluti
       };
     }
     case "ExecutedPlan": {
-      const steps = flattenExecutedSteps(resolution).map(completedStepToStep);
+      const steps = flattenExecutedSteps(resolution).map((step) =>
+        completedStepToStep(step, options),
+      );
       const appliedCount = steps.filter((step) => step.status === "applied").length;
       const failedCount = steps.filter((step) => step.status === "failed").length;
       const blockedCount = steps.filter((step) => step.status === "blocked").length;
@@ -237,13 +304,19 @@ export const emitPlanResolutionResult = <TCommand extends string>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const verbosity = yield* Verbosity;
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(planResolutionToSummary(resolution, {})),
     });
     return yield* renderer.result(
-      { result: toPlanResolutionResult(resolution) },
+      {
+        result: toPlanResolutionResult(resolution, {
+          verbose: verbosity.isAtLeast("verbose"),
+          debug: verbosity.level === "debug",
+        }),
+      },
       Schema.Struct(PlanResolutionDocumentFields),
       options,
     );

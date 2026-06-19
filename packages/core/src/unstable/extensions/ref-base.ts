@@ -26,6 +26,8 @@ import type { PackageUrlParts } from "../packaging/package-url.js";
 export interface GitHostedRefDetails {
   /** file:// URL to cloned directory */
   readonly location: string;
+  /** Repository-relative directory selected for this extension */
+  readonly sourcePath?: string;
   /** Git tree SHA for integrity verification */
   readonly gitTreeSha: Option.Option<string>;
 }

@@ -117,15 +117,27 @@ describe("copySkill", () => {
 
     it.effect("fails with AppError when source does not exist", () =>
       Effect.gen(function* () {
-        const { axmDir } = setupBase();
+        const { axmDir, base } = setupBase();
+        const missingSource = "/nonexistent/path";
+        const targetPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "src",
+        );
 
-        const result = yield* copySkill(makeOp({ location: "file:///nonexistent/path" })).pipe(
+        const result = yield* copySkill(makeOp({ location: `file://${missingSource}` })).pipe(
           Effect.provide(withServices(axmDir)),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("Failed to copy");
+        expect(result.message).toBe(
+          `Failed to copy skill files from ${missingSource} to ${targetPath}; source does not exist`,
+        );
       }),
     );
   });

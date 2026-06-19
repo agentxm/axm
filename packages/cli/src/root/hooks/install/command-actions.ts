@@ -154,28 +154,26 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
     const resolveSourceRequests = (parsed: ParsedHookInstallArgs) => Effect.succeed([parsed]);
 
     const discoverRefs = (reqs: ReadonlyArray<HookInstallSourceRequest>) =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const discovered = yield* Effect.forEach(
-            reqs,
-            (req) =>
-              sources
-                .find(req.source, {
-                  names: req.names,
-                  type: "hook",
-                  owner: req.owner,
-                  versionRange: req.versionRange,
-                })
-                .pipe(
-                  Effect.map((refs) =>
-                    refs.filter((ref): ref is HookExtensionRef => ref.type === "hook"),
-                  ),
+      Effect.gen(function* () {
+        const discovered = yield* Effect.forEach(
+          reqs,
+          (req) =>
+            sources
+              .find(req.source, {
+                names: req.names,
+                type: "hook",
+                owner: req.owner,
+                versionRange: req.versionRange,
+              })
+              .pipe(
+                Effect.map((refs) =>
+                  refs.filter((ref): ref is HookExtensionRef => ref.type === "hook"),
                 ),
-            { concurrency: "unbounded" },
-          );
-          return discovered.flat();
-        }),
-      );
+              ),
+          { concurrency: "unbounded" },
+        );
+        return discovered.flat();
+      });
 
     const finalizeIntent = (
       parsed: ParsedHookInstallArgs,

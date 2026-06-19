@@ -44,7 +44,7 @@ type GitScpAddress = {
   readonly path: string;
 };
 
-/** An `owner/repo` style pattern containing `/` (not a URL or file path). */
+/** An `owner/repo[/path]` style pattern containing `/` (not a URL or file path). */
 type SlashPattern = {
   readonly pattern: "slash-pattern";
   readonly first: string;
@@ -158,23 +158,26 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     }
   }
 
-  // 6. Slash pattern (exactly two valid-name segments: `owner/repo`)
-  //    3+ segment slash inputs (e.g., `owner/repo/path`) are unsupported here.
-  //    Use the full URL or a shorthand like `github:owner/repo --path subdir` instead.
+  // 6. Slash pattern (`owner/repo` or `owner/repo/path`)
   if (input.includes("/")) {
     const segments = input.split("/");
-    if (segments.length === 2 && segments.every((s) => NAME_PATTERN.test(s))) {
-      const first = segments.at(0);
-      const second = segments.at(1);
-      if (first === undefined || second === undefined) {
-        return Option.none();
-      }
+    const first = segments.at(0);
+    const second = segments.at(1);
+    if (
+      first !== undefined &&
+      second !== undefined &&
+      segments.length >= 2 &&
+      NAME_PATTERN.test(first) &&
+      NAME_PATTERN.test(second) &&
+      segments.slice(2).every((s) => s.length > 0 && s !== "..")
+    ) {
+      const remaining = segments.slice(2).join("/");
       return Option.some(
         wrap({
           pattern: "slash-pattern",
           first,
           second,
-          third: Option.none(),
+          third: remaining.length === 0 ? Option.none() : Option.some(remaining),
         }),
       );
     }

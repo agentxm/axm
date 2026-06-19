@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
@@ -7,6 +8,7 @@ import {
   AzureReposSourceParamsSchema,
   type AzureReposSourceParams,
 } from "../../../sources/types.js";
+import { refFromUrlHash } from "../../url-fragment.js";
 
 export const CANONICAL_HOSTNAME = "dev.azure.com";
 
@@ -32,11 +34,13 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       }),
     );
   }
+  const fragmentRef = Option.getOrUndefined(refFromUrlHash(url));
   const decoded = decodeAzureReposSourceParams({
     type: "azurerepos",
     organization: match[1],
     project: match[2],
     repo: match[3],
+    ...(fragmentRef === undefined ? {} : { ref: fragmentRef }),
   });
   return Result.isSuccess(decoded)
     ? Effect.succeed(decoded.success satisfies AzureReposSourceParams)

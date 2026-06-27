@@ -127,6 +127,48 @@ describe("commands update.handler", () => {
     );
   });
 
+  it.effect("updates a command when positional name matches an installed command", () => {
+    const ctx = makeWorkspaceHandlerTestContext();
+    const sourcesLayer = Layer.succeed(SourceHostProviders, {
+      find: () => Effect.succeed([makeRegistryRef("my-cmd")]),
+      fetch: () => Effect.die("unused"),
+      cloneUrl: () => Option.none(),
+      origin: () => "test",
+    });
+    const fullLayer = Layer.mergeAll(ctx.fullLayer, CodingAgentRepositoryLive, sourcesLayer);
+    const provide = makeEffectProvide(fullLayer);
+
+    initWorkspace(path.join(tempDir, ".axm"), { "my-cmd": path.join(tempDir, "my-cmd") }, {});
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdateCommand(defaultArgs({ name: Option.some("my-cmd"), preview: true }));
+
+        expect(ctx.logs.info.some((message) => message.includes("Would update 1 command"))).toBe(
+          true,
+        );
+        expect(ctx.logs.warn).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("reports no-op when positional name matches no installed command", () => {
+    const { provide, logs, rendererState } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"), { "my-cmd": path.join(tempDir, "my-cmd") }, {});
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdateCommand(defaultArgs({ name: Option.some("missing-cmd") }));
+
+        expect(logs.success).toContain("No installed commands match the name filter.");
+        expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Update commands",
+          message: "No installed commands match the name filter.",
+        });
+      }),
+    );
+  });
+
   // ---------------------------------------------------------------------------
   // Preview mode
   // ---------------------------------------------------------------------------

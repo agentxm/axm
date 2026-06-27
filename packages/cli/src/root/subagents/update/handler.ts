@@ -5,7 +5,6 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { expandGlobs } from "@agentxm/client-core/unstable/utils";
 
 import {
   WorkspaceMutations,
@@ -13,10 +12,7 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
 import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
-import {
-  resolveInstalledIdentifierNameOrInput,
-  resolveSource,
-} from "@agentxm/client-core/unstable/source-resolution";
+import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import {
   previewOrApplyPlan,
@@ -27,6 +23,10 @@ import {
 import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
+import {
+  allUpdateTargetResolutionsFailed,
+  resolveUpdateTargets,
+} from "../../shared/update-targets.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
 
 export interface UpdateHandlerArgs {
@@ -100,63 +100,22 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     return;
   }
 
-  // Step 2: Filter by source argument if provided
-  const sourceValue = Option.getOrUndefined(args.source);
-  const sourceFilteredEntries =
-    sourceValue !== undefined
-      ? yield* Effect.gen(function* () {
-          const sourceArg = yield* resolveSource(sourceValue).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "validation",
-                detail: `Invalid source: ${error.message}`,
-                cause: error,
-              }),
-            ),
-          );
-          const sourceArgOrigin = sources.origin(sourceArg);
-          return yield* Effect.forEach(
-            subagentEntries,
-            ([name, sourceStr]) =>
-              resolveSource(sourceStr).pipe(
-                Effect.map((resolved) =>
-                  sources.origin(resolved) === sourceArgOrigin
-                    ? Option.some<readonly [string, string]>([name, sourceStr])
-                    : Option.none<[string, string]>(),
-                ),
-                Effect.catch(() => Effect.succeed(Option.none<[string, string]>())),
-              ),
-            { concurrency: "unbounded" },
-          ).pipe(Effect.map(Array.getSomes));
-        })
-      : subagentEntries;
-
-  // Step 3: Filter by --subagent glob patterns
-  const subagentFilters = yield* Effect.forEach(args.subagents, (subagent) =>
-    subagent.includes("*")
-      ? Effect.succeed(subagent)
-      : resolveInstalledIdentifierNameOrInput({
-          input: subagent,
-          resourceType: "subagent",
-        }),
-  );
-  const filteredEntries = (() => {
-    if (args.subagents.length === 0) return sourceFilteredEntries;
-    const allNames = sourceFilteredEntries.map(([name]) => name);
-    const matchedNames = expandGlobs(subagentFilters, allNames);
-    const matchedSet = new Set(matchedNames);
-    return sourceFilteredEntries.filter(([name]) => matchedSet.has(name));
-  })();
-  if (args.subagents.length > 0) {
-    if (filteredEntries.length === 0) {
-      yield* emitNoOpOutcome("subagents.update", {
-        planName: "Update subagents",
-        planDescription: "Update installed subagents",
-        message: "No installed subagents match the --subagent filter.",
-      });
-      return;
-    }
+  const targetResolution = yield* resolveUpdateTargets({
+    command: "subagents.update",
+    planName: "Update subagents",
+    planDescription: "Update installed subagents",
+    entries: subagentEntries,
+    source: args.source,
+    nameFilters: args.subagents,
+    nameFilterFlag: "--subagent",
+    resourceType: "subagent",
+    resourceLabel: "subagent",
+    resourceLabelPlural: "subagents",
+  });
+  if (targetResolution.type === "no-op") {
+    return;
   }
+  const filteredEntries = targetResolution.entries;
 
   // Step 4: Re-resolve each source and discover subagents
   const findSubagentRefs = (
@@ -234,9 +193,8 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     (result): result is Extract<ResolveResult, { readonly type: "skip" }> => result.type === "skip",
   );
   if (resolved.length === 0) {
-    return yield* makeAppError({
-      code: "network",
-      detail: "All source re-resolutions failed.",
+    return yield* allUpdateTargetResolutionsFailed({
+      resourceLabelPlural: "subagent",
       suggestions: [{ description: "Verify the original source paths are still accessible." }],
     });
   }

@@ -218,6 +218,123 @@ describe("subagents-update.handler", () => {
         }),
       );
     });
+
+    it.effect(
+      "updates a registry subagent when positional source matches its installed name",
+      () => {
+        const ctx = makeWorkspaceHandlerTestContext({
+          prompt: {
+            confirmResponses: [true],
+          },
+        });
+        const source = {
+          type: "registry" as const,
+          location: new URL("file:///tmp/subagents-registry"),
+          owner: Option.some(handle("@acme")),
+          name: "test",
+        };
+        const sourcesLayer = Layer.succeed(SourceHostProviders, {
+          find: () =>
+            Effect.succeed([
+              buildRegistrySubagentRef(
+                handle("@acme"),
+                extensionName("researcher"),
+                exactVersion("2.0.0"),
+                source,
+                [],
+              ),
+            ]),
+          fetch: () => Effect.die("unused"),
+          cloneUrl: () => Option.none(),
+          origin: () => "test",
+        });
+        const BaseLayer = ctx.baseLayer;
+        const WsLayer = ctx.wsLayer;
+        const AgentRepoLayer = Layer.provide(CodingAgentRepositoryLive, WsLayer);
+        const SubagentMgrLayer = Layer.provide(
+          SubagentManagerLive,
+          Layer.mergeAll(WsLayer, AgentRepoLayer, BaseLayer),
+        );
+        const FullLayer = Layer.mergeAll(
+          BaseLayer,
+          WsLayer,
+          sourcesLayer,
+          AgentRepoLayer,
+          SubagentMgrLayer,
+        );
+        const provide = makeEffectProvide(FullLayer);
+
+        initWorkspace(path.join(tempDir, ".axm"), {
+          subagents: {
+            researcher: path.join(tempDir, "researcher-source"),
+          },
+          subagentLocks: {
+            researcher: {
+              type: "registry",
+              owner: "@acme",
+              name: "researcher",
+              resolvedVersion: "1.0.0",
+              integrity: "sha384-test",
+              sourceName: "test",
+              agents: ["claude-code"],
+              installedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        });
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleUpdate(defaultArgs({ source: Option.some("researcher"), preview: true }));
+
+            expect(
+              ctx.logs.info.some((message) => message.includes("Would update 1 subagent")),
+            ).toBe(true);
+            expect(ctx.logs.warn).toEqual([]);
+          }),
+        );
+      },
+    );
+
+    it.effect(
+      "reports no-op when positional source matches no installed subagent or source",
+      () => {
+        const { provide, logs, rendererState } = makeLayers();
+
+        initWorkspace(path.join(tempDir, ".axm"), {
+          subagents: {
+            researcher: path.join(tempDir, "researcher-source"),
+          },
+          subagentLocks: {
+            researcher: {
+              type: "registry",
+              owner: "@acme",
+              name: "researcher",
+              resolvedVersion: "1.0.0",
+              integrity: "sha384-test",
+              sourceName: "test",
+              agents: ["claude-code"],
+              installedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        });
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleUpdate(defaultArgs({ source: Option.some("missing") }));
+
+            expect(logs.success).toContain(
+              'No installed subagent matched "missing" as a name or source.',
+            );
+            expectNoOpPlanResult(rendererState.results[0]?.data, {
+              planName: "Update subagents",
+              message: 'No installed subagent matched "missing" as a name or source.',
+            });
+          }),
+        );
+      },
+    );
   });
 
   describe("preview mode", () => {

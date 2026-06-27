@@ -4,7 +4,6 @@ import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
-  resolveInstalledIdentifierNameOrInput,
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import * as Array from "effect/Array";
@@ -13,7 +12,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { expandGlobs } from "@agentxm/client-core/unstable/utils";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -50,6 +48,10 @@ import {
 } from "./constraint-resolution.js";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
+import {
+  allUpdateTargetResolutionsFailed,
+  resolveUpdateTargets,
+} from "../../shared/update-targets.js";
 import { LIST_INSTALLED_SKILLS, SKILL_NAME_RULES } from "../../suggested-actions.js";
 
 export interface UpdateHandlerArgs {
@@ -147,68 +149,27 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     return;
   }
 
-  // Step 2: Filter by source argument if provided
-  const sourceValue = Option.getOrUndefined(args.source);
-  const sourceFilteredEntries =
-    sourceValue !== undefined
-      ? yield* Effect.gen(function* () {
-          const sourceArg = yield* resolveSource(sourceValue).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "validation",
-                detail: `Invalid source: ${error.message}`,
-                cause: error,
-              }),
-            ),
-          );
-          // Compare sources by identity using canonical origin string
-          const sourceArgOrigin = sources.origin(sourceArg);
-          return yield* Effect.forEach(
-            skillEntries,
-            ([name, sourceStr]) =>
-              resolveSource(sourceStr).pipe(
-                Effect.map((resolved) =>
-                  sources.origin(resolved) === sourceArgOrigin
-                    ? Option.some<readonly [string, string]>([name, sourceStr])
-                    : Option.none<[string, string]>(),
-                ),
-                Effect.catch(() => Effect.succeed(Option.none<[string, string]>())),
-              ),
-            { concurrency: "unbounded" },
-          ).pipe(Effect.map(Array.getSomes));
-        })
-      : skillEntries;
-
-  // Step 3: Filter by --skill glob patterns
-  const skillFilters = yield* Effect.forEach(args.skills, (skill) =>
-    skill.includes("*")
-      ? Effect.succeed(skill)
-      : resolveInstalledIdentifierNameOrInput({
-          input: skill,
-          resourceType: "skill",
-        }),
-  );
-  const filteredEntries = (() => {
-    if (args.skills.length === 0) return sourceFilteredEntries;
-    const allNames = sourceFilteredEntries.map(([name]) => name);
-    const matchedNames = expandGlobs(skillFilters, allNames);
-    const matchedSet = new Set(matchedNames);
-    return sourceFilteredEntries.filter(([name]) => matchedSet.has(name));
-  })();
-  if (args.skills.length > 0) {
-    if (filteredEntries.length === 0) {
-      yield* emitNoOpOutcome("skills.update", {
-        planName: "Update skills",
-        planDescription: "Update installed skills",
-        message: "No installed skills match the --skill filter.",
-        suggestions: [
-          LIST_INSTALLED_SKILLS,
-          { description: "Relax the `--skill` filter and try again" },
-        ],
-      });
-      return;
-    }
+  const targetResolution = yield* resolveUpdateTargets({
+    command: "skills.update",
+    planName: "Update skills",
+    planDescription: "Update installed skills",
+    entries: skillEntries,
+    source: args.source,
+    nameFilters: args.skills,
+    nameFilterFlag: "--skill",
+    resourceType: "skill",
+    resourceLabel: "skill",
+    resourceLabelPlural: "skills",
+    noSourceMatchSuggestions: [LIST_INSTALLED_SKILLS],
+    noNameMatchSuggestions: [
+      LIST_INSTALLED_SKILLS,
+      { description: "Relax the `--skill` filter and try again" },
+    ],
+  });
+  if (targetResolution.type === "no-op") {
+    return;
   }
+  const filteredEntries = targetResolution.entries;
 
   // Step 4: Collect pack constraints from installed pack manifests
   const packConstraintMap = yield* collectPackConstraints();
@@ -461,9 +422,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     (result): result is Extract<ResolveResult, { readonly type: "skip" }> => result.type === "skip",
   );
   if (resolved.length === 0) {
-    return yield* makeAppError({
-      code: "network",
-      detail: "All source re-resolutions failed.",
+    return yield* allUpdateTargetResolutionsFailed({
+      resourceLabelPlural: "skill",
       recover: "List configured sources",
       cmd: "axm sources list",
     });

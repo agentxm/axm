@@ -364,6 +364,86 @@ describe("update.handler — error recovery", () => {
     );
   });
 
+  it.effect("updates a registry skill when positional source matches its installed name", () => {
+    const { provide, logs } = makeLayers();
+    const registryRoot = path.join(tempDir, "registry");
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@acme",
+      name: "code-review",
+      versions: [
+        { version: "2.0.0", skillBody: "# code-review v2" },
+        { version: "1.0.0", skillBody: "# code-review v1" },
+      ],
+    });
+
+    initWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["claude-code"],
+      sources: [
+        {
+          name: "local-reg",
+          type: "registry",
+          location: pathToFileURL(registryRoot).href,
+        },
+      ],
+      skills: {
+        "code-review": "@acme/skills/code-review",
+      },
+      skillLocks: {
+        "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs({ source: Option.some("code-review"), preview: true }));
+
+        expect(logs.info.some((message) => message.includes("Would update 1 skill"))).toBe(true);
+        expect(logs.warn).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("reports no-op when positional source matches no installed skill or source", () => {
+    const { provide, logs, rendererState } = makeLayers();
+    const registryRoot = path.join(tempDir, "registry");
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@acme",
+      name: "code-review",
+      versions: [{ version: "1.0.0", skillBody: "# code-review v1" }],
+    });
+
+    initWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["claude-code"],
+      sources: [
+        {
+          name: "local-reg",
+          type: "registry",
+          location: pathToFileURL(registryRoot).href,
+        },
+      ],
+      skills: {
+        "code-review": "@acme/skills/code-review",
+      },
+      skillLocks: {
+        "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs({ source: Option.some("missing") }));
+
+        expect(logs.success).toContain('No installed skill matched "missing" as a name or source.');
+        expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Update skills",
+          message: 'No installed skill matched "missing" as a name or source.',
+        });
+      }),
+    );
+  });
+
   it.effect(
     "updates registry skills using the stored user constraint and preserves it in settings",
     () => {

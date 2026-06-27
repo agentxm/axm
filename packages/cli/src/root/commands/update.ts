@@ -3,7 +3,6 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
@@ -13,7 +12,6 @@ import {
 import { installCommand as installCommandOp } from "@agentxm/client-core/unstable/commands";
 import {
   resolveSource,
-  resolveInstalledIdentifierNameOrInput,
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -24,6 +22,10 @@ import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import {
+  allUpdateTargetResolutionsFailed,
+  resolveUpdateTargets,
+} from "../shared/update-targets.js";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { toJobStepResult } from "./job-step-result.js";
 import { combinePlanSections, makeItemSection } from "./preview-sections.js";
@@ -100,28 +102,23 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
     return;
   }
 
-  // Step 2: Filter by name if provided
   const rawNameValue = Option.getOrUndefined(args.name);
-  const nameValue =
-    rawNameValue === undefined
-      ? undefined
-      : yield* resolveInstalledIdentifierNameOrInput({
-          input: rawNameValue,
-          resourceType: "command",
-        });
-  const filteredEntries =
-    nameValue !== undefined
-      ? commandEntries.filter(([name]) => name === nameValue)
-      : commandEntries;
-
-  if (nameValue !== undefined && filteredEntries.length === 0) {
-    yield* emitNoOpOutcome("commands.update", {
-      planName: "Update commands",
-      planDescription: "Update installed commands",
-      message: `Command "${nameValue}" is not installed or is disabled.`,
-    });
+  const targetResolution = yield* resolveUpdateTargets({
+    command: "commands.update",
+    planName: "Update commands",
+    planDescription: "Update installed commands",
+    entries: commandEntries,
+    source: Option.none(),
+    nameFilters: rawNameValue === undefined ? [] : [rawNameValue],
+    nameFilterFlag: "name",
+    resourceType: "command",
+    resourceLabel: "command",
+    resourceLabelPlural: "commands",
+  });
+  if (targetResolution.type === "no-op") {
     return;
   }
+  const filteredEntries = targetResolution.entries;
 
   // Step 3: Re-resolve each source and discover commands
   const sources = yield* SourceHostProviders;
@@ -179,9 +176,8 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
     (entry): entry is Extract<ResolveOutcome, { readonly type: "skip" }> => entry.type === "skip",
   );
   if (resolvedEntries.length === 0) {
-    return yield* makeAppError({
-      code: "network",
-      detail: "All source re-resolutions failed.",
+    return yield* allUpdateTargetResolutionsFailed({
+      resourceLabelPlural: "command",
       suggestions: [{ description: "Verify the original source paths are still accessible." }],
     });
   }

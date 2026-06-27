@@ -1,3 +1,13 @@
+## 0.19.2 (2026-06-27)
+
+### 🩹 Fixes
+
+- Fix update targeting for installed skills, subagents, and commands ([58d39179](https://github.com/agentxm/axm/commit/58d39179))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.19.1 (2026-06-19)
 
 ### 🩹 Fixes

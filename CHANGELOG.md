@@ -1,3 +1,13 @@
+## 0.19.3 (2026-07-09)
+
+### 🩹 Fixes
+
+- Upgrade Effect beta to 4.0.0-beta.94 ([2ebefdcc](https://github.com/agentxm/axm/commit/2ebefdcc))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.19.2 (2026-06-27)
 
 ### 🩹 Fixes

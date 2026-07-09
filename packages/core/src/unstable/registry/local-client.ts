@@ -468,12 +468,8 @@ export const createLocalRegistryClient = (
           ),
         );
 
-        // Check idempotency: same version + same integrity = no-op
         const existingVersion = existingIndex.versions.find((v) => v.version === args.version);
         if (existingVersion) {
-          if (existingVersion.integrity === args.metadata.integrity) {
-            return { published: true } as const; // Idempotent: same version, same integrity -> no-op
-          }
           return yield* errPublishConflict({ version: args.version });
         }
 

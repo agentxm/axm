@@ -663,12 +663,11 @@ describe("LocalRegistryClient.publishExtension", () => {
     );
   });
 
-  it.effect("is idempotent when same version and integrity", () => {
+  it.effect("fails when same version has the same integrity", () => {
     const registryRoot = makeRegistryDir();
     const archive = createTestZip("SKILL.md", "content");
 
     return Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
       const integrity = yield* computeIntegrity(archive);
       const entry = makeVersionEntry({ integrity });
       const client = yield* makeLocalClient(registryRoot);
@@ -676,12 +675,13 @@ describe("LocalRegistryClient.publishExtension", () => {
         typeof client.publishExtension
       >[0];
       yield* client.publishExtension(publishArgs);
-      yield* client.publishExtension(publishArgs);
 
-      const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
-      const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
-      const index: ExtensionIndex = JSON.parse(indexContent);
-      expect(index.versions).toHaveLength(1);
+      const result = yield* client.publishExtension(publishArgs).pipe(Effect.result);
+
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure.code).toBe("conflict");
+      }
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),

@@ -16,11 +16,13 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitPublishResult } from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { resolveManifestVersionInfo } from "../shared/extension-version.js";
 import { withPublishArtifact } from "../shared/publish-artifact.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
+import { skipExistingFlag } from "../shared/publish-flags.js";
+import { recoverPublishConflictAsSkipExisting } from "../shared/publish-skip-existing.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 
 export const handlePublishHook = Effect.fn("PublishHook.handle")(function* (args: {
@@ -28,6 +30,7 @@ export const handlePublishHook = Effect.fn("PublishHook.handle")(function* (args
   readonly registry: string;
   readonly yes: boolean;
   readonly preview: boolean;
+  readonly skipExisting?: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
@@ -41,14 +44,54 @@ export const handlePublishHook = Effect.fn("PublishHook.handle")(function* (args
       detail: `Registry source "${args.registry}" not found or not a registry source`,
     });
   }
-  yield* checkPublishVersionPreflight({
+  const registrySource = target.value;
+  const preflightDecision = yield* checkPublishVersionPreflight({
     fqn: args.name,
     type: "hook",
     registryName: args.registry,
-    registryUrl: target.value.location.href,
+    registryUrl: registrySource.location.href,
     force: false,
+    existingVersionPolicy: args.skipExisting === true ? "skip" : "error",
   });
   const versionInfo = yield* resolveManifestVersionInfo(args.name, "hook");
+
+  if (preflightDecision.action === "skip") {
+    const message = `Skipped ${preflightDecision.fqn}@${preflightDecision.identity.version}: version already published`;
+    const emitted = yield* emitPublishResult("hooks.publish", {
+      mode: args.preview ? "preview" : "apply",
+      results: [
+        {
+          owner: preflightDecision.identity.owner,
+          type: preflightDecision.identity.type,
+          name: preflightDecision.identity.name,
+          version: preflightDecision.identity.version,
+          action: "skip",
+          reason: preflightDecision.reason,
+          ...(args.preview ? {} : { status: "success" }),
+          message,
+        },
+      ],
+    });
+    if (emitted) return;
+    yield* renderer.success(message);
+    return;
+  }
+
+  if (args.preview) {
+    const emitted = yield* emitPublishResult("hooks.publish", {
+      mode: "preview",
+      results: [
+        {
+          owner: preflightDecision.identity.owner,
+          type: preflightDecision.identity.type,
+          name: preflightDecision.identity.name,
+          version: preflightDecision.identity.version,
+          action: "publish",
+        },
+      ],
+    });
+    if (emitted) return;
+  }
 
   const runPublishPlan = Effect.gen(function* () {
     const step: PlannedJobStep = {
@@ -65,6 +108,15 @@ export const handlePublishHook = Effect.fn("PublishHook.handle")(function* (args
             scope: ws.scope,
             version: versionInfo.version,
           }),
+        ),
+        Effect.catch(
+          args.skipExisting === true
+            ? recoverPublishConflictAsSkipExisting({
+                registryUrl: registrySource.location.href,
+                target: preflightDecision,
+                scope: ws.scope,
+              })
+            : (error) => Effect.fail(error),
         ),
         Effect.provideService(WorkspaceMutations, ws),
         Effect.provideService(FileSystem.FileSystem, fs),
@@ -86,9 +138,26 @@ export const handlePublishHook = Effect.fn("PublishHook.handle")(function* (args
 
     const success =
       resolution._tag === "ExecutedPlan" ? publishSuccessRender(resolution) : undefined;
-    const emitted = yield* emitPlanResolutionResult("hooks.publish", resolution, {
-      ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
-    });
+    const emitted = yield* emitPublishResult(
+      "hooks.publish",
+      {
+        mode: args.preview ? "preview" : "apply",
+        results: [
+          {
+            owner: preflightDecision.identity.owner,
+            type: preflightDecision.identity.type,
+            name: preflightDecision.identity.name,
+            version: preflightDecision.identity.version,
+            action: "publish",
+            ...(resolution._tag === "ExecutedPlan" ? { status: "success" } : {}),
+            ...(success?.message !== undefined ? { message: success.message } : {}),
+          },
+        ],
+      },
+      {
+        ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+      },
+    );
     if (emitted) return;
 
     if (success !== undefined) {
@@ -122,13 +191,14 @@ const publishConfig = {
   scope: scopeFlag,
   yes: yesFlag,
   preview: previewFlag,
+  skipExisting: skipExistingFlag,
 } as const;
 
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ name, registry, scope, yes, preview }) =>
-    handlePublishHook({ name, registry, yes, preview }).pipe(
+  ({ name, registry, scope, yes, preview, skipExisting }) =>
+    handlePublishHook({ name, registry, yes, preview, skipExisting }).pipe(
       withWorkspace(scope),
       Effect.provide(AuthLayer),
       withRuntime("hooks publish"),

@@ -9,7 +9,14 @@ import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { Job, JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type {
+  CompletedJobStep,
+  Job,
+  JobStepResult,
+  Plan,
+  PlanResolution,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import {
   formatFqn,
   fqnInvalidErrorToAppError,
@@ -54,11 +61,22 @@ import {
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import {
+  emitPublishResult,
+  planResolutionToSummary,
+  type PublishResult,
+  type PublishResultItem,
+} from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
+import { skipExistingFlag } from "../shared/publish-flags.js";
 import type { VersionableExtensionType } from "../shared/extension-version.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
+import type { PublishPreflightDecision } from "../shared/publish-preflight.js";
+import {
+  skippedExistingPublishResult,
+  wrapPublishStepForSkipExistingRace,
+} from "../shared/publish-skip-existing.js";
 
 export interface PublishPackHandlerArgs {
   readonly pack: string;
@@ -67,6 +85,7 @@ export interface PublishPackHandlerArgs {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
+  readonly skipExisting?: boolean;
 }
 
 /**
@@ -278,7 +297,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   });
 
   // Step 3: Discover local dependencies (when --include-dependencies)
-  const dependencySteps: PlannedJobStep[] = [];
   const skippedDependencySteps: PlannedJobStep[] = [];
   const versionTargets: PublishVersionTarget[] = [{ fqn: packName, type: "pack" }];
 
@@ -347,14 +365,6 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
               case "rule":
                 break;
             }
-            const step = yield* makeDependencyStep(
-              parsed,
-              depFqn,
-              targetRegistry.registryName,
-              provideServices,
-              toJobStepResult,
-            );
-            dependencySteps.push(step);
           } else {
             skippedDependencySteps.push({
               readiness: "ready",
@@ -376,7 +386,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     );
   }
 
-  yield* Effect.forEach(
+  const preflightDecisions = yield* Effect.forEach(
     versionTargets,
     (target) =>
       checkPublishVersionPreflight({
@@ -385,6 +395,7 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
         registryName: targetRegistry.registryName,
         registryUrl: targetRegistry.registryUrl,
         force: args.force,
+        existingVersionPolicy: args.skipExisting === true ? "skip" : "error",
       }),
     { concurrency: "unbounded" },
   );
@@ -398,11 +409,55 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     },
   };
 
-  const packStep: PlannedJobStep = {
-    readiness: "ready",
-    label: `Publish ${packName}`,
-    run: provideServices(publishPack(packOp)).pipe(Effect.map(toJobStepResult)),
-  };
+  const dependencySteps = yield* Effect.forEach(
+    preflightDecisions.filter((decision) => decision.fqn !== packName),
+    (decision) =>
+      decision.action === "skip"
+        ? Effect.succeed(makeSkippedExistingStep(decision, ws.scope))
+        : Effect.gen(function* () {
+            const parsed = yield* Effect.fromResult(
+              Result.mapError(parseFqn(decision.fqn), fqnInvalidErrorToAppError),
+            );
+            return yield* makeDependencyStep(
+              parsed,
+              decision,
+              decision.fqn,
+              targetRegistry.registryName,
+              targetRegistry.registryUrl,
+              args.skipExisting === true,
+              ws.scope,
+              provideServices,
+              toJobStepResult,
+            );
+          }),
+    { concurrency: "unbounded" },
+  );
+
+  const packDecision = preflightDecisions.find((decision) => decision.fqn === packName);
+  if (packDecision === undefined) {
+    return yield* makeAppError({
+      code: "internal",
+      detail: `Missing preflight decision for ${packName}`,
+    });
+  }
+
+  const packStep: PlannedJobStep =
+    packDecision.action === "skip"
+      ? makeSkippedExistingStep(packDecision, ws.scope)
+      : (() => {
+          const step: PlannedJobStep = {
+            readiness: "ready",
+            label: `Publish ${packName}`,
+            run: provideServices(publishPack(packOp)).pipe(Effect.map(toJobStepResult)),
+          };
+          if (args.skipExisting !== true) return step;
+          return wrapPublishStepForSkipExistingRace({
+            step,
+            registryUrl: targetRegistry.registryUrl,
+            target: packDecision,
+            scope: ws.scope,
+          });
+        })();
 
   const jobs: ReadonlyArray<Job> =
     dependencySteps.length > 0 || skippedDependencySteps.length > 0
@@ -426,27 +481,12 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
     displayApplied: false,
   });
 
-  if (resolvedPlan._tag === "ExecutedPlan") {
-    const failedStepErrors = resolvedPlan.jobs
-      .flatMap((job) => job.steps)
-      .flatMap((step) => (step.result.result === "error" ? [step.result] : []));
-
-    if (failedStepErrors.length > 0) {
-      const [singleFailure] = failedStepErrors;
-      // A single failure already carries a fully-formed AppError from the
-      // registry error mappers (code, detail, suggestions, response
-      // metadata). Surface it directly rather than collapsing it into a
-      // generic "Failed to publish" message that drops all of that context.
-      if (failedStepErrors.length === 1 && singleFailure !== undefined) {
-        return yield* singleFailure.error;
-      }
-
-      return yield* makeAppError({
-        code: "internal",
-        detail: `Failed to publish ${failedStepErrors.length} pack items`,
-      });
-    }
-  }
+  const failedStepErrors =
+    resolvedPlan._tag === "ExecutedPlan"
+      ? resolvedPlan.jobs
+          .flatMap((job) => job.steps)
+          .flatMap((step) => (step.result.result === "error" ? [step.result] : []))
+      : [];
 
   yield* setCommandSemanticProperties(
     summarizeCommandOutcome(
@@ -458,9 +498,37 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   );
   const success =
     resolvedPlan._tag === "ExecutedPlan" ? publishSuccessRender(resolvedPlan) : undefined;
-  const emitted = yield* emitPlanResolutionResult("packs.publish", resolvedPlan, {
-    ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
-  });
+  const emitted = yield* emitPublishResult(
+    "packs.publish",
+    toPackPublishResult({
+      decisions: preflightDecisions,
+      preview: args.preview,
+      resolution: resolvedPlan,
+    }),
+    {
+      ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+    },
+  );
+  if (emitted && failedStepErrors.length === 0) {
+    return;
+  }
+
+  if (failedStepErrors.length > 0) {
+    const [singleFailure] = failedStepErrors;
+    // A single failure already carries a fully-formed AppError from the
+    // registry error mappers (code, detail, suggestions, response
+    // metadata). Surface it directly rather than collapsing it into a
+    // generic "Failed to publish" message that drops all of that context.
+    if (failedStepErrors.length === 1 && singleFailure !== undefined) {
+      return yield* singleFailure.error;
+    }
+
+    return yield* makeAppError({
+      code: "internal",
+      detail: `Failed to publish ${failedStepErrors.length} pack items`,
+    });
+  }
+
   if (emitted) {
     return;
   }
@@ -477,11 +545,87 @@ const publishPackEffect = Effect.fn("PublishPack.publishEffect")(function* (
   }
 });
 
+const makeSkippedExistingStep = (
+  decision: Extract<PublishPreflightDecision, { readonly action: "skip" }>,
+  scope: "project" | "user",
+): PlannedJobStep => ({
+  readiness: "ready",
+  label: `Skip ${decision.fqn}`,
+  run: Effect.succeed(skippedExistingPublishResult(decision, scope)),
+});
+
+const completedStepForDecision = (
+  resolution: PlanResolution,
+  decision: PublishPreflightDecision,
+): CompletedJobStep | undefined => {
+  if (resolution._tag !== "ExecutedPlan") return undefined;
+  const labels =
+    decision.action === "skip"
+      ? [`Skip ${decision.fqn}`]
+      : [`Publish ${decision.fqn}`, `Publish dependency ${decision.fqn}`];
+  return resolution.jobs
+    .flatMap((job) => job.steps)
+    .find((step) => labels.some((label) => label === step.label));
+};
+
+const packPublishResultItem = (
+  decision: PublishPreflightDecision,
+  step: CompletedJobStep | undefined,
+): PublishResultItem => {
+  const action: PublishResultItem["action"] = decision.action === "skip" ? "skip" : "publish";
+  const base: Pick<PublishResultItem, "owner" | "type" | "name" | "version" | "action"> = {
+    owner: decision.identity.owner,
+    type: decision.identity.type,
+    name: decision.identity.name,
+    version: decision.identity.version,
+    action,
+  };
+
+  if (step === undefined) {
+    return decision.action === "skip" ? { ...base, reason: decision.reason } : base;
+  }
+
+  if (step.result.result === "error") {
+    return {
+      owner: decision.identity.owner,
+      type: decision.identity.type,
+      name: decision.identity.name,
+      version: decision.identity.version,
+      action: "error",
+      status: "failed",
+      message: step.result.message,
+    };
+  }
+
+  return {
+    ...base,
+    ...(decision.action === "skip" ? { reason: decision.reason } : {}),
+    status: "success",
+    ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
+    ...(step.result.links !== undefined ? { links: step.result.links } : {}),
+  };
+};
+
+const toPackPublishResult = (args: {
+  readonly decisions: ReadonlyArray<PublishPreflightDecision>;
+  readonly preview: boolean;
+  readonly resolution: PlanResolution;
+}): PublishResult => ({
+  mode: args.preview ? "preview" : "apply",
+  results: args.decisions.map((decision) =>
+    packPublishResultItem(decision, completedStepForDecision(args.resolution, decision)),
+  ),
+});
+
 /** Create a per-type publish dependency step from a parsed FQN. */
 const makeDependencyStep = (
   parsed: ExtensionFqnParts,
+  decision: Extract<PublishPreflightDecision, { readonly action: "publish" }>,
   depFqn: string,
   registryName: string,
+  registryUrl: string,
+  skipExisting: boolean,
+  scope: "project" | "user",
   provideServices: <A, E>(
     effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
   ) => Effect.Effect<A, E, never>,
@@ -493,6 +637,15 @@ const makeDependencyStep = (
   }) => JobStepResult,
 ): Effect.Effect<PlannedJobStep, AppError> => {
   const label = `Publish dependency ${depFqn}`;
+  const maybeWrap = (step: PlannedJobStep): PlannedJobStep =>
+    skipExisting
+      ? wrapPublishStepForSkipExistingRace({
+          step,
+          registryUrl,
+          target: decision,
+          scope,
+        })
+      : step;
 
   switch (parsed.type) {
     case "skill": {
@@ -500,55 +653,65 @@ const makeDependencyStep = (
         name: "publish-skill",
         args: { name: depFqn, registryName },
       };
-      return Effect.succeed({
-        readiness: "ready",
-        label,
-        run: provideServices(publishSkill(op)).pipe(Effect.map(toJobStepResult)),
-      } satisfies PlannedJobStep);
+      return Effect.succeed(
+        maybeWrap({
+          readiness: "ready",
+          label,
+          run: provideServices(publishSkill(op)).pipe(Effect.map(toJobStepResult)),
+        }),
+      );
     }
     case "command": {
       const op: PublishCommandOperation = {
         name: "publish-command",
         args: { name: depFqn, registryName },
       };
-      return Effect.succeed({
-        readiness: "ready",
-        label,
-        run: provideServices(publishCommandOp(op)).pipe(Effect.map(toJobStepResult)),
-      } satisfies PlannedJobStep);
+      return Effect.succeed(
+        maybeWrap({
+          readiness: "ready",
+          label,
+          run: provideServices(publishCommandOp(op)).pipe(Effect.map(toJobStepResult)),
+        }),
+      );
     }
     case "mcp-server": {
       const op: PublishMcpServerOperation = {
         name: "publish-mcp-server",
         args: { name: depFqn, registryName },
       };
-      return Effect.succeed({
-        readiness: "ready",
-        label,
-        run: provideServices(publishMcpServer(op)).pipe(Effect.map(toJobStepResult)),
-      } satisfies PlannedJobStep);
+      return Effect.succeed(
+        maybeWrap({
+          readiness: "ready",
+          label,
+          run: provideServices(publishMcpServer(op)).pipe(Effect.map(toJobStepResult)),
+        }),
+      );
     }
     case "subagent": {
       const op: PublishSubagentOperation = {
         name: "publish-subagent",
         args: { name: depFqn, registryName },
       };
-      return Effect.succeed({
-        readiness: "ready",
-        label,
-        run: provideServices(publishSubagent(op)).pipe(Effect.map(toJobStepResult)),
-      } satisfies PlannedJobStep);
+      return Effect.succeed(
+        maybeWrap({
+          readiness: "ready",
+          label,
+          run: provideServices(publishSubagent(op)).pipe(Effect.map(toJobStepResult)),
+        }),
+      );
     }
     case "hook": {
       const op: PublishHookOperation = {
         name: "publish-hook",
         args: { name: depFqn, registryName },
       };
-      return Effect.succeed({
-        readiness: "ready",
-        label,
-        run: provideServices(publishHook(op)).pipe(Effect.map(toJobStepResult)),
-      } satisfies PlannedJobStep);
+      return Effect.succeed(
+        maybeWrap({
+          readiness: "ready",
+          label,
+          run: provideServices(publishHook(op)).pipe(Effect.map(toJobStepResult)),
+        }),
+      );
     }
     case "pack":
       return Effect.fail(
@@ -585,12 +748,13 @@ const publishConfig = {
     Flag.withDescription("Bypass version-order warnings; published versions remain immutable"),
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
+  skipExisting: skipExistingFlag,
 } as const;
 
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ pack, registry, includeDependencies, yes, force, preview }) => {
+  ({ pack, registry, includeDependencies, yes, force, preview, skipExisting }) => {
     const program = handlePublishPack({
       pack,
       registry,
@@ -598,6 +762,7 @@ export const publishCommand = Command.make(
       yes,
       force,
       preview,
+      skipExisting,
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE));
     return program.pipe(Effect.provide(AuthLayer), withRuntime("packs publish"));
   },

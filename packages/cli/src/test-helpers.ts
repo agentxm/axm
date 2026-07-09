@@ -177,6 +177,31 @@ export const expectAppliedPlanResult = (
   return result;
 };
 
+export const expectPublishResult = (
+  value: unknown,
+  options: {
+    readonly mode: "preview" | "apply";
+    readonly count?: number;
+  },
+): Readonly<Record<string, unknown>> => {
+  const payload = expectRecord(value);
+  const mode = property(payload, "mode");
+  if (mode !== options.mode) {
+    throw new Error(`Expected publish result mode to be ${options.mode}`);
+  }
+
+  const results = property(payload, "results");
+  if (!Array.isArray(results)) {
+    throw new Error("Expected publish result results array");
+  }
+
+  if (options.count !== undefined && results.length !== options.count) {
+    throw new Error(`Expected publish result to contain ${String(options.count)} results`);
+  }
+
+  return payload;
+};
+
 export const expectNoOpPlanResult = (
   value: unknown,
   options: {

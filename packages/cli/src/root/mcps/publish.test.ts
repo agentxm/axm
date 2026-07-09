@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
-import { expectAppliedPlanResult, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import { expectPublishResult, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handlePublishMcpServer } from "./publish.js";
 
 const createManagedMcpServer = (baseDir: string, owner: string, name: string) => {
@@ -79,21 +79,20 @@ describe("mcps publish output", () => {
         });
 
         expect(logs.success).toEqual([]);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Publish MCP server",
+        const result = expectPublishResult(rendererState.results[0]?.data, {
+          mode: "apply",
+          count: 1,
         });
         expect(result).toMatchObject({
-          steps: [
+          results: [
             {
-              label: "Publish @test/mcps/machine-mcp",
-              status: "applied",
+              owner: "@test",
+              type: "mcp-server",
+              name: "machine-mcp",
+              version: "1.0.0",
+              action: "publish",
+              status: "success",
               message: "Published @test/mcps/machine-mcp@1.0.0",
-              artifact: {
-                path: "@test/mcps/machine-mcp@1.0.0",
-                scope: "project",
-                version: "1.0.0",
-                change: "created",
-              },
             },
           ],
         });

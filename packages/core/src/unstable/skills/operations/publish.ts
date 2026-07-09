@@ -3,7 +3,7 @@
  * archive, computes the SRI integrity hash, and publishes to a target registry.
  *
  * Pipeline: validate manifest → build archive → compute integrity →
- * resolve registry provider → publish version (idempotent).
+ * resolve registry provider → publish immutable version.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -66,7 +66,7 @@ export type PublishSkillOperation = Operation<"publish-skill", PublishSkillOpera
  * 2. Build zip archive of extension directory
  * 3. Compute SRI integrity hash
  * 4. Resolve target registry provider by source name
- * 5. Publish version (idempotent: same integrity = no-op, different integrity = error)
+ * 5. Publish immutable version (duplicate versions conflict)
  */
 export const publishSkill: OperationHandler<
   PublishSkillOperation,
@@ -192,7 +192,7 @@ export const publishSkill: OperationHandler<
       }),
     };
 
-    // Publish to registry (idempotent)
+    // Publish immutable version to registry.
     const response = yield* client.publishExtension({
       owner: fqn.owner,
       type: "skill",

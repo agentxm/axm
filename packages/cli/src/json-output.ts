@@ -22,6 +22,12 @@ import type {
 } from "@agentxm/client-core/unstable/plan";
 import { ArtifactChangeSchema } from "@agentxm/client-core/unstable/plan";
 import { serializeErrorCauseChain } from "@agentxm/client-core/unstable/app-error";
+import {
+  ExtensionNameSchema,
+  ExtensionTypeSchema,
+  HandleSchema,
+} from "@agentxm/client-core/unstable/extensions";
+import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
 
 export interface PlanResolutionResultOptions {
   readonly verbose?: boolean;
@@ -165,6 +171,61 @@ export type PlanResolutionResult = typeof PlanResolutionResultSchema.Type;
 const PlanResolutionDocumentFields = {
   result: PlanResolutionResultSchema,
 } satisfies Schema.Struct.Fields;
+
+const PublishActionSchema = Schema.Literals(["publish", "skip", "error"] as const).annotate({
+  identifier: "PublishAction",
+  title: "Publish Action",
+  description: "Publish reconciliation decision for an extension version.",
+});
+
+const PublishModeSchema = Schema.Literals(["preview", "apply"] as const).annotate({
+  identifier: "PublishMode",
+  title: "Publish Mode",
+  description: "Whether the publish command previewed or applied the reconciliation decisions.",
+});
+
+const PublishStatusSchema = Schema.Literals(["success", "failed", "pending"] as const).annotate({
+  identifier: "PublishStatus",
+  title: "Publish Status",
+  description: "Execution status for an applied publish decision.",
+});
+
+const PublishReasonSchema = Schema.Literals(["version_already_published"] as const).annotate({
+  identifier: "PublishReason",
+  title: "Publish Reason",
+  description: "Reason a publish item was skipped or errored.",
+});
+
+const PublishResultItemSchema = Schema.Struct({
+  owner: HandleSchema,
+  type: ExtensionTypeSchema,
+  name: ExtensionNameSchema,
+  version: VersionSchema,
+  action: PublishActionSchema,
+  reason: Schema.optional(PublishReasonSchema),
+  status: Schema.optional(PublishStatusSchema),
+  message: Schema.optional(Schema.String),
+  links: Schema.optional(
+    Schema.Struct({
+      html: Schema.String,
+    }),
+  ),
+}).annotate({
+  identifier: "PublishResultItem",
+  title: "Publish Result Item",
+  description: "Structured result for one publish reconciliation item.",
+});
+
+export const PublishResultSchema = Schema.Struct({
+  mode: PublishModeSchema,
+  results: Schema.Array(PublishResultItemSchema),
+}).annotate({
+  identifier: "PublishResult",
+  title: "Publish Result",
+  description: "Structured publish reconciliation result.",
+});
+export type PublishResult = typeof PublishResultSchema.Type;
+export type PublishResultItem = typeof PublishResultItemSchema.Type;
 
 const plannedStepToStep = (step: PlannedJobStep): Step => {
   switch (step.readiness) {
@@ -320,6 +381,20 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       Schema.Struct(PlanResolutionDocumentFields),
       options,
     );
+  });
+
+export const emitPublishResult = <TCommand extends string>(
+  command: TCommand,
+  result: PublishResult,
+  options?: {
+    readonly summary?: string;
+    readonly suggestions?: ReadonlyArray<SuggestedAction>;
+    readonly withoutSuggestions?: boolean;
+  },
+) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    return yield* renderer.result(result, PublishResultSchema, options);
   });
 
 /**

@@ -24,6 +24,7 @@ import { MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
+import { skipExistingFlag } from "../shared/publish-flags.js";
 import {
   publishOperationResultToJobStepResult,
   runMultiExtensionPublishPlan,
@@ -37,6 +38,7 @@ export interface PublishHandlerArgs {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
+  readonly skipExisting?: boolean;
 }
 
 interface TargetRegistry {
@@ -249,7 +251,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     });
   });
 
-  yield* Effect.forEach(
+  const preflightDecisions = yield* Effect.forEach(
     extensionNames,
     (extName) =>
       checkPublishVersionPreflight({
@@ -258,6 +260,7 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
         registryName: targetRegistry.registryName,
         registryUrl: targetRegistry.registryUrl,
         force: args.force,
+        existingVersionPolicy: args.skipExisting === true ? "skip" : "error",
       }),
     { concurrency: "unbounded" },
   );
@@ -268,11 +271,14 @@ const publishEffect = Effect.fn("Publish.publishEffect")(function* (
     subjectType: "skill",
     extensionNames,
     registryName: targetRegistry.registryName,
+    registryUrl: targetRegistry.registryUrl,
     singularLabel: "skill",
     pluralLabel: "skills",
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    preflightDecisions,
+    skipExisting: args.skipExisting === true,
     makeStep: (extName): PlannedJobStep => {
       const op = {
         name: "publish-skill",
@@ -309,18 +315,20 @@ const publishConfig = {
     Flag.withDescription("Bypass version-order warnings; published versions remain immutable"),
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
+  skipExisting: skipExistingFlag,
 } as const;
 
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ extensions, registry, yes, force, preview }) => {
+  ({ extensions, registry, yes, force, preview, skipExisting }) => {
     const program = handlePublish({
       extensions: [...extensions],
       registry,
       yes,
       force,
       preview,
+      skipExisting,
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE));
     return program.pipe(Effect.provide(AuthLayer), withRuntime("skills publish"));
   },

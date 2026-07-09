@@ -30,6 +30,7 @@ export interface PublishHandlerArgs {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
+  readonly skipExisting?: boolean;
 }
 
 interface TargetRegistry {
@@ -255,7 +256,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     });
   });
 
-  yield* Effect.forEach(
+  const preflightDecisions = yield* Effect.forEach(
     extensionNames,
     (extName) =>
       checkPublishVersionPreflight({
@@ -264,6 +265,7 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
         registryName: targetRegistry.registryName,
         registryUrl: targetRegistry.registryUrl,
         force: args.force,
+        existingVersionPolicy: args.skipExisting === true ? "skip" : "error",
       }),
     { concurrency: "unbounded" },
   );
@@ -274,11 +276,14 @@ const publishEffect = Effect.fn("SubagentsPublish.publishEffect")(function* (
     subjectType: "subagent",
     extensionNames,
     registryName: targetRegistry.registryName,
+    registryUrl: targetRegistry.registryUrl,
     singularLabel: "subagent",
     pluralLabel: "subagents",
     yes: args.yes,
     force: args.force,
     preview: args.preview,
+    preflightDecisions,
+    skipExisting: args.skipExisting === true,
     includeSingleFailureSuggestions: true,
     makeStep: (extName): PlannedJobStep => {
       const op = {

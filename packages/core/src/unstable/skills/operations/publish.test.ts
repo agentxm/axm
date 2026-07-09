@@ -239,34 +239,21 @@ describe("publishSkill", () => {
     );
   });
 
-  describe("idempotency", () => {
-    it.effect("is a no-op when same version + same integrity published twice", () =>
+  describe("immutability", () => {
+    it.effect("fails when the same version is published twice with the same integrity", () =>
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup();
 
-        // Publish once
         yield* publishSkill(
           makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
-        // Publish again — same content, same version
-        const result = yield* publishSkill(
+        const error = yield* publishSkill(
           makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
-        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)), Effect.flip);
 
-        expect(result.result).toBe("success");
-
-        // Still only one version in the index
-        const indexPath = path.join(
-          registryRoot,
-          "extensions",
-          "@community",
-          "skills",
-          "my-skill",
-          "index.json",
-        );
-        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
-        expect(index.versions).toHaveLength(1);
+        expect(error.code).toBe("conflict");
+        expect(error.detail).toBe("Version 0.1.0 already exists.");
       }),
     );
 
@@ -282,13 +269,12 @@ describe("publishSkill", () => {
         // Change content (different integrity) but keep same version
         fs.writeFileSync(path.join(extensionDir, "src", "prompt.md"), "changed content");
 
-        // Publish again — same version, different content → should fail
         const error = yield* publishSkill(
           makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)), Effect.flip);
 
         expect(error.code).toBe("conflict");
-        expect(error.detail).toBe("Version 0.1.0 already exists with different content.");
+        expect(error.detail).toBe("Version 0.1.0 already exists.");
       }),
     );
   });

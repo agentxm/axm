@@ -22,7 +22,7 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
-  expectAppliedPlanResult,
+  expectPublishResult,
   getErrorResult,
   getAppError,
   makeEffectProvide,
@@ -319,14 +319,19 @@ describe("packs publish.handler", () => {
           );
 
           expect(logs.success).toEqual([]);
-          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-            planName: "Publish pack",
+          const result = expectPublishResult(rendererState.results[0]?.data, {
+            mode: "apply",
+            count: 1,
           });
           expect(result).toMatchObject({
-            steps: [
+            results: [
               {
-                label: "Publish @test/packs/machine-pack",
-                status: "applied",
+                owner: "@test",
+                type: "pack",
+                name: "machine-pack",
+                version: "1.0.0",
+                action: "publish",
+                status: "success",
                 message: "Published @test/packs/machine-pack@1.0.0",
               },
             ],
@@ -337,6 +342,55 @@ describe("packs publish.handler", () => {
               cmd: "axm view @test/packs/machine-pack",
             },
           ]);
+        }),
+      );
+    });
+
+    it.effect("skips an already published pack version when skipExisting is true", () => {
+      const { provide, rendererState } = makeLayers({
+        authCredentials: null,
+        machine: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "skip-pack", {
+        name: "@test/packs/skip-pack",
+        version: "1.0.0",
+        dependencies: { "@external/skills/noop": "^1.0.0" },
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/skip-pack", { registry: Option.some("local") }),
+          );
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/skip-pack", {
+              registry: Option.some("local"),
+              skipExisting: true,
+            }),
+          );
+
+          const result = expectPublishResult(rendererState.results[1]?.data, {
+            mode: "apply",
+            count: 1,
+          });
+          expect(result).toMatchObject({
+            results: [
+              {
+                owner: "@test",
+                type: "pack",
+                name: "skip-pack",
+                version: "1.0.0",
+                action: "skip",
+                reason: "version_already_published",
+                status: "success",
+                message: "Skipped @test/packs/skip-pack@1.0.0: version already published",
+              },
+            ],
+          });
         }),
       );
     });
@@ -452,7 +506,7 @@ describe("packs publish.handler", () => {
     });
   });
 
-  describe("idempotent publish", () => {
+  describe("immutable publish versions", () => {
     it.effect("fails before publishing the same version with same content", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
@@ -794,7 +848,7 @@ describe("packs publish.handler", () => {
       );
     });
 
-    it.effect("emits skipped non-local dependencies as unchanged JSON plan steps", () => {
+    it.effect("emits publish JSON for local dependencies and pack publish", () => {
       const { provide, logs, rendererState } = makeLayers({
         authCredentials: null,
         machine: true,
@@ -828,31 +882,29 @@ describe("packs publish.handler", () => {
 
           expect(logs.warn).toEqual([]);
           expect(logs.success).toEqual([]);
-          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-            planName: "Publish pack",
-            totalSteps: 3,
-            appliedCount: 2,
+          const result = expectPublishResult(rendererState.results[0]?.data, {
+            mode: "apply",
+            count: 2,
           });
           expect(result).toMatchObject({
-            steps: [
+            results: [
               {
-                label: "Publish dependency @test/skills/local-machine-skill",
-                status: "applied",
-                message: "Published @test/skills/local-machine-skill@1.0.0",
-              },
-              {
-                label: "Skip @external/skills/remote-machine-skill",
-                status: "unchanged",
-                message: "Skipped non-local dependency: @external/skills/remote-machine-skill",
-                artifact: {
-                  scope: "project",
-                  change: "unchanged",
-                },
-              },
-              {
-                label: "Publish @test/packs/mixed-machine-deps-pack",
-                status: "applied",
+                owner: "@test",
+                type: "pack",
+                name: "mixed-machine-deps-pack",
+                version: "1.0.0",
+                action: "publish",
+                status: "success",
                 message: "Published @test/packs/mixed-machine-deps-pack@1.0.0",
+              },
+              {
+                owner: "@test",
+                type: "skill",
+                name: "local-machine-skill",
+                version: "1.0.0",
+                action: "publish",
+                status: "success",
+                message: "Published @test/skills/local-machine-skill@1.0.0",
               },
             ],
           });

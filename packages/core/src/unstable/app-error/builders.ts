@@ -32,8 +32,8 @@ export const errPublishConflict = (args: { readonly version?: string; readonly c
     code: "conflict",
     detail:
       args.version === undefined
-        ? "Version already exists with different content."
-        : `Version ${args.version} already exists with different content.`,
+        ? "Version already exists."
+        : `Version ${args.version} already exists.`,
     suggestions: [BC.do("Bump the version in your manifest.")],
     cause: args.cause,
   });

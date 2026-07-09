@@ -22,8 +22,8 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
-  expectAppliedPlanResult,
   expectNoOpPlanResult,
+  expectPublishResult,
   getAppError,
   getErrorResult,
   makeEffectProvide,
@@ -423,14 +423,19 @@ describe("publish.handler", () => {
           );
 
           expect(logs.success).toEqual([]);
-          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-            planName: "Publish skill",
+          const result = expectPublishResult(rendererState.results[0]?.data, {
+            mode: "apply",
+            count: 1,
           });
           expect(result).toMatchObject({
-            steps: [
+            results: [
               {
-                label: "Publish @test/skills/machine-skill",
-                status: "applied",
+                owner: "@test",
+                type: "skill",
+                name: "machine-skill",
+                version: "1.0.0",
+                action: "publish",
+                status: "success",
                 message: "Published @test/skills/machine-skill@1.0.0",
               },
             ],
@@ -441,6 +446,55 @@ describe("publish.handler", () => {
               cmd: "axm view @test/skills/machine-skill",
             },
           ]);
+        }),
+      );
+    });
+
+    it.effect("skips an already published version when skipExisting is true", () => {
+      const { provide, rendererState } = makeLayers({
+        authCredentials: null,
+        machine: true,
+      });
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "skip-skill", {
+        name: "@test/skills/skip-skill",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(
+            defaultArgs(["@test/skills/skip-skill"], { registry: Option.some("local") }),
+          );
+          yield* handlePublish(
+            defaultArgs(["@test/skills/skip-skill"], {
+              registry: Option.some("local"),
+              skipExisting: true,
+            }),
+          );
+
+          const result = expectPublishResult(rendererState.results[1]?.data, {
+            mode: "apply",
+            count: 1,
+          });
+          expect(result).toMatchObject({
+            results: [
+              {
+                owner: "@test",
+                type: "skill",
+                name: "skip-skill",
+                version: "1.0.0",
+                action: "skip",
+                reason: "version_already_published",
+                status: "success",
+                message: "Skipped @test/skills/skip-skill@1.0.0: version already published",
+              },
+            ],
+          });
         }),
       );
     });

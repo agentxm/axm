@@ -31,11 +31,14 @@ import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { createRegistryClient, type VersionEntry } from "@agentxm/client-core/unstable/registry";
 import { buildZipArchive, computeIntegrity } from "@agentxm/client-core/unstable/utils";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitPublishResult } from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { publishArtifact } from "../shared/publish-artifact.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
+import { skipExistingFlag } from "../shared/publish-flags.js";
+import { VERSION_ALREADY_PUBLISHED_REASON } from "../shared/publish-preflight.js";
+import { recoverPublishConflictAsSkipExisting } from "../shared/publish-skip-existing.js";
 
 const decodeManifest = Schema.decodeUnknownEffect(FilesManifestSchema);
 
@@ -151,6 +154,7 @@ const resolveFilesPublishRegistry = (registry: Option.Option<string>) =>
 const checkFilesPublishVersionPreflight = (args: {
   readonly subject: FilesPublishSubject;
   readonly registry: FilesPublishRegistry;
+  readonly skipExisting?: boolean;
 }) =>
   Effect.gen(function* () {
     const client = yield* createRegistryClient(args.registry.url);
@@ -180,12 +184,27 @@ const checkFilesPublishVersionPreflight = (args: {
         ),
       );
 
-    if (Option.isNone(indexOption)) return;
+    const identity = {
+      owner: args.subject.owner,
+      type: "files",
+      name: args.subject.name,
+      version: args.subject.manifest.version,
+    } as const;
+
+    if (Option.isNone(indexOption)) return { action: "publish" as const, identity };
 
     const existingVersion = indexOption.value.versions.find(
       (entry) => entry.version === args.subject.manifest.version,
     );
-    if (existingVersion === undefined) return;
+    if (existingVersion === undefined) return { action: "publish" as const, identity };
+
+    if (args.skipExisting === true) {
+      return {
+        action: "skip" as const,
+        identity,
+        reason: VERSION_ALREADY_PUBLISHED_REASON,
+      };
+    }
 
     return yield* makeAppError({
       code: "conflict",
@@ -247,6 +266,7 @@ export const handleFilesPublish = Effect.fn("FilesPublish.handle")(function* (ar
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
+  readonly skipExisting?: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
@@ -262,7 +282,49 @@ export const handleFilesPublish = Effect.fn("FilesPublish.handle")(function* (ar
     const registry = yield* resolveFilesPublishRegistry(args.registry).pipe(
       Effect.provideService(WorkspaceMutations, ws),
     );
-    yield* checkFilesPublishVersionPreflight({ subject, registry });
+    const preflightDecision = yield* checkFilesPublishVersionPreflight({
+      subject,
+      registry,
+      skipExisting: args.skipExisting === true,
+    });
+
+    if (preflightDecision.action === "skip") {
+      const message = `Skipped ${subject.fqn}@${subject.manifest.version}: version already published`;
+      const emitted = yield* emitPublishResult("files.publish", {
+        mode: args.preview ? "preview" : "apply",
+        results: [
+          {
+            owner: preflightDecision.identity.owner,
+            type: preflightDecision.identity.type,
+            name: preflightDecision.identity.name,
+            version: preflightDecision.identity.version,
+            action: "skip",
+            reason: preflightDecision.reason,
+            ...(args.preview ? {} : { status: "success" }),
+            message,
+          },
+        ],
+      });
+      if (emitted) return;
+      yield* renderer.success(message);
+      return;
+    }
+
+    if (args.preview) {
+      const emitted = yield* emitPublishResult("files.publish", {
+        mode: "preview",
+        results: [
+          {
+            owner: preflightDecision.identity.owner,
+            type: preflightDecision.identity.type,
+            name: preflightDecision.identity.name,
+            version: preflightDecision.identity.version,
+            action: "publish",
+          },
+        ],
+      });
+      if (emitted) return;
+    }
 
     const plan: Plan = {
       _tag: "Plan",
@@ -276,6 +338,15 @@ export const handleFilesPublish = Effect.fn("FilesPublish.handle")(function* (ar
               readiness: "ready",
               label: `Publish ${subject.fqn}`,
               run: publishFiles({ subject, registry }).pipe(
+                Effect.catch(
+                  args.skipExisting === true
+                    ? recoverPublishConflictAsSkipExisting({
+                        registryUrl: registry.url,
+                        target: { fqn: subject.fqn, identity: preflightDecision.identity },
+                        scope: ws.scope,
+                      })
+                    : (error) => Effect.fail(error),
+                ),
                 Effect.provideService(FileSystem.FileSystem, fs),
                 Effect.provideService(Path.Path, path),
                 Effect.provideService(WorkspaceMutations, ws),
@@ -312,9 +383,26 @@ export const handleFilesPublish = Effect.fn("FilesPublish.handle")(function* (ar
 
     const success =
       resolution._tag === "ExecutedPlan" ? publishSuccessRender(resolution) : undefined;
-    const emitted = yield* emitPlanResolutionResult("files.publish", resolution, {
-      ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
-    });
+    const emitted = yield* emitPublishResult(
+      "files.publish",
+      {
+        mode: args.preview ? "preview" : "apply",
+        results: [
+          {
+            owner: preflightDecision.identity.owner,
+            type: preflightDecision.identity.type,
+            name: preflightDecision.identity.name,
+            version: preflightDecision.identity.version,
+            action: "publish",
+            ...(resolution._tag === "ExecutedPlan" ? { status: "success" } : {}),
+            ...(success?.message !== undefined ? { message: success.message } : {}),
+          },
+        ],
+      },
+      {
+        ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+      },
+    );
     if (emitted) {
       return;
     }
@@ -360,15 +448,21 @@ const publishConfig = {
     ),
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would publish without uploading")),
+  skipExisting: skipExistingFlag,
 } as const;
 
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ input, registry, scope, yes, force, preview }) => {
-    const program = handleFilesPublish({ input, registry, yes, force, preview }).pipe(
-      withWorkspace(scope),
-    );
+  ({ input, registry, scope, yes, force, preview, skipExisting }) => {
+    const program = handleFilesPublish({
+      input,
+      registry,
+      yes,
+      force,
+      preview,
+      skipExisting,
+    }).pipe(withWorkspace(scope));
     return program.pipe(Effect.provide(AuthLayer), withRuntime("files publish"));
   },
 ).pipe(

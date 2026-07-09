@@ -22,8 +22,8 @@ import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import {
-  expectAppliedPlanResult,
   expectNoOpPlanResult,
+  expectPublishResult,
   getErrorResult,
   getAppError,
   makeEffectProvide,
@@ -377,21 +377,20 @@ describe("commands-publish.handler", () => {
           );
 
           expect(logs.success).toEqual([]);
-          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-            planName: "Publish command",
+          const result = expectPublishResult(rendererState.results[0]?.data, {
+            mode: "apply",
+            count: 1,
           });
           expect(result).toMatchObject({
-            steps: [
+            results: [
               {
-                label: "Publish @test/commands/machine-cmd",
-                status: "applied",
+                owner: "@test",
+                type: "command",
+                name: "machine-cmd",
+                version: "1.0.0",
+                action: "publish",
+                status: "success",
                 message: "Published @test/commands/machine-cmd@1.0.0",
-                artifact: {
-                  path: "@test/commands/machine-cmd@1.0.0",
-                  scope: "project",
-                  version: "1.0.0",
-                  change: "created",
-                },
               },
             ],
           });

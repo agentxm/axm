@@ -1,0 +1,99 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
+
+import type { PublishIdentity } from "./publish-preflight.js";
+
+export interface SkipExistingPublishTarget {
+  readonly fqn: string;
+  readonly identity: PublishIdentity;
+}
+
+export const skippedExistingPublishMessage = (target: SkipExistingPublishTarget): string =>
+  `Skipped ${target.fqn}@${target.identity.version}: version already published`;
+
+export const skippedExistingPublishResult = (
+  target: SkipExistingPublishTarget,
+  scope: "project" | "user",
+): JobStepResult => ({
+  result: "success",
+  message: skippedExistingPublishMessage(target),
+  artifact: {
+    path: `${target.fqn}@${target.identity.version}`,
+    scope,
+    change: "unchanged",
+    targets: [{ path: `${target.fqn}@${target.identity.version}`, change: "unchanged" }],
+  },
+});
+
+const isConflict = (error: AppError): boolean => error.code === "conflict";
+
+const confirmPublishedVersion = (args: {
+  readonly registryUrl: string;
+  readonly target: SkipExistingPublishTarget;
+}) =>
+  Effect.gen(function* () {
+    const client = yield* createRegistryClient(args.registryUrl);
+    const index = yield* client.getExtensionIndex({
+      owner: args.target.identity.owner,
+      type: args.target.identity.type,
+      name: args.target.identity.name,
+    });
+
+    if (Option.isNone(index)) return false;
+    return index.value.versions.some((entry) => entry.version === args.target.identity.version);
+  }).pipe(
+    Effect.catch(() => Effect.succeed(false)),
+    Effect.provide(NodeServices.layer),
+  );
+
+export const recoverPublishConflictAsSkipExisting =
+  (args: {
+    readonly registryUrl: string;
+    readonly target: SkipExistingPublishTarget;
+    readonly scope: "project" | "user";
+  }) =>
+  (error: AppError): Effect.Effect<JobStepResult, AppError> => {
+    if (!isConflict(error)) return Effect.fail(error);
+
+    return confirmPublishedVersion({
+      registryUrl: args.registryUrl,
+      target: args.target,
+    }).pipe(
+      Effect.flatMap((versionExists) =>
+        versionExists
+          ? Effect.succeed(skippedExistingPublishResult(args.target, args.scope))
+          : Effect.fail(error),
+      ),
+    );
+  };
+
+export const wrapPublishStepForSkipExistingRace = (args: {
+  readonly step: PlannedJobStep;
+  readonly registryUrl: string;
+  readonly target: SkipExistingPublishTarget;
+  readonly scope: "project" | "user";
+}): PlannedJobStep => {
+  switch (args.step.readiness) {
+    case "error":
+      return args.step;
+    case "ready":
+    case "warn":
+      return {
+        ...args.step,
+        run: args.step.run.pipe(
+          Effect.catch(
+            recoverPublishConflictAsSkipExisting({
+              registryUrl: args.registryUrl,
+              target: args.target,
+              scope: args.scope,
+            }),
+          ),
+        ),
+      };
+  }
+};

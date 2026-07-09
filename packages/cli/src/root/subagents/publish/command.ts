@@ -5,6 +5,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { handlePublish } from "./handler.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../../runtime.js";
+import { skipExistingFlag } from "../../shared/publish-flags.js";
 
 const publishConfig = {
   extensions: Argument.string("extensions").pipe(
@@ -22,18 +23,20 @@ const publishConfig = {
     Flag.withDescription("Bypass version-order warnings; published versions remain immutable"),
   ),
   preview: previewFlag.pipe(Flag.withDescription("Show what would be published without uploading")),
+  skipExisting: skipExistingFlag,
 } as const;
 
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ extensions, registry, yes, force, preview }) => {
+  ({ extensions, registry, yes, force, preview, skipExisting }) => {
     const program = handlePublish({
       extensions: [...extensions],
       registry,
       yes,
       force,
       preview,
+      skipExisting,
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE));
     return program.pipe(Effect.provide(AuthLayer), withRuntime("subagents publish"));
   },

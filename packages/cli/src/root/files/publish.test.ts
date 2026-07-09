@@ -8,7 +8,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {
-  expectAppliedPlanResult,
+  expectPublishResult,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -53,12 +53,16 @@ const createManagedFilesPackage = (
   fs.writeFileSync(path.join(packageDir, "src", "README.md"), `# ${name}\n`);
 };
 
-const defaultArgs = (input: string) => ({
+const defaultArgs = (
+  input: string,
+  overrides: Partial<Parameters<typeof handleFilesPublish>[0]> = {},
+) => ({
   input,
   registry: Option.some("local"),
   yes: false,
   force: false,
   preview: false,
+  ...overrides,
 });
 
 describe("files publish.handler", () => {
@@ -98,21 +102,20 @@ describe("files publish.handler", () => {
         yield* handleFilesPublish(defaultArgs("@test/files/machine-files"));
 
         expect(logs.success).toEqual([]);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Publish files",
+        const result = expectPublishResult(rendererState.results[0]?.data, {
+          mode: "apply",
+          count: 1,
         });
         expect(result).toMatchObject({
-          steps: [
+          results: [
             {
-              label: "Publish @test/files/machine-files",
-              status: "applied",
+              owner: "@test",
+              type: "files",
+              name: "machine-files",
+              version: "1.0.0",
+              action: "publish",
+              status: "success",
               message: "Published @test/files/machine-files@1.0.0",
-              artifact: {
-                path: "@test/files/machine-files@1.0.0",
-                scope: "project",
-                version: "1.0.0",
-                change: "created",
-              },
             },
           ],
         });
@@ -122,6 +125,39 @@ describe("files publish.handler", () => {
             cmd: "axm view @test/files/machine-files",
           },
         ]);
+      }),
+    );
+  });
+
+  it.effect("skips an already published version when skipExisting is true", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const registryRoot = path.join(tempDir, "registry");
+    initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+    createManagedFilesPackage(tempDir, "@test", "skip-files");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleFilesPublish(defaultArgs("@test/files/skip-files"));
+        yield* handleFilesPublish(defaultArgs("@test/files/skip-files", { skipExisting: true }));
+
+        const result = expectPublishResult(rendererState.results[1]?.data, {
+          mode: "apply",
+          count: 1,
+        });
+        expect(result).toMatchObject({
+          results: [
+            {
+              owner: "@test",
+              type: "files",
+              name: "skip-files",
+              version: "1.0.0",
+              action: "skip",
+              reason: "version_already_published",
+              status: "success",
+              message: "Skipped @test/files/skip-files@1.0.0: version already published",
+            },
+          ],
+        });
       }),
     );
   });

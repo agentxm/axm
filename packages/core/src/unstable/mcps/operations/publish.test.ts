@@ -215,7 +215,7 @@ describe("publishMcpServer", () => {
     }),
   );
 
-  it.effect("is idempotent when same version + same integrity published twice", () =>
+  it.effect("fails when the same version is published twice with the same integrity", () =>
     Effect.gen(function* () {
       const { axmDir, registryRoot } = setup("@community", "idem-mcp");
 
@@ -225,22 +225,12 @@ describe("publishMcpServer", () => {
         makeOp({ name: "@community/mcps/idem-mcp", registryName: "local" }),
       ).pipe(Effect.provide(layer));
 
-      const result = yield* publishMcpServer(
+      const error = yield* publishMcpServer(
         makeOp({ name: "@community/mcps/idem-mcp", registryName: "local" }),
-      ).pipe(Effect.provide(layer));
+      ).pipe(Effect.provide(layer), Effect.flip);
 
-      expect(result.result).toBe("success");
-
-      const indexPath = path.join(
-        registryRoot,
-        "extensions",
-        "@community",
-        "mcps",
-        "idem-mcp",
-        "index.json",
-      );
-      const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
-      expect(index.versions).toHaveLength(1);
+      expect(error.code).toBe("conflict");
+      expect(error.detail).toBe("Version 0.1.0 already exists.");
     }),
   );
 });

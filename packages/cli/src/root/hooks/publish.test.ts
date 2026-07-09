@@ -7,7 +7,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {
-  expectAppliedPlanResult,
+  expectPublishResult,
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -87,21 +87,20 @@ describe("hooks publish.handler", () => {
         yield* handlePublishHook(defaultArgs("@test/hooks/machine-hook"));
 
         expect(logs.success).toEqual([]);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Publish hooks",
+        const result = expectPublishResult(rendererState.results[0]?.data, {
+          mode: "apply",
+          count: 1,
         });
         expect(result).toMatchObject({
-          steps: [
+          results: [
             {
-              label: "Publish @test/hooks/machine-hook",
-              status: "applied",
+              owner: "@test",
+              type: "hook",
+              name: "machine-hook",
+              version: "1.0.0",
+              action: "publish",
+              status: "success",
               message: "Published @test/hooks/machine-hook@1.0.0",
-              artifact: {
-                path: "@test/hooks/machine-hook@1.0.0",
-                scope: "project",
-                version: "1.0.0",
-                change: "created",
-              },
             },
           ],
         });

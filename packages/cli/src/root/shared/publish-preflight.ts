@@ -7,11 +7,40 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   extensionTypeToPlural,
   fqnInvalidErrorToAppError,
+  formatFqn,
   parseFqn,
+  type ExtensionName,
+  type ExtensionType,
+  type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
+import type { Version } from "@agentxm/client-core/unstable/version-constraints";
 
 import { resolveManifestVersionInfo, type VersionableExtensionType } from "./extension-version.js";
+
+export const VERSION_ALREADY_PUBLISHED_REASON = "version_already_published" as const;
+
+export interface PublishIdentity {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+}
+
+export type ExistingVersionPolicy = "error" | "skip";
+
+export type PublishPreflightDecision =
+  | {
+      readonly action: "publish";
+      readonly identity: PublishIdentity;
+      readonly fqn: string;
+    }
+  | {
+      readonly action: "skip";
+      readonly identity: PublishIdentity;
+      readonly fqn: string;
+      readonly reason: typeof VERSION_ALREADY_PUBLISHED_REASON;
+    };
 
 const isUnsupportedRegistryTypeError = (error: unknown): boolean =>
   typeof error === "object" &&
@@ -30,12 +59,20 @@ export const checkPublishVersionPreflight = (args: {
   readonly registryName: string;
   readonly registryUrl: string;
   readonly force: boolean;
+  readonly existingVersionPolicy?: ExistingVersionPolicy;
 }) =>
   Effect.gen(function* () {
     const local = yield* resolveManifestVersionInfo(args.fqn, args.type);
     const fqn = yield* Effect.fromResult(
       Result.mapError(parseFqn(args.fqn), fqnInvalidErrorToAppError),
     );
+    const identity = {
+      owner: fqn.owner,
+      type: fqn.type,
+      name: fqn.name,
+      version: local.version,
+    } satisfies PublishIdentity;
+    const formattedFqn = formatFqn(fqn);
     const client = yield* createRegistryClient(args.registryUrl);
     const indexOption = yield* client
       .getExtensionIndex({
@@ -63,12 +100,27 @@ export const checkPublishVersionPreflight = (args: {
         ),
       );
 
-    if (Option.isNone(indexOption)) return;
+    if (Option.isNone(indexOption)) {
+      return {
+        action: "publish",
+        identity,
+        fqn: formattedFqn,
+      } satisfies PublishPreflightDecision;
+    }
 
     const existingVersion = indexOption.value.versions.find(
       (entry) => entry.version === local.version,
     );
     if (existingVersion !== undefined) {
+      if (args.existingVersionPolicy === "skip") {
+        return {
+          action: "skip",
+          identity,
+          fqn: formattedFqn,
+          reason: VERSION_ALREADY_PUBLISHED_REASON,
+        } satisfies PublishPreflightDecision;
+      }
+
       return yield* makeAppError({
         code: "conflict",
         detail: `Cannot publish: version ${local.version} is already published for ${local.fqn}. Published versions are immutable.`,
@@ -82,8 +134,20 @@ export const checkPublishVersionPreflight = (args: {
     }
 
     const latest = indexOption.value.versions[0]?.version;
-    if (latest === undefined || semver.gt(local.version, latest)) return;
-    if (args.force) return;
+    if (latest === undefined || semver.gt(local.version, latest)) {
+      return {
+        action: "publish",
+        identity,
+        fqn: formattedFqn,
+      } satisfies PublishPreflightDecision;
+    }
+    if (args.force) {
+      return {
+        action: "publish",
+        identity,
+        fqn: formattedFqn,
+      } satisfies PublishPreflightDecision;
+    }
 
     const plural = extensionTypeToPlural[args.type];
     return yield* makeAppError({

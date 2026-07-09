@@ -15,11 +15,13 @@ import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/c
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitPublishResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { resolveManifestVersionInfo } from "../shared/extension-version.js";
 import { withPublishArtifact } from "../shared/publish-artifact.js";
 import { checkPublishVersionPreflight } from "../shared/publish-preflight.js";
+import { skipExistingFlag } from "../shared/publish-flags.js";
+import { recoverPublishConflictAsSkipExisting } from "../shared/publish-skip-existing.js";
 import { publishSuccessRender } from "../shared/publish-success.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 
@@ -28,6 +30,7 @@ export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(funct
   readonly registry: string;
   readonly yes: boolean;
   readonly preview: boolean;
+  readonly skipExisting?: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
@@ -48,14 +51,53 @@ export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(funct
       detail: `Registry source "${args.registry}" not found or not a registry source`,
     });
   }
-  yield* checkPublishVersionPreflight({
+  const preflightDecision = yield* checkPublishVersionPreflight({
     fqn: args.name,
     type: "mcp-server",
     registryName: args.registry,
     registryUrl: source.location.href,
     force: false,
+    existingVersionPolicy: args.skipExisting === true ? "skip" : "error",
   });
   const versionInfo = yield* resolveManifestVersionInfo(args.name, "mcp-server");
+
+  if (preflightDecision.action === "skip") {
+    const message = `Skipped ${preflightDecision.fqn}@${preflightDecision.identity.version}: version already published`;
+    const emitted = yield* emitPublishResult("mcps.publish", {
+      mode: args.preview ? "preview" : "apply",
+      results: [
+        {
+          owner: preflightDecision.identity.owner,
+          type: preflightDecision.identity.type,
+          name: preflightDecision.identity.name,
+          version: preflightDecision.identity.version,
+          action: "skip",
+          reason: preflightDecision.reason,
+          ...(args.preview ? {} : { status: "success" }),
+          message,
+        },
+      ],
+    });
+    if (emitted) return;
+    yield* renderer.success(message);
+    return;
+  }
+
+  if (args.preview) {
+    const emitted = yield* emitPublishResult("mcps.publish", {
+      mode: "preview",
+      results: [
+        {
+          owner: preflightDecision.identity.owner,
+          type: preflightDecision.identity.type,
+          name: preflightDecision.identity.name,
+          version: preflightDecision.identity.version,
+          action: "publish",
+        },
+      ],
+    });
+    if (emitted) return;
+  }
 
   const runPublishPlan = Effect.gen(function* () {
     const step: PlannedJobStep = {
@@ -72,6 +114,15 @@ export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(funct
             scope: ws.scope,
             version: versionInfo.version,
           }),
+        ),
+        Effect.catch(
+          args.skipExisting === true
+            ? recoverPublishConflictAsSkipExisting({
+                registryUrl: source.location.href,
+                target: preflightDecision,
+                scope: ws.scope,
+              })
+            : (error) => Effect.fail(error),
         ),
         Effect.provideService(WorkspaceMutations, ws),
         Effect.provideService(FileSystem.FileSystem, fs),
@@ -92,9 +143,26 @@ export const handlePublishMcpServer = Effect.fn("PublishMcpServer.handle")(funct
     });
     const success =
       resolution._tag === "ExecutedPlan" ? publishSuccessRender(resolution) : undefined;
-    const emitted = yield* emitPlanResolutionResult("mcps.publish", resolution, {
-      ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
-    });
+    const emitted = yield* emitPublishResult(
+      "mcps.publish",
+      {
+        mode: args.preview ? "preview" : "apply",
+        results: [
+          {
+            owner: preflightDecision.identity.owner,
+            type: preflightDecision.identity.type,
+            name: preflightDecision.identity.name,
+            version: preflightDecision.identity.version,
+            action: "publish",
+            ...(resolution._tag === "ExecutedPlan" ? { status: "success" } : {}),
+            ...(success?.message !== undefined ? { message: success.message } : {}),
+          },
+        ],
+      },
+      {
+        ...(success?.suggestions !== undefined ? { suggestions: success.suggestions } : {}),
+      },
+    );
     if (emitted) return;
 
     if (success !== undefined) {
@@ -128,13 +196,14 @@ const publishConfig = {
   scope: scopeFlag,
   yes: yesFlag,
   preview: previewFlag,
+  skipExisting: skipExistingFlag,
 } as const;
 
 export const publishCommand = Command.make(
   "publish",
   publishConfig,
-  ({ name, registry, scope, yes, preview }) =>
-    handlePublishMcpServer({ name, registry, yes, preview }).pipe(
+  ({ name, registry, scope, yes, preview, skipExisting }) =>
+    handlePublishMcpServer({ name, registry, yes, preview, skipExisting }).pipe(
       withWorkspace(scope),
       Effect.provide(AuthLayer),
       withRuntime("mcps publish"),

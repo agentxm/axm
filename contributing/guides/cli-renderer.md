@@ -53,7 +53,7 @@ handler authoring live in [CLI Design Guide](./cli-design.md).
 - Effect Schema v4 is the source of truth for published JSON output contracts
 - `--json` should ship only once the output schema is published and tested
 - stdout is reserved for final data; diagnostics belong on stderr
-- Breaking JSON changes require an OpenSpec change and contract tests
+- Breaking JSON changes require explicit issue/design rationale and contract tests
 
 ---
 

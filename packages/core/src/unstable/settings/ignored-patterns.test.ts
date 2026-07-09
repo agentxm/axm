@@ -8,10 +8,10 @@ import { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./igno
 describe("SettingsSchema feature config ignore fields", () => {
   it("accepts settings with skillsConfig.ignore", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)({
-      skillsConfig: { ignore: ["openspec-*"] },
+      skillsConfig: { ignore: ["sample-*"] },
     });
 
-    expect(result.skillsConfig?.ignore).toEqual(["openspec-*"]);
+    expect(result.skillsConfig?.ignore).toEqual(["sample-*"]);
   });
 
   it("accepts settings with commandsConfig.ignore", () => {
@@ -89,15 +89,15 @@ describe("SettingsSchema mcpServers (camelCase)", () => {
 describe("normalizeIgnoredPatterns", () => {
   it.effect("trims leading/trailing whitespace", () =>
     Effect.gen(function* () {
-      const result = yield* normalizeIgnoredPatterns(["  openspec-*  ", " foo "]);
-      expect(result).toEqual(["openspec-*", "foo"]);
+      const result = yield* normalizeIgnoredPatterns(["  sample-*  ", " foo "]);
+      expect(result).toEqual(["sample-*", "foo"]);
     }),
   );
 
   it.effect("deduplicates patterns after trimming", () =>
     Effect.gen(function* () {
-      const result = yield* normalizeIgnoredPatterns(["openspec-*", " openspec-* "]);
-      expect(result).toEqual(["openspec-*"]);
+      const result = yield* normalizeIgnoredPatterns(["sample-*", " sample-* "]);
+      expect(result).toEqual(["sample-*"]);
     }),
   );
 
@@ -119,8 +119,8 @@ describe("normalizeIgnoredPatterns", () => {
 
   it.effect("passes through valid patterns unchanged", () =>
     Effect.gen(function* () {
-      const result = yield* normalizeIgnoredPatterns(["openspec-*", "exact-name"]);
-      expect(result).toEqual(["openspec-*", "exact-name"]);
+      const result = yield* normalizeIgnoredPatterns(["sample-*", "exact-name"]);
+      expect(result).toEqual(["sample-*", "exact-name"]);
     }),
   );
 
@@ -135,7 +135,7 @@ describe("normalizeIgnoredPatterns", () => {
 describe("validateIgnoredConfigConflicts", () => {
   it.effect("fails when a configured name matches an ignored pattern", () =>
     Effect.gen(function* () {
-      const error = yield* validateIgnoredConfigConflicts(["openspec-core"], ["openspec-*"]).pipe(
+      const error = yield* validateIgnoredConfigConflicts(["sample-core"], ["sample-*"]).pipe(
         Effect.flip,
       );
       expect(error).toBeInstanceOf(AppError);
@@ -155,14 +155,14 @@ describe("validateIgnoredConfigConflicts", () => {
 
   it.effect("passes when no configured names match ignored patterns", () =>
     Effect.gen(function* () {
-      const result = yield* validateIgnoredConfigConflicts(["my-skill"], ["openspec-*"]);
+      const result = yield* validateIgnoredConfigConflicts(["my-skill"], ["sample-*"]);
       expect(result).toBeUndefined();
     }),
   );
 
   it.effect("passes with empty configured names", () =>
     Effect.gen(function* () {
-      const result = yield* validateIgnoredConfigConflicts([], ["openspec-*"]);
+      const result = yield* validateIgnoredConfigConflicts([], ["sample-*"]);
       expect(result).toBeUndefined();
     }),
   );

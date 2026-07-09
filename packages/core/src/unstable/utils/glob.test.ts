@@ -59,15 +59,13 @@ describe("expandGlob", () => {
   // Ignored-pattern semantics (full-name anchored, no partial matches)
 
   it("does not partially match substrings", () => {
-    // "openspec-*" should not match "my-openspec-tool" (full-name anchoring)
-    expect(expandGlob("openspec-*", ["my-openspec-tool", "openspec-core"])).toEqual([
-      "openspec-core",
-    ]);
+    // "sample-*" should not match "my-sample-tool" (full-name anchoring)
+    expect(expandGlob("sample-*", ["my-sample-tool", "sample-core"])).toEqual(["sample-core"]);
   });
 
   it("handles multiple * wildcards in one pattern", () => {
-    expect(expandGlob("*-core-*", ["openspec-core-utils", "openspec-core", "core-utils"])).toEqual([
-      "openspec-core-utils",
+    expect(expandGlob("*-core-*", ["sample-core-utils", "sample-core", "core-utils"])).toEqual([
+      "sample-core-utils",
     ]);
   });
 

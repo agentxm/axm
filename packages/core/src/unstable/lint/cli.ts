@@ -6,7 +6,7 @@
  * publish-gate drift, and (under `--fix`) composes the autofix plan lives in
  * this module.
  *
- * Phase 5 entry points (see `openspec/changes/add-lint-engine/tasks.md`):
+ * Lint engine entry points:
  *
  * - {@link evaluateAllCatalogs}         — concurrent evaluation of the three
  *   v1 rule catalogs against pre-built contexts.

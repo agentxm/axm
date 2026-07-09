@@ -1,17 +1,13 @@
 # Feature Delivery Guide
 
 Checks for planning, designing, implementing, and reviewing changes in `axm`.
-Use this guide alongside OpenSpec so proposals, code changes, and docs stay in
-sync from start to finish.
+Use this guide so issue context, code changes, and docs stay in sync from start
+to finish.
 
-> [Spec-Driven Development](../../AGENTS.md#spec-driven-development) - critical
-> guidance
->
 > [Testing](../../AGENTS.md#testing) - verification expectations
 
 ## Key Resources
 
-- [Spec-Driven Development](./spec-driven-development.md) - OpenSpec workflow
 - [CLI Design Guide](./cli-design.md) - Command and flag conventions
 - [Effect Guide](./effect.md) - Service and error patterns
 - [Testing Guide](./testing.md) - Test levels and quality
@@ -50,7 +46,7 @@ Before calling the work complete:
 - implement the smallest change that satisfies the requirement
 - rerun the relevant quality gates (`test`, `lint`, `typecheck`, `build`, e2e
   when the CLI surface changes)
-- update specs, guides, and instructions that describe the changed behavior
+- update guides and instructions that describe the changed behavior
 - verify the final behavior against the proposal, not just the implementation
 
 ---

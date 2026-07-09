@@ -5,8 +5,7 @@
  *
  * The registry Worker SHALL NOT import this module — publish never applies
  * fixes, so the plan pipeline tree-shakes out of the Worker bundle. See
- * `openspec/specs/lint-engine/spec.md` requirement "Plan pipeline primitives
- * available in shared kernel" for the cross-repo contract.
+ * the shared-kernel contract for plan pipeline primitives.
  *
  * Per-extension operation handlers (`install-skill`, `uninstall-skill`,
  * `enable-skill`, `disable-skill`, `install-pack`, `uninstall-pack`,

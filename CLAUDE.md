@@ -109,7 +109,6 @@ the summary here, follow the guide.
 | [Instructions Guide](contributing/guides/instructions.md)                   | Before choosing README vs CONTRIBUTING vs AGENTS/CLAUDE vs install vs SKILL, read it      |
 | **Delivery**                                                                |                                                                                           |
 | [Releasing Guide](contributing/guides/releasing.md)                         | Before planning or publishing a release, read the release flow                            |
-| [Spec-Driven Development](contributing/guides/spec-driven-development.md)   | Before starting or progressing an OpenSpec change, read for workflow steps                |
 | [Feature Delivery Guide](contributing/guides/feature-delivery.md)           | Before proposing, designing, implementing, or verifying a feature, read for checks        |
 | **Implementation**                                                          |                                                                                           |
 | [CLI Design Guide](contributing/guides/cli-design.md)                       | Before designing a CLI command, read for shape, flags, prompts, and handlers              |
@@ -199,13 +198,6 @@ See [Testing Guide](contributing/guides/testing.md) and
 - Write tests first to define behavior
 - Bug fix means regression test first
 - Prefer `pnpm nx run <project>:test --args="..."` over direct `vitest`
-
-## Spec-Driven Development
-
-See [Spec-Driven Development](contributing/guides/spec-driven-development.md).
-
-Accepted specs: `openspec/specs/<capability>/spec.md`. Active changes:
-`openspec/changes/<change-id>/`.
 
 ## Git Workflow
 

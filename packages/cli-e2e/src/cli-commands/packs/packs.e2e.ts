@@ -688,7 +688,7 @@ describe("axm packs install", () => {
   // install @test/packs/prune-pack --yes` — does re-install the pack
   // at the newer version but promotes pack-member skills into the
   // top-level `skills` map as direct entries, which differs from
-  // `sync`'s prune semantics. A follow-up OpenSpec change should
+  // `sync`'s prune semantics. A follow-up issue should
   // define how prune-on-pack-update flows through the rule-driven
   // pipeline (candidate: expand `workspace/packs-members-retained`
   // into an autofixing rule or wire a dedicated `axm packs update`

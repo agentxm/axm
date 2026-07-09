@@ -78,7 +78,6 @@
     "@effect/language-service": "catalog:",
     "@effect/vitest": "catalog:",
     "@eslint/js": "catalog:",
-    "@fission-ai/openspec": "catalog:",
     "@nx/eslint": "catalog:",
     "@nx/eslint-plugin": "catalog:",
     "@nx/js": "catalog:",

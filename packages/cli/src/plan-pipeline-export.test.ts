@@ -5,7 +5,7 @@
  * without reaching into `@agentxm/client-core/unstable/workspace`.
  *
  * Authoritative artifact:
- *   /Users/craig/Code/agentxm/agentxm-internal-b/openspec/changes/add-lint-engine/specs/lint-engine/spec.md
+ *   /Users/craig/Code/agentxm/agentxm-internal-b/sample/changes/add-lint-engine/specs/lint-engine/spec.md
  *   Requirement: "Plan pipeline primitives available in shared kernel"
  */
 

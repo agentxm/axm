@@ -495,11 +495,13 @@ export type SkillEntry = Schema.Schema.Type<typeof SkillEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillsMapSchema = Schema.Record(ExtensionMapKeySchema, SkillEntrySchema).annotate({
-  identifier: "SkillsMap",
-  title: "Skills Map",
-  description: "A map of skill names to skill entries.",
-});
+export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .annotate({
+    identifier: "SkillsMap",
+    title: "Skills Map",
+    description: "A map of skill names to skill entries.",
+  });
 
 /**
  * Inferred type for SkillsMap schema.
@@ -560,11 +562,13 @@ export type CommandEntry = Schema.Schema.Type<typeof CommandEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandsMapSchema = Schema.Record(ExtensionMapKeySchema, CommandEntrySchema).annotate({
-  identifier: "CommandsMap",
-  title: "Commands Map",
-  description: "A map of command names to command entries.",
-});
+export const CommandsMapSchema = Schema.Record(Schema.String, CommandEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .annotate({
+    identifier: "CommandsMap",
+    title: "Commands Map",
+    description: "A map of command names to command entries.",
+  });
 
 /**
  * Inferred type for CommandsMap schema.
@@ -658,11 +662,13 @@ export type FilesEntry = Schema.Schema.Type<typeof FilesEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FilesMapSchema = Schema.Record(ExtensionMapKeySchema, FilesEntrySchema).annotate({
-  identifier: "FilesMap",
-  title: "Files Map",
-  description: "A map of Context Files package names to Context Files package entries.",
-});
+export const FilesMapSchema = Schema.Record(Schema.String, FilesEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .annotate({
+    identifier: "FilesMap",
+    title: "Files Map",
+    description: "A map of Context Files package names to Context Files package entries.",
+  });
 
 /** @experimental */
 export type FilesMap = Schema.Schema.Type<typeof FilesMapSchema>;
@@ -708,11 +714,13 @@ export type RuleEntry = Schema.Schema.Type<typeof RuleEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RulesMapSchema = Schema.Record(ExtensionMapKeySchema, RuleEntrySchema).annotate({
-  identifier: "RulesMap",
-  title: "Rules Map",
-  description: "A map of rule names to rule entries.",
-});
+export const RulesMapSchema = Schema.Record(Schema.String, RuleEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .annotate({
+    identifier: "RulesMap",
+    title: "Rules Map",
+    description: "A map of rule names to rule entries.",
+  });
 
 /** @experimental */
 export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
@@ -758,11 +766,13 @@ export type HookEntry = Schema.Schema.Type<typeof HookEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HooksMapSchema = Schema.Record(ExtensionMapKeySchema, HookEntrySchema).annotate({
-  identifier: "HooksMap",
-  title: "Hooks Map",
-  description: "A map of hook names to hook entries.",
-});
+export const HooksMapSchema = Schema.Record(Schema.String, HookEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .annotate({
+    identifier: "HooksMap",
+    title: "Hooks Map",
+    description: "A map of hook names to hook entries.",
+  });
 
 /** @experimental */
 export type HooksMap = Schema.Schema.Type<typeof HooksMapSchema>;
@@ -947,14 +957,13 @@ export type McpServerEntry = Schema.Schema.Type<typeof McpServerEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServersMapSchema = Schema.Record(
-  ExtensionMapKeySchema,
-  McpServerEntrySchema,
-).annotate({
-  identifier: "McpServersMap",
-  title: "MCP Servers Map",
-  description: "A map of MCP server names to MCP server entries.",
-});
+export const McpServersMapSchema = Schema.Record(Schema.String, McpServerEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .annotate({
+    identifier: "McpServersMap",
+    title: "MCP Servers Map",
+    description: "A map of MCP server names to MCP server entries.",
+  });
 
 /**
  * Inferred type for McpServersMap schema.
@@ -1019,14 +1028,13 @@ export type SubagentEntry = Schema.Schema.Type<typeof SubagentEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentsMapSchema = Schema.Record(
-  ExtensionMapKeySchema,
-  SubagentEntrySchema,
-).annotate({
-  identifier: "SubagentsMap",
-  title: "Subagents Map",
-  description: "A map of subagent names to subagent entries.",
-});
+export const SubagentsMapSchema = Schema.Record(Schema.String, SubagentEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .annotate({
+    identifier: "SubagentsMap",
+    title: "Subagents Map",
+    description: "A map of subagent names to subagent entries.",
+  });
 
 /**
  * Inferred type for SubagentsMap schema.
@@ -1105,11 +1113,13 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PacksMapSchema = Schema.Record(ExtensionMapKeySchema, PackEntrySchema).annotate({
-  identifier: "PacksMap",
-  title: "Packs Map",
-  description: "A map of pack names to pack entries.",
-});
+export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .annotate({
+    identifier: "PacksMap",
+    title: "Packs Map",
+    description: "A map of pack names to pack entries.",
+  });
 
 /**
  * Inferred type for PacksMap schema.
@@ -1190,13 +1200,13 @@ export type LibraryEntry = Schema.Schema.Type<typeof LibraryEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const LibrariesMapSchema = Schema.Record(ExtensionMapKeySchema, LibraryEntrySchema).annotate(
-  {
+export const LibrariesMapSchema = Schema.Record(Schema.String, LibraryEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .annotate({
     identifier: "LibrariesMap",
     title: "Libraries Map",
     description: "A map of Library subscription names to Library refs.",
-  },
-);
+  });
 
 /** @experimental */
 export type LibrariesMap = Schema.Schema.Type<typeof LibrariesMapSchema>;

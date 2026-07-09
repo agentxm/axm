@@ -278,10 +278,17 @@
     },
     "SkillsMap": {
       "type": "object",
-      "title": "Skills Map",
-      "description": "A map of skill names to skill entries.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/SkillEntry" }
+      "additionalProperties": { "$ref": "#/definitions/SkillEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          },
+          "title": "Skills Map",
+          "description": "A map of skill names to skill entries."
+        }
+      ]
     },
     "SkillsConfig": {
       "type": "object",
@@ -343,10 +350,17 @@
     },
     "CommandsMap": {
       "type": "object",
-      "title": "Commands Map",
-      "description": "A map of command names to command entries.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/CommandEntry" }
+      "additionalProperties": { "$ref": "#/definitions/CommandEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          },
+          "title": "Commands Map",
+          "description": "A map of command names to command entries."
+        }
+      ]
     },
     "CommandsConfig": {
       "type": "object",
@@ -415,10 +429,17 @@
     },
     "FilesMap": {
       "type": "object",
-      "title": "Files Map",
-      "description": "A map of Context Files package names to Context Files package entries.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/FilesEntry" }
+      "additionalProperties": { "$ref": "#/definitions/FilesEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          },
+          "title": "Files Map",
+          "description": "A map of Context Files package names to Context Files package entries."
+        }
+      ]
     },
     "RuleEntry": {
       "anyOf": [
@@ -466,10 +487,17 @@
     },
     "RulesMap": {
       "type": "object",
-      "title": "Rules Map",
-      "description": "A map of rule names to rule entries.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/RuleEntry" }
+      "additionalProperties": { "$ref": "#/definitions/RuleEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          },
+          "title": "Rules Map",
+          "description": "A map of rule names to rule entries."
+        }
+      ]
     },
     "HookEntry": {
       "anyOf": [
@@ -517,10 +545,17 @@
     },
     "HooksMap": {
       "type": "object",
-      "title": "Hooks Map",
-      "description": "A map of hook names to hook entries.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/HookEntry" }
+      "additionalProperties": { "$ref": "#/definitions/HookEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          },
+          "title": "Hooks Map",
+          "description": "A map of hook names to hook entries."
+        }
+      ]
     },
     "SubagentEntry": {
       "anyOf": [
@@ -568,10 +603,17 @@
     },
     "SubagentsMap": {
       "type": "object",
-      "title": "Subagents Map",
-      "description": "A map of subagent names to subagent entries.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/SubagentEntry" }
+      "additionalProperties": { "$ref": "#/definitions/SubagentEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          },
+          "title": "Subagents Map",
+          "description": "A map of subagent names to subagent entries."
+        }
+      ]
     },
     "SubagentsConfig": {
       "type": "object",
@@ -628,10 +670,17 @@
     },
     "PacksMap": {
       "type": "object",
-      "title": "Packs Map",
-      "description": "A map of pack names to pack entries.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/PackEntry" }
+      "additionalProperties": { "$ref": "#/definitions/PackEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          },
+          "title": "Packs Map",
+          "description": "A map of pack names to pack entries."
+        }
+      ]
     },
     "PacksConfig": {
       "type": "object",
@@ -691,10 +740,17 @@
     },
     "LibrariesMap": {
       "type": "object",
-      "title": "Libraries Map",
-      "description": "A map of Library subscription names to Library refs.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/LibraryEntry" }
+      "additionalProperties": { "$ref": "#/definitions/LibraryEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          },
+          "title": "Libraries Map",
+          "description": "A map of Library subscription names to Library refs."
+        }
+      ]
     },
     "McpServerEnv": {
       "anyOf": [
@@ -784,10 +840,17 @@
     },
     "McpServersMap": {
       "type": "object",
-      "title": "MCP Servers Map",
-      "description": "A map of MCP server names to MCP server entries.",
-      "propertyNames": { "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
-      "additionalProperties": { "$ref": "#/definitions/McpServerEntry" }
+      "additionalProperties": { "$ref": "#/definitions/McpServerEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          },
+          "title": "MCP Servers Map",
+          "description": "A map of MCP server names to MCP server entries."
+        }
+      ]
     },
     "McpServersConfig": {
       "type": "object",

@@ -2870,11 +2870,11 @@ export const make = (
   const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
     Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer));
   const decodeSuccess =
-    <Schema extends Schema.Top>(schema: Schema) =>
+    <Schema extends Schema.Constraint>(schema: Schema) =>
     (response: HttpClientResponse.HttpClientResponse) =>
       HttpClientResponse.schemaBodyJson(schema)(response);
   const decodeError =
-    <const Tag extends string, Schema extends Schema.Top>(tag: Tag, schema: Schema) =>
+    <const Tag extends string, Schema extends Schema.Constraint>(tag: Tag, schema: Schema) =>
     (response: HttpClientResponse.HttpClientResponse) =>
       Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)(response), (cause) =>
         Effect.fail(RegistryClientError(tag, cause, response)),

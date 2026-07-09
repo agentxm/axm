@@ -95,7 +95,7 @@ index 534258ff796e1badd58379c62689dc3fedca8bf3..b243b33cedd0b62e53cb40b02788addc
    const normalized = contentType.toLowerCase();
    if (isJsonMediaType(normalized)) {
 diff --git a/dist/OpenApiTransformer.js b/dist/OpenApiTransformer.js
-index 2be3cde1c8e03e5d387233f7825dae8b525e522e..a7cd3136557f1e2f0b66d8f1f275d43812952f8a 100644
+index 5566cc420f3da7c08d5a004b6b21edab9b8c7cf9..427691268beb13559ea53ea8a15f5d9658f6df17 100644
 --- a/dist/OpenApiTransformer.js
 +++ b/dist/OpenApiTransformer.js
 @@ -31,6 +31,7 @@ export class OpenApiTransformer extends /*#__PURE__*/Context.Service()("OpenApiT

@@ -50,6 +50,40 @@ const getDefinition = (schema: Record<string, unknown>, name: string): Record<st
 const getProperty = (definition: Record<string, unknown>, name: string): Record<string, unknown> =>
   getRecord(getRecord(definition, "properties"), name);
 
+const getPropertyNamesSchema = (schema: Record<string, unknown>): Record<string, unknown> => {
+  if (isRecord(schema["propertyNames"])) {
+    return schema["propertyNames"];
+  }
+
+  const allOf = schema["allOf"];
+  if (Array.isArray(allOf)) {
+    for (const entry of allOf) {
+      if (isRecord(entry) && isRecord(entry["propertyNames"])) {
+        return entry["propertyNames"];
+      }
+    }
+  }
+
+  throw new Error("Expected propertyNames to contain a JSON object.");
+};
+
+const getStringPattern = (schema: Record<string, unknown>): string | undefined => {
+  if (typeof schema["pattern"] === "string") {
+    return schema["pattern"];
+  }
+
+  const allOf = schema["allOf"];
+  if (Array.isArray(allOf)) {
+    for (const entry of allOf) {
+      if (isRecord(entry) && typeof entry["pattern"] === "string") {
+        return entry["pattern"];
+      }
+    }
+  }
+
+  return undefined;
+};
+
 const getFirstAnyOfRecord = (schema: Record<string, unknown>): Record<string, unknown> => {
   const anyOf = schema["anyOf"];
   if (!Array.isArray(anyOf) || !isRecord(anyOf[0])) {
@@ -217,8 +251,8 @@ describe("generated schemas", () => {
 
     for (const name of ["SkillsMap", "CommandsMap", "McpServersMap", "SubagentsMap", "PacksMap"]) {
       const mapSchema = getDefinition(settingsSchema, name);
-      const propertyNames = getRecord(mapSchema, "propertyNames");
-      expect(propertyNames["pattern"]).toBe("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$");
+      const propertyNames = getPropertyNamesSchema(mapSchema);
+      expect(getStringPattern(propertyNames)).toBe("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$");
     }
   });
 
@@ -318,7 +352,7 @@ describe("generated schemas", () => {
   it("references named key definitions via $ref in propertyNames", () => {
     const packSchema = readGeneratedSchema("pack.schema.json");
     const dependencies = getProperty(getDefinition(packSchema, "PackManifest"), "dependencies");
-    const propertyNames = getRecord(dependencies, "propertyNames");
+    const propertyNames = getPropertyNamesSchema(dependencies);
     expect(propertyNames["$ref"]).toBe("#/definitions/NonPackExtensionFqn");
 
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
@@ -326,7 +360,7 @@ describe("generated schemas", () => {
       getDefinition(lockSchema, "PackLockEntry"),
       "resolvedSkills",
     );
-    const lockPropertyNames = getRecord(resolvedSkills, "propertyNames");
+    const lockPropertyNames = getPropertyNamesSchema(resolvedSkills);
     expect(lockPropertyNames["$ref"]).toBe("#/definitions/ExtensionFqn");
   });
 });

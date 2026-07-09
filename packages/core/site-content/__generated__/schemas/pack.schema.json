@@ -188,17 +188,6 @@
         }
       ]
     },
-    "NonPackExtensionFqn": {
-      "type": "string",
-      "allOf": [
-        {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
-          "title": "Non-Pack Extension FQN",
-          "description": "Extension identifier restricted to non-pack types (skills, commands, mcps, subagents, context, rules, hooks).",
-          "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
-        }
-      ]
-    },
     "VersionRange": {
       "type": "string",
       "allOf": [
@@ -208,6 +197,17 @@
           "title": "Version Range",
           "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
           "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
+        }
+      ]
+    },
+    "NonPackExtensionFqn": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+          "title": "Non-Pack Extension FQN",
+          "description": "Extension identifier restricted to non-pack types (skills, commands, mcps, subagents, context, rules, hooks).",
+          "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
         }
       ]
     },
@@ -276,9 +276,13 @@
         "name": { "$ref": "#/definitions/ExtensionName" },
         "dependencies": {
           "type": "object",
-          "description": "Map of fully-qualified non-pack extension names to version ranges. Packs cannot depend on other packs.",
-          "propertyNames": { "$ref": "#/definitions/NonPackExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/VersionRange" }
+          "additionalProperties": { "$ref": "#/definitions/VersionRange" },
+          "allOf": [
+            {
+              "propertyNames": { "$ref": "#/definitions/NonPackExtensionFqn" },
+              "description": "Map of fully-qualified non-pack extension names to version ranges. Packs cannot depend on other packs."
+            }
+          ]
         }
       },
       "required": ["owner", "version", "type", "name", "dependencies"],

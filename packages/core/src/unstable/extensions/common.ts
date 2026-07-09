@@ -649,9 +649,9 @@ export type PackSpec = Schema.Schema.Type<typeof PackSpecSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const ExtensionDependencyConstraintMapSchema = Schema.Record(
-  ExtensionFqnSchema,
+  Schema.String,
   VersionRangeSchema,
-);
+).check(Schema.isPropertyNames(ExtensionFqnSchema));
 
 /**
  * Inferred type for extension dependency constraint maps.
@@ -669,12 +669,14 @@ export type ExtensionDependencyConstraintMap = Schema.Schema.Type<
  * @experimental This API is unstable and may change without notice.
  */
 export const NonPackExtensionDependencyConstraintMapSchema = Schema.Record(
-  NonPackExtensionFqnSchema,
+  Schema.String,
   VersionRangeSchema,
-).annotate({
-  description:
-    "Map of fully-qualified non-pack extension names to version ranges. Packs cannot depend on other packs.",
-});
+)
+  .check(Schema.isPropertyNames(NonPackExtensionFqnSchema))
+  .annotate({
+    description:
+      "Map of fully-qualified non-pack extension names to version ranges. Packs cannot depend on other packs.",
+  });
 
 /**
  * Inferred type for non-pack extension dependency constraint maps.

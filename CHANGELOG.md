@@ -1,3 +1,13 @@
+## 0.20.0 (2026-07-10)
+
+### 🚀 Features
+
+- Add workspace source authority and authored publishing ([cccc8762](https://github.com/agentxm/axm/commit/cccc8762))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.19.3 (2026-07-09)
 
 ### 🩹 Fixes

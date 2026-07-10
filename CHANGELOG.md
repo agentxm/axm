@@ -1,3 +1,13 @@
+## 0.20.1 (2026-07-10)
+
+### 🩹 Fixes
+
+- Fix workspace pack dependency lint for authored members ([e3cb3409](https://github.com/agentxm/axm/commit/e3cb3409))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.20.0 (2026-07-10)
 
 ### 🚀 Features

@@ -42,7 +42,11 @@ import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { normalizeScaffoldOwner } from "../shared/scaffold-name.js";
 
 const filesLockEntryVersion = (entry: FilesLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
+  entry.type === "registry"
+    ? entry.resolvedVersion
+    : entry.type === "workspace"
+      ? entry.version
+      : undefined;
 
 const filesNewArtifactTargets = (lockEntry: FilesLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
   [...(lockEntry.materializedTargets ?? [])]
@@ -209,9 +213,8 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
                 });
               }),
             markAuthored: ws.setFilesEntry(name, {
-              source: fqn,
+              source: `workspace:${fqn}`,
               enabled: true,
-              authored: true,
               inputs: {},
             }),
             scaffold: Effect.gen(function* () {

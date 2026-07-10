@@ -37,6 +37,7 @@ import type {
   GitHostedCommandRef,
   LocalCommandRef,
   RegistryCommandRef,
+  WorkspaceCommandRef,
 } from "../refs.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
@@ -242,6 +243,42 @@ const installFromLocal = (ref: LocalCommandRef) =>
     return canonicalPath;
   });
 
+const installFromWorkspace = (ref: WorkspaceCommandRef) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+    const expectedPath = path.join(
+      ws.baseDir,
+      REGISTRY_EXTENSIONS_DIR,
+      ref.owner,
+      "commands",
+      ref.name,
+    );
+    if (ref.scope !== ws.scope || path.resolve(ref.location) !== path.resolve(expectedPath)) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Invalid workspace command source location: ${ref.location}`,
+      });
+    }
+    const exists = yield* fs.exists(ref.location).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect workspace command package: ${ref.location}`,
+          cause: error,
+        }),
+      ),
+    );
+    if (!exists) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Workspace command package is missing: ${ref.location}`,
+      });
+    }
+    return ref.location;
+  });
+
 // --- Materialization dispatcher ---
 const materializeCommand = (ref: CommandExtensionRef) => {
   switch (ref.refType) {
@@ -251,6 +288,8 @@ const materializeCommand = (ref: CommandExtensionRef) => {
       return installFromGitHosted(ref);
     case "local":
       return installFromLocal(ref);
+    case "workspace":
+      return installFromWorkspace(ref);
   }
 };
 
@@ -299,7 +338,7 @@ export const installCommand: (
 
     // --- Resolve owner: registry refs supply it; otherwise read from settings ---
     const owner =
-      ref.refType === "registry"
+      ref.refType === "registry" || ref.refType === "workspace"
         ? ref.owner
         : yield* ws.getConfiguredOwner().pipe(
             Effect.flatMap(

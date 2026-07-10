@@ -6,8 +6,8 @@
  */
 
 import * as Effect from "effect/Effect";
-import type * as Option from "effect/Option";
-import type { AppError } from "../app-error/index.js";
+import * as Option from "effect/Option";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "../plan/plan.js";
 import type { ExtensionRef } from "./refs.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
@@ -16,6 +16,7 @@ import type {
   ExtensionTarget,
   ExtensionTargetFor,
 } from "../workspace/service-interface.js";
+import { isWorkspaceSourceLocator } from "../sources/workspace.js";
 
 // -----------------------------------------------------------------------------
 // Target Helpers
@@ -130,6 +131,8 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
   }) => Effect.Effect<JobStepArtifact, AppError, never>;
   /** Optional outcome message for type-specific install presenters. */
   readonly message?: string;
+  /** Explicit destructive source-authority transition used only by demotion. */
+  readonly allowWorkspaceReplacement?: boolean;
 }
 
 export interface NewExtensionOperationArgs<
@@ -149,6 +152,24 @@ const runInstallOperation = <TRef extends ExtensionRef>(
   args: InstallOperationArgs<TRef>,
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
+    const target = targetFromRef(args.ref);
+    const configuredSource =
+      manager.getConfiguredSource === undefined
+        ? Option.none<string>()
+        : yield* manager.getConfiguredSource({ target });
+    if (
+      Option.isSome(configuredSource) &&
+      isWorkspaceSourceLocator(configuredSource.value) &&
+      args.ref.refType !== "workspace" &&
+      args.allowWorkspaceReplacement !== true
+    ) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Cannot install over workspace-sourced ${target.type} "${target.name}"`,
+        recover:
+          "Demote or remove the workspace source explicitly before installing a different source.",
+      });
+    }
     const installedBefore =
       args.installedBefore === undefined ? false : yield* args.installedBefore;
     yield* manager.materializeInstall({ ref: args.ref });
@@ -195,9 +216,9 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
 /**
  * Build a PlannedJobStep for `new` commands.
  *
- * The scaffold runs first, then an authored settings entry is seeded so the
- * canonical install sequence preserves `authored: true` while materializing,
- * writing the lockfile, and normalizing the final settings entry.
+ * The scaffold runs first, then a workspace-source settings entry is seeded.
+ * The manager resolves that canonical package back into a first-class
+ * workspace ref before materializing and writing derived lock state.
  */
 export const buildNewExtensionStep = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
@@ -213,7 +234,17 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
     run: Effect.gen(function* () {
       yield* args.scaffold;
       yield* args.markAuthored;
-      const result = yield* runInstallOperation(manager, args);
+      const materializable = yield* manager.listMaterializable();
+      const ref = materializable.find(
+        (candidate) => toStepKey(targetFromRef(candidate)) === toStepKey(target),
+      );
+      if (ref === undefined) {
+        return yield* makeAppError({
+          code: "not_found",
+          detail: `Newly scaffolded ${target.type} "${target.name}" could not be resolved from its workspace source`,
+        });
+      }
+      const result = yield* runInstallOperation(manager, { ...args, ref });
       return {
         ...result,
         result: "success" as const,
@@ -268,6 +299,7 @@ export const buildMaterializeOperation = <TRef extends ExtensionRef>(
 
 export interface UninstallOperationArgs<TRef extends ExtensionRef> {
   readonly target: ExtensionTargetFor<TRef>;
+  readonly sourceDisposition?: "keep" | "delete";
 }
 
 /**
@@ -288,6 +320,26 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
   args: UninstallOperationArgs<TRef>,
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
+    const configuredSource =
+      manager.getConfiguredSource === undefined
+        ? Option.none<string>()
+        : yield* manager.getConfiguredSource({ target: args.target });
+    const workspaceSource =
+      Option.isSome(configuredSource) && isWorkspaceSourceLocator(configuredSource.value);
+    if (workspaceSource && args.sourceDisposition === undefined) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Cannot uninstall workspace-sourced ${args.target.type} "${args.target.name}" without an explicit source disposition`,
+        recover:
+          "Disable it, or choose whether to keep or delete the authoritative source package.",
+      });
+    }
+    if (!workspaceSource && args.sourceDisposition !== undefined) {
+      return yield* makeAppError({
+        code: "usage",
+        detail: "--keep-source and --delete-source apply only to workspace-sourced extensions",
+      });
+    }
     const isInstalled = yield* manager.isInstalled({ target: args.target });
     if (!isInstalled) {
       return {
@@ -309,12 +361,18 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       } satisfies JobStepResult;
     }
 
-    yield* manager.materializeUninstall({ target: args.target });
+    yield* manager.materializeUninstall({
+      target: args.target,
+      preserveSource: args.sourceDisposition === "keep",
+    });
     yield* manager.removeLockfileEntry({ target: args.target });
     yield* manager.removeSettingsEntry({ target: args.target });
     return {
       result: "success" as const,
-      message: `Removed ${toLabel(args.target)}`,
+      message:
+        args.sourceDisposition === "keep"
+          ? `Removed ${toLabel(args.target)} from management and kept its source package`
+          : `Removed ${toLabel(args.target)}`,
     } satisfies JobStepResult;
   });
 

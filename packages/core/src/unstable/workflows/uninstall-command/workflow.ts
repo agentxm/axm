@@ -29,7 +29,18 @@ import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
 export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> {
   readonly parseArgs: (args: Args) => Effect.Effect<Parsed, AppError>;
   readonly finalizeIntent: (parsed: Parsed) => Effect.Effect<Intent, AppError>;
-  readonly buildUninstallPlan: (intent: Intent) => Effect.Effect<Plan, AppError>;
+  readonly buildUninstallPlan: (
+    intent: Intent,
+    flags: UninstallWorkflowFlags,
+  ) => Effect.Effect<Plan, AppError>;
+}
+
+export interface UninstallWorkflowFlags {
+  readonly yes: boolean;
+  readonly force: boolean;
+  readonly preview: boolean;
+  readonly displayApplied?: boolean;
+  readonly sourceDisposition?: "keep" | "delete";
 }
 
 // -----------------------------------------------------------------------------
@@ -45,11 +56,11 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
   args: Args,
   actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent>,
-  flags: { yes: boolean; force: boolean; preview: boolean; displayApplied?: boolean },
+  flags: UninstallWorkflowFlags,
 ) =>
   Effect.gen(function* () {
     const parsed = yield* actions.parseArgs(args);
     const intent = yield* actions.finalizeIntent(parsed);
-    const plan = yield* actions.buildUninstallPlan(intent);
+    const plan = yield* actions.buildUninstallPlan(intent, flags);
     return yield* previewOrApplyPlan(plan, flags);
   }).pipe(Effect.map((resolution): PlanResolution => resolution));

@@ -37,7 +37,11 @@ import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../l
 import type { HookLockEntry, MaterializedFileTarget } from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
+import {
+  isWorkspaceSourceLocator,
+  lockEntryToSourceParams,
+  printSourceParams,
+} from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
@@ -55,6 +59,7 @@ import {
   type HookManifest,
   type LocalHookRef,
   type RegistryHookRef,
+  type WorkspaceHookRef,
 } from "./index.js";
 
 export class HookManager extends ServiceMap.Service<
@@ -104,6 +109,21 @@ const localHookLockEntry = (
 ): HookLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
+  materializedTargets,
+  ...commonLockFields(now),
+});
+
+const workspaceHookLockEntry = (
+  ref: WorkspaceHookRef,
+  now: Date,
+  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
+): HookLockEntry => ({
+  type: "workspace",
+  owner: ref.owner,
+  extensionType: "hook",
+  name: ref.name,
+  version: ref.version,
+  sourceHash: ref.sourceHash,
   materializedTargets,
   ...commonLockFields(now),
 });
@@ -567,6 +587,25 @@ export const HookManagerLive = Layer.effect(
           case "git-hosted":
           case "local":
             return yield* materializeFromExternal(ref);
+          case "workspace": {
+            const expectedPath = path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              HOOK_EXTENSION_DIR,
+              ref.name,
+            );
+            if (
+              ref.scope !== ws.scope ||
+              path.resolve(ref.location) !== path.resolve(expectedPath)
+            ) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Invalid workspace hook source location: ${ref.location}`,
+              });
+            }
+            return ref.location;
+          }
         }
       });
 
@@ -781,20 +820,20 @@ export const HookManagerLive = Layer.effect(
               state?.workspaceRelativeLocalSourcePath ?? Option.none(),
             ),
           );
+        case "workspace":
+          return Effect.succeed(workspaceHookLockEntry(ref, now, materializedTargets));
       }
     };
 
     const materializeUninstall: ExtensionManager<HookExtensionRef>["materializeUninstall"] =
-      Effect.fn("HookManager.materializeUninstall")(function* ({ target }) {
+      Effect.fn("HookManager.materializeUninstall")(function* ({ target, preserveSource }) {
         const locked = yield* ws.getLockedHookEntry(target.name);
         if (Option.isNone(locked)) return;
-        const configured = yield* ws.getConfiguredHookEntries();
-        const entryIsAuthored = configured[target.name]?.authored === true;
         yield* writeHooksConfig({ excludeName: target.name });
 
         const entry = locked.value;
         const packageRoot =
-          entry.type === "registry"
+          entry.type === "registry" || entry.type === "workspace"
             ? path.join(
                 baseDir,
                 REGISTRY_EXTENSIONS_DIR,
@@ -803,7 +842,7 @@ export const HookManagerLive = Layer.effect(
                 entry.name,
               )
             : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, HOOK_EXTENSION_DIR, target.name);
-        if (!entryIsAuthored) {
+        if (preserveSource !== true) {
           yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
         }
       }, Effect.asVoid);
@@ -817,6 +856,10 @@ export const HookManagerLive = Layer.effect(
         ),
 
       materializeInstall,
+      getConfiguredSource: Effect.fn("HookManager.getConfiguredSource")(function* ({ target }) {
+        const configured = yield* ws.getConfiguredHookEntries();
+        return Option.fromUndefinedOr(configured[target.name]?.source);
+      }),
 
       listMaterializable: Effect.fn("HookManager.listMaterializable")(function* () {
         const configured = yield* ws.getConfiguredHookEntries();
@@ -841,7 +884,7 @@ export const HookManagerLive = Layer.effect(
         const entries = yield* ws.getConfiguredHookEntries();
         const current = entries[ref.hook.name];
         const source =
-          current?.authored === true
+          current !== undefined && isWorkspaceSourceLocator(current.source)
             ? current.source
             : ref.refType === "registry"
               ? (() => {
@@ -852,7 +895,6 @@ export const HookManagerLive = Layer.effect(
         yield* ws.setHookEntry(ref.hook.name, {
           source,
           enabled: true,
-          authored: current?.authored ?? false,
         });
       }),
 

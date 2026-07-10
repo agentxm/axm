@@ -164,7 +164,7 @@ export const uninstallPack: OperationHandler<
       artifact: packDirectoryArtifact({
         owner: lockedPack.owner,
         name: lockedPack.name,
-        version: lockedPack.resolvedVersion,
+        version: lockedPack.type === "workspace" ? lockedPack.version : lockedPack.resolvedVersion,
       }),
     } satisfies JobStepResult;
   }).pipe(

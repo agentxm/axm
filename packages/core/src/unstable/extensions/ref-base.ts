@@ -17,6 +17,8 @@ import type { ExtensionDependencyConstraintMap } from "./common.js";
 import type { Version } from "../version-constraints/version-constraints.js";
 import type { Handle } from "./handle.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
+import type { WorkspaceScope } from "../workspace/scope.js";
+import type { SourceHash } from "./rendered-files.js";
 
 // -----------------------------------------------------------------------------
 // Ref Detail Interfaces
@@ -54,6 +56,22 @@ export interface RegistryRefDetails {
 export interface LocalRefDetails {
   /** file:// URL to local directory */
   readonly location: string;
+}
+
+/** Ref details for intrinsic workspace sources. @experimental */
+export interface WorkspaceRefDetails {
+  /** Owner declared by the workspace locator and manifest. */
+  readonly owner: Handle;
+  /** Package name declared by the workspace locator and manifest. */
+  readonly name: ExtensionName;
+  /** Manifest version; workspace locators never carry a version constraint. */
+  readonly version: Version;
+  /** Scope whose settings document declares the workspace source. */
+  readonly scope: WorkspaceScope;
+  /** Runtime-only canonical package location. Never persisted in the lockfile. */
+  readonly location: string;
+  /** Deterministic hash of the authoritative workspace package content. */
+  readonly sourceHash: SourceHash;
 }
 
 // -----------------------------------------------------------------------------

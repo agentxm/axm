@@ -109,17 +109,15 @@ describe("hooks-new.handler", () => {
           const entrypointPath = path.join(hookDir(tempDir, "tool-audit"), "src", "hook.sh");
           expect(fs.existsSync(entrypointPath)).toBe(true);
 
-          // Settings registration (authored)
+          // Settings registration (workspace source)
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.hooks?.["tool-audit"]).toEqual({
-            source: "@acme/hooks/tool-audit",
-            authored: true,
-          });
+          expect(settings.hooks?.["tool-audit"]).toBe("workspace:@acme/hooks/tool-audit");
 
           const lockfile = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
           expect(lockfile).toContain("tool-audit:");
-          expect(lockfile).toContain("resolvedVersion: 0.1.0");
+          expect(lockfile).toContain("type: workspace");
+          expect(lockfile).toContain("version: 0.1.0");
 
           const claudeSettingsPath = path.join(tempDir, ".claude", "settings.json");
           expect(fs.existsSync(claudeSettingsPath)).toBe(true);

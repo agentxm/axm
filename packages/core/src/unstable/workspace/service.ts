@@ -28,9 +28,7 @@ import {
   LOCKFILE_VERSION,
   commitLockfileSnapshotUpdate,
   makeRegistryLibraryLockEntry,
-  makeRegistryPackLockEntry,
   type RegistryLibraryLockEntry,
-  type RegistryPackLockEntry,
   type FilesLockMap,
   type HooksLockMap,
   type RulesLockMap,
@@ -186,6 +184,20 @@ const nextUpdatedAt = (current: TimestampedLockEntry | undefined): Date => {
   if (current === undefined) return now;
   const currentTime = current.updatedAt.getTime();
   return now.getTime() > currentTime ? now : new Date(currentTime + 1);
+};
+
+const preserveLockTimestampsOnNoop = <TEntry extends TimestampedLockEntry>(
+  current: TEntry | undefined,
+  next: TEntry,
+): TEntry => {
+  const candidate = {
+    ...next,
+    installedAt: current?.installedAt ?? next.installedAt,
+    updatedAt: nextUpdatedAt(current),
+  };
+  return lockEntrySemanticallyEqual(current, candidate) && current !== undefined
+    ? current
+    : candidate;
 };
 
 const subagentLockEntrySemanticallyEqual = (
@@ -623,13 +635,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentContext: FilesMap = currentSettings.files ?? {};
             const currentEntry = currentContext[name];
-            const authored = currentEntry?.authored ?? false;
             const inputs = currentEntry?.inputs ?? {};
             const updatedSettings = {
               ...currentSettings,
               files: {
                 ...currentContext,
-                [name]: { source, enabled: true, authored, inputs },
+                [name]: { source, enabled: true, inputs },
               },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
@@ -641,11 +652,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               files: {
                 ...currentLockedContext,
-                [name]: {
-                  ...lockEntry,
-                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -666,11 +673,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               files: {
                 ...currentLockedContext,
-                [name]: {
-                  ...lockEntry,
-                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -805,13 +808,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentRules: RulesMap = currentSettings.rules ?? {};
-            const currentEntry = currentRules[name];
-            const authored = currentEntry?.authored ?? false;
             yield* writeSettings(workspaceDir, {
               ...currentSettings,
               rules: {
                 ...currentRules,
-                [name]: { source, enabled: true, authored },
+                [name]: { source, enabled: true },
               },
             }).pipe(Effect.provide(fsLayer));
 
@@ -822,11 +823,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
-                [name]: {
-                  ...lockEntry,
-                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -847,11 +844,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
-                [name]: {
-                  ...lockEntry,
-                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -986,13 +979,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentHooks: HooksMap = currentSettings.hooks ?? {};
-            const currentEntry = currentHooks[name];
-            const authored = currentEntry?.authored ?? false;
             yield* writeSettings(workspaceDir, {
               ...currentSettings,
               hooks: {
                 ...currentHooks,
-                [name]: { source, enabled: true, authored },
+                [name]: { source, enabled: true },
               },
             }).pipe(Effect.provide(fsLayer));
 
@@ -1003,11 +994,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
-                [name]: {
-                  ...lockEntry,
-                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1028,11 +1015,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
-                [name]: {
-                  ...lockEntry,
-                  installedAt: previous?.installedAt ?? lockEntry.installedAt,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1200,8 +1183,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
-            const authored = currentSkills[name]?.authored ?? false;
-            const nextSkillEntry: SkillEntry = { source, enabled: true, authored };
+            const nextSkillEntry: SkillEntry = { source, enabled: true };
             const updatedSettings = {
               ...currentSettings,
               skills: { ...currentSkills, [name]: nextSkillEntry },
@@ -1444,24 +1426,25 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       setPack: (args: SetPackArgs) =>
         withMutex(
           Effect.gen(function* () {
-            const { name, versionRange, ...lockFields } = args;
-            const lockEntry: RegistryPackLockEntry = makeRegistryPackLockEntry({
-              ...lockFields,
-              name,
-            });
+            const { versionRange, ...lockEntry } = args;
+            const name = lockEntry.name;
             // Update settings — thread versionRange through so it's preserved
             const fqn = formatFqn({
               owner: args.owner,
               type: "pack",
               name: decodeExtensionNameSync(name),
             });
-            const source = Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+            const source =
+              lockEntry.type === "workspace"
+                ? `workspace:${fqn}`
+                : Option.isSome(versionRange)
+                  ? `${fqn}@${versionRange.value}`
+                  : fqn;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: PacksMap = currentSettings.packs ?? {};
-            const authored = currentPacks[name]?.authored ?? false;
             const updatedSettings = {
               ...currentSettings,
-              packs: { ...currentPacks, [name]: { source, authored } },
+              packs: { ...currentPacks, [name]: { source } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1472,10 +1455,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               packs: {
                 ...currentLockedPacks,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(currentLockedPacks[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1555,10 +1535,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentLibraries: LibrariesMap = currentSettings.libraries ?? {};
             const existing = currentLibraries[name];
             const enabled = existing?.enabled ?? true;
-            const authored = existing?.authored ?? false;
             const updatedSettings = {
               ...currentSettings,
-              libraries: { ...currentLibraries, [name]: { source, enabled, authored } },
+              libraries: { ...currentLibraries, [name]: { source, enabled } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1568,10 +1547,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               libraries: {
                 ...currentLockedLibraries,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(currentLockedLibraries[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1647,10 +1623,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentCommands: CommandsMap = currentSettings.commands ?? {};
-            const authored = currentCommands[name]?.authored ?? false;
             const updatedSettings = {
               ...currentSettings,
-              commands: { ...currentCommands, [name]: { source, enabled: true, authored } },
+              commands: { ...currentCommands, [name]: { source, enabled: true } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1661,10 +1636,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               commands: {
                 ...currentLockedCommands,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1685,10 +1657,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               commands: {
                 ...currentLockedCommands,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1780,6 +1749,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.withSpan("WorkspaceMutations.getConfiguredSubagentEntries"),
         ),
 
+      getConfiguredCommandEntries: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s): CommandsMap => s.commands ?? {}),
+          Effect.withSpan("WorkspaceMutations.getConfiguredCommandEntries"),
+        ),
+
       setSubagent: ({ name, lockEntry }: SetSubagentArgs) =>
         withMutex(
           Effect.gen(function* () {
@@ -1794,8 +1769,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
-            const authored = currentSubagents[name]?.authored ?? false;
-            const nextSubagentEntry: SubagentEntry = { source, enabled: true, authored };
+            const nextSubagentEntry: SubagentEntry = { source, enabled: true };
             const updatedSettings = {
               ...currentSettings,
               subagents: { ...currentSubagents, [name]: nextSubagentEntry },
@@ -1817,10 +1791,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               subagents: {
                 ...currentLockedSubagents,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1844,10 +1815,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               subagents: {
                 ...currentLockedSubagents,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(currentLockedSubagents[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1970,7 +1938,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             // Update settings (uses "mcpServers" key)
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentMcpServers: McpServersMap = currentSettings.mcpServers ?? {};
-            const authored = currentMcpServers[name]?.authored ?? false;
             const currentEnabled = currentMcpServers[name]?.enabled ?? true;
             const currentEnv = currentMcpServers[name]?.env ?? {};
             const settingsEntry =
@@ -1982,7 +1949,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     ...(lockEntry.url === undefined ? {} : { url: lockEntry.url }),
                     ...(lockEntry.headers === undefined ? {} : { headers: lockEntry.headers }),
                     enabled: enabled ?? currentEnabled,
-                    authored,
                     env: env ?? currentEnv,
                   }
                 : {
@@ -1995,7 +1961,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                           })
                         : printSourceParams(lockEntryToSourceParams(lockEntry)),
                     enabled: enabled ?? currentEnabled,
-                    authored,
                     env: env ?? currentEnv,
                   };
             const updatedSettings = {
@@ -2014,10 +1979,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(currentLockedMcpServers[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -2038,10 +2000,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: new Date(),
-                },
+                [name]: preserveLockTimestampsOnNoop(currentLockedMcpServers[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(

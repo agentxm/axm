@@ -8,7 +8,12 @@ import {
 
 export const handleUninstallHook = (
   args: UninstallHookHandlerArgs,
-  flags: { readonly yes: boolean; readonly force: boolean; readonly preview: boolean },
+  flags: {
+    readonly yes: boolean;
+    readonly force: boolean;
+    readonly preview: boolean;
+    readonly sourceDisposition?: "keep" | "delete";
+  },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallHookCommandWorkflowActions;

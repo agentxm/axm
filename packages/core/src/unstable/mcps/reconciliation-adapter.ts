@@ -48,7 +48,8 @@ export const mcpServerReconciliationAdapter: ReconciliationAdapter = {
     const servers = context.settings.mcpServers ?? {};
 
     for (const [name, entry] of Object.entries(servers)) {
-      const source = entry.source;
+      const source = typeof entry === "string" ? entry : entry.source;
+      if (source.startsWith("workspace:")) continue;
       const parsed = parseRegistryMcpSource(source);
       const owner = Option.isSome(parsed)
         ? parsed.value.owner

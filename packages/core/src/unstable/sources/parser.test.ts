@@ -230,6 +230,23 @@ describe("parseInputPattern", () => {
       });
     });
 
+    it("classifies a workspace locator before URL parsing", () => {
+      expectSome("workspace:@myorg/mcps/server-a", {
+        pattern: "workspace-pattern-input",
+        owner: handle("@myorg"),
+        type: "mcp-server",
+        name: extensionName("server-a"),
+      });
+    });
+
+    it("rejects a workspace locator with a version constraint", () => {
+      expectNone("workspace:@myorg/skills/some-name@^1.2.3");
+    });
+
+    it("rejects an incomplete workspace locator", () => {
+      expectNone("workspace:@myorg/skills");
+    });
+
     it("classifies local:./path as UrlInput (no longer a shorthand)", () => {
       const result = parseInputPattern("local:./path");
       expect(Option.isSome(result)).toBe(true);

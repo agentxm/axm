@@ -150,21 +150,19 @@ describe("skills-new.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.skills).toBeDefined();
-          expect(settings.skills["my-skill"]).toEqual({
-            source: "@acme/skills/my-skill",
-            authored: true,
-          });
+          expect(settings.skills["my-skill"]).toBe("workspace:@acme/skills/my-skill");
 
           // Verify lockfile registration
           const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
           expect(lockfile.skills["my-skill"]).toMatchObject({
-            type: "registry",
+            type: "workspace",
             owner: "@acme",
+            extensionType: "skill",
             name: "my-skill",
-            resolvedVersion: "0.0.1",
-            sourceName: "default",
+            version: "0.0.1",
             agents: ["universal", "claude-code"],
+            sourceHash: expect.any(String),
           });
 
           // Verify symlink

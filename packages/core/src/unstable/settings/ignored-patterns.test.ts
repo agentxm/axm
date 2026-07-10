@@ -78,7 +78,6 @@ describe("SettingsSchema mcpServers (camelCase)", () => {
     expect(result.mcpServers).toEqual({
       batcomputer: {
         source: "@wayne/mcps/batcomputer",
-        authored: false,
         enabled: true,
         env: {},
       },

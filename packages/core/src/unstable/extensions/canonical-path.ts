@@ -9,7 +9,7 @@ import type { ExtensionTypePlural } from "./common.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";
 
 interface RegistryExtensionPathEntry {
-  readonly type: "registry";
+  readonly type: "registry" | "workspace";
   readonly owner: string;
   readonly name: string;
 }
@@ -42,6 +42,6 @@ export const canonicalExtensionPathForLockEntry = (
   externalName: string,
   lockEntry: ExtensionPathLockEntry,
 ): string =>
-  lockEntry.type === "registry"
+  lockEntry.type === "registry" || lockEntry.type === "workspace"
     ? registryExtensionPath(path, base, lockEntry.owner, type, lockEntry.name)
     : externalExtensionPath(path, base, type, externalName);

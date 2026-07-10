@@ -144,14 +144,12 @@ describe("commands-new.handler", () => {
           const settings = JSON.parse(
             fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
           );
-          expect(settings.commands?.["my-command"]).toEqual({
-            source: "@acme/commands/my-command",
-            authored: true,
-          });
+          expect(settings.commands?.["my-command"]).toBe("workspace:@acme/commands/my-command");
 
           const lockfile = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
           expect(lockfile).toContain("my-command:");
-          expect(lockfile).toContain("sourceName: default");
+          expect(lockfile).toContain("type: workspace");
+          expect(lockfile).toContain("version: 0.1.0");
           expect(lockfile).toContain("claude-code");
           expect(lockfile).toContain(".claude/commands/my-command.md");
 

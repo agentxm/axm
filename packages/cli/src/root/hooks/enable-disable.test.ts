@@ -168,7 +168,7 @@ describe("hooks enable/disable no-op output", () => {
     );
   });
 
-  it.effect("re-enables an authored hook package from the managed local source", () => {
+  it.effect("re-enables a workspace-sourced hook package from its canonical source", () => {
     const { provide, logs } = makeLayers();
 
     return provide(
@@ -200,10 +200,9 @@ describe("hooks enable/disable no-op output", () => {
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
-        expect(settings.hooks["workspace-baseline"]).toEqual({
-          source: "@acme/hooks/workspace-baseline",
-          authored: true,
-        });
+        expect(settings.hooks["workspace-baseline"]).toBe(
+          "workspace:@acme/hooks/workspace-baseline",
+        );
         expect(
           fs.existsSync(
             path.join(tempDir, ".axm", "extensions", "@acme", "hooks", "workspace-baseline"),

@@ -76,10 +76,7 @@ describe("axm commands new", () => {
 
       const settings = readJson(path.join(temp.path, ".axm", "settings.json"));
       expect(settings["commands"]).toEqual({
-        "fresh-command": {
-          source: "@test/commands/fresh-command",
-          authored: true,
-        },
+        "fresh-command": "workspace:@test/commands/fresh-command",
       });
 
       const lockfile = fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf-8");

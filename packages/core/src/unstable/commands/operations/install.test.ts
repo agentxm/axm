@@ -96,7 +96,7 @@ const makeServices = (
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: (ref) =>
       Effect.succeed(
-        ref.refType === "git-hosted" || ref.refType === "local"
+        ref.refType === "git-hosted" || ref.refType === "local" || ref.refType === "workspace"
           ? { directory: new URL(ref.location).pathname }
           : { directory: ref.source.location.pathname },
       ),

@@ -196,7 +196,7 @@ export const enableCommand: OperationHandler<
 
     // Resolve owner: registry lock entries supply it; otherwise read from settings
     const owner =
-      lockEntry.type === "registry"
+      lockEntry.type === "registry" || lockEntry.type === "workspace"
         ? lockEntry.owner
         : yield* ws.getConfiguredOwner().pipe(
             Effect.flatMap(

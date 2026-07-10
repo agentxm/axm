@@ -91,6 +91,13 @@ const loadRawLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.raw"
 // Settings loader (decode pipeline) — sources bytes from the cached raw cell
 // ---------------------------------------------------------------------------
 
+const containsRemovedAuthoredProperty = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.some(containsRemovedAuthoredProperty);
+  if (typeof value !== "object" || value === null) return false;
+  if ("authored" in value) return true;
+  return Object.values(value).some(containsRemovedAuthoredProperty);
+};
+
 /** Decode settings from cached raw bytes. Source-independent (Decision 2). */
 const loadSettings = (
   rawCell: Effect.Effect<Option.Option<RawSourceBytes>, SettingsIoError>,
@@ -108,14 +115,18 @@ const loadSettings = (
     const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed, {
       onExcessProperty: "error",
     }).pipe(
-      Effect.mapError(
-        (error) =>
-          new SettingsDecodeError({
-            path,
-            issues: formatSchemaIssuesToLines(error.issue),
-            raw: parsed,
-          }),
-      ),
+      Effect.mapError((error) => {
+        const authoredGuidance = containsRemovedAuthoredProperty(parsed)
+          ? [
+              "The authored property was removed. Replace authored entries with source: workspace:@owner/<plural-type>/<name> and remove authored.",
+            ]
+          : [];
+        return new SettingsDecodeError({
+          path,
+          issues: [...authoredGuidance, ...formatSchemaIssuesToLines(error.issue)],
+          raw: parsed,
+        });
+      }),
     );
     return Option.some(decoded);
   }).pipe(Effect.withSpan("workspace.read-model.state.settings"));

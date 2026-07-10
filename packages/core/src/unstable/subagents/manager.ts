@@ -36,7 +36,7 @@ import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
-import { computeSourceHash, RenderedFilesMapSchema } from "../extensions/index.js";
+import { computeSourceHash, RenderedFilesMapSchema, type SourceHash } from "../extensions/index.js";
 import type { SubagentLockEntry } from "../lockfile/index.js";
 
 const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
@@ -88,7 +88,7 @@ export const SubagentManagerLive = Layer.effect(
       string,
       {
         readonly agents: ReadonlyArray<string>;
-        readonly sourceHash: string;
+        readonly sourceHash: SourceHash;
         readonly renderedFiles: SubagentLockEntry["renderedFiles"];
       }
     >();
@@ -97,8 +97,8 @@ export const SubagentManagerLive = Layer.effect(
     const getCanonicalPaths = (ref: SubagentExtensionRef) => {
       const sanitized = sanitizeName(ref.subagent.name);
       const source: SubagentPathSource =
-        ref.refType === "registry"
-          ? { refType: "registry", owner: ref.owner }
+        ref.refType === "registry" || ref.refType === "workspace"
+          ? { refType: ref.refType, owner: ref.owner }
           : { refType: ref.refType };
       const paths = computeSubagentPaths(path.join, baseDir, source, sanitized);
       return { sanitized, paths };
@@ -250,6 +250,33 @@ export const SubagentManagerLive = Layer.effect(
             yield* materializeFromRegistry(ref, canonicalPath);
             break;
           }
+          case "workspace": {
+            if (
+              ref.scope !== ws.scope ||
+              path.resolve(ref.location) !== path.resolve(canonicalPath)
+            ) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Invalid workspace subagent source location: ${ref.location}`,
+              });
+            }
+            const exists = yield* fs.exists(subagentSrcPath).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to inspect workspace subagent source: ${subagentSrcPath}`,
+                  cause: error,
+                }),
+              ),
+            );
+            if (!exists) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Workspace subagent source is missing: ${subagentSrcPath}`,
+              });
+            }
+            break;
+          }
         }
       });
 
@@ -346,7 +373,7 @@ export const SubagentManagerLive = Layer.effect(
       });
 
     const materializeUninstall: ExtensionManager<SubagentExtensionRef>["materializeUninstall"] =
-      Effect.fn("SubagentManager.materializeUninstall")(function* ({ target }) {
+      Effect.fn("SubagentManager.materializeUninstall")(function* ({ target, preserveSource }) {
         const sanitized = sanitizeName(target.name);
 
         // --- Read rendered files from lockfile ---
@@ -378,7 +405,9 @@ export const SubagentManagerLive = Layer.effect(
         }
 
         // --- Remove canonical source directory ---
-        yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
+        if (preserveSource !== true) {
+          yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
+        }
       });
 
     return {
@@ -393,9 +422,16 @@ export const SubagentManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      getConfiguredSource: Effect.fn("SubagentManager.getConfiguredSource")(function* ({ target }) {
+        const configured = yield* ws.records.getConfiguredSubagents();
+        return Option.fromUndefinedOr(configured[target.name]?.source);
+      }),
       listMaterializable: Effect.fn("SubagentManager.listMaterializable")(function* () {
         const configured = yield* ws.records.getConfiguredSubagents();
-        return yield* configuredSubagentsToDiskRefs({ fs, path, baseDir }, configured);
+        return yield* configuredSubagentsToDiskRefs(
+          { fs, path, baseDir, scope: ws.scope },
+          configured,
+        );
       }),
       materializeUninstall,
 

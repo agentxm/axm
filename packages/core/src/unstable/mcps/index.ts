@@ -38,6 +38,7 @@ export type {
   GitHostedMcpServerRef,
   RegistryMcpServerRef,
   LocalMcpServerRef,
+  WorkspaceMcpServerRef,
   McpServerExtensionRef,
 } from "./refs.js";
 

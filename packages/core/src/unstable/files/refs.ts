@@ -10,8 +10,14 @@ import type {
   GitHostedRefDetails,
   LocalRefDetails,
   RegistryRefDetails,
+  WorkspaceRefDetails,
 } from "../extensions/ref-base.js";
-import type { GitBasedSource, LocalSource, RegistrySource } from "../sources/types.js";
+import type {
+  GitBasedSource,
+  LocalSource,
+  RegistrySource,
+  WorkspaceSource,
+} from "../sources/types.js";
 
 /** @experimental */
 export type GitHostedFilesRef = FilesExtensionRefBase<"git-hosted", GitBasedSource> &
@@ -21,6 +27,13 @@ export type RegistryFilesRef = FilesExtensionRefBase<"registry", RegistrySource>
   RegistryRefDetails;
 /** @experimental */
 export type LocalFilesRef = FilesExtensionRefBase<"local", LocalSource> & LocalRefDetails;
+/** @experimental */
+export type WorkspaceFilesRef = FilesExtensionRefBase<"workspace", WorkspaceSource> &
+  WorkspaceRefDetails;
 
 /** @experimental */
-export type FilesExtensionRef = GitHostedFilesRef | RegistryFilesRef | LocalFilesRef;
+export type FilesExtensionRef =
+  | GitHostedFilesRef
+  | RegistryFilesRef
+  | LocalFilesRef
+  | WorkspaceFilesRef;

@@ -20,7 +20,13 @@ export {
   type HookRuntime,
 } from "./manifest-schema.js";
 
-export type { GitHostedHookRef, HookExtensionRef, LocalHookRef, RegistryHookRef } from "./refs.js";
+export type {
+  GitHostedHookRef,
+  HookExtensionRef,
+  LocalHookRef,
+  RegistryHookRef,
+  WorkspaceHookRef,
+} from "./refs.js";
 export { buildRegistryHookRef } from "./registry-ref-builder.js";
 export {
   hookPackagesInDir,

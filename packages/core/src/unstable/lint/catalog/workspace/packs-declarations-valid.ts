@@ -87,7 +87,10 @@ export const packsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
 
       const byFqn = new Map<string, Array<Categorized>>();
       for (const entry of entries) {
-        if (entry.kind === "registry" && entry.registryFqn !== undefined) {
+        if (
+          (entry.kind === "registry" || entry.kind === "workspace") &&
+          entry.registryFqn !== undefined
+        ) {
           const group = byFqn.get(entry.registryFqn) ?? [];
           group.push(entry);
           byFqn.set(entry.registryFqn, group);
@@ -107,6 +110,16 @@ export const packsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
             findings.push(missingOwnerFinding(entry));
             break;
           case "registry": {
+            if (entry.registryFqn === undefined) {
+              break;
+            }
+            const group = byFqn.get(entry.registryFqn) ?? [];
+            if (group.length > 1) {
+              findings.push(duplicateFinding(entry, group.map((g) => g.name).sort()));
+            }
+            break;
+          }
+          case "workspace": {
             if (entry.registryFqn === undefined) {
               break;
             }

@@ -67,5 +67,15 @@ export const buildSubagentLockEntry = (
         sourceName: "default",
         ...common,
       };
+    case "workspace":
+      return {
+        type: "workspace",
+        owner: ref.owner,
+        extensionType: "subagent",
+        name: ref.name,
+        version: ref.version,
+        sourceHash: ref.sourceHash,
+        ...common,
+      };
   }
 };

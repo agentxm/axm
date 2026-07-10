@@ -35,7 +35,6 @@ const contextEntry = {
   command: "npx",
   args: ["-y", "@acme/context-mcp"],
   enabled: true,
-  authored: false,
   env: { ACME_TOKEN: "secret" },
 } satisfies McpServerEntry;
 

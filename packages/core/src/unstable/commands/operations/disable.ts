@@ -206,7 +206,7 @@ export const disableCommand: OperationHandler<
             ? lockEntry.path
             : "";
       yield* ws
-        .setCommandEntry(op.args.commandName, { source, enabled: false, authored: false })
+        .setCommandEntry(op.args.commandName, { source, enabled: false })
         .pipe(Effect.catch(() => Effect.void));
     }
 

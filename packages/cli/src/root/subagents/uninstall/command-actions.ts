@@ -206,6 +206,7 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallSubagentCommandIntent,
+      flags: { readonly sourceDisposition?: "keep" | "delete" },
     ): Effect.Effect<Plan, AppError> =>
       Effect.succeed(
         (() => {
@@ -216,7 +217,12 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
               type: "subagent" as const,
               name: entry.subagentName,
             };
-            const step = buildUninstallOperation(subagentMgr, retentionPolicy, { target });
+            const step = buildUninstallOperation(subagentMgr, retentionPolicy, {
+              target,
+              ...(flags.sourceDisposition === undefined
+                ? {}
+                : { sourceDisposition: flags.sourceDisposition }),
+            });
             if (step.readiness !== "ready") return step;
 
             const run = Effect.gen(function* () {

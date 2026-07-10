@@ -459,7 +459,6 @@ describe("disableSkill", () => {
         expect(setSkillEntryFn).toHaveBeenCalledWith("my-skill", {
           source: "@community/skills/my-skill",
           enabled: false,
-          authored: false,
         });
       }),
     );

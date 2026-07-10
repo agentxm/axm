@@ -34,7 +34,7 @@ import { extensionName, exactVersion, handle } from "../test-helpers.js";
 // -----------------------------------------------------------------------------
 
 describe("SourceType", () => {
-  it("includes all 7 members", () => {
+  it("includes all 9 members", () => {
     const types: SourceType[] = [
       "github",
       "gitlab",
@@ -43,8 +43,10 @@ describe("SourceType", () => {
       "git",
       "registry",
       "local",
+      "inline",
+      "workspace",
     ];
-    expect(types).toHaveLength(7);
+    expect(types).toHaveLength(9);
   });
 });
 
@@ -53,9 +55,9 @@ describe("SourceType", () => {
 // -----------------------------------------------------------------------------
 
 describe("RefType", () => {
-  it("includes all 3 members", () => {
-    const types: RefType[] = ["git-hosted", "registry", "local"];
-    expect(types).toHaveLength(3);
+  it("includes all 4 members", () => {
+    const types: RefType[] = ["git-hosted", "registry", "local", "workspace"];
+    expect(types).toHaveLength(4);
   });
 });
 

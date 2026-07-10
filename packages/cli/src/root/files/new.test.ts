@@ -87,19 +87,20 @@ describe("files-new.handler", () => {
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
-        expect(settings.files?.["workspace-baseline"]).toEqual({
-          source: "@acme/files/workspace-baseline",
-          authored: true,
-        });
+        expect(settings.files?.["workspace-baseline"]).toBe(
+          "workspace:@acme/files/workspace-baseline",
+        );
 
         const lockfile = YAML.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
         );
         expect(lockfile.files["workspace-baseline"]).toMatchObject({
-          type: "registry",
+          type: "workspace",
           owner: "@acme",
+          extensionType: "files",
           name: "workspace-baseline",
-          resolvedVersion: "0.1.0",
+          version: "0.1.0",
+          sourceHash: expect.any(String),
         });
         expect(fs.readFileSync(path.join(tempDir, "files", "workspace-baseline.md"), "utf-8")).toBe(
           "# workspace-baseline\n",

@@ -151,12 +151,13 @@ export const copySkill: OperationHandler<
       ),
     );
 
-    // Mark the settings entry as authored. The subsequent install step calls
-    // setSkill, which preserves the authored flag.
     yield* ws.setSkillEntry(fqn.name, {
-      source: formatFqn({ owner: fqn.owner, type: "skill", name: fqn.name }),
+      source: `workspace:${formatFqn({
+        owner: fqn.owner,
+        type: "skill",
+        name: fqn.name,
+      })}`,
       enabled: true,
-      authored: true,
     });
 
     return {

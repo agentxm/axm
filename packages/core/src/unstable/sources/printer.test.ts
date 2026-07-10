@@ -87,6 +87,16 @@ describe("printSourceParams", () => {
     });
     expect(printSourceParams(source)).toBe("registry");
   });
+
+  it("prints a canonical workspace locator", () => {
+    const source = makeSourceParams({
+      type: "workspace",
+      owner: handle("@acme"),
+      extensionType: "mcp-server",
+      name: extensionName("review-server"),
+    });
+    expect(printSourceParams(source)).toBe("workspace:@acme/mcps/review-server");
+  });
 });
 
 describe("lockEntryToSourceParams", () => {

@@ -10,8 +10,14 @@ import type {
   GitHostedRefDetails,
   RegistryRefDetails,
   LocalRefDetails,
+  WorkspaceRefDetails,
 } from "../extensions/ref-base.js";
-import type { GitBasedSource, RegistrySource, LocalSource } from "../sources/types.js";
+import type {
+  GitBasedSource,
+  RegistrySource,
+  LocalSource,
+  WorkspaceSource,
+} from "../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete Command Extension Refs
@@ -25,6 +31,13 @@ export type RegistryCommandRef = CommandExtensionRefBase<"registry", RegistrySou
   RegistryRefDetails;
 /** @experimental */
 export type LocalCommandRef = CommandExtensionRefBase<"local", LocalSource> & LocalRefDetails;
+/** @experimental */
+export type WorkspaceCommandRef = CommandExtensionRefBase<"workspace", WorkspaceSource> &
+  WorkspaceRefDetails;
 
 /** @experimental */
-export type CommandExtensionRef = GitHostedCommandRef | RegistryCommandRef | LocalCommandRef;
+export type CommandExtensionRef =
+  | GitHostedCommandRef
+  | RegistryCommandRef
+  | LocalCommandRef
+  | WorkspaceCommandRef;

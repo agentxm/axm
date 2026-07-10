@@ -44,6 +44,10 @@ const createManagedSkill = (tempPath: string, owner: string, name: string, versi
       2,
     ) + "\n",
   );
+  const settingsPath = path.join(tempPath, ".axm", "settings.json");
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+  settings.skills = { ...settings.skills, [name]: `workspace:${owner}/skills/${name}` };
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
 /** Create a pack in .axm/extensions/ with a pack.json manifest. */
@@ -71,6 +75,10 @@ const createManagedPack = (
       2,
     ) + "\n",
   );
+  const settingsPath = path.join(tempPath, ".axm", "settings.json");
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+  settings.packs = { ...settings.packs, [name]: `workspace:${owner}/packs/${name}` };
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
 describe("axm packs publish", () => {

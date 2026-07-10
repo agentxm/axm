@@ -11,13 +11,19 @@ import type {
   GitHostedRefDetails,
   LocalRefDetails,
   RegistryRefDetails,
+  WorkspaceRefDetails,
 } from "../extensions/ref-base.js";
-import type { GitBasedSource, LocalSource, RegistrySource } from "../sources/types.js";
+import type {
+  GitBasedSource,
+  LocalSource,
+  RegistrySource,
+  WorkspaceSource,
+} from "../sources/types.js";
 
 type HookExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "hook",
-  Extract<TRefType, "git-hosted" | "registry" | "local">,
-  Extract<TSource, GitBasedSource | RegistrySource | LocalSource>
+  Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace">,
+  Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource>
 > & {
   readonly hook: { readonly name: ExtensionName };
 };
@@ -29,6 +35,9 @@ export type GitHostedHookRef = HookExtensionRefBase<"git-hosted", GitBasedSource
 export type RegistryHookRef = HookExtensionRefBase<"registry", RegistrySource> & RegistryRefDetails;
 /** @experimental */
 export type LocalHookRef = HookExtensionRefBase<"local", LocalSource> & LocalRefDetails;
+/** @experimental */
+export type WorkspaceHookRef = HookExtensionRefBase<"workspace", WorkspaceSource> &
+  WorkspaceRefDetails;
 
 /** @experimental */
-export type HookExtensionRef = GitHostedHookRef | RegistryHookRef | LocalHookRef;
+export type HookExtensionRef = GitHostedHookRef | RegistryHookRef | LocalHookRef | WorkspaceHookRef;

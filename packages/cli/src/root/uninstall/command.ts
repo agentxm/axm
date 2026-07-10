@@ -7,6 +7,12 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleUninstall } from "./handler.js";
+import {
+  deleteSourceFlag,
+  keepSourceFlag,
+  resolveSourceDisposition,
+} from "../shared/source-disposition-flags.js";
+import * as Effect from "effect/Effect";
 
 const uninstallConfig = {
   source: Argument.string("source").pipe(
@@ -19,16 +25,24 @@ const uninstallConfig = {
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be removed without making changes"),
   ),
+  keepSource: keepSourceFlag,
+  deleteSource: deleteSourceFlag,
 } as const;
 
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ source, yes, force, preview }) =>
-    handleUninstall({ source, yes, force, preview }).pipe(
-      withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRuntime("uninstall"),
-    ),
+  ({ source, yes, force, preview, keepSource, deleteSource }) =>
+    Effect.gen(function* () {
+      const sourceDisposition = yield* resolveSourceDisposition(keepSource, deleteSource);
+      yield* handleUninstall({
+        source,
+        yes,
+        force,
+        preview,
+        ...(sourceDisposition === undefined ? {} : { sourceDisposition }),
+      });
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("uninstall")),
 ).pipe(
   withArgvTracking(uninstallConfig),
   Command.withDescription("Remove an extension from the workspace"),

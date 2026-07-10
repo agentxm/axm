@@ -130,20 +130,18 @@ describe("packs-new.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.packs).toBeDefined();
-          expect(settings.packs["frontend-tools"]).toEqual({
-            source: "@acme/packs/frontend-tools",
-            authored: true,
-          });
+          expect(settings.packs["frontend-tools"]).toBe("workspace:@acme/packs/frontend-tools");
 
           const lockfile = YAML.parse(
             fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
           );
           expect(lockfile.packs["frontend-tools"]).toMatchObject({
-            type: "registry",
+            type: "workspace",
             owner: "@acme",
+            extensionType: "pack",
             name: "frontend-tools",
-            resolvedVersion: "0.0.1",
-            sourceName: "default",
+            version: "0.0.1",
+            sourceHash: expect.any(String),
           });
 
           expect(logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(true);

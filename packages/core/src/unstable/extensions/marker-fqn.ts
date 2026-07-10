@@ -9,7 +9,7 @@ import { formatFqn } from "./fqn.js";
 import type { Handle } from "./handle.js";
 
 export type MarkerFqnRef =
-  | { readonly refType: "registry"; readonly owner: Handle }
+  | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
   | { readonly refType: "git-hosted" | "local" };
 
 export const markerFqnForRef = (args: {
@@ -21,6 +21,6 @@ export const markerFqnForRef = (args: {
   readonly type: ExtensionType;
   readonly name: ExtensionName;
 }): string =>
-  args.ref.refType === "registry"
+  args.ref.refType === "registry" || args.ref.refType === "workspace"
     ? formatFqn({ owner: args.ref.owner, type: args.type, name: args.name })
     : formatFqn({ owner: args.manifest.owner, type: args.type, name: args.manifest.name });

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { CommandExtensionRef } from "../commands/refs.js";
@@ -30,12 +30,33 @@ import type { Handle } from "./handle.js";
 import type { PackRef } from "../packs/refs.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
 import { enabledConfiguredEntries } from "./configured-entry.js";
+import { isWorkspaceSourceLocator } from "../sources/workspace.js";
+import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
+import type { WorkspaceScope } from "../workspace/scope.js";
 
 interface DiskRefEnv {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly baseDir: string;
+  readonly scope: WorkspaceScope;
 }
+
+const resolveWorkspaceFromDisk = (
+  env: DiskRefEnv,
+  settingsName: string,
+  source: string,
+  expectedType: "skill" | "command" | "mcp-server" | "subagent" | "pack",
+) =>
+  resolveWorkspaceExtensionRef({
+    settingsName,
+    source,
+    expectedType,
+    baseDir: env.baseDir,
+    scope: env.scope,
+  }).pipe(
+    Effect.provideService(FileSystem.FileSystem, env.fs),
+    Effect.provideService(Path.Path, env.path),
+  );
 
 const syntheticRegistrySource = (owner: Handle): RegistrySource => ({
   type: "registry",
@@ -123,6 +144,10 @@ export const configuredSkillsToDiskRefs = (
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
       Effect.gen(function* () {
+        if (isWorkspaceSourceLocator(entry.source)) {
+          const ref = yield* resolveWorkspaceFromDisk(env, settingsName, entry.source, "skill");
+          return ref.type === "skill" ? Option.some(ref) : Option.none<SkillExtensionRef>();
+        }
         const location = yield* resolveRegistryDiskLocation(
           env,
           entry.source,
@@ -172,6 +197,10 @@ export const configuredCommandsToDiskRefs = (
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
       Effect.gen(function* () {
+        if (isWorkspaceSourceLocator(entry.source)) {
+          const ref = yield* resolveWorkspaceFromDisk(env, settingsName, entry.source, "command");
+          return ref.type === "command" ? Option.some(ref) : Option.none<CommandExtensionRef>();
+        }
         const location = yield* resolveRegistryDiskLocation(
           env,
           entry.source,
@@ -217,6 +246,17 @@ export const configuredMcpServersToDiskRefs = (
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
       Effect.gen(function* () {
+        if (isWorkspaceSourceLocator(entry.source)) {
+          const ref = yield* resolveWorkspaceFromDisk(
+            env,
+            settingsName,
+            entry.source,
+            "mcp-server",
+          );
+          return ref.type === "mcp-server"
+            ? Option.some(ref)
+            : Option.none<McpServerExtensionRef>();
+        }
         const location = yield* resolveRegistryDiskLocation(
           env,
           entry.source,
@@ -262,6 +302,10 @@ export const configuredSubagentsToDiskRefs = (
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
       Effect.gen(function* () {
+        if (isWorkspaceSourceLocator(entry.source)) {
+          const ref = yield* resolveWorkspaceFromDisk(env, settingsName, entry.source, "subagent");
+          return ref.type === "subagent" ? Option.some(ref) : Option.none<SubagentExtensionRef>();
+        }
         const location = yield* resolveRegistryDiskLocation(
           env,
           entry.source,
@@ -310,6 +354,10 @@ export const configuredPacksToDiskRefs = (
     Object.entries(configured),
     ([settingsName, entry]) =>
       Effect.gen(function* () {
+        if (isWorkspaceSourceLocator(entry.source)) {
+          const ref = yield* resolveWorkspaceFromDisk(env, settingsName, entry.source, "pack");
+          return ref.type === "pack" ? Option.some(ref) : Option.none<PackRef>();
+        }
         const parsed = parseRegistrySourceRef(entry.source);
         const location =
           parsed !== undefined && parsed.type === "packs"

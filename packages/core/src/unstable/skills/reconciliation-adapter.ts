@@ -48,7 +48,8 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
 
     const skills = context.settings.skills ?? {};
     for (const [name, entry] of Object.entries(skills)) {
-      const source = entry.source;
+      const source = typeof entry === "string" ? entry : entry.source;
+      if (source.startsWith("workspace:")) continue;
       const parsed = parseRegistrySkillSource(source);
 
       const owner = Option.isSome(parsed)

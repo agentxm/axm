@@ -11,7 +11,7 @@ import {
 
 export const handleUninstall = (
   args: UninstallHandlerArgs,
-  flags: { yes: boolean; force: boolean; preview: boolean },
+  flags: { yes: boolean; force: boolean; preview: boolean; sourceDisposition?: "keep" | "delete" },
 ) =>
   Effect.gen(function* () {
     const actions = yield* UninstallSkillCommandWorkflowActions;

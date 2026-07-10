@@ -18,7 +18,7 @@ import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.j
  * @experimental This API is unstable and may change without notice.
  */
 export type ExtensionPathSource =
-  | { readonly refType: "registry"; readonly owner: Handle }
+  | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
   | { readonly refType: "git-hosted" | "local" };
 
 /**
@@ -74,7 +74,7 @@ export const computeExtensionPaths = (
   type: ExtensionTypePlural,
   sanitizedName: string,
 ): ExtensionDirPaths => {
-  if (source.refType === "registry") {
+  if (source.refType === "registry" || source.refType === "workspace") {
     const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, source.owner, type, sanitizedName);
     return {
       canonicalPath: decodeAbsolutePathSync(canonicalPath),

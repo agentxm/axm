@@ -36,7 +36,15 @@ const initWorkspace = (
 ) => {
   writeWorkspaceFiles(axmDir, {
     owner: opts.profile,
-    packs: opts.packs,
+    packs:
+      opts.packs === undefined
+        ? undefined
+        : Object.fromEntries(
+            Object.keys(opts.packs).map((name) => [
+              name,
+              `workspace:${opts.profile ?? "@acme"}/packs/${name}`,
+            ]),
+          ),
   });
 };
 

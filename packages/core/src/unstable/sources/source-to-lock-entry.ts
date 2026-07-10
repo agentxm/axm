@@ -80,5 +80,15 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         sourceName: Option.getOrElse(input.sourceName, () => "default"),
         ...common,
       };
+    case "workspace":
+      return {
+        type: "workspace",
+        owner: ref.owner,
+        extensionType: "skill",
+        name: ref.name,
+        version: ref.version,
+        sourceHash: ref.sourceHash,
+        ...common,
+      };
   }
 };

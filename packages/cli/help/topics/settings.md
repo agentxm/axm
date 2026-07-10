@@ -22,16 +22,18 @@ this array; the commands also reconcile per-agent managed artifacts for
 installed extensions. `sources` names registries and source hosts that entries
 can reference.
 
-Extension entries live under `skills`, `commands`, `subagents`, `packs`, and `mcpServers`. Each entry can be a source string or an object with metadata such as `enabled` or `authored`.
+Extension entries live under `skills`, `commands`, `subagents`, `packs`, and `mcpServers`. Each entry can be a source string or an object with metadata such as `enabled`.
 
-Prefer the plain source string. Use the object form only when you need to depart from the defaults — set `enabled: false` to disable an entry, or `authored: true` to mark it as locally authored. Never write `enabled: true` or `authored: false` explicitly; those are the defaults and should be omitted.
+Prefer the plain source string. Use the object form when you need metadata such
+as `enabled: false`. A workspace-authored package uses the intrinsic source
+`workspace:@owner/<plural-type>/<name>`; authorship is derived from that source.
 
 ```jsonc
 {
   "skills": {
     "code-review": "@acme/skills/code-review@^1.0.0",
     "legacy-rules": { "source": "@acme/skills/legacy-rules@^1.0.0", "enabled": false },
-    "house-style": { "source": "./skills/house-style", "authored": true },
+    "house-style": "workspace:@acme/skills/house-style",
   },
 }
 ```
@@ -76,15 +78,16 @@ Let AXM edit settings for routine install, remove, enable, disable, agent, and
 source changes. Hand-edit settings when reviewing generated changes, adding
 source hosts, or adjusting `lint.rules`.
 
-Set `authored: true` only for extensions you expect to edit in this workspace. AXM then treats the entry as locally owned and changes three behaviors:
+Workspace sources are authoritative local packages. AXM protects them across
+their lifecycle:
 
-- **Uninstall preserves files** — removing the entry leaves its directory under `.axm/extensions/` in place instead of deleting it.
-- **Update keeps the local source** — install and update operations retain the entry's existing source rather than repointing it to a registry FQN.
-- **Enable re-resolves locally** — re-enabling resolves the extension from the local managed copy instead of the registry.
+- **Install and update cannot replace source** — update reports the package unchanged and `--force` does not bypass protection.
+- **Enable and sync resolve locally** — AXM validates the canonical package and never fetches the same FQN from a registry.
+- **Uninstall requires disposition** — use `--keep-source` to leave an unmanaged package or `--delete-source` to remove it after confirmation.
+- **Editing requires authority** — version and pack membership commands reject non-workspace packages; use `axm adopt <fqn>` first.
 
-Omit `authored` otherwise — `false` is the default and should not be written explicitly. Likewise, omit `enabled` unless you are disabling an entry with `enabled: false`.
-
-Because authored extensions stay locally owned, keep them disabled (`enabled: false`) unless you are actively maintaining them.
+The removed `authored` property is invalid. Omit `enabled` unless disabling an
+entry with `enabled: false`; enabled state does not affect authored publishing.
 
 ## Ignoring Extensions
 

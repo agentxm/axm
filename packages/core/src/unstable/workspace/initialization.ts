@@ -89,7 +89,7 @@ const allAgentDescriptors = (
 };
 
 const DEFAULT_SETUP_SKILLS = {
-  axm: { source: "@agentxm/skills/axm", enabled: true, authored: false },
+  axm: { source: "@agentxm/skills/axm", enabled: true },
 } as const satisfies NonNullable<Settings["skills"]>;
 
 interface SetupInstructionSourceChoice {

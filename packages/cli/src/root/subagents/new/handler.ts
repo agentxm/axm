@@ -120,9 +120,8 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     label: fqn,
     message: `Created subagent ${fqn}`,
     markAuthored: ws.setSubagentEntry(args.name, {
-      source: fqn,
+      source: `workspace:${fqn}`,
       enabled: true,
-      authored: true,
     }),
     buildArtifact: () =>
       Effect.succeed(

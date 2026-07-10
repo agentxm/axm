@@ -146,6 +146,7 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallSkillCommandIntent,
+      flags: { readonly sourceDisposition?: "keep" | "delete" },
     ): Effect.Effect<Plan, AppError> =>
       Effect.succeed(
         (() => {
@@ -156,7 +157,12 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
               type: "skill" as const,
               name: entry.skillName,
             };
-            const step = buildUninstallOperation(skillMgr, retentionPolicy, { target });
+            const step = buildUninstallOperation(skillMgr, retentionPolicy, {
+              target,
+              ...(flags.sourceDisposition === undefined
+                ? {}
+                : { sourceDisposition: flags.sourceDisposition }),
+            });
             if (step.readiness !== "ready") return step;
 
             const run = Effect.gen(function* () {

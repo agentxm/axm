@@ -28,6 +28,10 @@ describe("axm skills publish", () => {
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.owner = "@test";
+        settings.skills = {
+          ...settings.skills,
+          "my-publish-skill": "workspace:@test/skills/my-publish-skill",
+        };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Manually create an extension in .axm/extensions/
@@ -127,7 +131,7 @@ describe("axm skills publish", () => {
         settings.owner = "@myorg";
         settings.skills = {
           ...settings.skills,
-          "code-review": { source: "@myorg/skills/code-review", authored: true },
+          "code-review": "workspace:@myorg/skills/code-review",
         };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -186,7 +190,7 @@ describe("axm skills publish", () => {
       }
     });
 
-    it("fails when extension does not exist", async () => {
+    it("returns a successful empty result when an explicit selector does not exist", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
@@ -201,11 +205,11 @@ describe("axm skills publish", () => {
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         const publishResult = await runCli(
-          ["skills", "publish", "@test/skills/nonexistent-skill", "--yes"],
+          ["skills", "publish", "@test/skills/nonexistent-skill", "--yes", "--json"],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
-        expect(publishResult.exitCode).not.toBe(0);
-        expect(publishResult.stderr).toContain("not found");
+        expect(publishResult.exitCode).toBe(0);
+        expect(JSON.parse(publishResult.stdout).results).toEqual([]);
       } finally {
         temp.cleanup();
         registryDir.cleanup();
@@ -366,7 +370,7 @@ describe("axm skills publish", () => {
       }
     });
 
-    it("nonexistent glob warns and exits cleanly", async () => {
+    it("nonexistent glob emits an empty machine-readable selection", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
@@ -379,7 +383,7 @@ describe("axm skills publish", () => {
         });
 
         // Publish with a glob that matches nothing
-        const result = await runCli(["skills", "publish", "nonexistent-*", "--yes"], {
+        const result = await runCli(["skills", "publish", "nonexistent-*", "--yes", "--json"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "e2e-test-token" },
         });
@@ -387,9 +391,7 @@ describe("axm skills publish", () => {
         // Should exit cleanly (not an error)
         expect(result.exitCode).toBe(0);
 
-        // Should contain warning about no matches
-        const output = result.stdout + result.stderr;
-        expect(output).toMatch(/no skills matched/i);
+        expect(JSON.parse(result.stdout).results).toEqual([]);
       } finally {
         temp.cleanup();
         registryDir.cleanup();

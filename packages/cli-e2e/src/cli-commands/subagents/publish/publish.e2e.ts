@@ -45,6 +45,13 @@ const createManagedSubagent = (
       2,
     ) + "\n",
   );
+  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+  settings.subagents = {
+    ...settings.subagents,
+    [name]: `workspace:${owner}/subagents/${name}`,
+  };
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
 describe("axm subagents publish", () => {

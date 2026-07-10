@@ -50,6 +50,7 @@ import {
   type RegistryRuleRef,
   type RuleExtensionRef,
   type RuleManifest,
+  type WorkspaceRuleRef,
 } from "./index.js";
 
 export class RuleManager extends ServiceMap.Service<
@@ -101,6 +102,21 @@ const localRuleLockEntry = (
 ): RuleLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
+  materializedTargets,
+  ...commonLockFields(now),
+});
+
+const workspaceRuleLockEntry = (
+  ref: WorkspaceRuleRef,
+  now: Date,
+  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
+): RuleLockEntry => ({
+  type: "workspace",
+  owner: ref.owner,
+  extensionType: "rule",
+  name: ref.name,
+  version: ref.version,
+  sourceHash: ref.sourceHash,
   materializedTargets,
   ...commonLockFields(now),
 });
@@ -201,6 +217,25 @@ export const RuleManagerLive = Layer.effect(
           case "git-hosted":
           case "local":
             return yield* materializeFromExternal(ref);
+          case "workspace": {
+            const expectedPath = path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              RULE_EXTENSION_DIR,
+              ref.name,
+            );
+            if (
+              ref.scope !== ws.scope ||
+              path.resolve(ref.location) !== path.resolve(expectedPath)
+            ) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Invalid workspace rule source location: ${ref.location}`,
+              });
+            }
+            return ref.location;
+          }
         }
       });
 
@@ -425,14 +460,29 @@ export const RuleManagerLive = Layer.effect(
               state?.workspaceRelativeLocalSourcePath ?? Option.none(),
             ),
           );
+        case "workspace":
+          return Effect.succeed(workspaceRuleLockEntry(ref, now, materializedTargets));
       }
     };
 
     const materializeUninstall: ExtensionManager<RuleExtensionRef>["materializeUninstall"] =
-      Effect.fn("RuleManager.materializeUninstall")(function* ({ target }) {
+      Effect.fn("RuleManager.materializeUninstall")(function* ({ target, preserveSource }) {
         const locked = yield* ws.getLockedRuleEntry(target.name);
         if (Option.isNone(locked)) return;
         yield* writeRulesRegion({ excludeName: target.name });
+        if (preserveSource !== true) {
+          const packageRoot =
+            locked.value.type === "registry" || locked.value.type === "workspace"
+              ? path.join(
+                  baseDir,
+                  REGISTRY_EXTENSIONS_DIR,
+                  locked.value.owner,
+                  RULE_EXTENSION_DIR,
+                  locked.value.name,
+                )
+              : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, RULE_EXTENSION_DIR, target.name);
+          yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
+        }
       }, Effect.asVoid);
 
     return {
@@ -444,6 +494,10 @@ export const RuleManagerLive = Layer.effect(
         ),
 
       materializeInstall,
+      getConfiguredSource: Effect.fn("RuleManager.getConfiguredSource")(function* ({ target }) {
+        const configured = yield* ws.getConfiguredRuleEntries();
+        return Option.fromUndefinedOr(configured[target.name]?.source);
+      }),
 
       listMaterializable: Effect.fn("RuleManager.listMaterializable")(function* () {
         const configured = yield* ws.getConfiguredRuleEntries();
@@ -472,12 +526,9 @@ export const RuleManagerLive = Layer.effect(
                 return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
               })()
             : printSourceParams(lockEntryToSourceParams(lockEntry));
-        const entries = yield* ws.getConfiguredRuleEntries();
-        const current = entries[ref.rule.name];
         yield* ws.setRuleEntry(ref.rule.name, {
           source,
           enabled: true,
-          authored: current?.authored ?? false,
         });
       }),
 

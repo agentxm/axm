@@ -13,6 +13,7 @@ export type {
   GitHostedSkillRef,
   RegistrySkillRef,
   LocalSkillRef,
+  WorkspaceSkillRef,
   SkillExtensionRef,
 } from "./refs.js";
 

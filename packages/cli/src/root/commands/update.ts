@@ -27,6 +27,7 @@ import {
   resolveUpdateTargets,
 } from "../shared/update-targets.js";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
+import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { toJobStepResult } from "./job-step-result.js";
 import { combinePlanSections, makeItemSection } from "./preview-sections.js";
 
@@ -127,6 +128,14 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
     filteredEntries,
     ([name, sourceStr]) =>
       Effect.gen(function* () {
+        if (isWorkspaceSourceLocator(sourceStr)) {
+          return {
+            type: "skip",
+            name,
+            source: sourceStr,
+            reason: `Command "${name}" is workspace-sourced and unchanged`,
+          } satisfies ResolveOutcome;
+        }
         const source = yield* resolveSource(sourceStr);
         const refs = yield* sources
           .find(source, {
@@ -175,7 +184,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   const skippedEntries = resolved.filter(
     (entry): entry is Extract<ResolveOutcome, { readonly type: "skip" }> => entry.type === "skip",
   );
-  if (resolvedEntries.length === 0) {
+  if (resolvedEntries.length === 0 && skippedEntries.length === 0) {
     return yield* allUpdateTargetResolutionsFailed({
       resourceLabelPlural: "command",
       suggestions: [{ description: "Verify the original source paths are still accessible." }],

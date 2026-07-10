@@ -1,9 +1,6 @@
-import { pathToFileURL } from "node:url";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -11,11 +8,7 @@ import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
 } from "@agentxm/client-core/unstable/extensions";
-import {
-  HOOK_EXTENSION_DIR,
-  HookManager,
-  type LocalHookRef,
-} from "@agentxm/client-core/unstable/hooks";
+import { HOOK_EXTENSION_DIR, HookManager } from "@agentxm/client-core/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   previewOrApplyPlan,
@@ -30,10 +23,14 @@ import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
+  entry.type === "registry"
+    ? entry.resolvedVersion
+    : entry.type === "workspace"
+      ? entry.version
+      : undefined;
 
 const hookPackagePath = (entry: HookLockEntry, name: string): string =>
-  entry.type === "registry"
+  entry.type === "registry" || entry.type === "workspace"
     ? `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`
     : `${EXTERNAL_EXTENSIONS_DIR}/${HOOK_EXTENSION_DIR}/${name}`;
 
@@ -71,37 +68,6 @@ const hookEnableArtifact = (args: {
   };
 };
 
-const resolveAuthoredLocalHook = (name: string, authored: boolean) =>
-  Effect.gen(function* () {
-    if (!authored) return Option.none<LocalHookRef>();
-
-    const ws = yield* WorkspaceMutations;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const lockEntry = yield* ws.getLockedHookEntry(name);
-    if (Option.isNone(lockEntry) || lockEntry.value.type !== "registry") {
-      return Option.none<LocalHookRef>();
-    }
-
-    const packageRoot = path.join(
-      ws.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      lockEntry.value.owner,
-      HOOK_EXTENSION_DIR,
-      lockEntry.value.name,
-    );
-    const exists = yield* fs.exists(packageRoot).pipe(Effect.orElseSucceed(() => false));
-    if (!exists) return Option.none<LocalHookRef>();
-
-    return Option.some({
-      type: "hook",
-      refType: "local",
-      source: { type: "local", path: packageRoot },
-      location: pathToFileURL(packageRoot).href,
-      hook: { name: lockEntry.value.name },
-    } satisfies LocalHookRef);
-  });
-
 export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
@@ -128,10 +94,7 @@ export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: 
     return;
   }
 
-  const authoredLocalRef = yield* resolveAuthoredLocalHook(args.name, entry.authored);
-  const resolved = Option.isSome(authoredLocalRef)
-    ? { ref: authoredLocalRef.value, versionRange: Option.none() }
-    : yield* resolveConfiguredHook(args.name, entry.source);
+  const resolved = yield* resolveConfiguredHook(args.name, entry.source);
   const { ref, versionRange } = resolved;
   const plan: Plan = {
     _tag: "Plan",

@@ -132,7 +132,7 @@
       "type": "string",
       "allOf": [
         {
-          "pattern": "^[a-z0-9][a-z0-9.-]*$",
+          "pattern": "^(?!workspace$)[a-z0-9][a-z0-9.-]*$",
           "title": "Source Name",
           "description": "Alias used in entry source strings for this source host.",
           "examples": ["github", "my-registry.dev"]
@@ -256,17 +256,12 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
-            },
-            "authored": {
-              "type": "boolean",
-              "description": "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-              "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Skill Entry Object",
-          "description": "A skill entry with source and optional enabled/authored flags."
+          "description": "A skill entry with source and an optional enabled flag."
         }
       ],
       "title": "Skill Entry",
@@ -284,9 +279,7 @@
           "propertyNames": {
             "type": "string",
             "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          },
-          "title": "Skills Map",
-          "description": "A map of skill names to skill entries."
+          }
         }
       ]
     },
@@ -328,17 +321,12 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
-            },
-            "authored": {
-              "type": "boolean",
-              "description": "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-              "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Command Entry Object",
-          "description": "A command entry with source and optional enabled/authored flags."
+          "description": "A command entry with source and an optional enabled flag."
         }
       ],
       "title": "Command Entry",
@@ -356,9 +344,7 @@
           "propertyNames": {
             "type": "string",
             "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          },
-          "title": "Commands Map",
-          "description": "A map of command names to command entries."
+          }
         }
       ]
     },
@@ -407,11 +393,6 @@
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
             },
-            "authored": {
-              "type": "boolean",
-              "description": "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-              "default": false
-            },
             "inputs": { "$ref": "#/definitions/FilesInputValuesMap" }
           },
           "required": ["source"],
@@ -435,9 +416,7 @@
           "propertyNames": {
             "type": "string",
             "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          },
-          "title": "Files Map",
-          "description": "A map of Context Files package names to Context Files package entries."
+          }
         }
       ]
     },
@@ -465,17 +444,12 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
-            },
-            "authored": {
-              "type": "boolean",
-              "description": "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-              "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Rule Entry Object",
-          "description": "A rule entry with source and optional enabled/authored flags."
+          "description": "A rule entry with source and an optional enabled flag."
         }
       ],
       "title": "Rule Entry",
@@ -493,9 +467,7 @@
           "propertyNames": {
             "type": "string",
             "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          },
-          "title": "Rules Map",
-          "description": "A map of rule names to rule entries."
+          }
         }
       ]
     },
@@ -523,17 +495,12 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
-            },
-            "authored": {
-              "type": "boolean",
-              "description": "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-              "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Hook Entry Object",
-          "description": "A hook entry with source and optional enabled/authored flags."
+          "description": "A hook entry with source and an optional enabled flag."
         }
       ],
       "title": "Hook Entry",
@@ -551,9 +518,7 @@
           "propertyNames": {
             "type": "string",
             "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          },
-          "title": "Hooks Map",
-          "description": "A map of hook names to hook entries."
+          }
         }
       ]
     },
@@ -581,17 +546,12 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
-            },
-            "authored": {
-              "type": "boolean",
-              "description": "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-              "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Subagent Entry Object",
-          "description": "A subagent entry with source and optional enabled/authored flags."
+          "description": "A subagent entry with source and an optional enabled flag."
         }
       ],
       "title": "Subagent Entry",
@@ -609,9 +569,7 @@
           "propertyNames": {
             "type": "string",
             "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          },
-          "title": "Subagents Map",
-          "description": "A map of subagent names to subagent entries."
+          }
         }
       ]
     },
@@ -648,25 +606,17 @@
                   ]
                 }
               ]
-            },
-            "authored": {
-              "type": "boolean",
-              "description": "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-              "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Pack Entry Object",
-          "description": "A pack entry with source and optional authored flag."
+          "description": "A pack entry with a source."
         }
       ],
       "title": "Pack Entry",
-      "description": "A pack entry: a source string, or an object with source plus optional authored flag.",
-      "examples": [
-        "@acme/packs/typescript@^1.0.0",
-        { "source": "github:acme/agent-extensions", "authored": true }
-      ]
+      "description": "A pack entry: a source string, or an object with a source.",
+      "examples": ["@acme/packs/typescript@^1.0.0"]
     },
     "PacksMap": {
       "type": "object",
@@ -676,9 +626,7 @@
           "propertyNames": {
             "type": "string",
             "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          },
-          "title": "Packs Map",
-          "description": "A map of pack names to pack entries."
+          }
         }
       ]
     },
@@ -718,17 +666,12 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
-            },
-            "authored": {
-              "type": "boolean",
-              "description": "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-              "default": false
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Library Entry Object",
-          "description": "A Library subscription entry with source and optional enabled/authored flags."
+          "description": "A Library subscription entry with source and an optional enabled flag."
         }
       ],
       "title": "Library Entry",
@@ -816,11 +759,6 @@
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
             },
-            "authored": {
-              "type": "boolean",
-              "description": "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-              "default": false
-            },
             "env": { "$ref": "#/definitions/McpServerEnv" }
           },
           "additionalProperties": false
@@ -846,9 +784,7 @@
           "propertyNames": {
             "type": "string",
             "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          },
-          "title": "MCP Servers Map",
-          "description": "A map of MCP server names to MCP server entries."
+          }
         }
       ]
     },
@@ -928,7 +864,7 @@
         },
         "skills": {
           "anyOf": [{ "$ref": "#/definitions/SkillsMap" }],
-          "description": "Your installed skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly."
+          "description": "Your installed skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "skillsConfig": {
           "anyOf": [{ "$ref": "#/definitions/SkillsConfig" }],
@@ -936,7 +872,7 @@
         },
         "commands": {
           "anyOf": [{ "$ref": "#/definitions/CommandsMap" }],
-          "description": "Your installed commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly."
+          "description": "Your installed commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "commandsConfig": {
           "anyOf": [{ "$ref": "#/definitions/CommandsConfig" }],
@@ -944,19 +880,19 @@
         },
         "files": {
           "anyOf": [{ "$ref": "#/definitions/FilesMap" }],
-          "description": "Your installed Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or scalar `inputs`."
+          "description": "Your installed Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`."
         },
         "rules": {
           "anyOf": [{ "$ref": "#/definitions/RulesMap" }],
-          "description": "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`."
+          "description": "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "hooks": {
           "anyOf": [{ "$ref": "#/definitions/HooksMap" }],
-          "description": "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`."
+          "description": "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],
-          "description": "Your installed subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly."
+          "description": "Your installed subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "subagentsConfig": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsConfig" }],
@@ -964,7 +900,7 @@
         },
         "packs": {
           "anyOf": [{ "$ref": "#/definitions/PacksMap" }],
-          "description": "Your installed packs, keyed by workspace pack name. Prefer plain source strings; use the object form only to set `authored: true`, and never write `authored: false` explicitly. Pack entries do not support `enabled` yet."
+          "description": "Your installed packs, keyed by workspace pack name. Pack entries do not support `enabled` yet."
         },
         "packsConfig": {
           "anyOf": [{ "$ref": "#/definitions/PacksConfig" }],
@@ -972,11 +908,11 @@
         },
         "libraries": {
           "anyOf": [{ "$ref": "#/definitions/LibrariesMap" }],
-          "description": "Your Library subscriptions, keyed by workspace subscription name. Prefer plain Library refs; use the object form only to set `enabled: false` or `authored: true`. Libraries are always latest and do not accept version suffixes."
+          "description": "Your Library subscriptions, keyed by workspace subscription name. Prefer plain Library refs; use the object form only to set `enabled: false`. Libraries are always latest and do not accept version suffixes."
         },
         "mcpServers": {
           "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],
-          "description": "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or persisted `env` values."
+          "description": "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values."
         },
         "mcpServersConfig": {
           "anyOf": [{ "$ref": "#/definitions/McpServersConfig" }],

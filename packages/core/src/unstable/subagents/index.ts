@@ -58,6 +58,7 @@ export type {
   GitHostedSubagentRef,
   RegistrySubagentRef,
   LocalSubagentRef,
+  WorkspaceSubagentRef,
   SubagentExtensionRef,
 } from "./refs.js";
 

@@ -139,21 +139,19 @@ describe("subagents-new.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.subagents).toBeDefined();
-          expect(settings.subagents["my-subagent"]).toEqual({
-            source: "@acme/subagents/my-subagent",
-            authored: true,
-          });
+          expect(settings.subagents["my-subagent"]).toBe("workspace:@acme/subagents/my-subagent");
 
           // Verify lockfile registration
           const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
           expect(lockfile.subagents["my-subagent"]).toMatchObject({
-            type: "registry",
+            type: "workspace",
             owner: "@acme",
+            extensionType: "subagent",
             name: "my-subagent",
-            resolvedVersion: "0.0.1",
-            sourceName: "default",
+            version: "0.0.1",
             agents: ["claude-code"],
+            sourceHash: expect.any(String),
           });
 
           expect(logs.success.some((m) => m.includes("@acme/subagents/my-subagent"))).toBe(true);
@@ -342,7 +340,6 @@ describe("subagents-new.handler", () => {
         subagents: {
           "my-subagent": {
             source: "@acme/subagents/my-subagent",
-            authored: true,
           },
         },
       });

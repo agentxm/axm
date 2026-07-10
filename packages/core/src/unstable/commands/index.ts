@@ -20,6 +20,7 @@ export type {
   GitHostedCommandRef,
   RegistryCommandRef,
   LocalCommandRef,
+  WorkspaceCommandRef,
   CommandExtensionRef,
 } from "./refs.js";
 

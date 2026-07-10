@@ -17,7 +17,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import type { AppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import { parseRegistrySourcePatternParts } from "../extensions/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import type { ExtensionRef } from "../extensions/index.js";
@@ -28,6 +28,7 @@ import type {
   RegistrySource,
   Source,
 } from "../sources/index.js";
+import { printSourceParams } from "../sources/index.js";
 import { createGitSourceHostProvider } from "./providers/git.js";
 import { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";
 import { createLocalSourceHostProvider } from "./providers/local.js";
@@ -88,6 +89,7 @@ const buildCloneUrlFromSource = (source: Source): Option.Option<string> => {
     case "git":
     case "registry":
     case "local":
+    case "workspace":
       return Option.none();
   }
 };
@@ -113,6 +115,8 @@ const getOriginFromSource = (source: Source): string => {
       return source.url.href;
     case "registry":
       return source.location.href;
+    case "workspace":
+      return printSourceParams(source);
   }
 };
 
@@ -221,6 +225,14 @@ export const SourceHostProvidersLive: Layer.Layer<
           return gitProvider.find(source, options).pipe(Effect.provide(depLayer));
         case "registry":
           return registryMetaProvider.find(source, options).pipe(Effect.provide(depLayer));
+        case "workspace":
+          return Effect.fail(
+            makeAppError({
+              code: "validation",
+              detail:
+                "Workspace sources resolve from their canonical package through the workspace configured-entry resolver",
+            }),
+          );
       }
     };
 
@@ -240,6 +252,14 @@ export const SourceHostProvidersLive: Layer.Layer<
           return gitProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
         case "registry":
           return registryMetaProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
+        case "workspace":
+          return Effect.fail(
+            makeAppError({
+              code: "validation",
+              detail:
+                "Workspace source files are read directly from their canonical package and are not fetched through a source host provider",
+            }),
+          );
       }
     };
 

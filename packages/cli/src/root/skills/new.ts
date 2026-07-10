@@ -133,9 +133,8 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     label: fqn,
     message: `Created skill ${fqn}`,
     markAuthored: ws.setSkillEntry(args.name, {
-      source: formatFqn({ owner, type: "skill", name: args.name }),
+      source: `workspace:${formatFqn({ owner, type: "skill", name: args.name })}`,
       enabled: true,
-      authored: true,
     }),
     scaffold: newSkill(op).pipe(
       Effect.provideService(WorkspaceMutations, ws),

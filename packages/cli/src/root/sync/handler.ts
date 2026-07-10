@@ -429,7 +429,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const env = { fs, path, baseDir: ws.baseDir };
+  const env = { fs, path, baseDir: ws.baseDir, scope: ws.scope };
   const configuredMcpServerEntries = yield* ws.getConfiguredMcpServerEntries();
   const configuredAgents = yield* ws.getConfiguredAgents();
 

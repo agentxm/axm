@@ -133,7 +133,7 @@ describe("reconciliation", () => {
 
         const settings: Settings = {
           skills: {
-            tool: { source: "@acme/skills/tool@^1", enabled: true, authored: false },
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
           },
         };
 
@@ -147,6 +147,53 @@ describe("reconciliation", () => {
 
         expect(Object.keys(snapshot.lockfile.skills)).toEqual(["tool"]);
         expect(snapshot.unresolved).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("reconstructs workspace packs with dependency versions from canonical packages", () =>
+    withContext(
+      Effect.gen(function* () {
+        const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "tool");
+        const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "toolkit");
+        fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+        fs.mkdirSync(packDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(skillDir, "skill.json"),
+          JSON.stringify({ owner: "@acme", type: "skill", name: "tool", version: "1.2.3" }),
+        );
+        fs.writeFileSync(path.join(skillDir, "src", "SKILL.md"), "# Tool\n");
+        fs.writeFileSync(
+          path.join(packDir, "pack.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: "pack",
+            name: "toolkit",
+            version: "2.0.0",
+            dependencies: { "@acme/skills/tool": "^1.0.0" },
+          }),
+        );
+
+        const settings: Settings = {
+          skills: {
+            tool: { source: "workspace:@acme/skills/tool", enabled: true },
+          },
+          packs: { toolkit: { source: "workspace:@acme/packs/toolkit" } },
+        };
+        const snapshot = yield* buildReconciliationSnapshot({
+          baseDir: tempDir,
+          scope: "project",
+          now: new Date("2026-07-10T10:00:00.000Z"),
+          configuredOwner: Option.some(handle("@acme")),
+          agents: ["claude-code"],
+          settings,
+        });
+
+        expect(snapshot.unresolved).toEqual([]);
+        expect(snapshot.lockfile.packs?.["toolkit"]?.type).toBe("workspace");
+        expect(snapshot.lockfile.packs?.["toolkit"]?.resolvedSkills).toEqual({
+          "@acme/skills/tool": "1.2.3",
+        });
       }),
     ),
   );
@@ -167,7 +214,7 @@ describe("reconciliation", () => {
 
         const settings: Settings = {
           skills: {
-            tool: { source: "@acme/skills/tool@^1", enabled: true, authored: false },
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
           },
         };
 
@@ -203,7 +250,7 @@ describe("reconciliation", () => {
 
         const settings: Settings = {
           skills: {
-            tool: { source: "@acme/skills/tool@^1", enabled: true, authored: false },
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
           },
         };
 
@@ -235,7 +282,7 @@ describe("reconciliation", () => {
 
         const settings: Settings = {
           skills: {
-            tool: { source: "@acme/skills/tool@^1", enabled: true, authored: false },
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
           },
         };
 

@@ -6,16 +6,20 @@ import type { ExtensionName, ExtensionTypePlural } from "../extensions/index.js"
 import type { Handle } from "../extensions/handle.js";
 import type {
   CommandLockEntry,
+  FilesLockEntry,
+  HookLockEntry,
   McpServerLockEntry,
   PackLockEntry,
+  RuleLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import type { Settings } from "../settings/index.js";
+import type { WorkspaceScope } from "./scope.js";
 
 export type ReconcileExtensionType = Extract<
   ExtensionTypePlural,
-  "skills" | "commands" | "mcps" | "subagents" | "packs"
+  "skills" | "commands" | "mcps" | "subagents" | "files" | "rules" | "hooks" | "packs"
 >;
 
 export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
@@ -32,6 +36,7 @@ export interface ReconciliationDeclaration {
 
 export interface ReconciliationContext {
   readonly baseDir: string;
+  readonly scope?: WorkspaceScope;
   readonly now: Date;
   /**
    * Configured workspace owner used as the fallback for declarations whose
@@ -80,6 +85,21 @@ export type ReconstructedLockEntry =
       readonly type: "packs";
       readonly name: ExtensionName;
       readonly entry: PackLockEntry;
+    }
+  | {
+      readonly type: "files";
+      readonly name: ExtensionName;
+      readonly entry: FilesLockEntry;
+    }
+  | {
+      readonly type: "rules";
+      readonly name: ExtensionName;
+      readonly entry: RuleLockEntry;
+    }
+  | {
+      readonly type: "hooks";
+      readonly name: ExtensionName;
+      readonly entry: HookLockEntry;
     };
 
 export type DeclarationResolution =

@@ -52,27 +52,32 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 ### Creating & publishing extensions
 
-| Task                                  | Command                                   |
-| ------------------------------------- | ----------------------------------------- |
-| Scaffold a new extension              | `axm <type> new <name>`                   |
-| Add an extension to a pack            | `axm packs add <pack> <extension>`        |
-| Remove an extension from a pack       | `axm packs remove <pack> <extension>`     |
-| Unpack a pack into individual entries | `axm packs unpack <pack>`                 |
-| Publish an extension                  | `axm <type> publish <name>`               |
-| Bump a managed extension's version    | `axm version <fqn> <patch\|minor\|major>` |
-| Set an exact version                  | `axm version <fqn> set <x.y.z>`           |
+| Task                                      | Command                                   |
+| ----------------------------------------- | ----------------------------------------- |
+| Scaffold a new workspace extension        | `axm <type> new <name>`                   |
+| Copy an external skill for authoring      | `axm skills copy <source> <target-fqn>`   |
+| Adopt a retained canonical package        | `axm adopt <fqn>`                         |
+| Explicitly return authorship to a source  | `axm demote <fqn> <source>`               |
+| Add an extension to a pack                | `axm packs add <pack> <extension>`        |
+| Remove an extension from a pack           | `axm packs remove <pack> <extension>`     |
+| Unpack a pack into individual entries     | `axm packs unpack <pack>`                 |
+| Publish all authored workspace extensions | `axm publish [--on-existing verify]`      |
+| Publish selected extensions               | `axm publish <fqn...>`                    |
+| Publish authored extensions of one type   | `axm <type> publish`                      |
+| Bump a workspace extension's version      | `axm version <fqn> <patch\|minor\|major>` |
+| Set an exact version                      | `axm version <fqn> set <x.y.z>`           |
 
 ### Managing installed extensions
 
-| Task                                   | Command                               |
-| -------------------------------------- | ------------------------------------- |
-| List installed extensions of a type    | `axm <type> list`                     |
-| Disable / enable an extension          | `axm <type> <disable\|enable> <name>` |
-| Install (omit FQN to reinstall all)    | `axm install [<fqn>]`                 |
-| Uninstall                              | `axm uninstall <fqn>`                 |
-| Update (omit FQN to update all)        | `axm update [<fqn>]`                  |
-| Show extensions with available updates | `axm outdated`                        |
-| View published extension metadata      | `axm view <fqn> [version\|versions]`  |
+| Task                                   | Command                                                |
+| -------------------------------------- | ------------------------------------------------------ |
+| List installed extensions of a type    | `axm <type> list`                                      |
+| Disable / enable an extension          | `axm <type> <disable\|enable> <name>`                  |
+| Install (omit FQN to reinstall all)    | `axm install [<fqn>]`                                  |
+| Uninstall                              | `axm uninstall <fqn> [--keep-source\|--delete-source]` |
+| Update (omit FQN to update all)        | `axm update [<fqn>]`                                   |
+| Show extensions with available updates | `axm outdated`                                         |
+| View published extension metadata      | `axm view <fqn> [version\|versions]`                   |
 
 ### Workspace state
 

@@ -12,11 +12,13 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionRef } from "../../extensions/index.js";
+import { computeSourceHash } from "../../extensions/index.js";
 import type {
   GitHostedSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
+  WorkspaceSkillRef,
 } from "../refs.js";
 import type { Source } from "../../sources/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
@@ -151,7 +153,7 @@ const makeServices = (
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: (ref) =>
       Effect.succeed(
-        ref.refType === "git-hosted" || ref.refType === "local"
+        ref.refType === "git-hosted" || ref.refType === "local" || ref.refType === "workspace"
           ? { directory: new URL(ref.location).pathname }
           : { directory: ref.source.location.pathname },
       ),
@@ -289,6 +291,18 @@ const makeOp = (
           source,
           location,
         } satisfies LocalSkillRef;
+      case "workspace":
+        return {
+          ...base,
+          refType: "workspace" as const,
+          source,
+          owner: source.owner,
+          name: source.name,
+          version: exactVersion(Option.getOrElse(version, () => "1.0.0")),
+          scope: "project" as const,
+          location,
+          sourceHash: computeSourceHash("workspace-source"),
+        } satisfies WorkspaceSkillRef;
       default:
         return {
           ...base,

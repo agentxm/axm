@@ -107,6 +107,7 @@ export const ExtensionIndexSchema = Schema.Struct({
   bugs: Schema.optional(BugsSchema),
   license: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
+  visibility: Schema.optional(Schema.Literals(["public", "internal", "private"] as const)),
   versions: Schema.Array(VersionEntrySchema),
 }).annotate({
   identifier: "ExtensionIndex",

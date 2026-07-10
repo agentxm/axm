@@ -152,6 +152,25 @@ function updatePackManifest(
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
+function detachWorkspacePack(
+  workspaceRoot: string,
+  settingsPath: string,
+  lockPath: string,
+  packName: string,
+) {
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+  delete settings.packs?.[packName];
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+  const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+  if (lock.packs) delete lock.packs[packName];
+  fs.writeFileSync(lockPath, YAML.stringify(lock));
+  fs.rmSync(path.join(workspaceRoot, ".axm", "extensions", "@test", "packs", packName), {
+    recursive: true,
+    force: true,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 9.1: packs new
 // ---------------------------------------------------------------------------
@@ -339,18 +358,21 @@ describe("axm packs publish", () => {
     }
   });
 
-  it("fails when pack does not exist", async () => {
+  it("returns a successful empty result when an explicit pack does not exist", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
-      const result = await runCli(["packs", "publish", "@test/packs/nonexistent-pack", "--yes"], {
-        cwd: temp.path,
-        env: { AXM_TOKEN: "e2e-test-token" },
-      });
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain("not found");
+      const result = await runCli(
+        ["packs", "publish", "@test/packs/nonexistent-pack", "--yes", "--json"],
+        {
+          cwd: temp.path,
+          env: { AXM_TOKEN: "e2e-test-token" },
+        },
+      );
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout).results).toEqual([]);
     } finally {
       cleanup();
     }
@@ -363,7 +385,7 @@ describe("axm packs publish", () => {
 
 describe("axm packs install", () => {
   it("installs pack from registry, updates settings and lockfile", async () => {
-    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
+    const { temp, registryDir, settingsPath, lockPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
@@ -386,24 +408,7 @@ describe("axm packs install", () => {
 
       // Remove the pack from settings, lockfile, and disk to simulate fresh install
       // (packs new already registered it)
-      const settingsBefore = readSettings();
-      delete settingsBefore.packs?.["installable-pack"];
-      fs.writeFileSync(settingsPath, JSON.stringify(settingsBefore, null, 2));
-
-      const lockBefore = readLock();
-      if (lockBefore.packs) delete lockBefore.packs["installable-pack"];
-      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), YAML.stringify(lockBefore));
-
-      // Remove pack directory from disk
-      const packDirBefore = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "packs",
-        "installable-pack",
-      );
-      fs.rmSync(packDirBefore, { recursive: true, force: true });
+      detachWorkspacePack(temp.path, settingsPath, lockPath, "installable-pack");
 
       // Install from registry (new format: @owner/packs/name)
       const installResult = await runCli(
@@ -442,7 +447,7 @@ describe("axm packs install", () => {
   });
 
   it("re-installs idempotently when pack already exists", async () => {
-    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
+    const { temp, registryDir, settingsPath, lockPath, readSettings, readLock, cleanup } =
       setupWorkspaceWithRegistry();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
@@ -463,7 +468,13 @@ describe("axm packs install", () => {
       });
       expect(publishResult.exitCode).toBe(0);
 
-      // Pack is already registered from `packs new`; install performs idempotent upsert
+      detachWorkspacePack(temp.path, settingsPath, lockPath, "already-pack");
+      const firstInstallResult = await runCli(
+        ["packs", "install", "@test/packs/already-pack", "--yes"],
+        { cwd: temp.path },
+      );
+      expect(firstInstallResult.exitCode).toBe(0);
+
       const installResult = await runCli(
         ["packs", "install", "@test/packs/already-pack", "--yes"],
         { cwd: temp.path },
@@ -514,7 +525,7 @@ describe("axm packs install", () => {
       const settingsWithSkill = readSettings();
       settingsWithSkill.skills = {
         ...settingsWithSkill.skills,
-        "dep-skill": { source: "@test/skills/dep-skill", authored: true },
+        "dep-skill": "workspace:@test/skills/dep-skill",
       };
       fs.writeFileSync(settingsPath, JSON.stringify(settingsWithSkill, null, 2));
 
@@ -609,7 +620,7 @@ describe("axm packs install", () => {
       const settingsWithSubagent = readSettings();
       settingsWithSubagent.subagents = {
         ...settingsWithSubagent.subagents,
-        "dep-subagent": { source: "@test/subagents/dep-subagent", authored: true },
+        "dep-subagent": "workspace:@test/subagents/dep-subagent",
       };
       fs.writeFileSync(settingsPath, JSON.stringify(settingsWithSubagent, null, 2));
 
@@ -950,6 +961,13 @@ describe("axm packs list", () => {
         env: { AXM_TOKEN: "e2e-test-token" },
       });
       expect(publishResult.exitCode).toBe(0);
+
+      detachWorkspacePack(
+        temp.path,
+        settingsPath,
+        path.join(temp.path, ".axm", "axm-lock.yaml"),
+        "listable-pack",
+      );
 
       const installResult = await runCli(
         ["packs", "install", "@test/packs/listable-pack", "--yes"],

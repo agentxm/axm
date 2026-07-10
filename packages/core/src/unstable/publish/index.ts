@@ -26,3 +26,4 @@ export {
   type PublishArchiveInput,
   type PublishInput,
 } from "./input-normalization.js";
+export { runPublishLintGate, type PublishLintArgs } from "./lint-gate.js";

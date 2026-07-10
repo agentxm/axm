@@ -244,6 +244,7 @@ export const makeBaseWorkspaceMock = (
     getLockedSubagents: () => Effect.succeed({}),
     getLockedSubagent: () => Effect.succeed(Option.none()),
     getConfiguredSubagentEntries: () => Effect.succeed({}),
+    getConfiguredCommandEntries: () => Effect.succeed({}),
     setSubagent: () => Effect.void,
     setSubagentLock: () => Effect.void,
     removeSubagent: () => Effect.void,
@@ -358,6 +359,12 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+};
+
+export const ensureWorkspaceFiles = (axmDir: string): void => {
+  if (!fs.existsSync(path.join(axmDir, "settings.json"))) {
+    writeWorkspaceFiles(axmDir);
+  }
 };
 
 export const makeLocalSkillLockEntry = (opts?: {

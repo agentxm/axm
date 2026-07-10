@@ -1,20 +1,10 @@
-import { pathToFileURL } from "node:url";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  buildInstallOperation,
-  REGISTRY_EXTENSIONS_DIR,
-} from "@agentxm/client-core/unstable/extensions";
-import {
-  FILES_EXTENSION_DIR,
-  FilesManager,
-  type LocalFilesRef,
-} from "@agentxm/client-core/unstable/files";
+import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+import { FilesManager } from "@agentxm/client-core/unstable/files";
 import type { FilesLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   previewOrApplyPlan,
@@ -32,7 +22,11 @@ import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 const filesLockEntryVersion = (entry: FilesLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
+  entry.type === "registry"
+    ? entry.resolvedVersion
+    : entry.type === "workspace"
+      ? entry.version
+      : undefined;
 
 const filesEnableArtifactTargets = (entry: FilesLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
   mergeTargets([
@@ -74,37 +68,6 @@ const filesEnableArtifact = (args: {
   };
 };
 
-const resolveAuthoredLocalFiles = (name: string, authored: boolean) =>
-  Effect.gen(function* () {
-    if (!authored) return Option.none<LocalFilesRef>();
-
-    const ws = yield* WorkspaceMutations;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const lockEntry = yield* ws.getLockedFilesEntry(name);
-    if (Option.isNone(lockEntry) || lockEntry.value.type !== "registry") {
-      return Option.none<LocalFilesRef>();
-    }
-
-    const packageRoot = path.join(
-      ws.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      lockEntry.value.owner,
-      FILES_EXTENSION_DIR,
-      lockEntry.value.name,
-    );
-    const exists = yield* fs.exists(packageRoot).pipe(Effect.orElseSucceed(() => false));
-    if (!exists) return Option.none<LocalFilesRef>();
-
-    return Option.some({
-      type: "files",
-      refType: "local",
-      source: { type: "local", path: packageRoot },
-      location: pathToFileURL(packageRoot).href,
-      file: { name: lockEntry.value.name },
-    } satisfies LocalFilesRef);
-  });
-
 export const handleEnableFiles = Effect.fn("EnableFiles.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
@@ -131,10 +94,7 @@ export const handleEnableFiles = Effect.fn("EnableFiles.handle")(function* (args
     return;
   }
 
-  const authoredLocalRef = yield* resolveAuthoredLocalFiles(args.name, entry.authored);
-  const resolved = Option.isSome(authoredLocalRef)
-    ? { ref: authoredLocalRef.value, versionRange: Option.none() }
-    : yield* resolveConfiguredFiles(args.name, entry.source);
+  const resolved = yield* resolveConfiguredFiles(args.name, entry.source);
   const { ref, versionRange } = resolved;
   const plan: Plan = {
     _tag: "Plan",

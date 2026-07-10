@@ -72,6 +72,7 @@ export {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
+  resolveWorkspaceExtensionRef,
   type ConfiguredEntryFailureReason,
   type ResolvedConfiguredCommand,
   type ResolvedConfiguredEntry,

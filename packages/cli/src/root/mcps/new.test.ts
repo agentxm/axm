@@ -77,19 +77,18 @@ describe("mcps-new.handler", () => {
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
-        expect(settings.mcpServers?.context).toEqual({
-          source: "@acme/mcps/context",
-          authored: true,
-        });
+        expect(settings.mcpServers?.context).toBe("workspace:@acme/mcps/context");
 
         const lockfile = YAML.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
         );
         expect(lockfile.mcpServers.context).toMatchObject({
-          type: "registry",
+          type: "workspace",
           owner: "@acme",
+          extensionType: "mcp-server",
           name: "context",
-          resolvedVersion: "0.1.0",
+          version: "0.1.0",
+          sourceHash: expect.any(String),
         });
         expect(logs.success).toEqual(["Created MCP server @acme/mcps/context with 2 targets"]);
         expect(rendererState.suggestions).toEqual([

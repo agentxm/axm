@@ -17,13 +17,14 @@ import {
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 const hookPackagePath = (entry: HookLockEntry, name: string): string =>
-  entry.type === "registry"
+  entry.type === "registry" || entry.type === "workspace"
     ? `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`
     : `${EXTERNAL_EXTENSIONS_DIR}/${HOOK_EXTENSION_DIR}/${name}`;
 
@@ -33,7 +34,10 @@ const hookDisableArtifactTargets = (args: {
 }): ReadonlyArray<JobStepArtifactTarget> =>
   [
     { path: ".axm/settings.json", change: "updated" as const },
-    { path: hookPackagePath(args.lockEntry, args.name), change: "removed" as const },
+    {
+      path: hookPackagePath(args.lockEntry, args.name),
+      change: args.lockEntry.type === "workspace" ? ("unchanged" as const) : ("removed" as const),
+    },
     ...[...(args.lockEntry.materializedTargets ?? [])].map((target) => ({
       path: target.target,
       change: "updated" as const,
@@ -105,6 +109,7 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
               }));
               yield* hookManager.materializeUninstall({
                 target: { type: "hook", name: args.name },
+                preserveSource: isWorkspaceSourceLocator(entry.source),
               });
               return {
                 result: "success",

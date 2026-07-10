@@ -7,9 +7,10 @@ import { updateCommand } from "./update/command.js";
 import { newCommand } from "./new.js";
 import { enableCommand } from "./enable.js";
 import { disableCommand } from "./disable.js";
-import { publishCommand } from "./publish.js";
+import { skillsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { pruneCommand } from "./prune/command.js";
 import { skillsVersionCommand } from "../shared/version-command.js";
+import { copyCommand } from "./copy.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 
 export const skillsCommand = Command.make("skills").pipe(
@@ -46,6 +47,7 @@ export const skillsCommand = Command.make("skills").pipe(
     listCommand,
     updateCommand,
     newCommand,
+    copyCommand,
     enableCommand,
     disableCommand,
     skillsVersionCommand,

@@ -285,6 +285,36 @@ describe("makeScopedStateApi.settings", () => {
     }),
   );
 
+  it.effect("explains the authored-to-workspace-source cutover", () =>
+    Effect.gen(function* () {
+      const counters = yield* makeCounters;
+      const fs = buildFs(
+        {
+          readers: {
+            [SETTINGS_PATH]: () =>
+              Effect.succeed(
+                JSON.stringify({
+                  skills: {
+                    review: { source: "@acme/skills/review", authored: true },
+                  },
+                }),
+              ),
+          },
+          missing: new Set(),
+          existsFails: new Set(),
+        },
+        counters,
+      );
+      const api = yield* makeApi("project", fs);
+
+      const err = yield* Effect.flip(api.settings);
+      expect(err).toBeInstanceOf(SettingsDecodeError);
+      if (err._tag === "SettingsDecodeError") {
+        expect(err.issues.join("\n")).toContain("workspace:@owner/<plural-type>/<name>");
+      }
+    }),
+  );
+
   it.effect("Effect.cached: two yield*-s share one execution and one IO call", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;

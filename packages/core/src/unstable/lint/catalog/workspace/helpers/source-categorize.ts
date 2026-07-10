@@ -6,6 +6,9 @@
  */
 
 import { parseRegistrySourceRef } from "../../../../extensions/registry-source.js";
+import { parseFqn } from "../../../../extensions/fqn.js";
+import { isWorkspaceSourceLocator } from "../../../../sources/index.js";
+import * as Result from "effect/Result";
 
 const BARE_NAME_RE = /^[a-z0-9][a-z0-9-]*(?:@[^\s/:]+)?$/i;
 const NON_REGISTRY_MARKERS = [
@@ -24,12 +27,23 @@ const isClearlyNonRegistrySource = (source: string): boolean =>
 export interface Categorized {
   readonly name: string;
   readonly source: string;
-  readonly kind: "registry" | "bare" | "non-registry" | "registry-no-owner";
+  readonly kind: "registry" | "workspace" | "bare" | "non-registry" | "registry-no-owner";
   readonly registryFqn?: string;
 }
 
 /** Classify a declaration source into registry / bare / non-registry buckets. */
 export const categorizeEntry = (name: string, source: string): Categorized => {
+  if (isWorkspaceSourceLocator(source)) {
+    const parsed = parseFqn(source.slice("workspace:".length));
+    return Result.isSuccess(parsed)
+      ? {
+          name,
+          source,
+          kind: "workspace",
+          registryFqn: `${parsed.success.owner}/${parsed.success.type}/${parsed.success.name}`,
+        }
+      : { name, source, kind: "workspace" };
+  }
   const parsed = parseRegistrySourceRef(source);
   if (parsed !== undefined) {
     return {

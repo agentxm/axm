@@ -781,7 +781,7 @@ const coalesceFullDiagnostic = (
         details: compressDetails(names),
         helps: [
           "Choose adopt, fork, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
-          "Adopt with `axm skills install <source>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
+          "Adopt with `axm adopt @owner/skills/<name>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
         ],
         fixable: false,
         paths,
@@ -929,7 +929,7 @@ const coalesceGroupedDiagnostic = (
         ),
         helps: [
           "Choose adopt, fork, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
-          "Adopt with `axm skills install <source>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
+          "Adopt with `axm adopt @owner/skills/<name>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
         ],
         fixable: false,
         paths,

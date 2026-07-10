@@ -10,8 +10,12 @@ import type {
   CommandLockEntry,
   FilesLockEntry,
   McpServerLockEntry,
+  HookLockEntry,
+  RuleLockEntry,
   SkillLockEntry,
+  SubagentLockEntry,
 } from "../lockfile/schema.js";
+import { formatFqn } from "../extensions/index.js";
 import { print as azurereposPrint } from "../source-resolution/providers/azurerepos/index.js";
 import { print as bitbucketPrint } from "../source-resolution/providers/bitbucket/index.js";
 import { print as githubPrint } from "../source-resolution/providers/github/index.js";
@@ -19,7 +23,14 @@ import { print as gitlabPrint } from "../source-resolution/providers/gitlab/inde
 import { print as localPrint } from "../source-resolution/providers/local-parser/index.js";
 import type { SourceParams } from "./types.js";
 
-type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry | FilesLockEntry;
+type SourceLockEntry =
+  | SkillLockEntry
+  | CommandLockEntry
+  | McpServerLockEntry
+  | FilesLockEntry
+  | RuleLockEntry
+  | HookLockEntry
+  | SubagentLockEntry;
 
 /**
  * Print source params as their canonical shorthand string.
@@ -45,6 +56,12 @@ export const printSourceParams = (source: SourceParams): string => {
     }
     case "inline":
       return "inline";
+    case "workspace":
+      return `workspace:${formatFqn({
+        owner: source.owner,
+        type: source.extensionType,
+        name: source.name,
+      })}`;
   }
 };
 
@@ -109,6 +126,13 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
         args: entry.args ?? [],
         url: Option.fromUndefinedOr(entry.url),
         headers: entry.headers ?? {},
+      };
+    case "workspace":
+      return {
+        type: "workspace",
+        owner: entry.owner,
+        extensionType: entry.extensionType,
+        name: entry.name,
       };
   }
 };

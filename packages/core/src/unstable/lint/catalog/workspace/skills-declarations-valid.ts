@@ -86,7 +86,10 @@ export const skillsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
       // Group by registry FQN for duplicate detection.
       const byFqn = new Map<string, Array<Categorized>>();
       for (const entry of entries) {
-        if (entry.kind !== "registry" || entry.registryFqn === undefined) {
+        if (
+          (entry.kind !== "registry" && entry.kind !== "workspace") ||
+          entry.registryFqn === undefined
+        ) {
           continue;
         }
         const group = byFqn.get(entry.registryFqn) ?? [];
@@ -109,7 +112,10 @@ export const skillsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
           // and don't fire this rule. Move on.
           continue;
         }
-        if (entry.kind === "registry" && entry.registryFqn !== undefined) {
+        if (
+          (entry.kind === "registry" || entry.kind === "workspace") &&
+          entry.registryFqn !== undefined
+        ) {
           const group = byFqn.get(entry.registryFqn) ?? [];
           if (group.length > 1) {
             findings.push(findingForDuplicate(entry, group.map((g) => g.name).sort()));

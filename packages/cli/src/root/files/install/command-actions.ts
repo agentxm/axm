@@ -43,16 +43,23 @@ export interface ParsedFilesInstallArgs {
 export type FilesInstallSourceRequest = ParsedFilesInstallArgs;
 
 const filesLockEntryVersion = (entry: FilesLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
+  entry.type === "registry"
+    ? entry.resolvedVersion
+    : entry.type === "workspace"
+      ? entry.version
+      : undefined;
 
 const filesInstallArtifactPath = (entry: FilesLockEntry): string => {
   if (entry.type === "registry") {
     return `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/files/${entry.name}`;
   }
+  if (entry.type === "workspace") {
+    return `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/files/${entry.name}`;
+  }
   if (entry.type === "local") {
     return entry.path;
   }
-  return entry.path === undefined ? ".axm/extensions" : entry.path;
+  return "path" in entry && entry.path !== undefined ? entry.path : ".axm/extensions";
 };
 
 const filesInstallArtifactTargets = (args: {

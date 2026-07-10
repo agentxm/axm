@@ -43,11 +43,13 @@ export type {
   OwnerExistsResponse,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
+  ExtensionVisibility,
   RegistryLibrary,
   RegistryLibraryDetail,
   RegistryLibraryMaintainer,
   RegistryLibraryMember,
   RegistryLibraryVisibility,
+  UpdateExtensionVisibilityArgs,
 } from "./client.js";
 export { createRegistryClient } from "./client.js";
 

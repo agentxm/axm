@@ -35,13 +35,18 @@ Extensions are typically referenced by their full name: `<@owner>/<skills|subage
 
 ### Authoring and editing extensions
 
-An `authored: true` flag in the settings entry for an extension indicates that it is acceptable to make changes to the extension in the workspace. Set this to `true` for any workspace where you anticipate making and publishing changes for an extension.
-
-Make any desired changes to authored extensions inside the extension's directory `.axm/extensions/<@owner>/<type>/<name>` per the appropriate help topic for that extension type, followed by `axm sync` to render the changes to different coding agent folders and configurations.
+Authorship derives from a `workspace:@owner/<plural-type>/<name>` source. Commands
+such as `axm <type> new` and `axm adopt <fqn>` create this relationship; there is
+no separate authored flag. Edit the canonical package under
+`.axm/extensions/<@owner>/<type>/<name>`, then run `axm sync` to refresh rendered
+agent artifacts.
 
 ### Publishing extensions
 
-Use `axm view` to get the latest published version and use `axm version` to bump if needed.
+Use `axm publish` to publish all extensions authored in the selected workspace,
+or pass explicit selectors. Use `--on-existing verify` for an idempotent publish
+that rejects immutable-version content drift. `axm version` only changes
+workspace-sourced manifests.
 
 ### Enabling and disabling extensions
 
@@ -82,5 +87,6 @@ It's possible to ignore pre-existing skills and other extensions in your workspa
 - `axm help commands` — working with slash commands
 - `axm help rules` — instruction-file propagation and installable rule extensions
 - `axm help packs` — working with packs
+- `axm view <fqn> [version|versions]` — inspect published extension metadata
 - `axm help exit-codes` — process exit codes and their meaning
 - `axm <command> --help` — flags and examples for any command

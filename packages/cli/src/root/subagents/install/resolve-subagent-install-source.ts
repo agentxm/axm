@@ -354,6 +354,18 @@ export const resolveSubagentInstallSource = (
         return yield* resolveSubagentUrl(pattern.url, parseResult.originalInput);
       case "file-path-pattern":
         return { type: "local" as const, path: pattern.path };
+      case "workspace-pattern-input":
+        return yield* makeAppError({
+          code: "conflict",
+          detail: `Workspace source "${parseResult.originalInput}" is locally authoritative and cannot be installed over`,
+          suggestions: [
+            { description: "Sync the workspace package", cmd: "axm sync" },
+            {
+              description: "Enable the workspace subagent",
+              cmd: "axm subagents enable <name>",
+            },
+          ],
+        });
       // Unsupported:
       case "git-scp-address":
       case "glob-input":

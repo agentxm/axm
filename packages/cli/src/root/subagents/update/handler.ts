@@ -13,6 +13,7 @@ import {
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
 import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
 import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
+import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import {
   previewOrApplyPlan,
@@ -143,6 +144,14 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     filteredEntries,
     ([name, sourceStr]) =>
       Effect.gen(function* () {
+        if (isWorkspaceSourceLocator(sourceStr)) {
+          return {
+            type: "skip",
+            name,
+            source: sourceStr,
+            reason: `Subagent "${name}" is workspace-sourced and unchanged`,
+          } satisfies ResolveResult;
+        }
         const source = yield* resolveSource(sourceStr);
         const registryPattern = toRegistrySubagentPattern(sourceStr);
 
@@ -192,7 +201,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   const skipped = results.filter(
     (result): result is Extract<ResolveResult, { readonly type: "skip" }> => result.type === "skip",
   );
-  if (resolved.length === 0) {
+  if (resolved.length === 0 && skipped.length === 0) {
     return yield* allUpdateTargetResolutionsFailed({
       resourceLabelPlural: "subagent",
       suggestions: [{ description: "Verify the original source paths are still accessible." }],
@@ -235,12 +244,14 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   const skippedSteps = skipped.map((item) => skippedSubagentStep(ws, item));
   const [firstJob, ...restJobs] = basePlan.jobs;
   const plan: Plan =
-    firstJob === undefined || skippedSteps.length === 0
+    skippedSteps.length === 0
       ? basePlan
-      : {
-          ...basePlan,
-          jobs: [{ ...firstJob, steps: [...firstJob.steps, ...skippedSteps] }, ...restJobs],
-        };
+      : firstJob === undefined
+        ? { ...basePlan, jobs: [{ concurrency: 1, steps: skippedSteps }] }
+        : {
+            ...basePlan,
+            jobs: [{ ...firstJob, steps: [...firstJob.steps, ...skippedSteps] }, ...restJobs],
+          };
 
   // Step 9: Resolve plan
   const resolution = yield* previewOrApplyPlan(plan, {

@@ -19,6 +19,12 @@ export {
   type RulePackageDiscoveryOptions,
 } from "./discovery.js";
 
-export type { GitHostedRuleRef, LocalRuleRef, RegistryRuleRef, RuleExtensionRef } from "./refs.js";
+export type {
+  GitHostedRuleRef,
+  LocalRuleRef,
+  RegistryRuleRef,
+  RuleExtensionRef,
+  WorkspaceRuleRef,
+} from "./refs.js";
 export { buildRegistryRuleRef } from "./registry-ref-builder.js";
 export { RuleManager, RuleManagerLive } from "./manager.js";

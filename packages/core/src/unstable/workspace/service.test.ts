@@ -942,7 +942,6 @@ describe("WorkspaceMutationsService", () => {
             planner: {
               source: "github:acme/planner",
               enabled: true,
-              authored: false,
             },
           },
         });
@@ -1673,7 +1672,10 @@ describe("WorkspaceMutationsService", () => {
   // ---------------------------------------------------------------------------
 
   /** Create sample SetPackArgs for testing. */
-  const makeSampleSetPackArgs = (overrides?: Partial<SetPackArgs>): SetPackArgs => ({
+  const makeSampleSetPackArgs = (
+    overrides?: Partial<Extract<SetPackArgs, { type: "registry" }>>,
+  ): Extract<SetPackArgs, { type: "registry" }> => ({
+    type: "registry",
     owner: handle("@acme"),
     name: extensionName("starter-pack"),
     resolvedVersion: exactVersion("1.0.0"),
@@ -1831,8 +1833,7 @@ describe("WorkspaceMutationsService", () => {
         const entry = yield* ws.getLockedPack("starter-pack");
 
         expect(Option.isSome(entry)).toBe(true);
-        if (Option.isSome(entry)) {
-          expect(entry.value.type).toBe("registry");
+        if (Option.isSome(entry) && entry.value.type === "registry") {
           expect(entry.value.resolvedVersion).toBe("1.0.0");
         }
       }),

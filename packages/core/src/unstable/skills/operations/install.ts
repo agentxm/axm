@@ -28,6 +28,7 @@ import type {
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
+  WorkspaceSkillRef,
 } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
@@ -259,6 +260,13 @@ const expectedSkillSrcPath = (ref: SkillExtensionRef) =>
       case "registry": {
         const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
           refType: "registry",
+          owner: ref.owner,
+        });
+        return skillSrcPath;
+      }
+      case "workspace": {
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
+          refType: "workspace",
           owner: ref.owner,
         });
         return skillSrcPath;
@@ -515,6 +523,37 @@ const installFromRegistry = (
     return { skillSrcPath, versionRange } satisfies MaterializedSkill;
   });
 
+const installFromWorkspace = (ref: WorkspaceSkillRef) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+    if (ref.scope !== ws.scope) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Workspace skill ${ref.name} belongs to ${ref.scope} scope, not ${ws.scope} scope`,
+      });
+    }
+    yield* validatePathSafety(ws.baseDir, ref.location);
+    const skillSrcPath = path.join(ref.location, "src");
+    const exists = yield* fs.exists(skillSrcPath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect workspace skill source: ${skillSrcPath}`,
+          cause: error,
+        }),
+      ),
+    );
+    if (!exists) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Workspace skill source is missing: ${skillSrcPath}`,
+      });
+    }
+    return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
+  });
+
 // -----------------------------------------------------------------------------
 // Agent symlink helper
 // -----------------------------------------------------------------------------
@@ -608,6 +647,8 @@ const materializeSkill = (
       return installFromRegistry(ref, sanitizedName, versionRange);
     case "local":
       return installFromLocal(ref, sanitizedName);
+    case "workspace":
+      return installFromWorkspace(ref);
   }
 };
 

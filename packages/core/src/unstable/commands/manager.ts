@@ -23,6 +23,7 @@ import type {
   GitHostedCommandRef,
   LocalCommandRef,
   RegistryCommandRef,
+  WorkspaceCommandRef,
 } from "./refs.js";
 import type { CommandLockEntry } from "../lockfile/index.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
@@ -33,8 +34,10 @@ import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   RenderedFilesMapSchema,
+  type SourceHash,
   materializeExternalPackage,
   materializeRegistryPackage,
+  validatePathSafety,
 } from "../extensions/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
@@ -99,6 +102,18 @@ const buildLocalCommandLockEntry = (
   updatedAt: now,
 });
 
+const buildWorkspaceCommandLockEntry = (ref: WorkspaceCommandRef, now: Date): CommandLockEntry => ({
+  type: "workspace",
+  owner: ref.owner,
+  extensionType: "command",
+  name: ref.name,
+  version: ref.version,
+  sourceHash: ref.sourceHash,
+  agents: [],
+  installedAt: now,
+  updatedAt: now,
+});
+
 /**
  * Build a CommandLockEntry from any ref type.
  */
@@ -114,6 +129,8 @@ export const buildLockEntryFromRef = (
       return buildGitHostedCommandLockEntry(ref, now);
     case "local":
       return buildLocalCommandLockEntry(ref, now, workspaceRelativeLocalSourcePath);
+    case "workspace":
+      return buildWorkspaceCommandLockEntry(ref, now);
   }
 };
 
@@ -154,8 +171,8 @@ export const CommandManagerLive = Layer.effect(
       string,
       {
         readonly agents: ReadonlyArray<string>;
-        readonly sourceHash: string;
-        readonly renderedFiles: CommandLockEntry["renderedFiles"];
+        readonly sourceHash: SourceHash;
+        readonly renderedFiles: NonNullable<CommandLockEntry["renderedFiles"]>;
       }
     >();
 
@@ -213,6 +230,8 @@ export const CommandManagerLive = Layer.effect(
             case "git-hosted":
             case "local":
               return yield* materializeFromExternal(ref);
+            case "workspace":
+              return ref.location;
           }
         });
 
@@ -228,7 +247,7 @@ export const CommandManagerLive = Layer.effect(
         }
 
         const owner =
-          ref.refType === "registry"
+          ref.refType === "registry" || ref.refType === "workspace"
             ? ref.owner
             : yield* ws.getConfiguredOwner().pipe(
                 Effect.flatMap(
@@ -272,14 +291,31 @@ export const CommandManagerLive = Layer.effect(
       }, Effect.asVoid);
 
     const materializeUninstall: ExtensionManager<CommandExtensionRef>["materializeUninstall"] =
-      Effect.fn("CommandManager.materializeUninstall")(function* ({ target }) {
+      Effect.fn("CommandManager.materializeUninstall")(function* ({ target, preserveSource }) {
+        const lockEntry = yield* ws.getLockedCommand(target.name);
+        if (Option.isSome(lockEntry) && lockEntry.value.renderedFiles !== undefined) {
+          const renderedPaths = Object.values(lockEntry.value.renderedFiles).flatMap((files) =>
+            files.map((file) => file.path),
+          );
+          yield* Effect.forEach(
+            renderedPaths,
+            (renderedPath) =>
+              Effect.gen(function* () {
+                const absolutePath = path.resolve(baseDir, renderedPath);
+                yield* validatePathSafety(baseDir, absolutePath);
+                yield* fs.remove(absolutePath).pipe(Effect.catch(() => Effect.void));
+              }),
+            { concurrency: "unbounded" },
+          );
+        }
+
         // Remove from registry extensions dirs
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
         const extensionsDirExists = yield* fs
           .exists(extensionsDir)
           .pipe(Effect.catch(() => Effect.succeed(false)));
 
-        if (extensionsDirExists) {
+        if (extensionsDirExists && preserveSource !== true) {
           const scopeDirs = yield* fs
             .readDirectory(extensionsDir)
             .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
@@ -316,9 +352,16 @@ export const CommandManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      getConfiguredSource: Effect.fn("CommandManager.getConfiguredSource")(function* ({ target }) {
+        const configured = yield* ws.records.getConfiguredCommands();
+        return Option.fromUndefinedOr(configured[target.name]?.source);
+      }),
       listMaterializable: Effect.fn("CommandManager.listMaterializable")(function* () {
         const configured = yield* ws.records.getConfiguredCommands();
-        return yield* configuredCommandsToDiskRefs({ fs, path, baseDir }, configured);
+        return yield* configuredCommandsToDiskRefs(
+          { fs, path, baseDir, scope: ws.scope },
+          configured,
+        );
       }),
       materializeUninstall,
 

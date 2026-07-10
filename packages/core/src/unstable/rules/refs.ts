@@ -9,15 +9,21 @@ import type {
   GitHostedRefDetails,
   LocalRefDetails,
   RegistryRefDetails,
+  WorkspaceRefDetails,
 } from "../extensions/ref-base.js";
 import type { ExtensionRefBase } from "../extensions/ref-base.js";
-import type { GitBasedSource, LocalSource, RegistrySource } from "../sources/types.js";
+import type {
+  GitBasedSource,
+  LocalSource,
+  RegistrySource,
+  WorkspaceSource,
+} from "../sources/types.js";
 import type { ExtensionName } from "../extensions/common.js";
 
 type RuleExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "rule",
-  Extract<TRefType, "git-hosted" | "registry" | "local">,
-  Extract<TSource, GitBasedSource | RegistrySource | LocalSource>
+  Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace">,
+  Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource>
 > & {
   readonly rule: { readonly name: ExtensionName };
 };
@@ -29,6 +35,9 @@ export type GitHostedRuleRef = RuleExtensionRefBase<"git-hosted", GitBasedSource
 export type RegistryRuleRef = RuleExtensionRefBase<"registry", RegistrySource> & RegistryRefDetails;
 /** @experimental */
 export type LocalRuleRef = RuleExtensionRefBase<"local", LocalSource> & LocalRefDetails;
+/** @experimental */
+export type WorkspaceRuleRef = RuleExtensionRefBase<"workspace", WorkspaceSource> &
+  WorkspaceRefDetails;
 
 /** @experimental */
-export type RuleExtensionRef = GitHostedRuleRef | RegistryRuleRef | LocalRuleRef;
+export type RuleExtensionRef = GitHostedRuleRef | RegistryRuleRef | LocalRuleRef | WorkspaceRuleRef;

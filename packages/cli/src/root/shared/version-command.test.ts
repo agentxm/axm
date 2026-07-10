@@ -54,6 +54,14 @@ const writeManifest = (root: string, type: ManifestPlural, name: string, version
       version,
     }),
   );
+  const settingsPath = path.join(root, ".axm", "settings.json");
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+  const settingsKey = type === "mcps" ? "mcpServers" : type;
+  settings[settingsKey] = {
+    ...(settings[settingsKey] ?? {}),
+    [name]: `workspace:@test/${type}/${name}`,
+  };
+  fs.writeFileSync(settingsPath, JSON.stringify(settings));
   return path.join(dir, filename);
 };
 

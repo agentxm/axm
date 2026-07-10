@@ -43,6 +43,7 @@ export type {
   GitHostedFilesRef,
   LocalFilesRef,
   RegistryFilesRef,
+  WorkspaceFilesRef,
 } from "./refs.js";
 export {
   commentStyleForTarget,

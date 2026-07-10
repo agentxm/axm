@@ -155,7 +155,7 @@ describe("files enable/disable no-op output", () => {
     );
   });
 
-  it.effect("re-enables an authored files package from the managed local source", () => {
+  it.effect("re-enables a workspace-sourced files package from its canonical source", () => {
     const { provide, logs } = makeLayers();
 
     return provide(
@@ -184,10 +184,9 @@ describe("files enable/disable no-op output", () => {
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );
-        expect(settings.files["workspace-baseline"]).toEqual({
-          source: "@acme/files/workspace-baseline",
-          authored: true,
-        });
+        expect(settings.files["workspace-baseline"]).toBe(
+          "workspace:@acme/files/workspace-baseline",
+        );
       }),
     );
   });

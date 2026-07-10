@@ -47,6 +47,7 @@ import type {
   RegistryExtensionManifest,
   RegistryLibraryDetail,
   RegistryLibraryMaintainer,
+  UpdateExtensionVisibilityArgs,
 } from "./client.js";
 import {
   isRegistryClientError,
@@ -698,6 +699,29 @@ export const createRemoteRegistryClient = (
       );
   };
 
+  const updateExtensionVisibility = (
+    args: UpdateExtensionVisibilityArgs,
+  ): Effect.Effect<void, AppError> =>
+    client
+      .ExtensionsUpdateVisibility(args.owner, pluralizeType(args.type), args.name, {
+        payload: { visibility: args.visibility },
+        config: undefined,
+      })
+      .pipe(
+        Effect.asVoid,
+        Effect.mapError((error) =>
+          isHttpClientError(error)
+            ? mapNetworkError(error, "Failed to connect to extension visibility endpoint", baseUrl)
+            : isAnyRegistryClientError(error)
+              ? registryClientErrorToAppError(error)
+              : makeAppError({
+                  code: "network",
+                  detail: "Remote extension visibility update failed",
+                  cause: error,
+                }),
+        ),
+      );
+
   /**
    * Map all publish error types to AppError.
    * Uses tag-based dispatch to handle each RegistryClientError variant.
@@ -813,6 +837,7 @@ export const createRemoteRegistryClient = (
     ownerExists,
     getExtensionPackage,
     publishExtension,
+    updateExtensionVisibility,
     extensionExists,
     discoverPackages,
   };

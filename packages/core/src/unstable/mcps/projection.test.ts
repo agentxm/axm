@@ -54,7 +54,6 @@ describe("MCP projection", () => {
         url: "https://example.test/mcp",
         headers: {},
         enabled: true,
-        authored: false,
         env: {},
       },
       stdio: null,
@@ -95,7 +94,6 @@ describe("MCP projection", () => {
         url: "https://example.test/sse",
         headers: {},
         enabled: true,
-        authored: false,
         env: {},
       },
       stdio: null,
@@ -128,7 +126,6 @@ describe("MCP projection", () => {
         url: "https://example.test/mcp",
         headers: { Authorization: "${TOKEN}" },
         enabled: true,
-        authored: false,
         env: {},
       },
       stdio: null,
@@ -163,7 +160,6 @@ describe("MCP projection", () => {
         args: ["-y", "@acme/context"],
         env: { ACME_TOKEN: "secret" },
         enabled: true,
-        authored: false,
       },
       stdio: {
         typeField: {
@@ -200,7 +196,6 @@ describe("MCP projection", () => {
         args: ["-y", "@acme/context"],
         env: {},
         enabled: true,
-        authored: false,
       },
       stdio: {
         typeField: {

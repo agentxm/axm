@@ -25,7 +25,11 @@ import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
-import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
+import type {
+  McpServerExtensionRef,
+  RegistryMcpServerRef,
+  WorkspaceMcpServerRef,
+} from "../refs.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 import {
@@ -79,6 +83,17 @@ const buildLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntr
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
+  installedAt: now,
+  updatedAt: now,
+});
+
+const buildWorkspaceLockEntry = (ref: WorkspaceMcpServerRef, now: Date): McpServerLockEntry => ({
+  type: "workspace",
+  owner: ref.owner,
+  extensionType: "mcp-server",
+  name: ref.name,
+  version: ref.version,
+  sourceHash: ref.sourceHash,
   installedAt: now,
   updatedAt: now,
 });
@@ -545,7 +560,7 @@ export const installMcpServer: (
     const ws = yield* WorkspaceMutations;
     const { ref } = op.args;
 
-    if (ref.refType !== "registry") {
+    if (ref.refType !== "registry" && ref.refType !== "workspace") {
       return yield* makeAppError({
         code: "internal",
         detail: `Unsupported ref type for MCP server install: ${ref.refType}`,
@@ -554,7 +569,45 @@ export const installMcpServer: (
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
-    const canonicalPath = yield* installFromRegistry(ref);
+    const canonicalPath =
+      ref.refType === "registry"
+        ? yield* installFromRegistry(ref)
+        : yield* Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            const expectedPath = path.join(
+              ws.baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              "mcps",
+              ref.name,
+            );
+            if (
+              ref.scope !== ws.scope ||
+              path.resolve(ref.location) !== path.resolve(expectedPath)
+            ) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Invalid workspace MCP server source location: ${ref.location}`,
+              });
+            }
+            const exists = yield* fs.exists(ref.location).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to inspect workspace MCP server package: ${ref.location}`,
+                  cause: error,
+                }),
+              ),
+            );
+            if (!exists) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Workspace MCP server package is missing: ${ref.location}`,
+              });
+            }
+            return ref.location;
+          });
     const manifest = yield* readManifest(canonicalPath);
     const nothingRunnable = isNothingRunnableManifest(manifest);
     const secretNames = Option.match(manifest, {
@@ -568,7 +621,10 @@ export const installMcpServer: (
     );
 
     // Build lock entry and persist
-    const lockEntry = buildLockEntry(ref, new Date());
+    const lockEntry =
+      ref.refType === "registry"
+        ? buildLockEntry(ref, new Date())
+        : buildWorkspaceLockEntry(ref, new Date());
     const currentMcpServers = yield* ws.getConfiguredMcpServerEntries();
     const currentEntry = currentMcpServers[ref.server.name];
     const storedSecrets = yield* loadStoredMcpSecrets(ref.server.name, secretNames);

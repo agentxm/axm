@@ -77,6 +77,7 @@ const withRefFallback = (params: SourceParams, ref: Option.Option<string>): Sour
     case "registry":
     case "local":
     case "inline":
+    case "workspace":
       return params;
   }
 };
@@ -93,6 +94,7 @@ const withCloneUrl = (source: Source, cloneUrl: Option.Option<string>): Source =
     case "git":
     case "registry":
     case "local":
+    case "workspace":
       return source;
   }
 };
@@ -684,5 +686,12 @@ export const resolveSource = (
           code: "validation",
           detail: `Glob patterns are not supported by resolveSource — use resolveSourcePattern instead`,
         });
+      case "workspace-pattern-input":
+        return {
+          type: "workspace",
+          owner: pattern.owner,
+          extensionType: pattern.type,
+          name: pattern.name,
+        };
     }
   });

@@ -233,6 +233,7 @@ export const makeBaseWorkspaceMock = (
     getLockedSubagents: () => Effect.succeed({}),
     getLockedSubagent: () => Effect.succeed(Option.none()),
     getConfiguredSubagentEntries: () => Effect.succeed({}),
+    getConfiguredCommandEntries: () => Effect.succeed({}),
     setSubagent: () => Effect.void,
     setSubagentLock: () => Effect.void,
     removeSubagent: () => Effect.void,

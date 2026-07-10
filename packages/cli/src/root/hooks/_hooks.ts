@@ -7,7 +7,7 @@ import { installCommand } from "./install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { pruneCommand } from "./prune.js";
-import { publishCommand } from "./publish.js";
+import { hooksPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { updateCommand } from "./update.js";
 

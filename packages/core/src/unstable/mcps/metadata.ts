@@ -6,7 +6,7 @@
 
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type { SourceType } from "../sources/index.js";
+import { isWorkspaceSourceLocator, type SourceType } from "../sources/index.js";
 
 export const AXM_MCP_METADATA_KEY = "x-axm";
 
@@ -18,6 +18,7 @@ const ResolvableSourceTypeSchema = Schema.Literals([
   "git",
   "registry",
   "local",
+  "workspace",
 ]);
 
 export const AxmMcpMetadataSchema = Schema.Union([
@@ -51,6 +52,7 @@ const hasValidRefShape = (metadata: Record<string, unknown>): boolean => {
 };
 
 const sourceTypeFromSettingsSource = (source: string): Exclude<SourceType, "inline"> => {
+  if (isWorkspaceSourceLocator(source)) return "workspace";
   switch (source) {
     case "github":
       return "github";

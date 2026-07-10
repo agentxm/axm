@@ -26,6 +26,7 @@ import type {
   RegistryExtensionManifest,
   GetExtensionPackageArgs,
   PublishExtensionArgs,
+  UpdateExtensionVisibilityArgs,
   ExtensionExistsArgs,
   GetExtensionsByOwnerResponse,
   DiscoverPackagesArgs,
@@ -519,6 +520,40 @@ export const createLocalRegistryClient = (
       );
 
       return { published: true } as const;
+    }),
+
+  updateExtensionVisibility: (args: UpdateExtensionVisibilityArgs) =>
+    Effect.gen(function* () {
+      const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+      const indexPath = path.join(dir, "index.json");
+      const content = yield* fs.readFileString(indexPath).pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "not_found",
+            detail: `Extension index not found: ${indexPath}`,
+            cause,
+          }),
+        ),
+      );
+      const index = yield* decodeExtensionIndexFromJsonString(content).pipe(
+        Effect.mapError((cause) =>
+          makeAppError({ code: "validation", detail: "Registry index schema is invalid", cause }),
+        ),
+      );
+      yield* fs
+        .writeFileString(
+          indexPath,
+          `${encodeExtensionIndexToJsonString({ ...index, visibility: args.visibility })}\n`,
+        )
+        .pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: `Registry index could not be written: ${indexPath}`,
+              cause,
+            }),
+          ),
+        );
     }),
 
   extensionExists: (args: ExtensionExistsArgs) =>

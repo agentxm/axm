@@ -27,7 +27,6 @@ const serverName = "my-server";
 const makeEntry = (enabled: boolean): McpServerEntry => ({
   source: "@community/mcps/my-server",
   enabled,
-  authored: false,
   env: {},
 });
 

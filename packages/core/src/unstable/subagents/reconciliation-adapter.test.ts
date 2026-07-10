@@ -67,7 +67,7 @@ describe("subagent reconciliation adapter", () => {
           const settings: Settings = {
             skills: {},
             subagents: {
-              helper: { source: "@acme/subagents/helper@^1", enabled: true, authored: false },
+              helper: { source: "@acme/subagents/helper@^1", enabled: true },
             },
           };
 
@@ -86,7 +86,7 @@ describe("subagent reconciliation adapter", () => {
         const settings: Settings = {
           skills: {},
           subagents: {
-            helper: { source: "@acme/subagents/helper@^1", enabled: true, authored: false },
+            helper: { source: "@acme/subagents/helper@^1", enabled: true },
           },
         };
 
@@ -109,7 +109,7 @@ describe("subagent reconciliation adapter", () => {
         const settings: Settings = {
           skills: {},
           subagents: {
-            helper: { source: "@acme/subagents/helper@^1", enabled: true, authored: false },
+            helper: { source: "@acme/subagents/helper@^1", enabled: true },
           },
         };
 
@@ -143,7 +143,7 @@ describe("subagent reconciliation adapter", () => {
         const settings: Settings = {
           skills: {},
           subagents: {
-            helper: { source: "@acme/subagents/helper@^1", enabled: true, authored: false },
+            helper: { source: "@acme/subagents/helper@^1", enabled: true },
           },
         };
 
@@ -162,7 +162,7 @@ describe("subagent reconciliation adapter", () => {
         const settings: Settings = {
           skills: {},
           subagents: {
-            helper: { source: "file:///local/path", enabled: true, authored: false },
+            helper: { source: "file:///local/path", enabled: true },
           },
         };
 
@@ -183,7 +183,7 @@ describe("subagent reconciliation adapter", () => {
         const settings: Settings = {
           skills: {},
           subagents: {
-            helper: { source: "@acme/subagents/helper@^1", enabled: false, authored: false },
+            helper: { source: "@acme/subagents/helper@^1", enabled: false },
           },
         };
 
@@ -224,7 +224,7 @@ describe("subagent reconciliation adapter", () => {
         const settings: Settings = {
           skills: {},
           subagents: {
-            helper: { source: "registry", enabled: true, authored: false },
+            helper: { source: "registry", enabled: true },
           },
         };
 

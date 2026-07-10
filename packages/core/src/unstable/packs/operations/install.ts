@@ -226,6 +226,7 @@ export const installPack: OperationHandler<
     // Write lockfile + settings
     const metadataWarning = yield* ws
       .setPack({
+        type: "registry",
         owner: op.args.owner,
         name: decodeExtensionNameSync(op.args.packName),
         resolvedVersion: op.args.resolvedVersion,

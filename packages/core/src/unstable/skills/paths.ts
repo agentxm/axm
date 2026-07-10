@@ -18,7 +18,7 @@ import type { AbsolutePath } from "../utils/path-types.js";
  * use the shared external extensions directory.
  */
 export type SkillPathSource =
-  | { readonly refType: "registry"; readonly owner: Handle }
+  | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
   | { readonly refType: "git-hosted" | "local" };
 
 /**

@@ -155,7 +155,7 @@ export const SkillManagerLive = Layer.effect(
     });
 
     const materializeUninstall: ExtensionManager<SkillExtensionRef>["materializeUninstall"] =
-      Effect.fn("SkillManager.materializeUninstall")(function* ({ target }) {
+      Effect.fn("SkillManager.materializeUninstall")(function* ({ target, preserveSource }) {
         const sanitized = sanitizeName(target.name);
 
         const configuredAgents = yield* agentRepo
@@ -191,7 +191,9 @@ export const SkillManagerLive = Layer.effect(
           { concurrency: "unbounded" },
         );
 
-        yield* removeFromAllCanonicalLocations(fs, baseDir, "skills", sanitized, path);
+        if (preserveSource !== true) {
+          yield* removeFromAllCanonicalLocations(fs, baseDir, "skills", sanitized, path);
+        }
       });
 
     return {
@@ -210,9 +212,16 @@ export const SkillManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      getConfiguredSource: Effect.fn("SkillManager.getConfiguredSource")(function* ({ target }) {
+        const configured = yield* ws.records.getConfiguredSkills();
+        return Option.fromUndefinedOr(configured[target.name]?.source);
+      }),
       listMaterializable: Effect.fn("SkillManager.listMaterializable")(function* () {
         const configured = yield* ws.records.getConfiguredSkills();
-        return yield* configuredSkillsToDiskRefs({ fs, path, baseDir }, configured);
+        return yield* configuredSkillsToDiskRefs(
+          { fs, path, baseDir, scope: ws.scope },
+          configured,
+        );
       }),
       materializeUninstall,
 

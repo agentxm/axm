@@ -145,6 +145,7 @@ export const UninstallFilesCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallFilesCommandIntent,
+      flags: { readonly sourceDisposition?: "keep" | "delete" },
     ): Effect.Effect<Plan, AppError> =>
       Effect.succeed({
         _tag: "Plan",
@@ -158,7 +159,12 @@ export const UninstallFilesCommandWorkflowActionsLive = Layer.effect(
                 buildUninstallOperation<FilesExtensionRef>(
                   filesManager,
                   makeWorkspaceRetentionPolicy(ws),
-                  { target },
+                  {
+                    target,
+                    ...(flags.sourceDisposition === undefined
+                      ? {}
+                      : { sourceDisposition: flags.sourceDisposition }),
+                  },
                 ),
                 ws.scope,
                 ws,

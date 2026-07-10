@@ -27,7 +27,11 @@ import type { FilesLockEntry, MaterializedFileTarget } from "../lockfile/index.j
 import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
+import {
+  isWorkspaceSourceLocator,
+  lockEntryToSourceParams,
+  printSourceParams,
+} from "../sources/index.js";
 import type { ExtensionManager, FilesExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { resolveConfiguredFiles } from "../workspace/configured-entry-resolution/index.js";
@@ -43,6 +47,7 @@ import {
   type GitHostedFilesRef,
   type LocalFilesRef,
   type RegistryFilesRef,
+  type WorkspaceFilesRef,
   materializeFileEntry,
   renderFileContent,
   commentStyleForTarget,
@@ -102,6 +107,23 @@ const localFilesLockEntry = (
 ): FilesLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
+  resolvedInputs,
+  materializedTargets,
+  ...commonLockFields(now),
+});
+
+const workspaceFilesLockEntry = (
+  ref: WorkspaceFilesRef,
+  now: Date,
+  resolvedInputs: Readonly<Record<string, FileInputValue>>,
+  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
+): FilesLockEntry => ({
+  type: "workspace",
+  owner: ref.owner,
+  extensionType: "files",
+  name: ref.name,
+  version: ref.version,
+  sourceHash: ref.sourceHash,
   resolvedInputs,
   materializedTargets,
   ...commonLockFields(now),
@@ -209,6 +231,25 @@ export const FilesManagerLive = Layer.effect(
           case "git-hosted":
           case "local":
             return yield* materializeFromExternal(ref);
+          case "workspace": {
+            const expectedPath = path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              FILES_EXTENSION_DIR,
+              ref.name,
+            );
+            if (
+              ref.scope !== ws.scope ||
+              path.resolve(ref.location) !== path.resolve(expectedPath)
+            ) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Invalid workspace files source location: ${ref.location}`,
+              });
+            }
+            return ref.location;
+          }
         }
       });
 
@@ -237,7 +278,7 @@ export const FilesManagerLive = Layer.effect(
 
     const markerExtForLockedTarget = (name: string, lockEntry: FilesLockEntry) =>
       Effect.gen(function* () {
-        if (lockEntry.type === "registry") {
+        if (lockEntry.type === "registry" || lockEntry.type === "workspace") {
           return formatFqn({ owner: lockEntry.owner, type: "files", name: lockEntry.name });
         }
         const packageRoot = path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, FILES_EXTENSION_DIR, name);
@@ -415,11 +456,15 @@ export const FilesManagerLive = Layer.effect(
               state?.workspaceRelativeLocalSourcePath ?? Option.none(),
             ),
           );
+        case "workspace":
+          return Effect.succeed(
+            workspaceFilesLockEntry(ref, now, resolvedInputs, materializedTargets),
+          );
       }
     };
 
     const materializeUninstall: ExtensionManager<FilesExtensionRef>["materializeUninstall"] =
-      Effect.fn("FilesManager.materializeUninstall")(function* ({ target }) {
+      Effect.fn("FilesManager.materializeUninstall")(function* ({ target, preserveSource }) {
         const locked = yield* ws.getLockedFilesEntry(target.name);
         if (Option.isNone(locked)) return;
         const markerExt = yield* markerExtForLockedTarget(target.name, locked.value);
@@ -443,6 +488,19 @@ export const FilesManagerLive = Layer.effect(
           );
           yield* fs.writeFileString(absoluteTarget, updated).pipe(Effect.catch(() => Effect.void));
         }
+        if (preserveSource !== true) {
+          const packageRoot =
+            locked.value.type === "registry" || locked.value.type === "workspace"
+              ? path.join(
+                  baseDir,
+                  REGISTRY_EXTENSIONS_DIR,
+                  locked.value.owner,
+                  FILES_EXTENSION_DIR,
+                  locked.value.name,
+                )
+              : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, FILES_EXTENSION_DIR, target.name);
+          yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
+        }
       }, Effect.asVoid);
 
     return {
@@ -454,6 +512,10 @@ export const FilesManagerLive = Layer.effect(
         ),
 
       materializeInstall,
+      getConfiguredSource: Effect.fn("FilesManager.getConfiguredSource")(function* ({ target }) {
+        const configured = yield* ws.getConfiguredFilesEntries();
+        return Option.fromUndefinedOr(configured[target.name]?.source);
+      }),
 
       listMaterializable: Effect.fn("FilesManager.listMaterializable")(function* () {
         const configured = yield* ws.getConfiguredFilesEntries();
@@ -480,7 +542,7 @@ export const FilesManagerLive = Layer.effect(
         const entries = yield* ws.getConfiguredFilesEntries();
         const current = entries[ref.file.name];
         const source =
-          current?.authored === true
+          current !== undefined && isWorkspaceSourceLocator(current.source)
             ? current.source
             : ref.refType === "registry"
               ? (() => {
@@ -491,7 +553,6 @@ export const FilesManagerLive = Layer.effect(
         yield* ws.setFilesEntry(ref.file.name, {
           source,
           enabled: true,
-          authored: current?.authored ?? false,
           inputs: current?.inputs ?? {},
         });
       }),

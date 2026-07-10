@@ -48,7 +48,8 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
     const warnings: string[] = [];
 
     for (const [name, entry] of Object.entries(commands)) {
-      const source = entry.source;
+      const source = typeof entry === "string" ? entry : entry.source;
+      if (source.startsWith("workspace:")) continue;
       const parsed = parseRegistryCommandSource(source);
       const owner = Option.isSome(parsed)
         ? parsed.value.owner

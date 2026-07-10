@@ -8,7 +8,11 @@ const commandVersion = (
   entry: CommandLockEntry,
   versionRange: Option.Option<string>,
 ): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : Option.getOrUndefined(versionRange);
+  entry.type === "registry"
+    ? entry.resolvedVersion
+    : entry.type === "workspace"
+      ? entry.version
+      : Option.getOrUndefined(versionRange);
 
 const renderedFileTargets = (
   renderedFiles: CommandLockEntry["renderedFiles"],
@@ -112,7 +116,7 @@ export const commandUninstallArtifact = (args: {
 
   const lockEntry = args.lockEntry.value;
   const sourcePath =
-    lockEntry.type === "registry"
+    lockEntry.type === "registry" || lockEntry.type === "workspace"
       ? `${REGISTRY_EXTENSIONS_DIR}/${lockEntry.owner}/commands/${lockEntry.name}`
       : `${EXTERNAL_EXTENSIONS_DIR}/commands/${args.commandName}`;
   const renderedTargets = renderedFileTargets(lockEntry.renderedFiles, args.change);

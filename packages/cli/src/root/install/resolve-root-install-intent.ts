@@ -50,6 +50,8 @@ const rootInstallRegistryOnlyHowToFix = (source: string): string => {
       return `Root install needs a registry FQN or source locator. For bare names, use the matching per-type command: \`axm skills install ${source}\`, \`axm commands install ${source}\`, \`axm subagents install ${source}\`, \`axm packs install ${source}\`, or \`axm mcps install ${source}\`.`;
     case "registry-pattern-input":
       return "Use `axm install @<handle>/<plural-type>/<name>[@<version>]`.";
+    case "workspace-pattern-input":
+      return "Workspace locators declare source authority in settings and cannot be installed over. Use sync or the matching enable command.";
   }
 };
 

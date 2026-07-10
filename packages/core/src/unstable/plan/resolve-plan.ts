@@ -170,7 +170,7 @@ export interface ResolvePlanArgs {
   readonly name: string;
   readonly description?: string;
   readonly steps: ReadonlyArray<PlannedJobStep>;
-  readonly concurrency?: "unbounded" | 1;
+  readonly concurrency?: "unbounded" | number;
 }
 
 /**

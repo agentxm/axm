@@ -7,7 +7,7 @@ import { enableCommand } from "./enable.js";
 import { disableCommand } from "./disable.js";
 import { updateCommand } from "./update.js";
 import { newCommand } from "./new.js";
-import { publishCommand } from "./publish.js";
+import { commandsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { commandsVersionCommand } from "../shared/version-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 

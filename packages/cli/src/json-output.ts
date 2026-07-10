@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { SourceTypeSchema } from "@agentxm/client-core/unstable/sources";
 
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
@@ -190,7 +191,16 @@ const PublishStatusSchema = Schema.Literals(["success", "failed", "pending"] as 
   description: "Execution status for an applied publish decision.",
 });
 
-const PublishReasonSchema = Schema.Literals(["version_already_published"] as const).annotate({
+const PublishReasonSchema = Schema.Literals([
+  "version_already_published",
+  "not_authored",
+  "not_publishable",
+  "invalid_workspace_source",
+  "authorization_failed",
+  "version_exists",
+  "integrity_drift",
+  "verify_failed",
+] as const).annotate({
   identifier: "PublishReason",
   title: "Publish Reason",
   description: "Reason a publish item was skipped or errored.",
@@ -201,6 +211,8 @@ const PublishResultItemSchema = Schema.Struct({
   type: ExtensionTypeSchema,
   name: ExtensionNameSchema,
   version: VersionSchema,
+  sourceType: Schema.optional(SourceTypeSchema),
+  authored: Schema.optional(Schema.Boolean),
   action: PublishActionSchema,
   reason: Schema.optional(PublishReasonSchema),
   status: Schema.optional(PublishStatusSchema),
@@ -218,6 +230,15 @@ const PublishResultItemSchema = Schema.Struct({
 
 export const PublishResultSchema = Schema.Struct({
   mode: PublishModeSchema,
+  selection: Schema.optional(
+    Schema.Struct({
+      mode: Schema.Literals(["authored", "all", "explicit", "filtered-explicit"] as const),
+      scope: Schema.Literals(["project", "user"] as const),
+      owners: Schema.Array(HandleSchema),
+      types: Schema.Array(ExtensionTypeSchema),
+      registry: Schema.String,
+    }),
+  ),
   results: Schema.Array(PublishResultItemSchema),
 }).annotate({
   identifier: "PublishResult",

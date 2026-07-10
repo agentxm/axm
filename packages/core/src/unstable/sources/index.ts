@@ -24,6 +24,7 @@ export {
   BitbucketSourceParamsSchema,
   AzureReposSourceParamsSchema,
 } from "./types.js";
+export { isWorkspaceSourceLocator } from "./workspace.js";
 export type { GitHostedSourceParamParts, AzureReposSourceParamParts } from "./types.js";
 
 // Types — Source domain model
@@ -40,6 +41,7 @@ export type {
   RegistrySourceHost,
   SelfDescribingSourceHost,
   SourceHost,
+  WorkspaceSourceHost,
   // SourceParams
   AzureReposSourceParams,
   BitbucketSourceParams,
@@ -50,6 +52,7 @@ export type {
   LocalSourceParams,
   RegistrySourceParams,
   SourceParams,
+  WorkspaceSourceParams,
   // Source (flat intersection)
   GitBasedSource,
   GitHostingSource,
@@ -61,6 +64,7 @@ export type {
   LocalSource,
   RegistrySource,
   Source,
+  WorkspaceSource,
 } from "./types.js";
 
 // Type guards and utilities

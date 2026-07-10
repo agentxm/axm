@@ -255,9 +255,8 @@ describe("root sync handler", () => {
         agents: ["claude-code", "cursor", "codex"],
         mcps: {
           browser: {
-            source: "@acme/mcps/browser",
+            source: "workspace:@acme/mcps/browser",
             enabled: false,
-            authored: true,
           },
         },
       });

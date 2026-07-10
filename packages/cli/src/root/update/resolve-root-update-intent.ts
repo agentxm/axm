@@ -50,6 +50,8 @@ const rootUpdateRegistryOnlyHowToFix = (source: string): string => {
       return `Root update only accepts registry FQNs. Use the matching per-type command instead: \`axm skills update ${source}\`, \`axm commands update ${source}\`, \`axm subagents update ${source}\`.`;
     case "registry-pattern-input":
       return "Use `axm update @<handle>/<plural-type>/<name>[@<version>]`.";
+    case "workspace-pattern-input":
+      return "Workspace-sourced extensions are locally authoritative and are not update targets.";
   }
 };
 

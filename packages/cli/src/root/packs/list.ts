@@ -44,8 +44,8 @@ export const handleList = Effect.fn("PacksList.handle")(function* () {
   const items: ReadonlyArray<PackListItem> = Object.entries(packs).map(([name, entry]) => ({
     name,
     owner: entry.owner,
-    version: entry.resolvedVersion,
-    source: entry.sourceName,
+    version: entry.type === "workspace" ? entry.version : entry.resolvedVersion,
+    source: entry.type === "workspace" ? "workspace" : entry.sourceName,
   }));
 
   if (

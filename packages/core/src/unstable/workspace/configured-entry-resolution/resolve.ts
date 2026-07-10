@@ -13,7 +13,9 @@ import { resolveSource, SourceHostProviders } from "../../source-resolution/inde
 import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
 import type { VersionRange } from "../../version-constraints/version-constraints.js";
+import { isWorkspaceSourceLocator } from "../../sources/index.js";
 import { WorkspaceMutations } from "../service-interface.js";
+import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
 
 const configuredReleaseAgePolicy = (): Effect.Effect<
   Option.Option<ReleaseAgePolicy>,
@@ -36,6 +38,23 @@ const configuredReleaseAgePolicy = (): Effect.Effect<
 
 export const resolveConfiguredSkill = (name: string, source: string) =>
   Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) {
+      const ws = yield* WorkspaceMutations;
+      const ref = yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source,
+        expectedType: "skill",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (ref.type !== "skill") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Workspace skill resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
@@ -107,6 +126,23 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
 
 export const resolveConfiguredSubagent = (name: string, source: string) =>
   Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) {
+      const ws = yield* WorkspaceMutations;
+      const ref = yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source,
+        expectedType: "subagent",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (ref.type !== "subagent") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Workspace subagent resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
@@ -178,6 +214,23 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
 
 export const resolveConfiguredCommand = (name: string, source: string) =>
   Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) {
+      const ws = yield* WorkspaceMutations;
+      const ref = yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source,
+        expectedType: "command",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (ref.type !== "command") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Workspace command resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
     const parsed = parseRegistrySourceRef(source);
 
     if (parsed === undefined || parsed.type !== "commands" || parsed.name !== name) {
@@ -248,6 +301,23 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
 
 export const resolveConfiguredFiles = (name: string, source: string) =>
   Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) {
+      const ws = yield* WorkspaceMutations;
+      const ref = yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source,
+        expectedType: "files",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (ref.type !== "files") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Workspace files resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
@@ -321,6 +391,23 @@ export const resolveConfiguredFiles = (name: string, source: string) =>
 
 export const resolveConfiguredRule = (name: string, source: string) =>
   Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) {
+      const ws = yield* WorkspaceMutations;
+      const ref = yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source,
+        expectedType: "rule",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (ref.type !== "rule") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Workspace rule resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
@@ -394,6 +481,23 @@ export const resolveConfiguredRule = (name: string, source: string) =>
 
 export const resolveConfiguredHook = (name: string, source: string) =>
   Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) {
+      const ws = yield* WorkspaceMutations;
+      const ref = yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source,
+        expectedType: "hook",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (ref.type !== "hook") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Workspace hook resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
     const providers = yield* SourceHostProviders;
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
@@ -467,6 +571,23 @@ export const resolveConfiguredHook = (name: string, source: string) =>
 
 export const resolveConfiguredMcpServer = (name: string, source: string) =>
   Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) {
+      const ws = yield* WorkspaceMutations;
+      const ref = yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source,
+        expectedType: "mcp-server",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (ref.type !== "mcp-server") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Workspace MCP server resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
     const parsed = parseRegistrySourceRef(source);
 
     if (parsed === undefined || parsed.type !== "mcps" || parsed.name !== name) {
@@ -537,6 +658,23 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
 
 export const resolveConfiguredPack = (name: string, source: string) =>
   Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) {
+      const ws = yield* WorkspaceMutations;
+      const ref = yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source,
+        expectedType: "pack",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (ref.type !== "pack") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Workspace pack resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
     const parsed = parseRegistrySourceRef(source);
 
     if (parsed === undefined || parsed.type !== "packs" || parsed.name !== name) {

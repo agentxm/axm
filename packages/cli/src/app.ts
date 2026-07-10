@@ -51,6 +51,9 @@ import { updateCommand } from "./root/update/command.js";
 import { helpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
 import { versionCommand } from "./root/shared/version-command.js";
+import { publishCommand } from "./root/publish/command.js";
+import { adoptCommand } from "./root/adopt/command.js";
+import { demoteCommand } from "./root/demote/command.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
@@ -89,6 +92,9 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         mcpsCommand,
         subagentsCommand,
         packsCommand,
+        publishCommand,
+        adoptCommand,
+        demoteCommand,
         installCommand,
         updateCommand,
         uninstallCommand,

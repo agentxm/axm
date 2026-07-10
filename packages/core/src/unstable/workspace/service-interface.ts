@@ -20,7 +20,8 @@ import type { Handle } from "../extensions/handle.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type { FileInputValue } from "../files/manifest-schema.js";
 import type {
-  RegistryPackLockEntryArgs,
+  RegistryPackLockEntry,
+  WorkspacePackLockEntry,
   CommandLockEntry,
   CommandsLockMap,
   FilesLockEntry,
@@ -43,6 +44,7 @@ import type {
 } from "../lockfile/index.js";
 import type {
   CommandEntry,
+  CommandsMap,
   FilesEntry,
   FilesMap,
   HookEntry,
@@ -90,7 +92,7 @@ import type { LockfileState } from "./augment-plan.js";
  * use the shared external extensions directory.
  */
 export type SkillPathSource =
-  | { readonly refType: "registry"; readonly owner: Handle }
+  | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
   | { readonly refType: "git-hosted" | "local" };
 
 /**
@@ -187,9 +189,13 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly materializeInstall: (args: {
     readonly ref: TRef;
   }) => Effect.Effect<void, AppError, never>;
+  readonly getConfiguredSource?: (args: {
+    readonly target: ExtensionTarget;
+  }) => Effect.Effect<Option.Option<string>, AppError, never>;
   readonly listMaterializable: () => Effect.Effect<ReadonlyArray<TRef>, AppError, never>;
   readonly materializeUninstall: (args: {
     readonly target: ExtensionTargetFor<TRef>;
+    readonly preserveSource?: boolean;
   }) => Effect.Effect<void, AppError, never>;
   readonly upsertSettingsEntry: (args: {
     readonly ref: TRef;
@@ -288,7 +294,7 @@ export interface SetSkillArgs {
  * Arguments for `setPack` -- all `PackLockEntry` fields except `type` (always "registry"),
  * plus an optional version constraint for settings persistence.
  */
-export type SetPackArgs = RegistryPackLockEntryArgs & {
+export type SetPackArgs = (RegistryPackLockEntry | WorkspacePackLockEntry) & {
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
   readonly versionRange: Option.Option<string>;
 };
@@ -581,6 +587,8 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<Option.Option<SubagentLockEntry>, AppError>;
   /** Read settings and return configured subagents, defaulting to `{}`. */
   readonly getConfiguredSubagentEntries: () => Effect.Effect<SubagentsMap, AppError>;
+  /** Read configured command entries directly from settings. */
+  readonly getConfiguredCommandEntries: () => Effect.Effect<CommandsMap, AppError>;
   /** Add or update a subagent in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
   readonly setSubagent: (args: SetSubagentArgs) => Effect.Effect<void, AppError>;
   /** Add or update a subagent in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */

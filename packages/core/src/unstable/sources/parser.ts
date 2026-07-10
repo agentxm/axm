@@ -10,8 +10,15 @@
  */
 
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
-import type { ExtensionName, ExtensionTypePlural, Handle } from "../extensions/index.js";
+import type {
+  ExtensionName,
+  ExtensionType,
+  ExtensionTypePlural,
+  Handle,
+} from "../extensions/index.js";
+import { parseFqn } from "../extensions/index.js";
 import { parseRegistrySourcePatternParts } from "../extensions/registry-source.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
@@ -65,6 +72,14 @@ export type ShorthandInput = {
 /** A glob pattern containing `*` wildcards (e.g. `effect-*`). */
 type GlobInput = { readonly pattern: "glob-input"; readonly value: string };
 
+/** An intrinsic workspace package locator. */
+type WorkspacePatternInput = {
+  readonly pattern: "workspace-pattern-input";
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+};
+
 /** Discriminated union of all input patterns recognized by the parser. */
 export type InputPattern =
   | NameInput
@@ -74,7 +89,8 @@ export type InputPattern =
   | SlashPattern
   | FilePathPattern
   | ShorthandInput
-  | GlobInput;
+  | GlobInput
+  | WorkspacePatternInput;
 
 /** Parse result with the classified pattern and original input. */
 export type InputParseResult<T = InputPattern> = {
@@ -111,7 +127,22 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     );
   }
 
-  // 2. Shorthand prefix (github:..., gitlab:..., etc.) — must check before URL
+  // 2. Intrinsic workspace source — must be intercepted before URL parsing,
+  // because URL accepts arbitrary opaque schemes such as `workspace:`.
+  if (input.startsWith("workspace:")) {
+    const parsed = parseFqn(input.slice("workspace:".length));
+    if (Result.isFailure(parsed)) return Option.none();
+    return Option.some(
+      wrap({
+        pattern: "workspace-pattern-input",
+        owner: parsed.success.owner,
+        type: parsed.success.type,
+        name: parsed.success.name,
+      }),
+    );
+  }
+
+  // 3. Shorthand prefix (github:..., gitlab:..., etc.) — must check before URL
   const colonIndex = input.indexOf(":");
   if (colonIndex > 0 && SHORTHAND_PREFIXES.has(input.slice(0, colonIndex))) {
     return Option.some(
@@ -123,12 +154,12 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     );
   }
 
-  // 3. File path — must check before URL (e.g. `C:/path` is a valid URL with scheme `c:`)
+  // 4. File path — must check before URL (e.g. `C:/path` is a valid URL with scheme `c:`)
   if (LOCAL_PATH_PATTERN.test(input)) {
     return Option.some(wrap({ pattern: "file-path-pattern", path: input }));
   }
 
-  // 4. URL
+  // 5. URL
   try {
     const url = new URL(input);
     if (url.protocol === "file:") {
@@ -139,7 +170,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     // Not a URL
   }
 
-  // 5. Registry source:
+  // 6. Registry source:
   //    - @owner
   //    - @owner/{type}
   //    - @owner/{type}/{name}@constraint
@@ -158,7 +189,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     }
   }
 
-  // 6. Slash pattern (`owner/repo` or `owner/repo/path`)
+  // 7. Slash pattern (`owner/repo` or `owner/repo/path`)
   if (input.includes("/")) {
     const segments = input.split("/");
     const first = segments.at(0);
@@ -184,12 +215,12 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     return Option.none();
   }
 
-  // 7. Glob pattern (contains `*` wildcard)
+  // 8. Glob pattern (contains `*` wildcard)
   if (input.includes("*")) {
     return Option.some(wrap({ pattern: "glob-input", value: input }));
   }
 
-  // 8. Simple name (alphanumeric with hyphens, no leading/trailing hyphen)
+  // 9. Simple name (alphanumeric with hyphens, no leading/trailing hyphen)
   if (NAME_PATTERN.test(input)) {
     return Option.some(wrap({ pattern: "name-input", name: input }));
   }

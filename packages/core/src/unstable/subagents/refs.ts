@@ -10,8 +10,14 @@ import type {
   GitHostedRefDetails,
   RegistryRefDetails,
   LocalRefDetails,
+  WorkspaceRefDetails,
 } from "../extensions/ref-base.js";
-import type { GitBasedSource, RegistrySource, LocalSource } from "../sources/types.js";
+import type {
+  GitBasedSource,
+  RegistrySource,
+  LocalSource,
+  WorkspaceSource,
+} from "../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete Subagent Extension Refs
@@ -25,6 +31,13 @@ export type RegistrySubagentRef = SubagentExtensionRefBase<"registry", RegistryS
   RegistryRefDetails;
 /** @experimental */
 export type LocalSubagentRef = SubagentExtensionRefBase<"local", LocalSource> & LocalRefDetails;
+/** @experimental */
+export type WorkspaceSubagentRef = SubagentExtensionRefBase<"workspace", WorkspaceSource> &
+  WorkspaceRefDetails;
 
 /** @experimental */
-export type SubagentExtensionRef = GitHostedSubagentRef | RegistrySubagentRef | LocalSubagentRef;
+export type SubagentExtensionRef =
+  | GitHostedSubagentRef
+  | RegistrySubagentRef
+  | LocalSubagentRef
+  | WorkspaceSubagentRef;

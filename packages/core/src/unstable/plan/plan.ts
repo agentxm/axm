@@ -130,7 +130,7 @@ export interface CompletedJobStep {
 
 export interface Job {
   readonly steps: ReadonlyArray<PlannedJobStep>;
-  readonly concurrency: "unbounded" | 1;
+  readonly concurrency: "unbounded" | number;
 }
 
 /**
@@ -158,7 +158,7 @@ export interface Plan {
 
 export interface ExecutedJob {
   readonly steps: ReadonlyArray<CompletedJobStep>;
-  readonly concurrency: "unbounded" | 1;
+  readonly concurrency: "unbounded" | number;
 }
 
 export interface ExecutedPlan {

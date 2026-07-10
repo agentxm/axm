@@ -47,16 +47,23 @@ export interface ParsedHookInstallArgs {
 export type HookInstallSourceRequest = ParsedHookInstallArgs;
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
+  entry.type === "registry"
+    ? entry.resolvedVersion
+    : entry.type === "workspace"
+      ? entry.version
+      : undefined;
 
 const hookInstallArtifactPath = (entry: HookLockEntry): string => {
   if (entry.type === "registry") {
     return `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`;
   }
+  if (entry.type === "workspace") {
+    return `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`;
+  }
   if (entry.type === "local") {
     return entry.path;
   }
-  return entry.path === undefined ? ".axm/extensions" : entry.path;
+  return "path" in entry && entry.path !== undefined ? entry.path : ".axm/extensions";
 };
 
 const hookInstallArtifactTargets = (args: {

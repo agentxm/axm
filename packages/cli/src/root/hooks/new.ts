@@ -58,7 +58,11 @@ const HOOK_EVENTS = [
 ] as const satisfies readonly HookEvent[];
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
+  entry.type === "registry"
+    ? entry.resolvedVersion
+    : entry.type === "workspace"
+      ? entry.version
+      : undefined;
 
 const hookNewArtifactTargets = (entry: HookLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
   [...(entry.materializedTargets ?? [])]
@@ -247,9 +251,8 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
         });
       }),
     markAuthored: ws.setHookEntry(args.name, {
-      source: fqn,
+      source: `workspace:${fqn}`,
       enabled: true,
-      authored: true,
     }),
     scaffold: newHook(op).pipe(
       Effect.map(toJobStepResult),

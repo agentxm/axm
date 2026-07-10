@@ -1,0 +1,314 @@
+import * as crypto from "node:crypto";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import {
+  CommandManifestSchema,
+  COMMAND_MANIFEST_FILENAME,
+} from "../../commands/manifest-schema.js";
+import type { WorkspaceCommandRef } from "../../commands/refs.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
+import { computeSourceHash } from "../../extensions/rendered-files.js";
+import { validatePathSafety } from "../../extensions/utils.js";
+import { FilesManifestSchema, FILES_MANIFEST_FILENAME } from "../../files/manifest-schema.js";
+import type { WorkspaceFilesRef } from "../../files/refs.js";
+import { HookManifestSchema, HOOK_MANIFEST_FILENAME } from "../../hooks/manifest-schema.js";
+import type { WorkspaceHookRef } from "../../hooks/refs.js";
+import {
+  McpServerManifestSchema,
+  MCP_SERVER_MANIFEST_FILENAME,
+} from "../../mcps/manifest-schema.js";
+import type { WorkspaceMcpServerRef } from "../../mcps/refs.js";
+import { PackManifestSchema, PACK_MANIFEST_FILENAME } from "../../packs/manifest-schema.js";
+import type { WorkspacePackRef } from "../../packs/refs.js";
+import { RuleManifestSchema, RULE_MANIFEST_FILENAME } from "../../rules/manifest-schema.js";
+import type { WorkspaceRuleRef } from "../../rules/refs.js";
+import {
+  SkillManifestSchema,
+  MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
+} from "../../skills/manifest-schema.js";
+import type { WorkspaceSkillRef } from "../../skills/refs.js";
+import { parseInputPattern } from "../../sources/parser.js";
+import type { WorkspaceSource } from "../../sources/types.js";
+import {
+  SubagentManifestSchema,
+  MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
+} from "../../subagents/manifest-schema.js";
+import type { WorkspaceSubagentRef } from "../../subagents/refs.js";
+import type { ExtensionType } from "../../extensions/common.js";
+import type { WorkspaceScope } from "../scope.js";
+
+const WorkspaceManifestSchema = Schema.Union([
+  SkillManifestSchema,
+  CommandManifestSchema,
+  McpServerManifestSchema,
+  SubagentManifestSchema,
+  FilesManifestSchema,
+  RuleManifestSchema,
+  HookManifestSchema,
+  PackManifestSchema,
+]);
+
+type WorkspaceExtensionRef =
+  | WorkspaceSkillRef
+  | WorkspaceCommandRef
+  | WorkspaceMcpServerRef
+  | WorkspaceSubagentRef
+  | WorkspaceFilesRef
+  | WorkspaceRuleRef
+  | WorkspaceHookRef
+  | WorkspacePackRef;
+
+const manifestFilename = (type: ExtensionType): string => {
+  switch (type) {
+    case "skill":
+      return SKILL_MANIFEST_FILENAME;
+    case "command":
+      return COMMAND_MANIFEST_FILENAME;
+    case "mcp-server":
+      return MCP_SERVER_MANIFEST_FILENAME;
+    case "subagent":
+      return SUBAGENT_MANIFEST_FILENAME;
+    case "files":
+      return FILES_MANIFEST_FILENAME;
+    case "rule":
+      return RULE_MANIFEST_FILENAME;
+    case "hook":
+      return HOOK_MANIFEST_FILENAME;
+    case "pack":
+      return PACK_MANIFEST_FILENAME;
+  }
+};
+
+const pluralType = (type: ExtensionType): string => {
+  switch (type) {
+    case "skill":
+      return "skills";
+    case "command":
+      return "commands";
+    case "mcp-server":
+      return "mcps";
+    case "subagent":
+      return "subagents";
+    case "files":
+      return "files";
+    case "rule":
+      return "rules";
+    case "hook":
+      return "hooks";
+    case "pack":
+      return "packs";
+  }
+};
+
+const workspaceSourceError = (source: string, detail: string, cause?: unknown): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: `Invalid workspace source "${source}": ${detail}`,
+    recover: "Restore a valid canonical workspace package or update the settings source.",
+    ...(cause === undefined ? {} : { cause }),
+  });
+
+const computeWorkspacePackageHash = (packageDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const rawEntries = yield* fs.readDirectory(packageDir, { recursive: true });
+    const candidates = yield* Effect.forEach(
+      rawEntries,
+      (relativePath) =>
+        Effect.gen(function* () {
+          const absolutePath = path.join(packageDir, relativePath);
+          const info = yield* fs.stat(absolutePath);
+          return { relativePath, absolutePath, isFile: info.type === "File" };
+        }),
+      { concurrency: 16 },
+    );
+    const files = candidates.filter((candidate) => candidate.isFile);
+    files.sort((left, right) =>
+      left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
+    );
+    const hash = crypto.createHash("sha256");
+    for (const file of files) {
+      hash.update(file.relativePath);
+      hash.update("\0");
+      hash.update(yield* fs.readFile(file.absolutePath));
+      hash.update("\0");
+    }
+    return computeSourceHash(hash.digest("hex"));
+  }).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "internal",
+        detail: `Failed to hash workspace package at ${packageDir}`,
+        cause,
+      }),
+    ),
+  );
+
+export const resolveWorkspaceExtensionRef = (args: {
+  readonly settingsName: string;
+  readonly source: string;
+  readonly expectedType: ExtensionType;
+  readonly baseDir: string;
+  readonly scope: WorkspaceScope;
+}): Effect.Effect<WorkspaceExtensionRef, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const parsed = parseInputPattern(args.source);
+    if (Option.isNone(parsed) || parsed.value.pattern.pattern !== "workspace-pattern-input") {
+      return yield* workspaceSourceError(args.source, "the locator is malformed");
+    }
+    const source: WorkspaceSource = {
+      type: "workspace",
+      owner: parsed.value.pattern.owner,
+      extensionType: parsed.value.pattern.type,
+      name: parsed.value.pattern.name,
+    };
+    if (source.extensionType !== args.expectedType || source.name !== args.settingsName) {
+      return yield* workspaceSourceError(
+        args.source,
+        `expected ${args.expectedType} named "${args.settingsName}"`,
+      );
+    }
+
+    const packageDir = path.join(
+      args.baseDir,
+      REGISTRY_EXTENSIONS_DIR,
+      source.owner,
+      pluralType(args.expectedType),
+      source.name,
+    );
+    yield* validatePathSafety(args.baseDir, packageDir);
+    const packageExists = yield* fs
+      .exists(packageDir)
+      .pipe(
+        Effect.mapError((cause) =>
+          workspaceSourceError(args.source, "the canonical package could not be inspected", cause),
+        ),
+      );
+    if (!packageExists) {
+      return yield* workspaceSourceError(
+        args.source,
+        `the canonical package is missing at ${packageDir}`,
+      );
+    }
+
+    const manifestPath = path.join(packageDir, manifestFilename(args.expectedType));
+    const rawManifest = yield* fs
+      .readFileString(manifestPath)
+      .pipe(
+        Effect.mapError((cause) =>
+          workspaceSourceError(
+            args.source,
+            `the expected manifest is missing at ${manifestPath}`,
+            cause,
+          ),
+        ),
+      );
+    const json = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(rawManifest).pipe(
+      Effect.mapError((cause) =>
+        workspaceSourceError(
+          args.source,
+          `the manifest at ${manifestPath} is not valid JSON`,
+          cause,
+        ),
+      ),
+    );
+    const manifest = yield* Schema.decodeUnknownEffect(WorkspaceManifestSchema)(json).pipe(
+      Effect.mapError((cause) =>
+        workspaceSourceError(args.source, `the manifest at ${manifestPath} is invalid`, cause),
+      ),
+    );
+    if (
+      manifest.type !== args.expectedType ||
+      manifest.owner !== source.owner ||
+      manifest.name !== source.name
+    ) {
+      return yield* workspaceSourceError(
+        args.source,
+        `manifest identity ${manifest.owner}/${manifest.type}/${manifest.name} does not match the locator`,
+      );
+    }
+
+    const sourceHash = yield* computeWorkspacePackageHash(packageDir);
+    const details = {
+      source,
+      owner: source.owner,
+      name: source.name,
+      version: manifest.version,
+      scope: args.scope,
+      location: packageDir,
+      sourceHash,
+    };
+
+    switch (manifest.type) {
+      case "skill":
+        return {
+          type: "skill",
+          refType: "workspace",
+          ...details,
+          skill: {
+            name: manifest.name,
+            description: Option.fromUndefinedOr(manifest.description),
+            metadata: Option.none(),
+          },
+        };
+      case "command":
+        return {
+          type: "command",
+          refType: "workspace",
+          ...details,
+          command: { name: manifest.name },
+        };
+      case "mcp-server":
+        return {
+          type: "mcp-server",
+          refType: "workspace",
+          ...details,
+          server: { name: manifest.name },
+        };
+      case "subagent":
+        return {
+          type: "subagent",
+          refType: "workspace",
+          ...details,
+          subagent: {
+            name: manifest.name,
+            description: Option.fromUndefinedOr(manifest.description),
+          },
+        };
+      case "files":
+        return {
+          type: "files",
+          refType: "workspace",
+          ...details,
+          file: { name: manifest.name },
+        };
+      case "rule":
+        return {
+          type: "rule",
+          refType: "workspace",
+          ...details,
+          rule: { name: manifest.name },
+        };
+      case "hook":
+        return {
+          type: "hook",
+          refType: "workspace",
+          ...details,
+          hook: { name: manifest.name },
+        };
+      case "pack":
+        return {
+          type: "pack",
+          refType: "workspace",
+          ...details,
+          pack: { name: manifest.name, dependencies: manifest.dependencies },
+        };
+    }
+  });

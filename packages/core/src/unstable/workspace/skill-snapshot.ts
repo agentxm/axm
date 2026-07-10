@@ -76,7 +76,8 @@ export interface WorkspaceSkillSnapshot {
 const toSkillPathSource = (ref: SkillExtensionRef): SkillPathSource => {
   switch (ref.refType) {
     case "registry":
-      return { refType: "registry", owner: ref.owner };
+    case "workspace":
+      return { refType: ref.refType, owner: ref.owner };
     case "local":
       return { refType: "local" };
     case "git-hosted":

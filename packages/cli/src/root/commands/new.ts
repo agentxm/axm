@@ -163,9 +163,8 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     label: fqn,
     message: `Created command ${fqn}`,
     markAuthored: ws.setCommandEntry(args.name, {
-      source: formatFqn({ owner, type: "command", name: args.name }),
+      source: `workspace:${formatFqn({ owner, type: "command", name: args.name })}`,
       enabled: true,
-      authored: true,
     }),
     scaffold: newCommandOp(op).pipe(
       Effect.map(toJobStepResult),

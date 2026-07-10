@@ -7,7 +7,7 @@
 
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type { Handle } from "../extensions/handle.js";
+import type { ExtensionName, ExtensionType, Handle } from "../extensions/index.js";
 
 // -----------------------------------------------------------------------------
 // Source Type Schema
@@ -24,6 +24,7 @@ import type { Handle } from "../extensions/handle.js";
  * - `"registry"` - Package registry source
  * - `"local"` - Local filesystem path source
  * - `"inline"` - Inline workspace configuration
+ * - `"workspace"` - Intrinsic source in the selected scope's managed extension tree
  *
  * @experimental
  */
@@ -36,11 +37,12 @@ export const SourceTypeSchema = Schema.Literals([
   "registry",
   "local",
   "inline",
+  "workspace",
 ]).annotate({
   identifier: "SourceType",
   title: "Source Type",
   description:
-    "Source type discriminator: github, gitlab, bitbucket, azurerepos, git, registry, local, or inline.",
+    "Source type discriminator: github, gitlab, bitbucket, azurerepos, git, registry, local, inline, or workspace.",
 });
 
 /**
@@ -60,13 +62,19 @@ export type SourceType = Schema.Schema.Type<typeof SourceTypeSchema>;
  * - `"git-hosted"` - Git-based sources (GitHub, GitLab, Bitbucket, AzureRepos, Git)
  * - `"registry"` - Package registry source
  * - `"local"` - Local filesystem path source
+ * - `"workspace"` - Intrinsic managed workspace package
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RefTypeSchema = Schema.Literals(["git-hosted", "registry", "local"]).annotate({
+export const RefTypeSchema = Schema.Literals([
+  "git-hosted",
+  "registry",
+  "local",
+  "workspace",
+]).annotate({
   identifier: "RefType",
   title: "Ref Type",
-  description: "Ref type category: git-hosted, registry, or local.",
+  description: "Ref type category: git-hosted, registry, local, or workspace.",
 });
 
 /**
@@ -233,6 +241,11 @@ export interface InlineSourceHost {
   readonly type: "inline";
 }
 
+/** Intrinsic managed-tree source whose scope is bound by its settings document. @experimental */
+export interface WorkspaceSourceHost {
+  readonly type: "workspace";
+}
+
 /** @experimental */
 export type SourceHost =
   | GitHubSourceHost
@@ -242,7 +255,8 @@ export type SourceHost =
   | GitSourceHost
   | RegistrySourceHost
   | LocalSourceHost
-  | InlineSourceHost;
+  | InlineSourceHost
+  | WorkspaceSourceHost;
 
 // -----------------------------------------------------------------------------
 // SourceParams — coordinates within a source
@@ -318,6 +332,14 @@ export interface InlineSourceParams {
 }
 
 /** @experimental */
+export interface WorkspaceSourceParams {
+  readonly type: "workspace";
+  readonly owner: Handle;
+  readonly extensionType: ExtensionType;
+  readonly name: ExtensionName;
+}
+
+/** @experimental */
 export type SourceParams =
   | GitHubSourceParams
   | GitLabSourceParams
@@ -326,7 +348,8 @@ export type SourceParams =
   | GitSourceParams
   | RegistrySourceParams
   | LocalSourceParams
-  | InlineSourceParams;
+  | InlineSourceParams
+  | WorkspaceSourceParams;
 
 // -----------------------------------------------------------------------------
 // Source — SourceHost & SourceParams
@@ -349,6 +372,8 @@ export type RegistrySource = RegistrySourceHost & RegistrySourceParams;
 /** @experimental */
 export type LocalSource = LocalSourceHost & LocalSourceParams;
 /** @experimental */
+export type WorkspaceSource = WorkspaceSourceHost & WorkspaceSourceParams;
+/** @experimental */
 export type Source =
   | GitHubSource
   | GitLabSource
@@ -356,7 +381,8 @@ export type Source =
   | AzureReposSource
   | GitSource
   | RegistrySource
-  | LocalSource;
+  | LocalSource
+  | WorkspaceSource;
 
 // -----------------------------------------------------------------------------
 // Convenience Unions

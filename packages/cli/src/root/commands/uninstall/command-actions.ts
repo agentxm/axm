@@ -10,19 +10,13 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import {
-  commandUninstallArtifact,
-  uninstallCommand,
-  type UninstallCommandOperation,
-} from "@agentxm/client-core/unstable/commands";
+import { CommandManager, commandUninstallArtifact } from "@agentxm/client-core/unstable/commands";
+import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallCommandCommandIntent } from "./intent.js";
@@ -31,6 +25,7 @@ import {
   makeAgentSection,
   makeRenderedFilesSection,
 } from "../preview-sections.js";
+import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -73,9 +68,7 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
   UninstallCommandCommandWorkflowActions,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const agentRepo = yield* CodingAgentRepository;
+    const commandMgr = yield* CommandManager;
 
     const parseArgs = (
       args: UninstallCommandHandlerArgs,
@@ -104,6 +97,7 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallCommandCommandIntent,
+      flags: { readonly sourceDisposition?: "keep" | "delete" },
     ): Effect.Effect<Plan, AppError> =>
       Effect.gen(function* () {
         const lockEntries = yield* Effect.forEach(
@@ -140,43 +134,32 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
           intent.targets.map((target, index) => [target.name, lockEntries[index] ?? Option.none()]),
         );
         const steps: ReadonlyArray<PlannedJobStep> = intent.targets.map((target) => {
-          const op = {
-            name: "uninstall-command",
-            args: { commandName: target.name },
-          } satisfies UninstallCommandOperation;
-
-          const run = Effect.gen(function* () {
-            const lockEntry = lockEntryByName.get(target.name) ?? Option.none();
-            const stillRequiredByPack = yield* ws.isExtensionRequiredByInstalledPack(target);
-            if (stillRequiredByPack) {
-              yield* ws.removeCommandSettings(target.name);
-              yield* ws.markDependencyRetainedInLockfile(target);
-              return {
-                result: "success",
-                message: "Kept on disk because dependency is still required by an installed pack",
-              } satisfies JobStepResult;
-            }
-
-            const result = yield* uninstallCommand(op).pipe(
-              Effect.provideService(WorkspaceMutations, ws),
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-              Effect.provideService(CodingAgentRepository, agentRepo),
-            );
-            if (result.result === "error") {
-              return result;
-            }
-
-            return {
-              ...result,
-              artifact: commandUninstallArtifact({
-                commandName: target.name,
-                lockEntry,
-                scope: ws.scope,
-                change: result.message === "not installed" ? "unchanged" : "removed",
-              }),
-            } satisfies JobStepResult;
+          const step = buildUninstallOperation(commandMgr, makeWorkspaceRetentionPolicy(ws), {
+            target,
+            ...(flags.sourceDisposition === undefined
+              ? {}
+              : { sourceDisposition: flags.sourceDisposition }),
           });
+          if (step.readiness !== "ready") return step;
+
+          const run = step.run.pipe(
+            Effect.map((result) => {
+              const lockEntry = lockEntryByName.get(target.name) ?? Option.none();
+              if (result.result === "error") {
+                return result;
+              }
+
+              return {
+                ...result,
+                artifact: commandUninstallArtifact({
+                  commandName: target.name,
+                  lockEntry,
+                  scope: ws.scope,
+                  change: result.message === "not installed" ? "unchanged" : "removed",
+                }),
+              } satisfies JobStepResult;
+            }),
+          );
 
           return {
             readiness: "ready",

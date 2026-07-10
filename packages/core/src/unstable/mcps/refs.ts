@@ -10,8 +10,14 @@ import type {
   GitHostedRefDetails,
   RegistryRefDetails,
   LocalRefDetails,
+  WorkspaceRefDetails,
 } from "../extensions/ref-base.js";
-import type { GitBasedSource, RegistrySource, LocalSource } from "../sources/types.js";
+import type {
+  GitBasedSource,
+  RegistrySource,
+  LocalSource,
+  WorkspaceSource,
+} from "../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete MCP Server Extension Refs
@@ -25,9 +31,13 @@ export type RegistryMcpServerRef = McpServerExtensionRefBase<"registry", Registr
   RegistryRefDetails;
 /** @experimental */
 export type LocalMcpServerRef = McpServerExtensionRefBase<"local", LocalSource> & LocalRefDetails;
+/** @experimental */
+export type WorkspaceMcpServerRef = McpServerExtensionRefBase<"workspace", WorkspaceSource> &
+  WorkspaceRefDetails;
 
 /** @experimental */
 export type McpServerExtensionRef =
   | GitHostedMcpServerRef
   | RegistryMcpServerRef
-  | LocalMcpServerRef;
+  | LocalMcpServerRef
+  | WorkspaceMcpServerRef;

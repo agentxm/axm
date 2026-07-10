@@ -77,14 +77,12 @@ describe("Settings schema", () => {
         "grappling-hook": {
           source: "@wayne/skills/grappling-hook@^1.0.0",
           enabled: true,
-          authored: false,
         },
       });
       expect(result.libraries).toEqual({
         frontend: {
           source: "@wayne/libraries/frontend",
           enabled: true,
-          authored: false,
         },
       });
       expect(result.skillsConfig?.ignore).toEqual(["legacy-*"]);
@@ -146,7 +144,6 @@ describe("Settings schema", () => {
         "workspace-baseline": {
           source: "@ac/files/workspace-baseline@^1.0.0",
           enabled: true,
-          authored: false,
           inputs: {
             projectName: "AgentXM",
             strict: true,
@@ -448,6 +445,12 @@ describe("Settings schema", () => {
 
         expect(() => Schema.decodeUnknownSync(SourceHostConfigSchema)(input)).toThrow();
       });
+
+      it('rejects the reserved source name "workspace"', () => {
+        const input = { name: "workspace", type: "github", url: "https://github.com" };
+
+        expect(() => Schema.decodeUnknownSync(SourceHostConfigSchema)(input)).toThrow();
+      });
     });
 
     describe("invalid source type", () => {
@@ -543,6 +546,81 @@ describe("Settings schema", () => {
     });
   });
 
+  describe("workspace source locators", () => {
+    it("accepts matching type and name identities for every supported extension family", () => {
+      const result = Schema.decodeUnknownSync(SettingsSchema)({
+        skills: { review: "workspace:@acme/skills/review" },
+        commands: { review: "workspace:@acme/commands/review" },
+        files: { review: "workspace:@acme/files/review" },
+        rules: { review: "workspace:@acme/rules/review" },
+        hooks: { review: "workspace:@acme/hooks/review" },
+        subagents: { review: "workspace:@acme/subagents/review" },
+        packs: { review: "workspace:@acme/packs/review" },
+        mcpServers: { review: "workspace:@acme/mcps/review" },
+      });
+
+      expect(result.skills?.["review"]?.source).toBe("workspace:@acme/skills/review");
+      expect(result.mcpServers?.["review"]?.source).toBe("workspace:@acme/mcps/review");
+    });
+
+    it("rejects a locator whose plural type does not match its settings section", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({
+          commands: { review: "workspace:@acme/skills/review" },
+        }),
+      ).toThrow();
+    });
+
+    it("rejects a locator whose name does not match its settings key", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({
+          skills: { review: "workspace:@acme/skills/other" },
+        }),
+      ).toThrow();
+    });
+
+    it("rejects versioned and incomplete workspace locators", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({
+          skills: { review: "workspace:@acme/skills/review@^1.0.0" },
+        }),
+      ).toThrow();
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({
+          skills: { review: "workspace:@acme/skills" },
+        }),
+      ).toThrow();
+    });
+
+    it("rejects workspace locators for Libraries", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({
+          libraries: { review: "workspace:@acme/libraries/review" },
+        }),
+      ).toThrow();
+    });
+
+    it("rejects authored across all settings entry families under strict validation", () => {
+      const invalidSettings: ReadonlyArray<unknown> = [
+        { skills: { x: { source: "@acme/skills/x", authored: true } } },
+        { commands: { x: { source: "@acme/commands/x", authored: true } } },
+        { files: { x: { source: "@acme/files/x", authored: true } } },
+        { rules: { x: { source: "@acme/rules/x", authored: true } } },
+        { hooks: { x: { source: "@acme/hooks/x", authored: true } } },
+        { subagents: { x: { source: "@acme/subagents/x", authored: true } } },
+        { packs: { x: { source: "@acme/packs/x", authored: true } } },
+        { libraries: { x: { source: "@acme/libraries/x", authored: true } } },
+        { mcpServers: { x: { source: "@acme/mcps/x", authored: true } } },
+      ];
+
+      for (const input of invalidSettings) {
+        expect(() =>
+          Schema.decodeUnknownSync(SettingsSchema)(input, { onExcessProperty: "error" }),
+        ).toThrow();
+      }
+    });
+  });
+
   describe("skills at root level", () => {
     it("accepts skills with registry source", () => {
       const input = {
@@ -553,7 +631,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills).toEqual({
-        "my-skill": { source: "@acme/skills/my-skill@^1.0.0", enabled: true, authored: false },
+        "my-skill": { source: "@acme/skills/my-skill@^1.0.0", enabled: true },
       });
     });
 
@@ -569,7 +647,6 @@ describe("Settings schema", () => {
         "grappling-hook": {
           source: "github:wayne-industries/skills/grappling-hook",
           enabled: true,
-          authored: false,
         },
       });
     });
@@ -583,7 +660,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills).toEqual({
-        "dev-skill": { source: "local:./my-skills/dev-skill", enabled: true, authored: false },
+        "dev-skill": { source: "local:./my-skills/dev-skill", enabled: true },
       });
     });
 
@@ -600,17 +677,14 @@ describe("Settings schema", () => {
       expect(result.skills?.["registry-skill"]).toEqual({
         source: "@wayne/skills/registry-skill@^1.0.0",
         enabled: true,
-        authored: false,
       });
       expect(result.skills?.["github-skill"]).toEqual({
         source: "github:wayne-industries/skills#main",
         enabled: true,
-        authored: false,
       });
       expect(result.skills?.["local-skill"]).toEqual({
         source: "local:./dev/local-skill",
         enabled: true,
-        authored: false,
       });
     });
 
@@ -630,7 +704,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
       expect(result).toEqual({
-        commit: { source: "@wayne/skills/commit@^1.0.0", enabled: true, authored: false },
+        commit: { source: "@wayne/skills/commit@^1.0.0", enabled: true },
       });
     });
 
@@ -642,7 +716,6 @@ describe("Settings schema", () => {
         "my-extension": {
           source: "@wayne/skills/my-extension@^1.0.0",
           enabled: true,
-          authored: false,
         },
       });
     });
@@ -652,7 +725,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
       expect(result).toEqual({
-        skill123: { source: "@wayne/skills/skill123@^1.0.0", enabled: true, authored: false },
+        skill123: { source: "@wayne/skills/skill123@^1.0.0", enabled: true },
       });
     });
 
@@ -661,7 +734,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
       expect(result).toEqual({
-        a: { source: "@wayne/skills/a@^1.0.0", enabled: true, authored: false },
+        a: { source: "@wayne/skills/a@^1.0.0", enabled: true },
       });
     });
 
@@ -671,7 +744,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
       expect(result).toEqual({
-        [name]: { source: "@wayne/skills/skill@^1.0.0", enabled: true, authored: false },
+        [name]: { source: "@wayne/skills/skill@^1.0.0", enabled: true },
       });
     });
 
@@ -727,7 +800,6 @@ describe("Settings schema", () => {
         baseline: {
           source: "@ac/files/baseline@^1.0.0",
           enabled: true,
-          authored: false,
           inputs: {},
         },
       });
@@ -776,7 +848,6 @@ describe("Settings schema", () => {
         "batcomputer-sync": {
           source: "@wayne/commands/batcomputer-sync",
           enabled: true,
-          authored: false,
         },
       });
     });
@@ -788,7 +859,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
       });
     });
 
@@ -799,7 +870,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
       });
     });
 
@@ -812,7 +883,6 @@ describe("Settings schema", () => {
       expect(result.mcpServers).toEqual({
         batcomputer: {
           source: "@wayne/mcps/batcomputer",
-          authored: false,
           enabled: true,
           env: {},
         },
@@ -832,23 +902,20 @@ describe("Settings schema", () => {
         "grappling-hook": {
           source: "@wayne/skills/grappling-hook@^1.0.0",
           enabled: true,
-          authored: false,
         },
       });
       expect(result.commands).toEqual({
         "batcomputer-sync": {
           source: "@wayne/commands/batcomputer-sync",
           enabled: true,
-          authored: false,
         },
       });
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
       });
       expect(result.mcpServers).toEqual({
         batcomputer: {
           source: "@wayne/mcps/batcomputer",
-          authored: false,
           enabled: true,
           env: {},
         },
@@ -870,7 +937,7 @@ describe("Settings schema", () => {
       const input = { deploy: "@acme/commands/deploy" };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
       expect(result).toEqual({
-        deploy: { source: "@acme/commands/deploy", enabled: true, authored: false },
+        deploy: { source: "@acme/commands/deploy", enabled: true },
       });
     });
 
@@ -880,19 +947,17 @@ describe("Settings schema", () => {
       expect(result["deploy"]).toEqual({
         source: "@acme/commands/deploy",
         enabled: true,
-        authored: false,
       });
     });
 
     it("accepts object entry with source and enabled false", () => {
       const input = {
-        deploy: { source: "@acme/commands/deploy", enabled: false, authored: false },
+        deploy: { source: "@acme/commands/deploy", enabled: false },
       };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
       expect(result["deploy"]).toEqual({
         source: "@acme/commands/deploy",
         enabled: false,
-        authored: false,
       });
     });
 
@@ -900,11 +965,11 @@ describe("Settings schema", () => {
       const input = { deploy: { source: "@acme/commands/deploy" } };
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
       const entry = result["deploy"];
-      expect(entry).toEqual({ source: "@acme/commands/deploy", enabled: true, authored: false });
+      expect(entry).toEqual({ source: "@acme/commands/deploy", enabled: true });
     });
 
     it("rejects object entry without source", () => {
-      const input = { deploy: { enabled: true, authored: false } };
+      const input = { deploy: { enabled: true } };
       expect(() => Schema.decodeUnknownSync(CommandsMapSchema)(input)).toThrow();
     });
   });
@@ -915,7 +980,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({
-        commit: { source: "@wayne/commands/reference", enabled: true, authored: false },
+        commit: { source: "@wayne/commands/reference", enabled: true },
       });
     });
 
@@ -924,7 +989,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({
-        "my-extension": { source: "@wayne/commands/reference", enabled: true, authored: false },
+        "my-extension": { source: "@wayne/commands/reference", enabled: true },
       });
     });
 
@@ -933,7 +998,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({
-        skill123: { source: "@wayne/commands/reference", enabled: true, authored: false },
+        skill123: { source: "@wayne/commands/reference", enabled: true },
       });
     });
 
@@ -942,7 +1007,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({
-        a: { source: "@wayne/commands/reference", enabled: true, authored: false },
+        a: { source: "@wayne/commands/reference", enabled: true },
       });
     });
 
@@ -952,7 +1017,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(CommandsMapSchema)(input);
 
       expect(result).toEqual({
-        [name]: { source: "@wayne/commands/reference", enabled: true, authored: false },
+        [name]: { source: "@wayne/commands/reference", enabled: true },
       });
     });
 
@@ -1002,7 +1067,6 @@ describe("Settings schema", () => {
       expect(result).toEqual({
         batcomputer: {
           source: "@wayne/mcps/batcomputer",
-          authored: false,
           enabled: true,
           env: {},
         },
@@ -1016,7 +1080,6 @@ describe("Settings schema", () => {
       expect(result).toEqual({
         batcomputer: {
           source: "@wayne/mcps/batcomputer",
-          authored: false,
           enabled: true,
           env: {},
         },
@@ -1037,7 +1100,6 @@ describe("Settings schema", () => {
 
         expect(result).toEqual({
           source: "@wayne/mcps/batcomputer",
-          authored: false,
           enabled: true,
           env: {},
         });
@@ -1050,24 +1112,18 @@ describe("Settings schema", () => {
 
         expect(result).toEqual({
           source: "@wayne/mcps/batcomputer",
-          authored: false,
           enabled: true,
           env: {},
         });
       });
 
-      it("decodes an object with authored true", () => {
-        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
-          source: "@wayne/mcps/batcomputer",
-          authored: true,
-        });
-
-        expect(result).toEqual({
-          source: "@wayne/mcps/batcomputer",
-          authored: true,
-          enabled: true,
-          env: {},
-        });
+      it("rejects the removed authored field under strict validation", () => {
+        expect(() =>
+          Schema.decodeUnknownSync(McpServerEntrySchema)(
+            { source: "@wayne/mcps/batcomputer", authored: true },
+            { onExcessProperty: "error" },
+          ),
+        ).toThrow();
       });
 
       it("decodes an inline stdio object", () => {
@@ -1081,7 +1137,6 @@ describe("Settings schema", () => {
           source: "inline",
           command: "npx",
           args: ["-y", "linear-mcp-server"],
-          authored: false,
           enabled: true,
           env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
         });
@@ -1097,7 +1152,6 @@ describe("Settings schema", () => {
           source: "inline",
           url: "https://mcp.sentry.dev/sse",
           headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
-          authored: false,
           enabled: true,
           env: {},
         });
@@ -1118,27 +1172,13 @@ describe("Settings schema", () => {
     });
 
     describe("encode", () => {
-      it("encodes non-authored entry to string", () => {
+      it("encodes a default entry to string", () => {
         const result = Schema.encodeSync(McpServerEntrySchema)({
           source: "@wayne/mcps/batcomputer",
           enabled: true,
-          authored: false,
           env: {},
         });
         expect(result).toBe("@wayne/mcps/batcomputer");
-      });
-
-      it("encodes authored entry to object", () => {
-        const result = Schema.encodeSync(McpServerEntrySchema)({
-          source: "@wayne/mcps/batcomputer",
-          enabled: true,
-          authored: true,
-          env: {},
-        });
-        expect(result).toEqual({
-          source: "@wayne/mcps/batcomputer",
-          authored: true,
-        });
       });
 
       it("encodes inline entries without a visible source field", () => {
@@ -1147,7 +1187,6 @@ describe("Settings schema", () => {
           command: "npx",
           args: ["-y", "linear-mcp-server"],
           enabled: true,
-          authored: false,
           env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
         });
 
@@ -1179,7 +1218,6 @@ describe("Settings schema", () => {
 
         expect(result).toEqual({
           source: "@wayne/packs/utility-belt@^1.0.0",
-          authored: false,
         });
       });
 
@@ -1190,20 +1228,16 @@ describe("Settings schema", () => {
 
         expect(result).toEqual({
           source: "@wayne/packs/utility-belt@^1.0.0",
-          authored: false,
         });
       });
 
-      it("decodes an object with authored true", () => {
-        const result = Schema.decodeUnknownSync(PackEntrySchema)({
-          source: "@wayne/packs/utility-belt@^1.0.0",
-          authored: true,
-        });
-
-        expect(result).toEqual({
-          source: "@wayne/packs/utility-belt@^1.0.0",
-          authored: true,
-        });
+      it("rejects the removed authored field under strict validation", () => {
+        expect(() =>
+          Schema.decodeUnknownSync(PackEntrySchema)(
+            { source: "@wayne/packs/utility-belt@^1.0.0", authored: true },
+            { onExcessProperty: "error" },
+          ),
+        ).toThrow();
       });
 
       it("rejects invalid object with managed field", () => {
@@ -1220,23 +1254,11 @@ describe("Settings schema", () => {
     });
 
     describe("encode", () => {
-      it("encodes non-authored entry to string", () => {
+      it("encodes an entry to string", () => {
         const result = Schema.encodeSync(PackEntrySchema)({
           source: "@wayne/packs/utility-belt@^1.0.0",
-          authored: false,
         });
         expect(result).toBe("@wayne/packs/utility-belt@^1.0.0");
-      });
-
-      it("encodes authored entry to object", () => {
-        const result = Schema.encodeSync(PackEntrySchema)({
-          source: "@wayne/packs/utility-belt@^1.0.0",
-          authored: true,
-        });
-        expect(result).toEqual({
-          source: "@wayne/packs/utility-belt@^1.0.0",
-          authored: true,
-        });
       });
     });
   });
@@ -1257,7 +1279,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
       expect(result).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
       });
     });
 
@@ -1266,7 +1288,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
       expect(result).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", authored: false },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
       });
     });
 
@@ -1339,17 +1361,14 @@ describe("Settings schema", () => {
       expect(result.skills?.["grappling-hook"]).toEqual({
         source: "@wayne/skills/grappling-hook@^1.0.0",
         enabled: true,
-        authored: false,
       });
       expect(result.skills?.["batarang"]).toEqual({
         source: "github:wayne-industries/gadgets/skills/batarang#main",
         enabled: true,
-        authored: false,
       });
       expect(result.skills?.["dev-gadget"]).toEqual({
         source: "local:./dev/gadgets/dev-gadget",
         enabled: true,
-        authored: false,
       });
     });
   });
@@ -1364,7 +1383,6 @@ describe("Settings schema", () => {
         frontend: {
           source: "@acme/libraries/frontend",
           enabled: true,
-          authored: false,
         },
       });
     });

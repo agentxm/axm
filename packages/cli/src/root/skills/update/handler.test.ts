@@ -348,13 +348,24 @@ describe("update.handler — error recovery", () => {
     // fail because the directory does not exist — triggering the catch path.
     initWorkspace(path.join(tempDir, ".axm"), {
       skills: {
-        "broken-skill": "/tmp/nonexistent-source-dir-that-does-not-exist",
+        "broken-skill": "./nonexistent-source-dir-that-does-not-exist",
+      },
+      skillLocks: {
+        "broken-skill": {
+          type: "local",
+          path: "nonexistent-source-dir-that-does-not-exist",
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
       },
     });
 
     return provide(
       Effect.gen(function* () {
-        const error = yield* handleUpdate(defaultArgs()).pipe(Effect.flip);
+        const error = yield* handleUpdate(
+          defaultArgs({ source: Option.some("broken-skill") }),
+        ).pipe(Effect.flip);
 
         expect(logs.warn).toEqual([]);
 

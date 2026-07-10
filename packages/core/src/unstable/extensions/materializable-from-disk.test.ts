@@ -34,7 +34,7 @@ describe("configured extensions to disk refs", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const env = { fs, path, baseDir: tempDir };
+      const env = { fs, path, baseDir: tempDir, scope: "project" as const };
 
       writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/skills/review/skill.json"), {
         owner: "@acme",
@@ -109,7 +109,7 @@ describe("configured extensions to disk refs", () => {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const refs = yield* configuredSubagentsToDiskRefs(
-        { fs, path, baseDir: tempDir },
+        { fs, path, baseDir: tempDir, scope: "project" },
         {
           stale: {
             source: "@acme/subagents/stale",
@@ -127,7 +127,7 @@ describe("configured extensions to disk refs", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const env = { fs, path, baseDir: tempDir };
+      const env = { fs, path, baseDir: tempDir, scope: "project" as const };
 
       writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/mcps/browser/mcp.json"), {
         owner: "@acme",

@@ -30,6 +30,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
@@ -70,9 +71,16 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   // Resolve pack owner
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-  const packOwnerFromSource = packSource.startsWith("@")
-    ? parseRegistrySourcePatternParts(packSource)?.owner
-    : undefined;
+  if (!isWorkspaceSourceLocator(packSource)) {
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Cannot edit non-workspace pack "${args.pack}"`,
+      recover: "Adopt or copy the pack into workspace authorship before editing its manifest.",
+    });
+  }
+  const packOwnerFromSource = parseRegistrySourcePatternParts(
+    packSource.slice("workspace:".length),
+  )?.owner;
   const packOwner =
     packOwnerFromSource !== undefined
       ? normalizeHandle(packOwnerFromSource)

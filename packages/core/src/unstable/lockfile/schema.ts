@@ -11,6 +11,7 @@ import * as Schema from "effect/Schema";
 import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
 import {
   ExtensionFqnSchema,
+  type ExtensionType,
   HandleSchema,
   RenderedFilesMapSchema,
   SourceHashSchema,
@@ -82,7 +83,15 @@ const SkillCommonFields = {
  * CommandLockEntrySchema (with `agents` + extra fields) and
  * McpServerLockEntrySchema (without `agents`).
  */
-const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
+const makeSourceLockUnion = <
+  F extends Schema.Struct.Fields,
+  T extends ExtensionType,
+  W extends Schema.Struct.Fields,
+>(
+  extraFields: F,
+  extensionType: T,
+  workspaceExtraFields: W,
+) =>
   Schema.Union([
     Schema.Struct({
       type: Schema.Literal("github"),
@@ -138,6 +147,15 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       sourceName: Schema.String,
       ...extraFields,
     }),
+    Schema.Struct({
+      type: Schema.Literal("workspace"),
+      owner: HandleSchema,
+      extensionType: Schema.Literal(extensionType),
+      name: ExtensionNameSchema,
+      version: VersionSchema,
+      ...workspaceExtraFields,
+      sourceHash: SourceHashSchema,
+    }),
   ]);
 
 const InlineMcpServerLockEntrySchema = Schema.Struct({
@@ -175,7 +193,16 @@ const InlineMcpServerLockEntrySchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillLockEntrySchema = makeSourceLockUnion(SkillCommonFields);
+const SkillWorkspaceFields = {
+  ...CommonFields,
+  renderedFiles: Schema.optional(RenderedFilesMapSchema),
+};
+
+export const SkillLockEntrySchema = makeSourceLockUnion(
+  SkillCommonFields,
+  "skill",
+  SkillWorkspaceFields,
+);
 
 /**
  * Inferred type for SkillLockEntry schema.
@@ -225,7 +252,16 @@ const CommandCommonFields = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandLockEntrySchema = makeSourceLockUnion(CommandCommonFields);
+const CommandWorkspaceFields = {
+  ...CommonFields,
+  renderedFiles: Schema.optional(RenderedFilesMapSchema),
+};
+
+export const CommandLockEntrySchema = makeSourceLockUnion(
+  CommandCommonFields,
+  "command",
+  CommandWorkspaceFields,
+);
 
 /**
  * Inferred type for CommandLockEntry schema.
@@ -265,6 +301,11 @@ const SubagentLockEntryCommonFields = {
   renderedFiles: Schema.optional(RenderedFilesMapSchema),
 };
 
+const SubagentWorkspaceFields = {
+  ...CommonFields,
+  renderedFiles: Schema.optional(RenderedFilesMapSchema),
+};
+
 /**
  * Lock entry for a single installed subagent.
  * Discriminated union by the `type` field.
@@ -274,7 +315,11 @@ const SubagentLockEntryCommonFields = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentLockEntrySchema = makeSourceLockUnion(SubagentLockEntryCommonFields);
+export const SubagentLockEntrySchema = makeSourceLockUnion(
+  SubagentLockEntryCommonFields,
+  "subagent",
+  SubagentWorkspaceFields,
+);
 
 /**
  * Inferred type for SubagentLockEntry schema.
@@ -314,10 +359,17 @@ export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>
  * @experimental This API is unstable and may change without notice.
  */
 export const McpServerLockEntrySchema = Schema.Union([
-  makeSourceLockUnion({
-    syncedAgents: Schema.optional(Schema.Array(Schema.String)),
-    ...BaseCommonFields,
-  }),
+  makeSourceLockUnion(
+    {
+      syncedAgents: Schema.optional(Schema.Array(Schema.String)),
+      ...BaseCommonFields,
+    },
+    "mcp-server",
+    {
+      syncedAgents: Schema.optional(Schema.Array(Schema.String)),
+      ...BaseCommonFields,
+    },
+  ),
   InlineMcpServerLockEntrySchema,
 ]);
 
@@ -399,7 +451,11 @@ const FilesCommonFields = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FilesLockEntrySchema = makeSourceLockUnion(FilesCommonFields);
+export const FilesLockEntrySchema = makeSourceLockUnion(
+  FilesCommonFields,
+  "files",
+  FilesCommonFields,
+);
 
 /** @experimental */
 export type FilesLockEntry = Schema.Schema.Type<typeof FilesLockEntrySchema>;
@@ -428,7 +484,7 @@ const RuleCommonFields = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleLockEntrySchema = makeSourceLockUnion(RuleCommonFields);
+export const RuleLockEntrySchema = makeSourceLockUnion(RuleCommonFields, "rule", RuleCommonFields);
 
 /** @experimental */
 export type RuleLockEntry = Schema.Schema.Type<typeof RuleLockEntrySchema>;
@@ -457,7 +513,7 @@ const HookCommonFields = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookLockEntrySchema = makeSourceLockUnion(HookCommonFields);
+export const HookLockEntrySchema = makeSourceLockUnion(HookCommonFields, "hook", HookCommonFields);
 
 /** @experimental */
 export type HookLockEntry = Schema.Schema.Type<typeof HookLockEntrySchema>;
@@ -523,6 +579,32 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
  */
 export type RegistryPackLockEntry = Schema.Schema.Type<typeof RegistryPackLockEntrySchema>;
 
+/** Workspace pack lock entry reconstructed from the canonical authored package. */
+export const WorkspacePackLockEntrySchema = Schema.Struct({
+  type: Schema.Literal("workspace"),
+  owner: HandleSchema,
+  extensionType: Schema.Literal("pack"),
+  name: ExtensionNameSchema,
+  version: VersionSchema,
+  sourceHash: SourceHashSchema,
+  installedAt: DateFromIsoDateTimeStringSchema,
+  updatedAt: DateFromIsoDateTimeStringSchema,
+  resolvedSkills: ResolvedExtensionMapSchema,
+  resolvedCommands: ResolvedExtensionMapSchema,
+  resolvedMcpServers: ResolvedExtensionMapSchema,
+  resolvedSubagents: ResolvedExtensionMapSchema,
+  resolvedFiles: Schema.optional(ResolvedExtensionMapSchema),
+  resolvedRules: Schema.optional(ResolvedExtensionMapSchema),
+  resolvedHooks: Schema.optional(ResolvedExtensionMapSchema),
+}).annotate({
+  identifier: "WorkspacePackLockEntry",
+  title: "Workspace Pack Lock Entry",
+  description: "Manifest version, content hash, and resolved members for an authored pack.",
+});
+
+/** @experimental */
+export type WorkspacePackLockEntry = Schema.Schema.Type<typeof WorkspacePackLockEntrySchema>;
+
 /**
  * Constructor args for a registry pack lock entry.
  *
@@ -547,10 +629,13 @@ export const makeRegistryPackLockEntry = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackLockEntrySchema = RegistryPackLockEntrySchema.annotate({
+export const PackLockEntrySchema = Schema.Union([
+  RegistryPackLockEntrySchema,
+  WorkspacePackLockEntrySchema,
+]).annotate({
   identifier: "PackLockEntry",
   title: "Pack Lock Entry",
-  description: "Pinned version info for an installed pack from a registry.",
+  description: "Pinned or workspace-derived version info for an installed pack.",
 });
 
 /**

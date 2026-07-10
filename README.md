@@ -115,7 +115,8 @@ axm skills install @acme/skills/code-review
 axm skills list
 axm skills disable my-skill                   # Turn off without uninstalling
 axm skills enable my-skill
-axm skills publish my-skill                   # Publish to the registry
+axm skills copy ./external-skill @acme/skills/my-skill
+axm skills publish                            # Publish authored skills
 ```
 
 Installed and enabled skills are always materialized in `.agents/skills/` for
@@ -142,6 +143,8 @@ axm install @acme/skills/code-review # Install a single extension
 axm update                           # Pull latest versions
 axm outdated                         # Show extensions with available updates
 axm uninstall @acme/skills/code-review
+axm adopt @acme/skills/retained-package       # Make a canonical package authoritative
+axm demote @acme/skills/review ./upstream     # Explicitly return to external source management
 axm prune                            # Remove extensions axm isn't managing
 axm upgrade                          # Update axm itself
 ```
@@ -154,8 +157,12 @@ Extensions publish to the registry in four steps.
 axm skills new my-skill              # 1. Scaffold
 # 2. Author content in the scaffolded directory
 axm lint                             # 3. Check the publish gate locally
-axm skills publish my-skill          # 4. Publish
+axm publish --on-existing verify     # 4. Publish every authored extension idempotently
 ```
+
+Authorship is derived from the intrinsic
+`workspace:@owner/<plural-type>/<name>` settings source. Explicit selectors can
+publish configured non-workspace packages without changing their source.
 
 `axm lint` checks the same rules the registry enforces — see
 [Lint](#lint) for details.

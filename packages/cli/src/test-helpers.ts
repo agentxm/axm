@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { writeWorkspaceFiles } from "./test-stubs.js";
+import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   AuthGuardInteractionTest,
@@ -480,7 +480,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
       );
     }
 
-    writeWorkspaceFiles(path.join(workspaceRoot, ".axm"));
+    ensureWorkspaceFiles(path.join(workspaceRoot, ".axm"));
   }
 
   const workspaceOptions =

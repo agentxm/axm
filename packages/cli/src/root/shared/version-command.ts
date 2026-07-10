@@ -14,6 +14,7 @@ import {
   fqnInvalidErrorToAppError,
   parseFqn,
 } from "@agentxm/client-core/unstable/extensions";
+import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
@@ -45,6 +46,33 @@ export interface VersionHandlerArgs {
   readonly targetVersion: Option.Option<string>;
   readonly preview: boolean;
 }
+
+const entrySource = (entry: unknown): string | undefined => {
+  if (typeof entry === "string") return entry;
+  if (typeof entry !== "object" || entry === null || !("source" in entry)) return undefined;
+  return typeof entry.source === "string" ? entry.source : undefined;
+};
+
+const configuredSourceForVersionTarget = Effect.fn("Version.configuredSourceForTarget")(function* (
+  type: VersionableExtensionType,
+  name: string,
+) {
+  const ws = yield* WorkspaceMutations;
+  switch (type) {
+    case "skill":
+      return entrySource((yield* ws.getConfiguredSkillEntries())[name]);
+    case "command":
+      return entrySource((yield* ws.getConfiguredCommandEntries())[name]);
+    case "mcp-server":
+      return entrySource((yield* ws.getConfiguredMcpServerEntries())[name]);
+    case "subagent":
+      return entrySource((yield* ws.getConfiguredSubagentEntries())[name]);
+    case "pack":
+      return entrySource((yield* ws.getConfiguredPackEntries())[name]);
+    case "hook":
+      return entrySource((yield* ws.getConfiguredHookEntries())[name]);
+  }
+});
 
 const versionResultMessage = (
   result: BumpManifestVersionResult,
@@ -155,6 +183,18 @@ const parseBump = (bump: string) => {
 
 export const handleVersion = (args: VersionHandlerArgs) =>
   Effect.gen(function* () {
+    const parsedTarget = yield* Effect.fromResult(
+      Result.mapError(parseFqn(args.handle), fqnInvalidErrorToAppError),
+    );
+    const configuredSource = yield* configuredSourceForVersionTarget(args.type, parsedTarget.name);
+    if (configuredSource === undefined || !isWorkspaceSourceLocator(configuredSource)) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Cannot change the version of non-workspace ${extensionTypeSentenceLabels[args.type]} ${args.handle}`,
+        recover: "Adopt or copy the package into workspace authorship before editing its manifest.",
+      });
+    }
+
     const bump = yield* parseBump(args.bump);
 
     if (bump === "set" && Option.isNone(args.targetVersion)) {

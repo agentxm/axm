@@ -416,7 +416,8 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
       const packs = context.settings.packs ?? {};
 
       for (const [name, entry] of Object.entries(packs)) {
-        const source = entry.source;
+        const source = typeof entry === "string" ? entry : entry.source;
+        if (source.startsWith("workspace:")) continue;
         const parsed = parseRegistryPackSource(source);
         const owner = Option.isSome(parsed)
           ? parsed.value.owner

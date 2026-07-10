@@ -33,6 +33,8 @@ const deriveSourceString = (lockEntry: SubagentLockEntry): string => {
       return lockEntry.path;
     case "registry":
       return `${lockEntry.owner}/subagents/${lockEntry.name}`;
+    case "workspace":
+      return `workspace:@${lockEntry.owner}/subagents/${lockEntry.name}`;
     case "github":
       return `${lockEntry.owner}/${lockEntry.repo}`;
     case "gitlab":
@@ -143,7 +145,6 @@ export const disableSubagent: OperationHandler<
       yield* ws.setSubagentEntry(op.args.subagentName, {
         source,
         enabled: false,
-        authored: false,
       });
     } else {
       // Configured subagent — toggle enabled flag

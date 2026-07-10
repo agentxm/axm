@@ -356,11 +356,13 @@ describe("generated schemas", () => {
     expect(propertyNames["$ref"]).toBe("#/definitions/NonPackExtensionFqn");
 
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
-    const resolvedSkills = getProperty(
-      getDefinition(lockSchema, "PackLockEntry"),
-      "resolvedSkills",
-    );
-    const lockPropertyNames = getPropertyNamesSchema(resolvedSkills);
-    expect(lockPropertyNames["$ref"]).toBe("#/definitions/ExtensionFqn");
+    for (const definitionName of ["RegistryPackLockEntry", "WorkspacePackLockEntry"]) {
+      const resolvedSkills = getProperty(
+        getDefinition(lockSchema, definitionName),
+        "resolvedSkills",
+      );
+      const lockPropertyNames = getPropertyNamesSchema(resolvedSkills);
+      expect(lockPropertyNames["$ref"]).toBe("#/definitions/ExtensionFqn");
+    }
   });
 });

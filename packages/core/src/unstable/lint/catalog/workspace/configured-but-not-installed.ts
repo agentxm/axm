@@ -75,15 +75,22 @@ const findingFor = (row: InstalledRow): AdvisoryFinding => ({
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `${extensionLabel(row.key.type)} '${row.key.name}' is configured but its installed content is missing from .axm/extensions. ` +
-    `Run \`${remediationCommand(row)}\` to install it before syncing.`,
+    row.installationOrigin._tag === "direct" &&
+    categorizeEntry(row.key.name, row.installationOrigin.declared.entry.source).kind === "workspace"
+      ? `${extensionLabel(row.key.type)} '${row.key.name}' declares a workspace source, but its authoritative package is missing from .axm/extensions. Restore the package or remove the workspace source declaration.`
+      : `${extensionLabel(row.key.type)} '${row.key.name}' is configured but its installed content is missing from .axm/extensions. ` +
+        `Run \`${remediationCommand(row)}\` to install it before syncing.`,
   location: { file: SETTINGS_REL },
 });
 
 const hasLintableInstallSource = (row: InstalledRow): boolean => {
   if (row.installationOrigin._tag === "pack-member") return true;
   const categorized = categorizeEntry(row.key.name, row.installationOrigin.declared.entry.source);
-  return categorized.kind === "registry" || categorized.kind === "non-registry";
+  return (
+    categorized.kind === "registry" ||
+    categorized.kind === "workspace" ||
+    categorized.kind === "non-registry"
+  );
 };
 
 const checkRows = (rows: ReadonlyArray<InstalledRow>): ReadonlyArray<AdvisoryFinding> =>

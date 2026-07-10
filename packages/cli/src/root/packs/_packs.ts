@@ -5,7 +5,7 @@ import { addCommand } from "./add.js";
 import { installCommand } from "./install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
-import { publishCommand } from "./publish.js";
+import { packsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { removeCommand } from "./remove.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { unpackCommand } from "./unpack/command.js";

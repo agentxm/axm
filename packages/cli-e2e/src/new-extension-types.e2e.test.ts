@@ -52,15 +52,13 @@ describe("axm files new", () => {
 
       const settings = readJson(path.join(temp.path, ".axm", "settings.json"));
       expect(settings["files"]).toEqual({
-        "workspace-baseline": {
-          source: "@test/files/workspace-baseline",
-          authored: true,
-        },
+        "workspace-baseline": "workspace:@test/files/workspace-baseline",
       });
 
       const lockfile = fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf-8");
       expect(lockfile).toContain("workspace-baseline:");
-      expect(lockfile).toContain("resolvedVersion: 0.1.0");
+      expect(lockfile).toContain("type: workspace");
+      expect(lockfile).toContain("version: 0.1.0");
       expect(result.stdout + result.stderr).toContain(
         "Edit `.axm/extensions/@test/files/workspace-baseline/src/README.md`",
       );
@@ -97,15 +95,13 @@ describe("axm mcps new", () => {
 
       const settings = readJson(path.join(temp.path, ".axm", "settings.json"));
       expect(settings["mcpServers"]).toEqual({
-        context: {
-          source: "@test/mcps/context",
-          authored: true,
-        },
+        context: "workspace:@test/mcps/context",
       });
 
       const lockfile = fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf-8");
       expect(lockfile).toContain("context:");
-      expect(lockfile).toContain("resolvedVersion: 0.1.0");
+      expect(lockfile).toContain("type: workspace");
+      expect(lockfile).toContain("version: 0.1.0");
       expect(result.stdout + result.stderr).toContain(
         "Edit `.axm/extensions/@test/mcps/context/mcp.json`",
       );

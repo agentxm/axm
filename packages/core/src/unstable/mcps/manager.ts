@@ -204,7 +204,7 @@ export const McpServerManagerLive = Layer.effect(
       }, Effect.asVoid);
 
     const materializeUninstall: ExtensionManager<McpServerExtensionRef>["materializeUninstall"] =
-      Effect.fn("McpServerManager.materializeUninstall")(function* ({ target }) {
+      Effect.fn("McpServerManager.materializeUninstall")(function* ({ target, preserveSource }) {
         const configuredAgents = yield* ws
           .getConfiguredAgents()
           .pipe(Effect.catch(() => Effect.succeed([])));
@@ -222,6 +222,7 @@ export const McpServerManagerLive = Layer.effect(
           { concurrency: "unbounded" },
         );
 
+        if (preserveSource === true) return;
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
         const extensionsDirExists = yield* fs
           .exists(extensionsDir)
@@ -260,9 +261,18 @@ export const McpServerManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      getConfiguredSource: Effect.fn("McpServerManager.getConfiguredSource")(function* ({
+        target,
+      }) {
+        const configured = yield* ws.records.getConfiguredMcpServers();
+        return Option.fromUndefinedOr(configured[target.name]?.source);
+      }),
       listMaterializable: Effect.fn("McpServerManager.listMaterializable")(function* () {
         const configured = yield* ws.records.getConfiguredMcpServers();
-        return yield* configuredMcpServersToDiskRefs({ fs, path, baseDir }, configured);
+        return yield* configuredMcpServersToDiskRefs(
+          { fs, path, baseDir, scope: ws.scope },
+          configured,
+        );
       }),
       materializeUninstall,
 

@@ -580,6 +580,47 @@ describe("lockfile schema", () => {
       }
     });
 
+    it("accepts a workspace skill lock entry with intrinsic identity and content hash", () => {
+      const input = {
+        type: "workspace",
+        owner: "@acme",
+        extensionType: "skill",
+        name: "my-skill",
+        version: "1.0.0",
+        sourceHash: "abc123def456",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
+
+      expect(result).toMatchObject({
+        type: "workspace",
+        owner: "@acme",
+        extensionType: "skill",
+        name: "my-skill",
+        version: "1.0.0",
+        sourceHash: "abc123def456",
+      });
+    });
+
+    it("rejects a workspace skill lock entry with a mismatched extension type", () => {
+      const input = {
+        type: "workspace",
+        owner: "@acme",
+        extensionType: "command",
+        name: "my-skill",
+        version: "1.0.0",
+        sourceHash: "abc123def456",
+        agents: [],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
+    });
+
     it("rejects registry lock entry with range resolvedVersion", () => {
       const input = {
         type: "registry",
@@ -971,8 +1012,8 @@ describe("lockfile schema", () => {
       expect(result.type).toBe("registry");
       expect(result.owner).toBe("@acme");
       expect(result.name).toBe("frontend-pack");
-      expect(result.resolvedVersion).toBe("1.0.0");
       if (result.type === "registry") {
+        expect(result.resolvedVersion).toBe("1.0.0");
         expect(result.integrity).toBe("sha512-abc123def456");
         expect(result.sourceName).toBe("default");
       }
@@ -1006,6 +1047,34 @@ describe("lockfile schema", () => {
       expect(result.resolvedCommands).toEqual({});
       expect(result.resolvedMcpServers).toEqual({});
       expect(result.resolvedSubagents).toEqual({});
+    });
+
+    it("accepts a workspace pack lock entry", () => {
+      const input = {
+        type: "workspace",
+        owner: "@acme",
+        extensionType: "pack",
+        name: "authored-pack",
+        version: "1.0.0",
+        sourceHash: "abc123def456",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+        resolvedSubagents: {},
+      };
+
+      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
+
+      expect(result).toMatchObject({
+        type: "workspace",
+        owner: "@acme",
+        extensionType: "pack",
+        name: "authored-pack",
+        version: "1.0.0",
+        sourceHash: "abc123def456",
+      });
     });
 
     it("accepts pack lock entry with resolvedSubagents", () => {

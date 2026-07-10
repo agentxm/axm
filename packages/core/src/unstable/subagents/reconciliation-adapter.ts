@@ -62,7 +62,8 @@ export const subagentReconciliationAdapter: ReconciliationAdapter = {
 
     const subagents = context.settings.subagents ?? {};
     for (const [name, entry] of Object.entries(subagents)) {
-      const source = entry.source;
+      const source = typeof entry === "string" ? entry : entry.source;
+      if (source.startsWith("workspace:")) continue;
       const parsed = parseRegistrySubagentSource(source);
       const owner = Option.isSome(parsed)
         ? parsed.value.owner

@@ -1,7 +1,10 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import {
+  isWorkspaceSourceLocator,
+  type RegistrySource,
+} from "@agentxm/client-core/unstable/sources";
 import {
   resolveSource,
   SourceHostProviders,
@@ -333,6 +336,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     filteredEntries,
     ([name, sourceStr]) =>
       Effect.gen(function* () {
+        if (isWorkspaceSourceLocator(sourceStr)) {
+          return {
+            type: "skip",
+            name,
+            source: sourceStr,
+            reason: `Skill "${name}" is workspace-sourced and unchanged`,
+          } satisfies ResolveResult;
+        }
         const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
         const minimumAgeMs = parseMinimumReleaseAge(minimumReleaseAge);
         if (Option.isNone(minimumAgeMs)) {
@@ -421,7 +432,19 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const skipped = results.filter(
     (result): result is Extract<ResolveResult, { readonly type: "skip" }> => result.type === "skip",
   );
-  if (resolved.length === 0) {
+  if (
+    resolved.length === 0 &&
+    Option.isSome(args.source) &&
+    skipped.length > 0 &&
+    skipped.every((item) => !isWorkspaceSourceLocator(item.source))
+  ) {
+    return yield* allUpdateTargetResolutionsFailed({
+      resourceLabelPlural: "skill",
+      recover: "List configured sources",
+      cmd: "axm sources list",
+    });
+  }
+  if (resolved.length === 0 && skipped.length === 0) {
     return yield* allUpdateTargetResolutionsFailed({
       resourceLabelPlural: "skill",
       recover: "List configured sources",
@@ -505,12 +528,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const skippedSteps = [...skipped, ...disabledSkillEntries].map((item) => skippedSkillStep(item));
   const [firstJob, ...restJobs] = basePlanWithWarnings.jobs;
   const plan: Plan =
-    firstJob === undefined || skippedSteps.length === 0
+    skippedSteps.length === 0
       ? basePlanWithWarnings
-      : {
-          ...basePlanWithWarnings,
-          jobs: [{ ...firstJob, steps: [...firstJob.steps, ...skippedSteps] }, ...restJobs],
-        };
+      : firstJob === undefined
+        ? { ...basePlanWithWarnings, jobs: [{ concurrency: 1, steps: skippedSteps }] }
+        : {
+            ...basePlanWithWarnings,
+            jobs: [{ ...firstJob, steps: [...firstJob.steps, ...skippedSteps] }, ...restJobs],
+          };
 
   // Step 11: Resolve plan
   const resolution = yield* previewOrApplyPlan(plan, {

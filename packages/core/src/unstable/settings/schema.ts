@@ -8,11 +8,16 @@
 
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
-import { ConfigurableAgentIdSchema, EXTENSION_NAME_PATTERN } from "../extensions/common.js";
+import {
+  ConfigurableAgentIdSchema,
+  EXTENSION_NAME_PATTERN,
+  FQN_PATTERN,
+} from "../extensions/common.js";
 import { FileInputValueSchema } from "../files/manifest-schema.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { LibraryRefSchema } from "../libraries/index.js";
 import { LintConfigSchema } from "../lint/config.js";
+import { isWorkspaceSourceLocator } from "../sources/workspace.js";
 
 // -----------------------------------------------------------------------------
 // Source Host Config (array-based, discriminated on `type` field)
@@ -24,17 +29,18 @@ import { LintConfigSchema } from "../lint/config.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-const SOURCE_NAME_PATTERN = /^[a-z0-9][a-z0-9.-]*$/;
+const SOURCE_NAME_PATTERN = /^(?!workspace$)[a-z0-9][a-z0-9.-]*$/;
 
 const SourceNameSchema = Schema.String.check(
   Schema.isPattern(SOURCE_NAME_PATTERN, {
     message:
-      "source name must start with a letter or digit and contain only lowercase alphanumeric characters, hyphens, and dots",
+      'source name must start with a letter or digit, contain only lowercase alphanumeric characters, hyphens, and dots, and must not be reserved name "workspace"',
   }),
 ).annotate({
   identifier: "SourceName",
   title: "Source Name",
-  description: "A source host alias: lowercase letters, numbers, hyphens, and dots.",
+  description:
+    'A source host alias: lowercase letters, numbers, hyphens, and dots. The name "workspace" is reserved.',
   examples: ["github", "my-registry.dev"],
 });
 
@@ -173,21 +179,19 @@ export type AzureReposSourceHostConfig = Schema.Schema.Type<
 /** @experimental */
 export type RegistrySourceHostConfig = Schema.Schema.Type<typeof RegistrySourceHostConfigSchema>;
 
-type AuthoredEntryObject = {
+type SourceEntryObject = {
   readonly source: string;
-  readonly authored?: boolean | undefined;
 };
 
-type AuthoredEntry = {
+type SourceEntry = {
   readonly source: string;
-  readonly authored: boolean;
 };
 
-type EnabledEntryObject = AuthoredEntryObject & {
+type EnabledEntryObject = SourceEntryObject & {
   readonly enabled?: boolean | undefined;
 };
 
-type EnabledEntry = AuthoredEntry & {
+type EnabledEntry = SourceEntry & {
   readonly enabled: boolean;
 };
 
@@ -200,7 +204,6 @@ type McpServerVerboseEntryObject = {
   readonly url?: string | undefined;
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled?: boolean | undefined;
-  readonly authored?: boolean | undefined;
   readonly env?: McpServerEnvInput | undefined;
 };
 
@@ -211,7 +214,6 @@ type CanonicalMcpServerEntry = {
   readonly url?: string | undefined;
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled: boolean;
-  readonly authored: boolean;
   readonly env: Readonly<Record<string, string>>;
 };
 
@@ -219,14 +221,6 @@ const ExtensionMapKeySchema = Schema.String.check(
   Schema.isPattern(EXTENSION_NAME_PATTERN, {
     message:
       "Names must be max 64 chars, lowercase letters/numbers/hyphens, not starting or ending with hyphen.",
-  }),
-);
-
-const authoredFieldSchema = Schema.optionalKey(
-  Schema.Boolean.annotate({
-    description:
-      "Set to true to mark this entry as authored locally in this workspace — for extensions you edit here. AXM treats authored entries as locally owned: it preserves their files on uninstall, keeps the local source instead of repointing to the registry on update, and re-resolves them from the local managed copy on enable. Omit otherwise — false is the default and should not be written explicitly.",
-    default: false,
   }),
 );
 
@@ -251,6 +245,27 @@ const entrySourceFieldSchema = (label: string, fqnType: string) =>
       ],
     }),
   );
+
+const workspaceEntriesMatch = (pluralType: string) =>
+  Schema.makeFilter((entries: Readonly<Record<string, { readonly source: string }>>) => {
+    for (const [entryName, entry] of Object.entries(entries)) {
+      if (!isWorkspaceSourceLocator(entry.source)) continue;
+      const fqn = entry.source.slice("workspace:".length);
+      const match = FQN_PATTERN.exec(fqn);
+      if (match === null) {
+        return `Workspace source "${entry.source}" must be workspace:@owner/<plural-type>/<name> without a version`;
+      }
+      const sourceType = match[2];
+      const sourceName = match[3];
+      if (sourceType !== pluralType) {
+        return `Workspace source "${entry.source}" has type "${sourceType ?? ""}", but this settings section requires "${pluralType}"`;
+      }
+      if (sourceName !== entryName) {
+        return `Workspace source "${entry.source}" has name "${sourceName ?? ""}", but the settings key is "${entryName}"`;
+      }
+    }
+    return undefined;
+  });
 
 const McpServerEnvSchema = Schema.Union([
   Schema.Record(Schema.String, Schema.String),
@@ -400,25 +415,22 @@ const compactOrVerboseEntry = <
 const EnabledEntryCanonicalSchema = Schema.Struct({
   source: Schema.String,
   enabled: Schema.Boolean,
-  authored: Schema.Boolean,
 });
 
 const decodeEnabledEntry = (entry: string | EnabledEntryObject): EnabledEntry =>
   typeof entry === "string"
-    ? { source: entry, enabled: true, authored: false }
+    ? { source: entry, enabled: true }
     : {
         source: entry.source,
         enabled: entry.enabled ?? true,
-        authored: entry.authored ?? false,
       };
 
 const encodeEnabledEntry = (entry: EnabledEntry): string | EnabledEntryObject => {
-  if (entry.enabled && !entry.authored) return entry.source;
-  const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+  if (entry.enabled) return entry.source;
+  const obj: { source: string; enabled?: boolean } = {
     source: entry.source,
   };
   if (!entry.enabled) obj.enabled = false;
-  if (entry.authored) obj.authored = true;
   return obj;
 };
 
@@ -451,18 +463,16 @@ const compactEnabledEntry = (
 export const SkillEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("skill", "skills"),
   enabled: enabledFieldSchema,
-  authored: authoredFieldSchema,
 }).annotate({
   title: "Skill Entry Object",
-  description: "A skill entry with source and optional enabled/authored flags.",
+  description: "A skill entry with source and an optional enabled flag.",
 });
 
 /**
- * Union of skill entry forms: plain source string or object with source + enabled + authored.
+ * Union of skill entry forms: plain source string or object with source + enabled.
  *
- * Decodes to canonical `{ source, enabled, authored }` form; encodes back to
- * the most compact JSON representation (plain string when enabled and not
- * authored, object otherwise).
+ * Decodes to canonical `{ source, enabled }` form; encodes back to the most
+ * compact JSON representation.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -497,6 +507,7 @@ export type SkillEntry = Schema.Schema.Type<typeof SkillEntrySchema>;
  */
 export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(workspaceEntriesMatch("skills"))
   .annotate({
     identifier: "SkillsMap",
     title: "Skills Map",
@@ -518,18 +529,16 @@ export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
 export const CommandEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("command", "commands"),
   enabled: enabledFieldSchema,
-  authored: authoredFieldSchema,
 }).annotate({
   title: "Command Entry Object",
-  description: "A command entry with source and optional enabled/authored flags.",
+  description: "A command entry with source and an optional enabled flag.",
 });
 
 /**
- * Union of command entry forms: plain source string or object with source + enabled + authored.
+ * Union of command entry forms: plain source string or object with source + enabled.
  *
- * Decodes to canonical `{ source, enabled, authored }` form; encodes back to
- * the most compact JSON representation (plain string when enabled and not
- * authored, object otherwise).
+ * Decodes to canonical `{ source, enabled }` form; encodes back to the most
+ * compact JSON representation.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -564,6 +573,7 @@ export type CommandEntry = Schema.Schema.Type<typeof CommandEntrySchema>;
  */
 export const CommandsMapSchema = Schema.Record(Schema.String, CommandEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(workspaceEntriesMatch("commands"))
   .annotate({
     identifier: "CommandsMap",
     title: "Commands Map",
@@ -589,7 +599,6 @@ export type CommandsMap = Schema.Schema.Type<typeof CommandsMapSchema>;
 export const FilesEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("Context Files package", "files"),
   enabled: enabledFieldSchema,
-  authored: authoredFieldSchema,
   inputs: Schema.optionalKey(FileInputValuesMapSchema),
 }).annotate({
   title: "Files Entry Object",
@@ -600,7 +609,7 @@ export const FilesEntryObjectSchema = Schema.Struct({
 /**
  * Union of Context Files package entry forms: plain source string or object with source, flags, and inputs.
  *
- * Decodes to canonical `{ source, enabled, authored, inputs }` form; encodes
+ * Decodes to canonical `{ source, enabled, inputs }` form; encodes
  * back to a plain source string when all metadata is default and no inputs are
  * set.
  *
@@ -611,30 +620,26 @@ export const FilesEntrySchema = compactOrVerboseEntry(
   Schema.Struct({
     source: Schema.String,
     enabled: Schema.Boolean,
-    authored: Schema.Boolean,
     inputs: FileInputValuesMapSchema,
   }),
   {
     decode: (entry: string | FilesEntryObject): FilesEntryCanonical =>
       typeof entry === "string"
-        ? { source: entry, enabled: true, authored: false, inputs: {} }
+        ? { source: entry, enabled: true, inputs: {} }
         : {
             source: entry.source,
             enabled: entry.enabled ?? true,
-            authored: entry.authored ?? false,
             inputs: entry.inputs ?? {},
           },
     encode: (entry: FilesEntryCanonical): string | FilesEntryObject => {
       const hasInputs = Object.keys(entry.inputs).length > 0;
-      if (entry.enabled && !entry.authored && !hasInputs) return entry.source;
+      if (entry.enabled && !hasInputs) return entry.source;
       const obj: {
         source: string;
         enabled?: boolean;
-        authored?: boolean;
         inputs?: FileInputValuesMap;
       } = { source: entry.source };
       if (!entry.enabled) obj.enabled = false;
-      if (entry.authored) obj.authored = true;
       if (hasInputs) obj.inputs = entry.inputs;
       return obj;
     },
@@ -664,6 +669,7 @@ export type FilesEntry = Schema.Schema.Type<typeof FilesEntrySchema>;
  */
 export const FilesMapSchema = Schema.Record(Schema.String, FilesEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(workspaceEntriesMatch("files"))
   .annotate({
     identifier: "FilesMap",
     title: "Files Map",
@@ -685,14 +691,13 @@ export type FilesMap = Schema.Schema.Type<typeof FilesMapSchema>;
 export const RuleEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("rule", "rules"),
   enabled: enabledFieldSchema,
-  authored: authoredFieldSchema,
 }).annotate({
   title: "Rule Entry Object",
-  description: "A rule entry with source and optional enabled/authored flags.",
+  description: "A rule entry with source and an optional enabled flag.",
 });
 
 /**
- * Union of rule entry forms: plain source string or object with source + enabled + authored.
+ * Union of rule entry forms: plain source string or object with source + enabled.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -716,6 +721,7 @@ export type RuleEntry = Schema.Schema.Type<typeof RuleEntrySchema>;
  */
 export const RulesMapSchema = Schema.Record(Schema.String, RuleEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(workspaceEntriesMatch("rules"))
   .annotate({
     identifier: "RulesMap",
     title: "Rules Map",
@@ -737,14 +743,13 @@ export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
 export const HookEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("hook", "hooks"),
   enabled: enabledFieldSchema,
-  authored: authoredFieldSchema,
 }).annotate({
   title: "Hook Entry Object",
-  description: "A hook entry with source and optional enabled/authored flags.",
+  description: "A hook entry with source and an optional enabled flag.",
 });
 
 /**
- * Union of hook entry forms: plain source string or object with source + enabled + authored.
+ * Union of hook entry forms: plain source string or object with source + enabled.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -768,6 +773,7 @@ export type HookEntry = Schema.Schema.Type<typeof HookEntrySchema>;
  */
 export const HooksMapSchema = Schema.Record(Schema.String, HookEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(workspaceEntriesMatch("hooks"))
   .annotate({
     identifier: "HooksMap",
     title: "Hooks Map",
@@ -789,11 +795,10 @@ export type HooksMap = Schema.Schema.Type<typeof HooksMapSchema>;
 export const McpServerEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("MCP server", "mcps"),
   enabled: enabledFieldSchema,
-  authored: authoredFieldSchema,
   env: Schema.optionalKey(McpServerEnvSchema),
 }).annotate({
   title: "MCP Server Entry Object",
-  description: "An MCP server entry with source and optional enabled/authored/env fields.",
+  description: "An MCP server entry with source and optional enabled/env fields.",
 });
 
 const McpServerVerboseEntryObjectSchema = Schema.Struct({
@@ -826,7 +831,6 @@ const McpServerVerboseEntryObjectSchema = Schema.Struct({
     }),
   ),
   enabled: enabledFieldSchema,
-  authored: authoredFieldSchema,
   env: Schema.optionalKey(McpServerEnvSchema),
 }).pipe(
   Schema.check(
@@ -837,10 +841,10 @@ const McpServerVerboseEntryObjectSchema = Schema.Struct({
 );
 
 /**
- * Union of MCP server entry forms: plain source string or object with source + enabled + authored + env.
+ * Union of MCP server entry forms: plain source string or object with source + enabled + env.
  *
- * Decodes to canonical `{ source, enabled, authored, env }` form; encodes back to the most
- * compact JSON representation (plain string when enabled, not authored, and env is empty).
+ * Decodes to canonical `{ source, enabled, env }` form; encodes back to the most
+ * compact JSON representation.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -853,13 +857,12 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
     url: Schema.optional(Schema.String),
     headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
     enabled: Schema.Boolean,
-    authored: Schema.Boolean,
     env: Schema.Record(Schema.String, Schema.String),
   }),
   {
     decode: (entry: string | McpServerVerboseEntryObject): CanonicalMcpServerEntry =>
       typeof entry === "string"
-        ? { source: entry, enabled: true, authored: false, env: {} }
+        ? { source: entry, enabled: true, env: {} }
         : {
             source: "source" in entry && entry.source !== undefined ? entry.source : "inline",
             ...("command" in entry && entry.command !== undefined
@@ -871,16 +874,10 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
               ? { headers: entry.headers }
               : {}),
             enabled: entry.enabled ?? true,
-            authored: entry.authored ?? false,
             env: decodeMcpEnv(entry.env),
           },
     encode: (entry: CanonicalMcpServerEntry): string | McpServerVerboseEntryObject => {
-      if (
-        entry.source !== "inline" &&
-        entry.enabled &&
-        !entry.authored &&
-        Object.keys(entry.env).length === 0
-      ) {
+      if (entry.source !== "inline" && entry.enabled && Object.keys(entry.env).length === 0) {
         return entry.source;
       }
       const obj: {
@@ -890,7 +887,6 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         url?: string;
         headers?: Readonly<Record<string, string>>;
         enabled?: boolean;
-        authored?: boolean;
         env?: Readonly<Record<string, string>>;
       } = {};
       if (entry.source !== "inline") obj.source = entry.source;
@@ -901,13 +897,11 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         obj.headers = entry.headers;
       }
       if (!entry.enabled) obj.enabled = false;
-      if (entry.authored) obj.authored = true;
       if (Object.keys(entry.env).length > 0) obj.env = entry.env;
       if (entry.source !== "inline") {
         return {
           source: entry.source,
           ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
-          ...(obj.authored === undefined ? {} : { authored: obj.authored }),
           ...(obj.env === undefined ? {} : { env: obj.env }),
         };
       }
@@ -916,7 +910,6 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
           command: entry.command,
           ...(obj.args === undefined ? {} : { args: obj.args }),
           ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
-          ...(obj.authored === undefined ? {} : { authored: obj.authored }),
           ...(obj.env === undefined ? {} : { env: obj.env }),
         };
       }
@@ -924,7 +917,6 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         url: entry.url ?? "",
         ...(obj.headers === undefined ? {} : { headers: obj.headers }),
         ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
-        ...(obj.authored === undefined ? {} : { authored: obj.authored }),
         ...(obj.env === undefined ? {} : { env: obj.env }),
       };
     },
@@ -959,6 +951,7 @@ export type McpServerEntry = Schema.Schema.Type<typeof McpServerEntrySchema>;
  */
 export const McpServersMapSchema = Schema.Record(Schema.String, McpServerEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(workspaceEntriesMatch("mcps"))
   .annotate({
     identifier: "McpServersMap",
     title: "MCP Servers Map",
@@ -984,18 +977,16 @@ export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
 export const SubagentEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("subagent", "subagents"),
   enabled: enabledFieldSchema,
-  authored: authoredFieldSchema,
 }).annotate({
   title: "Subagent Entry Object",
-  description: "A subagent entry with source and optional enabled/authored flags.",
+  description: "A subagent entry with source and an optional enabled flag.",
 });
 
 /**
- * Union of subagent entry forms: plain source string or object with source + enabled + authored.
+ * Union of subagent entry forms: plain source string or object with source + enabled.
  *
- * Decodes to canonical `{ source, enabled, authored }` form; encodes back to
- * the most compact JSON representation (plain string when enabled and not
- * authored, object otherwise).
+ * Decodes to canonical `{ source, enabled }` form; encodes back to the most
+ * compact JSON representation.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1030,6 +1021,7 @@ export type SubagentEntry = Schema.Schema.Type<typeof SubagentEntrySchema>;
  */
 export const SubagentsMapSchema = Schema.Record(Schema.String, SubagentEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(workspaceEntriesMatch("subagents"))
   .annotate({
     identifier: "SubagentsMap",
     title: "Subagents Map",
@@ -1054,17 +1046,15 @@ export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
  */
 export const PackEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("pack", "packs"),
-  authored: authoredFieldSchema,
 }).annotate({
   title: "Pack Entry Object",
-  description: "A pack entry with source and optional authored flag.",
+  description: "A pack entry with a source.",
 });
 
 /**
- * Union of pack entry forms: plain source string or object with source + authored.
+ * Union of pack entry forms: plain source string or object with source.
  *
- * Decodes to canonical `{ source, authored }` form; encodes back to the most
- * compact JSON representation (plain string when not authored, object otherwise).
+ * Decodes to canonical `{ source }` form and encodes back to a source string.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1072,25 +1062,17 @@ export const PackEntrySchema = compactOrVerboseEntry(
   PackEntryObjectSchema,
   Schema.Struct({
     source: Schema.String,
-    authored: Schema.Boolean,
   }),
   {
-    decode: (entry: string | AuthoredEntryObject): AuthoredEntry =>
-      typeof entry === "string"
-        ? { source: entry, authored: false }
-        : { source: entry.source, authored: entry.authored ?? false },
-    encode: (entry: AuthoredEntry): string | AuthoredEntryObject =>
-      entry.authored ? { source: entry.source, authored: true } : entry.source,
+    decode: (entry: string | SourceEntryObject): SourceEntry =>
+      typeof entry === "string" ? { source: entry } : { source: entry.source },
+    encode: (entry: SourceEntry): string | SourceEntryObject => entry.source,
   },
   {
     identifier: "PackEntry",
     title: "Pack Entry",
-    description:
-      "A pack entry: a source string, or an object with source plus optional authored flag.",
-    examples: [
-      "@acme/packs/typescript@^1.0.0",
-      { source: "github:acme/agent-extensions", authored: true },
-    ],
+    description: "A pack entry: a source string, or an object with a source.",
+    examples: ["@acme/packs/typescript@^1.0.0"],
   },
 );
 
@@ -1115,6 +1097,7 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
  */
 export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(workspaceEntriesMatch("packs"))
   .annotate({
     identifier: "PacksMap",
     title: "Packs Map",
@@ -1146,14 +1129,13 @@ export const LibraryEntryObjectSchema = Schema.Struct({
     }),
   ),
   enabled: enabledFieldSchema,
-  authored: authoredFieldSchema,
 }).annotate({
   title: "Library Entry Object",
-  description: "A Library subscription entry with source and optional enabled/authored flags.",
+  description: "A Library subscription entry with source and an optional enabled flag.",
 });
 
 /**
- * Union of Library entry forms: plain Library ref or object with source + enabled + authored.
+ * Union of Library entry forms: plain Library ref or object with source + enabled.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1162,24 +1144,21 @@ export const LibraryEntrySchema = compactOrVerboseEntry(
   Schema.Struct({
     source: LibraryRefSchema,
     enabled: Schema.Boolean,
-    authored: Schema.Boolean,
   }),
   {
     decode: (entry: string | EnabledEntryObject): LibraryEntryCanonical =>
       typeof entry === "string"
-        ? { source: entry, enabled: true, authored: false }
+        ? { source: entry, enabled: true }
         : {
             source: entry.source,
             enabled: entry.enabled ?? true,
-            authored: entry.authored ?? false,
           },
     encode: (entry: LibraryEntryCanonical): string | EnabledEntryObject => {
-      if (entry.enabled && !entry.authored) return entry.source;
-      const obj: { source: string; enabled?: boolean; authored?: boolean } = {
+      if (entry.enabled) return entry.source;
+      const obj: { source: string; enabled?: boolean } = {
         source: entry.source,
       };
       if (!entry.enabled) obj.enabled = false;
-      if (entry.authored) obj.authored = true;
       return obj;
     },
   },
@@ -1513,7 +1492,7 @@ export const SettingsSchema = Schema.Struct({
   skills: Schema.optionalKey(
     Schema.Union([SkillsMapSchema]).annotate({
       description:
-        "Your installed skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly.",
+        "Your installed skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   skillsConfig: Schema.optionalKey(
@@ -1524,7 +1503,7 @@ export const SettingsSchema = Schema.Struct({
   commands: Schema.optionalKey(
     Schema.Union([CommandsMapSchema]).annotate({
       description:
-        "Your installed commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly.",
+        "Your installed commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   commandsConfig: Schema.optionalKey(
@@ -1535,25 +1514,25 @@ export const SettingsSchema = Schema.Struct({
   files: Schema.optionalKey(
     Schema.Union([FilesMapSchema]).annotate({
       description:
-        "Your installed Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or scalar `inputs`.",
+        "Your installed Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`.",
     }),
   ),
   rules: Schema.optionalKey(
     Schema.Union([RulesMapSchema]).annotate({
       description:
-        "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`.",
+        "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   hooks: Schema.optionalKey(
     Schema.Union([HooksMapSchema]).annotate({
       description:
-        "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`.",
+        "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   subagents: Schema.optionalKey(
     Schema.Union([SubagentsMapSchema]).annotate({
       description:
-        "Your installed subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false` or `authored: true`, and never write `enabled: true` or `authored: false` explicitly.",
+        "Your installed subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   subagentsConfig: Schema.optionalKey(
@@ -1564,7 +1543,7 @@ export const SettingsSchema = Schema.Struct({
   packs: Schema.optionalKey(
     Schema.Union([PacksMapSchema]).annotate({
       description:
-        "Your installed packs, keyed by workspace pack name. Prefer plain source strings; use the object form only to set `authored: true`, and never write `authored: false` explicitly. Pack entries do not support `enabled` yet.",
+        "Your installed packs, keyed by workspace pack name. Pack entries do not support `enabled` yet.",
     }),
   ),
   packsConfig: Schema.optionalKey(
@@ -1575,13 +1554,13 @@ export const SettingsSchema = Schema.Struct({
   libraries: Schema.optionalKey(
     Schema.Union([LibrariesMapSchema]).annotate({
       description:
-        "Your Library subscriptions, keyed by workspace subscription name. Prefer plain Library refs; use the object form only to set `enabled: false` or `authored: true`. Libraries are always latest and do not accept version suffixes.",
+        "Your Library subscriptions, keyed by workspace subscription name. Prefer plain Library refs; use the object form only to set `enabled: false`. Libraries are always latest and do not accept version suffixes.",
     }),
   ),
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
-        "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false`, `authored: true`, or persisted `env` values.",
+        "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values.",
     }),
   ),
   mcpServersConfig: Schema.optionalKey(
@@ -1603,7 +1582,7 @@ export const SettingsSchema = Schema.Struct({
   // them in the encoded (compact) form so agents see the preferred shape:
   // plain source strings, with the object form reserved for non-default flags.
   // Assertion needed: `.annotate()` types examples against the decoded
-  // canonical shape (where `enabled`/`authored` are required booleans), but
+  // canonical shape (where `enabled` is a required boolean), but
   // emitting that shape would teach agents to write the very defaults we want
   // them to omit.
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions

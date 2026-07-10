@@ -138,6 +138,7 @@ export const UninstallHookCommandWorkflowActionsLive = Layer.effect(
 
     const buildUninstallPlan = (
       intent: UninstallHookCommandIntent,
+      flags: { readonly sourceDisposition?: "keep" | "delete" },
     ): Effect.Effect<Plan, AppError> =>
       Effect.succeed({
         _tag: "Plan",
@@ -151,7 +152,12 @@ export const UninstallHookCommandWorkflowActionsLive = Layer.effect(
                 step: buildUninstallOperation<HookExtensionRef>(
                   hookManager,
                   makeWorkspaceRetentionPolicy(ws),
-                  { target },
+                  {
+                    target,
+                    ...(flags.sourceDisposition === undefined
+                      ? {}
+                      : { sourceDisposition: flags.sourceDisposition }),
+                  },
                 ),
                 scope: ws.scope,
                 targetName: target.name,

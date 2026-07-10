@@ -13,5 +13,6 @@ export {
 
 export {
   type UninstallExtensionCommandWorkflowActions,
+  type UninstallWorkflowFlags,
   runUninstallCommandWorkflow,
 } from "./uninstall-command/workflow.js";

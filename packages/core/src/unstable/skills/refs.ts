@@ -13,8 +13,14 @@ import type {
   GitHostedRefDetails,
   RegistryRefDetails,
   LocalRefDetails,
+  WorkspaceRefDetails,
 } from "../extensions/ref-base.js";
-import type { GitBasedSource, RegistrySource, LocalSource } from "../sources/types.js";
+import type {
+  GitBasedSource,
+  RegistrySource,
+  LocalSource,
+  WorkspaceSource,
+} from "../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete Skill Extension Refs
@@ -28,6 +34,13 @@ export type RegistrySkillRef = SkillExtensionRefBase<"registry", RegistrySource>
   RegistryRefDetails;
 /** @experimental */
 export type LocalSkillRef = SkillExtensionRefBase<"local", LocalSource> & LocalRefDetails;
+/** @experimental */
+export type WorkspaceSkillRef = SkillExtensionRefBase<"workspace", WorkspaceSource> &
+  WorkspaceRefDetails;
 
 /** @experimental */
-export type SkillExtensionRef = GitHostedSkillRef | RegistrySkillRef | LocalSkillRef;
+export type SkillExtensionRef =
+  | GitHostedSkillRef
+  | RegistrySkillRef
+  | LocalSkillRef
+  | WorkspaceSkillRef;

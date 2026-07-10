@@ -8,6 +8,7 @@ export {
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
 } from "./resolve.js";
+export { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
 export {
   CONFIGURED_ENTRY_RESOLUTION_TIMEOUT,
   withConfiguredEntryResolutionTimeout,

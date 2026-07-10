@@ -6,7 +6,7 @@ import { type AppError, makeAppError } from "../app-error/index.js";
 import { insertManagedFileBanner, validatePathSafety } from "../extensions/index.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
-import type { SkillExtensionRef } from "./refs.js";
+import type { SkillExtensionRef, WorkspaceSkillRef } from "./refs.js";
 import { computeSkillPaths, type SkillPathSource } from "./paths.js";
 import {
   computeIntegrity,
@@ -188,6 +188,16 @@ const materializeRegistry = (
     return skillSrcPath;
   });
 
+const materializeWorkspace = (
+  ref: WorkspaceSkillRef,
+  pathService: Path.Path,
+  baseDir: string,
+): Effect.Effect<string, AppError> =>
+  Effect.gen(function* () {
+    yield* validatePathSafety(baseDir, ref.location);
+    return pathService.join(ref.location, "src");
+  });
+
 export const materializeSkillCanonical = (args: {
   readonly ref: SkillExtensionRef;
   readonly sanitizedName: string;
@@ -225,6 +235,8 @@ export const materializeSkillCanonical = (args: {
         args.baseDir,
         args.provide,
       );
+    case "workspace":
+      return materializeWorkspace(args.ref, args.pathService, args.baseDir);
   }
 };
 

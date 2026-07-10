@@ -126,7 +126,7 @@
         }
       ]
     },
-    "PackLockEntry": {
+    "RegistryPackLockEntry": {
       "type": "object",
       "properties": {
         "type": { "type": "string", "enum": ["registry"] },
@@ -203,8 +203,96 @@
         "resolvedSubagents"
       ],
       "additionalProperties": false,
+      "title": "Registry Pack Lock Entry",
+      "description": "Pinned version info for a pack installed from a registry."
+    },
+    "WorkspacePackLockEntry": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["workspace"] },
+        "owner": { "$ref": "#/definitions/Handle" },
+        "extensionType": { "type": "string", "enum": ["pack"] },
+        "name": { "$ref": "#/definitions/ExtensionName" },
+        "version": { "$ref": "#/definitions/Version" },
+        "sourceHash": { "type": "string" },
+        "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+        "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+        "resolvedSkills": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedCommands": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedMcpServers": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedSubagents": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+          "additionalProperties": { "$ref": "#/definitions/Version" }
+        },
+        "resolvedFiles": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+              "additionalProperties": { "$ref": "#/definitions/Version" }
+            },
+            { "type": "null" }
+          ]
+        },
+        "resolvedRules": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+              "additionalProperties": { "$ref": "#/definitions/Version" }
+            },
+            { "type": "null" }
+          ]
+        },
+        "resolvedHooks": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
+              "additionalProperties": { "$ref": "#/definitions/Version" }
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "owner",
+        "extensionType",
+        "name",
+        "version",
+        "sourceHash",
+        "installedAt",
+        "updatedAt",
+        "resolvedSkills",
+        "resolvedCommands",
+        "resolvedMcpServers",
+        "resolvedSubagents"
+      ],
+      "additionalProperties": false,
+      "title": "Workspace Pack Lock Entry",
+      "description": "Manifest version, content hash, and resolved members for an authored pack."
+    },
+    "PackLockEntry": {
+      "anyOf": [
+        { "$ref": "#/definitions/RegistryPackLockEntry" },
+        { "$ref": "#/definitions/WorkspacePackLockEntry" }
+      ],
       "title": "Pack Lock Entry",
-      "description": "Pinned version info for an installed pack from a registry."
+      "description": "Pinned or workspace-derived version info for an installed pack."
     },
     "LibraryLockEntry": {
       "type": "object",
@@ -582,6 +670,51 @@
                   "updatedAt"
                 ],
                 "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "enum": ["workspace"] },
+                  "owner": { "$ref": "#/definitions/Handle" },
+                  "extensionType": { "type": "string", "enum": ["skill"] },
+                  "name": { "$ref": "#/definitions/ExtensionName" },
+                  "version": { "$ref": "#/definitions/Version" },
+                  "agents": { "type": "array", "items": { "type": "string" } },
+                  "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                  "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                  "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                  "renderedFiles": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": { "path": { "type": "string" } },
+                            "required": ["path"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "sourceHash": { "type": "string" }
+                },
+                "required": [
+                  "type",
+                  "owner",
+                  "extensionType",
+                  "name",
+                  "version",
+                  "agents",
+                  "installedAt",
+                  "updatedAt",
+                  "sourceHash"
+                ],
+                "additionalProperties": false
               }
             ]
           }
@@ -885,6 +1018,51 @@
                       "agents",
                       "installedAt",
                       "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["workspace"] },
+                      "owner": { "$ref": "#/definitions/Handle" },
+                      "extensionType": { "type": "string", "enum": ["command"] },
+                      "name": { "$ref": "#/definitions/ExtensionName" },
+                      "version": { "$ref": "#/definitions/Version" },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": { "path": { "type": "string" } },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "sourceHash": { "type": "string" }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "extensionType",
+                      "name",
+                      "version",
+                      "agents",
+                      "installedAt",
+                      "updatedAt",
+                      "sourceHash"
                     ],
                     "additionalProperties": false
                   }
@@ -1195,6 +1373,51 @@
                       "updatedAt"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["workspace"] },
+                      "owner": { "$ref": "#/definitions/Handle" },
+                      "extensionType": { "type": "string", "enum": ["subagent"] },
+                      "name": { "$ref": "#/definitions/ExtensionName" },
+                      "version": { "$ref": "#/definitions/Version" },
+                      "agents": { "type": "array", "items": { "type": "string" } },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "renderedFiles": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": { "path": { "type": "string" } },
+                                "required": ["path"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "sourceHash": { "type": "string" }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "extensionType",
+                      "name",
+                      "version",
+                      "agents",
+                      "installedAt",
+                      "updatedAt",
+                      "sourceHash"
+                    ],
+                    "additionalProperties": false
                   }
                 ]
               }
@@ -1410,6 +1633,40 @@
                           "sourceName",
                           "installedAt",
                           "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["workspace"] },
+                          "owner": { "$ref": "#/definitions/Handle" },
+                          "extensionType": { "type": "string", "enum": ["mcp-server"] },
+                          "name": { "$ref": "#/definitions/ExtensionName" },
+                          "version": { "$ref": "#/definitions/Version" },
+                          "syncedAgents": {
+                            "anyOf": [
+                              { "type": "array", "items": { "type": "string" } },
+                              { "type": "null" }
+                            ]
+                          },
+                          "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                          "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "retainedByPack": {
+                            "anyOf": [{ "type": "boolean" }, { "type": "null" }]
+                          },
+                          "sourceHash": { "type": "string" }
+                        },
+                        "required": [
+                          "type",
+                          "owner",
+                          "extensionType",
+                          "name",
+                          "version",
+                          "installedAt",
+                          "updatedAt",
+                          "sourceHash"
                         ],
                         "additionalProperties": false
                       }
@@ -1693,6 +1950,47 @@
                       "updatedAt"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["workspace"] },
+                      "owner": { "$ref": "#/definitions/Handle" },
+                      "extensionType": { "type": "string", "enum": ["files"] },
+                      "name": { "$ref": "#/definitions/ExtensionName" },
+                      "version": { "$ref": "#/definitions/Version" },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "resolvedInputs": {
+                        "anyOf": [
+                          { "$ref": "#/definitions/FilesResolvedInputsMap" },
+                          { "type": "null" }
+                        ]
+                      },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "sourceHash": { "type": "string" }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "extensionType",
+                      "name",
+                      "version",
+                      "installedAt",
+                      "updatedAt",
+                      "sourceHash"
+                    ],
+                    "additionalProperties": false
                   }
                 ]
               }
@@ -1929,6 +2227,41 @@
                       "updatedAt"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["workspace"] },
+                      "owner": { "$ref": "#/definitions/Handle" },
+                      "extensionType": { "type": "string", "enum": ["rule"] },
+                      "name": { "$ref": "#/definitions/ExtensionName" },
+                      "version": { "$ref": "#/definitions/Version" },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "sourceHash": { "type": "string" }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "extensionType",
+                      "name",
+                      "version",
+                      "installedAt",
+                      "updatedAt",
+                      "sourceHash"
+                    ],
+                    "additionalProperties": false
                   }
                 ]
               }
@@ -2163,6 +2496,41 @@
                       "sourceName",
                       "installedAt",
                       "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["workspace"] },
+                      "owner": { "$ref": "#/definitions/Handle" },
+                      "extensionType": { "type": "string", "enum": ["hook"] },
+                      "name": { "$ref": "#/definitions/ExtensionName" },
+                      "version": { "$ref": "#/definitions/Version" },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "sourceHash": { "type": "string" }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "extensionType",
+                      "name",
+                      "version",
+                      "installedAt",
+                      "updatedAt",
+                      "sourceHash"
                     ],
                     "additionalProperties": false
                   }

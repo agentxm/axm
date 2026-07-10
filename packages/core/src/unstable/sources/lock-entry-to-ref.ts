@@ -25,6 +25,7 @@ import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import type { SubagentExtensionRef } from "../subagents/refs.js";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
+import type { WorkspaceScope } from "../workspace/scope.js";
 import type { GitBasedSource, RegistrySource } from "./types.js";
 
 type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry | SubagentLockEntry;
@@ -32,6 +33,7 @@ type SourceLockEntry = SkillLockEntry | CommandLockEntry | McpServerLockEntry | 
 interface LockEntryToRefDeps {
   readonly baseDir: string;
   readonly path: Path.Path;
+  readonly scope: WorkspaceScope;
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   readonly getConfiguredSourceByName: (
     name: string,
@@ -122,7 +124,7 @@ function findSourceConfig(
 }
 
 const gitBasedSourceFromEntry = (
-  entry: Exclude<SourceLockEntry, { readonly type: "registry" | "local" | "inline" }>,
+  entry: Exclude<SourceLockEntry, { readonly type: "registry" | "local" | "inline" | "workspace" }>,
   getSources: LockEntryToRefDeps["getConfiguredSources"],
 ): Effect.Effect<GitBasedSource, AppError> => {
   switch (entry.type) {
@@ -181,6 +183,13 @@ const gitBasedSourceFromEntry = (
 const lockEntryLocation = (baseDir: string, pluralType: string, name: string): string =>
   fileHref(`${baseDir}/${AXM_DIR_NAME}/extensions/external/${pluralType}/${name}`);
 
+const workspacePackageLocation = (
+  deps: Pick<LockEntryToRefDeps, "baseDir" | "path">,
+  owner: string,
+  pluralType: string,
+  name: string,
+): string => deps.path.join(deps.baseDir, AXM_DIR_NAME, "extensions", owner, pluralType, name);
+
 export const skillLockEntryToRef = (
   name: string,
   entry: SkillLockEntry,
@@ -205,6 +214,24 @@ export const skillLockEntryToRef = (
               skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
             }),
           );
+        case "workspace":
+          return Effect.succeed({
+            type: "skill" as const,
+            refType: "workspace" as const,
+            source: {
+              type: "workspace" as const,
+              owner: entry.owner,
+              extensionType: "skill" as const,
+              name: entry.name,
+            },
+            owner: entry.owner,
+            name: entry.name,
+            version: entry.version,
+            sourceHash: entry.sourceHash,
+            scope: deps.scope,
+            location: workspacePackageLocation(deps, entry.owner, "skills", entry.name),
+            skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
+          });
         case "local": {
           const skillSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
@@ -259,6 +286,24 @@ export const commandLockEntryToRef = (
               command: { name: extensionName },
             }),
           );
+        case "workspace":
+          return Effect.succeed({
+            type: "command" as const,
+            refType: "workspace" as const,
+            source: {
+              type: "workspace" as const,
+              owner: entry.owner,
+              extensionType: "command" as const,
+              name: entry.name,
+            },
+            owner: entry.owner,
+            name: entry.name,
+            version: entry.version,
+            sourceHash: entry.sourceHash,
+            scope: deps.scope,
+            location: workspacePackageLocation(deps, entry.owner, "commands", entry.name),
+            command: { name: extensionName },
+          });
         case "local": {
           const commandSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
@@ -313,6 +358,24 @@ export const mcpServerLockEntryToRef = (
               server: { name: extensionName },
             }),
           );
+        case "workspace":
+          return Effect.succeed({
+            type: "mcp-server" as const,
+            refType: "workspace" as const,
+            source: {
+              type: "workspace" as const,
+              owner: entry.owner,
+              extensionType: "mcp-server" as const,
+              name: entry.name,
+            },
+            owner: entry.owner,
+            name: entry.name,
+            version: entry.version,
+            sourceHash: entry.sourceHash,
+            scope: deps.scope,
+            location: workspacePackageLocation(deps, entry.owner, "mcps", entry.name),
+            server: { name: extensionName },
+          });
         case "local": {
           const mcpServerSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
@@ -374,6 +437,24 @@ export const subagentLockEntryToRef = (
               subagent: { name: extensionName, description: Option.none() },
             }),
           );
+        case "workspace":
+          return Effect.succeed({
+            type: "subagent" as const,
+            refType: "workspace" as const,
+            source: {
+              type: "workspace" as const,
+              owner: entry.owner,
+              extensionType: "subagent" as const,
+              name: entry.name,
+            },
+            owner: entry.owner,
+            name: entry.name,
+            version: entry.version,
+            sourceHash: entry.sourceHash,
+            scope: deps.scope,
+            location: workspacePackageLocation(deps, entry.owner, "subagents", entry.name),
+            subagent: { name: extensionName, description: Option.none() },
+          });
         case "local": {
           const subagentSourcePath = localLockEntryPath(deps, entry.path);
           return Effect.succeed({
@@ -407,21 +488,41 @@ export const subagentLockEntryToRef = (
 export const packLockEntryToRef = (
   name: string,
   entry: PackLockEntry,
-  deps: Pick<LockEntryToRefDeps, "getConfiguredSourceByName">,
+  deps: LockEntryToRefDeps,
 ): Effect.Effect<PackRef, AppError> =>
-  Effect.flatMap(decodeLockEntryName(name), (extensionName) =>
-    Effect.map(registrySourceFromEntry(entry, deps.getConfiguredSourceByName), (source) => ({
-      type: "pack" as const,
-      refType: "registry" as const,
-      source,
-      owner: entry.owner,
-      name: entry.name,
-      version: entry.resolvedVersion,
-      integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-      packages: [],
-      pack: {
-        name: extensionName,
-        dependencies: {},
-      },
-    })),
-  );
+  Effect.flatMap(decodeLockEntryName(name), (extensionName) => {
+    if (entry.type === "workspace") {
+      const ref: PackRef = {
+        type: "pack" as const,
+        refType: "workspace" as const,
+        source: {
+          type: "workspace" as const,
+          owner: entry.owner,
+          extensionType: "pack" as const,
+          name: entry.name,
+        },
+        owner: entry.owner,
+        name: entry.name,
+        version: entry.version,
+        sourceHash: entry.sourceHash,
+        scope: deps.scope,
+        location: workspacePackageLocation(deps, entry.owner, "packs", entry.name),
+        pack: { name: extensionName, dependencies: {} },
+      };
+      return Effect.succeed(ref);
+    }
+    return Effect.map(
+      registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
+      (source): PackRef => ({
+        type: "pack" as const,
+        refType: "registry" as const,
+        source,
+        owner: entry.owner,
+        name: entry.name,
+        version: entry.resolvedVersion,
+        integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
+        packages: [],
+        pack: { name: extensionName, dependencies: {} },
+      }),
+    );
+  });

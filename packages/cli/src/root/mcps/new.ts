@@ -17,6 +17,7 @@ import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/c
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
+  resolveWorkspaceExtensionRef,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import {
@@ -34,7 +35,6 @@ import {
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
   type McpServerManifest,
-  type RegistryMcpServerRef,
 } from "@agentxm/client-core/unstable/mcps";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { emitPlanResolutionResult } from "../../json-output.js";
@@ -143,18 +143,6 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
       ],
     },
   };
-  const ref: RegistryMcpServerRef = {
-    type: "mcp-server",
-    refType: "registry",
-    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
-    owner,
-    name: args.name,
-    version,
-    integrity: Option.none(),
-    packages: [],
-    server: { name: args.name },
-  };
-
   const step: PlannedJobStep = {
     readiness: "ready",
     label: fqn,
@@ -178,27 +166,45 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
         ),
       );
       yield* ws.setMcpServerEntry(args.name, {
-        source: fqn,
+        source: `workspace:${fqn}`,
         enabled: true,
-        authored: true,
         env: {},
       });
-      yield* installMcpServer({
-        name: "install-mcp-server",
-        args: {
-          ref,
-          force: args.force,
-          versionRange: Option.none(),
-          skipSettings: Option.none(),
-          env: Option.none(),
-          nonInteractive: Option.some(true),
-        },
+      const resolvedRef = yield* resolveWorkspaceExtensionRef({
+        settingsName: args.name,
+        source: `workspace:${fqn}`,
+        expectedType: "mcp-server",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
       }).pipe(
+        Effect.provideService(WorkspaceMutations, ws),
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
-        Effect.provideService(WorkspaceMutations, ws),
-        Effect.provideService(CliRenderer, renderer),
-        Effect.provideService(CodingAgentRepository, agentRepo),
+      );
+      if (resolvedRef.type !== "mcp-server") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Newly scaffolded MCP server resolved as ${resolvedRef.type}`,
+        });
+      }
+      yield* Effect.scoped(
+        installMcpServer({
+          name: "install-mcp-server",
+          args: {
+            ref: resolvedRef,
+            force: args.force,
+            versionRange: Option.none(),
+            skipSettings: Option.none(),
+            env: Option.none(),
+            nonInteractive: Option.some(true),
+          },
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+          Effect.provideService(WorkspaceMutations, ws),
+          Effect.provideService(CliRenderer, renderer),
+          Effect.provideService(CodingAgentRepository, agentRepo),
+        ),
       );
       const configuredAgentIds = yield* ws.getConfiguredAgents();
       const agentsByConfigPath = new Map<string, Set<string>>();

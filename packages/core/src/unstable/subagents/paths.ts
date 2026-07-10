@@ -24,7 +24,7 @@ import type { AbsolutePath } from "../utils/path-types.js";
  * @experimental This API is unstable and may change without notice.
  */
 export type SubagentPathSource =
-  | { readonly refType: "registry"; readonly owner: Handle }
+  | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
   | { readonly refType: "git-hosted" | "local" };
 
 /**

@@ -29,6 +29,9 @@ import {
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
+import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
+import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
+import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
 
 import { InstallCommandCommandWorkflowActions } from "../commands/install/command-actions.js";
 import type { InstallCommandCommandIntent } from "../commands/install/intent.js";
@@ -111,6 +114,39 @@ const noConfiguredMessage = (type: Option.Option<WorkspaceUpdatableType>): strin
 
 const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
   plan.jobs.flatMap((job) => job.steps);
+
+const workspaceSourceUnchangedPlan = (
+  type: InstallableExtensionType,
+  name: string,
+  source: string,
+  scope: WorkspaceScope,
+): Plan => ({
+  _tag: "Plan",
+  name: `Skip workspace-sourced ${type}`,
+  description: Option.some(`${name} is locally authoritative`),
+  jobs: [
+    {
+      concurrency: 1,
+      steps: [
+        {
+          key: `${type}:${name}`,
+          readiness: "ready",
+          label: name,
+          run: Effect.succeed({
+            result: "success",
+            message: `${name} is workspace-sourced and unchanged`,
+            artifact: {
+              path: source,
+              scope,
+              change: "unchanged",
+              targets: [{ path: source, change: "unchanged" }],
+            },
+          } satisfies JobStepResult),
+        },
+      ],
+    },
+  ],
+});
 
 const mergePlanSections = (plans: ReadonlyArray<Plan>): ReadonlyArray<PlanSection> | undefined => {
   const byTitle = new Map<string, Set<string>>();
@@ -279,9 +315,11 @@ const collectSkillPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveSkillIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
+        isWorkspaceSourceLocator(entry.source)
+          ? Effect.succeed(workspaceSourceUnchangedPlan("skill", name, entry.source, ws.scope))
+          : resolveSkillIntent(name, entry.source).pipe(
+              Effect.flatMap((intent) => actions.buildPlan(intent)),
+            ),
       { concurrency: "unbounded" },
     );
 
@@ -298,9 +336,11 @@ const collectCommandPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveCommandIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
+        isWorkspaceSourceLocator(entry.source)
+          ? Effect.succeed(workspaceSourceUnchangedPlan("command", name, entry.source, ws.scope))
+          : resolveCommandIntent(name, entry.source).pipe(
+              Effect.flatMap((intent) => actions.buildPlan(intent)),
+            ),
       { concurrency: "unbounded" },
     );
 
@@ -317,9 +357,11 @@ const collectFilePlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveFileIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
+        isWorkspaceSourceLocator(entry.source)
+          ? Effect.succeed(workspaceSourceUnchangedPlan("files", name, entry.source, ws.scope))
+          : resolveFileIntent(name, entry.source).pipe(
+              Effect.flatMap((intent) => actions.buildPlan(intent)),
+            ),
       { concurrency: "unbounded" },
     );
 
@@ -336,9 +378,11 @@ const collectRulePlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveRuleIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
+        isWorkspaceSourceLocator(entry.source)
+          ? Effect.succeed(workspaceSourceUnchangedPlan("rule", name, entry.source, ws.scope))
+          : resolveRuleIntent(name, entry.source).pipe(
+              Effect.flatMap((intent) => actions.buildPlan(intent)),
+            ),
       { concurrency: "unbounded" },
     );
 
@@ -355,9 +399,11 @@ const collectHookPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveHookIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
+        isWorkspaceSourceLocator(entry.source)
+          ? Effect.succeed(workspaceSourceUnchangedPlan("hook", name, entry.source, ws.scope))
+          : resolveHookIntent(name, entry.source).pipe(
+              Effect.flatMap((intent) => actions.buildPlan(intent)),
+            ),
       { concurrency: "unbounded" },
     );
 
@@ -374,9 +420,11 @@ const collectSubagentPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveSubagentIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
+        isWorkspaceSourceLocator(entry.source)
+          ? Effect.succeed(workspaceSourceUnchangedPlan("subagent", name, entry.source, ws.scope))
+          : resolveSubagentIntent(name, entry.source).pipe(
+              Effect.flatMap((intent) => actions.buildPlan(intent)),
+            ),
       { concurrency: "unbounded" },
     );
 
@@ -393,9 +441,11 @@ const collectMcpServerPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveMcpServerIntent(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
+        isWorkspaceSourceLocator(entry.source)
+          ? Effect.succeed(workspaceSourceUnchangedPlan("mcp-server", name, entry.source, ws.scope))
+          : resolveMcpServerIntent(name, entry.source).pipe(
+              Effect.flatMap((intent) => actions.buildPlan(intent)),
+            ),
       { concurrency: "unbounded" },
     );
 
@@ -412,9 +462,11 @@ const collectPackPlans = () =>
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolvePackRef(name, entry.source).pipe(
-          Effect.flatMap((intent) => actions.buildPlan(intent)),
-        ),
+        isWorkspaceSourceLocator(entry.source)
+          ? Effect.succeed(workspaceSourceUnchangedPlan("pack", name, entry.source, ws.scope))
+          : resolvePackRef(name, entry.source).pipe(
+              Effect.flatMap((intent) => actions.buildPlan(intent)),
+            ),
       { concurrency: "unbounded" },
     );
 

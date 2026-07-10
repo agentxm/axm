@@ -33,6 +33,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
@@ -77,9 +78,16 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
 
   // Resolve pack owner from the entry (format: "@owner/packs/name" or { source: "@owner/packs/name" })
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-  const packOwnerFromSource = packSource.startsWith("@")
-    ? parseRegistrySourcePatternParts(packSource)?.owner
-    : undefined;
+  if (!isWorkspaceSourceLocator(packSource)) {
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Cannot edit non-workspace pack "${args.pack}"`,
+      recover: "Adopt or copy the pack into workspace authorship before editing its manifest.",
+    });
+  }
+  const packOwnerFromSource = parseRegistrySourcePatternParts(
+    packSource.slice("workspace:".length),
+  )?.owner;
   const packOwner =
     packOwnerFromSource !== undefined
       ? normalizeHandle(packOwnerFromSource)
@@ -146,18 +154,18 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     ),
   );
 
-  // Step 3: Resolve extensions - get all managed, registry-sourced skills from lockfile
+  // Step 3: Resolve versioned managed skills from lockfile.
   const lockedSkills = yield* ws.getLockedSkills();
-  const registrySkills = Object.entries(lockedSkills).filter(
-    ([, entry]) => entry.type === "registry",
+  const versionedSkills = Object.entries(lockedSkills).filter(
+    ([, entry]) => entry.type === "registry" || entry.type === "workspace",
   );
-  const registrySkillNames = registrySkills.map(([name]) => name);
+  const versionedSkillNames = versionedSkills.map(([name]) => name);
 
   // Determine if this is a glob or exact match
   const isGlob = isGlobPattern(args.extension);
   const matchedNames = isGlob
-    ? expandGlobs([args.extension], registrySkillNames)
-    : registrySkillNames.includes(args.extension)
+    ? expandGlobs([args.extension], versionedSkillNames)
+    : versionedSkillNames.includes(args.extension)
       ? [args.extension]
       : [];
 
@@ -165,7 +173,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     if (isGlob) {
       return yield* makeAppError({
         code: "internal",
-        detail: `No managed, registry-sourced extensions match '${args.extension}'`,
+        detail: `No managed, versioned extensions match '${args.extension}'`,
         suggestions: [
           {
             description: "Inspect installed skills",
@@ -179,10 +187,10 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     if (args.extension in lockedSkills) {
       return yield* makeAppError({
         code: "internal",
-        detail: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
+        detail: `Extension '${args.extension}' is not a managed, versioned extension`,
         suggestions: [
           {
-            description: "Only managed, registry-sourced extensions can be added to packs",
+            description: "Only managed registry or workspace extensions can be added to packs",
           },
         ],
       });
@@ -210,15 +218,16 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       continue;
     }
 
-    // All matched extensions are registry-sourced (filtered above)
-    if (lockEntry.type !== "registry") continue;
+    if (lockEntry.type !== "registry" && lockEntry.type !== "workspace") continue;
 
     const fqn = formatFqn({
       owner: lockEntry.owner,
       type: "skill",
       name: decodeExtensionNameSync(lockEntry.name),
     });
-    const version = toVersionRange(lockEntry.resolvedVersion);
+    const version = toVersionRange(
+      lockEntry.type === "registry" ? lockEntry.resolvedVersion : lockEntry.version,
+    );
 
     // Check if already in pack (by FQN)
     if (fqn in currentDependencies) {

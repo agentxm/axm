@@ -13,10 +13,19 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import {
+  EXTERNAL_EXTENSIONS_DIR,
+  ExtensionNameSchema,
+  ExtensionTypeSchema,
+  HandleSchema,
+  REGISTRY_EXTENSIONS_DIR,
+  extensionTypeToPlural,
+  parseFqnOrThrow,
+} from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
-import type { PackRef, RegistryPackRef } from "./refs.js";
+import type { PackRef, RegistryPackRef, WorkspacePackRef } from "./refs.js";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
@@ -30,7 +39,12 @@ import { removeIfExists } from "../utils/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import type { AppError } from "../app-error/index.js";
 import { resolvePackDependencies } from "./dependency-resolution.js";
-import { decodeVersionSync } from "../version-constraints/version-constraints.js";
+import {
+  decodeVersionSync,
+  VersionSchema,
+  versionSatisfiesRange,
+  type Version,
+} from "../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -50,11 +64,153 @@ const buildSetPackArgs = (
     const resolved = yield* resolvePackDependencies(ref, sources);
 
     return {
+      type: "registry",
       owner: ref.owner,
       name: ref.pack.name,
       resolvedVersion: decodeVersionSync(ref.version),
       integrity: Option.getOrElse(ref.integrity, () => ""),
       sourceName: "default",
+      installedAt: new Date(),
+      updatedAt: new Date(),
+      resolvedSkills: resolved.resolvedSkills,
+      resolvedCommands: resolved.resolvedCommands,
+      resolvedMcpServers: resolved.resolvedMcpServers,
+      resolvedSubagents: resolved.resolvedSubagents,
+      resolvedFiles: resolved.resolvedFiles,
+      resolvedRules: resolved.resolvedRules,
+      resolvedHooks: resolved.resolvedHooks,
+      versionRange,
+    } satisfies SetPackArgs;
+  });
+
+const DependencyManifestSchema = Schema.Struct({
+  owner: HandleSchema,
+  type: ExtensionTypeSchema,
+  name: ExtensionNameSchema,
+  version: VersionSchema,
+});
+
+const dependencyManifestFilename = {
+  skill: "skill.json",
+  command: "command.json",
+  "mcp-server": "mcp.json",
+  subagent: "subagent.json",
+  files: "files.json",
+  rule: "rule.json",
+  hook: "hook.json",
+  pack: "pack.json",
+} as const;
+
+export const resolveWorkspacePackMembers = (
+  ref: WorkspacePackRef,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  baseDir: string,
+) =>
+  Effect.gen(function* () {
+    const resolvedSkills: Record<string, Version> = {};
+    const resolvedCommands: Record<string, Version> = {};
+    const resolvedMcpServers: Record<string, Version> = {};
+    const resolvedSubagents: Record<string, Version> = {};
+    const resolvedFiles: Record<string, Version> = {};
+    const resolvedRules: Record<string, Version> = {};
+    const resolvedHooks: Record<string, Version> = {};
+
+    for (const [fqn, constraint] of Object.entries(ref.pack.dependencies)) {
+      const dependency = parseFqnOrThrow(fqn);
+      if (dependency.type === "pack") {
+        return yield* makeAppError({
+          code: "usage",
+          detail: `Pack dependency ${fqn} uses the unsupported pack dependency type`,
+        });
+      }
+      const plural = extensionTypeToPlural[dependency.type];
+      const candidateDirs = [
+        path.join(baseDir, REGISTRY_EXTENSIONS_DIR, dependency.owner, plural, dependency.name),
+        path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, plural, dependency.name),
+      ];
+      let manifest: Schema.Schema.Type<typeof DependencyManifestSchema> | undefined;
+      for (const candidateDir of candidateDirs) {
+        const raw = yield* fs
+          .readFileString(path.join(candidateDir, dependencyManifestFilename[dependency.type]))
+          .pipe(Effect.option);
+        if (Option.isNone(raw)) continue;
+        const decoded = yield* Schema.decodeUnknownEffect(
+          Schema.fromJsonString(DependencyManifestSchema),
+        )(raw.value).pipe(Effect.option);
+        if (Option.isSome(decoded)) {
+          manifest = decoded.value;
+          break;
+        }
+      }
+      if (
+        manifest === undefined ||
+        manifest.owner !== dependency.owner ||
+        manifest.type !== dependency.type ||
+        manifest.name !== dependency.name
+      ) {
+        return yield* makeAppError({
+          code: "not_found",
+          detail: `Unable to resolve installed pack dependency ${fqn}`,
+        });
+      }
+      if (!versionSatisfiesRange(manifest.version, constraint)) {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: `Installed ${fqn}@${manifest.version} does not satisfy ${constraint}`,
+        });
+      }
+      switch (dependency.type) {
+        case "skill":
+          resolvedSkills[fqn] = manifest.version;
+          break;
+        case "command":
+          resolvedCommands[fqn] = manifest.version;
+          break;
+        case "mcp-server":
+          resolvedMcpServers[fqn] = manifest.version;
+          break;
+        case "subagent":
+          resolvedSubagents[fqn] = manifest.version;
+          break;
+        case "files":
+          resolvedFiles[fqn] = manifest.version;
+          break;
+        case "rule":
+          resolvedRules[fqn] = manifest.version;
+          break;
+        case "hook":
+          resolvedHooks[fqn] = manifest.version;
+          break;
+      }
+    }
+    return {
+      resolvedSkills,
+      resolvedCommands,
+      resolvedMcpServers,
+      resolvedSubagents,
+      resolvedFiles,
+      resolvedRules,
+      resolvedHooks,
+    };
+  });
+
+const buildWorkspaceSetPackArgs = (
+  ref: WorkspacePackRef,
+  versionRange: Option.Option<string>,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  baseDir: string,
+) =>
+  Effect.gen(function* () {
+    const resolved = yield* resolveWorkspacePackMembers(ref, fs, path, baseDir);
+    return {
+      type: "workspace",
+      owner: ref.owner,
+      extensionType: "pack",
+      name: ref.name,
+      version: ref.version,
+      sourceHash: ref.sourceHash,
       installedAt: new Date(),
       updatedAt: new Date(),
       resolvedSkills: resolved.resolvedSkills,
@@ -135,10 +291,27 @@ export const PackManagerLive = Layer.effect(
     const materializeInstall: ExtensionManager<PackRef>["materializeInstall"] = Effect.fn(
       "PackManager.materializeInstall",
     )(function* ({ ref }: { readonly ref: PackRef }) {
-      yield* validateExactResolvedVersion(`packs.${ref.pack.name}.resolvedVersion`, ref.version);
+      if (ref.refType === "registry") {
+        yield* validateExactResolvedVersion(`packs.${ref.pack.name}.resolvedVersion`, ref.version);
+      }
 
       const packDir = computePackPaths(path.join, baseDir, ref.owner, ref.pack.name).canonicalPath;
       const canonicalExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
+      if (ref.refType === "workspace") {
+        if (ref.scope !== ws.scope || path.resolve(ref.location) !== path.resolve(packDir)) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Invalid workspace pack source location: ${ref.location}`,
+          });
+        }
+        if (!canonicalExists) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Workspace pack package is missing: ${packDir}`,
+          });
+        }
+        return;
+      }
       if (Option.isNone(ref.integrity) && canonicalExists) return;
 
       yield* Effect.scoped(
@@ -168,9 +341,9 @@ export const PackManagerLive = Layer.effect(
     });
     const materializeUninstall: ExtensionManager<PackRef>["materializeUninstall"] = Effect.fn(
       "PackManager.materializeUninstall",
-    )(function* ({ target }: { readonly target: PackExtensionTarget }) {
+    )(function* ({ target, preserveSource }) {
       const packDir = computePackPaths(path.join, baseDir, target.owner, target.name).canonicalPath;
-      yield* removeIfExists(fs, packDir);
+      if (preserveSource !== true) yield* removeIfExists(fs, packDir);
     });
 
     return {
@@ -188,9 +361,13 @@ export const PackManagerLive = Layer.effect(
         return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
       }),
       materializeInstall,
+      getConfiguredSource: Effect.fn("PackManager.getConfiguredSource")(function* ({ target }) {
+        const configured = yield* ws.records.getConfiguredPacks();
+        return Option.fromUndefinedOr(configured[target.name]?.source);
+      }),
       listMaterializable: Effect.fn("PackManager.listMaterializable")(function* () {
         const configured = yield* ws.records.getConfiguredPacks();
-        return yield* configuredPacksToDiskRefs({ fs, path, baseDir }, configured);
+        return yield* configuredPacksToDiskRefs({ fs, path, baseDir, scope: ws.scope }, configured);
       }),
       materializeUninstall,
 
@@ -201,7 +378,10 @@ export const PackManagerLive = Layer.effect(
         readonly ref: PackRef;
         readonly versionRange: Option.Option<string>;
       }) =>
-        buildSetPackArgs(ref, versionRange, sources).pipe(
+        (ref.refType === "workspace"
+          ? buildWorkspaceSetPackArgs(ref, versionRange, fs, path, baseDir)
+          : buildSetPackArgs(ref, versionRange, sources)
+        ).pipe(
           Effect.flatMap((args) => ws.setPack(args)),
           Effect.withSpan("PackManager.upsertSettingsEntry"),
         ),

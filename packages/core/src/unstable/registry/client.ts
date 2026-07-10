@@ -128,6 +128,15 @@ export interface PublishExtensionArgs {
   readonly metadata: VersionEntry;
 }
 
+export type ExtensionVisibility = "public" | "internal" | "private";
+
+export interface UpdateExtensionVisibilityArgs {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly visibility: ExtensionVisibility;
+}
+
 // -----------------------------------------------------------------------------
 // Extension Exists Args
 // -----------------------------------------------------------------------------
@@ -330,6 +339,9 @@ export interface RegistryClient {
   readonly publishExtension: (
     args: PublishExtensionArgs,
   ) => Effect.Effect<PublishExtensionResponse, AppError>;
+  readonly updateExtensionVisibility?: (
+    args: UpdateExtensionVisibilityArgs,
+  ) => Effect.Effect<void, AppError>;
   readonly extensionExists: (
     args: ExtensionExistsArgs,
   ) => Effect.Effect<ExtensionExistsResponse, AppError>;

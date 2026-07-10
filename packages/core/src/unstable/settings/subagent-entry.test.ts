@@ -20,7 +20,6 @@ describe("SubagentEntrySchema", () => {
       expect(result).toEqual({
         source: "@acme/subagents/planner",
         enabled: true,
-        authored: false,
       });
     });
 
@@ -32,7 +31,6 @@ describe("SubagentEntrySchema", () => {
       expect(result).toEqual({
         source: "@acme/subagents/planner",
         enabled: false,
-        authored: false,
       });
     });
 
@@ -43,20 +41,16 @@ describe("SubagentEntrySchema", () => {
       expect(result).toEqual({
         source: "@acme/subagents/planner",
         enabled: true,
-        authored: false,
       });
     });
 
-    it("decodes an object with authored true", () => {
-      const result = Schema.decodeUnknownSync(SubagentEntrySchema)({
-        source: "@acme/subagents/planner",
-        authored: true,
-      });
-      expect(result).toEqual({
-        source: "@acme/subagents/planner",
-        enabled: true,
-        authored: true,
-      });
+    it("rejects the removed authored field under strict validation", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SubagentEntrySchema)(
+          { source: "@acme/subagents/planner", authored: true },
+          { onExcessProperty: "error" },
+        ),
+      ).toThrow();
     });
 
     it("rejects a number", () => {
@@ -69,11 +63,10 @@ describe("SubagentEntrySchema", () => {
   });
 
   describe("encode", () => {
-    it("encodes enabled, non-authored entry to string", () => {
+    it("encodes enabled entry to string", () => {
       const result = Schema.encodeSync(SubagentEntrySchema)({
         source: "@acme/subagents/planner",
         enabled: true,
-        authored: false,
       });
       expect(result).toBe("@acme/subagents/planner");
     });
@@ -82,18 +75,8 @@ describe("SubagentEntrySchema", () => {
       const result = Schema.encodeSync(SubagentEntrySchema)({
         source: "@acme/subagents/planner",
         enabled: false,
-        authored: false,
       });
       expect(result).toEqual({ source: "@acme/subagents/planner", enabled: false });
-    });
-
-    it("encodes authored entry to object", () => {
-      const result = Schema.encodeSync(SubagentEntrySchema)({
-        source: "@acme/subagents/planner",
-        enabled: true,
-        authored: true,
-      });
-      expect(result).toEqual({ source: "@acme/subagents/planner", authored: true });
     });
   });
 });
@@ -121,7 +104,7 @@ describe("SubagentsMapSchema", () => {
     const result = Schema.decodeUnknownSync(SubagentsMapSchema)(input);
 
     expect(result).toEqual({
-      planner: { source: "@acme/subagents/planner", enabled: true, authored: false },
+      planner: { source: "@acme/subagents/planner", enabled: true },
     });
   });
 
@@ -133,7 +116,6 @@ describe("SubagentsMapSchema", () => {
       "code-planner": {
         source: "@acme/subagents/code-planner",
         enabled: true,
-        authored: false,
       },
     });
   });
@@ -172,7 +154,7 @@ describe("SettingsSchema with subagents", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
     expect(result.subagents).toEqual({
-      planner: { source: "@acme/subagents/planner", enabled: true, authored: false },
+      planner: { source: "@acme/subagents/planner", enabled: true },
     });
   });
 
@@ -185,13 +167,13 @@ describe("SettingsSchema with subagents", () => {
     const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
     expect(result.skills).toEqual({
-      commit: { source: "@acme/skills/commit", enabled: true, authored: false },
+      commit: { source: "@acme/skills/commit", enabled: true },
     });
     expect(result.commands).toEqual({
-      deploy: { source: "@acme/commands/deploy", enabled: true, authored: false },
+      deploy: { source: "@acme/commands/deploy", enabled: true },
     });
     expect(result.subagents).toEqual({
-      planner: { source: "@acme/subagents/planner", enabled: true, authored: false },
+      planner: { source: "@acme/subagents/planner", enabled: true },
     });
   });
 

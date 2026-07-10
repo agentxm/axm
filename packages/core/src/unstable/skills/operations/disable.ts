@@ -39,6 +39,8 @@ const deriveSourceString = (lockEntry: SkillLockEntry): string => {
       return lockEntry.path;
     case "registry":
       return `${lockEntry.owner}/skills/${lockEntry.name}`;
+    case "workspace":
+      return `workspace:@${lockEntry.owner}/skills/${lockEntry.name}`;
     case "github":
       return `${lockEntry.owner}/${lockEntry.repo}`;
     case "gitlab":
@@ -215,7 +217,7 @@ export const disableSkill: OperationHandler<
 
       if (isImplicit) {
         const source = Option.getOrElse(installed.source, () => deriveSourceString(lockEntry));
-        yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false, authored: false });
+        yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false });
       } else {
         yield* ws
           .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: false }))
@@ -256,7 +258,7 @@ export const disableSkill: OperationHandler<
           suggestions: [{ description: "Provide a source when disabling this skill" }],
         });
       }
-      yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false, authored: false });
+      yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false });
     } else {
       // Configured skill — toggle enabled flag
       yield* ws

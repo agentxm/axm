@@ -306,7 +306,6 @@ describe("mcp-sync helpers", () => {
               command: "npx",
               args: ["-y", "linear-mcp-server"],
               enabled: true,
-              authored: false,
               env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
             },
           });
@@ -343,7 +342,6 @@ describe("mcp-sync helpers", () => {
               url: "https://mcp.sentry.dev/sse",
               headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
               enabled: true,
-              authored: false,
               env: {},
             },
           });
@@ -378,7 +376,6 @@ describe("mcp-sync helpers", () => {
               command: "npx",
               args: ["-y", "linear-mcp-server"],
               enabled: true,
-              authored: false,
               env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
             },
           });
@@ -390,7 +387,6 @@ describe("mcp-sync helpers", () => {
               source: "inline",
               command: "stale-mcp",
               enabled: true,
-              authored: false,
               env: {},
             },
           });
@@ -430,7 +426,6 @@ describe("mcp-sync helpers", () => {
                   command: "npx",
                   args: ["-y", "@acme/context-mcp"],
                   enabled: true,
-                  authored: false,
                   env: { ACME_TOKEN: "${ACME_TOKEN}" },
                 },
               });
@@ -449,7 +444,6 @@ describe("mcp-sync helpers", () => {
                   url: "https://mcp.stripe.com",
                   headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
                   enabled: true,
-                  authored: false,
                   env: {},
                 },
               });
@@ -511,7 +505,6 @@ describe("mcp-sync helpers", () => {
                   source: "inline",
                   command: "stale-mcp",
                   enabled: true,
-                  authored: false,
                   env: {},
                 },
               });

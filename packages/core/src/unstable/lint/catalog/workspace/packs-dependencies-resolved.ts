@@ -27,8 +27,8 @@ const LOCKFILE_REL = ".axm/axm-lock.yaml";
 // owner/type/name across the maps. Build an installed-FQN index from
 // every member lock entry.
 
-interface RegistryEntryFragment {
-  readonly type: "registry";
+interface InstalledEntryFragment {
+  readonly type: "registry" | "workspace";
   readonly owner: string;
   readonly name: string;
 }
@@ -36,18 +36,18 @@ interface RegistryEntryFragment {
 const isRecord = (entry: unknown): entry is Readonly<Record<string, unknown>> =>
   typeof entry === "object" && entry !== null;
 
-const isRegistryFragment = (entry: unknown): entry is RegistryEntryFragment => {
+const isInstalledFragment = (entry: unknown): entry is InstalledEntryFragment => {
   if (!isRecord(entry)) {
     return false;
   }
   return (
-    entry["type"] === "registry" &&
+    (entry["type"] === "registry" || entry["type"] === "workspace") &&
     typeof entry["owner"] === "string" &&
     typeof entry["name"] === "string"
   );
 };
 
-const buildInstalledFqnIndex = (lockfile: Lockfile): ReadonlySet<string> => {
+export const buildInstalledFqnIndex = (lockfile: Lockfile): ReadonlySet<string> => {
   const set = new Set<string>();
   const absorb = (
     typeSegment: string,
@@ -57,7 +57,7 @@ const buildInstalledFqnIndex = (lockfile: Lockfile): ReadonlySet<string> => {
       return;
     }
     for (const entry of Object.values(map)) {
-      if (isRegistryFragment(entry)) {
+      if (isInstalledFragment(entry)) {
         set.add(`${entry.owner}/${typeSegment}/${entry.name}`);
       }
     }

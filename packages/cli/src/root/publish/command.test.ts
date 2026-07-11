@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 
 import {
   at,
@@ -17,7 +18,11 @@ import {
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../test-helpers.js";
-import { handleRootPublish, type RootPublishHandlerArgs } from "./command.js";
+import {
+  aggregatePublishFailure,
+  handleRootPublish,
+  type RootPublishHandlerArgs,
+} from "./command.js";
 
 const args = (
   registryUrl: string,
@@ -164,5 +169,26 @@ describe("root publish", () => {
         expect(error.detail).toContain("integrity drift");
       }),
     );
+  });
+});
+
+describe("aggregatePublishFailure", () => {
+  it("preserves auth classification when every publish fails auth", () => {
+    const error = aggregatePublishFailure(2, [
+      makeAppError({ code: "auth", detail: "Invalid or expired token." }),
+      makeAppError({ code: "auth", detail: "Invalid or expired token." }),
+    ]);
+
+    expect(error.code).toBe("auth");
+    expect(error.detail).toContain("Invalid or expired token.");
+  });
+
+  it("uses internal classification for mixed publish failures", () => {
+    const error = aggregatePublishFailure(2, [
+      makeAppError({ code: "auth", detail: "Invalid or expired token." }),
+      makeAppError({ code: "network", detail: "Registry unavailable." }),
+    ]);
+
+    expect(error.code).toBe("internal");
   });
 });

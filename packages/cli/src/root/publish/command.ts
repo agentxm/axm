@@ -6,7 +6,11 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  makeAppError,
+  type AppError,
+  type AppErrorCode,
+} from "@agentxm/client-core/unstable/app-error";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -69,6 +73,27 @@ type PublishableType = (typeof publishableTypes)[number];
 type SelectableType = (typeof selectableTypes)[number];
 type SelectionMode = "authored" | "all" | "explicit" | "filtered-explicit";
 type ExistingVersionPolicy = "error" | "skip" | "verify";
+
+export const aggregatePublishFailure = (
+  failedCount: number,
+  errors: ReadonlyArray<AppError>,
+): AppError => {
+  const [firstError] = errors;
+  const commonCode: AppErrorCode =
+    firstError !== undefined && errors.every((error) => error.code === firstError.code)
+      ? firstError.code
+      : "internal";
+
+  return makeAppError({
+    code: commonCode,
+    detail: `Failed to publish ${failedCount} extension${failedCount === 1 ? "" : "s"}${
+      firstError !== undefined && commonCode !== "internal" ? `: ${firstError.detail}` : ""
+    }`,
+    ...(firstError !== undefined && commonCode !== "internal"
+      ? { suggestions: firstError.suggestions }
+      : {}),
+  });
+};
 
 const manifestFilename: Readonly<Record<SelectableType, string>> = {
   skill: "skill.json",
@@ -750,6 +775,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
     preview: args.preview,
     displayApplied: false,
   });
+  const failedStepErrors =
+    resolution._tag === "ExecutedPlan"
+      ? resolution.jobs
+          .flatMap((job) => job.steps)
+          .flatMap((step) => (step.result.result === "error" ? [step.result.error] : []))
+      : [];
   const baseResults = selected.map((entry, index) => selectedResult(entry, decoded[index]));
   let results: ReadonlyArray<PublishResultItem>;
   if (resolution._tag === "ExecutedPlan") {
@@ -789,10 +820,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   });
   const failed = results.filter((result) => result.status === "failed");
   if (failed.length > 0) {
-    return yield* makeAppError({
-      code: "internal",
-      detail: `Failed to publish ${failed.length} extension${failed.length === 1 ? "" : "s"}`,
-    });
+    return yield* aggregatePublishFailure(failed.length, failedStepErrors);
   }
 });
 

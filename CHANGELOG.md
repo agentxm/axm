@@ -1,3 +1,13 @@
+## 0.21.0 (2026-07-14)
+
+### 🚀 Features
+
+- Track publisher ownership epochs across registry resolution, lockfiles, frozen replay, and updates. ([8ae307a6](https://github.com/agentxm/axm/commit/8ae307a6))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.20.1 (2026-07-10)
 
 ### 🩹 Fixes

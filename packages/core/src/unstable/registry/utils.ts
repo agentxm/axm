@@ -13,12 +13,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as semver from "semver";
 
 import { makeAppError } from "../app-error/index.js";
 import type { Handle } from "../extensions/handle.js";
 import { resolveVersionInRange } from "../version-constraints/version-constraints.js";
 import { toExtensionTypePlural, type ExtensionType } from "../extensions/index.js";
-import type { VersionEntry } from "./schema.js";
+import type { ExtensionIndex, VersionEntry } from "./schema.js";
 import { filterMatureVersions, type ReleaseAgePolicy } from "./release-age-policy.js";
 
 // -----------------------------------------------------------------------------
@@ -33,8 +34,7 @@ import { filterMatureVersions, type ReleaseAgePolicy } from "./release-age-polic
 export const selectVersion = (
   versions: ReadonlyArray<VersionEntry>,
 ): Option.Option<VersionEntry> => {
-  if (versions.length === 0) return Option.none();
-  const [latest] = versions;
+  const [latest] = versions.filter((entry) => entry.yankedAt === undefined);
   return latest === undefined ? Option.none() : Option.some(latest);
 };
 
@@ -46,14 +46,47 @@ export const resolveVersionEntry = (
     return selectVersion(versions);
   }
 
-  const resolved = resolveVersionInRange(versions, versionRange);
+  if (semver.valid(versionRange.value) === versionRange.value) {
+    return Option.fromUndefinedOr(
+      versions.find((candidate) => candidate.version === versionRange.value),
+    );
+  }
+
+  const availableVersions = versions.filter((entry) => entry.yankedAt === undefined);
+  const resolved = resolveVersionInRange(availableVersions, versionRange);
   if (Option.isNone(resolved)) {
     return Option.none();
   }
 
   return Option.fromUndefinedOr(
-    versions.find((candidate) => candidate.version === resolved.value.version),
+    availableVersions.find((candidate) => candidate.version === resolved.value.version),
   );
+};
+
+export const extensionLifecycleWarnings = (
+  index: ExtensionIndex,
+  version: VersionEntry,
+): ReadonlyArray<string> => {
+  const warnings: string[] = [];
+  const extensionRef = `${index.owner}/${toExtensionTypePlural(index.type)}/${index.name}`;
+  if (index.deprecatedAt !== undefined) {
+    warnings.push(
+      index.deprecationNotice === undefined
+        ? `${extensionRef} is deprecated`
+        : `${extensionRef} is deprecated: ${index.deprecationNotice}`,
+    );
+  }
+  if (version.yankedAt !== undefined) {
+    const context = [version.yankCategory, version.yankNotice].filter(
+      (value): value is string => value !== undefined,
+    );
+    warnings.push(
+      context.length === 0
+        ? `${extensionRef}@${version.version} is yanked`
+        : `${extensionRef}@${version.version} is yanked: ${context.join(": ")}`,
+    );
+  }
+  return warnings;
 };
 
 export const resolveVersionEntryWithReleaseAge = (

@@ -16,13 +16,15 @@ import type * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 
 import type { VersionEntry } from "./schema.js";
-import { exactVersion, handle } from "../test-helpers.js";
+import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { computeIntegrity } from "../utils/index.js";
 import { filterMatureVersions, parseMinimumReleaseAge } from "./release-age-policy.js";
 import {
   extensionDir,
+  extensionLifecycleWarnings,
   extractZip,
   pluralizeType,
+  resolveVersionEntry,
   resolveVersionEntryWithReleaseAge,
   selectVersion,
 } from "./utils.js";
@@ -56,6 +58,60 @@ describe("selectVersion", () => {
   it("returns None for empty versions", () => {
     const result = selectVersion([]);
     expect(Option.isNone(result)).toBe(true);
+  });
+
+  it("skips yanked versions for unversioned selection", () => {
+    const result = selectVersion([
+      makeVersionEntry({
+        version: exactVersion("2.0.0"),
+        yankedAt: "2025-02-01T00:00:00Z",
+      }),
+      makeVersionEntry({ version: exactVersion("1.0.0") }),
+    ]);
+
+    expect(Option.getOrThrow(result).version).toBe("1.0.0");
+  });
+});
+
+describe("resolveVersionEntry", () => {
+  const versions = [
+    makeVersionEntry({
+      version: exactVersion("1.2.0"),
+      yankedAt: "2025-02-01T00:00:00Z",
+    }),
+    makeVersionEntry({ version: exactVersion("1.1.0") }),
+  ];
+
+  it("allows a syntactically exact yanked version", () => {
+    expect(Option.getOrThrow(resolveVersionEntry(versions, Option.some("1.2.0"))).version).toBe(
+      "1.2.0",
+    );
+  });
+
+  it("excludes yanked versions from range resolution", () => {
+    expect(Option.getOrThrow(resolveVersionEntry(versions, Option.some("^1.0.0"))).version).toBe(
+      "1.1.0",
+    );
+  });
+});
+
+describe("extensionLifecycleWarnings", () => {
+  it("uses canonical plural paths for MCP servers", () => {
+    const version = makeVersionEntry({
+      yankedAt: "2025-02-01T00:00:00Z",
+    });
+
+    expect(
+      extensionLifecycleWarnings(
+        {
+          owner: handle("@acme"),
+          type: "mcp-server",
+          name: extensionName("github"),
+          versions: [version],
+        },
+        version,
+      ),
+    ).toEqual(["@acme/mcps/github@1.0.0 is yanked"]);
   });
 });
 

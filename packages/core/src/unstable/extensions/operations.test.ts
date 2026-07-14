@@ -86,6 +86,47 @@ describe("toStepKey", () => {
 });
 
 describe("buildInstallOperation", () => {
+  it("marks an exact yanked registry install as warning-ready", () => {
+    const manager = {
+      type: "skill",
+      isInstalled: () => Effect.succeed(false),
+      materializeInstall: () => Effect.void,
+      listMaterializable: () => Effect.succeed([]),
+      materializeUninstall: () => Effect.void,
+      upsertSettingsEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.void,
+      removeLockfileEntry: () => Effect.void,
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const name = extensionName("review");
+    const ref: RegistrySkillRef = {
+      type: "skill",
+      refType: "registry",
+      source: {
+        type: "registry",
+        location: new URL("https://registry.agentxm.ai"),
+        owner: Option.some(handle("@acme")),
+      },
+      owner: handle("@acme"),
+      name,
+      version: exactVersion("1.0.0"),
+      integrity: Option.none(),
+      packages: [],
+      lifecycleWarnings: ["@acme/skills/review@1.0.0 is yanked"],
+      skill: { name, description: Option.none(), metadata: Option.none() },
+    };
+
+    const operation = buildInstallOperation(manager, {
+      ref,
+      versionRange: Option.none(),
+    });
+
+    expect(operation).toMatchObject({
+      readiness: "warn",
+      warnMessage: "@acme/skills/review@1.0.0 is yanked",
+    });
+  });
+
   it("rejects installing over a workspace source before materialization", async () => {
     const materializeInstall = vi.fn(() => Effect.void);
     const manager = {

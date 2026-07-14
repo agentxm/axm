@@ -1634,7 +1634,9 @@
                               { "$ref": "#/components/schemas/IsoDateTimeString" },
                               { "type": "null" }
                             ]
-                          }
+                          },
+                          "yank_category": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "yank_notice": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                         },
                         "required": ["version", "published", "integrity"],
                         "additionalProperties": false
@@ -1642,11 +1644,7 @@
                     },
                     "visibility": {
                       "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": ["public", "internal", "private"],
-                          "readOnly": true
-                        },
+                        { "type": "string", "enum": ["public", "private"], "readOnly": true },
                         { "type": "null" }
                       ]
                     },
@@ -1773,14 +1771,6 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
           }
         },
         "summary": "Update extension visibility",
@@ -1885,12 +1875,8 @@
                         { "type": "null" }
                       ]
                     },
-                    "deleted_at": {
-                      "anyOf": [
-                        { "$ref": "#/components/schemas/IsoDateTimeString" },
-                        { "type": "null" }
-                      ]
-                    }
+                    "yank_category": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "yank_notice": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                   },
                   "required": [
                     "name",
@@ -1921,76 +1907,17 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
+          },
+          "410": {
+            "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Get extension version metadata"
-      },
-      "delete": {
-        "tags": ["Extensions"],
-        "operationId": "Extensions.deleteVersion",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          },
-          {
-            "name": "version",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Version" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Hard-delete an extension version"
       },
       "put": {
         "tags": ["Extensions"],
@@ -2246,6 +2173,14 @@
               }
             }
           },
+          "410": {
+            "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
           "500": {
             "description": "InternalError",
             "content": {
@@ -2480,9 +2415,20 @@
                         { "type": "null" }
                       ]
                     },
+                    "yankCategory": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "yankNotice": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
-                  "required": ["owner", "type", "name", "version", "yankedAt", "links"],
+                  "required": [
+                    "owner",
+                    "type",
+                    "name",
+                    "version",
+                    "yankedAt",
+                    "yankCategory",
+                    "yankNotice",
+                    "links"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -2530,7 +2476,13 @@
             }
           }
         },
-        "summary": "Yank an extension version"
+        "summary": "Yank an extension version",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/YankVersionBody" } }
+          },
+          "required": true
+        }
       },
       "delete": {
         "tags": ["Extensions"],
@@ -2575,9 +2527,20 @@
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "version": { "$ref": "#/components/schemas/Version" },
                     "yankedAt": { "type": "null" },
+                    "yankCategory": { "type": "null" },
+                    "yankNotice": { "type": "null" },
                     "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
-                  "required": ["owner", "type", "name", "version", "yankedAt", "links"],
+                  "required": [
+                    "owner",
+                    "type",
+                    "name",
+                    "version",
+                    "yankedAt",
+                    "yankCategory",
+                    "yankNotice",
+                    "links"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -2626,6 +2589,235 @@
           }
         },
         "summary": "Un-yank an extension version"
+      }
+    },
+    "/v1/extensions/{owner}/{type}/{name}/versions/yank": {
+      "post": {
+        "tags": ["Extensions"],
+        "operationId": "Extensions.yankAvailableVersions",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "selection": { "type": "string", "enum": ["all-available"] },
+                    "affectedVersions": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Version" }
+                    },
+                    "futureVersionsAffected": { "type": "boolean", "enum": [false] }
+                  },
+                  "required": ["selection", "affectedVersions", "futureVersionsAffected"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "StepUpRequiredError | UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "code",
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Yank all currently available extension versions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/YankAvailableVersionsBody" }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/v1/admin/extensions/{owner}/{type}/{name}/{version}/purge": {
+      "post": {
+        "tags": ["AdminExtensions"],
+        "operationId": "AdminExtensions.purgeExtensionVersion",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Version" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "operationId": { "type": "string" },
+                    "affectedCoordinates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "owner": { "$ref": "#/components/schemas/Handle" },
+                          "type": { "$ref": "#/components/schemas/ExtensionType" },
+                          "name": { "$ref": "#/components/schemas/ExtensionName" },
+                          "version": { "$ref": "#/components/schemas/Version" }
+                        },
+                        "required": ["owner", "type", "name", "version"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "archivePurgeState": { "type": "string", "enum": ["pending"] }
+                  },
+                  "required": ["operationId", "affectedCoordinates", "archivePurgeState"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "StepUpRequiredError | UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "code",
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "SharedDigestConfirmationRequiredHttpError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedDigestConfirmationRequiredHttpError"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Administratively purge extension version bytes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PurgeExtensionVersionBody" }
+            }
+          },
+          "required": true
+        }
       }
     },
     "/v1/libraries/{owner}": {
@@ -3396,894 +3588,6 @@
           }
         },
         "summary": "Remove a Library member"
-      }
-    },
-    "/v1/extensions/{owner}/{type}/{name}/collaborators": {
-      "get": {
-        "tags": ["Collaborators"],
-        "operationId": "Collaborators.listCollaborators",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "collaborators": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "userId": { "$ref": "#/components/schemas/UserId" },
-                          "role": { "type": "string" },
-                          "grantedBy": {
-                            "anyOf": [
-                              { "$ref": "#/components/schemas/UserId" },
-                              { "type": "null" }
-                            ],
-                            "readOnly": true
-                          },
-                          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
-                        },
-                        "required": ["userId", "role", "grantedBy", "createdAt"],
-                        "additionalProperties": false
-                      }
-                    }
-                  },
-                  "required": ["collaborators"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "List extension collaborators"
-      }
-    },
-    "/v1/extensions/{owner}/{type}/{name}/collaborators/{userId}": {
-      "put": {
-        "tags": ["Collaborators"],
-        "operationId": "Collaborators.upsertCollaborator",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          },
-          {
-            "name": "userId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "userId": { "$ref": "#/components/schemas/UserId" },
-                    "role": { "type": "string" },
-                    "grantedBy": {
-                      "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }],
-                      "readOnly": true
-                    },
-                    "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
-                  },
-                  "required": ["userId", "role", "grantedBy", "createdAt"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Adds or updates the collaborator identified by userId on the extension.",
-        "summary": "Add or update collaborator",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/PutCollaboratorBody" } }
-          },
-          "required": true
-        }
-      },
-      "delete": {
-        "tags": ["Collaborators"],
-        "operationId": "Collaborators.deleteCollaborator",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          },
-          {
-            "name": "userId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "409": {
-            "description": "ConflictError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Removes the collaborator identified by userId from the extension.",
-        "summary": "Remove collaborator"
-      }
-    },
-    "/v1/extensions/{owner}/{type}/{name}/grants": {
-      "get": {
-        "tags": ["TeamGrants"],
-        "operationId": "TeamGrants.listExtensionGrants",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "ExtensionGrantsResponse",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ExtensionGrantsResponse" }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "List extension grants"
-      },
-      "post": {
-        "tags": ["TeamGrants"],
-        "operationId": "TeamGrants.upsertTeamExtensionGrant",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "TeamGrant",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TeamGrant" } }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Creates or updates a grant of a team's access to this extension. The team must belong to the same organization that owns the extension (otherwise 422). Only team admins or organization owners/admins may grant.",
-        "summary": "Upsert a team extension grant",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/UpsertTeamGrantBody" } }
-          },
-          "required": true
-        }
-      }
-    },
-    "/v1/extensions/{owner}/{type}/{name}/grants/user/{userId}": {
-      "put": {
-        "tags": ["TeamGrants"],
-        "operationId": "TeamGrants.upsertUserExtensionGrant",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          },
-          {
-            "name": "userId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "userId": { "$ref": "#/components/schemas/UserId" },
-                    "role": { "type": "string" },
-                    "grantedBy": {
-                      "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }],
-                      "readOnly": true
-                    },
-                    "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
-                  },
-                  "required": ["userId", "role", "grantedBy", "createdAt"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Adds or updates the user grant identified by userId on the extension.",
-        "summary": "Add or update a user extension grant",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/UpsertGrantBody" } }
-          },
-          "required": true
-        }
-      },
-      "delete": {
-        "tags": ["TeamGrants"],
-        "operationId": "TeamGrants.deleteUserExtensionGrant",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          },
-          {
-            "name": "userId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/UserId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "409": {
-            "description": "ConflictError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Removes the user grant identified by userId from the extension.",
-        "summary": "Remove a user extension grant"
-      }
-    },
-    "/v1/extensions/{owner}/{type}/{name}/grants/team/{teamId}": {
-      "put": {
-        "tags": ["TeamGrants"],
-        "operationId": "TeamGrants.upsertTeamExtensionGrantById",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "200": {
-            "description": "TeamGrant",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TeamGrant" } }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Adds or updates the team grant identified by teamId on the extension.",
-        "summary": "Add or update a team extension grant",
-        "requestBody": {
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/UpsertGrantBody" } }
-          },
-          "required": true
-        }
-      },
-      "delete": {
-        "tags": ["TeamGrants"],
-        "operationId": "TeamGrants.deleteTeamExtensionGrantById",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Removes the team grant identified by teamId from the extension.",
-        "summary": "Remove a team extension grant"
-      }
-    },
-    "/v1/extensions/{owner}/{type}/{name}/grants/{teamId}": {
-      "delete": {
-        "tags": ["TeamGrants"],
-        "operationId": "TeamGrants.deleteTeamExtensionGrant",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/ExtensionName" },
-            "required": true
-          },
-          {
-            "name": "teamId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/TeamId" },
-            "required": true
-          }
-        ],
-        "security": [{ "bearer": [] }],
-        "responses": {
-          "204": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ForbiddenError" },
-                    { "$ref": "#/components/schemas/ForbiddenError" }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "description": "Removes a team's grant on this extension. Idempotent — deleting a non-existent grant still returns 204.",
-        "summary": "Delete a team extension grant"
       }
     },
     "/v1/extensions/{owner}/{type}/{name}/maintainer": {
@@ -5109,7 +4413,7 @@
           },
           "requiredRole": {
             "anyOf": [{ "type": "string" }, { "type": "null" }],
-            "description": "The collaborator role required, if applicable."
+            "description": "The management role required, if applicable."
           }
         },
         "required": ["retryable"],
@@ -5457,7 +4761,7 @@
           },
           "requiredRole": {
             "type": "string",
-            "description": "The collaborator role required, if applicable."
+            "description": "The management role required, if applicable."
           }
         },
         "required": ["requiredScope", "tokenScopes"],
@@ -6004,7 +5308,7 @@
         "properties": {
           "visibility": {
             "type": "string",
-            "enum": ["public", "internal", "private"],
+            "enum": ["public", "private"],
             "title": "Visibility",
             "description": "Target visibility tier for the extension."
           }
@@ -6216,6 +5520,84 @@
         ],
         "additionalProperties": false
       },
+      "YankVersionBody": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "anyOf": [
+              { "type": "string", "enum": ["broken", "security", "accidental", "other"] },
+              { "type": "null" }
+            ]
+          },
+          "notice": {
+            "anyOf": [{ "type": "string", "allOf": [{ "maxLength": 500 }] }, { "type": "null" }]
+          }
+        },
+        "additionalProperties": false,
+        "title": "Yank Version Body",
+        "description": "Optional public context for yanking an extension version."
+      },
+      "YankAvailableVersionsBody": {
+        "type": "object",
+        "properties": {
+          "selection": { "type": "string", "enum": ["all-available"] },
+          "category": {
+            "anyOf": [
+              { "type": "string", "enum": ["broken", "security", "accidental", "other"] },
+              { "type": "null" }
+            ]
+          },
+          "notice": {
+            "anyOf": [{ "type": "string", "allOf": [{ "maxLength": 500 }] }, { "type": "null" }]
+          }
+        },
+        "required": ["selection"],
+        "additionalProperties": false,
+        "title": "Yank Available Versions Body",
+        "description": "Atomically yanks the snapshot of all currently available versions."
+      },
+      "PurgeExtensionVersionBody": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": ["malware", "exposed_secret", "legal", "privacy", "policy"]
+          },
+          "confirmSharedDigest": { "type": "boolean" }
+        },
+        "required": ["reason", "confirmSharedDigest"],
+        "additionalProperties": false,
+        "title": "Purge Extension Version Body",
+        "description": "Administrative purge reason and explicit acknowledgement of shared-content impact."
+      },
+      "SharedDigestConfirmationRequiredHttpError": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["SharedDigestConfirmationRequiredHttpError"] },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": { "type": "string", "enum": ["shared_digest_confirmation_required"] },
+          "affectedCoordinates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "owner": { "$ref": "#/components/schemas/Handle" },
+                "type": { "$ref": "#/components/schemas/ExtensionType" },
+                "name": { "$ref": "#/components/schemas/ExtensionName" },
+                "version": { "$ref": "#/components/schemas/Version" }
+              },
+              "required": ["owner", "type", "name", "version"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["kind", "type", "title", "status", "detail", "code", "affectedCoordinates"],
+        "additionalProperties": false
+      },
       "LibraryId": {
         "type": "string",
         "allOf": [
@@ -6235,7 +5617,7 @@
       },
       "LibraryVisibility": {
         "type": "string",
-        "enum": ["public", "internal", "private"],
+        "enum": ["public", "private"],
         "title": "Library Visibility"
       },
       "LibraryMaintainer": {
@@ -6452,98 +5834,6 @@
         ],
         "title": "Library Maintainer Target"
       },
-      "PutCollaboratorBody": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": "string",
-            "enum": ["write", "read"],
-            "title": "Collaborator Role",
-            "description": "The role to assign to the collaborator."
-          }
-        },
-        "required": ["role"],
-        "additionalProperties": false,
-        "title": "Put Collaborator Body",
-        "description": "Request body for assigning a collaborator role on an extension."
-      },
-      "ExtensionGrantEntry": {
-        "type": "object",
-        "properties": {
-          "subject": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "kind": { "type": "string", "enum": ["user"] },
-                  "userId": { "$ref": "#/components/schemas/UserId" }
-                },
-                "required": ["kind", "userId"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "kind": { "type": "string", "enum": ["team"] },
-                  "teamId": { "$ref": "#/components/schemas/TeamId" }
-                },
-                "required": ["kind", "teamId"],
-                "additionalProperties": false
-              }
-            ]
-          },
-          "role": { "type": "string", "enum": ["read", "write"] },
-          "grantedBy": {
-            "anyOf": [{ "$ref": "#/components/schemas/UserId" }, { "type": "null" }],
-            "readOnly": true
-          },
-          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" }
-        },
-        "required": ["subject", "role", "grantedBy", "createdAt"],
-        "additionalProperties": false,
-        "title": "Extension Grant Entry"
-      },
-      "ExtensionGrantsResponse": {
-        "type": "object",
-        "properties": {
-          "grants": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/ExtensionGrantEntry" }
-          }
-        },
-        "required": ["grants"],
-        "additionalProperties": false,
-        "title": "Extension Grants Response"
-      },
-      "UpsertGrantBody": {
-        "type": "object",
-        "properties": { "role": { "type": "string", "enum": ["read", "write"] } },
-        "required": ["role"],
-        "additionalProperties": false,
-        "title": "Upsert Grant Body"
-      },
-      "TeamGrant": {
-        "type": "object",
-        "properties": {
-          "teamId": { "$ref": "#/components/schemas/TeamId" },
-          "role": { "type": "string", "enum": ["read", "write"] },
-          "grantedBy": { "type": "string" },
-          "grantedAt": { "type": "string", "readOnly": true, "format": "date-time" }
-        },
-        "required": ["teamId", "role", "grantedBy", "grantedAt"],
-        "additionalProperties": false,
-        "title": "Team Grant"
-      },
-      "UpsertTeamGrantBody": {
-        "type": "object",
-        "properties": {
-          "teamId": { "$ref": "#/components/schemas/TeamId" },
-          "role": { "type": "string", "enum": ["read", "write"] }
-        },
-        "required": ["teamId", "role"],
-        "additionalProperties": false,
-        "title": "Upsert Team Grant Body"
-      },
       "Maintainer": {
         "anyOf": [
           {
@@ -6696,7 +5986,7 @@
         "description": "A page of extensions matching the search query."
       }
     },
-    "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer" } }
+    "securitySchemes": { "bearer": { "type": "http", "scheme": "Bearer" } }
   },
   "security": [],
   "tags": [
@@ -6706,9 +5996,8 @@
     { "name": "Owners" },
     { "name": "OrgsTeams" },
     { "name": "Extensions" },
+    { "name": "AdminExtensions" },
     { "name": "Libraries" },
-    { "name": "Collaborators" },
-    { "name": "TeamGrants" },
     { "name": "Maintainer" },
     { "name": "Discovery" },
     { "name": "Health" },

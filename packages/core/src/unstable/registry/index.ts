@@ -60,22 +60,22 @@ export { createLocalRegistryClient } from "./local-client.js";
 export { createRemoteRegistryClient } from "./remote-client.js";
 
 export type {
-  ExtensionGrantEntry,
-  ExtensionGrantRole,
-  ExtensionGrantsResponse,
   ExtensionMaintainer,
   ExtensionMaintainerTarget,
   RegistryExtensionReference,
+  RegistryExtensionVersionReference,
+  RegistryLifecycleCallOptions,
+  YankCategory,
 } from "./admin-client.js";
 export {
   clearExtensionMaintainer,
-  deleteTeamExtensionGrant,
-  deleteUserExtensionGrant,
   getExtensionMaintainer,
-  listExtensionGrants,
   setExtensionMaintainer,
-  upsertTeamExtensionGrant,
-  upsertUserExtensionGrant,
+  yankExtensionVersion,
+  yankAvailableExtensionVersions,
+  unyankExtensionVersion,
+  deprecateExtension,
+  undeprecateExtension,
 } from "./admin-client.js";
 
 // Error mapping helpers
@@ -93,6 +93,7 @@ export {
 // Utilities
 export {
   extensionDir,
+  extensionLifecycleWarnings,
   extractZip,
   pluralizeType,
   resolveVersionEntry,

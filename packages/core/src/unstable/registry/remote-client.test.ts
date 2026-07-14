@@ -473,6 +473,40 @@ describe("getExtensionPackage", () => {
     }),
   );
 
+  it.effect("allows an exact yanked version and returns a warning", () =>
+    Effect.gen(function* () {
+      const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const response = {
+        ...extensionIndexResponse,
+        deprecated_at: "2025-02-01T00:00:00Z",
+        deprecation_notice: "Use the replacement skill",
+        versions: extensionIndexResponse.versions.map((version) =>
+          version.version === "1.0.0"
+            ? {
+                ...version,
+                yanked_at: "2025-02-02T00:00:00Z",
+                yank_category: "security",
+                yank_notice: "Do not use for new installs",
+              }
+            : version,
+        ),
+      };
+      const httpClient = makeMockHttpClient((request) =>
+        request.url.endsWith("/archive")
+          ? new Response(archiveData, { status: 200 })
+          : new Response(JSON.stringify(response), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.getExtensionPackage(makePackageArgs("test-skill", "1.0.0"));
+
+      expect(result.warnings).toEqual([
+        "@acme/skills/test-skill is deprecated: Use the replacement skill",
+        "@acme/skills/test-skill@1.0.0 is yanked: security: Do not use for new installs",
+      ]);
+    }),
+  );
+
   it.effect("fails with REGISTRY_REMOTE_PACKAGE_NOT_FOUND on index 404", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(() =>

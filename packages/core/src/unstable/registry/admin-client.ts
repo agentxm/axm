@@ -14,9 +14,6 @@ import {
 import { registryClientErrorToAppError } from "./translate.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 
-export type ExtensionGrantEntry = GeneratedRegistryClient.ExtensionGrantEntry;
-export type ExtensionGrantRole = ExtensionGrantEntry["role"];
-export type ExtensionGrantsResponse = GeneratedRegistryClient.ExtensionGrantsResponse;
 export type ExtensionMaintainer = GeneratedRegistryClient.Maintainer;
 export type ExtensionMaintainerTarget = GeneratedRegistryClient.MaintainerTarget;
 
@@ -24,6 +21,16 @@ export interface RegistryExtensionReference {
   readonly owner: string;
   readonly type: string;
   readonly name: string;
+}
+
+export interface RegistryExtensionVersionReference extends RegistryExtensionReference {
+  readonly version: string;
+}
+
+export type YankCategory = "broken" | "security" | "accidental" | "other";
+
+export interface RegistryLifecycleCallOptions {
+  readonly stepUpToken?: string;
 }
 
 const mapAdminClientError =
@@ -60,95 +67,30 @@ const makeAdminClient = Effect.gen(function* () {
   };
 });
 
+const makeLifecycleClient = (options?: RegistryLifecycleCallOptions) =>
+  Effect.gen(function* () {
+    const registryUrl = yield* RegistryUrl;
+    const httpClient = yield* HttpClient.HttpClient;
+    const remoteHttpClient = httpClient.pipe(
+      HttpClient.mapRequest((request) => {
+        const withUrl = HttpClientRequest.prependUrl(request, registryUrl);
+        return options?.stepUpToken === undefined
+          ? withUrl
+          : HttpClientRequest.setHeaders(withUrl, {
+              "x-axm-step-up": options.stepUpToken,
+            });
+      }),
+    );
+    return {
+      registryUrl,
+      client: GeneratedRegistryClient.make(remoteHttpClient),
+    };
+  });
+
 const runAdminCall = <A, R>(
   registryUrl: string,
   effect: Effect.Effect<A, unknown, R>,
 ): Effect.Effect<A, AppError, R> => effect.pipe(Effect.mapError(mapAdminClientError(registryUrl)));
-
-export const listExtensionGrants = (
-  ref: RegistryExtensionReference,
-): Effect.Effect<ExtensionGrantsResponse, AppError, HttpClient.HttpClient | RegistryUrl> =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeAdminClient;
-    return yield* runAdminCall(
-      registryUrl,
-      client.TeamGrantsListExtensionGrants(ref.owner, ref.type, ref.name, undefined),
-    );
-  });
-
-export const upsertUserExtensionGrant = (
-  ref: RegistryExtensionReference,
-  input: {
-    readonly userId: string;
-    readonly role: ExtensionGrantRole;
-  },
-) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeAdminClient;
-    return yield* runAdminCall(
-      registryUrl,
-      client.TeamGrantsUpsertUserExtensionGrant(ref.owner, ref.type, ref.name, input.userId, {
-        payload: { role: input.role },
-      }),
-    );
-  });
-
-export const deleteUserExtensionGrant = (
-  ref: RegistryExtensionReference,
-  input: {
-    readonly userId: string;
-  },
-) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeAdminClient;
-    return yield* runAdminCall(
-      registryUrl,
-      client.TeamGrantsDeleteUserExtensionGrant(
-        ref.owner,
-        ref.type,
-        ref.name,
-        input.userId,
-        undefined,
-      ),
-    );
-  });
-
-export const upsertTeamExtensionGrant = (
-  ref: RegistryExtensionReference,
-  input: {
-    readonly teamId: string;
-    readonly role: ExtensionGrantRole;
-  },
-) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeAdminClient;
-    return yield* runAdminCall(
-      registryUrl,
-      client.TeamGrantsUpsertTeamExtensionGrantById(ref.owner, ref.type, ref.name, input.teamId, {
-        payload: { role: input.role },
-      }),
-    );
-  });
-
-export const deleteTeamExtensionGrant = (
-  ref: RegistryExtensionReference,
-  input: {
-    readonly teamId: string;
-  },
-) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeAdminClient;
-    return yield* runAdminCall(
-      registryUrl,
-      client.TeamGrantsDeleteTeamExtensionGrantById(
-        ref.owner,
-        ref.type,
-        ref.name,
-        input.teamId,
-        undefined,
-      ),
-    );
-  });
 
 export const getExtensionMaintainer = (
   ref: RegistryExtensionReference,
@@ -179,5 +121,72 @@ export const clearExtensionMaintainer = (ref: RegistryExtensionReference) =>
     return yield* runAdminCall(
       registryUrl,
       client.MaintainerClearMaintainer(ref.owner, ref.type, ref.name, undefined),
+    );
+  });
+
+export const yankExtensionVersion = (
+  ref: RegistryExtensionVersionReference,
+  input: { readonly category?: YankCategory; readonly notice?: string },
+  options?: RegistryLifecycleCallOptions,
+) =>
+  Effect.gen(function* () {
+    const { client, registryUrl } = yield* makeLifecycleClient(options);
+    return yield* runAdminCall(
+      registryUrl,
+      client.ExtensionsYankVersion(ref.owner, ref.type, ref.name, ref.version, {
+        payload: {
+          ...(input.category === undefined ? {} : { category: input.category }),
+          ...(input.notice === undefined ? {} : { notice: input.notice }),
+        },
+      }),
+    );
+  });
+
+export const yankAvailableExtensionVersions = (
+  ref: RegistryExtensionReference,
+  input: { readonly category?: YankCategory; readonly notice?: string },
+  options?: RegistryLifecycleCallOptions,
+) =>
+  Effect.gen(function* () {
+    const { client, registryUrl } = yield* makeLifecycleClient(options);
+    return yield* runAdminCall(
+      registryUrl,
+      client.ExtensionsYankAvailableVersions(ref.owner, ref.type, ref.name, {
+        payload: {
+          selection: "all-available",
+          ...(input.category === undefined ? {} : { category: input.category }),
+          ...(input.notice === undefined ? {} : { notice: input.notice }),
+        },
+      }),
+    );
+  });
+
+export const unyankExtensionVersion = (
+  ref: RegistryExtensionVersionReference,
+  options?: RegistryLifecycleCallOptions,
+) =>
+  Effect.gen(function* () {
+    const { client, registryUrl } = yield* makeLifecycleClient(options);
+    return yield* runAdminCall(
+      registryUrl,
+      client.ExtensionsUnyankVersion(ref.owner, ref.type, ref.name, ref.version, undefined),
+    );
+  });
+
+export const deprecateExtension = (ref: RegistryExtensionReference, notice: string | null) =>
+  Effect.gen(function* () {
+    const { client, registryUrl } = yield* makeLifecycleClient();
+    return yield* runAdminCall(
+      registryUrl,
+      client.ExtensionsDeprecate(ref.owner, ref.type, ref.name, { payload: { notice } }),
+    );
+  });
+
+export const undeprecateExtension = (ref: RegistryExtensionReference) =>
+  Effect.gen(function* () {
+    const { client, registryUrl } = yield* makeLifecycleClient();
+    return yield* runAdminCall(
+      registryUrl,
+      client.ExtensionsUndeprecate(ref.owner, ref.type, ref.name, undefined),
     );
   });

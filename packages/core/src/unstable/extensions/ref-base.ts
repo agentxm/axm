@@ -50,6 +50,8 @@ export interface RegistryRefDetails {
   readonly integrity: Option.Option<string>;
   /** Package URLs this extension is designed to work with, from registry metadata. Empty when absent. */
   readonly packages: ReadonlyArray<PackageUrlParts>;
+  /** Lifecycle notices that must be shown before an exact historical install. */
+  readonly lifecycleWarnings?: ReadonlyArray<string>;
 }
 
 /** Ref details for local filesystem sources. @experimental */

@@ -27,6 +27,7 @@ import {
   createRegistryClient,
   extractZip,
   resolveVersionEntryWithReleaseAge,
+  extensionLifecycleWarnings,
 } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/index.js";
 import {
@@ -112,6 +113,7 @@ const manifestFromIndex = (
   if (Option.isNone(selectedVersion)) return Option.none();
 
   const version = selectedVersion.value;
+  const lifecycleWarnings = extensionLifecycleWarnings(index, version);
   return Option.some({
     owner: index.owner,
     type: index.type,
@@ -128,6 +130,7 @@ const manifestFromIndex = (
     version: version.version,
     integrity: version.integrity,
     packages: packagesToPackageUrlParts(version.packages),
+    ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
   } satisfies RegistryExtensionManifest);
 };
 
@@ -245,6 +248,9 @@ const toExtensionRef = (
     version: entry.version,
     integrity: Option.fromUndefinedOr(entry.integrity || undefined),
     packages: entry.packages,
+    ...(entry.lifecycleWarnings === undefined
+      ? {}
+      : { lifecycleWarnings: entry.lifecycleWarnings }),
   };
 
   switch (entry.type) {
@@ -358,12 +364,17 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     const type = refRegistryType(ref);
     const name = refName(ref);
 
-    const { archive: archiveBytes } = yield* client.getExtensionPackage({
+    const { archive: archiveBytes, warnings } = yield* client.getExtensionPackage({
       owner,
       type,
       name,
       version: Option.some(version),
     });
+    if (warnings !== undefined) {
+      yield* Effect.forEach(warnings, (warning) => Effect.logWarning(warning), {
+        discard: true,
+      });
+    }
 
     if (Option.isSome(expectedIntegrity)) {
       const actualIntegrity = yield* computeIntegrity(archiveBytes);

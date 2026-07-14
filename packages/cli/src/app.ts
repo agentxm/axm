@@ -40,7 +40,6 @@ import { tokenCommand } from "./root/auth/token.js";
 import { upgradeCommand } from "./root/upgrade/upgrade.js";
 import { lintCommand } from "./root/lint/command.js";
 import { discoverCommand } from "./root/discover/command.js";
-import { grantCommand } from "./root/grant/command.js";
 import { installCommand } from "./root/install/command.js";
 import { maintainerCommand } from "./root/maintainer/command.js";
 import { outdatedCommand } from "./root/outdated/command.js";
@@ -54,6 +53,12 @@ import { versionCommand } from "./root/shared/version-command.js";
 import { publishCommand } from "./root/publish/command.js";
 import { adoptCommand } from "./root/adopt/command.js";
 import { demoteCommand } from "./root/demote/command.js";
+import {
+  deprecateCommand,
+  undeprecateCommand,
+  unyankCommand,
+  yankCommand,
+} from "./root/lifecycle/command.js";
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
@@ -101,8 +106,11 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         outdatedCommand,
         viewCommand,
         versionCommand,
-        grantCommand,
         maintainerCommand,
+        yankCommand,
+        unyankCommand,
+        deprecateCommand,
+        undeprecateCommand,
       ],
     },
     {

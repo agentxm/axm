@@ -120,7 +120,7 @@ export const PublishDetails = Schema.Struct({
   ),
   requiredRole: Schema.optionalKey(
     Schema.Union([Schema.String, Schema.Null]).annotate({
-      description: "The collaborator role required, if applicable.",
+      description: "The management role required, if applicable.",
     }),
   ),
 }).annotate({
@@ -271,7 +271,7 @@ export const AuthorizationDenyDetails = Schema.Struct({
     description: "The scopes present on the token used for the request.",
   }),
   requiredRole: Schema.optionalKey(
-    Schema.String.annotate({ description: "The collaborator role required, if applicable." }),
+    Schema.String.annotate({ description: "The management role required, if applicable." }),
   ),
 }).annotate({
   title: "Authorization Deny Details",
@@ -580,9 +580,9 @@ export const PackageIdentityPurl = Schema.String.check(Schema.isMinLength(1)).ch
     examples: ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"],
   }),
 );
-export type PatchVisibilityBody = { readonly visibility: "public" | "internal" | "private" };
+export type PatchVisibilityBody = { readonly visibility: "public" | "private" };
 export const PatchVisibilityBody = Schema.Struct({
-  visibility: Schema.Literals(["public", "internal", "private"]).annotate({
+  visibility: Schema.Literals(["public", "private"]).annotate({
     title: "Visibility",
     description: "Target visibility tier for the extension.",
   }),
@@ -702,6 +702,49 @@ export const PublishIdentityMismatchEntry = Schema.Struct({
   title: "Identity Mismatch Entry",
   description: "Single divergent identity field between URL-path and archive.",
 });
+export type YankVersionBody = {
+  readonly category?: "broken" | "security" | "accidental" | "other" | null;
+  readonly notice?: string | null;
+};
+export const YankVersionBody = Schema.Struct({
+  category: Schema.optionalKey(
+    Schema.Union([Schema.Literals(["broken", "security", "accidental", "other"]), Schema.Null]),
+  ),
+  notice: Schema.optionalKey(
+    Schema.Union([Schema.String.check(Schema.isMaxLength(500)), Schema.Null]),
+  ),
+}).annotate({
+  title: "Yank Version Body",
+  description: "Optional public context for yanking an extension version.",
+});
+export type YankAvailableVersionsBody = {
+  readonly selection: "all-available";
+  readonly category?: "broken" | "security" | "accidental" | "other" | null;
+  readonly notice?: string | null;
+};
+export const YankAvailableVersionsBody = Schema.Struct({
+  selection: Schema.Literal("all-available"),
+  category: Schema.optionalKey(
+    Schema.Union([Schema.Literals(["broken", "security", "accidental", "other"]), Schema.Null]),
+  ),
+  notice: Schema.optionalKey(
+    Schema.Union([Schema.String.check(Schema.isMaxLength(500)), Schema.Null]),
+  ),
+}).annotate({
+  title: "Yank Available Versions Body",
+  description: "Atomically yanks the snapshot of all currently available versions.",
+});
+export type PurgeExtensionVersionBody = {
+  readonly reason: "malware" | "exposed_secret" | "legal" | "privacy" | "policy";
+  readonly confirmSharedDigest: boolean;
+};
+export const PurgeExtensionVersionBody = Schema.Struct({
+  reason: Schema.Literals(["malware", "exposed_secret", "legal", "privacy", "policy"]),
+  confirmSharedDigest: Schema.Boolean,
+}).annotate({
+  title: "Purge Extension Version Body",
+  description: "Administrative purge reason and explicit acknowledgement of shared-content impact.",
+});
 export type LibraryId = string;
 export const LibraryId = Schema.String.check(
   Schema.isPattern(new RegExp("^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -718,8 +761,8 @@ export const LibraryName = Schema.String.annotate({
     "Canonical Library name within an owner namespace. Uses the same normalized slug grammar as handles.",
   examples: ["frontend", "team-tools"],
 });
-export type LibraryVisibility = "public" | "internal" | "private";
-export const LibraryVisibility = Schema.Literals(["public", "internal", "private"]).annotate({
+export type LibraryVisibility = "public" | "private";
+export const LibraryVisibility = Schema.Literals(["public", "private"]).annotate({
   title: "Library Visibility",
 });
 export type LibraryMemberId = string;
@@ -741,20 +784,6 @@ export const UpdateLibraryBody = Schema.Struct({
     Schema.Union([Schema.Union([Schema.String, Schema.Null]), Schema.Null]),
   ),
 }).annotate({ title: "Update Library Body" });
-export type PutCollaboratorBody = { readonly role: "write" | "read" };
-export const PutCollaboratorBody = Schema.Struct({
-  role: Schema.Literals(["write", "read"]).annotate({
-    title: "Collaborator Role",
-    description: "The role to assign to the collaborator.",
-  }),
-}).annotate({
-  title: "Put Collaborator Body",
-  description: "Request body for assigning a collaborator role on an extension.",
-});
-export type UpsertGrantBody = { readonly role: "read" | "write" };
-export const UpsertGrantBody = Schema.Struct({ role: Schema.Literals(["read", "write"]) }).annotate(
-  { title: "Upsert Grant Body" },
-);
 export type ExtensionFqn = string;
 export const ExtensionFqn = Schema.String.check(
   Schema.isPattern(
@@ -1053,40 +1082,6 @@ export const LibraryMaintainerTarget = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("user"), userId: UserId }),
   Schema.Struct({ kind: Schema.Literal("team"), teamId: TeamId }),
 ]).annotate({ title: "Library Maintainer Target" });
-export type ExtensionGrantEntry = {
-  readonly subject:
-    | { readonly kind: "user"; readonly userId: UserId }
-    | { readonly kind: "team"; readonly teamId: TeamId };
-  readonly role: "read" | "write";
-  readonly grantedBy: UserId | null;
-  readonly createdAt: string;
-};
-export const ExtensionGrantEntry = Schema.Struct({
-  subject: Schema.Union([
-    Schema.Struct({ kind: Schema.Literal("user"), userId: UserId }),
-    Schema.Struct({ kind: Schema.Literal("team"), teamId: TeamId }),
-  ]),
-  role: Schema.Literals(["read", "write"]),
-  grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
-  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-}).annotate({ title: "Extension Grant Entry" });
-export type TeamGrant = {
-  readonly teamId: TeamId;
-  readonly role: "read" | "write";
-  readonly grantedBy: string;
-  readonly grantedAt: string;
-};
-export const TeamGrant = Schema.Struct({
-  teamId: TeamId,
-  role: Schema.Literals(["read", "write"]),
-  grantedBy: Schema.String,
-  grantedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-}).annotate({ title: "Team Grant" });
-export type UpsertTeamGrantBody = { readonly teamId: TeamId; readonly role: "read" | "write" };
-export const UpsertTeamGrantBody = Schema.Struct({
-  teamId: TeamId,
-  role: Schema.Literals(["read", "write"]),
-}).annotate({ title: "Upsert Team Grant Body" });
 export type Maintainer =
   | {
       readonly kind: "user";
@@ -1190,6 +1185,33 @@ export const PublishIdentity = Schema.Struct({
 }).annotate({
   title: "Publish Identity",
   description: "URL-path identity of the extension version under publish.",
+});
+export type SharedDigestConfirmationRequiredHttpError = {
+  readonly kind: "SharedDigestConfirmationRequiredHttpError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: "shared_digest_confirmation_required";
+  readonly affectedCoordinates: ReadonlyArray<{
+    readonly owner: Handle;
+    readonly type: ExtensionType;
+    readonly name: ExtensionName;
+    readonly version: Version;
+  }>;
+};
+export const SharedDigestConfirmationRequiredHttpError = Schema.Struct({
+  kind: Schema.Literal("SharedDigestConfirmationRequiredHttpError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("shared_digest_confirmation_required"),
+  affectedCoordinates: Schema.Array(
+    Schema.Struct({ owner: Handle, type: ExtensionType, name: ExtensionName, version: Version }),
+  ),
 });
 export type SearchHit = {
   readonly name: ExtensionName;
@@ -1370,10 +1392,6 @@ export const CreatedLibrary = Schema.Struct({
   createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
   updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 }).annotate({ title: "Created Library" });
-export type ExtensionGrantsResponse = { readonly grants: ReadonlyArray<ExtensionGrantEntry> };
-export const ExtensionGrantsResponse = Schema.Struct({
-  grants: Schema.Array(ExtensionGrantEntry),
-}).annotate({ title: "Extension Grants Response" });
 export type TeamList = { readonly items: ReadonlyArray<Team>; readonly nextCursor: string | null };
 export const TeamList = Schema.Struct({
   items: Schema.Array(Team),
@@ -1931,8 +1949,10 @@ export type ExtensionsGet200 = {
     readonly dependencies?: { readonly [x: string]: VersionRange } | null;
     readonly packages?: ReadonlyArray<CompanionPackage> | null;
     readonly yanked_at?: IsoDateTimeString | null;
+    readonly yank_category?: string | null;
+    readonly yank_notice?: string | null;
   }>;
-  readonly visibility?: "public" | "internal" | "private" | null;
+  readonly visibility?: "public" | "private" | null;
   readonly deprecated_at?: IsoDateTimeString | null;
   readonly deprecation_notice?: string | null;
 };
@@ -1955,11 +1975,13 @@ export const ExtensionsGet200 = Schema.Struct({
       ),
       packages: Schema.optionalKey(Schema.Union([Schema.Array(CompanionPackage), Schema.Null])),
       yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
+      yank_category: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      yank_notice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
     }),
   ),
   visibility: Schema.optionalKey(
     Schema.Union([
-      Schema.Literals(["public", "internal", "private"]).annotate({ readOnly: true }),
+      Schema.Literals(["public", "private"]).annotate({ readOnly: true }),
       Schema.Null,
     ]),
   ),
@@ -2000,8 +2022,6 @@ export type ExtensionsUpdateVisibility403 = ForbiddenError | ForbiddenError;
 export const ExtensionsUpdateVisibility403 = Schema.Union([ForbiddenError, ForbiddenError]);
 export type ExtensionsUpdateVisibility404 = ProblemDetails;
 export const ExtensionsUpdateVisibility404 = ProblemDetails;
-export type ExtensionsUpdateVisibility422 = ProblemDetails;
-export const ExtensionsUpdateVisibility422 = ProblemDetails;
 export type ExtensionsGetVersion200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
@@ -2018,7 +2038,8 @@ export type ExtensionsGetVersion200 = {
   readonly dependencies?: { readonly [x: string]: VersionRange } | null;
   readonly packages?: ReadonlyArray<CompanionPackage> | null;
   readonly yanked_at?: IsoDateTimeString | null;
-  readonly deleted_at?: IsoDateTimeString | null;
+  readonly yank_category?: string | null;
+  readonly yank_notice?: string | null;
 };
 export const ExtensionsGetVersion200 = Schema.Struct({
   name: ExtensionName,
@@ -2038,12 +2059,15 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   ),
   packages: Schema.optionalKey(Schema.Union([Schema.Array(CompanionPackage), Schema.Null])),
   yanked_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
-  deleted_at: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
+  yank_category: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  yank_notice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type ExtensionsGetVersion400 = DecodeErrorResponse;
 export const ExtensionsGetVersion400 = DecodeErrorResponse;
 export type ExtensionsGetVersion404 = ProblemDetails;
 export const ExtensionsGetVersion404 = ProblemDetails;
+export type ExtensionsGetVersion410 = ProblemDetails;
+export const ExtensionsGetVersion410 = ProblemDetails;
 export type ExtensionsPublishVersionRequestFormData = {
   readonly archive: string;
   readonly integrity?: string | null;
@@ -2103,18 +2127,12 @@ export type ExtensionsPublishVersion500 = ProblemDetails;
 export const ExtensionsPublishVersion500 = ProblemDetails;
 export type ExtensionsPublishVersion503 = ProblemDetails;
 export const ExtensionsPublishVersion503 = ProblemDetails;
-export type ExtensionsDeleteVersion400 = DecodeErrorResponse;
-export const ExtensionsDeleteVersion400 = DecodeErrorResponse;
-export type ExtensionsDeleteVersion401 = ProblemDetails;
-export const ExtensionsDeleteVersion401 = ProblemDetails;
-export type ExtensionsDeleteVersion403 = ForbiddenError;
-export const ExtensionsDeleteVersion403 = ForbiddenError;
-export type ExtensionsDeleteVersion404 = ProblemDetails;
-export const ExtensionsDeleteVersion404 = ProblemDetails;
 export type ExtensionsDownloadArchive400 = DecodeErrorResponse;
 export const ExtensionsDownloadArchive400 = DecodeErrorResponse;
 export type ExtensionsDownloadArchive404 = ProblemDetails;
 export const ExtensionsDownloadArchive404 = ProblemDetails;
+export type ExtensionsDownloadArchive410 = ProblemDetails;
+export const ExtensionsDownloadArchive410 = ProblemDetails;
 export type ExtensionsDownloadArchive500 = ProblemDetails;
 export const ExtensionsDownloadArchive500 = ProblemDetails;
 export type ExtensionsDeprecateRequestJson = DeprecateBody;
@@ -2166,12 +2184,16 @@ export type ExtensionsUndeprecate403 = ForbiddenError;
 export const ExtensionsUndeprecate403 = ForbiddenError;
 export type ExtensionsUndeprecate404 = ProblemDetails;
 export const ExtensionsUndeprecate404 = ProblemDetails;
+export type ExtensionsYankVersionRequestJson = YankVersionBody;
+export const ExtensionsYankVersionRequestJson = YankVersionBody;
 export type ExtensionsYankVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly version: Version;
   readonly yankedAt: IsoDateTimeString | null;
+  readonly yankCategory: string | null;
+  readonly yankNotice: string | null;
   readonly links: ExtensionLinks;
 };
 export const ExtensionsYankVersion200 = Schema.Struct({
@@ -2180,6 +2202,8 @@ export const ExtensionsYankVersion200 = Schema.Struct({
   name: ExtensionName,
   version: Version,
   yankedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
+  yankCategory: Schema.Union([Schema.String, Schema.Null]),
+  yankNotice: Schema.Union([Schema.String, Schema.Null]),
   links: ExtensionLinks,
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponse;
@@ -2196,6 +2220,8 @@ export type ExtensionsUnyankVersion200 = {
   readonly name: ExtensionName;
   readonly version: Version;
   readonly yankedAt: null;
+  readonly yankCategory: null;
+  readonly yankNotice: null;
   readonly links: ExtensionLinks;
 };
 export const ExtensionsUnyankVersion200 = Schema.Struct({
@@ -2204,6 +2230,8 @@ export const ExtensionsUnyankVersion200 = Schema.Struct({
   name: ExtensionName,
   version: Version,
   yankedAt: Schema.Null,
+  yankCategory: Schema.Null,
+  yankNotice: Schema.Null,
   links: ExtensionLinks,
 });
 export type ExtensionsUnyankVersion400 = DecodeErrorResponse;
@@ -2214,6 +2242,64 @@ export type ExtensionsUnyankVersion403 = ForbiddenError;
 export const ExtensionsUnyankVersion403 = ForbiddenError;
 export type ExtensionsUnyankVersion404 = ProblemDetails;
 export const ExtensionsUnyankVersion404 = ProblemDetails;
+export type ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
+export const ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
+export type ExtensionsYankAvailableVersions200 = {
+  readonly selection: "all-available";
+  readonly affectedVersions: ReadonlyArray<Version>;
+  readonly futureVersionsAffected: false;
+};
+export const ExtensionsYankAvailableVersions200 = Schema.Struct({
+  selection: Schema.Literal("all-available"),
+  affectedVersions: Schema.Array(Version),
+  futureVersionsAffected: Schema.Literal(false),
+});
+export type ExtensionsYankAvailableVersions400 = DecodeErrorResponse;
+export const ExtensionsYankAvailableVersions400 = DecodeErrorResponse;
+export type ExtensionsYankAvailableVersions401 = StepUpRequiredError | ProblemDetails;
+export const ExtensionsYankAvailableVersions401 = Schema.Union([
+  StepUpRequiredError,
+  ProblemDetails,
+]);
+export type ExtensionsYankAvailableVersions403 = ForbiddenError;
+export const ExtensionsYankAvailableVersions403 = ForbiddenError;
+export type ExtensionsYankAvailableVersions404 = ProblemDetails;
+export const ExtensionsYankAvailableVersions404 = ProblemDetails;
+export type AdminExtensionsPurgeExtensionVersionRequestJson = PurgeExtensionVersionBody;
+export const AdminExtensionsPurgeExtensionVersionRequestJson = PurgeExtensionVersionBody;
+export type AdminExtensionsPurgeExtensionVersion202 = {
+  readonly operationId: string;
+  readonly affectedCoordinates: ReadonlyArray<{
+    readonly owner: Handle;
+    readonly type: ExtensionType;
+    readonly name: ExtensionName;
+    readonly version: Version;
+  }>;
+  readonly archivePurgeState: "pending";
+};
+export const AdminExtensionsPurgeExtensionVersion202 = Schema.Struct({
+  operationId: Schema.String,
+  affectedCoordinates: Schema.Array(
+    Schema.Struct({ owner: Handle, type: ExtensionType, name: ExtensionName, version: Version }),
+  ),
+  archivePurgeState: Schema.Literal("pending"),
+});
+export type AdminExtensionsPurgeExtensionVersion400 = DecodeErrorResponse;
+export const AdminExtensionsPurgeExtensionVersion400 = DecodeErrorResponse;
+export type AdminExtensionsPurgeExtensionVersion401 = StepUpRequiredError | ProblemDetails;
+export const AdminExtensionsPurgeExtensionVersion401 = Schema.Union([
+  StepUpRequiredError,
+  ProblemDetails,
+]);
+export type AdminExtensionsPurgeExtensionVersion403 = ForbiddenError | ForbiddenError;
+export const AdminExtensionsPurgeExtensionVersion403 = Schema.Union([
+  ForbiddenError,
+  ForbiddenError,
+]);
+export type AdminExtensionsPurgeExtensionVersion404 = ProblemDetails;
+export const AdminExtensionsPurgeExtensionVersion404 = ProblemDetails;
+export type AdminExtensionsPurgeExtensionVersion409 = SharedDigestConfirmationRequiredHttpError;
+export const AdminExtensionsPurgeExtensionVersion409 = SharedDigestConfirmationRequiredHttpError;
 export type LibrariesListLibraries200 = { readonly libraries: ReadonlyArray<Library> };
 export const LibrariesListLibraries200 = Schema.Struct({ libraries: Schema.Array(Library) });
 export type LibrariesListLibraries400 = DecodeErrorResponse;
@@ -2332,168 +2418,6 @@ export type LibrariesRemoveLibraryMember404 = ProblemDetails;
 export const LibrariesRemoveLibraryMember404 = ProblemDetails;
 export type LibrariesRemoveLibraryMember422 = ProblemDetails;
 export const LibrariesRemoveLibraryMember422 = ProblemDetails;
-export type CollaboratorsListCollaborators200 = {
-  readonly collaborators: ReadonlyArray<{
-    readonly userId: UserId;
-    readonly role: string;
-    readonly grantedBy: UserId | null;
-    readonly createdAt: string;
-  }>;
-};
-export const CollaboratorsListCollaborators200 = Schema.Struct({
-  collaborators: Schema.Array(
-    Schema.Struct({
-      userId: UserId,
-      role: Schema.String,
-      grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
-      createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-    }),
-  ),
-});
-export type CollaboratorsListCollaborators400 = DecodeErrorResponse;
-export const CollaboratorsListCollaborators400 = DecodeErrorResponse;
-export type CollaboratorsListCollaborators401 = ProblemDetails;
-export const CollaboratorsListCollaborators401 = ProblemDetails;
-export type CollaboratorsListCollaborators403 = ForbiddenError | ForbiddenError;
-export const CollaboratorsListCollaborators403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type CollaboratorsListCollaborators404 = ProblemDetails;
-export const CollaboratorsListCollaborators404 = ProblemDetails;
-export type CollaboratorsUpsertCollaboratorRequestJson = PutCollaboratorBody;
-export const CollaboratorsUpsertCollaboratorRequestJson = PutCollaboratorBody;
-export type CollaboratorsUpsertCollaborator200 = {
-  readonly userId: UserId;
-  readonly role: string;
-  readonly grantedBy: UserId | null;
-  readonly createdAt: string;
-};
-export const CollaboratorsUpsertCollaborator200 = Schema.Struct({
-  userId: UserId,
-  role: Schema.String,
-  grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
-  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-});
-export type CollaboratorsUpsertCollaborator400 = ProblemDetails | DecodeErrorResponse;
-export const CollaboratorsUpsertCollaborator400 = Schema.Union([
-  ProblemDetails,
-  DecodeErrorResponse,
-]);
-export type CollaboratorsUpsertCollaborator401 = ProblemDetails;
-export const CollaboratorsUpsertCollaborator401 = ProblemDetails;
-export type CollaboratorsUpsertCollaborator403 = ForbiddenError | ForbiddenError;
-export const CollaboratorsUpsertCollaborator403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type CollaboratorsUpsertCollaborator404 = ProblemDetails;
-export const CollaboratorsUpsertCollaborator404 = ProblemDetails;
-export type CollaboratorsDeleteCollaborator400 = DecodeErrorResponse;
-export const CollaboratorsDeleteCollaborator400 = DecodeErrorResponse;
-export type CollaboratorsDeleteCollaborator401 = ProblemDetails;
-export const CollaboratorsDeleteCollaborator401 = ProblemDetails;
-export type CollaboratorsDeleteCollaborator403 = ForbiddenError | ForbiddenError;
-export const CollaboratorsDeleteCollaborator403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type CollaboratorsDeleteCollaborator404 = ProblemDetails;
-export const CollaboratorsDeleteCollaborator404 = ProblemDetails;
-export type CollaboratorsDeleteCollaborator409 = ProblemDetails;
-export const CollaboratorsDeleteCollaborator409 = ProblemDetails;
-export type TeamGrantsListExtensionGrants200 = ExtensionGrantsResponse;
-export const TeamGrantsListExtensionGrants200 = ExtensionGrantsResponse;
-export type TeamGrantsListExtensionGrants400 = DecodeErrorResponse;
-export const TeamGrantsListExtensionGrants400 = DecodeErrorResponse;
-export type TeamGrantsListExtensionGrants401 = ProblemDetails;
-export const TeamGrantsListExtensionGrants401 = ProblemDetails;
-export type TeamGrantsListExtensionGrants403 = ForbiddenError | ForbiddenError;
-export const TeamGrantsListExtensionGrants403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type TeamGrantsListExtensionGrants404 = ProblemDetails;
-export const TeamGrantsListExtensionGrants404 = ProblemDetails;
-export type TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
-export const TeamGrantsUpsertTeamExtensionGrantRequestJson = UpsertTeamGrantBody;
-export type TeamGrantsUpsertTeamExtensionGrant200 = TeamGrant;
-export const TeamGrantsUpsertTeamExtensionGrant200 = TeamGrant;
-export type TeamGrantsUpsertTeamExtensionGrant400 = ProblemDetails | DecodeErrorResponse;
-export const TeamGrantsUpsertTeamExtensionGrant400 = Schema.Union([
-  ProblemDetails,
-  DecodeErrorResponse,
-]);
-export type TeamGrantsUpsertTeamExtensionGrant401 = ProblemDetails;
-export const TeamGrantsUpsertTeamExtensionGrant401 = ProblemDetails;
-export type TeamGrantsUpsertTeamExtensionGrant403 = ForbiddenError | ForbiddenError;
-export const TeamGrantsUpsertTeamExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type TeamGrantsUpsertTeamExtensionGrant404 = ProblemDetails;
-export const TeamGrantsUpsertTeamExtensionGrant404 = ProblemDetails;
-export type TeamGrantsUpsertTeamExtensionGrant422 = ProblemDetails;
-export const TeamGrantsUpsertTeamExtensionGrant422 = ProblemDetails;
-export type TeamGrantsUpsertUserExtensionGrantRequestJson = UpsertGrantBody;
-export const TeamGrantsUpsertUserExtensionGrantRequestJson = UpsertGrantBody;
-export type TeamGrantsUpsertUserExtensionGrant200 = {
-  readonly userId: UserId;
-  readonly role: string;
-  readonly grantedBy: UserId | null;
-  readonly createdAt: string;
-};
-export const TeamGrantsUpsertUserExtensionGrant200 = Schema.Struct({
-  userId: UserId,
-  role: Schema.String,
-  grantedBy: Schema.Union([UserId, Schema.Null]).annotate({ readOnly: true }),
-  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-});
-export type TeamGrantsUpsertUserExtensionGrant400 = ProblemDetails | DecodeErrorResponse;
-export const TeamGrantsUpsertUserExtensionGrant400 = Schema.Union([
-  ProblemDetails,
-  DecodeErrorResponse,
-]);
-export type TeamGrantsUpsertUserExtensionGrant401 = ProblemDetails;
-export const TeamGrantsUpsertUserExtensionGrant401 = ProblemDetails;
-export type TeamGrantsUpsertUserExtensionGrant403 = ForbiddenError | ForbiddenError;
-export const TeamGrantsUpsertUserExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type TeamGrantsUpsertUserExtensionGrant404 = ProblemDetails;
-export const TeamGrantsUpsertUserExtensionGrant404 = ProblemDetails;
-export type TeamGrantsDeleteUserExtensionGrant400 = DecodeErrorResponse;
-export const TeamGrantsDeleteUserExtensionGrant400 = DecodeErrorResponse;
-export type TeamGrantsDeleteUserExtensionGrant401 = ProblemDetails;
-export const TeamGrantsDeleteUserExtensionGrant401 = ProblemDetails;
-export type TeamGrantsDeleteUserExtensionGrant403 = ForbiddenError | ForbiddenError;
-export const TeamGrantsDeleteUserExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type TeamGrantsDeleteUserExtensionGrant404 = ProblemDetails;
-export const TeamGrantsDeleteUserExtensionGrant404 = ProblemDetails;
-export type TeamGrantsDeleteUserExtensionGrant409 = ProblemDetails;
-export const TeamGrantsDeleteUserExtensionGrant409 = ProblemDetails;
-export type TeamGrantsUpsertTeamExtensionGrantByIdRequestJson = UpsertGrantBody;
-export const TeamGrantsUpsertTeamExtensionGrantByIdRequestJson = UpsertGrantBody;
-export type TeamGrantsUpsertTeamExtensionGrantById200 = TeamGrant;
-export const TeamGrantsUpsertTeamExtensionGrantById200 = TeamGrant;
-export type TeamGrantsUpsertTeamExtensionGrantById400 = ProblemDetails | DecodeErrorResponse;
-export const TeamGrantsUpsertTeamExtensionGrantById400 = Schema.Union([
-  ProblemDetails,
-  DecodeErrorResponse,
-]);
-export type TeamGrantsUpsertTeamExtensionGrantById401 = ProblemDetails;
-export const TeamGrantsUpsertTeamExtensionGrantById401 = ProblemDetails;
-export type TeamGrantsUpsertTeamExtensionGrantById403 = ForbiddenError | ForbiddenError;
-export const TeamGrantsUpsertTeamExtensionGrantById403 = Schema.Union([
-  ForbiddenError,
-  ForbiddenError,
-]);
-export type TeamGrantsUpsertTeamExtensionGrantById404 = ProblemDetails;
-export const TeamGrantsUpsertTeamExtensionGrantById404 = ProblemDetails;
-export type TeamGrantsUpsertTeamExtensionGrantById422 = ProblemDetails;
-export const TeamGrantsUpsertTeamExtensionGrantById422 = ProblemDetails;
-export type TeamGrantsDeleteTeamExtensionGrantById400 = DecodeErrorResponse;
-export const TeamGrantsDeleteTeamExtensionGrantById400 = DecodeErrorResponse;
-export type TeamGrantsDeleteTeamExtensionGrantById401 = ProblemDetails;
-export const TeamGrantsDeleteTeamExtensionGrantById401 = ProblemDetails;
-export type TeamGrantsDeleteTeamExtensionGrantById403 = ForbiddenError | ForbiddenError;
-export const TeamGrantsDeleteTeamExtensionGrantById403 = Schema.Union([
-  ForbiddenError,
-  ForbiddenError,
-]);
-export type TeamGrantsDeleteTeamExtensionGrantById404 = ProblemDetails;
-export const TeamGrantsDeleteTeamExtensionGrantById404 = ProblemDetails;
-export type TeamGrantsDeleteTeamExtensionGrant400 = DecodeErrorResponse;
-export const TeamGrantsDeleteTeamExtensionGrant400 = DecodeErrorResponse;
-export type TeamGrantsDeleteTeamExtensionGrant401 = ProblemDetails;
-export const TeamGrantsDeleteTeamExtensionGrant401 = ProblemDetails;
-export type TeamGrantsDeleteTeamExtensionGrant403 = ForbiddenError | ForbiddenError;
-export const TeamGrantsDeleteTeamExtensionGrant403 = Schema.Union([ForbiddenError, ForbiddenError]);
-export type TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
-export const TeamGrantsDeleteTeamExtensionGrant404 = ProblemDetails;
 export type MaintainerGetMaintainer200 = Maintainer;
 export const MaintainerGetMaintainer200 = Maintainer;
 export type MaintainerGetMaintainer400 = DecodeErrorResponse;
@@ -3235,7 +3159,6 @@ export const make = (
             "401": decodeError("ExtensionsUpdateVisibility401", ExtensionsUpdateVisibility401),
             "403": decodeError("ExtensionsUpdateVisibility403", ExtensionsUpdateVisibility403),
             "404": decodeError("ExtensionsUpdateVisibility404", ExtensionsUpdateVisibility404),
-            "422": decodeError("ExtensionsUpdateVisibility422", ExtensionsUpdateVisibility422),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3247,6 +3170,7 @@ export const make = (
             "2xx": decodeSuccess(ExtensionsGetVersion200),
             "400": decodeError("ExtensionsGetVersion400", ExtensionsGetVersion400),
             "404": decodeError("ExtensionsGetVersion404", ExtensionsGetVersion404),
+            "410": decodeError("ExtensionsGetVersion410", ExtensionsGetVersion410),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3272,19 +3196,6 @@ export const make = (
           }),
         ),
       ),
-    ExtensionsDeleteVersion: (owner, type, name, version, options) =>
-      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/${version}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "400": decodeError("ExtensionsDeleteVersion400", ExtensionsDeleteVersion400),
-            "401": decodeError("ExtensionsDeleteVersion401", ExtensionsDeleteVersion401),
-            "403": decodeError("ExtensionsDeleteVersion403", ExtensionsDeleteVersion403),
-            "404": decodeError("ExtensionsDeleteVersion404", ExtensionsDeleteVersion404),
-            "204": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
     ExtensionsDownloadArchive: (owner, type, name, version, options) =>
       HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/${version}/archive`).pipe(
         withResponse(options?.config)(
@@ -3292,6 +3203,7 @@ export const make = (
             "2xx": decodeBinary,
             "400": decodeError("ExtensionsDownloadArchive400", ExtensionsDownloadArchive400),
             "404": decodeError("ExtensionsDownloadArchive404", ExtensionsDownloadArchive404),
+            "410": decodeError("ExtensionsDownloadArchive410", ExtensionsDownloadArchive410),
             "500": decodeError("ExtensionsDownloadArchive500", ExtensionsDownloadArchive500),
             orElse: unexpectedStatus,
           }),
@@ -3330,7 +3242,8 @@ export const make = (
       ),
     ExtensionsYankVersion: (owner, type, name, version, options) =>
       HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/${version}/yank`).pipe(
-        withResponse(options?.config)(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsYankVersion200),
             "400": decodeError("ExtensionsYankVersion400", ExtensionsYankVersion400),
@@ -3350,6 +3263,62 @@ export const make = (
             "401": decodeError("ExtensionsUnyankVersion401", ExtensionsUnyankVersion401),
             "403": decodeError("ExtensionsUnyankVersion403", ExtensionsUnyankVersion403),
             "404": decodeError("ExtensionsUnyankVersion404", ExtensionsUnyankVersion404),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ExtensionsYankAvailableVersions: (owner, type, name, options) =>
+      HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/versions/yank`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ExtensionsYankAvailableVersions200),
+            "400": decodeError(
+              "ExtensionsYankAvailableVersions400",
+              ExtensionsYankAvailableVersions400,
+            ),
+            "401": decodeError(
+              "ExtensionsYankAvailableVersions401",
+              ExtensionsYankAvailableVersions401,
+            ),
+            "403": decodeError(
+              "ExtensionsYankAvailableVersions403",
+              ExtensionsYankAvailableVersions403,
+            ),
+            "404": decodeError(
+              "ExtensionsYankAvailableVersions404",
+              ExtensionsYankAvailableVersions404,
+            ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    AdminExtensionsPurgeExtensionVersion: (owner, type, name, version, options) =>
+      HttpClientRequest.post(`/v1/admin/extensions/${owner}/${type}/${name}/${version}/purge`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(AdminExtensionsPurgeExtensionVersion202),
+            "400": decodeError(
+              "AdminExtensionsPurgeExtensionVersion400",
+              AdminExtensionsPurgeExtensionVersion400,
+            ),
+            "401": decodeError(
+              "AdminExtensionsPurgeExtensionVersion401",
+              AdminExtensionsPurgeExtensionVersion401,
+            ),
+            "403": decodeError(
+              "AdminExtensionsPurgeExtensionVersion403",
+              AdminExtensionsPurgeExtensionVersion403,
+            ),
+            "404": decodeError(
+              "AdminExtensionsPurgeExtensionVersion404",
+              AdminExtensionsPurgeExtensionVersion404,
+            ),
+            "409": decodeError(
+              "AdminExtensionsPurgeExtensionVersion409",
+              AdminExtensionsPurgeExtensionVersion409,
+            ),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3553,282 +3522,6 @@ export const make = (
             "403": decodeError("LibrariesRemoveLibraryMember403", LibrariesRemoveLibraryMember403),
             "404": decodeError("LibrariesRemoveLibraryMember404", LibrariesRemoveLibraryMember404),
             "422": decodeError("LibrariesRemoveLibraryMember422", LibrariesRemoveLibraryMember422),
-            "204": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    CollaboratorsListCollaborators: (owner, type, name, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/collaborators`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(CollaboratorsListCollaborators200),
-            "400": decodeError(
-              "CollaboratorsListCollaborators400",
-              CollaboratorsListCollaborators400,
-            ),
-            "401": decodeError(
-              "CollaboratorsListCollaborators401",
-              CollaboratorsListCollaborators401,
-            ),
-            "403": decodeError(
-              "CollaboratorsListCollaborators403",
-              CollaboratorsListCollaborators403,
-            ),
-            "404": decodeError(
-              "CollaboratorsListCollaborators404",
-              CollaboratorsListCollaborators404,
-            ),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    CollaboratorsUpsertCollaborator: (owner, type, name, userId, options) =>
-      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/collaborators/${userId}`).pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(CollaboratorsUpsertCollaborator200),
-            "400": decodeError(
-              "CollaboratorsUpsertCollaborator400",
-              CollaboratorsUpsertCollaborator400,
-            ),
-            "401": decodeError(
-              "CollaboratorsUpsertCollaborator401",
-              CollaboratorsUpsertCollaborator401,
-            ),
-            "403": decodeError(
-              "CollaboratorsUpsertCollaborator403",
-              CollaboratorsUpsertCollaborator403,
-            ),
-            "404": decodeError(
-              "CollaboratorsUpsertCollaborator404",
-              CollaboratorsUpsertCollaborator404,
-            ),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    CollaboratorsDeleteCollaborator: (owner, type, name, userId, options) =>
-      HttpClientRequest.delete(
-        `/v1/extensions/${owner}/${type}/${name}/collaborators/${userId}`,
-      ).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "400": decodeError(
-              "CollaboratorsDeleteCollaborator400",
-              CollaboratorsDeleteCollaborator400,
-            ),
-            "401": decodeError(
-              "CollaboratorsDeleteCollaborator401",
-              CollaboratorsDeleteCollaborator401,
-            ),
-            "403": decodeError(
-              "CollaboratorsDeleteCollaborator403",
-              CollaboratorsDeleteCollaborator403,
-            ),
-            "404": decodeError(
-              "CollaboratorsDeleteCollaborator404",
-              CollaboratorsDeleteCollaborator404,
-            ),
-            "409": decodeError(
-              "CollaboratorsDeleteCollaborator409",
-              CollaboratorsDeleteCollaborator409,
-            ),
-            "204": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    TeamGrantsListExtensionGrants: (owner, type, name, options) =>
-      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/grants`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(TeamGrantsListExtensionGrants200),
-            "400": decodeError(
-              "TeamGrantsListExtensionGrants400",
-              TeamGrantsListExtensionGrants400,
-            ),
-            "401": decodeError(
-              "TeamGrantsListExtensionGrants401",
-              TeamGrantsListExtensionGrants401,
-            ),
-            "403": decodeError(
-              "TeamGrantsListExtensionGrants403",
-              TeamGrantsListExtensionGrants403,
-            ),
-            "404": decodeError(
-              "TeamGrantsListExtensionGrants404",
-              TeamGrantsListExtensionGrants404,
-            ),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    TeamGrantsUpsertTeamExtensionGrant: (owner, type, name, options) =>
-      HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/grants`).pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(TeamGrantsUpsertTeamExtensionGrant200),
-            "400": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrant400",
-              TeamGrantsUpsertTeamExtensionGrant400,
-            ),
-            "401": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrant401",
-              TeamGrantsUpsertTeamExtensionGrant401,
-            ),
-            "403": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrant403",
-              TeamGrantsUpsertTeamExtensionGrant403,
-            ),
-            "404": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrant404",
-              TeamGrantsUpsertTeamExtensionGrant404,
-            ),
-            "422": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrant422",
-              TeamGrantsUpsertTeamExtensionGrant422,
-            ),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    TeamGrantsUpsertUserExtensionGrant: (owner, type, name, userId, options) =>
-      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/grants/user/${userId}`).pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(TeamGrantsUpsertUserExtensionGrant200),
-            "400": decodeError(
-              "TeamGrantsUpsertUserExtensionGrant400",
-              TeamGrantsUpsertUserExtensionGrant400,
-            ),
-            "401": decodeError(
-              "TeamGrantsUpsertUserExtensionGrant401",
-              TeamGrantsUpsertUserExtensionGrant401,
-            ),
-            "403": decodeError(
-              "TeamGrantsUpsertUserExtensionGrant403",
-              TeamGrantsUpsertUserExtensionGrant403,
-            ),
-            "404": decodeError(
-              "TeamGrantsUpsertUserExtensionGrant404",
-              TeamGrantsUpsertUserExtensionGrant404,
-            ),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    TeamGrantsDeleteUserExtensionGrant: (owner, type, name, userId, options) =>
-      HttpClientRequest.delete(
-        `/v1/extensions/${owner}/${type}/${name}/grants/user/${userId}`,
-      ).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "400": decodeError(
-              "TeamGrantsDeleteUserExtensionGrant400",
-              TeamGrantsDeleteUserExtensionGrant400,
-            ),
-            "401": decodeError(
-              "TeamGrantsDeleteUserExtensionGrant401",
-              TeamGrantsDeleteUserExtensionGrant401,
-            ),
-            "403": decodeError(
-              "TeamGrantsDeleteUserExtensionGrant403",
-              TeamGrantsDeleteUserExtensionGrant403,
-            ),
-            "404": decodeError(
-              "TeamGrantsDeleteUserExtensionGrant404",
-              TeamGrantsDeleteUserExtensionGrant404,
-            ),
-            "409": decodeError(
-              "TeamGrantsDeleteUserExtensionGrant409",
-              TeamGrantsDeleteUserExtensionGrant409,
-            ),
-            "204": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    TeamGrantsUpsertTeamExtensionGrantById: (owner, type, name, teamId, options) =>
-      HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/grants/team/${teamId}`).pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(TeamGrantsUpsertTeamExtensionGrantById200),
-            "400": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrantById400",
-              TeamGrantsUpsertTeamExtensionGrantById400,
-            ),
-            "401": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrantById401",
-              TeamGrantsUpsertTeamExtensionGrantById401,
-            ),
-            "403": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrantById403",
-              TeamGrantsUpsertTeamExtensionGrantById403,
-            ),
-            "404": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrantById404",
-              TeamGrantsUpsertTeamExtensionGrantById404,
-            ),
-            "422": decodeError(
-              "TeamGrantsUpsertTeamExtensionGrantById422",
-              TeamGrantsUpsertTeamExtensionGrantById422,
-            ),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    TeamGrantsDeleteTeamExtensionGrantById: (owner, type, name, teamId, options) =>
-      HttpClientRequest.delete(
-        `/v1/extensions/${owner}/${type}/${name}/grants/team/${teamId}`,
-      ).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "400": decodeError(
-              "TeamGrantsDeleteTeamExtensionGrantById400",
-              TeamGrantsDeleteTeamExtensionGrantById400,
-            ),
-            "401": decodeError(
-              "TeamGrantsDeleteTeamExtensionGrantById401",
-              TeamGrantsDeleteTeamExtensionGrantById401,
-            ),
-            "403": decodeError(
-              "TeamGrantsDeleteTeamExtensionGrantById403",
-              TeamGrantsDeleteTeamExtensionGrantById403,
-            ),
-            "404": decodeError(
-              "TeamGrantsDeleteTeamExtensionGrantById404",
-              TeamGrantsDeleteTeamExtensionGrantById404,
-            ),
-            "204": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    TeamGrantsDeleteTeamExtensionGrant: (owner, type, name, teamId, options) =>
-      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}/grants/${teamId}`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "400": decodeError(
-              "TeamGrantsDeleteTeamExtensionGrant400",
-              TeamGrantsDeleteTeamExtensionGrant400,
-            ),
-            "401": decodeError(
-              "TeamGrantsDeleteTeamExtensionGrant401",
-              TeamGrantsDeleteTeamExtensionGrant401,
-            ),
-            "403": decodeError(
-              "TeamGrantsDeleteTeamExtensionGrant403",
-              TeamGrantsDeleteTeamExtensionGrant403,
-            ),
-            "404": decodeError(
-              "TeamGrantsDeleteTeamExtensionGrant404",
-              TeamGrantsDeleteTeamExtensionGrant404,
-            ),
             "204": () => Effect.void,
             orElse: unexpectedStatus,
           }),
@@ -4389,10 +4082,6 @@ export interface RegistryClient {
         "ExtensionsUpdateVisibility404",
         typeof ExtensionsUpdateVisibility404.Type
       >
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility422",
-        typeof ExtensionsUpdateVisibility422.Type
-      >
   >;
   /**
    * Get extension version metadata
@@ -4409,6 +4098,7 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"ExtensionsGetVersion400", typeof ExtensionsGetVersion400.Type>
     | RegistryClientError<"ExtensionsGetVersion404", typeof ExtensionsGetVersion404.Type>
+    | RegistryClientError<"ExtensionsGetVersion410", typeof ExtensionsGetVersion410.Type>
   >;
   /**
    * Publish extension version
@@ -4439,24 +4129,6 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsPublishVersion503", typeof ExtensionsPublishVersion503.Type>
   >;
   /**
-   * Hard-delete an extension version
-   */
-  readonly ExtensionsDeleteVersion: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    version: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsDeleteVersion400", typeof ExtensionsDeleteVersion400.Type>
-    | RegistryClientError<"ExtensionsDeleteVersion401", typeof ExtensionsDeleteVersion401.Type>
-    | RegistryClientError<"ExtensionsDeleteVersion403", typeof ExtensionsDeleteVersion403.Type>
-    | RegistryClientError<"ExtensionsDeleteVersion404", typeof ExtensionsDeleteVersion404.Type>
-  >;
-  /**
    * Download extension archive
    */
   readonly ExtensionsDownloadArchive: <Config extends OperationConfig>(
@@ -4471,6 +4143,7 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"ExtensionsDownloadArchive400", typeof ExtensionsDownloadArchive400.Type>
     | RegistryClientError<"ExtensionsDownloadArchive404", typeof ExtensionsDownloadArchive404.Type>
+    | RegistryClientError<"ExtensionsDownloadArchive410", typeof ExtensionsDownloadArchive410.Type>
     | RegistryClientError<"ExtensionsDownloadArchive500", typeof ExtensionsDownloadArchive500.Type>
   >;
   /**
@@ -4527,7 +4200,10 @@ export interface RegistryClient {
     type: string,
     name: string,
     version: string,
-    options: { readonly config?: Config | undefined } | undefined,
+    options: {
+      readonly payload: typeof ExtensionsYankVersionRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsYankVersion200.Type, Config>,
     | HttpClientError.HttpClientError
@@ -4554,6 +4230,75 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
     | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
     | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
+  >;
+  /**
+   * Yank all currently available extension versions
+   */
+  readonly ExtensionsYankAvailableVersions: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: {
+      readonly payload: typeof ExtensionsYankAvailableVersionsRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ExtensionsYankAvailableVersions200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "ExtensionsYankAvailableVersions400",
+        typeof ExtensionsYankAvailableVersions400.Type
+      >
+    | RegistryClientError<
+        "ExtensionsYankAvailableVersions401",
+        typeof ExtensionsYankAvailableVersions401.Type
+      >
+    | RegistryClientError<
+        "ExtensionsYankAvailableVersions403",
+        typeof ExtensionsYankAvailableVersions403.Type
+      >
+    | RegistryClientError<
+        "ExtensionsYankAvailableVersions404",
+        typeof ExtensionsYankAvailableVersions404.Type
+      >
+  >;
+  /**
+   * Administratively purge extension version bytes
+   */
+  readonly AdminExtensionsPurgeExtensionVersion: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    version: string,
+    options: {
+      readonly payload: typeof AdminExtensionsPurgeExtensionVersionRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof AdminExtensionsPurgeExtensionVersion202.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "AdminExtensionsPurgeExtensionVersion400",
+        typeof AdminExtensionsPurgeExtensionVersion400.Type
+      >
+    | RegistryClientError<
+        "AdminExtensionsPurgeExtensionVersion401",
+        typeof AdminExtensionsPurgeExtensionVersion401.Type
+      >
+    | RegistryClientError<
+        "AdminExtensionsPurgeExtensionVersion403",
+        typeof AdminExtensionsPurgeExtensionVersion403.Type
+      >
+    | RegistryClientError<
+        "AdminExtensionsPurgeExtensionVersion404",
+        typeof AdminExtensionsPurgeExtensionVersion404.Type
+      >
+    | RegistryClientError<
+        "AdminExtensionsPurgeExtensionVersion409",
+        typeof AdminExtensionsPurgeExtensionVersion409.Type
+      >
   >;
   /**
    * List owner Libraries
@@ -4796,331 +4541,6 @@ export interface RegistryClient {
     | RegistryClientError<
         "LibrariesRemoveLibraryMember422",
         typeof LibrariesRemoveLibraryMember422.Type
-      >
-  >;
-  /**
-   * List extension collaborators
-   */
-  readonly CollaboratorsListCollaborators: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof CollaboratorsListCollaborators200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "CollaboratorsListCollaborators400",
-        typeof CollaboratorsListCollaborators400.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsListCollaborators401",
-        typeof CollaboratorsListCollaborators401.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsListCollaborators403",
-        typeof CollaboratorsListCollaborators403.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsListCollaborators404",
-        typeof CollaboratorsListCollaborators404.Type
-      >
-  >;
-  /**
-   * Adds or updates the collaborator identified by userId on the extension.
-   */
-  readonly CollaboratorsUpsertCollaborator: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    userId: string,
-    options: {
-      readonly payload: typeof CollaboratorsUpsertCollaboratorRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof CollaboratorsUpsertCollaborator200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "CollaboratorsUpsertCollaborator400",
-        typeof CollaboratorsUpsertCollaborator400.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsUpsertCollaborator401",
-        typeof CollaboratorsUpsertCollaborator401.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsUpsertCollaborator403",
-        typeof CollaboratorsUpsertCollaborator403.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsUpsertCollaborator404",
-        typeof CollaboratorsUpsertCollaborator404.Type
-      >
-  >;
-  /**
-   * Removes the collaborator identified by userId from the extension.
-   */
-  readonly CollaboratorsDeleteCollaborator: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    userId: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "CollaboratorsDeleteCollaborator400",
-        typeof CollaboratorsDeleteCollaborator400.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsDeleteCollaborator401",
-        typeof CollaboratorsDeleteCollaborator401.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsDeleteCollaborator403",
-        typeof CollaboratorsDeleteCollaborator403.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsDeleteCollaborator404",
-        typeof CollaboratorsDeleteCollaborator404.Type
-      >
-    | RegistryClientError<
-        "CollaboratorsDeleteCollaborator409",
-        typeof CollaboratorsDeleteCollaborator409.Type
-      >
-  >;
-  /**
-   * List extension grants
-   */
-  readonly TeamGrantsListExtensionGrants: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof TeamGrantsListExtensionGrants200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "TeamGrantsListExtensionGrants400",
-        typeof TeamGrantsListExtensionGrants400.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsListExtensionGrants401",
-        typeof TeamGrantsListExtensionGrants401.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsListExtensionGrants403",
-        typeof TeamGrantsListExtensionGrants403.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsListExtensionGrants404",
-        typeof TeamGrantsListExtensionGrants404.Type
-      >
-  >;
-  /**
-   * Creates or updates a grant of a team's access to this extension. The team must belong to the same organization that owns the extension (otherwise 422). Only team admins or organization owners/admins may grant.
-   */
-  readonly TeamGrantsUpsertTeamExtensionGrant: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: {
-      readonly payload: typeof TeamGrantsUpsertTeamExtensionGrantRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof TeamGrantsUpsertTeamExtensionGrant200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrant400",
-        typeof TeamGrantsUpsertTeamExtensionGrant400.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrant401",
-        typeof TeamGrantsUpsertTeamExtensionGrant401.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrant403",
-        typeof TeamGrantsUpsertTeamExtensionGrant403.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrant404",
-        typeof TeamGrantsUpsertTeamExtensionGrant404.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrant422",
-        typeof TeamGrantsUpsertTeamExtensionGrant422.Type
-      >
-  >;
-  /**
-   * Adds or updates the user grant identified by userId on the extension.
-   */
-  readonly TeamGrantsUpsertUserExtensionGrant: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    userId: string,
-    options: {
-      readonly payload: typeof TeamGrantsUpsertUserExtensionGrantRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof TeamGrantsUpsertUserExtensionGrant200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "TeamGrantsUpsertUserExtensionGrant400",
-        typeof TeamGrantsUpsertUserExtensionGrant400.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertUserExtensionGrant401",
-        typeof TeamGrantsUpsertUserExtensionGrant401.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertUserExtensionGrant403",
-        typeof TeamGrantsUpsertUserExtensionGrant403.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertUserExtensionGrant404",
-        typeof TeamGrantsUpsertUserExtensionGrant404.Type
-      >
-  >;
-  /**
-   * Removes the user grant identified by userId from the extension.
-   */
-  readonly TeamGrantsDeleteUserExtensionGrant: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    userId: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "TeamGrantsDeleteUserExtensionGrant400",
-        typeof TeamGrantsDeleteUserExtensionGrant400.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteUserExtensionGrant401",
-        typeof TeamGrantsDeleteUserExtensionGrant401.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteUserExtensionGrant403",
-        typeof TeamGrantsDeleteUserExtensionGrant403.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteUserExtensionGrant404",
-        typeof TeamGrantsDeleteUserExtensionGrant404.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteUserExtensionGrant409",
-        typeof TeamGrantsDeleteUserExtensionGrant409.Type
-      >
-  >;
-  /**
-   * Adds or updates the team grant identified by teamId on the extension.
-   */
-  readonly TeamGrantsUpsertTeamExtensionGrantById: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    teamId: string,
-    options: {
-      readonly payload: typeof TeamGrantsUpsertTeamExtensionGrantByIdRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof TeamGrantsUpsertTeamExtensionGrantById200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrantById400",
-        typeof TeamGrantsUpsertTeamExtensionGrantById400.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrantById401",
-        typeof TeamGrantsUpsertTeamExtensionGrantById401.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrantById403",
-        typeof TeamGrantsUpsertTeamExtensionGrantById403.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrantById404",
-        typeof TeamGrantsUpsertTeamExtensionGrantById404.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsUpsertTeamExtensionGrantById422",
-        typeof TeamGrantsUpsertTeamExtensionGrantById422.Type
-      >
-  >;
-  /**
-   * Removes the team grant identified by teamId from the extension.
-   */
-  readonly TeamGrantsDeleteTeamExtensionGrantById: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    teamId: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "TeamGrantsDeleteTeamExtensionGrantById400",
-        typeof TeamGrantsDeleteTeamExtensionGrantById400.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteTeamExtensionGrantById401",
-        typeof TeamGrantsDeleteTeamExtensionGrantById401.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteTeamExtensionGrantById403",
-        typeof TeamGrantsDeleteTeamExtensionGrantById403.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteTeamExtensionGrantById404",
-        typeof TeamGrantsDeleteTeamExtensionGrantById404.Type
-      >
-  >;
-  /**
-   * Removes a team's grant on this extension. Idempotent — deleting a non-existent grant still returns 204.
-   */
-  readonly TeamGrantsDeleteTeamExtensionGrant: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    teamId: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "TeamGrantsDeleteTeamExtensionGrant400",
-        typeof TeamGrantsDeleteTeamExtensionGrant400.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteTeamExtensionGrant401",
-        typeof TeamGrantsDeleteTeamExtensionGrant401.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteTeamExtensionGrant403",
-        typeof TeamGrantsDeleteTeamExtensionGrant403.Type
-      >
-    | RegistryClientError<
-        "TeamGrantsDeleteTeamExtensionGrant404",
-        typeof TeamGrantsDeleteTeamExtensionGrant404.Type
       >
   >;
   /**

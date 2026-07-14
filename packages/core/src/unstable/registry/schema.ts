@@ -44,6 +44,9 @@ export const VersionEntrySchema = Schema.Struct({
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
   packages: Schema.optional(Schema.Array(CompanionPackageSchema)),
   integrity: Schema.String,
+  yankedAt: Schema.optional(IsoDateTimeStringSchema),
+  yankCategory: Schema.optional(Schema.String),
+  yankNotice: Schema.optional(Schema.String),
 }).annotate({
   identifier: "VersionEntry",
   title: "Version Entry",
@@ -107,7 +110,9 @@ export const ExtensionIndexSchema = Schema.Struct({
   bugs: Schema.optional(BugsSchema),
   license: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
-  visibility: Schema.optional(Schema.Literals(["public", "internal", "private"] as const)),
+  visibility: Schema.optional(Schema.Literals(["public", "private"] as const)),
+  deprecatedAt: Schema.optional(IsoDateTimeStringSchema),
+  deprecationNotice: Schema.optional(Schema.String),
   versions: Schema.Array(VersionEntrySchema),
 }).annotate({
   identifier: "ExtensionIndex",

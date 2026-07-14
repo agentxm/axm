@@ -204,13 +204,21 @@ export const buildInstallOperation = <TRef extends ExtensionRef>(
 ): PlannedJobStep => {
   const target = targetFromRef(args.ref);
   const companionPkgs = args.ref.refType === "registry" ? args.ref.packages : [];
+  const lifecycleWarnings =
+    args.ref.refType === "registry" ? (args.ref.lifecycleWarnings ?? []) : [];
 
-  return {
+  const base = {
     key: toStepKey(target),
     label: toLabelWithCompanions(target, companionPkgs),
-    readiness: "ready",
     run: runInstallOperation(manager, args),
-  } satisfies PlannedJobStep;
+  };
+  return lifecycleWarnings.length === 0
+    ? ({ ...base, readiness: "ready" } satisfies PlannedJobStep)
+    : ({
+        ...base,
+        readiness: "warn",
+        warnMessage: lifecycleWarnings.join("; "),
+      } satisfies PlannedJobStep);
 };
 
 /**

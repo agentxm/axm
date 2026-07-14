@@ -29,7 +29,7 @@ import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
 import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import { DiscoverPackagesResponseSchema } from "./discover-schema.js";
-import { pluralizeType, resolveVersionEntry } from "./utils.js";
+import { extensionLifecycleWarnings, pluralizeType, resolveVersionEntry } from "./utils.js";
 import type {
   DiscoverPackagesArgs,
   ExtensionExistsArgs,
@@ -104,12 +104,18 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
             email: a.email ?? undefined,
             url: a.url ?? undefined,
           })),
+    visibility: response.visibility ?? undefined,
+    deprecatedAt: response.deprecated_at ?? undefined,
+    deprecationNotice: response.deprecation_notice ?? undefined,
     versions: response.versions.map((v) => ({
       version: v.version,
       published: v.published,
       integrity: v.integrity,
       dependencies: v.dependencies === null ? undefined : v.dependencies,
       packages: v.packages === null || v.packages === undefined ? undefined : v.packages,
+      yankedAt: v.yanked_at ?? undefined,
+      yankCategory: v.yank_category ?? undefined,
+      yankNotice: v.yank_notice ?? undefined,
     })),
   });
 
@@ -178,6 +184,7 @@ const toRegistryManifest = (
   if (Option.isNone(selected)) return Option.none();
 
   const latest = selected.value;
+  const lifecycleWarnings = extensionLifecycleWarnings(index, latest);
 
   return Option.some({
     owner: index.owner,
@@ -192,6 +199,7 @@ const toRegistryManifest = (
     version: latest.version,
     integrity: latest.integrity,
     packages: packagesToPackageUrlParts(latest.packages),
+    ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
   });
 };
 
@@ -528,15 +536,9 @@ export const createRemoteRegistryClient = (
       const index = mapToExtensionIndex(indexResult);
 
       // Step 2: Resolve version
-      const resolvedVersion = Option.match(args.version, {
-        onNone: () => Option.fromUndefinedOr(index.versions[0]?.version),
-        onSome: (requested) =>
-          index.versions.some((entry) => entry.version === requested)
-            ? Option.some(requested)
-            : Option.none<string>(),
-      });
+      const resolvedEntry = resolveVersionEntry(index.versions, args.version);
 
-      if (Option.isNone(resolvedVersion)) {
+      if (Option.isNone(resolvedEntry)) {
         return yield* makeAppError({
           code: "not_found",
           detail: "Requested package version is not available in remote index",
@@ -549,12 +551,16 @@ export const createRemoteRegistryClient = (
           args.owner,
           pluralizeType(args.type),
           args.name,
-          resolvedVersion.value,
+          resolvedEntry.value.version,
           undefined,
         )
         .pipe(Effect.mapError((e) => mapArchiveFetchError(e)));
 
-      return { archive } satisfies GetExtensionPackageResponse;
+      const warnings = extensionLifecycleWarnings(index, resolvedEntry.value);
+      return {
+        archive,
+        ...(warnings.length === 0 ? {} : { warnings }),
+      } satisfies GetExtensionPackageResponse;
     });
 
   /**

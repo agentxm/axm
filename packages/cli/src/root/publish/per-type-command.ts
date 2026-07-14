@@ -64,7 +64,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       Flag.withDefault("error"),
     ),
     skipExisting: skipExistingFlag,
-    visibility: Flag.choice("visibility", ["public", "internal", "private"] as const).pipe(
+    visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
       Flag.withDescription("Initial visibility for one explicit publish"),
       Flag.optional,
     ),

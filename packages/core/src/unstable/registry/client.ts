@@ -128,7 +128,7 @@ export interface PublishExtensionArgs {
   readonly metadata: VersionEntry;
 }
 
-export type ExtensionVisibility = "public" | "internal" | "private";
+export type ExtensionVisibility = "public" | "private";
 
 export interface UpdateExtensionVisibilityArgs {
   readonly owner: Handle;
@@ -175,6 +175,7 @@ export interface GetExtensionsByOwnerResponse {
  */
 export interface GetExtensionPackageResponse {
   readonly archive: Uint8Array;
+  readonly warnings?: ReadonlyArray<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -259,6 +260,7 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly integrity: string;
   /** Package URLs this extension is compatible with. Empty when absent in registry metadata. */
   readonly packages: ReadonlyArray<PackageUrlParts>;
+  readonly lifecycleWarnings?: ReadonlyArray<string>;
 }
 
 export type RegistryLibraryVisibility = "public" | "internal" | "private";

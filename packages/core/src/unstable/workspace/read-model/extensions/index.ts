@@ -192,3 +192,21 @@ export {
 } from "./projection.js";
 
 export { findByName, indexByName, type RowWithKey } from "./indexByName.js";
+
+export {
+  ExtensionInventoryClassificationSchema,
+  ExtensionInventoryLifecycleSchema,
+  ExtensionInventoryRowSchema,
+  ExtensionInventorySchema,
+  projectExtensionInventory,
+  type ExtensionInventory,
+  type ExtensionInventoryClassification,
+  type ExtensionInventoryLifecycle,
+  type ExtensionInventoryObservation,
+  type ExtensionInventoryRow,
+  type IgnoredInventoryCandidate,
+  type LifecycleInventoryCandidate,
+  type ProjectExtensionInventoryInput,
+} from "./inventory.js";
+
+export { matchingIgnoredPatterns, matchesIgnoredPattern } from "./ignore-patterns.js";

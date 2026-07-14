@@ -115,7 +115,10 @@ describe("main CLI help", () => {
     { args: ["whoami", "--help"], expected: ["--json"] },
     { args: ["skills", "install", "--help"], expected: ["--skill", "--all"] },
     { args: ["subagents", "install", "--help"], expected: ["--subagent", "--all"] },
-    { args: ["skills", "ls", "--help"], expected: ["List installed skills"] },
+    {
+      args: ["skills", "ls", "--help"],
+      expected: ["List detected skills", "--agent", "--include-ignored"],
+    },
     { args: ["packs", "unpack", "--help"], expected: ["--strict-agent-sync"] },
     { args: ["commands", "install", "--help"], expected: ["--scope"] },
     { args: ["mcps", "install", "--help"], expected: ["--scope"] },

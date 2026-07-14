@@ -1,99 +1,113 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import {
   CliRenderer,
   registerEntity,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  ExtensionInventorySchema,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+import { includeIgnoredFlag, scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { INSTALL_COMMAND_FROM_REGISTRY } from "../suggested-actions.js";
+import {
+  inventoryActivation,
+  inventoryIgnoredBy,
+  inventoryState,
+  inventorySummary,
+  renderEmptyInventory,
+  renderInventoryTable,
+} from "../extension-inventory.js";
 
 interface CommandListItem {
   readonly name: string;
-  readonly lifecycle: string;
-  readonly enabled: boolean;
+  readonly state: string;
+  readonly activation: string;
   readonly source: string;
+  readonly ignoredBy: string;
 }
 
 const CommandListTable = {
   columns: {
     name: { header: "Name" },
-    lifecycle: { header: "Lifecycle" },
-    enabled: {
-      header: "Status",
-      render: (value: boolean) => (value ? "enabled" : "disabled"),
-    },
+    state: { header: "State" },
+    activation: { header: "Activation" },
     source: {
       header: "Source",
       render: (value: string) => (value.length > 0 ? value : "n/a"),
     },
+    ignoredBy: { header: "Ignored by" },
   },
 } as const satisfies TableView<CommandListItem>;
 
 registerEntity<CommandListItem>("command", {
   list: {
     columns: CommandListTable.columns,
-    emptyMessage: "No commands installed",
-    singularLabel: "installed command",
-    pluralLabel: "installed commands",
+    emptyMessage: "No commands found",
+    singularLabel: "command",
+    pluralLabel: "commands",
   },
 });
 
-export const handleListCommands = Effect.fn("ListCommands.handle")(function* () {
+export const handleListCommands = Effect.fn("ListCommands.handle")(function* (args: {
+  readonly includeIgnored: boolean;
+}) {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const installedCommands = yield* ws.records.getInstalledCommands();
-  const unmanagedCommands = yield* ws.records.getUnmanagedCommands();
-
-  const installedItems = Object.entries(installedCommands).map(([name, entry]) => ({
-    name,
-    source:
-      typeof entry.source === "string" ? entry.source : Option.getOrElse(entry.source, () => ""),
-    enabled: entry.enabled,
-    lifecycle: entry.lifecycle,
+  const inventory = yield* ws.records.getExtensionInventory("command", {
+    includeIgnored: args.includeIgnored,
+  });
+  const configured = yield* ws.getConfiguredCommandEntries();
+  const locked = yield* ws.getLockedCommands();
+  const items = inventory.items.map((row) => ({
+    name: row.name,
+    state: inventoryState(row),
+    activation: inventoryActivation(row),
+    source: configured[row.name]?.source ?? locked[row.name]?.type ?? row.origins.join(", "),
+    ignoredBy: inventoryIgnoredBy(row),
   }));
+  const output = {
+    ...inventory,
+    items: inventory.items.map((row) => ({
+      ...row,
+      source: configured[row.name]?.source ?? locked[row.name]?.type ?? row.origins.join(", "),
+    })),
+  };
 
-  const unmanagedItems = Object.entries(unmanagedCommands).map(([name, entry]) => ({
-    name,
-    source: Option.getOrElse(entry.source, () => ""),
-    enabled: entry.enabled,
-    lifecycle: "unmanaged",
-  }));
-
-  const items = [...installedItems, ...unmanagedItems];
-
-  if (
-    yield* renderer.list("command", {
-      items,
-      count: items.length,
-      suggestions: items.length === 0 ? [INSTALL_COMMAND_FROM_REGISTRY] : [],
-    })
-  ) {
+  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
+  if (items.length === 0) {
+    yield* renderEmptyInventory(renderer, "No commands found");
     return;
   }
-  if (items.length === 0) return;
 
-  yield* renderer.table(items, CommandListTable, "Installed commands");
+  yield* renderInventoryTable(
+    renderer,
+    items,
+    CommandListTable,
+    inventorySummary(inventory, "command"),
+  );
 });
 
 const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List commands from project (default) or user-level configuration"),
   ),
+  includeIgnored: includeIgnoredFlag,
 } as const;
 
-export const listCommand = Command.make("list", listConfig, ({ scope }) =>
-  handleListCommands().pipe(withWorkspace(scope), withRuntime("commands list")),
+export const listCommand = Command.make("list", listConfig, ({ scope, includeIgnored }) =>
+  handleListCommands({ includeIgnored }).pipe(
+    withWorkspace({ scope, allowUninitialized: true }),
+    withRuntime("commands list"),
+  ),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),
-  Command.withDescription("List installed commands"),
+  Command.withDescription("List detected commands and their lifecycle classification"),
   Command.withExamples([
-    { command: "axm commands list", description: "See what commands are installed" },
+    { command: "axm commands list", description: "Inventory detected commands" },
     {
       command: "axm commands list --scope user",
       description: "Check user-level commands",

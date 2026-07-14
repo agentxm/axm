@@ -15,6 +15,8 @@ export interface AutocompleteMultiselectOptions<A> {
   readonly filterPlaceholder?: string;
   readonly emptyMessage?: string;
   readonly hint?: string;
+  readonly selectionCountMessage?: (selected: ReadonlyArray<A>) => string;
+  readonly submissionMessage?: (selected: ReadonlyArray<A>) => string;
   readonly validate?: (value: ReadonlyArray<A>) => Effect.Effect<ReadonlyArray<A>, string>;
 }
 
@@ -240,6 +242,12 @@ const renderPrompt = <A>(
   options: AutocompleteMultiselectOptions<A>,
   submitted: boolean,
 ): string => {
+  const selected = selectedValues(options.choices, state.selectedIndices);
+  if (submitted) {
+    const message = options.submissionMessage?.(selected) ?? `${selected.length} selected`;
+    return `✓ ${message}\n\n`;
+  }
+
   const filterLabel = options.filterLabel ?? "filter";
   const filterPlaceholder = options.filterPlaceholder ?? "type to filter";
   const emptyMessage = options.emptyMessage ?? "No matches";
@@ -292,21 +300,10 @@ const renderPrompt = <A>(
     onSome: (message) => `! ${message}`,
   });
 
-  const countLine = `${state.selectedIndices.size} selected`;
-  const hintLine = submitted ? "" : (options.hint ?? DEFAULT_HINT);
-  const submissionLine = submitted
-    ? `selected: ${selectedValues(options.choices, state.selectedIndices).length}`
-    : "";
+  const countLine = options.selectionCountMessage?.(selected) ?? `${selected.length} selected`;
+  const hintLine = options.hint ?? DEFAULT_HINT;
 
-  return [
-    `? ${options.message}`,
-    filterLine,
-    ...choices,
-    countLine,
-    hintLine,
-    errorLine,
-    submissionLine,
-  ]
+  return [`? ${options.message}`, filterLine, ...choices, countLine, hintLine, errorLine]
     .filter((line) => line.length > 0)
     .join("\n");
 };

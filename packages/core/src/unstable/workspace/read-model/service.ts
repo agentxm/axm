@@ -56,6 +56,7 @@ import {
   type AgentRootResolverState,
   type AgentSettingsOccurrence,
   type McpConfigOccurrence,
+  type CanonicalExtensionOccurrence,
 } from "./scanners/index.js";
 import { makeScopedStateApi, type RawSourceBytes, type ScopedStateLoaders } from "./state.js";
 import type { Scope } from "./types.js";
@@ -111,6 +112,7 @@ export interface WorkspaceReadModel {
   readonly sourceHosts: ScopedSourceHostsApi;
   readonly owner: ScopedOwnerApi;
   readonly diagnostics: Effect.Effect<ReadonlyArray<Warning>>;
+  readonly canonicalExtensions: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -536,6 +538,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     sourceHosts,
     owner,
     diagnostics: diagnostics.snapshot,
+    canonicalExtensions: canonicalScanner,
   } satisfies WorkspaceReadModel;
 });
 

@@ -126,6 +126,21 @@ export {
 } from "./read-model/service.js";
 export { AgentRootResolver, AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 export {
+  ExtensionInventoryClassificationSchema,
+  ExtensionInventoryLifecycleSchema,
+  ExtensionInventoryRowSchema,
+  ExtensionInventorySchema,
+  projectExtensionInventory,
+  type ExtensionInventory,
+  type ExtensionInventoryClassification,
+  type ExtensionInventoryLifecycle,
+  type ExtensionInventoryObservation,
+  type ExtensionInventoryRow,
+  type IgnoredInventoryCandidate,
+  type LifecycleInventoryCandidate,
+  type ProjectExtensionInventoryInput,
+} from "./read-model/extensions/inventory.js";
+export {
   getPriorityDirectories,
   parsePluginManifests,
   scanAgentSubagentFiles,

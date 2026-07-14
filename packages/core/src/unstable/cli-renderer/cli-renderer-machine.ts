@@ -218,6 +218,12 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     intro: () => Effect.void,
     outro: () => Effect.void,
     message: () => Effect.void,
+    diagnostic: () => Effect.void,
+    diagnosticTable: <T extends object>(
+      _items: ReadonlyArray<T>,
+      _view: TableView<T>,
+      _caption?: string,
+    ) => Effect.void,
     info: () => Effect.void,
     success: () => Effect.void,
     step: () => Effect.void,

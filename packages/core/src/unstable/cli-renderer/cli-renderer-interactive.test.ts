@@ -69,6 +69,20 @@ const runQuiet = <A, E>(effect: Effect.Effect<A, E, CliRenderer>) =>
 
 describe("InteractiveRenderer", () => {
   describe("chrome methods", () => {
+    it.effect("writes raw diagnostic content only to stderr", () =>
+      Effect.gen(function* () {
+        yield* runPlain(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.diagnostic("Inventory\nName  State\nnative  unmanaged");
+          }),
+        );
+
+        expect(stdoutWrites).toEqual([]);
+        expect(stderrWrites).toEqual(["Inventory\nName  State\nnative  unmanaged\n"]);
+      }),
+    );
+
     it.effect("renders flat symbol-prefixed log lines to stderr", () =>
       Effect.gen(function* () {
         yield* run(

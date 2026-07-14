@@ -1,6 +1,5 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import {
   CliRenderer,
   registerEntity,
@@ -11,34 +10,47 @@ import {
   type AgentMcpServerInspection,
 } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  ExtensionInventorySchema,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+import { includeIgnoredFlag, scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { ADD_INLINE_MCP_SERVER, INSTALL_MCP_FROM_REGISTRY } from "../suggested-actions.js";
+import {
+  inventoryIgnoredBy,
+  inventoryState,
+  inventorySummary,
+  renderEmptyInventory,
+  renderInventoryTable,
+} from "../extension-inventory.js";
 
 interface McpServerListItem {
   readonly name: string;
+  readonly state: string;
   readonly version: string;
   readonly transport: string;
   readonly status: string;
+  readonly ignoredBy: string;
 }
 
 const McpServerListTable = {
   columns: {
     name: { header: "Name" },
+    state: { header: "State" },
     version: { header: "Version" },
     transport: { header: "Transport" },
     status: { header: "Status" },
+    ignoredBy: { header: "Ignored by" },
   },
 } as const satisfies TableView<McpServerListItem>;
 
 registerEntity<McpServerListItem>("mcp-server", {
   list: {
     columns: McpServerListTable.columns,
-    emptyMessage: "No MCP servers installed",
-    singularLabel: "installed MCP server",
-    pluralLabel: "installed MCP servers",
+    emptyMessage: "No MCP servers found",
+    singularLabel: "MCP server",
+    pluralLabel: "MCP servers",
   },
 });
 
@@ -63,81 +75,105 @@ const configuredStatus = (args: {
   return driftStatus(args.inspections);
 };
 
-export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* () {
+export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* (args: {
+  readonly includeIgnored: boolean;
+}) {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const installed = yield* ws.records.getInstalledMcpServers();
-  const unmanaged = yield* ws.records.getUnmanagedMcpServers();
+  const inventory = yield* ws.records.getExtensionInventory("mcp-server", {
+    includeIgnored: args.includeIgnored,
+  });
   const configuredEntries = yield* ws.getConfiguredMcpServerEntries();
   const configuredAgents = yield* ws.getConfiguredAgents();
 
-  const installedItems = yield* Effect.forEach(
-    Object.entries(installed),
-    ([name, entry]) =>
+  const items = yield* Effect.forEach(
+    inventory.items,
+    (row) =>
       Effect.gen(function* () {
-        const locked = yield* ws.getLockedMcpServer(name);
-        const configuredEntry = configuredEntries[name];
+        const locked = yield* ws.getLockedMcpServer(row.name);
+        const configuredEntry = configuredEntries[row.name];
         const inspections =
-          configuredEntry !== undefined && hasInlineProjection(configuredEntry)
+          row.classification.kind === "lifecycle" &&
+          row.classification.lifecycle !== "unmanaged" &&
+          configuredEntry !== undefined &&
+          hasInlineProjection(configuredEntry)
             ? yield* inspectMcpServerAcrossAgents({
                 workspaceRoot: ws.baseDir,
                 scope: ws.scope,
                 agentIds: configuredAgents,
-                serverName: name,
+                serverName: row.name,
                 entry: configuredEntry,
               })
             : [];
+        const status =
+          row.classification.kind === "ignored"
+            ? "n/a"
+            : row.classification.lifecycle === "unmanaged"
+              ? "unmanaged"
+              : configuredStatus({
+                  enabled: row.activation !== "disabled",
+                  configuredEntry,
+                  inspections,
+                });
         return {
-          name,
+          name: row.name,
+          state: inventoryState(row),
           version:
-            Option.isSome(locked) && locked.value.type === "registry"
+            locked._tag === "Some" && locked.value.type === "registry"
               ? locked.value.resolvedVersion
               : "n/a",
-          transport: "auto",
-          status: configuredStatus({
-            enabled: !(entry.lifecycle === "configured" && !entry.enabled),
-            configuredEntry,
-            inspections,
-          }),
+          transport: row.origins.some((origin) => origin.includes("config")) ? "config" : "auto",
+          status,
+          ignoredBy: inventoryIgnoredBy(row),
         };
       }),
     { concurrency: "unbounded" },
   );
-  const unmanagedItems = Object.entries(unmanaged).map(([name, entry]) => ({
-    name,
-    version: "n/a",
-    transport: Option.isSome(entry.source) ? "config" : "unknown",
-    status: "unmanaged",
-  }));
-  const items = [...installedItems, ...unmanagedItems];
+  const details = new Map(items.map((item) => [item.name, item]));
+  const output = {
+    ...inventory,
+    items: inventory.items.map((row) => {
+      const item = details.get(row.name);
+      return {
+        ...row,
+        version: item?.version ?? "n/a",
+        transport: item?.transport ?? "auto",
+        status: item?.status ?? "n/a",
+      };
+    }),
+  };
 
-  if (
-    yield* renderer.list("mcp-server", {
-      items,
-      count: items.length,
-      suggestions: items.length === 0 ? [INSTALL_MCP_FROM_REGISTRY, ADD_INLINE_MCP_SERVER] : [],
-    })
-  ) {
+  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
+  if (items.length === 0) {
+    yield* renderEmptyInventory(renderer, "No MCP servers found");
     return;
   }
-  if (items.length === 0) return;
-  yield* renderer.table(items, McpServerListTable, "Installed MCP servers");
+  yield* renderInventoryTable(
+    renderer,
+    items,
+    McpServerListTable,
+    inventorySummary(inventory, "MCP server"),
+  );
 });
 
 const listConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("List MCP servers from project (default) or user-level configuration"),
   ),
+  includeIgnored: includeIgnoredFlag,
 } as const;
 
-export const listCommand = Command.make("list", listConfig, ({ scope }) =>
-  handleListMcpServers().pipe(withWorkspace(scope), withRuntime("mcps list")),
+export const listCommand = Command.make("list", listConfig, ({ scope, includeIgnored }) =>
+  handleListMcpServers({ includeIgnored }).pipe(
+    withWorkspace({ scope, allowUninitialized: true }),
+    withRuntime("mcps list"),
+  ),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),
-  Command.withDescription("List installed MCP servers"),
+  Command.withDescription("List detected MCP servers and their lifecycle classification"),
   Command.withExamples([
-    { command: "axm mcps list", description: "See installed MCP servers" },
+    { command: "axm mcps list", description: "Inventory detected MCP servers" },
     {
       command: "axm mcps list --scope user",
       description: "Check user-level MCP servers",

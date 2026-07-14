@@ -5,15 +5,25 @@ import {
   registerEntity,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  ExtensionInventorySchema,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { INSTALL_HOOK_FROM_REGISTRY } from "../suggested-actions.js";
+import {
+  inventoryActivation,
+  inventoryState,
+  inventorySummary,
+  renderEmptyInventory,
+  renderInventoryTable,
+} from "../extension-inventory.js";
 
 interface HookListItem {
   readonly name: string;
-  readonly enabled: boolean;
+  readonly state: string;
+  readonly activation: string;
   readonly source: string;
   readonly locked: boolean;
 }
@@ -21,7 +31,8 @@ interface HookListItem {
 const HookListTable = {
   columns: {
     name: { header: "Name" },
-    enabled: { header: "Status", render: (value: boolean) => (value ? "enabled" : "disabled") },
+    state: { header: "State" },
+    activation: { header: "Activation" },
     source: { header: "Source" },
     locked: { header: "Locked", render: (value: boolean) => (value ? "yes" : "no") },
   },
@@ -30,36 +41,49 @@ const HookListTable = {
 registerEntity<HookListItem>("hooks", {
   list: {
     columns: HookListTable.columns,
-    emptyMessage: "No hooks packages installed",
-    singularLabel: "installed hooks package",
-    pluralLabel: "installed hooks packages",
+    emptyMessage: "No hooks packages found",
+    singularLabel: "hooks package",
+    pluralLabel: "hooks packages",
   },
 });
 
 export const handleListHook = Effect.fn("ListHook.handle")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
+  const inventory = yield* ws.records.getExtensionInventory("hook", { includeIgnored: false });
   const configured = yield* ws.getConfiguredHookEntries();
   const locked = yield* ws.getLockedHooks();
-  const names = [...new Set([...Object.keys(configured), ...Object.keys(locked)])].sort();
-  const items = names.map((name) => ({
-    name,
-    enabled: configured[name]?.enabled ?? true,
-    source: configured[name]?.source ?? "",
-    locked: locked[name] !== undefined,
+  const items = inventory.items.map((row) => ({
+    name: row.name,
+    state: inventoryState(row),
+    activation: inventoryActivation(row),
+    source: configured[row.name]?.source ?? row.origins.join(", "),
+    locked: locked[row.name] !== undefined,
   }));
+  const details = new Map(items.map((item) => [item.name, item]));
+  const output = {
+    ...inventory,
+    items: inventory.items.map((row) => {
+      const item = details.get(row.name);
+      return {
+        ...row,
+        source: item?.source ?? row.origins.join(", "),
+        locked: item?.locked ?? false,
+      };
+    }),
+  };
 
-  if (
-    yield* renderer.list("hooks", {
-      items,
-      count: items.length,
-      suggestions: items.length === 0 ? [INSTALL_HOOK_FROM_REGISTRY] : [],
-    })
-  ) {
+  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
+  if (items.length === 0) {
+    yield* renderEmptyInventory(renderer, "No hooks packages found");
     return;
   }
-  if (items.length === 0) return;
-  yield* renderer.table(items, HookListTable, "Installed hooks packages");
+  yield* renderInventoryTable(
+    renderer,
+    items,
+    HookListTable,
+    inventorySummary(inventory, "hooks package"),
+  );
 });
 
 const listConfig = {
@@ -69,15 +93,18 @@ const listConfig = {
 } as const;
 
 export const listCommand = Command.make("list", listConfig, ({ scope }) =>
-  handleListHook().pipe(withWorkspace(scope), withRuntime("hooks list")),
+  handleListHook().pipe(
+    withWorkspace({ scope, allowUninitialized: true }),
+    withRuntime("hooks list"),
+  ),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),
-  Command.withDescription("List installed hooks packages"),
+  Command.withDescription("List detected hooks packages and their lifecycle classification"),
   Command.withExamples([
     {
       command: "axm hooks list",
-      description: "List installed hooks packages",
+      description: "Inventory detected hooks packages",
     },
   ]),
 );

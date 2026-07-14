@@ -22,6 +22,7 @@ import type {
   ConfiguredExtensionRef,
   UnmanagedExtensionRef,
   InstalledExtensionRef,
+  ExtensionInventory,
 } from "@agentxm/client-core/unstable/workspace";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -58,6 +59,16 @@ type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
 
 const empty = <T>(): R<T> => Effect.succeed<Record.ReadonlyRecord<string, T>>({});
 const emptyArr = (): RA => Effect.succeed([]);
+const emptyInventory = (): Effect.Effect<ExtensionInventory, AppError> =>
+  Effect.succeed({
+    items: [],
+    count: 0,
+    configuredCount: 0,
+    implicitCount: 0,
+    installedCount: 0,
+    unmanagedCount: 0,
+    ignoredCount: 0,
+  });
 const fs = (() => {
   const module = process.getBuiltinModule("node:fs");
   if (!module) {
@@ -83,6 +94,7 @@ const path = (() => {
  * ```
  */
 export const readModelRecordStubs = {
+  getExtensionInventory: emptyInventory,
   // Skill read-model records
   getConfiguredSkills: empty<ConfiguredSkill>,
   getUnmanagedSkills: empty<UnmanagedSkill>,

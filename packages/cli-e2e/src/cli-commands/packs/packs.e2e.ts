@@ -936,7 +936,7 @@ describe("axm packs list", () => {
       const result = await runCli(["packs", "list"], { cwd: temp.path });
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout + result.stderr).toContain("No packs installed");
+      expect(result.stdout + result.stderr).toContain("No packs found");
     } finally {
       temp.cleanup();
     }
@@ -993,7 +993,7 @@ describe("axm packs list", () => {
       const result = await runCli(["packs", "ls"], { cwd: temp.path });
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout + result.stderr).toContain("No packs installed");
+      expect(result.stdout + result.stderr).toContain("No packs found");
     } finally {
       temp.cleanup();
     }

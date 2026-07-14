@@ -5,76 +5,98 @@ import {
   registerEntity,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  ExtensionInventorySchema,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { scopeFlag } from "../../cli-flags.js";
+import { includeIgnoredFlag, scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { INSTALL_SKILL_FROM_REGISTRY } from "../suggested-actions.js";
+import {
+  inventoryActivation,
+  inventoryIgnoredBy,
+  inventoryState,
+  inventorySummary,
+  renderEmptyInventory,
+  renderInventoryTable,
+} from "../extension-inventory.js";
 
 export interface ListHandlerArgs {
   readonly agents: readonly string[];
+  readonly includeIgnored: boolean;
 }
 
 interface SkillListItem {
   readonly name: string;
   readonly type: string;
+  readonly state: string;
+  readonly activation: string;
   readonly agents: ReadonlyArray<string>;
+  readonly ignoredBy: string;
 }
 
 const SkillListTable = {
   columns: {
     name: { header: "Name" },
+    state: { header: "State" },
+    activation: { header: "Activation" },
     type: { header: "Type" },
     agents: {
       header: "Agents",
       render: (value: ReadonlyArray<string>) => (value.length === 0 ? "none" : value.join(", ")),
     },
+    ignoredBy: { header: "Ignored by" },
   },
 } as const satisfies TableView<SkillListItem>;
 
 registerEntity<SkillListItem>("skill", {
   list: {
     columns: SkillListTable.columns,
-    emptyMessage: "No skills installed",
-    singularLabel: "installed skill",
-    pluralLabel: "installed skills",
+    emptyMessage: "No skills found",
+    singularLabel: "skill",
+    pluralLabel: "skills",
   },
 });
 
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const skills = yield* ws.getLockedSkills();
-
-  // Filter by agents if specified
-  const entries = Object.entries(skills);
-  const filtered =
-    args.agents.length > 0
-      ? entries.filter(([, entry]) => args.agents.some((agent) => entry.agents.includes(agent)))
-      : entries;
-
-  const items = filtered.map(([name, entry]) => ({
-    name,
-    type: entry.type,
-    agents: entry.agents,
+  const inventory = yield* ws.records.getExtensionInventory("skill", {
+    includeIgnored: args.includeIgnored,
+    agents: args.agents,
+  });
+  const locked = yield* ws.getLockedSkills();
+  const items = inventory.items.map((row) => ({
+    name: row.name,
+    type: locked[row.name]?.type ?? "detected",
+    state: inventoryState(row),
+    activation: inventoryActivation(row),
+    agents: row.agents,
+    ignoredBy: inventoryIgnoredBy(row),
   }));
+  const output = {
+    ...inventory,
+    items: inventory.items.map((row) => ({
+      ...row,
+      sourceType: locked[row.name]?.type ?? "detected",
+    })),
+  };
 
-  if (
-    yield* renderer.list("skill", {
-      items,
-      count: items.length,
-      emptyMessage:
-        args.agents.length === 0
-          ? "No skills installed"
-          : "No skills matched the selected agent filter.",
-      suggestions: items.length === 0 ? [INSTALL_SKILL_FROM_REGISTRY] : [],
-    })
-  ) {
+  if (yield* renderer.result(output, ExtensionInventorySchema)) return;
+  if (items.length === 0) {
+    yield* renderEmptyInventory(
+      renderer,
+      args.agents.length === 0 ? "No skills found" : "No skills matched the selected agent filter.",
+    );
     return;
   }
-  if (items.length === 0) return;
 
-  yield* renderer.table(items, SkillListTable, "Installed skills");
+  yield* renderInventoryTable(
+    renderer,
+    items,
+    SkillListTable,
+    inventorySummary(inventory, "skill"),
+  );
 });
 
 const listConfig = {
@@ -82,19 +104,23 @@ const listConfig = {
     Flag.withDescription("List skills from project (default) or user-level configuration"),
   ),
   agent: Flag.string("agent").pipe(
-    Flag.withDescription("Show only skills installed for specific agents"),
+    Flag.withDescription("Show only skills detected for specific agents"),
     Flag.atLeast(0),
   ),
+  includeIgnored: includeIgnoredFlag,
 } as const;
 
-export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>
-  handleList({ agents: agent }).pipe(withWorkspace(scope), withRuntime("skills list")),
+export const listCommand = Command.make("list", listConfig, ({ scope, agent, includeIgnored }) =>
+  handleList({ agents: agent, includeIgnored }).pipe(
+    withWorkspace({ scope, allowUninitialized: true }),
+    withRuntime("skills list"),
+  ),
 ).pipe(
   withArgvTracking(listConfig),
   Command.withAlias("ls"),
-  Command.withDescription("List installed skills"),
+  Command.withDescription("List detected skills and their lifecycle classification"),
   Command.withExamples([
-    { command: "axm skills list", description: "See what skills are installed" },
+    { command: "axm skills list", description: "Inventory detected skills" },
     {
       command: "axm skills list --scope user",
       description: "Check user-level skills",

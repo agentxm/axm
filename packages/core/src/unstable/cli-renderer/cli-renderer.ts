@@ -166,6 +166,14 @@ export class CliRenderer extends ServiceMap.Service<
     readonly intro: (title: string) => Effect.Effect<void>;
     readonly outro: (message: string) => Effect.Effect<void>;
     readonly message: (message: string) => Effect.Effect<void>;
+    /** Raw human-facing diagnostic content written to stderr. */
+    readonly diagnostic: (content: string) => Effect.Effect<void>;
+    /** Human-facing table written to stderr without machine-output framing. */
+    readonly diagnosticTable: <T extends object>(
+      items: ReadonlyArray<T>,
+      view: TableView<T>,
+      caption?: string,
+    ) => Effect.Effect<void>;
     readonly info: (message: string) => Effect.Effect<void>;
     readonly success: (message: string, options?: SuccessOptions) => Effect.Effect<void>;
     readonly step: (message: string) => Effect.Effect<void>;

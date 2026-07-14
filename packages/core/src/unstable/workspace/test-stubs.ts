@@ -23,6 +23,7 @@ import type {
   InstalledExtensionRef,
 } from "./index.js";
 import type { AppError } from "../app-error/index.js";
+import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
   type CommandLockEntry,
@@ -46,6 +47,16 @@ type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
 
 const empty = <T>(): R<T> => Effect.succeed<Record.ReadonlyRecord<string, T>>({});
 const emptyArr = (): RA => Effect.succeed([]);
+const emptyInventory = (): Effect.Effect<ExtensionInventory, AppError> =>
+  Effect.succeed({
+    items: [],
+    count: 0,
+    configuredCount: 0,
+    implicitCount: 0,
+    installedCount: 0,
+    unmanagedCount: 0,
+    ignoredCount: 0,
+  });
 const fs = (() => {
   const module = process.getBuiltinModule("node:fs");
   if (!module) {
@@ -71,6 +82,7 @@ const path = (() => {
  * ```
  */
 export const readModelRecordStubs = {
+  getExtensionInventory: emptyInventory,
   // Skill read-model records
   getConfiguredSkills: empty<ConfiguredSkill>,
   getUnmanagedSkills: empty<UnmanagedSkill>,

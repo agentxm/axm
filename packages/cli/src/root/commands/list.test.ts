@@ -18,7 +18,6 @@ import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/wo
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
-import { INSTALL_COMMAND_FROM_REGISTRY } from "../suggested-actions.js";
 import { handleListCommands } from "./list.js";
 
 // -----------------------------------------------------------------------------
@@ -101,7 +100,7 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands();
+        yield* handleListCommands({ includeIgnored: false });
 
         expect(rendererState.tables).toHaveLength(1);
         expect(rendererState.tables[0]?.items).toEqual(
@@ -124,7 +123,7 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands();
+        yield* handleListCommands({ includeIgnored: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
@@ -132,7 +131,7 @@ describe("commands list.handler", () => {
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
         expect(rendererState.logs).toEqual([]);
-        expect(rendererState.suggestions).toEqual([INSTALL_COMMAND_FROM_REGISTRY]);
+        expect(rendererState.suggestions).toEqual([]);
       }),
     );
   });
@@ -151,10 +150,10 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands();
+        yield* handleListCommands({ includeIgnored: false });
 
         expect(rendererState.tables[0]?.items).toEqual([
-          expect.objectContaining({ name: "my-cmd", enabled: true }),
+          expect.objectContaining({ name: "my-cmd", activation: "enabled", state: "configured" }),
         ]);
       }),
     );
@@ -170,10 +169,10 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands();
+        yield* handleListCommands({ includeIgnored: false });
 
         expect(rendererState.tables[0]?.items).toEqual([
-          expect.objectContaining({ name: "my-cmd", enabled: false }),
+          expect.objectContaining({ name: "my-cmd", activation: "disabled", state: "configured" }),
         ]);
       }),
     );
@@ -189,7 +188,7 @@ describe("commands list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListCommands();
+        yield* handleListCommands({ includeIgnored: false });
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
@@ -197,9 +196,9 @@ describe("commands list.handler", () => {
           items: [
             {
               name: "cmd-one",
-              lifecycle: "configured",
-              enabled: true,
               source: "@acme/commands/cmd-one",
+              activation: "enabled",
+              classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           ],
         });

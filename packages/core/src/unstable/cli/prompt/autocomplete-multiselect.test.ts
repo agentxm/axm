@@ -176,11 +176,12 @@ describe("autocompleteMultiselect", () => {
     }),
   );
 
-  it.effect("renders a key hint footer while active and hides it on submit", () =>
+  it.effect("replaces the active prompt with a separated summary on submit", () =>
     Effect.gen(function* () {
       const terminal = yield* makeTerminal;
       const prompt = autocompleteMultiselect({
         message: "Pick pets",
+        submissionMessage: (selected) => `Selected ${selected.length} pets`,
         choices: [
           { title: "Apple", value: "apple" },
           { title: "Banana", value: "banana" },
@@ -197,7 +198,9 @@ describe("autocompleteMultiselect", () => {
       expect(activeFrame).toContain("space toggle");
       expect(activeFrame).toContain("enter confirm");
 
-      const submittedFrame = frames.find((line) => line.includes("selected: 0")) ?? "";
+      const submittedFrame = frames.find((line) => line.includes("Selected 0 pets")) ?? "";
+      expect(submittedFrame).toBe("✓ Selected 0 pets\n\n");
+      expect(submittedFrame).not.toContain("Pick pets");
       expect(submittedFrame).not.toContain("space toggle");
     }),
   );

@@ -8,12 +8,6 @@ import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../test-stubs.js";
 import { expectNoPlanEnvelope, makeWorkspaceHandlerTestContext } from "../test-helpers.js";
-import {
-  ADD_INLINE_MCP_SERVER,
-  INSTALL_FILES_FROM_REGISTRY,
-  INSTALL_HOOK_FROM_REGISTRY,
-  INSTALL_MCP_FROM_REGISTRY,
-} from "./suggested-actions.js";
 import { handleListFiles } from "./files/list.js";
 import { handleListHook } from "./hooks/list.js";
 import { handleListMcpServers } from "./mcps/list.js";
@@ -33,10 +27,7 @@ describe("list command empty output", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const runEmptyList = <R>(
-    handler: Effect.Effect<void, unknown, R>,
-    expectedSuggestions: ReadonlyArray<unknown>,
-  ) => {
+  const runEmptyList = <R>(handler: Effect.Effect<void, unknown, R>) => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
@@ -49,21 +40,17 @@ describe("list command empty output", () => {
           items: [],
         });
         expect(rendererState.logs).toEqual([]);
-        expect(rendererState.suggestions).toEqual(expectedSuggestions);
+        expect(rendererState.suggestions).toEqual([]);
       }),
     );
   };
 
-  it.effect("emits a single empty files list payload", () =>
-    runEmptyList(handleListFiles(), [INSTALL_FILES_FROM_REGISTRY]),
-  );
+  it.effect("emits a single empty files list payload", () => runEmptyList(handleListFiles()));
 
-  it.effect("emits a single empty hooks list payload", () =>
-    runEmptyList(handleListHook(), [INSTALL_HOOK_FROM_REGISTRY]),
-  );
+  it.effect("emits a single empty hooks list payload", () => runEmptyList(handleListHook()));
 
   it.effect("emits a single empty MCP server list payload", () =>
-    runEmptyList(handleListMcpServers(), [INSTALL_MCP_FROM_REGISTRY, ADD_INLINE_MCP_SERVER]),
+    runEmptyList(handleListMcpServers({ includeIgnored: false })),
   );
 
   it.effect("emits files rows in machine mode without a plan envelope", () => {
@@ -98,9 +85,10 @@ describe("list command empty output", () => {
           items: [
             {
               name: "workspace-baseline",
-              enabled: false,
+              activation: "disabled",
               source: "@acme/files/workspace-baseline",
               locked: true,
+              classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           ],
         });
@@ -141,9 +129,10 @@ describe("list command empty output", () => {
           items: [
             {
               name: "tool-audit",
-              enabled: true,
+              activation: "enabled",
               source: "@acme/hooks/tool-audit",
               locked: true,
+              classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           ],
         });
@@ -181,16 +170,17 @@ describe("list command empty output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListMcpServers();
+        yield* handleListMcpServers({ includeIgnored: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,
           items: [
             {
               name: "context",
+              activation: "enabled",
               version: "2.3.4",
-              transport: "auto",
               status: "enabled",
+              classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           ],
         });

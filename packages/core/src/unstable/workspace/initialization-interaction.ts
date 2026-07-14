@@ -11,8 +11,10 @@ import { autocompleteMultiselect, requireInteractive } from "../cli/prompt/index
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 
 const selectAgentsMessage = "Select agents to configure";
-const confirmInstructionSyncMessage = "Sync a shared instructions file?";
-const selectInstructionSourceMessage = "Source instructions file";
+const confirmInstructionSyncMessage =
+  "Sync instructions to the selected agents?\n  Updates agent instruction files such as AGENTS.md and CLAUDE.md.";
+const selectInstructionSourceMessage =
+  "Choose the source file for shared instructions\n  AXM will sync its contents to the selected agents' instruction files.";
 const customInstructionSourceMessage = "Source instructions file name";
 const confirmSetupPlanMessage = "Proceed?";
 
@@ -65,6 +67,11 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
           autocompleteMultiselect({
             message: selectAgentsMessage,
             maxPerPage: 10,
+            filterLabel: "Filter",
+            selectionCountMessage: (selected) =>
+              `${selected.length} ${selected.length === 1 ? "agent" : "agents"} selected`,
+            submissionMessage: (selected) =>
+              `Selected ${selected.length} ${selected.length === 1 ? "agent" : "agents"}`,
             choices: allAgents.map((agent) => ({
               title: agent.name,
               value: agent.id,
@@ -87,25 +94,28 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
         ).pipe(Effect.provide(promptEnvironment)),
       selectInstructionSource: ({ defaultFileName, choices }) =>
         Effect.gen(function* () {
+          yield* Effect.ignore(terminal.display("\n"));
           const selected = yield* requireInteractive(
             Prompt.select({
               message: selectInstructionSourceMessage,
               choices: [
                 ...choices.map((choice) => {
-                  const description = choice.exists
-                    ? `found in this repo · ${String(choice.lines)} lines`
-                    : choice.fileName === defaultFileName
-                      ? "standard · recommended"
-                      : undefined;
+                  const description = [
+                    choice.fileName === defaultFileName ? "Recommended" : undefined,
+                    choice.exists ? "existing" : "will be created",
+                    choice.exists ? `${String(choice.lines)} lines` : undefined,
+                  ]
+                    .filter((part) => part !== undefined)
+                    .join(" · ");
                   return {
                     title: choice.fileName,
                     value: choice.fileName,
-                    ...(description !== undefined && { description }),
+                    description,
                     selected: choice.fileName === defaultFileName,
                   };
                 }),
                 {
-                  title: "Use a different name...",
+                  title: "Enter another filename...",
                   value: CUSTOM_SOURCE_FILE,
                 },
               ],
@@ -113,6 +123,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
             { message: selectInstructionSourceMessage },
           ).pipe(Effect.provide(promptEnvironment));
           if (selected !== CUSTOM_SOURCE_FILE) return selected;
+          yield* Effect.ignore(terminal.display("\n"));
           return yield* requireInteractive(
             Prompt.text({ message: customInstructionSourceMessage }),
             { message: customInstructionSourceMessage },

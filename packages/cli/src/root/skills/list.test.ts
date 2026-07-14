@@ -105,7 +105,7 @@ describe("list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ agents: [] });
+        yield* handleList({ agents: [], includeIgnored: false });
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
@@ -129,12 +129,11 @@ describe("list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ agents: [] });
+        yield* handleList({ agents: [], includeIgnored: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
-          emptyMessage: "No skills installed",
         });
         expect(rendererState.logs).toEqual([]);
       }),
@@ -154,7 +153,7 @@ describe("list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ agents: ["claude-code"] });
+        yield* handleList({ agents: ["claude-code"], includeIgnored: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,
@@ -178,7 +177,7 @@ describe("list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ agents: ["claude-code", "cursor"] });
+        yield* handleList({ agents: ["claude-code", "cursor"], includeIgnored: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 2,
@@ -206,12 +205,11 @@ describe("list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ agents: ["nonexistent-agent"] });
+        yield* handleList({ agents: ["nonexistent-agent"], includeIgnored: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
-          emptyMessage: "No skills matched the selected agent filter.",
         });
         expect(rendererState.logs).toEqual([]);
       }),
@@ -227,17 +225,187 @@ describe("list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ agents: [] });
+        yield* handleList({ agents: [], includeIgnored: false });
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 2,
+          installedCount: 2,
           items: [
-            { name: "skill-one", agents: ["claude-code"] },
-            { name: "skill-two", agents: ["cursor"] },
+            {
+              name: "skill-one",
+              sourceType: "local",
+              agents: ["claude-code"],
+              classification: { kind: "lifecycle", lifecycle: "implicit" },
+            },
+            {
+              name: "skill-two",
+              sourceType: "local",
+              agents: ["cursor"],
+              classification: { kind: "lifecycle", lifecycle: "implicit" },
+            },
           ],
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
+      }),
+    );
+  });
+
+  it.effect("inventories configured, implicit, unmanaged, and optionally ignored skills", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    initWorkspace(
+      axmDir,
+      {
+        configured: makeLockEntry(),
+        implicit: makeLockEntry(),
+      },
+      ["codex"],
+    );
+    fs.writeFileSync(
+      path.join(axmDir, "settings.json"),
+      JSON.stringify({
+        agents: ["codex"],
+        skills: { configured: "@acme/skills/configured" },
+        skillsConfig: { ignore: ["old-*", "*-skill"] },
+      }),
+    );
+    for (const name of ["unmanaged", "old-skill"]) {
+      const skillDir = path.join(tempDir, ".agents", "skills", name);
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "SKILL.md"), `---\nname: ${name}\n---\n`);
+    }
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ agents: [], includeIgnored: false });
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 3,
+          configuredCount: 1,
+          implicitCount: 1,
+          installedCount: 2,
+          unmanagedCount: 1,
+          ignoredCount: 0,
+        });
+        expect(rendererState.results[0]?.data).toMatchObject({
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              name: "configured",
+              classification: { kind: "lifecycle", lifecycle: "configured" },
+            }),
+            expect.objectContaining({
+              name: "implicit",
+              classification: { kind: "lifecycle", lifecycle: "implicit" },
+            }),
+            expect.objectContaining({
+              name: "unmanaged",
+              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
+            }),
+          ]),
+        });
+
+        yield* handleList({ agents: [], includeIgnored: true });
+        expect(rendererState.results[1]?.data).toMatchObject({
+          count: 4,
+          installedCount: 2,
+          unmanagedCount: 1,
+          ignoredCount: 1,
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              name: "old-skill",
+              classification: {
+                kind: "ignored",
+                matchedBy: ["*-skill", "old-*"],
+                reasons: ["actual-ignored"],
+              },
+            }),
+          ]),
+        });
+        expect(rendererState.suggestions).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("allows inventory when settings and lockfile are absent", () => {
+    const { provide, rendererState } = makeLayers({
+      machine: true,
+      wsOverrides: { allowUninitialized: true },
+    });
+    const skillDir = path.join(tempDir, ".agents", "skills", "native-only");
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), "---\nname: native-only\n---\n");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ agents: [], includeIgnored: false });
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 1,
+          configuredCount: 0,
+          implicitCount: 0,
+          installedCount: 0,
+          unmanagedCount: 1,
+          ignoredCount: 0,
+          items: [
+            expect.objectContaining({
+              name: "native-only",
+              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
+            }),
+          ],
+        });
+      }),
+    );
+  });
+
+  it.effect("applies the agent filter to lifecycle and included ignored observations", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    initWorkspace(
+      axmDir,
+      {
+        "skill-claude": makeLockEntry(["claude-code"]),
+        "skill-cursor": makeLockEntry(["cursor"]),
+      },
+      ["claude-code", "cursor"],
+    );
+    fs.writeFileSync(
+      path.join(axmDir, "settings.json"),
+      JSON.stringify({
+        agents: ["claude-code", "cursor"],
+        skillsConfig: { ignore: ["ignored-*"] },
+      }),
+    );
+    for (const [agentDir, name] of [
+      [".claude", "ignored-claude"],
+      [".cursor", "ignored-cursor"],
+    ] as const) {
+      const skillDir = path.join(tempDir, agentDir, "skills", name);
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "SKILL.md"), `---\nname: ${name}\n---\n`);
+    }
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ agents: ["claude-code"], includeIgnored: true });
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          count: 2,
+          installedCount: 1,
+          unmanagedCount: 0,
+          ignoredCount: 1,
+          items: expect.arrayContaining([
+            expect.objectContaining({ name: "skill-claude" }),
+            expect.objectContaining({
+              name: "ignored-claude",
+              classification: expect.objectContaining({ kind: "ignored" }),
+            }),
+          ]),
+        });
+        expect(rendererState.results[0]?.data).not.toMatchObject({
+          items: expect.arrayContaining([
+            expect.objectContaining({ name: "skill-cursor" }),
+            expect.objectContaining({ name: "ignored-cursor" }),
+          ]),
+        });
       }),
     );
   });

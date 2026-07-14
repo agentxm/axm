@@ -74,8 +74,12 @@ describe("WorkspaceInitializationInteractionLive", () => {
 
       const rendered = harness.output.map(stripAnsi).join("\n");
       expect(rendered).toContain("Select agents to configure");
+      expect(rendered).toContain("Filter: type to filter");
       expect(rendered).toContain("[x] Claude Code");
+      expect(rendered).toContain("1 agent selected");
       expect(rendered).not.toContain("Inverse Selection");
+      expect(rendered).toContain("Selected 1 agent");
+      expect(rendered).not.toContain("selected: 1");
     }),
   );
 
@@ -94,6 +98,61 @@ describe("WorkspaceInitializationInteractionLive", () => {
       }).pipe(Effect.provide(harness.layer));
 
       expect(selected).toEqual(["codex"]);
+    }),
+  );
+
+  it.effect("explains instruction syncing before confirmation", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      yield* Queue.offer(harness.queue, makeInput("enter"));
+
+      const enabled = yield* Effect.gen(function* () {
+        const interaction = yield* WorkspaceInitializationInteraction;
+        return yield* interaction.confirmInstructionSync({ enabled: true });
+      }).pipe(Effect.provide(harness.layer));
+
+      expect(enabled).toBe(true);
+
+      const rendered = harness.output.map(stripAnsi).join("\n");
+      expect(rendered).toContain("Sync instructions to the selected agents?");
+      expect(rendered).toContain(
+        "Updates agent instruction files such as AGENTS.md and CLAUDE.md.",
+      );
+    }),
+  );
+
+  it.effect("explains the source file and distinguishes existing and new choices", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      yield* Queue.offer(harness.queue, makeInput("down"));
+      yield* Queue.offer(harness.queue, makeInput("down"));
+      yield* Queue.offer(harness.queue, makeInput("enter"));
+
+      const selected = yield* Effect.gen(function* () {
+        const interaction = yield* WorkspaceInitializationInteraction;
+        return yield* interaction.selectInstructionSource({
+          defaultFileName: "AGENTS.md",
+          choices: [
+            { fileName: "AGENTS.md", exists: true, lines: 12 },
+            { fileName: "CLAUDE.md", exists: true, lines: 84 },
+            { fileName: "GEMINI.md", exists: false, lines: 0 },
+          ],
+        });
+      }).pipe(Effect.provide(harness.layer));
+
+      expect(selected).toBe("GEMINI.md");
+      expect(harness.output[0]).toBe("\n");
+
+      const rendered = harness.output.map(stripAnsi).join("\n");
+      expect(rendered).toContain("Choose the source file for shared instructions");
+      expect(rendered).toContain(
+        "AXM will sync its contents to the selected agents' instruction files.",
+      );
+      expect(rendered).toContain("AGENTS.md - Recommended · existing · 12 lines");
+      expect(rendered).toContain("CLAUDE.md - existing · 84 lines");
+      expect(rendered).toContain("GEMINI.md - will be created");
+      expect(rendered).toContain("Enter another filename...");
+      expect(rendered).not.toContain("standard · recommended");
     }),
   );
 });

@@ -119,6 +119,84 @@ describe("WorkspaceMutationsService", () => {
         expect(appError.code).toBe("internal");
       }),
     );
+
+    it.effect("allows read-only inventory when settings and lockfile are absent", () =>
+      Effect.gen(function* () {
+        fs.rmSync(path.join(projectDir, ".axm"), { recursive: true, force: true });
+        const skillDir = path.join(projectDir, ".agents", "skills", "native-only");
+        fs.mkdirSync(skillDir, { recursive: true });
+        fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Native only\n");
+
+        const ws = yield* getService({ scope: "project", allowUninitialized: true });
+        const inventory = yield* ws.records.getExtensionInventory("skill", {
+          includeIgnored: false,
+        });
+
+        expect(inventory).toMatchObject({
+          count: 1,
+          installedCount: 0,
+          unmanagedCount: 1,
+          items: [
+            {
+              name: "native-only",
+              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
+            },
+          ],
+        });
+      }),
+    );
+
+    it.effect("does not treat malformed settings as absent for inventory", () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(projectDir, ".axm", "settings.json"), "{ not-json");
+
+        const ws = yield* getService({ scope: "project", allowUninitialized: true });
+        const error = yield* ws.records
+          .getExtensionInventory("skill", { includeIgnored: false })
+          .pipe(Effect.flip);
+
+        const appError = getAppError(error);
+        expect(appError.detail).toBe("Failed to read workspace settings");
+        expect(appError.cause).toMatchObject({ _tag: "SettingsParseError" });
+      }),
+    );
+
+    it.effect("does not treat malformed lockfiles as absent for inventory", () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(
+          path.join(projectDir, ".axm", "axm-lock.yaml"),
+          "lockfileVersion: invalid\n",
+        );
+
+        const ws = yield* getService({ scope: "project", allowUninitialized: true });
+        const error = yield* ws.records
+          .getExtensionInventory("skill", { includeIgnored: false })
+          .pipe(Effect.flip);
+
+        const appError = getAppError(error);
+        expect(appError.code).toBe("validation");
+        expect(appError.detail).toBe("Failed to read workspace lockfile");
+        expect(appError.cause).toMatchObject({ _tag: "LockfileDecodeError" });
+      }),
+    );
+
+    it.effect("does not treat an invalid ignore configuration as absent", () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(
+          path.join(projectDir, ".axm", "settings.json"),
+          JSON.stringify({ agents: [], skillsConfig: { ignore: "old-*" } }),
+        );
+
+        const ws = yield* getService({ scope: "project", allowUninitialized: true });
+        const error = yield* ws.records
+          .getExtensionInventory("skill", { includeIgnored: true })
+          .pipe(Effect.flip);
+
+        const appError = getAppError(error);
+        expect(appError.detail).toBe("Failed to read workspace settings");
+        expect(appError.cause).toMatchObject({ _tag: "SettingsDecodeError" });
+      }),
+    );
   });
 
   // nonInteractive resolution is tested in cli-flags/service.test.ts

@@ -16,6 +16,7 @@ import type * as Record from "effect/Record";
 import * as ServiceMap from "effect/Context";
 
 import type { AppError } from "../app-error/index.js";
+import type { InstallableExtensionType } from "../extensions/installable-types.js";
 import type { Handle } from "../extensions/handle.js";
 import type { ExtensionRef } from "../extensions/refs.js";
 import type { FileInputValue } from "../files/manifest-schema.js";
@@ -79,6 +80,7 @@ import type {
   UnmanagedSkill,
 } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
+import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
 
 // ---------------------------------------------------------------------------
@@ -214,6 +216,14 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
 }
 
 export interface WorkspaceReadModelRecords {
+  /** Read-only physical inventory for one extension type. */
+  readonly getExtensionInventory: (
+    type: InstallableExtensionType,
+    options: {
+      readonly includeIgnored: boolean;
+      readonly agents?: ReadonlyArray<string>;
+    },
+  ) => Effect.Effect<ExtensionInventory, AppError>;
   /** Configured skills from settings with source metadata. */
   readonly getConfiguredSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, ConfiguredSkill>,
@@ -699,6 +709,8 @@ export interface WorkspaceMutationsOptions {
   readonly preview?: boolean;
   /** Built-in source host configs (defaults to git forges only when not provided) */
   readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
+  /** Allow read-only inspection when settings are absent. */
+  readonly allowUninitialized?: boolean;
 }
 
 /**

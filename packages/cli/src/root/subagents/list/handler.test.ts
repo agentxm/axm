@@ -12,7 +12,6 @@ import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { expectNoPlanEnvelope, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
-import { INSTALL_SUBAGENT_FROM_REGISTRY } from "../../suggested-actions.js";
 import { handleListSubagents } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -83,7 +82,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleListSubagents({ agents: [], includeIgnored: false });
 
         expect(rendererState.tables).toHaveLength(1);
         expect(rendererState.tables[0]?.items).toEqual(
@@ -106,16 +105,15 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleListSubagents({ agents: [], includeIgnored: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
-          emptyMessage: "No subagents installed",
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
         expect(rendererState.logs).toEqual([]);
-        expect(rendererState.suggestions).toEqual([INSTALL_SUBAGENT_FROM_REGISTRY]);
+        expect(rendererState.suggestions).toEqual([]);
       }),
     );
   });
@@ -137,10 +135,10 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleListSubagents({ agents: [], includeIgnored: false });
 
         expect(rendererState.tables[0]?.items).toEqual([
-          expect.objectContaining({ name: "my-subagent", lifecycle: "configured" }),
+          expect.objectContaining({ name: "my-subagent", state: "configured" }),
         ]);
       }),
     );
@@ -163,10 +161,10 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleListSubagents({ agents: [], includeIgnored: false });
 
         expect(rendererState.tables[0]?.items).toEqual([
-          expect.objectContaining({ name: "my-subagent", enabled: false }),
+          expect.objectContaining({ name: "my-subagent", activation: "disabled" }),
         ]);
       }),
     );
@@ -191,7 +189,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleListSubagents({ agents: [], includeIgnored: false });
 
         expect(rendererState.tables[0]?.items).toEqual(
           expect.arrayContaining([
@@ -218,7 +216,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: ["claude-code"] });
+        yield* handleListSubagents({ agents: ["claude-code"], includeIgnored: false });
 
         expect(rendererState.tables).toHaveLength(1);
         expect(rendererState.tables[0]?.items).toEqual([
@@ -241,12 +239,11 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: ["cursor"] });
+        yield* handleListSubagents({ agents: ["cursor"], includeIgnored: false });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
           items: [],
-          emptyMessage: "No subagents matched the selected agent filter.",
         });
         expect(rendererState.logs).toEqual([]);
       }),
@@ -266,7 +263,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleListSubagents({ agents: [], includeIgnored: false });
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
@@ -274,8 +271,8 @@ describe("subagents list.handler", () => {
           items: [
             {
               name: "subagent-one",
-              lifecycle: "configured",
-              enabled: true,
+              activation: "enabled",
+              classification: { kind: "lifecycle", lifecycle: "configured" },
               agents: ["claude-code"],
             },
           ],

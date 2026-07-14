@@ -319,7 +319,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         Effect.mapError((error) => contextReadErrorToAppError("lockfile", error)),
       );
 
-    yield* requireInitializedWorkspace(settingsPath, readSettingsCell(workspaceDir));
+    if (options.allowUninitialized !== true) {
+      yield* requireInitializedWorkspace(settingsPath, readSettingsCell(workspaceDir));
+    }
 
     // Built-in sources: parameterized via options, falling back to git forges only
     const builtInSources: ReadonlyArray<SourceHostConfig> = options.builtInSources ?? [
@@ -401,6 +403,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const readModelRecordReaders = makeReadModelRecordReaders({ baseDir, path, readScopedContext });
     const getReadModelRecordRows = readModelRecordReaders.getReadModelRecordRows;
     const records = {
+      getExtensionInventory: readModelRecordReaders.getExtensionInventory,
       getConfiguredSkills: () =>
         getReadModelRecordRows("skill").pipe(Effect.map(toConfiguredSkillRecord)),
       getUnmanagedSkills: () =>

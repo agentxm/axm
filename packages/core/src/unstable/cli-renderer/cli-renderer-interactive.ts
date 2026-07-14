@@ -367,6 +367,16 @@ export const InteractiveRenderer = (options?: {
     outro: (message) =>
       outputPolicy.colors ? chrome.outro(message) : plainLine(chrome.Symbols.outro, message),
     message: (message) => renderLogLine(outputPolicy, "message", message),
+    diagnostic: (content) => (outputPolicy.quiet ? Effect.void : writeStderrLine(content)),
+    diagnosticTable: <T extends object>(
+      items: ReadonlyArray<T>,
+      view: TableView<T>,
+      caption?: string,
+    ) => {
+      if (outputPolicy.quiet) return Effect.void;
+      const output = formatTable(items, resolveTableColumns(view), caption);
+      return output.length === 0 ? Effect.void : writeStderrLine(output);
+    },
     info: (message) => renderLogLine(outputPolicy, "info", message),
     success: (message, options?: SuccessOptions) =>
       renderLogLine(outputPolicy, "success", message).pipe(

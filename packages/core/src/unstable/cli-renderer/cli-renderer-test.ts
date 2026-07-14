@@ -33,6 +33,7 @@ import { taskCompletionMessage } from "./renderer-helpers.js";
 
 export interface TestRendererState {
   readonly logs: Array<LogMessage>;
+  readonly diagnostics: Array<string>;
   readonly tables: Array<{
     items: ReadonlyArray<unknown>;
     view: unknown;
@@ -66,6 +67,7 @@ export interface TestRendererState {
 
 const makeEmptyState = (): TestRendererState => ({
   logs: [],
+  diagnostics: [],
   tables: [],
   details: [],
   trees: [],
@@ -187,6 +189,22 @@ const makeTestRendererService = (
     message: (message: string) =>
       Effect.sync(() => {
         state.logs.push({ _tag: "message", message });
+      }),
+    diagnostic: (content: string) =>
+      Effect.sync(() => {
+        state.diagnostics.push(content);
+      }),
+    diagnosticTable: <T extends object>(
+      items: ReadonlyArray<T>,
+      view: TableView<T>,
+      caption?: string,
+    ) =>
+      Effect.sync(() => {
+        state.tables.push({
+          items: Array.from(items),
+          view,
+          ...(caption !== undefined && { caption }),
+        });
       }),
     info: (message: string) =>
       Effect.sync(() => {

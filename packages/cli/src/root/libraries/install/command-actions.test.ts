@@ -213,12 +213,76 @@ const firstJobSteps = (plan: Plan) => plan.jobs[0]?.steps ?? [];
 describe("InstallLibraryCommandWorkflowActions", () => {
   it.effect("replays locked Library members in frozen mode without source resolution", () =>
     Effect.gen(function* () {
+      const registryRoot = path.join("/tmp", `axm-frozen-library-${crypto.randomUUID()}`);
+      for (const [type, name, publisherBindingId, version] of [
+        ["skills", "reviewer", "hbnd_reviewer", "1.2.3"],
+        ["commands", "release", "hbnd_release", "2.0.0"],
+      ] as const) {
+        const extensionDir = path.join(registryRoot, "extensions", "@acme", type, name);
+        fs.mkdirSync(extensionDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(extensionDir, "index.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: type === "skills" ? "skill" : "command",
+            name,
+            publisherBindingId,
+            versions: [
+              {
+                version,
+                published: "2025-01-01T00:00:00Z",
+                integrity: `sha512-${name}`,
+              },
+            ],
+          }),
+        );
+      }
       const getMinimumReleaseAge = vi.fn(() => Effect.succeed("24h"));
       const setLibrary = vi.fn(() => Effect.void);
       const frozenWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
         ...workspace,
         getMinimumReleaseAge,
         setLibrary,
+        getLockedSkills: () =>
+          Effect.succeed({
+            reviewer: {
+              type: "registry",
+              owner: handle("@acme"),
+              name: extensionName("reviewer"),
+              resolvedVersion: exactVersion("1.2.3"),
+              integrity: "sha512-reviewer",
+              sourceName: "default",
+              publisherBindingId: "hbnd_reviewer",
+              agents: [],
+              installedAt: testDate,
+              updatedAt: testDate,
+            },
+          }),
+        getLockedCommands: () =>
+          Effect.succeed({
+            release: {
+              type: "registry",
+              owner: handle("@acme"),
+              name: extensionName("release"),
+              resolvedVersion: exactVersion("2.0.0"),
+              integrity: "sha512-release",
+              sourceName: "default",
+              publisherBindingId: "hbnd_release",
+              agents: [],
+              installedAt: testDate,
+              updatedAt: testDate,
+            },
+          }),
+        getConfiguredSourceByName: (name) =>
+          Effect.succeed(
+            name === "default"
+              ? Option.some({
+                  name: "default",
+                  type: "registry",
+                  location: pathToFileURL(registryRoot),
+                })
+              : Option.none(),
+          ),
       });
       const intent = yield* runWithActions(
         (actions) =>
@@ -265,6 +329,7 @@ describe("InstallLibraryCommandWorkflowActions", () => {
         "library:@acme/libraries/frontend",
       );
       expect(setLibrary).not.toHaveBeenCalled();
+      fs.rmSync(registryRoot, { recursive: true, force: true });
     }),
   );
 
@@ -443,3 +508,6 @@ describe("InstallLibraryCommandWorkflowActions", () => {
     }),
   );
 });
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pathToFileURL } from "node:url";

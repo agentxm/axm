@@ -51,6 +51,16 @@ type ResolveResult =
       readonly reason: string;
     };
 
+const appendWarning =
+  (warning: string | undefined) =>
+  (result: JobStepResult): JobStepResult =>
+    warning === undefined || result.result === "error"
+      ? result
+      : {
+          ...result,
+          message: result.message.length === 0 ? warning : `${result.message}; ${warning}`,
+        };
+
 const skippedSubagentStep = (
   ws: WorkspaceMutationsService,
   outcome: Extract<ResolveResult, { readonly type: "skip" }>,
@@ -210,6 +220,31 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
 
   // Step 6: Capture services for run closures
   const subagentMgr = yield* SubagentManager;
+  const warningsBySubagent = new Map<string, string>();
+
+  for (const item of resolved) {
+    const existing = lockedSubagents[item.ref.subagent.name];
+    const lockedEpoch = existing?.type === "registry" ? existing.publisherBindingId : undefined;
+    const resolvedEpoch = item.ref.refType === "registry" ? item.ref.publisherBindingId : undefined;
+    const changed =
+      existing?.type === "registry" &&
+      item.ref.refType === "registry" &&
+      lockedEpoch !== resolvedEpoch &&
+      (lockedEpoch !== undefined || resolvedEpoch !== undefined);
+    if (changed && args.yes) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Unattended update refused for ${item.ref.owner}/subagents/${item.ref.name}: publisher epoch changed from ${lockedEpoch ?? "legacy-lock"} to ${resolvedEpoch ?? "missing"}`,
+        recover: "Run the update interactively, verify the publisher change, and confirm the plan.",
+      });
+    }
+    if (changed) {
+      warningsBySubagent.set(
+        item.ref.subagent.name,
+        `Publisher identity changed (${lockedEpoch ?? "legacy lock"} → ${resolvedEpoch ?? "missing epoch"}); confirm only if you trust the current publisher`,
+      );
+    }
+  }
 
   const makeRunClosure: MakeRunClosure = (op) => {
     const step = buildInstallOperation(subagentMgr, {
@@ -224,7 +259,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
         }),
       );
     }
-    return step.run;
+    return step.run.pipe(Effect.map(appendWarning(warningsBySubagent.get(op.ref.subagent.name))));
   };
 
   // Step 7: Build operations
@@ -234,13 +269,28 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   }));
 
   // Step 8: Build plan
-  const basePlan = buildUpdatePlan(
+  const rawPlan = buildUpdatePlan(
     ops,
     { lockfileVersion: LOCKFILE_VERSION, subagents: lockedSubagents },
     "Update subagents",
     Option.some("Update installed subagents"),
     makeRunClosure,
   );
+  const basePlan: Plan =
+    warningsBySubagent.size === 0
+      ? rawPlan
+      : {
+          ...rawPlan,
+          sections: [
+            ...(rawPlan.sections ?? []),
+            {
+              title: "Publisher ownership changes",
+              items: [...warningsBySubagent.entries()].map(
+                ([name, warning]) => `${name}: ${warning}`,
+              ),
+            },
+          ],
+        };
   const skippedSteps = skipped.map((item) => skippedSubagentStep(ws, item));
   const [firstJob, ...restJobs] = basePlan.jobs;
   const plan: Plan =

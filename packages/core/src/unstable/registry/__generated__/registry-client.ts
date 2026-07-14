@@ -580,6 +580,14 @@ export const PackageIdentityPurl = Schema.String.check(Schema.isMinLength(1)).ch
     examples: ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"],
   }),
 );
+export type ExtensionDeletionOperationId = string;
+export const ExtensionDeletionOperationId = Schema.String.check(
+  Schema.isPattern(new RegExp("^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Extension Deletion Operation ID",
+    description: "Identifies a durable owner-requested whole-Extension deletion operation.",
+    examples: ["edel_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
 export type PatchVisibilityBody = { readonly visibility: "public" | "private" };
 export const PatchVisibilityBody = Schema.Struct({
   visibility: Schema.Literals(["public", "private"]).annotate({
@@ -733,6 +741,15 @@ export const YankAvailableVersionsBody = Schema.Struct({
 }).annotate({
   title: "Yank Available Versions Body",
   description: "Atomically yanks the snapshot of all currently available versions.",
+});
+export type DeleteExtensionBody = { readonly confirmation: string };
+export const DeleteExtensionBody = Schema.Struct({
+  confirmation: Schema.String.annotate({
+    description: "Exact full Extension FQN typed by the owner to confirm deletion.",
+  }),
+}).annotate({
+  title: "Delete Extension Body",
+  description: "High-intent confirmation for permanent whole-Extension deletion.",
 });
 export type PurgeExtensionVersionBody = {
   readonly reason: "malware" | "exposed_secret" | "legal" | "privacy" | "policy";
@@ -1937,6 +1954,7 @@ export type ExtensionsGet200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
   readonly type: ExtensionType;
+  readonly publisher_binding_id?: string;
   readonly description?: string | null;
   readonly repository?: Repository | null;
   readonly bugs?: Bugs | null;
@@ -1960,6 +1978,7 @@ export const ExtensionsGet200 = Schema.Struct({
   name: ExtensionName,
   owner: Handle,
   type: ExtensionType,
+  publisher_binding_id: Schema.optionalKey(Schema.String.annotate({ readOnly: true })),
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   repository: Schema.optionalKey(Schema.Union([Repository, Schema.Null])),
   bugs: Schema.optionalKey(Schema.Union([Bugs, Schema.Null])),
@@ -1994,6 +2013,89 @@ export type ExtensionsGet400 = DecodeErrorResponse;
 export const ExtensionsGet400 = DecodeErrorResponse;
 export type ExtensionsGet404 = ProblemDetails;
 export const ExtensionsGet404 = ProblemDetails;
+export type ExtensionsDeleteExtensionRequestJson = DeleteExtensionBody;
+export const ExtensionsDeleteExtensionRequestJson = DeleteExtensionBody;
+export type ExtensionsDeleteExtension202 = {
+  readonly operationId: ExtensionDeletionOperationId;
+  readonly state: "pending";
+  readonly requiredConfirmation: string;
+  readonly warnings: {
+    readonly versions: ReadonlyArray<string>;
+    readonly dependentPackCount:
+      | number
+      | "NaN"
+      | "Infinity"
+      | "-Infinity"
+      | "Infinity"
+      | "-Infinity"
+      | "NaN";
+    readonly libraryMembershipCount:
+      | number
+      | "NaN"
+      | "Infinity"
+      | "-Infinity"
+      | "Infinity"
+      | "-Infinity"
+      | "NaN";
+    readonly downloadCount:
+      | number
+      | "NaN"
+      | "Infinity"
+      | "-Infinity"
+      | "Infinity"
+      | "-Infinity"
+      | "NaN"
+      | null;
+  };
+};
+export const ExtensionsDeleteExtension202 = Schema.Struct({
+  operationId: ExtensionDeletionOperationId,
+  state: Schema.Literal("pending"),
+  requiredConfirmation: Schema.String,
+  warnings: Schema.Struct({
+    versions: Schema.Array(Schema.String),
+    dependentPackCount: Schema.Union([
+      Schema.Union([
+        Schema.Number.check(Schema.isFinite()),
+        Schema.Literal("NaN"),
+        Schema.Literal("Infinity"),
+        Schema.Literal("-Infinity"),
+      ]),
+      Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+    ]),
+    libraryMembershipCount: Schema.Union([
+      Schema.Union([
+        Schema.Number.check(Schema.isFinite()),
+        Schema.Literal("NaN"),
+        Schema.Literal("Infinity"),
+        Schema.Literal("-Infinity"),
+      ]),
+      Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+    ]),
+    downloadCount: Schema.Union([
+      Schema.Union([
+        Schema.Union([
+          Schema.Number.check(Schema.isFinite()),
+          Schema.Literal("NaN"),
+          Schema.Literal("Infinity"),
+          Schema.Literal("-Infinity"),
+        ]),
+        Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+      ]),
+      Schema.Null,
+    ]),
+  }),
+});
+export type ExtensionsDeleteExtension400 = ProblemDetails | DecodeErrorResponse;
+export const ExtensionsDeleteExtension400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type ExtensionsDeleteExtension401 = StepUpRequiredError | ProblemDetails;
+export const ExtensionsDeleteExtension401 = Schema.Union([StepUpRequiredError, ProblemDetails]);
+export type ExtensionsDeleteExtension403 = ForbiddenError | ForbiddenError;
+export const ExtensionsDeleteExtension403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type ExtensionsDeleteExtension404 = ProblemDetails;
+export const ExtensionsDeleteExtension404 = ProblemDetails;
+export type ExtensionsDeleteExtension409 = ProblemDetails;
+export const ExtensionsDeleteExtension409 = ProblemDetails;
 export type ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
 export const ExtensionsUpdateVisibilityRequestJson = PatchVisibilityBody;
 export type ExtensionsUpdateVisibility200 = {
@@ -2026,6 +2128,7 @@ export type ExtensionsGetVersion200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
   readonly type: ExtensionType;
+  readonly publisher_binding_id?: string;
   readonly version: Version;
   readonly status: "pending" | "available" | "failed";
   readonly published: IsoDateTimeString;
@@ -2045,6 +2148,7 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   name: ExtensionName,
   owner: Handle,
   type: ExtensionType,
+  publisher_binding_id: Schema.optionalKey(Schema.String.annotate({ readOnly: true })),
   version: Version,
   status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
   published: IsoDateTimeString,
@@ -2127,6 +2231,38 @@ export type ExtensionsPublishVersion500 = ProblemDetails;
 export const ExtensionsPublishVersion500 = ProblemDetails;
 export type ExtensionsPublishVersion503 = ProblemDetails;
 export const ExtensionsPublishVersion503 = ProblemDetails;
+export type ExtensionsGetDeletionOperation200 = {
+  readonly id: ExtensionDeletionOperationId;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly state: "pending" | "dispatching" | "completed" | "failed";
+  readonly requestedAt: string;
+  readonly completedAt: string | null;
+  readonly nameReclaimableAt: string | null;
+  readonly failureCode: string | null;
+  readonly failureDetail: string | null;
+};
+export const ExtensionsGetDeletionOperation200 = Schema.Struct({
+  id: ExtensionDeletionOperationId,
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  state: Schema.Literals(["pending", "dispatching", "completed", "failed"]),
+  requestedAt: Schema.String,
+  completedAt: Schema.Union([Schema.String, Schema.Null]),
+  nameReclaimableAt: Schema.Union([Schema.String, Schema.Null]),
+  failureCode: Schema.Union([Schema.String, Schema.Null]),
+  failureDetail: Schema.Union([Schema.String, Schema.Null]),
+});
+export type ExtensionsGetDeletionOperation400 = DecodeErrorResponse;
+export const ExtensionsGetDeletionOperation400 = DecodeErrorResponse;
+export type ExtensionsGetDeletionOperation401 = ProblemDetails;
+export const ExtensionsGetDeletionOperation401 = ProblemDetails;
+export type ExtensionsGetDeletionOperation403 = ForbiddenError | ForbiddenError;
+export const ExtensionsGetDeletionOperation403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type ExtensionsGetDeletionOperation404 = ProblemDetails;
+export const ExtensionsGetDeletionOperation404 = ProblemDetails;
 export type ExtensionsDownloadArchive400 = DecodeErrorResponse;
 export const ExtensionsDownloadArchive400 = DecodeErrorResponse;
 export type ExtensionsDownloadArchive404 = ProblemDetails;
@@ -2265,6 +2401,81 @@ export type ExtensionsYankAvailableVersions403 = ForbiddenError;
 export const ExtensionsYankAvailableVersions403 = ForbiddenError;
 export type ExtensionsYankAvailableVersions404 = ProblemDetails;
 export const ExtensionsYankAvailableVersions404 = ProblemDetails;
+export type ExtensionsGetDeletionPreview200 = {
+  readonly requiredConfirmation: string;
+  readonly warnings: {
+    readonly versions: ReadonlyArray<string>;
+    readonly dependentPackCount:
+      | number
+      | "NaN"
+      | "Infinity"
+      | "-Infinity"
+      | "Infinity"
+      | "-Infinity"
+      | "NaN";
+    readonly libraryMembershipCount:
+      | number
+      | "NaN"
+      | "Infinity"
+      | "-Infinity"
+      | "Infinity"
+      | "-Infinity"
+      | "NaN";
+    readonly downloadCount:
+      | number
+      | "NaN"
+      | "Infinity"
+      | "-Infinity"
+      | "Infinity"
+      | "-Infinity"
+      | "NaN"
+      | null;
+  };
+};
+export const ExtensionsGetDeletionPreview200 = Schema.Struct({
+  requiredConfirmation: Schema.String,
+  warnings: Schema.Struct({
+    versions: Schema.Array(Schema.String),
+    dependentPackCount: Schema.Union([
+      Schema.Union([
+        Schema.Number.check(Schema.isFinite()),
+        Schema.Literal("NaN"),
+        Schema.Literal("Infinity"),
+        Schema.Literal("-Infinity"),
+      ]),
+      Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+    ]),
+    libraryMembershipCount: Schema.Union([
+      Schema.Union([
+        Schema.Number.check(Schema.isFinite()),
+        Schema.Literal("NaN"),
+        Schema.Literal("Infinity"),
+        Schema.Literal("-Infinity"),
+      ]),
+      Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+    ]),
+    downloadCount: Schema.Union([
+      Schema.Union([
+        Schema.Union([
+          Schema.Number.check(Schema.isFinite()),
+          Schema.Literal("NaN"),
+          Schema.Literal("Infinity"),
+          Schema.Literal("-Infinity"),
+        ]),
+        Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+      ]),
+      Schema.Null,
+    ]),
+  }),
+});
+export type ExtensionsGetDeletionPreview400 = DecodeErrorResponse;
+export const ExtensionsGetDeletionPreview400 = DecodeErrorResponse;
+export type ExtensionsGetDeletionPreview401 = ProblemDetails;
+export const ExtensionsGetDeletionPreview401 = ProblemDetails;
+export type ExtensionsGetDeletionPreview403 = ForbiddenError | ForbiddenError;
+export const ExtensionsGetDeletionPreview403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type ExtensionsGetDeletionPreview404 = ProblemDetails;
+export const ExtensionsGetDeletionPreview404 = ProblemDetails;
 export type AdminExtensionsPurgeExtensionVersionRequestJson = PurgeExtensionVersionBody;
 export const AdminExtensionsPurgeExtensionVersionRequestJson = PurgeExtensionVersionBody;
 export type AdminExtensionsPurgeExtensionVersion202 = {
@@ -3137,6 +3348,21 @@ export const make = (
           }),
         ),
       ),
+    ExtensionsDeleteExtension: (owner, type, name, options) =>
+      HttpClientRequest.delete(`/v1/extensions/${owner}/${type}/${name}`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ExtensionsDeleteExtension202),
+            "400": decodeError("ExtensionsDeleteExtension400", ExtensionsDeleteExtension400),
+            "401": decodeError("ExtensionsDeleteExtension401", ExtensionsDeleteExtension401),
+            "403": decodeError("ExtensionsDeleteExtension403", ExtensionsDeleteExtension403),
+            "404": decodeError("ExtensionsDeleteExtension404", ExtensionsDeleteExtension404),
+            "409": decodeError("ExtensionsDeleteExtension409", ExtensionsDeleteExtension409),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     ExtensionsHead: (owner, type, name, options) =>
       HttpClientRequest.head(`/v1/extensions/${owner}/${type}/${name}`).pipe(
         withResponse(options?.config)(
@@ -3192,6 +3418,31 @@ export const make = (
             "429": decodeError("ExtensionsPublishVersion429", ExtensionsPublishVersion429),
             "500": decodeError("ExtensionsPublishVersion500", ExtensionsPublishVersion500),
             "503": decodeError("ExtensionsPublishVersion503", ExtensionsPublishVersion503),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ExtensionsGetDeletionOperation: (operationId, options) =>
+      HttpClientRequest.get(`/v1/extensions/deletions/${operationId}`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ExtensionsGetDeletionOperation200),
+            "400": decodeError(
+              "ExtensionsGetDeletionOperation400",
+              ExtensionsGetDeletionOperation400,
+            ),
+            "401": decodeError(
+              "ExtensionsGetDeletionOperation401",
+              ExtensionsGetDeletionOperation401,
+            ),
+            "403": decodeError(
+              "ExtensionsGetDeletionOperation403",
+              ExtensionsGetDeletionOperation403,
+            ),
+            "404": decodeError(
+              "ExtensionsGetDeletionOperation404",
+              ExtensionsGetDeletionOperation404,
+            ),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3289,6 +3540,19 @@ export const make = (
               "ExtensionsYankAvailableVersions404",
               ExtensionsYankAvailableVersions404,
             ),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    ExtensionsGetDeletionPreview: (owner, type, name, options) =>
+      HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/deletion`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ExtensionsGetDeletionPreview200),
+            "400": decodeError("ExtensionsGetDeletionPreview400", ExtensionsGetDeletionPreview400),
+            "401": decodeError("ExtensionsGetDeletionPreview401", ExtensionsGetDeletionPreview401),
+            "403": decodeError("ExtensionsGetDeletionPreview403", ExtensionsGetDeletionPreview403),
+            "404": decodeError("ExtensionsGetDeletionPreview404", ExtensionsGetDeletionPreview404),
             orElse: unexpectedStatus,
           }),
         ),
@@ -4036,6 +4300,27 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsGet404", typeof ExtensionsGet404.Type>
   >;
   /**
+   * Permanently delete a whole Extension
+   */
+  readonly ExtensionsDeleteExtension: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: {
+      readonly payload: typeof ExtensionsDeleteExtensionRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ExtensionsDeleteExtension202.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsDeleteExtension400", typeof ExtensionsDeleteExtension400.Type>
+    | RegistryClientError<"ExtensionsDeleteExtension401", typeof ExtensionsDeleteExtension401.Type>
+    | RegistryClientError<"ExtensionsDeleteExtension403", typeof ExtensionsDeleteExtension403.Type>
+    | RegistryClientError<"ExtensionsDeleteExtension404", typeof ExtensionsDeleteExtension404.Type>
+    | RegistryClientError<"ExtensionsDeleteExtension409", typeof ExtensionsDeleteExtension409.Type>
+  >;
+  /**
    * Check whether an extension exists
    */
   readonly ExtensionsHead: <Config extends OperationConfig>(
@@ -4127,6 +4412,33 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsPublishVersion429", typeof ExtensionsPublishVersion429.Type>
     | RegistryClientError<"ExtensionsPublishVersion500", typeof ExtensionsPublishVersion500.Type>
     | RegistryClientError<"ExtensionsPublishVersion503", typeof ExtensionsPublishVersion503.Type>
+  >;
+  /**
+   * Get Extension deletion operation status
+   */
+  readonly ExtensionsGetDeletionOperation: <Config extends OperationConfig>(
+    operationId: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ExtensionsGetDeletionOperation200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "ExtensionsGetDeletionOperation400",
+        typeof ExtensionsGetDeletionOperation400.Type
+      >
+    | RegistryClientError<
+        "ExtensionsGetDeletionOperation401",
+        typeof ExtensionsGetDeletionOperation401.Type
+      >
+    | RegistryClientError<
+        "ExtensionsGetDeletionOperation403",
+        typeof ExtensionsGetDeletionOperation403.Type
+      >
+    | RegistryClientError<
+        "ExtensionsGetDeletionOperation404",
+        typeof ExtensionsGetDeletionOperation404.Type
+      >
   >;
   /**
    * Download extension archive
@@ -4261,6 +4573,35 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsYankAvailableVersions404",
         typeof ExtensionsYankAvailableVersions404.Type
+      >
+  >;
+  /**
+   * Preview permanent Extension deletion impact
+   */
+  readonly ExtensionsGetDeletionPreview: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ExtensionsGetDeletionPreview200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "ExtensionsGetDeletionPreview400",
+        typeof ExtensionsGetDeletionPreview400.Type
+      >
+    | RegistryClientError<
+        "ExtensionsGetDeletionPreview401",
+        typeof ExtensionsGetDeletionPreview401.Type
+      >
+    | RegistryClientError<
+        "ExtensionsGetDeletionPreview403",
+        typeof ExtensionsGetDeletionPreview403.Type
+      >
+    | RegistryClientError<
+        "ExtensionsGetDeletionPreview404",
+        typeof ExtensionsGetDeletionPreview404.Type
       >
   >;
   /**

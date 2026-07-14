@@ -1582,6 +1582,7 @@
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "owner": { "$ref": "#/components/schemas/Handle" },
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "publisher_binding_id": { "type": "string", "readOnly": true },
                     "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "repository": {
                       "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
@@ -1780,6 +1781,173 @@
           },
           "required": true
         }
+      },
+      "delete": {
+        "tags": ["Extensions"],
+        "operationId": "Extensions.deleteExtension",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "operationId": { "$ref": "#/components/schemas/ExtensionDeletionOperationId" },
+                    "state": { "type": "string", "enum": ["pending"] },
+                    "requiredConfirmation": { "type": "string" },
+                    "warnings": {
+                      "type": "object",
+                      "properties": {
+                        "versions": { "type": "array", "items": { "type": "string" } },
+                        "dependentPackCount": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                { "type": "number" },
+                                { "type": "string", "enum": ["NaN"] },
+                                { "type": "string", "enum": ["Infinity"] },
+                                { "type": "string", "enum": ["-Infinity"] }
+                              ]
+                            },
+                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                          ]
+                        },
+                        "libraryMembershipCount": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                { "type": "number" },
+                                { "type": "string", "enum": ["NaN"] },
+                                { "type": "string", "enum": ["Infinity"] },
+                                { "type": "string", "enum": ["-Infinity"] }
+                              ]
+                            },
+                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                          ]
+                        },
+                        "downloadCount": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    { "type": "number" },
+                                    { "type": "string", "enum": ["NaN"] },
+                                    { "type": "string", "enum": ["Infinity"] },
+                                    { "type": "string", "enum": ["-Infinity"] }
+                                  ]
+                                },
+                                { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                              ]
+                            },
+                            { "type": "null" }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versions",
+                        "dependentPackCount",
+                        "libraryMembershipCount",
+                        "downloadCount"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["operationId", "state", "requiredConfirmation", "warnings"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "StepUpRequiredError | UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/StepUpRequiredError" },
+                    { "$ref": "#/components/schemas/ProblemDetails" }
+                  ],
+                  "discriminator": {
+                    "propertyName": "code",
+                    "mapping": { "eotp": "#/components/schemas/StepUpRequiredError" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Permanently delete a whole Extension",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/DeleteExtensionBody" } }
+          },
+          "required": true
+        }
       }
     },
     "/v1/extensions/{owner}/{type}/{name}/{version}": {
@@ -1824,6 +1992,7 @@
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "owner": { "$ref": "#/components/schemas/Handle" },
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "publisher_binding_id": { "type": "string", "readOnly": true },
                     "version": { "$ref": "#/components/schemas/Version" },
                     "status": {
                       "type": "string",
@@ -2119,6 +2288,99 @@
           },
           "required": true
         }
+      }
+    },
+    "/v1/extensions/deletions/{operationId}": {
+      "get": {
+        "tags": ["Extensions"],
+        "operationId": "Extensions.getDeletionOperation",
+        "parameters": [
+          {
+            "name": "operationId",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionDeletionOperationId" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "$ref": "#/components/schemas/ExtensionDeletionOperationId" },
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
+                    "state": {
+                      "type": "string",
+                      "enum": ["pending", "dispatching", "completed", "failed"]
+                    },
+                    "requestedAt": { "type": "string" },
+                    "completedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "nameReclaimableAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "failureCode": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "failureDetail": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  },
+                  "required": [
+                    "id",
+                    "owner",
+                    "type",
+                    "name",
+                    "state",
+                    "requestedAt",
+                    "completedAt",
+                    "nameReclaimableAt",
+                    "failureCode",
+                    "failureDetail"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Get Extension deletion operation status"
       }
     },
     "/v1/extensions/{owner}/{type}/{name}/{version}/archive": {
@@ -2688,6 +2950,145 @@
           },
           "required": true
         }
+      }
+    },
+    "/v1/extensions/{owner}/{type}/{name}/deletion": {
+      "get": {
+        "tags": ["Extensions"],
+        "operationId": "Extensions.getDeletionPreview",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requiredConfirmation": { "type": "string" },
+                    "warnings": {
+                      "type": "object",
+                      "properties": {
+                        "versions": { "type": "array", "items": { "type": "string" } },
+                        "dependentPackCount": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                { "type": "number" },
+                                { "type": "string", "enum": ["NaN"] },
+                                { "type": "string", "enum": ["Infinity"] },
+                                { "type": "string", "enum": ["-Infinity"] }
+                              ]
+                            },
+                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                          ]
+                        },
+                        "libraryMembershipCount": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                { "type": "number" },
+                                { "type": "string", "enum": ["NaN"] },
+                                { "type": "string", "enum": ["Infinity"] },
+                                { "type": "string", "enum": ["-Infinity"] }
+                              ]
+                            },
+                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                          ]
+                        },
+                        "downloadCount": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    { "type": "number" },
+                                    { "type": "string", "enum": ["NaN"] },
+                                    { "type": "string", "enum": ["Infinity"] },
+                                    { "type": "string", "enum": ["-Infinity"] }
+                                  ]
+                                },
+                                { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                              ]
+                            },
+                            { "type": "null" }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versions",
+                        "dependentPackCount",
+                        "libraryMembershipCount",
+                        "downloadCount"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["requiredConfirmation", "warnings"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Preview permanent Extension deletion impact"
       }
     },
     "/v1/admin/extensions/{owner}/{type}/{name}/{version}/purge": {
@@ -5303,6 +5704,17 @@
         "title": "Companion Package",
         "description": "A companion package purl identity with an optional VERS compatibility range."
       },
+      "ExtensionDeletionOperationId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Extension Deletion Operation ID",
+            "description": "Identifies a durable owner-requested whole-Extension deletion operation.",
+            "examples": ["edel_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
       "PatchVisibilityBody": {
         "type": "object",
         "properties": {
@@ -5555,6 +5967,19 @@
         "additionalProperties": false,
         "title": "Yank Available Versions Body",
         "description": "Atomically yanks the snapshot of all currently available versions."
+      },
+      "DeleteExtensionBody": {
+        "type": "object",
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "description": "Exact full Extension FQN typed by the owner to confirm deletion."
+          }
+        },
+        "required": ["confirmation"],
+        "additionalProperties": false,
+        "title": "Delete Extension Body",
+        "description": "High-intent confirmation for permanent whole-Extension deletion."
       },
       "PurgeExtensionVersionBody": {
         "type": "object",

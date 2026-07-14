@@ -93,6 +93,7 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
     name: response.name,
     owner: response.owner,
     type: narrowExtensionType(response.type),
+    publisherBindingId: response.publisher_binding_id,
     description: response.description ?? undefined,
     repository: response.repository ?? undefined,
     license: response.license ?? undefined,
@@ -190,6 +191,9 @@ const toRegistryManifest = (
     owner: index.owner,
     type: index.type,
     name: index.name,
+    ...(index.publisherBindingId === undefined
+      ? {}
+      : { publisherBindingId: index.publisherBindingId }),
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
     bugs: Option.fromUndefinedOr(index.bugs),

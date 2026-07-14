@@ -70,6 +70,9 @@ const buildSetPackArgs = (
       resolvedVersion: decodeVersionSync(ref.version),
       integrity: Option.getOrElse(ref.integrity, () => ""),
       sourceName: "default",
+      ...(ref.publisherBindingId === undefined
+        ? {}
+        : { publisherBindingId: ref.publisherBindingId }),
       installedAt: new Date(),
       updatedAt: new Date(),
       resolvedSkills: resolved.resolvedSkills,

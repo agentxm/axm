@@ -1262,6 +1262,7 @@ describe("RemoteRegistryClient", () => {
               owner: "@test",
               type: "skill",
               name: "my-skill",
+              publisher_binding_id: "hbnd_test",
               versions: [
                 {
                   version: "1.0.0",

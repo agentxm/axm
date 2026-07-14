@@ -207,6 +207,9 @@ export const skillLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
+              ...(entry.publisherBindingId === undefined
+                ? {}
+                : { publisherBindingId: entry.publisherBindingId }),
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),

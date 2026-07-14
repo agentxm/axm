@@ -454,8 +454,30 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   const warningsBySkill = new Map<string, ReadonlyArray<string>>();
   for (const item of resolved) {
-    if (item.warnings.length > 0) {
-      warningsBySkill.set(item.ref.skill.name, item.warnings);
+    const existing = lockedSkills[item.ref.skill.name];
+    const lockedEpoch = existing?.type === "registry" ? existing.publisherBindingId : undefined;
+    const resolvedEpoch = item.ref.refType === "registry" ? item.ref.publisherBindingId : undefined;
+    const publisherEpochChanged =
+      existing?.type === "registry" &&
+      item.ref.refType === "registry" &&
+      lockedEpoch !== resolvedEpoch &&
+      (lockedEpoch !== undefined || resolvedEpoch !== undefined);
+    if (publisherEpochChanged && args.yes) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Unattended update refused for ${item.ref.owner}/skills/${item.ref.name}: publisher epoch changed from ${lockedEpoch ?? "legacy-lock"} to ${resolvedEpoch ?? "missing"}`,
+        recover: "Run the update interactively, verify the publisher change, and confirm the plan.",
+      });
+    }
+
+    const warnings = publisherEpochChanged
+      ? [
+          `Publisher identity changed (${lockedEpoch ?? "legacy lock"} → ${resolvedEpoch ?? "missing epoch"}); confirm only if you trust the current publisher`,
+          ...item.warnings,
+        ]
+      : item.warnings;
+    if (warnings.length > 0) {
+      warningsBySkill.set(item.ref.skill.name, warnings);
     }
   }
 
@@ -505,13 +527,30 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   // Step 10: Build plan
   const lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: lockedSkills };
-  const basePlan = buildUpdatePlan(
+  const rawPlan = buildUpdatePlan(
     ops,
     lockfile,
     "Update skills",
     Option.some("Update installed skills"),
     makeRunClosure,
   );
+  const basePlan =
+    warningsBySkill.size === 0
+      ? rawPlan
+      : {
+          ...rawPlan,
+          sections: [
+            ...(rawPlan.sections ?? []),
+            {
+              title: "Publisher ownership changes",
+              items: [...warningsBySkill.entries()].flatMap(([name, warnings]) =>
+                warnings
+                  .filter((warning) => warning.startsWith("Publisher identity changed"))
+                  .map((warning) => `${name}: ${warning}`),
+              ),
+            },
+          ],
+        };
   const basePlanWithWarnings: Plan = {
     ...basePlan,
     jobs: basePlan.jobs.map((job) => ({

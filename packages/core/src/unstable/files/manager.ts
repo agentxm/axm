@@ -75,6 +75,7 @@ const registryFilesLockEntry = (
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
+  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
   resolvedInputs,
   materializedTargets,
   ...commonLockFields(now),

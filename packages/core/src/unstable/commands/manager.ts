@@ -67,6 +67,7 @@ const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockE
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
+  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
   agents: [],
   installedAt: now,
   updatedAt: now,

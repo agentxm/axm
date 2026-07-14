@@ -250,6 +250,8 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly owner: Handle;
   readonly type: T;
   readonly name: ExtensionName;
+  /** Immutable publisher epoch for this coordinate. Absent only for legacy local registries. */
+  readonly publisherBindingId?: string;
   readonly description: Option.Option<string>;
   readonly repository: Option.Option<Repository>;
   readonly bugs: Option.Option<Bugs>;

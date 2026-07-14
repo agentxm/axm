@@ -96,6 +96,7 @@ const makeRegistryLockEntry = (
   name: string,
   resolvedVersion: string,
   agents: string[] = ["claude-code"],
+  publisherBindingId?: string,
 ) => ({
   type: "registry",
   owner,
@@ -104,6 +105,7 @@ const makeRegistryLockEntry = (
   integrity: `sha512-${resolvedVersion}`,
   sourceName: "local-reg",
   agents,
+  ...(publisherBindingId === undefined ? {} : { publisherBindingId }),
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
@@ -128,6 +130,7 @@ const writeRegistrySkill = ({
   owner,
   name,
   versions,
+  publisherBindingId,
 }: {
   readonly registryRoot: string;
   readonly owner: string;
@@ -136,6 +139,7 @@ const writeRegistrySkill = ({
     readonly version: string;
     readonly skillBody: string;
   }>;
+  readonly publisherBindingId?: string;
 }) => {
   const dir = path.join(registryRoot, "extensions", owner, "skills", name);
   fs.mkdirSync(dir, { recursive: true });
@@ -158,6 +162,7 @@ const writeRegistrySkill = ({
         type: "skill",
         name,
         description: "Registry test skill",
+        ...(publisherBindingId === undefined ? {} : { publisherBindingId }),
         versions: versionEntries,
       },
       null,
@@ -411,6 +416,92 @@ describe("update.handler — error recovery", () => {
 
         expect(logs.info.some((message) => message.includes("Would update 1 skill"))).toBe(true);
         expect(logs.warn).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("refuses an unattended update across a publisher epoch", () => {
+    const { provide } = makeLayers();
+    const registryRoot = path.join(tempDir, "registry");
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@acme",
+      name: "code-review",
+      publisherBindingId: "hbnd_new",
+      versions: [
+        { version: "2.0.0", skillBody: "# code-review v2" },
+        { version: "1.0.0", skillBody: "# code-review v1" },
+      ],
+    });
+    initWorkspace(path.join(tempDir, ".axm"), {
+      sources: [
+        {
+          name: "local-reg",
+          type: "registry",
+          location: pathToFileURL(registryRoot).href,
+        },
+      ],
+      skills: { "code-review": "@acme/skills/code-review" },
+      skillLocks: {
+        "code-review": makeRegistryLockEntry(
+          "@acme",
+          "code-review",
+          "1.0.0",
+          ["claude-code"],
+          "hbnd_old",
+        ),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(handleUpdate(defaultArgs({ yes: true })));
+        expect(error.detail).toContain("publisher epoch changed");
+        expect(error.detail).toContain("hbnd_old");
+        expect(error.detail).toContain("hbnd_new");
+      }),
+    );
+  });
+
+  it.effect("surfaces publisher epoch changes in an interactive preview", () => {
+    const { provide, logs } = makeLayers();
+    const registryRoot = path.join(tempDir, "registry");
+    writeRegistrySkill({
+      registryRoot,
+      owner: "@acme",
+      name: "code-review",
+      publisherBindingId: "hbnd_new",
+      versions: [
+        { version: "2.0.0", skillBody: "# code-review v2" },
+        { version: "1.0.0", skillBody: "# code-review v1" },
+      ],
+    });
+    initWorkspace(path.join(tempDir, ".axm"), {
+      sources: [
+        {
+          name: "local-reg",
+          type: "registry",
+          location: pathToFileURL(registryRoot).href,
+        },
+      ],
+      skills: { "code-review": "@acme/skills/code-review" },
+      skillLocks: {
+        "code-review": makeRegistryLockEntry(
+          "@acme",
+          "code-review",
+          "1.0.0",
+          ["claude-code"],
+          "hbnd_old",
+        ),
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleUpdate(defaultArgs({ preview: true }));
+        expect(logs.message.some((message) => message.includes("Publisher identity changed"))).toBe(
+          true,
+        );
       }),
     );
   });

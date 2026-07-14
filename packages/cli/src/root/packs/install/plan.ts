@@ -165,6 +165,9 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         resolvedVersion: ref.version,
         integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: "default",
+        ...(ref.publisherBindingId === undefined
+          ? {}
+          : { publisherBindingId: ref.publisherBindingId }),
         resolvedSkills,
         resolvedCommands,
         resolvedMcpServers,

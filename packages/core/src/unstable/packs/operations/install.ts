@@ -53,6 +53,7 @@ export interface InstallPackOperationArgs {
   readonly integrity: string;
   /** Registry source name */
   readonly sourceName: string;
+  readonly publisherBindingId?: string;
   /** Resolved skill FQNs to exact versions */
   readonly resolvedSkills: ResolvedExtensionMap;
   /** Resolved command FQNs to exact versions */
@@ -232,6 +233,9 @@ export const installPack: OperationHandler<
         resolvedVersion: op.args.resolvedVersion,
         integrity: op.args.integrity,
         sourceName: op.args.sourceName,
+        ...(op.args.publisherBindingId === undefined
+          ? {}
+          : { publisherBindingId: op.args.publisherBindingId }),
         installedAt: new Date(),
         updatedAt: new Date(),
         resolvedSkills: op.args.resolvedSkills,

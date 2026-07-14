@@ -145,6 +145,7 @@ const makeSourceLockUnion = <
       resolvedVersion: VersionSchema,
       integrity: Schema.String,
       sourceName: Schema.String,
+      publisherBindingId: Schema.optional(Schema.NonEmptyString),
       ...extraFields,
     }),
     Schema.Struct({
@@ -557,6 +558,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedVersion: VersionSchema,
   integrity: Schema.String,
   sourceName: Schema.String,
+  publisherBindingId: Schema.optional(Schema.NonEmptyString),
   installedAt: DateFromIsoDateTimeStringSchema,
   updatedAt: DateFromIsoDateTimeStringSchema,
   resolvedSkills: ResolvedExtensionMapSchema,

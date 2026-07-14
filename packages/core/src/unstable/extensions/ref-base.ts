@@ -38,6 +38,8 @@ export interface GitHostedRefDetails {
 export interface RegistryRefDetails {
   /** Registry owner that owns the published extension */
   readonly owner: Handle;
+  /** Immutable registry publisher epoch. Absent only for legacy lockfiles/registries. */
+  readonly publisherBindingId?: string;
   /**
    * Registry package name — the identifier used for registry operations (fetch, version resolution).
    * This may differ from the extension-specific display name (e.g., skill.name, pack.name,

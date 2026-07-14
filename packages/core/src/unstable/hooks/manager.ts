@@ -81,6 +81,7 @@ const registryHookLockEntry = (
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
+  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
   materializedTargets,
   ...commonLockFields(now),
 });

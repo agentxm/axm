@@ -93,6 +93,9 @@ const indexToManifest = (
     owner: index.owner,
     type: index.type,
     name: index.name,
+    ...(index.publisherBindingId === undefined
+      ? {}
+      : { publisherBindingId: index.publisherBindingId }),
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
     bugs: Option.fromUndefinedOr(index.bugs),

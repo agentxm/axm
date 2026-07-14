@@ -261,6 +261,90 @@ const lockedLibraryRefs = (locked: RegistryLibraryLockEntry, source: RegistrySou
     return refs.flat();
   });
 
+const validateFrozenPublisherEpochs = (refs: ReadonlyArray<ExtensionRef>, source: RegistrySource) =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const [skills, commands, mcpServers, subagents, files, rules, hooks] = yield* Effect.all([
+      ws.getLockedSkills(),
+      ws.getLockedCommands(),
+      ws.getLockedMcpServers(),
+      ws.getLockedSubagents(),
+      ws.getLockedFiles(),
+      ws.getLockedRules(),
+      ws.getLockedHooks(),
+    ]);
+    const client = yield* createRegistryClient(source.location.href);
+
+    yield* Effect.forEach(
+      refs,
+      (ref) =>
+        Effect.gen(function* () {
+          if (ref.refType !== "registry") {
+            return yield* makeAppError({
+              code: "validation",
+              detail: "Frozen Library replay produced a non-registry member reference",
+            });
+          }
+          const name = refName(ref);
+          const lockedEntry = (() => {
+            switch (ref.type) {
+              case "skill":
+                return skills[name];
+              case "command":
+                return commands[name];
+              case "mcp-server":
+                return mcpServers[name];
+              case "subagent":
+                return subagents[name];
+              case "files":
+                return files[name];
+              case "rule":
+                return rules[name];
+              case "hook":
+                return hooks[name];
+              case "pack":
+                return undefined;
+            }
+          })();
+          const expected =
+            lockedEntry?.type === "registry" ? lockedEntry.publisherBindingId : undefined;
+          const fqn = `${ref.owner}/${ref.type}/${ref.name}`;
+
+          if (expected === undefined) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Frozen replay refused for ${fqn}: the lock entry predates publisher epochs`,
+              recover:
+                "Run the install without --frozen, review the publisher identity, and commit the refreshed lockfile.",
+            });
+          }
+
+          const index = yield* client.getExtensionIndex({
+            owner: ref.owner,
+            type: ref.type,
+            name: ref.name,
+          });
+          if (Option.isNone(index)) {
+            return yield* makeAppError({
+              code: "not_found",
+              detail: `Frozen replay refused for ${fqn}: the registry coordinate no longer exists`,
+            });
+          }
+
+          const actual = index.value.publisherBindingId;
+          if (actual === undefined || actual !== expected) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Frozen replay refused for ${fqn}: publisher epoch ${actual ?? "missing"} does not match locked epoch ${expected}`,
+              recover:
+                "Run the install without --frozen and explicitly review the publisher change.",
+            });
+          }
+        }),
+      { concurrency: 4 },
+    );
+  });
+
 const isMemberMature = (
   member: RegistryLibraryMember,
   policy: Option.Option<ReleaseAgePolicy>,
@@ -985,6 +1069,7 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
             discovery.lockedLibrary,
             discovery.request.source,
           );
+          yield* provide(validateFrozenPublisherEpochs(refsToInstall, discovery.request.source));
 
           return {
             mode: "frozen",

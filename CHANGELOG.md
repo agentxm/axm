@@ -1,3 +1,13 @@
+## 0.21.1 (2026-07-15)
+
+### 🩹 Fixes
+
+- Add browser-authorized exact publishing, archive-backed installs, local archive caching, and Effect beta.98 support. ([eabb5b3e](https://github.com/agentxm/axm/commit/eabb5b3e))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.21.0 (2026-07-14)
 
 ### 🚀 Features

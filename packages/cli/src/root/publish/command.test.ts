@@ -139,6 +139,62 @@ describe("root publish", () => {
     );
   });
 
+  it.effect("builds a publish candidate for a conformant Knowledge bundle", () => {
+    fs.writeFileSync(
+      path.join(tempDir, ".axm", "settings.json"),
+      JSON.stringify({
+        owner: "@acme",
+        agents: [],
+        knowledge: {
+          platform: { source: "workspace:@acme/knowledge/platform", enabled: true },
+        },
+      }),
+    );
+    const knowledgeDir = path.join(tempDir, ".axm", "extensions", "@acme", "knowledge", "platform");
+    fs.mkdirSync(path.join(knowledgeDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(knowledgeDir, "knowledge.json"),
+      JSON.stringify({
+        owner: "@acme",
+        type: "knowledge",
+        name: "platform",
+        version: "1.0.0",
+        format: { name: "okf", version: "0.1" },
+        bundleRoot: "src",
+      }),
+    );
+    fs.writeFileSync(
+      path.join(knowledgeDir, "src", "index.md"),
+      "---\nokf_version: 0.1\n---\n# Platform knowledge\n",
+    );
+    fs.writeFileSync(
+      path.join(knowledgeDir, "src", "architecture.md"),
+      "---\ntype: reference\ndescription: Platform architecture\ntags: [platform]\n---\n# Architecture\n",
+    );
+    const { provide, rendererState } = makeContext();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPublish(
+          args(pathToFileURL(path.join(tempDir, "registry")).href, {
+            types: ["knowledge"],
+          }),
+        );
+
+        const result = expectPublishResult(at(rendererState.results, 0).data, {
+          mode: "preview",
+          count: 1,
+        });
+        const results = property(result, "results");
+        if (!Array.isArray(results)) throw new Error("Expected publish results");
+        const item = expectRecord(at(results, 0));
+        expect(property(item, "type")).toBe("knowledge");
+        expect(property(item, "action")).toBe("publish");
+        expect(property(item, "status")).toBe("pending");
+      }),
+    );
+  });
+
   it.effect("verifies an existing immutable version and detects integrity drift", () => {
     fs.writeFileSync(
       path.join(tempDir, ".axm", "settings.json"),

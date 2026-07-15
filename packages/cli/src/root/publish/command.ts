@@ -41,6 +41,11 @@ import {
 import type { JobStepResult, Plan } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CompanionPackageSchema } from "@agentxm/client-core/unstable/package-urls";
+import {
+  KNOWLEDGE_SOURCE_DIR,
+  KnowledgeManifestSchema,
+  inspectKnowledgeBundle,
+} from "@agentxm/client-core/unstable/knowledge";
 import { runPublishLintGate } from "@agentxm/client-core/unstable/publish";
 import {
   createRegistryClient,
@@ -73,10 +78,11 @@ const publishableTypes = [
   "subagent",
   "files",
   "hook",
+  "knowledge",
   "pack",
 ] as const;
 
-const selectableTypes = [...publishableTypes, "rule", "knowledge"] as const;
+const selectableTypes = [...publishableTypes, "rule"] as const;
 type PublishableType = (typeof publishableTypes)[number];
 type SelectableType = (typeof selectableTypes)[number];
 type SelectionMode = "authored" | "all" | "explicit" | "filtered-explicit";
@@ -522,7 +528,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   visibility: Option.Option<ExtensionVisibility>,
 ) {
   if (selected.skipReason !== undefined) return undefined;
-  if (selected.type === "rule" || selected.type === "knowledge") return undefined;
+  if (selected.type === "rule") return undefined;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -555,6 +561,33 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       makeAppError({ code: "validation", detail: `Invalid manifest: ${manifestPath}`, cause }),
     ),
   );
+  if (selected.type === "knowledge") {
+    yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(manifestJson).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({ code: "validation", detail: `Invalid manifest: ${manifestPath}`, cause }),
+      ),
+    );
+    const inspection = yield* inspectKnowledgeBundle(
+      path.join(extensionDir, KNOWLEDGE_SOURCE_DIR),
+    ).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "validation",
+          detail: `Failed to inspect Knowledge bundle: ${selected.fqn}`,
+          cause,
+        }),
+      ),
+    );
+    const blocking = inspection.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+    if (blocking.length > 0) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Knowledge publish validation failed for ${selected.fqn}: ${blocking
+          .map((diagnostic) => `${diagnostic.relativePath}: ${diagnostic.message}`)
+          .join("; ")}`,
+      });
+    }
+  }
   if (
     manifest.owner !== selected.owner ||
     manifest.type !== selected.type ||
@@ -565,7 +598,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       detail: `Manifest identity does not match configured extension ${selected.fqn}`,
     });
   }
-  if (selected.type !== "files") {
+  if (selected.type !== "files" && selected.type !== "knowledge") {
     yield* runPublishLintGate({
       type: selected.type,
       extensionDir,

@@ -1,15 +1,19 @@
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   KNOWLEDGE_EXTENSION_DIR,
+  KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_SOURCE_DIR,
+  KnowledgeManifestSchema,
   inspectKnowledgeBundle,
   KnowledgeManager,
   KnowledgeManagerLive,
@@ -23,10 +27,25 @@ import {
   REGISTRY_EXTENSIONS_DIR,
 } from "@agentxm/client-core/unstable/extensions";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  runInstallCommandWorkflow,
+  runUninstallCommandWorkflow,
+} from "@agentxm/client-core/unstable/workflows";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { handleWorkspaceInstall } from "../install/workspace-install-handler.js";
 import { newCommand } from "./new.js";
+import { knowledgePublishCommand as publishCommand } from "../publish/per-type-command.js";
+import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import {
+  deleteSourceFlag,
+  keepSourceFlag,
+  resolveSourceDisposition,
+} from "../shared/source-disposition-flags.js";
+import { handleWorkspaceUpdate } from "../update/workspace-update-handler.js";
+import { makeInstallKnowledgeCommandWorkflowActions } from "./install/command-actions.js";
+import { makeUninstallKnowledgeCommandWorkflowActions } from "./uninstall/command-actions.js";
 
 const ConceptSchema = Schema.Struct({
   bundle: Schema.String,
@@ -241,9 +260,70 @@ const flattenDiagnostics = (
     inspection.diagnostics.map((item) => ({ bundle: name, ...item })),
   );
 
-export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (name?: string) {
+const inspectAuthoredKnowledge = Effect.fn("Knowledge.inspectAuthored")(function* (
+  packagePath: string,
+) {
+  const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const packageRoot = path.resolve(ws.baseDir, packagePath);
+  const manifestRaw = yield* fs
+    .readFileString(path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME))
+    .pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "validation",
+          detail: `Failed to read ${KNOWLEDGE_MANIFEST_FILENAME} from ${packagePath}`,
+          cause,
+        }),
+      ),
+    );
+  const manifest = yield* Effect.try({
+    try: (): unknown => JSON.parse(manifestRaw),
+    catch: (cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Failed to parse ${KNOWLEDGE_MANIFEST_FILENAME} from ${packagePath}`,
+        cause,
+      }),
+  }).pipe(
+    Effect.flatMap(Schema.decodeUnknownEffect(KnowledgeManifestSchema)),
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Invalid ${KNOWLEDGE_MANIFEST_FILENAME} in ${packagePath}`,
+        cause,
+      }),
+    ),
+  );
+  const sourceRoot = path.join(packageRoot, KNOWLEDGE_SOURCE_DIR);
+  const inspection = yield* inspectKnowledgeBundle(sourceRoot).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Failed to inspect authored Knowledge package ${packagePath}`,
+        cause,
+      }),
+    ),
+  );
+  return [{ name: manifest.name, sourceRoot, inspection }];
+});
+
+export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
+  name?: string,
+  packagePath?: string,
+) {
   const renderer = yield* CliRenderer;
-  const bundles = yield* inspectInstalledKnowledge(name);
+  if (name !== undefined && packagePath !== undefined) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: "Choose either an installed bundle name or --path, not both",
+    });
+  }
+  const bundles =
+    packagePath === undefined
+      ? yield* inspectInstalledKnowledge(name)
+      : yield* inspectAuthoredKnowledge(packagePath);
   const diagnostics = flattenDiagnostics(bundles);
   const errors = diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   const result = { valid: errors.length === 0, diagnostics };
@@ -290,6 +370,126 @@ const setKnowledgeEnabled = Effect.fn("Knowledge.setEnabled")(function* (
 const scopeConfig = {
   scope: scopeFlag.pipe(Flag.withDescription("Use project (default) or user knowledge state")),
 } as const;
+
+const mutationFlags = {
+  yes: yesFlag,
+  force: forceFlag,
+  preview: previewFlag,
+} as const;
+
+const installConfig = {
+  source: Argument.string("source").pipe(
+    Argument.withDescription("Knowledge source (@owner/knowledge/name, path, URL, or git locator)"),
+    Argument.optional,
+  ),
+  ...scopeConfig,
+  ...mutationFlags,
+} as const;
+
+const installCommand = Command.make(
+  "install",
+  installConfig,
+  ({ source, scope, yes, force, preview }) =>
+    Option.match(source, {
+      onNone: () =>
+        handleWorkspaceInstall({
+          command: "knowledge.install",
+          type: Option.some("knowledge"),
+          planName: "Install Knowledge",
+          planDescription: Option.some("Install configured Knowledge bundles"),
+          flags: { yes, force, preview },
+        }),
+      onSome: (value) =>
+        Effect.gen(function* () {
+          const actions = yield* makeInstallKnowledgeCommandWorkflowActions;
+          const resolution = yield* runInstallCommandWorkflow({ source: value }, actions, {
+            yes,
+            force,
+            preview,
+            displayApplied: false,
+          });
+          yield* emitAppliedPlanOutcome({
+            command: "knowledge.install",
+            headline: `Installed Knowledge from ${value}`,
+            resolution,
+            suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
+          });
+        }),
+    }).pipe(withWorkspace(scope), withRuntime("knowledge install")),
+).pipe(
+  withArgvTracking(installConfig),
+  Command.withDescription("Install or restore Knowledge bundles"),
+  Command.withExamples([
+    {
+      command: "axm knowledge install @acme/knowledge/platform",
+      description: "Install a Knowledge bundle from the registry",
+    },
+  ]),
+);
+
+const updateConfig = {
+  ...scopeConfig,
+  ...mutationFlags,
+} as const;
+
+const updateCommand = Command.make("update", updateConfig, ({ scope, yes, force, preview }) =>
+  handleWorkspaceUpdate({
+    command: "knowledge.update",
+    type: Option.some("knowledge"),
+    planName: "Update Knowledge",
+    planDescription: Option.some("Update configured Knowledge bundles"),
+    flags: { yes, force, preview },
+  }).pipe(withWorkspace(scope), withRuntime("knowledge update")),
+).pipe(
+  withArgvTracking(updateConfig),
+  Command.withDescription("Update configured Knowledge bundles"),
+  Command.withExamples([
+    {
+      command: "axm knowledge update --preview",
+      description: "Preview Knowledge bundle updates",
+    },
+  ]),
+);
+
+const uninstallConfig = {
+  name: Argument.string("name").pipe(Argument.withDescription("Configured Knowledge bundle name")),
+  ...scopeConfig,
+  ...mutationFlags,
+  keepSource: keepSourceFlag,
+  deleteSource: deleteSourceFlag,
+} as const;
+
+const uninstallCommand = Command.make(
+  "uninstall",
+  uninstallConfig,
+  ({ name, scope, yes, force, preview, keepSource, deleteSource }) =>
+    Effect.gen(function* () {
+      const sourceDisposition = yield* resolveSourceDisposition(keepSource, deleteSource);
+      const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
+      const resolution = yield* runUninstallCommandWorkflow({ name }, actions, {
+        yes,
+        force,
+        preview,
+        displayApplied: false,
+        ...(sourceDisposition === undefined ? {} : { sourceDisposition }),
+      });
+      yield* emitAppliedPlanOutcome({
+        command: "knowledge.uninstall",
+        headline: `Uninstalled Knowledge bundle ${name}`,
+        resolution,
+        suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
+      });
+    }).pipe(withWorkspace(scope), withRuntime("knowledge uninstall")),
+).pipe(
+  withArgvTracking(uninstallConfig),
+  Command.withDescription("Uninstall a Knowledge bundle"),
+  Command.withExamples([
+    {
+      command: "axm knowledge uninstall platform --preview",
+      description: "Preview removing one Knowledge bundle",
+    },
+  ]),
+);
 
 const listCommand = Command.make("list", scopeConfig, ({ scope }) =>
   handleKnowledgeList().pipe(
@@ -353,22 +553,30 @@ const lintConfig = {
     Argument.withDescription("Optional installed bundle name"),
     Argument.optional,
   ),
+  path: Flag.string("path").pipe(
+    Flag.withDescription("Validate a locally authored Knowledge package directory"),
+    Flag.optional,
+  ),
   ...scopeConfig,
 } as const;
 
-const lintCommand = Command.make("lint", lintConfig, ({ bundle, scope }) =>
-  handleKnowledgeLint(Option.getOrUndefined(bundle)).pipe(
+const lintCommand = Command.make("lint", lintConfig, ({ bundle, path, scope }) =>
+  handleKnowledgeLint(Option.getOrUndefined(bundle), Option.getOrUndefined(path)).pipe(
     withWorkspace(scope),
     withRuntime("knowledge lint"),
   ),
 ).pipe(
   withArgvTracking(lintConfig),
-  Command.withDescription("Validate installed Open Knowledge Format bundles"),
+  Command.withDescription("Validate installed or locally authored Open Knowledge Format bundles"),
   Command.withExamples([
     { command: "axm knowledge lint", description: "Validate all installed knowledge bundles" },
     {
       command: "axm knowledge lint platform",
       description: "Validate one installed knowledge bundle",
+    },
+    {
+      command: "axm knowledge lint --path ./knowledge/platform",
+      description: "Validate a locally authored Knowledge package",
     },
   ]),
 );
@@ -423,11 +631,15 @@ export const knowledgeCommand = Command.make("knowledge").pipe(
   ]),
   Command.withSubcommands([
     newCommand,
+    installCommand,
+    updateCommand,
+    uninstallCommand,
     listCommand,
     searchCommand,
     openCommand,
     lintCommand,
     enableCommand,
     disableCommand,
+    publishCommand,
   ]),
 );

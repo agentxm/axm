@@ -17,7 +17,7 @@ import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { skipExistingFlag } from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
-type PerTypePublishType = Exclude<ExtensionType, "rule" | "knowledge">;
+type PerTypePublishType = Exclude<ExtensionType, "rule">;
 
 const normalizeSelector = (type: PerTypePublishType, selector: string) =>
   Effect.gen(function* () {
@@ -142,4 +142,5 @@ export const mcpsPublishCommand = makePerTypePublishCommand("mcp-server");
 export const subagentsPublishCommand = makePerTypePublishCommand("subagent");
 export const filesPublishCommand = makePerTypePublishCommand("files");
 export const hooksPublishCommand = makePerTypePublishCommand("hook");
+export const knowledgePublishCommand = makePerTypePublishCommand("knowledge");
 export const packsPublishCommand = makePerTypePublishCommand("pack");

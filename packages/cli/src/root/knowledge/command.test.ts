@@ -24,11 +24,21 @@ const captureHelp = (path: ReadonlyArray<string>) =>
   });
 
 describe("knowledge command", () => {
-  it("exposes list, search, open, and lint", async () => {
+  it("exposes discovery, lifecycle, and publish commands", async () => {
     const output = await Effect.runPromise(captureHelp(["knowledge"]));
     expect(output).toContain("list");
     expect(output).toContain("search");
     expect(output).toContain("open");
     expect(output).toContain("lint");
+    expect(output).toContain("install");
+    expect(output).toContain("update");
+    expect(output).toContain("uninstall");
+    expect(output).toContain("publish");
+  });
+
+  it("supports linting a locally authored package path", async () => {
+    const output = await Effect.runPromise(captureHelp(["knowledge", "lint"]));
+    expect(output).toContain("--path");
+    expect(output).toContain("locally authored");
   });
 });

@@ -8,8 +8,10 @@ export {
 } from "./manifest-schema.js";
 export {
   inspectKnowledgeBundle,
+  inspectKnowledgeEntries,
   openKnowledgeConcept,
   searchKnowledgeConcepts,
+  type KnowledgeBundleEntry,
   type KnowledgeConcept,
   type KnowledgeDiagnostic,
   type KnowledgeInspection,

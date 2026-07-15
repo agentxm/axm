@@ -9,7 +9,15 @@ run-name: >-
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "contributing/**"
+      - "*.md"
+      - ".github/pull_request_template.md"
   pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   checks: write
@@ -29,6 +37,32 @@ jobs:
         uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Create local main ref for affected/base diff
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin main:main
+
+      - name: Classify pull request changes
+        id: changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docs_only=true
+
+          while IFS= read -r -d '' path; do
+            if [[ "$path" == contributing/* ]] ||
+              [[ "$path" != */* && "$path" == *.md ]] ||
+              [[ "$path" == ".github/pull_request_template.md" ]]; then
+              continue
+            fi
+
+            docs_only=false
+            break
+          done < <(git diff --name-only -z "$BASE_SHA...$HEAD_SHA")
+
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v6.3.0
@@ -50,53 +84,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check generated output is up to date
-        run: pnpm run generate:check
-
-      - name: Create local main ref for affected/base diff
-        if: github.event_name == 'pull_request'
-        run: git fetch --no-tags origin main:main
-
       - name: Check release plan
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' &&
+          steps.changes.outputs.docs_only != 'true'
         run: pnpm release:plan:check
 
-      - name: Check Nx sync
-        run: pnpm exec nx sync:check
+      - name: Verify affected pull request changes
+        if: github.event_name == 'pull_request' &&
+          steps.changes.outputs.docs_only != 'true'
+        run: pnpm run ci:affected
 
-      - name: Check formatting
-        run: pnpm exec nx format:check
+      - name: Verify documentation
+        if: github.event_name == 'pull_request' &&
+          steps.changes.outputs.docs_only == 'true'
+        run: pnpm run format:check
 
-      - name: Type check
-        run: pnpm exec nx run-many -t typecheck
-
-      - name: Lint
-        run: pnpm exec nx run-many -t lint
-
-      - name: Build
-        run: pnpm exec nx run-many -t build
-
-      - name: Test
-        run: pnpm exec nx run-many -t test
-
-      - name: E2E tests
-        run: pnpm exec nx run-many -t e2e
-
-      - name: Lint scripts
-        run: pnpm exec nx run axm:scripts-lint
-
-      - name: Type check scripts
-        run: pnpm exec nx run axm:scripts-typecheck
-
-      - name: Test scripts
-        run: pnpm exec nx run axm:scripts-test
-
-      - name: Verify E2E boundaries
-        run: pnpm exec nx run axm:verify-e2e-boundaries
+      - name: Verify main
+        if: github.event_name == 'push'
+        run: pnpm run ci
 
       - name: Upload JUnit artifacts
         uses: actions/upload-artifact@v7.0.1
-        if: always()
+        if: always() && steps.changes.outputs.docs_only != 'true'
         with:
           name: test-results
           path: test-results/
@@ -105,7 +114,7 @@ jobs:
 
       - name: Publish JUnit report
         uses: mikepenz/action-junit-report@v6.4.0
-        if: always()
+        if: always() && steps.changes.outputs.docs_only != 'true'
         with:
           report_paths: "test-results/**/junit.xml"
           check_name: Test Results

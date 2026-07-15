@@ -1,3 +1,13 @@
+## 0.22.3 (2026-07-15)
+
+### 🩹 Fixes
+
+- Upgrade the AXM release workflow to setup-bun 2.2.0 and its Node 24 action runtime. ([46fd4e9e](https://github.com/agentxm/axm/commit/46fd4e9e))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.22.2 (2026-07-15)
 
 ### 🩹 Fixes

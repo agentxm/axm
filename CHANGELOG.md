@@ -1,3 +1,13 @@
+## 0.22.1 (2026-07-15)
+
+### 🩹 Fixes
+
+- Complete Knowledge publishing and lifecycle commands, and strengthen Open Knowledge Format safety and conformance linting. ([2ba53759](https://github.com/agentxm/axm/commit/2ba53759))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.22.0 (2026-07-15)
 
 ### 🚀 Features

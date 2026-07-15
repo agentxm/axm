@@ -48,11 +48,35 @@ ranges.
 
 ## Making Changes
 
-1. Fork the repo and create a branch from `main`.
+1. External contributors fork the repo; maintainers work from the main
+   repository. In both cases, create a branch from current `main` before the
+   first file edit.
 2. Make your changes.
 3. Add or update tests for any new or changed behavior.
 4. Ensure CI passes locally: `pnpm run ci`.
 5. Open a pull request against `main`.
+
+Never edit, commit, or push directly on `main`. All changes land through pull
+requests. Use a separate worktree for concurrent tasks or coding-agent sessions
+so the primary checkout can remain clean on `main`.
+
+### Public repository privacy
+
+This repository is public. Branch names, commits, issues, pull requests,
+comments, screenshots, and release notes must not contain identifiers, links,
+titles, descriptions, or comments from private trackers such as Linear. They
+must also not expose private repository links, customer details, unreleased
+internal plans, credentials, or other confidential context.
+
+Use a public-safe branch name such as `feat/registry-auth` rather than one that
+contains a private issue identifier. Every pull request must explain the public
+problem and solution without requiring access to a private tracker or
+repository. When public discussion is useful, create or reference a sanitized
+GitHub issue.
+
+Cross-repository work still uses an independent AXM branch and pull request.
+Describe only the public contract or released dependency on this side; keep
+private coordination and private PR links in the internal system.
 
 ### Code Style
 

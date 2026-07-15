@@ -1,3 +1,13 @@
+## 0.22.5 (2026-07-15)
+
+### 🩹 Fixes
+
+- Allow explicitly agent-scoped skills to pass workspace lint without requiring a synthetic universal target. ([d8360577](https://github.com/agentxm/axm/commit/d8360577))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.22.4 (2026-07-15)
 
 ### 🩹 Fixes

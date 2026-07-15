@@ -663,6 +663,89 @@ describe("LocalRegistryClient.publishExtension", () => {
     );
   });
 
+  it.effect("does not publish index metadata when the archive cannot be committed", () => {
+    const registryRoot = makeRegistryDir();
+    const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+    const v1Archive = createTestZip("SKILL.md", "v1");
+    const v2Archive = createTestZip("SKILL.md", "v2");
+
+    return Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const v1Integrity = yield* computeIntegrity(v1Archive);
+      const v1Entry = makeVersionEntry({ version: "1.0.0", integrity: v1Integrity });
+      const v2Integrity = yield* computeIntegrity(v2Archive);
+      const v2Entry = makeVersionEntry({ version: "2.0.0", integrity: v2Integrity });
+
+      yield* fs.makeDirectory(skillDir, { recursive: true });
+      yield* fs.writeFileString(
+        nodePath.join(skillDir, "index.json"),
+        JSON.stringify(makeIndex({ versions: [v1Entry] })),
+      );
+      yield* fs.writeFile(nodePath.join(skillDir, "1.0.0.zip"), v1Archive);
+      yield* fs.makeDirectory(nodePath.join(skillDir, "2.0.0.zip"));
+
+      const client = yield* makeLocalClient(registryRoot);
+      const result = yield* client
+        .publishExtension(makePublishArgs(v2Archive, v2Entry, "2.0.0"))
+        .pipe(Effect.result);
+
+      expect(result._tag).toBe("Failure");
+      const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
+      const index: ExtensionIndex = JSON.parse(indexContent);
+      expect(index.versions.map((version) => version.version)).toEqual(["1.0.0"]);
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+      ),
+      Effect.provide(NodeServices.layer),
+    );
+  });
+
+  it.effect("serializes concurrent publishes for the same extension", () => {
+    const registryRoot = makeRegistryDir();
+    const archives = [
+      createTestZip("SKILL.md", "v1"),
+      createTestZip("SKILL.md", "v2"),
+      createTestZip("SKILL.md", "v3"),
+    ];
+
+    return Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const client = yield* makeLocalClient(registryRoot);
+      const integrities = yield* Effect.forEach(archives, computeIntegrity);
+      const versions = ["1.0.0", "2.0.0", "3.0.0"] as const;
+      yield* Effect.forEach(
+        versions,
+        (version, index) => {
+          const archive = archives[index];
+          const integrity = integrities[index];
+          if (archive === undefined || integrity === undefined) {
+            return Effect.die("Expected publish fixture");
+          }
+          return client.publishExtension(
+            makePublishArgs(archive, makeVersionEntry({ version, integrity }), version),
+          );
+        },
+        { concurrency: "unbounded" },
+      );
+
+      const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+      const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
+      const index: ExtensionIndex = JSON.parse(indexContent);
+      expect(index.versions.map((version) => version.version).sort()).toEqual([...versions]);
+      expect(
+        yield* Effect.forEach(versions, (version) =>
+          fs.exists(nodePath.join(skillDir, `${version}.zip`)),
+        ),
+      ).toEqual([true, true, true]);
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+      ),
+      Effect.provide(NodeServices.layer),
+    );
+  });
+
   it.effect("fails when same version has the same integrity", () => {
     const registryRoot = makeRegistryDir();
     const archive = createTestZip("SKILL.md", "content");

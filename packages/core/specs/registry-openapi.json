@@ -496,6 +496,82 @@
         "summary": "Exchange OIDC token (reserved, not implemented)"
       }
     },
+    "/v1/auth/publish-requests": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "Auth.createPublishAuthorizationRequest",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "request_id": { "$ref": "#/components/schemas/PublishAuthorizationRequestId" },
+                    "authorization_url": { "type": "string" },
+                    "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
+                  },
+                  "required": ["request_id", "authorization_url", "expires_at"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create an exact browser-reviewed publish authorization request",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "client_id": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "redirect_uri": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "state": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "code_challenge": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "code_challenge_method": { "type": "string", "enum": ["S256"] },
+                  "owner": { "$ref": "#/components/schemas/Handle" },
+                  "type": { "$ref": "#/components/schemas/ExtensionType" },
+                  "name": { "$ref": "#/components/schemas/ExtensionName" },
+                  "version": { "$ref": "#/components/schemas/Version" },
+                  "archive_sha256": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                },
+                "required": [
+                  "client_id",
+                  "redirect_uri",
+                  "state",
+                  "code_challenge",
+                  "code_challenge_method",
+                  "owner",
+                  "type",
+                  "name",
+                  "version",
+                  "archive_sha256"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
     "/v1/tokens": {
       "get": {
         "tags": ["Tokens"],
@@ -1659,7 +1735,7 @@
                       "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
                     }
                   },
-                  "required": ["name", "owner", "type", "versions"],
+                  "required": ["name", "owner", "type", "publisher_binding_id", "versions"],
                   "additionalProperties": false
                 }
               }
@@ -2051,6 +2127,7 @@
                     "name",
                     "owner",
                     "type",
+                    "publisher_binding_id",
                     "version",
                     "status",
                     "published",
@@ -2270,22 +2347,7 @@
         },
         "summary": "Publish extension version",
         "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "archive": {
-                    "type": "string",
-                    "description": "Extension archive multipart file part."
-                  },
-                  "integrity": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                },
-                "required": ["archive"],
-                "additionalProperties": false
-              }
-            }
-          },
+          "content": { "application/zip": { "schema": { "type": "string", "format": "binary" } } },
           "required": true
         }
       }
@@ -2435,14 +2497,6 @@
               }
             }
           },
-          "410": {
-            "description": "GoneError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
           "500": {
             "description": "InternalError",
             "content": {
@@ -2453,6 +2507,44 @@
           }
         },
         "summary": "Download extension archive"
+      },
+      "head": {
+        "tags": ["Extensions"],
+        "operationId": "Extensions.headArchive",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionTypePlural" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/ExtensionName" },
+            "required": true
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Version" },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": { "description": "<No Content>" },
+          "400": { "description": "DecodeErrorResponse" },
+          "404": { "description": "NotFoundError" },
+          "500": { "description": "InternalError" }
+        },
+        "summary": "Inspect extension archive metadata"
       }
     },
     "/v1/extensions/{owner}/{type}/{name}/deprecate": {
@@ -3231,6 +3323,32 @@
             "in": "path",
             "schema": { "$ref": "#/components/schemas/Handle" },
             "required": true
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "filter[visibility]",
+            "in": "query",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/LibraryVisibility" }, { "type": "null" }]
+            },
+            "required": false
           }
         ],
         "security": [],
@@ -3245,9 +3363,13 @@
                     "libraries": {
                       "type": "array",
                       "items": { "$ref": "#/components/schemas/Library" }
-                    }
+                    },
+                    "total": { "type": "integer" },
+                    "limit": { "type": "integer" },
+                    "offset": { "type": "integer" },
+                    "viewerRelative": { "type": "boolean", "enum": [true] }
                   },
-                  "required": ["libraries"],
+                  "required": ["libraries", "total", "limit", "offset", "viewerRelative"],
                   "additionalProperties": false
                 }
               }
@@ -3563,6 +3685,226 @@
           }
         },
         "summary": "Delete a Library"
+      }
+    },
+    "/v1/libraries/{owner}/{name}/resolution": {
+      "get": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.getLibraryResolution",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The current Library membership and latest eligible versions visible to the authenticated viewer.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/LibraryResolution" } }
+            }
+          },
+          "304": { "description": "<No Content>" },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Resolve a Library for the current viewer"
+      }
+    },
+    "/v1/libraries/{owner}/{name}/members": {
+      "get": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.listLibraryMembers",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "filter[type]",
+            "in": "query",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/ExtensionType" }, { "type": "null" }]
+            },
+            "required": false
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "ListLibraryMembersResponse",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ListLibraryMembersResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "List viewer-visible Library members"
+      },
+      "patch": {
+        "tags": ["Libraries"],
+        "operationId": "Libraries.patchLibraryMembers",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/Handle" },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": { "$ref": "#/components/schemas/LibraryName" },
+            "required": true
+          }
+        ],
+        "security": [{ "bearer": [] }],
+        "responses": {
+          "200": {
+            "description": "PatchLibraryMembersResponse",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PatchLibraryMembersResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ForbiddenError" },
+                    { "$ref": "#/components/schemas/ForbiddenError" }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          },
+          "422": {
+            "description": "UnprocessableEntityError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        },
+        "summary": "Atomically patch Library members",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PatchLibraryMembersBody" }
+            }
+          },
+          "required": true
+        }
       }
     },
     "/v1/libraries/{owner}/{name}/visibility": {
@@ -4678,6 +5020,65 @@
               ]
             },
             "required": false
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/ExtensionType" }, { "type": "null" }]
+            },
+            "required": false
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["relevance", "popular", "newest", "updated", "name"] },
+                { "type": "null" }
+              ]
+            },
+            "required": false
+          },
+          {
+            "name": "owner",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "package",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "license",
+            "in": "query",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          },
+          {
+            "name": "lifecycle",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["all", "active", "deprecated"] },
+                { "type": "null" }
+              ]
+            },
+            "required": false
+          },
+          {
+            "name": "visibility",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                { "type": "string", "enum": ["all", "public", "private"] },
+                { "type": "null" }
+              ]
+            },
+            "required": false
           }
         ],
         "security": [],
@@ -4689,15 +5090,20 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                "schema": {
+                  "anyOf": [
+                    { "$ref": "#/components/schemas/ProblemDetails" },
+                    { "$ref": "#/components/schemas/DecodeErrorResponse" }
+                  ]
+                }
               }
             }
           }
         },
-        "description": "Returns extensions whose name matches the query, ordered by most recently published version. When `q` is empty, returns the public catalog. Only public, available, non-yanked versions are returned.",
+        "description": "Returns viewer-visible, available, non-yanked extensions using predictable textual relevance by default. Supports structured type, owner, package, license, lifecycle, visibility, and sort filters.",
         "summary": "Search extensions"
       }
     }
@@ -4843,8 +5249,13 @@
         "properties": {
           "access_token": { "type": "string", "description": "OAuth 2.0 access token." },
           "refresh_token": {
-            "type": "string",
-            "description": "OAuth 2.0 refresh token for obtaining new token pairs."
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "OAuth 2.0 refresh token for obtaining new token pairs. Omitted for exact publish capabilities."
+              },
+              { "type": "null" }
+            ]
           },
           "token_type": { "type": "string", "enum": ["Bearer"] },
           "expires_in": {
@@ -4861,9 +5272,18 @@
               { "type": "string", "description": "Space-delimited list of granted scopes." },
               { "type": "null" }
             ]
+          },
+          "publish_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Publish authorization request that produced a non-refreshable exact capability."
+              },
+              { "type": "null" }
+            ]
           }
         },
-        "required": ["access_token", "refresh_token", "token_type", "expires_in", "expires_at"],
+        "required": ["access_token", "token_type", "expires_in", "expires_at"],
         "additionalProperties": false,
         "title": "Session Token Response",
         "description": "OAuth 2.0 token response containing an access/refresh token pair."
@@ -4969,7 +5389,7 @@
           },
           "type": {
             "type": "string",
-            "enum": ["session", "pat", "oidc"],
+            "enum": ["session", "pat", "oidc", "publish-capability"],
             "title": "Token Type",
             "description": "The type of authentication token."
           },
@@ -5051,6 +5471,58 @@
         ],
         "title": "Step-up Challenge Response"
       },
+      "Handle": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+            "title": "Handle",
+            "description": "A unique username or organization name starting with @, like @my-org.",
+            "examples": ["@my-org", "@username"]
+          }
+        ]
+      },
+      "ExtensionType": {
+        "type": "string",
+        "enum": ["skill", "command", "mcp-server", "subagent", "files", "rule", "hook", "pack"],
+        "title": "Extension Type",
+        "description": "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, or pack."
+      },
+      "ExtensionName": {
+        "type": "string",
+        "allOf": [
+          { "minLength": 1 },
+          {
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+            "title": "Extension Name",
+            "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+            "examples": ["my-skill", "code-review", "prettier"]
+          }
+        ]
+      },
+      "Version": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+            "title": "Version",
+            "description": "A semver version like 1.0.0. Ranges are not allowed here.",
+            "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
+          }
+        ]
+      },
+      "PublishAuthorizationRequestId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^pubreq_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Publish Authorization Request ID",
+            "description": "Identifies one exact browser-reviewed publish authorization request.",
+            "examples": ["pubreq_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "IsoDateTimeString": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "TokenId": {
         "type": "string",
         "allOf": [
@@ -5062,7 +5534,6 @@
           }
         ]
       },
-      "IsoDateTimeString": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "TokenListItem": {
         "type": "object",
         "properties": {
@@ -5187,6 +5658,7 @@
               "resource_restriction",
               "scope_escalation",
               "gat_requires_session",
+              "recent_authentication_required",
               "team_create_not_authorized",
               "team_delete_not_authorized",
               "team_update_not_authorized",
@@ -5200,7 +5672,9 @@
               "publish/insufficient-scope",
               "publish/resource-restriction",
               "publish/handle-not-owned",
-              "publish/publish-forbidden"
+              "publish/publish-forbidden",
+              "publish/capability-binding-mismatch",
+              "publish/capability-expired"
             ]
           },
           "details": {
@@ -5330,17 +5804,6 @@
         },
         "required": ["kind", "type", "title", "status", "detail", "code", "authUrl", "doneUrl"],
         "additionalProperties": false
-      },
-      "Handle": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-            "title": "Handle",
-            "description": "A unique username or organization name starting with @, like @my-org.",
-            "examples": ["@my-org", "@username"]
-          }
-        ]
       },
       "OwnerResponse": {
         "type": "object",
@@ -5518,35 +5981,6 @@
         "required": ["role"],
         "additionalProperties": false,
         "title": "Change Team Member Role Body"
-      },
-      "ExtensionName": {
-        "type": "string",
-        "allOf": [
-          { "minLength": 1 },
-          {
-            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-            "title": "Extension Name",
-            "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-            "examples": ["my-skill", "code-review", "prettier"]
-          }
-        ]
-      },
-      "ExtensionType": {
-        "type": "string",
-        "enum": ["skill", "command", "mcp-server", "subagent", "files", "rule", "hook", "pack"],
-        "title": "Extension Type",
-        "description": "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, or pack."
-      },
-      "Version": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-            "title": "Version",
-            "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-            "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
-          }
-        ]
       },
       "Repository": {
         "type": "object",
@@ -6023,13 +6457,18 @@
         "required": ["kind", "type", "title", "status", "detail", "code", "affectedCoordinates"],
         "additionalProperties": false
       },
+      "LibraryVisibility": {
+        "type": "string",
+        "enum": ["public", "private"],
+        "title": "Library Visibility"
+      },
       "LibraryId": {
         "type": "string",
         "allOf": [
           {
             "pattern": "^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$",
             "title": "Library ID",
-            "description": "Identifies a workspace-owned installable collection of extension identities in the registry.",
+            "description": "Identifies an account-owned installable collection of extension identities in the registry.",
             "examples": ["lib_01h455vb4pexka56gq5w2r7cpc"]
           }
         ]
@@ -6039,11 +6478,6 @@
         "title": "Library Name",
         "description": "Canonical Library name within an owner namespace. Uses the same normalized slug grammar as handles.",
         "examples": ["frontend", "team-tools"]
-      },
-      "LibraryVisibility": {
-        "type": "string",
-        "enum": ["public", "private"],
-        "title": "Library Visibility"
       },
       "LibraryMaintainer": {
         "anyOf": [
@@ -6169,11 +6603,92 @@
         "properties": {
           "library": { "$ref": "#/components/schemas/Library" },
           "members": { "type": "array", "items": { "$ref": "#/components/schemas/LibraryMember" } },
-          "hiddenMemberCount": { "type": "integer", "allOf": [{ "minimum": 0 }] }
+          "accessibleMemberCount": { "type": "integer", "allOf": [{ "minimum": 0 }] },
+          "contentsMayVary": { "type": "boolean", "enum": [true] }
         },
-        "required": ["library", "members", "hiddenMemberCount"],
+        "required": ["library", "members", "accessibleMemberCount", "contentsMayVary"],
         "additionalProperties": false,
         "title": "Library Detail"
+      },
+      "ExtensionVersionId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^extv_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+            "title": "Extension Version ID",
+            "description": "Identifies a specific published version of an extension. Each publish operation creates a new version under its parent extension.",
+            "examples": ["extv_01h455vb4pexka56gq5w2r7cpc"]
+          }
+        ]
+      },
+      "LibraryResolutionMember": {
+        "type": "object",
+        "properties": {
+          "memberId": { "$ref": "#/components/schemas/LibraryMemberId" },
+          "extensionId": { "$ref": "#/components/schemas/ExtensionId" },
+          "extensionVersionId": { "$ref": "#/components/schemas/ExtensionVersionId" },
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": { "$ref": "#/components/schemas/ExtensionType" },
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "version": { "$ref": "#/components/schemas/Version" },
+          "addedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+          "publishedAt": {
+            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString" }, { "type": "null" }]
+          }
+        },
+        "required": [
+          "memberId",
+          "extensionId",
+          "extensionVersionId",
+          "owner",
+          "type",
+          "name",
+          "version",
+          "addedAt",
+          "publishedAt"
+        ],
+        "additionalProperties": false,
+        "title": "Library Resolution Member"
+      },
+      "LibraryResolution": {
+        "type": "object",
+        "properties": {
+          "libraryId": { "$ref": "#/components/schemas/LibraryId" },
+          "reference": { "type": "string" },
+          "name": { "$ref": "#/components/schemas/LibraryName" },
+          "updatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+          "membershipDigest": { "type": "string" },
+          "viewerRelative": { "type": "boolean", "enum": [true] },
+          "members": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/LibraryResolutionMember" }
+          }
+        },
+        "required": [
+          "libraryId",
+          "reference",
+          "name",
+          "updatedAt",
+          "membershipDigest",
+          "viewerRelative",
+          "members"
+        ],
+        "additionalProperties": false,
+        "title": "Library Resolution",
+        "description": "The current Library membership and latest eligible versions visible to the authenticated viewer."
+      },
+      "ListLibraryMembersResponse": {
+        "type": "object",
+        "properties": {
+          "members": { "type": "array", "items": { "$ref": "#/components/schemas/LibraryMember" } },
+          "total": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "viewerRelative": { "type": "boolean", "enum": [true] }
+        },
+        "required": ["members", "total", "limit", "offset", "viewerRelative"],
+        "additionalProperties": false,
+        "title": "List Library Members Response"
       },
       "CreateLibraryBody": {
         "type": "object",
@@ -6258,6 +6773,61 @@
           }
         ],
         "title": "Library Maintainer Target"
+      },
+      "LibraryMemberCoordinate": {
+        "type": "object",
+        "properties": {
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": { "$ref": "#/components/schemas/ExtensionType" },
+          "name": { "$ref": "#/components/schemas/ExtensionName" }
+        },
+        "required": ["owner", "type", "name"],
+        "additionalProperties": false,
+        "title": "Library Member Coordinate"
+      },
+      "PatchLibraryMembersBody": {
+        "type": "object",
+        "properties": {
+          "add": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
+          },
+          "remove": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
+          }
+        },
+        "required": ["add", "remove"],
+        "additionalProperties": false,
+        "title": "Patch Library Members Body"
+      },
+      "PatchLibraryMembersResponse": {
+        "type": "object",
+        "properties": {
+          "added": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
+          },
+          "removed": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
+          },
+          "unchanged": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string", "enum": ["add", "remove"] },
+                "member": { "$ref": "#/components/schemas/LibraryMemberCoordinate" }
+              },
+              "required": ["action", "member"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["added", "removed", "unchanged"],
+        "additionalProperties": false,
+        "title": "Patch Library Members Response"
       },
       "Maintainer": {
         "anyOf": [
@@ -6376,9 +6946,13 @@
           },
           "deprecation_notice": {
             "anyOf": [{ "type": "string", "readOnly": true }, { "type": "null" }]
-          }
+          },
+          "matched_fields": {
+            "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+          },
+          "visibility": { "type": "string", "enum": ["public", "private"] }
         },
-        "required": ["name", "owner", "type", "latestVersion"],
+        "required": ["name", "owner", "type", "latestVersion", "visibility"],
         "additionalProperties": false,
         "title": "Search Hit",
         "description": "A single extension matched by a search query."
@@ -6403,9 +6977,19 @@
               },
               { "type": "null" }
             ]
-          }
+          },
+          "total": {
+            "type": "integer",
+            "allOf": [
+              {
+                "minimum": 0,
+                "description": "Exact number of viewer-visible extensions matching the query."
+              }
+            ]
+          },
+          "total_relation": { "type": "string", "enum": ["exact"] }
         },
-        "required": ["extensions", "has_more", "cursor"],
+        "required": ["extensions", "has_more", "cursor", "total", "total_relation"],
         "additionalProperties": false,
         "title": "Search Response",
         "description": "A page of extensions matching the search query."

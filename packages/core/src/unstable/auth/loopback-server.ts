@@ -20,6 +20,7 @@ export class LoopbackLoginFallback extends Data.TaggedError("LoopbackLoginFallba
 }> {}
 
 export class LoopbackCallbackRejected extends Data.TaggedError("LoopbackCallbackRejected")<{
+  readonly reason: "access_denied" | "invalid_callback";
   readonly message: string;
 }> {}
 
@@ -73,7 +74,10 @@ const makeCallbackOutcome = (request: IncomingRequest, expectedState: string): A
   if (request.method !== "GET") {
     return {
       _tag: "failure",
-      error: new LoopbackCallbackRejected({ message: "Unexpected callback method." }),
+      error: new LoopbackCallbackRejected({
+        reason: "invalid_callback",
+        message: "Unexpected callback method.",
+      }),
     };
   }
 
@@ -82,7 +86,10 @@ const makeCallbackOutcome = (request: IncomingRequest, expectedState: string): A
   if (url.pathname !== "/callback") {
     return {
       _tag: "failure",
-      error: new LoopbackCallbackRejected({ message: "Unexpected callback path." }),
+      error: new LoopbackCallbackRejected({
+        reason: "invalid_callback",
+        message: "Unexpected callback path.",
+      }),
     };
   }
 
@@ -90,7 +97,10 @@ const makeCallbackOutcome = (request: IncomingRequest, expectedState: string): A
   if (state !== expectedState) {
     return {
       _tag: "failure",
-      error: new LoopbackCallbackRejected({ message: "OAuth state did not match." }),
+      error: new LoopbackCallbackRejected({
+        reason: "invalid_callback",
+        message: "OAuth state did not match.",
+      }),
     };
   }
 
@@ -98,7 +108,10 @@ const makeCallbackOutcome = (request: IncomingRequest, expectedState: string): A
   if (error !== null) {
     return {
       _tag: "failure",
-      error: new LoopbackCallbackRejected({ message: `Authorization failed: ${error}.` }),
+      error: new LoopbackCallbackRejected({
+        reason: error === "access_denied" ? "access_denied" : "invalid_callback",
+        message: `Authorization failed: ${error}.`,
+      }),
     };
   }
 
@@ -107,7 +120,10 @@ const makeCallbackOutcome = (request: IncomingRequest, expectedState: string): A
   if (code === null || iss === null) {
     return {
       _tag: "failure",
-      error: new LoopbackCallbackRejected({ message: "Authorization callback was incomplete." }),
+      error: new LoopbackCallbackRejected({
+        reason: "invalid_callback",
+        message: "Authorization callback was incomplete.",
+      }),
     };
   }
 

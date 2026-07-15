@@ -168,11 +168,11 @@ understand internal behavior beyond public API docs, learn idiomatic patterns
 from reference implementations, and research bugs or breaking changes via
 upstream issues and discussions. Each checkout should be on the tag matching the
 dependency version so the source you read matches the code you run. For Effect,
-use `../external/Effect-TS/effect-smol`, not `../../Effect-TS/effect-smol`.
+use `../external/Effect-TS/effect`, not `../../Effect-TS/effect`.
 
-| Package                  | Version         | Local path                          | Upstream                                                          | Tag                    |
-| ------------------------ | --------------- | ----------------------------------- | ----------------------------------------------------------------- | ---------------------- |
-| `effect` (+ `@effect/*`) | `4.0.0-beta.94` | `../external/Effect-TS/effect-smol` | [Effect-TS/effect-smol](https://github.com/Effect-TS/effect-smol) | `effect@4.0.0-beta.94` |
+| Package                  | Version         | Local path                     | Upstream                                                | Tag                    |
+| ------------------------ | --------------- | ------------------------------ | ------------------------------------------------------- | ---------------------- |
+| `effect` (+ `@effect/*`) | `4.0.0-beta.98` | `../external/Effect-TS/effect` | [Effect-TS/effect](https://github.com/Effect-TS/effect) | `effect@4.0.0-beta.98` |
 
 Setup and sync instructions are in the
 [agentxm-internal CLAUDE.md](../agentxm-internal/CLAUDE.md#external-dependency-sources).
@@ -184,7 +184,7 @@ See [Effect Guide](contributing/guides/effect.md),
 [Effect v4 Quick Reference](contributing/guides/effect-v4-quick-ref.md), and
 [Effect Errors Guide](contributing/guides/effect-errors.md).
 
-- Use `../external/Effect-TS/effect-smol` for repo-matched Effect v4 references.
+- Use `../external/Effect-TS/effect` for repo-matched Effect v4 references.
 - No raw Promises or async/await in production code.
 - Use `effect/FileSystem` and `effect/Path`, never `node:fs` or `node:path`.
 - Run `pnpm typecheck` or `pnpm typecheck:affected` and fix all

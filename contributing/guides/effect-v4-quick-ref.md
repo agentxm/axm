@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-04-18
-version: 0.2.1
+last-reviewed: 2026-07-14
+version: 0.2.3
 description: Common v3 to v4 renames and migration patterns
 depends-on: [./effect.md]
 ---
@@ -18,9 +18,9 @@ projects.
 
 - [Effect Guide](./effect.md) - Main Effect orientation for this repo
 - [Effect Option Guide](./effect-option.md) - Option and nullable boundaries
-- [effect-smol source](../../../external/Effect-TS/effect-smol) - Effect v4
+- [Effect source](../../../external/Effect-TS/effect) - Effect v4
   source, tests, and API reference; repo-root path
-  `../external/Effect-TS/effect-smol`; this guide uses `../../../...` because
+  `../external/Effect-TS/effect`; this guide uses `../../../...` because
   it lives under `contributing/guides/`; see `MIGRATION.md` and `migration/`
   there for v3 → v4 details by topic
 
@@ -67,6 +67,14 @@ newer examples call the same API surface `Context.Service`.
 | `Effect.either`     | `Effect.result`     |
 | `Effect.services`   | `Effect.context`    |
 | `Schema.makeUnsafe` | `Schema.make`       |
+
+## Beta.98 CLI Changes
+
+`GlobalFlag.BuiltIns` is a readonly tuple. AXM removes the Effect-provided
+`Completions` and `LogLevel` entries before constructing the root command by
+calling `Array.prototype.splice` against the runtime array. Root help must keep
+AXM's `--help`, `--version`, `--non-interactive`, `--verbose`, `--debug`,
+`--quiet`, and `--json` flags while omitting `--completions` and `--log-level`.
 
 Earlier beta-era examples may still show `Effect.services`; current code should
 use `Effect.context`.

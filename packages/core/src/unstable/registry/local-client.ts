@@ -11,9 +11,11 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 
 import {
   errPublishConflict,
@@ -51,6 +53,9 @@ const encodeExtensionIndexToJsonString = Schema.encodeSync(
   Schema.fromJsonString(ExtensionIndexSchema),
 );
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
+const PUBLISH_LOCK_RETRY_DELAY = Duration.millis(25);
+const PUBLISH_LOCK_STALE_MILLIS = Duration.toMillis(Duration.minutes(5));
+const publishLockSemaphores = new Map<string, Semaphore.Semaphore>();
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -80,6 +85,63 @@ const readExtensionIndex = (
       ),
     );
   });
+
+const removeBestEffort = (fs: FileSystem.FileSystem, filePath: string) =>
+  fs.remove(filePath).pipe(Effect.ignore);
+
+const inProcessPublishSemaphoreFor = (lockPath: string): Semaphore.Semaphore => {
+  const existing = publishLockSemaphores.get(lockPath);
+  if (existing !== undefined) return existing;
+  const created = Semaphore.makeUnsafe(1);
+  publishLockSemaphores.set(lockPath, created);
+  return created;
+};
+
+const acquirePublishLock = (
+  fs: FileSystem.FileSystem,
+  lockPath: string,
+): Effect.Effect<void, AppError> =>
+  Effect.gen(function* () {
+    const result = yield* fs
+      .writeFileString(lockPath, `${new Date().toISOString()}\n`, { flag: "wx" })
+      .pipe(Effect.result);
+    if (result._tag === "Success") return;
+    if (result.failure.reason._tag !== "AlreadyExists") {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Failed to acquire local registry publish lock: ${lockPath}`,
+        cause: result.failure,
+      });
+    }
+
+    const info = yield* fs.stat(lockPath).pipe(Effect.option);
+    if (
+      Option.isSome(info) &&
+      Option.isSome(info.value.mtime) &&
+      Date.now() - info.value.mtime.value.getTime() > PUBLISH_LOCK_STALE_MILLIS
+    ) {
+      yield* removeBestEffort(fs, lockPath);
+    } else {
+      yield* Effect.sleep(PUBLISH_LOCK_RETRY_DELAY);
+    }
+    return yield* acquirePublishLock(fs, lockPath);
+  });
+
+const withPublishLock = <A, E, R>(
+  fs: FileSystem.FileSystem,
+  lockPath: string,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E | AppError, R> =>
+  inProcessPublishSemaphoreFor(lockPath).withPermits(1)(
+    Effect.scoped(
+      Effect.gen(function* () {
+        yield* Effect.acquireRelease(acquirePublishLock(fs, lockPath), () =>
+          removeBestEffort(fs, lockPath),
+        );
+        return yield* effect;
+      }),
+    ),
+  );
 
 const indexToManifest = (
   index: ExtensionIndex,
@@ -449,80 +511,126 @@ export const createLocalRegistryClient = (
 
       const indexPath = path.join(dir, "index.json");
       const archivePath = path.join(dir, `${args.version}.zip`);
+      const lockPath = path.join(dir, ".publish.lock");
 
-      // Check for existing index
-      const indexExists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+      return yield* withPublishLock(
+        fs,
+        lockPath,
+        Effect.gen(function* () {
+          const indexExists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+          const nextIndex = indexExists
+            ? yield* Effect.gen(function* () {
+                const content = yield* fs.readFileString(indexPath).pipe(
+                  Effect.mapError((cause) =>
+                    errRegistryPublishRejected({
+                      message: `Registry index could not be read: ${indexPath}`,
+                      cause,
+                    }),
+                  ),
+                );
+                const existingIndex = yield* decodeExtensionIndexFromJsonString(content).pipe(
+                  Effect.mapError((cause) =>
+                    errRegistryPublishRejected({
+                      message: "Registry index schema is invalid",
+                      cause,
+                    }),
+                  ),
+                );
+                if (existingIndex.versions.some((version) => version.version === args.version)) {
+                  return yield* errPublishConflict({ version: args.version });
+                }
+                return {
+                  ...existingIndex,
+                  versions: [args.metadata, ...existingIndex.versions],
+                } satisfies ExtensionIndex;
+              })
+            : ({
+                name: args.name,
+                owner,
+                type: args.type,
+                versions: [args.metadata],
+              } satisfies ExtensionIndex);
 
-      if (indexExists) {
-        // Read existing index
-        const content = yield* fs.readFileString(indexPath).pipe(
-          Effect.mapError((e) =>
-            errRegistryPublishRejected({
-              message: `Registry index could not be read: ${indexPath}`,
-              cause: e,
+          const archiveTempPath = yield* fs
+            .makeTempFile({
+              directory: dir,
+              prefix: `.${args.version}.archive-`,
+              suffix: ".tmp",
+            })
+            .pipe(
+              Effect.mapError((cause) =>
+                errRegistryPublishRejected({
+                  message: "Registry archive temp file could not be created",
+                  cause,
+                }),
+              ),
+            );
+          const archiveTempDir = path.dirname(archiveTempPath);
+          yield* Effect.ensuring(
+            Effect.gen(function* () {
+              yield* fs.writeFile(archiveTempPath, args.archive).pipe(
+                Effect.mapError((cause) =>
+                  errRegistryPublishRejected({
+                    message: `Registry archive temp file could not be written: ${archiveTempPath}`,
+                    cause,
+                  }),
+                ),
+              );
+              yield* removeBestEffort(fs, archivePath);
+              yield* fs.rename(archiveTempPath, archivePath).pipe(
+                Effect.mapError((cause) =>
+                  errRegistryPublishRejected({
+                    message: `Registry archive could not be committed: ${archivePath}`,
+                    cause,
+                  }),
+                ),
+              );
             }),
-          ),
-        );
-        const existingIndex = yield* decodeExtensionIndexFromJsonString(content).pipe(
-          Effect.mapError((e) =>
-            errRegistryPublishRejected({
-              message: "Registry index schema is invalid",
-              cause: e,
+            fs.remove(archiveTempDir, { recursive: true }).pipe(Effect.ignore),
+          );
+
+          const indexTempPath = yield* fs
+            .makeTempFile({
+              directory: dir,
+              prefix: ".index-",
+              suffix: ".tmp",
+            })
+            .pipe(
+              Effect.mapError((cause) =>
+                errRegistryPublishRejected({
+                  message: "Registry index temp file could not be created",
+                  cause,
+                }),
+              ),
+            );
+          const indexTempDir = path.dirname(indexTempPath);
+          yield* Effect.ensuring(
+            Effect.gen(function* () {
+              yield* fs
+                .writeFileString(indexTempPath, `${encodeExtensionIndexToJsonString(nextIndex)}\n`)
+                .pipe(
+                  Effect.mapError((cause) =>
+                    errRegistryPublishRejected({
+                      message: `Registry index temp file could not be written: ${indexTempPath}`,
+                      cause,
+                    }),
+                  ),
+                );
+              yield* fs.rename(indexTempPath, indexPath).pipe(
+                Effect.mapError((cause) =>
+                  errRegistryPublishRejected({
+                    message: `Registry index could not be committed: ${indexPath}`,
+                    cause,
+                  }),
+                ),
+              );
             }),
-          ),
-        );
-
-        const existingVersion = existingIndex.versions.find((v) => v.version === args.version);
-        if (existingVersion) {
-          return yield* errPublishConflict({ version: args.version });
-        }
-
-        // Prepend new version entry
-        const updatedIndex: ExtensionIndex = {
-          ...existingIndex,
-          versions: [args.metadata, ...existingIndex.versions],
-        };
-        yield* fs
-          .writeFileString(indexPath, `${encodeExtensionIndexToJsonString(updatedIndex)}\n`)
-          .pipe(
-            Effect.mapError((e) =>
-              errRegistryPublishRejected({
-                message: `Registry index could not be written: ${indexPath}`,
-                cause: e,
-              }),
-            ),
+            fs.remove(indexTempDir, { recursive: true }).pipe(Effect.ignore),
           );
-      } else {
-        // Create new index
-        const newIndex: ExtensionIndex = {
-          name: args.name,
-          owner,
-          type: args.type,
-          versions: [args.metadata],
-        };
-        yield* fs
-          .writeFileString(indexPath, `${encodeExtensionIndexToJsonString(newIndex)}\n`)
-          .pipe(
-            Effect.mapError((e) =>
-              errRegistryPublishRejected({
-                message: `Registry index could not be written: ${indexPath}`,
-                cause: e,
-              }),
-            ),
-          );
-      }
 
-      // Write archive
-      yield* fs.writeFile(archivePath, args.archive).pipe(
-        Effect.mapError((e) =>
-          errRegistryPublishRejected({
-            message: `Registry archive could not be written: ${archivePath}`,
-            cause: e,
-          }),
-        ),
+          return { published: true } as const;
+        }),
       );
-
-      return { published: true } as const;
     }),
 
   updateExtensionVisibility: (args: UpdateExtensionVisibilityArgs) =>

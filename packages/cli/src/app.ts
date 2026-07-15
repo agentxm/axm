@@ -53,6 +53,7 @@ import { versionCommand } from "./root/shared/version-command.js";
 import { publishCommand } from "./root/publish/command.js";
 import { adoptCommand } from "./root/adopt/command.js";
 import { demoteCommand } from "./root/demote/command.js";
+import { cacheCommand } from "./root/cache/command.js";
 import {
   deprecateCommand,
   undeprecateCommand,
@@ -121,6 +122,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         rulesCommand,
         lintCommand,
         pruneCommand,
+        cacheCommand,
         upgradeCommand,
       ],
     },

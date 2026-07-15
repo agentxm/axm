@@ -29,6 +29,7 @@ import type { DiscoverPackagesResponse } from "./discover-schema.js";
 import type { PackageUrlParts } from "../packaging/package-url.js";
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
 import { stripFileProtocol } from "../utils/index.js";
+import { makeUserArchiveCache } from "./archive-cache.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
@@ -126,6 +127,8 @@ export interface PublishExtensionArgs {
   readonly version: Version;
   readonly archive: Uint8Array;
   readonly metadata: VersionEntry;
+  /** Ephemeral exact publish capability. Never persisted by the registry client. */
+  readonly accessToken?: string;
 }
 
 export type ExtensionVisibility = "public" | "private";
@@ -305,13 +308,19 @@ export interface RegistryLibraryMember {
   readonly extensionOwner: Handle;
   readonly extensionType: ExtensionType;
   readonly extensionName: ExtensionName;
+  readonly resolvedVersion: Version;
   readonly addedAt: string;
+  readonly publishedAt: string | null;
 }
 
 export interface RegistryLibraryDetail {
-  readonly library: RegistryLibrary;
+  readonly libraryId: string;
+  readonly reference: string;
+  readonly name: ExtensionName;
+  readonly updatedAt: string;
+  readonly membershipDigest: string;
+  readonly viewerRelative: true;
   readonly members: ReadonlyArray<RegistryLibraryMember>;
-  readonly hiddenMemberCount: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -376,7 +385,8 @@ export const createRegistryClient = (location: string) =>
         onNone: () => HttpClient.HttpClient.pipe(Effect.provide(FetchHttpClient.layer)),
         onSome: (client) => Effect.succeed(client),
       });
-      return createRemoteRegistryClient(location, httpClient);
+      const archiveCache = yield* makeUserArchiveCache();
+      return createRemoteRegistryClient(location, httpClient, archiveCache);
     }
 
     const localPath = location.startsWith("file://") ? stripFileProtocol(location) : location;

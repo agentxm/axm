@@ -50,12 +50,22 @@ const runAxm = (args: ReadonlyArray<string>): Promise<CliResult> =>
   });
 
 describe("axm source smoke", () => {
-  it("omits Effect built-ins we suppress from root help", async () => {
+  it("keeps AXM globals and omits suppressed Effect built-ins from root help", async () => {
     const result = await runAxm(["--help"]);
     const output = combinedOutput(result);
 
     expect(result.exitCode).toBe(0);
-    expect(output).toContain("--json");
+    for (const flag of [
+      "--help",
+      "--version",
+      "--non-interactive",
+      "--verbose",
+      "--debug",
+      "--quiet",
+      "--json",
+    ]) {
+      expect(output).toContain(flag);
+    }
     expect(output).not.toContain("--completions");
     expect(output).not.toContain("--log-level");
   });

@@ -132,19 +132,30 @@ describe("axm skills install output UX", () => {
     }
   });
 
-  it("announces no-arg install as configured-skill reinstall", async () => {
+  it("reinstalls configured skills when no source argument is provided", async () => {
     const temp = createTempDir();
     try {
       await runCli(["setup", "--yes", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
+      const bundledUninstall = await runCli(["skills", "uninstall", "axm", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(bundledUninstall.exitCode).toBe(0);
+
+      const initialInstall = await runCli(
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
+        { cwd: temp.path },
+      );
+      expect(initialInstall.exitCode).toBe(0);
+
       const result = await runCli(["skills", "install", "--yes"], {
         cwd: temp.path,
       });
 
       expect(result.exitCode).toBe(0);
-      expect(getOutput(result)).toContain("configured skill");
+      expect(getOutput(result)).toContain("Already up to date — my-skill");
     } finally {
       temp.cleanup();
     }

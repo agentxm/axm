@@ -21,7 +21,9 @@ import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { type AppError, makeAppError } from "../app-error/index.js";
+import type { ExtensionName, ExtensionType } from "../extensions/index.js";
 import { normalizeHandle, type Handle } from "../extensions/handle.js";
+import type { Version } from "../version-constraints/version-constraints.js";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import { RegistryUrl } from "./registry-url.js";
 import * as GeneratedRegistryClient from "../registry/__generated__/registry-client.js";
@@ -150,6 +152,38 @@ export interface ExchangePkceCodeParams {
   readonly redirectUri: string;
 }
 
+export interface CreatePublishAuthorizationRequestParams {
+  readonly registryUrl: string;
+  readonly redirectUri: string;
+  readonly state: string;
+  readonly codeChallenge: string;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+  readonly archiveSha256: string;
+}
+
+export interface PublishAuthorizationRequestResponse {
+  readonly requestId: string;
+  readonly authorizationUrl: string;
+  readonly expiresAt: string;
+}
+
+export interface ExchangePublishAuthorizationCodeParams {
+  readonly registryUrl: string;
+  readonly code: string;
+  readonly verifier: string;
+  readonly redirectUri: string;
+}
+
+export interface PublishCapabilityResponse {
+  readonly accessToken: string;
+  readonly expiresAt: string;
+  readonly scope: string;
+  readonly publishRequestId: string;
+}
+
 // -----------------------------------------------------------------------------
 // Polling state (for testability)
 // -----------------------------------------------------------------------------
@@ -172,6 +206,12 @@ export interface AuthClientService {
   readonly exchangePkceCode: (
     params: ExchangePkceCodeParams,
   ) => Effect.Effect<NormalizedTokenResponse, AppError>;
+  readonly createPublishAuthorizationRequest: (
+    params: CreatePublishAuthorizationRequestParams,
+  ) => Effect.Effect<PublishAuthorizationRequestResponse, AppError>;
+  readonly exchangePublishAuthorizationCode: (
+    params: ExchangePublishAuthorizationCodeParams,
+  ) => Effect.Effect<PublishCapabilityResponse, AppError>;
   readonly initiateDeviceFlow: (
     options?: LoginScopeOptions,
   ) => Effect.Effect<DeviceFlowResponse, AppError>;
@@ -231,6 +271,19 @@ const SessionTokenResponseSchema = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String,
   expires_at: Schema.String,
+});
+
+const PublishAuthorizationRequestResponseSchema = Schema.Struct({
+  request_id: Schema.String,
+  authorization_url: Schema.String,
+  expires_at: Schema.String,
+});
+
+const PublishCapabilityResponseSchema = Schema.Struct({
+  access_token: Schema.String,
+  expires_at: Schema.String,
+  scope: Schema.String,
+  publish_request_id: Schema.String,
 });
 
 const OAuthTokenErrorResponseSchema = Schema.Struct({
@@ -577,6 +630,91 @@ export const AuthClientLive = Layer.effect(
 
       return response;
     });
+
+    const createPublishAuthorizationRequest: AuthClientService["createPublishAuthorizationRequest"] =
+      Effect.fn("AuthClient.createPublishAuthorizationRequest")(function* (params) {
+        const response = yield* HttpClientRequest.post("/v1/auth/publish-requests").pipe(
+          HttpClientRequest.bodyJsonUnsafe({
+            client_id: CLIENT_ID,
+            redirect_uri: params.redirectUri,
+            state: params.state,
+            code_challenge: params.codeChallenge,
+            code_challenge_method: "S256",
+            owner: params.owner,
+            type: params.type,
+            name: params.name,
+            version: params.version,
+            archive_sha256: params.archiveSha256,
+          }),
+          (request) =>
+            httpClient
+              .pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(params.registryUrl)))
+              .execute(request),
+          Effect.flatMap(
+            HttpClientResponse.matchStatus({
+              "2xx": HttpClientResponse.schemaBodyJson(PublishAuthorizationRequestResponseSchema),
+              orElse: unexpectedTokenStatus,
+            }),
+          ),
+          Effect.mapError((error) =>
+            mapRegistryAuthError("Could not create publish authorization request", error),
+          ),
+        );
+
+        return {
+          requestId: response.request_id,
+          authorizationUrl: response.authorization_url,
+          expiresAt: response.expires_at,
+        } satisfies PublishAuthorizationRequestResponse;
+      });
+
+    const exchangePublishAuthorizationCode: AuthClientService["exchangePublishAuthorizationCode"] =
+      Effect.fn("AuthClient.exchangePublishAuthorizationCode")(function* (params) {
+        const response = yield* HttpClientRequest.post("/v1/auth/token").pipe(
+          HttpClientRequest.bodyUrlParams({
+            grant_type: AUTHORIZATION_CODE_GRANT_TYPE,
+            code: params.code,
+            code_verifier: params.verifier,
+            client_id: CLIENT_ID,
+            redirect_uri: params.redirectUri,
+          }),
+          (request) =>
+            httpClient
+              .pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(params.registryUrl)))
+              .execute(request),
+          Effect.flatMap(
+            HttpClientResponse.matchStatus({
+              "2xx": HttpClientResponse.schemaBodyJson(PublishCapabilityResponseSchema),
+              "400": (publishResponse) =>
+                HttpClientResponse.schemaBodyJson(OAuthTokenErrorResponseSchema)(
+                  publishResponse,
+                ).pipe(Effect.flatMap((error) => Effect.fail(error))),
+              orElse: unexpectedTokenStatus,
+            }),
+          ),
+          Effect.mapError((error) => {
+            const code = getOAuthErrorCode(error);
+            return makeAppError({
+              code: "auth",
+              detail:
+                code === "invalid_grant"
+                  ? "Publish authorization expired or was already used"
+                  : "Publish authorization code exchange failed",
+              suggestions: [
+                { description: "Review the exact publish request again by rerunning publish." },
+              ],
+              cause: error,
+            });
+          }),
+        );
+
+        return {
+          accessToken: response.access_token,
+          expiresAt: response.expires_at,
+          scope: response.scope,
+          publishRequestId: response.publish_request_id,
+        } satisfies PublishCapabilityResponse;
+      });
 
     const initiateDeviceFlow: AuthClientService["initiateDeviceFlow"] = Effect.fn(
       "AuthClient.initiateDeviceFlow",
@@ -935,6 +1073,8 @@ export const AuthClientLive = Layer.effect(
       buildAuthorizeUrl,
       getAuthorizationIssuer,
       exchangePkceCode,
+      createPublishAuthorizationRequest,
+      exchangePublishAuthorizationCode,
       initiateDeviceFlow,
       pollDeviceToken,
       refreshToken,
@@ -959,6 +1099,20 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
       `https://agentxm.ai/oauth/authorize?redirect_uri=${redirectUri}`,
     getAuthorizationIssuer: () => "https://agentxm.ai",
     exchangePkceCode: () =>
+      Effect.fail(
+        makeAppError({
+          code: "auth",
+          detail: "Not implemented in test",
+        }),
+      ),
+    createPublishAuthorizationRequest: () =>
+      Effect.fail(
+        makeAppError({
+          code: "auth",
+          detail: "Not implemented in test",
+        }),
+      ),
+    exchangePublishAuthorizationCode: () =>
       Effect.fail(
         makeAppError({
           code: "auth",

@@ -98,7 +98,7 @@ const schemas: SchemaConfig[] = [
 
 let count = 0;
 
-// effect-smol always emits `patternProperties` for `Schema.Record(KeyWithPattern, Value)`.
+// Effect emits `patternProperties` for `Schema.Record(KeyWithPattern, Value)`.
 // For the single-pattern shape that Record always produces, `propertyNames` + `additionalProperties`
 // is more idiomatic and also matches Record's strict runtime semantics — keys not matching the
 // pattern are rejected, whereas bare `patternProperties` (without `additionalProperties: false`)

@@ -60,6 +60,20 @@ export { createLocalRegistryClient } from "./local-client.js";
 export { createRemoteRegistryClient } from "./remote-client.js";
 
 export type {
+  ArchiveCache,
+  ArchiveCacheOptions,
+  ArchiveCachePruneResult,
+  ArchiveCacheStatus,
+  ArchiveCacheVerifyResult,
+} from "./archive-cache.js";
+export {
+  ARCHIVE_CACHE_MAX_AGE_MILLIS,
+  ARCHIVE_CACHE_MAX_BYTES,
+  makeArchiveCache,
+  makeUserArchiveCache,
+} from "./archive-cache.js";
+
+export type {
   ExtensionMaintainer,
   ExtensionMaintainerTarget,
   RegistryExtensionReference,

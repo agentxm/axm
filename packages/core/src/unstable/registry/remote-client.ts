@@ -27,6 +27,7 @@ import {
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
+import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import { DiscoverPackagesResponseSchema } from "./discover-schema.js";
 import { extensionLifecycleWarnings, pluralizeType, resolveVersionEntry } from "./utils.js";
@@ -46,7 +47,6 @@ import type {
   RegistryClient,
   RegistryExtensionManifest,
   RegistryLibraryDetail,
-  RegistryLibraryMaintainer,
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
 import {
@@ -67,8 +67,9 @@ import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
   ExtensionsGet200,
   ExtensionsListByOwner200,
-  LibrariesGetLibrary200,
+  LibrariesGetLibraryResolution200,
 } from "./__generated__/registry-client.js";
+import type { ArchiveCache } from "./archive-cache.js";
 
 // -----------------------------------------------------------------------------
 // Type Mapping Helpers
@@ -120,58 +121,24 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
     })),
   });
 
-const mapLibraryMaintainer = (
-  maintainer: LibrariesGetLibrary200["library"]["maintainer"],
-): RegistryLibraryMaintainer => {
-  switch (maintainer.kind) {
-    case "user":
-      return {
-        kind: "user",
-        userId: maintainer.userId,
-        assignedAt: maintainer.assignedAt,
-        assignedBy: maintainer.assignedBy,
-      };
-    case "team":
-      return {
-        kind: "team",
-        teamId: maintainer.teamId,
-        assignedAt: maintainer.assignedAt,
-        assignedBy: maintainer.assignedBy,
-      };
-    case "none":
-      return {
-        kind: "none",
-        assignedAt: maintainer.assignedAt,
-        assignedBy: maintainer.assignedBy,
-      };
-  }
-};
-
-const normalizeHiddenMemberCount = (value: LibrariesGetLibrary200["hiddenMemberCount"]): number =>
-  typeof value === "number" && Number.isFinite(value) ? value : 0;
-
-const mapToLibraryDetail = (response: LibrariesGetLibrary200): RegistryLibraryDetail => ({
-  library: {
-    id: response.library.id,
-    owner: decodeHandleSync(response.library.owner),
-    name: decodeExtensionNameSync(response.library.name),
-    title: response.library.title,
-    description: response.library.description,
-    visibility: response.library.visibility,
-    maintainer: mapLibraryMaintainer(response.library.maintainer),
-    createdAt: response.library.createdAt,
-    updatedAt: response.library.updatedAt,
-  },
+const mapToLibraryDetail = (response: LibrariesGetLibraryResolution200): RegistryLibraryDetail => ({
+  libraryId: response.libraryId,
+  reference: response.reference,
+  name: decodeExtensionNameSync(response.name),
+  updatedAt: response.updatedAt,
+  membershipDigest: response.membershipDigest,
+  viewerRelative: response.viewerRelative,
   members: response.members.map((member) => ({
-    id: member.id,
-    libraryId: member.libraryId,
+    id: member.memberId,
+    libraryId: response.libraryId,
     extensionId: member.extensionId,
-    extensionOwner: decodeHandleSync(member.extensionOwner),
-    extensionType: narrowExtensionType(member.extensionType),
-    extensionName: decodeExtensionNameSync(member.extensionName),
+    extensionOwner: decodeHandleSync(member.owner),
+    extensionType: narrowExtensionType(member.type),
+    extensionName: decodeExtensionNameSync(member.name),
+    resolvedVersion: decodeVersionSync(member.version),
     addedAt: member.addedAt,
+    publishedAt: member.publishedAt,
   })),
-  hiddenMemberCount: normalizeHiddenMemberCount(response.hiddenMemberCount),
 });
 
 /**
@@ -264,6 +231,7 @@ const registryRequestMetadata = (
 export const createRemoteRegistryClient = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
+  archiveCache?: ArchiveCache,
 ): RegistryClient => {
   const remoteHttpClient = httpClient.pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl)),
@@ -285,7 +253,7 @@ export const createRemoteRegistryClient = (
   const getLibrary = (
     args: GetLibraryArgs,
   ): Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError> =>
-    client.LibrariesGetLibrary(args.owner, args.name, undefined).pipe(
+    client.LibrariesGetLibraryResolution(args.owner, args.name, undefined).pipe(
       Effect.map((response) => Option.some(mapToLibraryDetail(response))),
       Effect.catch((e) => mapLibraryErrorWithNotFound(e)),
     );
@@ -307,7 +275,7 @@ export const createRemoteRegistryClient = (
   const mapLibraryErrorWithNotFound = (
     e: unknown,
   ): Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError> => {
-    if (isRegistryClientError("LibrariesGetLibrary404")(e)) {
+    if (isRegistryClientError("LibrariesGetLibraryResolution404")(e)) {
       return Effect.succeed(Option.none<RegistryLibraryDetail>());
     }
     return Effect.fail(mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY"));
@@ -549,6 +517,17 @@ export const createRemoteRegistryClient = (
         });
       }
 
+      if (archiveCache !== undefined) {
+        const cached = yield* archiveCache.read(resolvedEntry.value.integrity);
+        if (Option.isSome(cached)) {
+          const warnings = extensionLifecycleWarnings(index, resolvedEntry.value);
+          return {
+            archive: cached.value,
+            ...(warnings.length === 0 ? {} : { warnings }),
+          } satisfies GetExtensionPackageResponse;
+        }
+      }
+
       // Step 3: Download archive
       const archive = yield* client
         .ExtensionsDownloadArchive(
@@ -559,6 +538,10 @@ export const createRemoteRegistryClient = (
           undefined,
         )
         .pipe(Effect.mapError((e) => mapArchiveFetchError(e)));
+
+      if (archiveCache !== undefined) {
+        yield* archiveCache.write(resolvedEntry.value.integrity, archive);
+      }
 
       const warnings = extensionLifecycleWarnings(index, resolvedEntry.value);
       return {
@@ -679,27 +662,37 @@ export const createRemoteRegistryClient = (
       ).href,
     );
 
-    // Build FormData for multipart upload
-    const formData = new FormData();
-    formData.append(
-      "archive",
-      new Blob([args.archive], { type: "application/zip" }),
-      "archive.zip",
-    );
-    formData.append("integrity", args.metadata.integrity);
+    const contentDigest = args.metadata.integrity.startsWith("sha512-")
+      ? `sha-512=:${args.metadata.integrity.slice("sha512-".length)}:`
+      : args.metadata.integrity;
+    const publishClient = GeneratedRegistryClient.make(remoteHttpClient, {
+      transformClient: (baseClient) =>
+        Effect.succeed(
+          baseClient.pipe(
+            HttpClient.mapRequest((request) => {
+              const archiveRequest = request.pipe(
+                HttpClientRequest.bodyUint8Array(args.archive, "application/zip"),
+                HttpClientRequest.setHeaders({
+                  "content-digest": contentDigest,
+                  "content-length": String(args.archive.byteLength),
+                }),
+              );
+              return args.accessToken === undefined
+                ? archiveRequest
+                : HttpClientRequest.bearerToken(archiveRequest, args.accessToken);
+            }),
+          ),
+        ),
+    });
 
-    // Assertion needed: FormData is the correct runtime type but the generated client
-    // types the payload as the schema type; bodyFormData casts to any internally
-    /* eslint-disable @typescript-eslint/consistent-type-assertions */
-    const payload =
-      formData as unknown as GeneratedRegistryClient.ExtensionsPublishVersionRequestFormData;
-    /* eslint-enable @typescript-eslint/consistent-type-assertions */
-
-    return client
-      .ExtensionsPublishVersion(args.owner, pluralizeType(args.type), args.name, args.version, {
-        payload,
-        config: undefined,
-      })
+    return publishClient
+      .ExtensionsPublishVersion(
+        args.owner,
+        pluralizeType(args.type),
+        args.name,
+        args.version,
+        undefined,
+      )
       .pipe(
         Effect.map((response) => ({ published: true as const, links: response.links })),
         // Single mapError handler for all error types to avoid error channel narrowing issues

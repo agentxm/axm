@@ -90,19 +90,13 @@ const registrySource = {
 
 const makeLibraryDetail = (args?: {
   readonly members?: RegistryLibraryDetail["members"];
-  readonly hiddenMemberCount?: number;
 }): RegistryLibraryDetail => ({
-  library: {
-    id: "library_01J00000000000000000000000",
-    owner: handle("@acme"),
-    name: extensionName("frontend"),
-    title: "Frontend",
-    description: null,
-    visibility: "public",
-    maintainer: { kind: "none", assignedAt: null, assignedBy: null },
-    createdAt: oldAddedAt,
-    updatedAt: oldAddedAt,
-  },
+  libraryId: "library_01J00000000000000000000000",
+  reference: "@acme/libraries/frontend",
+  name: extensionName("frontend"),
+  updatedAt: oldAddedAt,
+  membershipDigest: "sha256:server-membership",
+  viewerRelative: true,
   members: args?.members ?? [
     {
       id: "library_member_01J0000000000000000000000",
@@ -111,10 +105,11 @@ const makeLibraryDetail = (args?: {
       extensionOwner: handle("@acme"),
       extensionType: "skill",
       extensionName: extensionName("reviewer"),
+      resolvedVersion: exactVersion("1.2.3"),
       addedAt: oldAddedAt,
+      publishedAt: oldAddedAt,
     },
   ],
-  hiddenMemberCount: args?.hiddenMemberCount ?? 0,
 });
 
 const makeResolvedSkill = (name: string, version: string) =>
@@ -333,7 +328,52 @@ describe("InstallLibraryCommandWorkflowActions", () => {
     }),
   );
 
-  it.effect("records Library subscriptions with lockfile snapshot and hidden-member notice", () =>
+  it.effect("retains the locked resolution when an unattended Library becomes inaccessible", () =>
+    Effect.gen(function* () {
+      const registryRoot = path.join("/tmp", `axm-inaccessible-library-${crypto.randomUUID()}`);
+      fs.mkdirSync(registryRoot, { recursive: true });
+      const inaccessibleWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
+        ...workspace,
+        getRegistrySourceHosts: () =>
+          Effect.succeed([
+            {
+              name: "default",
+              type: "registry",
+              location: pathToFileURL(registryRoot),
+            },
+          ]),
+      });
+
+      const result = yield* runWithActions(
+        (actions) =>
+          Effect.scoped(
+            Effect.gen(function* () {
+              const parsed = yield* actions.parseArgs({
+                source: "@acme/libraries/frontend",
+                unattended: true,
+              });
+              const requests = yield* actions.resolveSourceRequests(parsed);
+              const discovered = yield* actions.discoverRefs(requests);
+              return discovered;
+            }),
+          ),
+        { workspace: inaccessibleWorkspace },
+      );
+
+      expect(result[0]).toEqual(
+        expect.objectContaining({
+          mode: "frozen",
+          lockedLibrary,
+          diagnosticLines: [
+            'Warning: Library "@acme/libraries/frontend" is currently inaccessible; retaining its previous locked resolution.',
+          ],
+        }),
+      );
+      fs.rmSync(registryRoot, { recursive: true, force: true });
+    }),
+  );
+
+  it.effect("records the authoritative Library resolution and membership digest", () =>
     Effect.gen(function* () {
       const setLibrary = vi.fn(() => Effect.void);
       const liveWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
@@ -361,7 +401,7 @@ describe("InstallLibraryCommandWorkflowActions", () => {
               return yield* actions.finalizeIntent(parsed, [
                 {
                   mode: "live",
-                  library: makeLibraryDetail({ hiddenMemberCount: 2 }),
+                  library: makeLibraryDetail(),
                   request,
                 },
               ]);
@@ -386,9 +426,6 @@ describe("InstallLibraryCommandWorkflowActions", () => {
         expect.objectContaining({
           result: "success",
           message: "Recorded Library subscription",
-          warnings: [
-            "2 Library member(s) were not visible with the current registry credentials and were skipped.",
-          ],
         }),
       );
       expect(setLibrary).toHaveBeenCalledWith(
@@ -397,12 +434,63 @@ describe("InstallLibraryCommandWorkflowActions", () => {
           owner: handle("@acme"),
           name: extensionName("frontend"),
           sourceName: "default",
-          membershipDigest: expect.stringMatching(/^sha256-/),
+          membershipDigest: "sha256:server-membership",
           resolvedSkills: resolvedExtensionMap({
             "@acme/skills/reviewer": "1.2.3",
           }),
         }),
       );
+    }),
+  );
+
+  it.effect("warns but continues when attended install sees a recent member or release", () =>
+    Effect.gen(function* () {
+      const liveWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
+        getRegistrySourceHosts: () => Effect.succeed([registrySourceHost]),
+        getMinimumReleaseAge: () => Effect.succeed("24h"),
+      });
+      const sourceProviders = {
+        ...sourceHostProviders,
+        find: vi.fn(() => Effect.succeed([makeResolvedSkill("reviewer", "1.2.3")])),
+      } satisfies ServiceMap.Service.Shape<typeof SourceHostProviders>;
+
+      const intent = yield* runWithActions(
+        (actions) =>
+          Effect.scoped(
+            Effect.gen(function* () {
+              const parsed = yield* actions.parseArgs({
+                source: "@acme/libraries/frontend",
+                unattended: false,
+              });
+              const requests = yield* actions.resolveSourceRequests(parsed);
+              const request = requests[0];
+              if (request === undefined) throw new Error("Expected Library source request");
+              const currentMember = makeLibraryDetail().members[0];
+              if (currentMember === undefined) throw new Error("Expected Library member");
+              return yield* actions.finalizeIntent(parsed, [
+                {
+                  mode: "live",
+                  library: makeLibraryDetail({
+                    members: [
+                      {
+                        ...currentMember,
+                        addedAt: recentAddedAt,
+                        publishedAt: recentAddedAt,
+                      },
+                    ],
+                  }),
+                  request,
+                },
+              ]);
+            }),
+          ),
+        { workspace: liveWorkspace, sourceHostProviders: sourceProviders },
+      );
+
+      expect(intent.membersToInstall).toHaveLength(1);
+      expect(intent.skippedMemberMessages).toEqual([
+        "@acme/skills/reviewer is newer than minimumReleaseAge 24h; attended install is continuing.",
+      ]);
     }),
   );
 
@@ -444,7 +532,9 @@ describe("InstallLibraryCommandWorkflowActions", () => {
                         extensionOwner: handle("@acme"),
                         extensionType: "skill",
                         extensionName: extensionName("reviewer"),
+                        resolvedVersion: exactVersion("1.2.3"),
                         addedAt: oldAddedAt,
+                        publishedAt: oldAddedAt,
                       },
                       {
                         id: "library_member_01J0000000000000000000001",
@@ -453,7 +543,9 @@ describe("InstallLibraryCommandWorkflowActions", () => {
                         extensionOwner: handle("@acme"),
                         extensionType: "skill",
                         extensionName: extensionName("beta"),
+                        resolvedVersion: exactVersion("2.0.0"),
                         addedAt: recentAddedAt,
+                        publishedAt: recentAddedAt,
                       },
                     ],
                   }),

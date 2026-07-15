@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -359,6 +357,21 @@ const isMemberMature = (
     },
   });
 
+const isTimestampMature = (
+  value: string | null,
+  policy: Option.Option<ReleaseAgePolicy>,
+): boolean =>
+  Option.match(policy, {
+    onNone: () => true,
+    onSome: (rule) => {
+      if (rule.minimumAgeMs <= 0) return true;
+      if (value === null) return false;
+      const timestamp = Date.parse(value);
+      if (!Number.isFinite(timestamp)) return false;
+      return rule.now.getTime() - timestamp >= rule.minimumAgeMs;
+    },
+  });
+
 const sortedMembers = (
   members: ReadonlyArray<RegistryLibraryMember>,
 ): ReadonlyArray<RegistryLibraryMember> =>
@@ -367,16 +380,6 @@ const sortedMembers = (
     const rightKey = `${right.extensionOwner}/${right.extensionType}/${right.extensionName}`;
     return leftKey.localeCompare(rightKey);
   });
-
-const membershipDigest = (members: ReadonlyArray<RegistryLibraryMember>): string => {
-  const payload = sortedMembers(members).map((member) => ({
-    owner: member.extensionOwner,
-    type: member.extensionType,
-    name: member.extensionName,
-    addedAt: member.addedAt,
-  }));
-  return `sha256-${createHash("sha256").update(JSON.stringify(payload)).digest("hex")}`;
-};
 
 const memberLabel = (member: RegistryLibraryMember): string =>
   formatFqn({
@@ -509,13 +512,6 @@ const collectDroppedLibraryTargets = (args: {
 
 const resolveReleaseAgePolicy = (ws: WorkspaceMutationsService, unattended: boolean) =>
   Effect.gen(function* () {
-    if (!unattended) {
-      return {
-        policy: Option.none<ReleaseAgePolicy>(),
-        minimumReleaseAge: Option.none<string>(),
-      };
-    }
-
     const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
     const minimumAgeMs = parseMinimumReleaseAge(minimumReleaseAge);
     if (Option.isNone(minimumAgeMs)) {
@@ -526,8 +522,13 @@ const resolveReleaseAgePolicy = (ws: WorkspaceMutationsService, unattended: bool
       });
     }
 
+    const configuredPolicy = {
+      minimumAgeMs: minimumAgeMs.value,
+      now: new Date(),
+    } satisfies ReleaseAgePolicy;
     return {
-      policy: Option.some({ minimumAgeMs: minimumAgeMs.value, now: new Date() }),
+      policy: unattended ? Option.some(configuredPolicy) : Option.none<ReleaseAgePolicy>(),
+      warningPolicy: unattended ? Option.none<ReleaseAgePolicy>() : Option.some(configuredPolicy),
       minimumReleaseAge: Option.some(minimumReleaseAge),
     };
   });
@@ -604,18 +605,11 @@ const buildLibrarySubscriptionStep = (
       installedAt,
       updatedAt: now,
       resolvedAt: now,
-      membershipDigest: membershipDigest(intent.library.members),
+      membershipDigest: intent.library.membershipDigest,
       ...resolvedExtensionMaps(intent.membersToInstall),
     });
 
-    const warnings = [
-      ...(intent.library.hiddenMemberCount > 0
-        ? [
-            `${intent.library.hiddenMemberCount} Library member(s) were not visible with the current registry credentials and were skipped.`,
-          ]
-        : []),
-      ...intent.skippedMemberMessages,
-    ];
+    const warnings = intent.skippedMemberMessages;
 
     return {
       result: "success",
@@ -946,6 +940,24 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
             });
 
             if (Option.isNone(libraryOption)) {
+              const lockedLibrary = yield* ws.getLockedLibrary(req.ref.name);
+              if (
+                req.unattended &&
+                Option.isSome(lockedLibrary) &&
+                lockedLibrary.value.owner === req.ref.owner &&
+                lockedLibrary.value.name === req.ref.name
+              ) {
+                return [
+                  {
+                    mode: "frozen" as const,
+                    lockedLibrary: lockedLibrary.value,
+                    request: req,
+                    diagnosticLines: [
+                      `Warning: Library "${formatLibraryRef(req.ref)}" is currently inaccessible; retaining its previous locked resolution.`,
+                    ],
+                  },
+                ];
+              }
               return yield* makeAppError({
                 code: "not_found",
                 detail: `Library "${formatLibraryRef(req.ref)}" not found in registry`,
@@ -958,9 +970,7 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
                   `Library: ${formatLibraryRef(req.ref)}`,
                   `Registry source: ${req.sourceName} (${req.source.location.href})`,
                   `Visible members: ${libraryOption.value.members.length}`,
-                  ...(libraryOption.value.hiddenMemberCount > 0
-                    ? [`Hidden members: ${libraryOption.value.hiddenMemberCount}`]
-                    : []),
+                  "Resolution is viewer-relative",
                 ]
               : undefined;
 
@@ -980,6 +990,7 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
       library: RegistryLibraryDetail,
       source: RegistrySource,
       releaseAgePolicy: Option.Option<ReleaseAgePolicy>,
+      warningAgePolicy: Option.Option<ReleaseAgePolicy>,
       minimumReleaseAge: Option.Option<string>,
     ): Effect.Effect<ResolvedLibraryMembers, AppError, never> =>
       provide(
@@ -1008,11 +1019,24 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
                 continue;
               }
 
+              if (
+                !isMemberMature(member, warningAgePolicy) ||
+                !isTimestampMature(member.publishedAt, warningAgePolicy)
+              ) {
+                const ageText = Option.match(minimumReleaseAge, {
+                  onNone: () => "the configured minimumReleaseAge",
+                  onSome: (value) => value,
+                });
+                skippedMessages.push(
+                  `${memberLabel(member)} is newer than minimumReleaseAge ${ageText}; attended install is continuing.`,
+                );
+              }
+
               const found = yield* sources.find(source, {
                 names: [member.extensionName],
                 type: memberType,
                 owner: Option.some(member.extensionOwner),
-                versionRange: Option.none(),
+                versionRange: Option.some(member.resolvedVersion),
                 releaseAgePolicy,
               });
               const ref = found.find(
@@ -1085,7 +1109,7 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
           } satisfies InstallLibraryCommandIntent;
         }
 
-        const { policy, minimumReleaseAge } = yield* resolveReleaseAgePolicy(
+        const { policy, warningPolicy, minimumReleaseAge } = yield* resolveReleaseAgePolicy(
           ws,
           discovery.request.unattended,
         );
@@ -1093,6 +1117,7 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
           discovery.library,
           discovery.request.source,
           policy,
+          warningPolicy,
           minimumReleaseAge,
         );
 

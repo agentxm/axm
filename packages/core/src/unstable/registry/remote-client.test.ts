@@ -15,6 +15,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
 import { createRemoteRegistryClient } from "./remote-client.js";
+import type { ArchiveCache } from "./archive-cache.js";
 import type { AppError } from "../app-error/index.js";
 import {
   extensionName,
@@ -81,6 +82,7 @@ const extensionIndexResponse = {
   name: "test-skill",
   owner: "@acme",
   type: "skill",
+  publisher_binding_id: "hbnd_test",
   description: "A test skill",
   repository: { url: "https://github.com/acme/test-skill" },
   license: "MIT",
@@ -426,10 +428,107 @@ describe("ownerExists", () => {
 });
 
 // =============================================================================
+// getLibrary
+// =============================================================================
+
+describe("getLibrary", () => {
+  it.effect("returns the viewer-relative authoritative resolution", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              libraryId: "lib_01j00000000000000000000000",
+              reference: "@acme/libraries/frontend",
+              name: "frontend",
+              updatedAt: "2026-07-14T00:00:00.000Z",
+              membershipDigest: "sha256:server-digest",
+              viewerRelative: true,
+              members: [
+                {
+                  memberId: "lmem_01j00000000000000000000000",
+                  extensionId: "ext_01j00000000000000000000000",
+                  extensionVersionId: "extv_01j00000000000000000000000",
+                  owner: "@acme",
+                  type: "skill",
+                  name: "reviewer",
+                  version: "1.2.3",
+                  addedAt: "2026-06-01T00:00:00.000Z",
+                  publishedAt: "2026-05-01T00:00:00.000Z",
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.getLibrary({
+        owner: registryOwner,
+        name: extensionName("frontend"),
+      });
+
+      expect(Option.isSome(result)).toBe(true);
+      const resolution = Option.getOrThrow(result);
+      expect(resolution.membershipDigest).toBe("sha256:server-digest");
+      expect(resolution.viewerRelative).toBe(true);
+      expect(resolution.members[0]).toEqual(
+        expect.objectContaining({
+          extensionOwner: registryOwner,
+          extensionType: "skill",
+          extensionName: extensionName("reviewer"),
+          resolvedVersion: exactVersion("1.2.3"),
+        }),
+      );
+    }),
+  );
+
+  it.effect("returns Option.none() for an inaccessible Library", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(404, "library_not_found", "Library not found"),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.getLibrary({
+        owner: registryOwner,
+        name: extensionName("private-library"),
+      });
+
+      expect(Option.isNone(result)).toBe(true);
+    }),
+  );
+});
+
+// =============================================================================
 // getExtensionPackage
 // =============================================================================
 
 describe("getExtensionPackage", () => {
+  it.effect("revalidates remote metadata before using a verified cache hit", () =>
+    Effect.gen(function* () {
+      const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const requestedUrls: Array<string> = [];
+      const httpClient = makeMockHttpClient((request) => {
+        requestedUrls.push(request.url);
+        return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const cache = {
+        read: () => Effect.succeed(Option.some(cachedArchive)),
+        write: () => Effect.void,
+        status: () => Effect.die("status was not expected"),
+        verify: () => Effect.die("verify was not expected"),
+        prune: () => Effect.die("prune was not expected"),
+      } satisfies ArchiveCache;
+      const client = createRemoteRegistryClient(BASE_URL, httpClient, cache);
+
+      const result = yield* client.getExtensionPackage(makePackageArgs());
+
+      expect(Array.from(result.archive)).toEqual(Array.from(cachedArchive));
+      expect(requestedUrls).toEqual([`${BASE_URL}/v1/extensions/@acme/skills/test-skill`]);
+    }),
+  );
+
   it.effect("returns archive for latest version", () =>
     Effect.gen(function* () {
       const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
@@ -720,6 +819,27 @@ const publishArgs = {
 };
 
 describe("publishExtension", () => {
+  it.effect("uploads the exact ZIP bytes with required digest headers", () =>
+    Effect.gen(function* () {
+      let capturedRequest: HttpClientRequest.HttpClientRequest | undefined;
+      const httpClient = makeMockHttpClient((request) => {
+        capturedRequest = request;
+        return new Response(JSON.stringify(publishSuccessResponse), { status: 201 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      yield* client.publishExtension(publishArgs);
+
+      expect(capturedRequest?.body._tag).toBe("Uint8Array");
+      if (capturedRequest?.body._tag === "Uint8Array") {
+        expect(capturedRequest.body.body).toEqual(publishArgs.archive);
+      }
+      expect(capturedRequest?.headers["content-type"]).toBe("application/zip");
+      expect(capturedRequest?.headers["content-length"]).toBe(String(publishArgs.archive.length));
+      expect(capturedRequest?.headers["content-digest"]).toBe("sha-512=:abc123:");
+    }),
+  );
+
   it.effect("returns published:true on 200", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(

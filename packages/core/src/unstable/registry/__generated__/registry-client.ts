@@ -129,17 +129,24 @@ export const PublishDetails = Schema.Struct({
 });
 export type SessionTokenResponse = {
   readonly access_token: string;
-  readonly refresh_token: string;
+  readonly refresh_token?: string | null;
   readonly token_type: "Bearer";
   readonly expires_in: number;
   readonly expires_at: string;
   readonly scope?: string | null;
+  readonly publish_request_id?: string | null;
 };
 export const SessionTokenResponse = Schema.Struct({
   access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
-  refresh_token: Schema.String.annotate({
-    description: "OAuth 2.0 refresh token for obtaining new token pairs.",
-  }),
+  refresh_token: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "OAuth 2.0 refresh token for obtaining new token pairs. Omitted for exact publish capabilities.",
+      }),
+      Schema.Null,
+    ]),
+  ),
   token_type: Schema.Literal("Bearer"),
   expires_in: Schema.Number.annotate({
     description: "Access token lifetime remaining in seconds.",
@@ -151,6 +158,15 @@ export const SessionTokenResponse = Schema.Struct({
   scope: Schema.optionalKey(
     Schema.Union([
       Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
+      Schema.Null,
+    ]),
+  ),
+  publish_request_id: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "Publish authorization request that produced a non-refreshable exact capability.",
+      }),
       Schema.Null,
     ]),
   ),
@@ -232,6 +248,69 @@ export const StepUpChallengeResponse = Schema.Union([
     expires_at: Schema.String.annotate({ description: "ISO timestamp when this proof expires." }),
   }),
 ]).annotate({ title: "Step-up Challenge Response" });
+export type Handle = string;
+export const Handle = Schema.String.check(
+  Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$"), {
+    title: "Handle",
+    description: "A unique username or organization name starting with @, like @my-org.",
+    examples: ["@my-org", "@username"],
+  }),
+);
+export type ExtensionType =
+  | "skill"
+  | "command"
+  | "mcp-server"
+  | "subagent"
+  | "files"
+  | "rule"
+  | "hook"
+  | "pack";
+export const ExtensionType = Schema.Literals([
+  "skill",
+  "command",
+  "mcp-server",
+  "subagent",
+  "files",
+  "rule",
+  "hook",
+  "pack",
+]).annotate({
+  title: "Extension Type",
+  description:
+    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, or pack.",
+});
+export type ExtensionName = string;
+export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(
+  Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"), {
+    title: "Extension Name",
+    description:
+      "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+    examples: ["my-skill", "code-review", "prettier"],
+  }),
+);
+export type Version = string;
+export const Version = Schema.String.check(
+  Schema.isPattern(
+    new RegExp(
+      "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+    ),
+    {
+      title: "Version",
+      description: "A semver version like 1.0.0. Ranges are not allowed here.",
+      examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
+    },
+  ),
+);
+export type PublishAuthorizationRequestId = string;
+export const PublishAuthorizationRequestId = Schema.String.check(
+  Schema.isPattern(new RegExp("^pubreq_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Publish Authorization Request ID",
+    description: "Identifies one exact browser-reviewed publish authorization request.",
+    examples: ["pubreq_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type IsoDateTimeString = string;
+export const IsoDateTimeString = Schema.String.check(Schema.isMinLength(1));
 export type TokenId = string;
 export const TokenId = Schema.String.check(
   Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -241,8 +320,6 @@ export const TokenId = Schema.String.check(
     examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
-export type IsoDateTimeString = string;
-export const IsoDateTimeString = Schema.String.check(Schema.isMinLength(1));
 export type ScopeCheckDetails = {
   readonly requiredScope: string;
   readonly grantedScopes: ReadonlyArray<string>;
@@ -345,14 +422,6 @@ export const StepUpRequiredError = Schema.Struct({
   authUrl: Schema.String,
   doneUrl: Schema.String,
 });
-export type Handle = string;
-export const Handle = Schema.String.check(
-  Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$"), {
-    title: "Handle",
-    description: "A unique username or organization name starting with @, like @my-org.",
-    examples: ["@my-org", "@username"],
-  }),
-);
 export type OwnerResponse = { readonly displayName: string };
 export const OwnerResponse = Schema.Struct({
   displayName: Schema.String.annotate({ description: "Display name for the owner account." }),
@@ -435,51 +504,6 @@ export const ChangeTeamMemberRoleBody = Schema.Struct({
       "Role within a team — 'admin' manages membership and grants; 'member' inherits grants.",
   }),
 }).annotate({ title: "Change Team Member Role Body" });
-export type ExtensionName = string;
-export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(
-  Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"), {
-    title: "Extension Name",
-    description:
-      "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-    examples: ["my-skill", "code-review", "prettier"],
-  }),
-);
-export type ExtensionType =
-  | "skill"
-  | "command"
-  | "mcp-server"
-  | "subagent"
-  | "files"
-  | "rule"
-  | "hook"
-  | "pack";
-export const ExtensionType = Schema.Literals([
-  "skill",
-  "command",
-  "mcp-server",
-  "subagent",
-  "files",
-  "rule",
-  "hook",
-  "pack",
-]).annotate({
-  title: "Extension Type",
-  description:
-    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, or pack.",
-});
-export type Version = string;
-export const Version = Schema.String.check(
-  Schema.isPattern(
-    new RegExp(
-      "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-    ),
-    {
-      title: "Version",
-      description: "A semver version like 1.0.0. Ranges are not allowed here.",
-      examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
-    },
-  ),
-);
 export type Repository = {
   readonly url: string;
   readonly type?: string | null;
@@ -762,12 +786,16 @@ export const PurgeExtensionVersionBody = Schema.Struct({
   title: "Purge Extension Version Body",
   description: "Administrative purge reason and explicit acknowledgement of shared-content impact.",
 });
+export type LibraryVisibility = "public" | "private";
+export const LibraryVisibility = Schema.Literals(["public", "private"]).annotate({
+  title: "Library Visibility",
+});
 export type LibraryId = string;
 export const LibraryId = Schema.String.check(
   Schema.isPattern(new RegExp("^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
     title: "Library ID",
     description:
-      "Identifies a workspace-owned installable collection of extension identities in the registry.",
+      "Identifies an account-owned installable collection of extension identities in the registry.",
     examples: ["lib_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
@@ -778,10 +806,6 @@ export const LibraryName = Schema.String.annotate({
     "Canonical Library name within an owner namespace. Uses the same normalized slug grammar as handles.",
   examples: ["frontend", "team-tools"],
 });
-export type LibraryVisibility = "public" | "private";
-export const LibraryVisibility = Schema.Literals(["public", "private"]).annotate({
-  title: "Library Visibility",
-});
 export type LibraryMemberId = string;
 export const LibraryMemberId = Schema.String.check(
   Schema.isPattern(new RegExp("^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -789,6 +813,15 @@ export const LibraryMemberId = Schema.String.check(
     description:
       "Identifies an extension identity membership inside an installable registry library.",
     examples: ["lmem_01h455vb4pexka56gq5w2r7cpc"],
+  }),
+);
+export type ExtensionVersionId = string;
+export const ExtensionVersionId = Schema.String.check(
+  Schema.isPattern(new RegExp("^extv_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
+    title: "Extension Version ID",
+    description:
+      "Identifies a specific published version of an extension. Each publish operation creates a new version under its parent extension.",
+    examples: ["extv_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
 export type UpdateLibraryBody = {
@@ -868,7 +901,7 @@ export const AddTeamMemberBody = Schema.Struct({
 });
 export type AuthMeToken = {
   readonly id: string;
-  readonly type: "session" | "pat" | "oidc";
+  readonly type: "session" | "pat" | "oidc" | "publish-capability";
   readonly name: string | null;
   readonly permissions: Schema.Json | null;
   readonly scopes: ReadonlyArray<string>;
@@ -879,7 +912,7 @@ export const AuthMeToken = Schema.Struct({
   id: Schema.String.annotate({
     description: "Opaque identifier of the credential used for this request.",
   }),
-  type: Schema.Literals(["session", "pat", "oidc"]).annotate({
+  type: Schema.Literals(["session", "pat", "oidc", "publish-capability"]).annotate({
     title: "Token Type",
     description: "The type of authentication token.",
   }),
@@ -899,6 +932,58 @@ export const AuthMeToken = Schema.Struct({
 }).annotate({
   title: "Token Info",
   description: "Details about the token you used to authenticate.",
+});
+export type LibraryMemberCoordinate = {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+};
+export const LibraryMemberCoordinate = Schema.Struct({
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+}).annotate({ title: "Library Member Coordinate" });
+export type PublishIdentity = {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+};
+export const PublishIdentity = Schema.Struct({
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: Version,
+}).annotate({
+  title: "Publish Identity",
+  description: "URL-path identity of the extension version under publish.",
+});
+export type SharedDigestConfirmationRequiredHttpError = {
+  readonly kind: "SharedDigestConfirmationRequiredHttpError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: "shared_digest_confirmation_required";
+  readonly affectedCoordinates: ReadonlyArray<{
+    readonly owner: Handle;
+    readonly type: ExtensionType;
+    readonly name: ExtensionName;
+    readonly version: Version;
+  }>;
+};
+export const SharedDigestConfirmationRequiredHttpError = Schema.Struct({
+  kind: Schema.Literal("SharedDigestConfirmationRequiredHttpError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("shared_digest_confirmation_required"),
+  affectedCoordinates: Schema.Array(
+    Schema.Struct({ owner: Handle, type: ExtensionType, name: ExtensionName, version: Version }),
+  ),
 });
 export type TokenListItem = {
   readonly id: TokenId;
@@ -962,6 +1047,7 @@ export type ForbiddenError = {
     | "resource_restriction"
     | "scope_escalation"
     | "gat_requires_session"
+    | "recent_authentication_required"
     | "team_create_not_authorized"
     | "team_delete_not_authorized"
     | "team_update_not_authorized"
@@ -975,7 +1061,9 @@ export type ForbiddenError = {
     | "publish/insufficient-scope"
     | "publish/resource-restriction"
     | "publish/handle-not-owned"
-    | "publish/publish-forbidden";
+    | "publish/publish-forbidden"
+    | "publish/capability-binding-mismatch"
+    | "publish/capability-expired";
   readonly details?: ScopeCheckDetails | AuthorizationDenyDetails | PublishDetails;
 };
 export const ForbiddenError = Schema.Struct({
@@ -991,6 +1079,7 @@ export const ForbiddenError = Schema.Struct({
     "resource_restriction",
     "scope_escalation",
     "gat_requires_session",
+    "recent_authentication_required",
     "team_create_not_authorized",
     "team_delete_not_authorized",
     "team_update_not_authorized",
@@ -1005,6 +1094,8 @@ export const ForbiddenError = Schema.Struct({
     "publish/resource-restriction",
     "publish/handle-not-owned",
     "publish/publish-forbidden",
+    "publish/capability-binding-mismatch",
+    "publish/capability-expired",
   ]),
   details: Schema.optionalKey(
     Schema.Union([ScopeCheckDetails, AuthorizationDenyDetails, PublishDetails]),
@@ -1188,48 +1279,6 @@ export const TeamMembership = Schema.Struct({
   addedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
   addedBy: UserIdRef,
 }).annotate({ title: "Team Membership" });
-export type PublishIdentity = {
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly version: Version;
-};
-export const PublishIdentity = Schema.Struct({
-  owner: Handle,
-  type: ExtensionType,
-  name: ExtensionName,
-  version: Version,
-}).annotate({
-  title: "Publish Identity",
-  description: "URL-path identity of the extension version under publish.",
-});
-export type SharedDigestConfirmationRequiredHttpError = {
-  readonly kind: "SharedDigestConfirmationRequiredHttpError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: "shared_digest_confirmation_required";
-  readonly affectedCoordinates: ReadonlyArray<{
-    readonly owner: Handle;
-    readonly type: ExtensionType;
-    readonly name: ExtensionName;
-    readonly version: Version;
-  }>;
-};
-export const SharedDigestConfirmationRequiredHttpError = Schema.Struct({
-  kind: Schema.Literal("SharedDigestConfirmationRequiredHttpError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.Literal("shared_digest_confirmation_required"),
-  affectedCoordinates: Schema.Array(
-    Schema.Struct({ owner: Handle, type: ExtensionType, name: ExtensionName, version: Version }),
-  ),
-});
 export type SearchHit = {
   readonly name: ExtensionName;
   readonly owner: Handle;
@@ -1241,6 +1290,8 @@ export type SearchHit = {
   readonly authors?: ReadonlyArray<Author> | null;
   readonly deprecated_at?: IsoDateTimeString | null;
   readonly deprecation_notice?: string | null;
+  readonly matched_fields?: ReadonlyArray<string> | null;
+  readonly visibility: "public" | "private";
 };
 export const SearchHit = Schema.Struct({
   name: ExtensionName,
@@ -1255,6 +1306,8 @@ export const SearchHit = Schema.Struct({
   deprecation_notice: Schema.optionalKey(
     Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
   ),
+  matched_fields: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
+  visibility: Schema.Literals(["public", "private"]),
 }).annotate({ title: "Search Hit", description: "A single extension matched by a search query." });
 export type CompanionPackage = {
   readonly purl: PackageIdentityPurl;
@@ -1297,6 +1350,10 @@ export const PublishLintFinding = Schema.Struct({
   title: "Publish Lint Finding",
   description: "One lint finding produced against the publish subject.",
 });
+export type PatchLibraryVisibilityBody = { readonly visibility: LibraryVisibility };
+export const PatchLibraryVisibilityBody = Schema.Struct({ visibility: LibraryVisibility }).annotate(
+  { title: "Patch Library Visibility Body" },
+);
 export type CreateLibraryBody = {
   readonly name: LibraryName;
   readonly title: string;
@@ -1311,10 +1368,6 @@ export const CreateLibraryBody = Schema.Struct({
   ),
   visibility: Schema.optionalKey(Schema.Union([LibraryVisibility, Schema.Null])),
 }).annotate({ title: "Create Library Body" });
-export type PatchLibraryVisibilityBody = { readonly visibility: LibraryVisibility };
-export const PatchLibraryVisibilityBody = Schema.Struct({ visibility: LibraryVisibility }).annotate(
-  { title: "Patch Library Visibility Body" },
-);
 export type LibraryMember = {
   readonly id: LibraryMemberId;
   readonly libraryId: LibraryId;
@@ -1333,6 +1386,28 @@ export const LibraryMember = Schema.Struct({
   extensionName: ExtensionName,
   addedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 }).annotate({ title: "Library Member" });
+export type LibraryResolutionMember = {
+  readonly memberId: LibraryMemberId;
+  readonly extensionId: ExtensionId;
+  readonly extensionVersionId: ExtensionVersionId;
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+  readonly addedAt: IsoDateTimeString;
+  readonly publishedAt: IsoDateTimeString | null;
+};
+export const LibraryResolutionMember = Schema.Struct({
+  memberId: LibraryMemberId,
+  extensionId: ExtensionId,
+  extensionVersionId: ExtensionVersionId,
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: Version,
+  addedAt: IsoDateTimeString,
+  publishedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
+}).annotate({ title: "Library Resolution Member" });
 export type AuthMeResponse = {
   readonly user: AuthMeUser;
   readonly orgs: ReadonlyArray<never>;
@@ -1347,6 +1422,53 @@ export const AuthMeResponse = Schema.Struct({
 }).annotate({
   title: "Auth Me Response",
   description: "Your user profile, organizations, and token details.",
+});
+export type PatchLibraryMembersBody = {
+  readonly add: ReadonlyArray<LibraryMemberCoordinate>;
+  readonly remove: ReadonlyArray<LibraryMemberCoordinate>;
+};
+export const PatchLibraryMembersBody = Schema.Struct({
+  add: Schema.Array(LibraryMemberCoordinate),
+  remove: Schema.Array(LibraryMemberCoordinate),
+}).annotate({ title: "Patch Library Members Body" });
+export type PatchLibraryMembersResponse = {
+  readonly added: ReadonlyArray<LibraryMemberCoordinate>;
+  readonly removed: ReadonlyArray<LibraryMemberCoordinate>;
+  readonly unchanged: ReadonlyArray<{
+    readonly action: "add" | "remove";
+    readonly member: LibraryMemberCoordinate;
+  }>;
+};
+export const PatchLibraryMembersResponse = Schema.Struct({
+  added: Schema.Array(LibraryMemberCoordinate),
+  removed: Schema.Array(LibraryMemberCoordinate),
+  unchanged: Schema.Array(
+    Schema.Struct({ action: Schema.Literals(["add", "remove"]), member: LibraryMemberCoordinate }),
+  ),
+}).annotate({ title: "Patch Library Members Response" });
+export type ExtensionIdentityMismatchError = {
+  readonly kind: "ExtensionIdentityMismatchError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: "extension_identity_mismatch";
+  readonly error: "extension_identity_mismatch";
+  readonly identity: PublishIdentity;
+  readonly mismatches: ReadonlyArray<PublishIdentityMismatchEntry>;
+};
+export const ExtensionIdentityMismatchError = Schema.Struct({
+  kind: Schema.Literal("ExtensionIdentityMismatchError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt()),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("extension_identity_mismatch"),
+  error: Schema.Literal("extension_identity_mismatch"),
+  identity: PublishIdentity,
+  mismatches: Schema.Array(PublishIdentityMismatchEntry),
 });
 export type TokenListResponse = {
   readonly tokens: ReadonlyArray<TokenListItem>;
@@ -1422,34 +1544,12 @@ export const TeamMembershipList = Schema.Struct({
   items: Schema.Array(TeamMembership),
   nextCursor: Schema.Union([Schema.String, Schema.Null]),
 }).annotate({ title: "Team Membership List" });
-export type ExtensionIdentityMismatchError = {
-  readonly kind: "ExtensionIdentityMismatchError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: "extension_identity_mismatch";
-  readonly error: "extension_identity_mismatch";
-  readonly identity: PublishIdentity;
-  readonly mismatches: ReadonlyArray<PublishIdentityMismatchEntry>;
-};
-export const ExtensionIdentityMismatchError = Schema.Struct({
-  kind: Schema.Literal("ExtensionIdentityMismatchError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt()),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.Literal("extension_identity_mismatch"),
-  error: Schema.Literal("extension_identity_mismatch"),
-  identity: PublishIdentity,
-  mismatches: Schema.Array(PublishIdentityMismatchEntry),
-});
 export type SearchResponse = {
   readonly extensions: ReadonlyArray<SearchHit>;
   readonly has_more: boolean;
   readonly cursor: string | null;
+  readonly total: number;
+  readonly total_relation: "exact";
 };
 export const SearchResponse = Schema.Struct({
   extensions: Schema.Array(SearchHit).annotate({
@@ -1462,6 +1562,12 @@ export const SearchResponse = Schema.Struct({
     Schema.String.annotate({ description: "Opaque cursor for fetching the next page of results." }),
     Schema.Null,
   ]),
+  total: Schema.Number.check(Schema.isInt()).check(
+    Schema.makeFilterGroup([Schema.isFinite(), Schema.isGreaterThanOrEqualTo(0)], {
+      description: "Exact number of viewer-visible extensions matching the query.",
+    }),
+  ),
+  total_relation: Schema.Literal("exact"),
 }).annotate({
   title: "Search Response",
   description: "A page of extensions matching the search query.",
@@ -1492,17 +1598,55 @@ export const ExtensionLintFailedError = Schema.Struct({
   displayRoot: Schema.String,
   findings: Schema.Array(PublishLintFinding),
 });
+export type ListLibraryMembersResponse = {
+  readonly members: ReadonlyArray<LibraryMember>;
+  readonly total: number;
+  readonly limit: number;
+  readonly offset: number;
+  readonly viewerRelative: true;
+};
+export const ListLibraryMembersResponse = Schema.Struct({
+  members: Schema.Array(LibraryMember),
+  total: Schema.Number.check(Schema.isInt()),
+  limit: Schema.Number.check(Schema.isInt()),
+  offset: Schema.Number.check(Schema.isInt()),
+  viewerRelative: Schema.Literal(true),
+}).annotate({ title: "List Library Members Response" });
+export type LibraryResolution = {
+  readonly libraryId: LibraryId;
+  readonly reference: string;
+  readonly name: LibraryName;
+  readonly updatedAt: IsoDateTimeString;
+  readonly membershipDigest: string;
+  readonly viewerRelative: true;
+  readonly members: ReadonlyArray<LibraryResolutionMember>;
+};
+export const LibraryResolution = Schema.Struct({
+  libraryId: LibraryId,
+  reference: Schema.String,
+  name: LibraryName,
+  updatedAt: IsoDateTimeString,
+  membershipDigest: Schema.String,
+  viewerRelative: Schema.Literal(true),
+  members: Schema.Array(LibraryResolutionMember),
+}).annotate({
+  title: "Library Resolution",
+  description:
+    "The current Library membership and latest eligible versions visible to the authenticated viewer.",
+});
 export type LibraryDetail = {
   readonly library: Library;
   readonly members: ReadonlyArray<LibraryMember>;
-  readonly hiddenMemberCount: number;
+  readonly accessibleMemberCount: number;
+  readonly contentsMayVary: true;
 };
 export const LibraryDetail = Schema.Struct({
   library: Library,
   members: Schema.Array(LibraryMember),
-  hiddenMemberCount: Schema.Number.check(Schema.isInt())
+  accessibleMemberCount: Schema.Number.check(Schema.isInt())
     .check(Schema.isFinite())
     .check(Schema.isGreaterThanOrEqualTo(0)),
+  contentsMayVary: Schema.Literal(true),
 }).annotate({ title: "Library Detail" });
 // schemas
 export type MetaGet200 = MetaResponse;
@@ -1699,6 +1843,45 @@ export type AuthExchangeOidcToken400 = DecodeErrorResponse;
 export const AuthExchangeOidcToken400 = DecodeErrorResponse;
 export type AuthExchangeOidcToken501 = ProblemDetails;
 export const AuthExchangeOidcToken501 = ProblemDetails;
+export type AuthCreatePublishAuthorizationRequestRequestJson = {
+  readonly client_id: string;
+  readonly redirect_uri: string;
+  readonly state: string;
+  readonly code_challenge: string;
+  readonly code_challenge_method: "S256";
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+  readonly archive_sha256: string;
+};
+export const AuthCreatePublishAuthorizationRequestRequestJson = Schema.Struct({
+  client_id: Schema.String.check(Schema.isMinLength(1)),
+  redirect_uri: Schema.String.check(Schema.isMinLength(1)),
+  state: Schema.String.check(Schema.isMinLength(1)),
+  code_challenge: Schema.String.check(Schema.isMinLength(1)),
+  code_challenge_method: Schema.Literal("S256"),
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: Version,
+  archive_sha256: Schema.String.check(Schema.isMinLength(1)),
+});
+export type AuthCreatePublishAuthorizationRequest201 = {
+  readonly request_id: PublishAuthorizationRequestId;
+  readonly authorization_url: string;
+  readonly expires_at: IsoDateTimeString;
+};
+export const AuthCreatePublishAuthorizationRequest201 = Schema.Struct({
+  request_id: PublishAuthorizationRequestId,
+  authorization_url: Schema.String,
+  expires_at: IsoDateTimeString,
+});
+export type AuthCreatePublishAuthorizationRequest400 = ProblemDetails | DecodeErrorResponse;
+export const AuthCreatePublishAuthorizationRequest400 = Schema.Union([
+  ProblemDetails,
+  DecodeErrorResponse,
+]);
 export type TokensListParams = { readonly cursor?: string | null; readonly limit?: string | null };
 export const TokensListParams = Schema.Struct({
   cursor: Schema.optionalKey(
@@ -1954,7 +2137,7 @@ export type ExtensionsGet200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
   readonly type: ExtensionType;
-  readonly publisher_binding_id?: string;
+  readonly publisher_binding_id: string;
   readonly description?: string | null;
   readonly repository?: Repository | null;
   readonly bugs?: Bugs | null;
@@ -1978,7 +2161,7 @@ export const ExtensionsGet200 = Schema.Struct({
   name: ExtensionName,
   owner: Handle,
   type: ExtensionType,
-  publisher_binding_id: Schema.optionalKey(Schema.String.annotate({ readOnly: true })),
+  publisher_binding_id: Schema.String.annotate({ readOnly: true }),
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   repository: Schema.optionalKey(Schema.Union([Repository, Schema.Null])),
   bugs: Schema.optionalKey(Schema.Union([Bugs, Schema.Null])),
@@ -2128,7 +2311,7 @@ export type ExtensionsGetVersion200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
   readonly type: ExtensionType;
-  readonly publisher_binding_id?: string;
+  readonly publisher_binding_id: string;
   readonly version: Version;
   readonly status: "pending" | "available" | "failed";
   readonly published: IsoDateTimeString;
@@ -2148,7 +2331,7 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   name: ExtensionName,
   owner: Handle,
   type: ExtensionType,
-  publisher_binding_id: Schema.optionalKey(Schema.String.annotate({ readOnly: true })),
+  publisher_binding_id: Schema.String.annotate({ readOnly: true }),
   version: Version,
   status: Schema.Literals(["pending", "available", "failed"]).annotate({ readOnly: true }),
   published: IsoDateTimeString,
@@ -2172,14 +2355,6 @@ export type ExtensionsGetVersion404 = ProblemDetails;
 export const ExtensionsGetVersion404 = ProblemDetails;
 export type ExtensionsGetVersion410 = ProblemDetails;
 export const ExtensionsGetVersion410 = ProblemDetails;
-export type ExtensionsPublishVersionRequestFormData = {
-  readonly archive: string;
-  readonly integrity?: string | null;
-};
-export const ExtensionsPublishVersionRequestFormData = Schema.Struct({
-  archive: Schema.String.annotate({ description: "Extension archive multipart file part." }),
-  integrity: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-});
 export type ExtensionsPublishVersion201 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -2267,8 +2442,6 @@ export type ExtensionsDownloadArchive400 = DecodeErrorResponse;
 export const ExtensionsDownloadArchive400 = DecodeErrorResponse;
 export type ExtensionsDownloadArchive404 = ProblemDetails;
 export const ExtensionsDownloadArchive404 = ProblemDetails;
-export type ExtensionsDownloadArchive410 = ProblemDetails;
-export const ExtensionsDownloadArchive410 = ProblemDetails;
 export type ExtensionsDownloadArchive500 = ProblemDetails;
 export const ExtensionsDownloadArchive500 = ProblemDetails;
 export type ExtensionsDeprecateRequestJson = DeprecateBody;
@@ -2511,8 +2684,32 @@ export type AdminExtensionsPurgeExtensionVersion404 = ProblemDetails;
 export const AdminExtensionsPurgeExtensionVersion404 = ProblemDetails;
 export type AdminExtensionsPurgeExtensionVersion409 = SharedDigestConfirmationRequiredHttpError;
 export const AdminExtensionsPurgeExtensionVersion409 = SharedDigestConfirmationRequiredHttpError;
-export type LibrariesListLibraries200 = { readonly libraries: ReadonlyArray<Library> };
-export const LibrariesListLibraries200 = Schema.Struct({ libraries: Schema.Array(Library) });
+export type LibrariesListLibrariesParams = {
+  readonly limit?: string | null;
+  readonly offset?: string | null;
+  readonly q?: string | null;
+  readonly "filter[visibility]"?: LibraryVisibility | null;
+};
+export const LibrariesListLibrariesParams = Schema.Struct({
+  limit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  offset: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  q: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  "filter[visibility]": Schema.optionalKey(Schema.Union([LibraryVisibility, Schema.Null])),
+});
+export type LibrariesListLibraries200 = {
+  readonly libraries: ReadonlyArray<Library>;
+  readonly total: number;
+  readonly limit: number;
+  readonly offset: number;
+  readonly viewerRelative: true;
+};
+export const LibrariesListLibraries200 = Schema.Struct({
+  libraries: Schema.Array(Library),
+  total: Schema.Number.check(Schema.isInt()),
+  limit: Schema.Number.check(Schema.isInt()),
+  offset: Schema.Number.check(Schema.isInt()),
+  viewerRelative: Schema.Literal(true),
+});
 export type LibrariesListLibraries400 = DecodeErrorResponse;
 export const LibrariesListLibraries400 = DecodeErrorResponse;
 export type LibrariesListLibraries404 = ProblemDetails;
@@ -2565,6 +2762,48 @@ export type LibrariesUpdateLibrary404 = ProblemDetails;
 export const LibrariesUpdateLibrary404 = ProblemDetails;
 export type LibrariesUpdateLibrary422 = ProblemDetails;
 export const LibrariesUpdateLibrary422 = ProblemDetails;
+export type LibrariesGetLibraryResolution200 = LibraryResolution;
+export const LibrariesGetLibraryResolution200 = LibraryResolution;
+export type LibrariesGetLibraryResolution400 = DecodeErrorResponse;
+export const LibrariesGetLibraryResolution400 = DecodeErrorResponse;
+export type LibrariesGetLibraryResolution404 = ProblemDetails;
+export const LibrariesGetLibraryResolution404 = ProblemDetails;
+export type LibrariesGetLibraryResolution422 = ProblemDetails;
+export const LibrariesGetLibraryResolution422 = ProblemDetails;
+export type LibrariesListLibraryMembersParams = {
+  readonly limit?: string | null;
+  readonly offset?: string | null;
+  readonly q?: string | null;
+  readonly "filter[type]"?: ExtensionType | null;
+};
+export const LibrariesListLibraryMembersParams = Schema.Struct({
+  limit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  offset: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  q: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  "filter[type]": Schema.optionalKey(Schema.Union([ExtensionType, Schema.Null])),
+});
+export type LibrariesListLibraryMembers200 = ListLibraryMembersResponse;
+export const LibrariesListLibraryMembers200 = ListLibraryMembersResponse;
+export type LibrariesListLibraryMembers400 = DecodeErrorResponse;
+export const LibrariesListLibraryMembers400 = DecodeErrorResponse;
+export type LibrariesListLibraryMembers404 = ProblemDetails;
+export const LibrariesListLibraryMembers404 = ProblemDetails;
+export type LibrariesListLibraryMembers422 = ProblemDetails;
+export const LibrariesListLibraryMembers422 = ProblemDetails;
+export type LibrariesPatchLibraryMembersRequestJson = PatchLibraryMembersBody;
+export const LibrariesPatchLibraryMembersRequestJson = PatchLibraryMembersBody;
+export type LibrariesPatchLibraryMembers200 = PatchLibraryMembersResponse;
+export const LibrariesPatchLibraryMembers200 = PatchLibraryMembersResponse;
+export type LibrariesPatchLibraryMembers400 = DecodeErrorResponse;
+export const LibrariesPatchLibraryMembers400 = DecodeErrorResponse;
+export type LibrariesPatchLibraryMembers401 = ProblemDetails;
+export const LibrariesPatchLibraryMembers401 = ProblemDetails;
+export type LibrariesPatchLibraryMembers403 = ForbiddenError | ForbiddenError;
+export const LibrariesPatchLibraryMembers403 = Schema.Union([ForbiddenError, ForbiddenError]);
+export type LibrariesPatchLibraryMembers404 = ProblemDetails;
+export const LibrariesPatchLibraryMembers404 = ProblemDetails;
+export type LibrariesPatchLibraryMembers422 = ProblemDetails;
+export const LibrariesPatchLibraryMembers422 = ProblemDetails;
 export type LibrariesSetLibraryVisibilityRequestJson = PatchLibraryVisibilityBody;
 export const LibrariesSetLibraryVisibilityRequestJson = PatchLibraryVisibilityBody;
 export type LibrariesSetLibraryVisibility200 = Library;
@@ -2897,6 +3136,13 @@ export type SearchSearchExtensionsParams = {
   readonly q: string;
   readonly cursor?: string | null;
   readonly limit?: string | null;
+  readonly type?: ExtensionType | null;
+  readonly sort?: "relevance" | "popular" | "newest" | "updated" | "name" | null;
+  readonly owner?: string | null;
+  readonly package?: string | null;
+  readonly license?: string | null;
+  readonly lifecycle?: "all" | "active" | "deprecated" | null;
+  readonly visibility?: "all" | "public" | "private" | null;
 };
 export const SearchSearchExtensionsParams = Schema.Struct({
   q: Schema.String.annotate({
@@ -2919,11 +3165,27 @@ export const SearchSearchExtensionsParams = Schema.Struct({
       Schema.Null,
     ]),
   ),
+  type: Schema.optionalKey(Schema.Union([ExtensionType, Schema.Null])),
+  sort: Schema.optionalKey(
+    Schema.Union([
+      Schema.Literals(["relevance", "popular", "newest", "updated", "name"]),
+      Schema.Null,
+    ]),
+  ),
+  owner: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  package: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  license: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  lifecycle: Schema.optionalKey(
+    Schema.Union([Schema.Literals(["all", "active", "deprecated"]), Schema.Null]),
+  ),
+  visibility: Schema.optionalKey(
+    Schema.Union([Schema.Literals(["all", "public", "private"]), Schema.Null]),
+  ),
 });
 export type SearchSearchExtensions200 = SearchResponse;
 export const SearchSearchExtensions200 = SearchResponse;
-export type SearchSearchExtensions400 = DecodeErrorResponse;
-export const SearchSearchExtensions400 = DecodeErrorResponse;
+export type SearchSearchExtensions400 = ProblemDetails | DecodeErrorResponse;
+export const SearchSearchExtensions400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
 
 export interface OperationConfig {
   /**
@@ -3116,6 +3378,20 @@ export const make = (
             "400": decodeError("AuthExchangeOidcToken400", AuthExchangeOidcToken400),
             "501": decodeError("AuthExchangeOidcToken501", AuthExchangeOidcToken501),
             "204": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    AuthCreatePublishAuthorizationRequest: (options) =>
+      HttpClientRequest.post(`/v1/auth/publish-requests`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(AuthCreatePublishAuthorizationRequest201),
+            "400": decodeError(
+              "AuthCreatePublishAuthorizationRequest400",
+              AuthCreatePublishAuthorizationRequest400,
+            ),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3403,8 +3679,7 @@ export const make = (
       ),
     ExtensionsPublishVersion: (owner, type, name, version, options) =>
       HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/${version}`).pipe(
-        HttpClientRequest.bodyFormData(options.payload as any),
-        withResponse(options.config)(
+        withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsPublishVersion201),
             "400": decodeError("ExtensionsPublishVersion400", ExtensionsPublishVersion400),
@@ -3454,7 +3729,6 @@ export const make = (
             "2xx": decodeBinary,
             "400": decodeError("ExtensionsDownloadArchive400", ExtensionsDownloadArchive400),
             "404": decodeError("ExtensionsDownloadArchive404", ExtensionsDownloadArchive404),
-            "410": decodeError("ExtensionsDownloadArchive410", ExtensionsDownloadArchive410),
             "500": decodeError("ExtensionsDownloadArchive500", ExtensionsDownloadArchive500),
             orElse: unexpectedStatus,
           }),
@@ -3463,6 +3737,18 @@ export const make = (
     ExtensionsDownloadArchiveStream: (owner, type, name, version) =>
       HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}/${version}/archive`).pipe(
         binaryRequest,
+      ),
+    ExtensionsHeadArchive: (owner, type, name, version, options) =>
+      HttpClientRequest.head(`/v1/extensions/${owner}/${type}/${name}/${version}/archive`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "200": () => Effect.void,
+            "400": decodeVoidError("400"),
+            "404": decodeVoidError("404"),
+            "500": decodeVoidError("500"),
+            orElse: unexpectedStatus,
+          }),
+        ),
       ),
     ExtensionsDeprecate: (owner, type, name, options) =>
       HttpClientRequest.post(`/v1/extensions/${owner}/${type}/${name}/deprecate`).pipe(
@@ -3589,6 +3875,12 @@ export const make = (
       ),
     LibrariesListLibraries: (owner, options) =>
       HttpClientRequest.get(`/v1/libraries/${owner}`).pipe(
+        HttpClientRequest.setUrlParams({
+          limit: options?.params?.["limit"] as any,
+          offset: options?.params?.["offset"] as any,
+          q: options?.params?.["q"] as any,
+          "filter[visibility]": options?.params?.["filter[visibility]"] as any,
+        }),
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(LibrariesListLibraries200),
@@ -3651,6 +3943,61 @@ export const make = (
             "403": decodeError("LibrariesUpdateLibrary403", LibrariesUpdateLibrary403),
             "404": decodeError("LibrariesUpdateLibrary404", LibrariesUpdateLibrary404),
             "422": decodeError("LibrariesUpdateLibrary422", LibrariesUpdateLibrary422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesGetLibraryResolution: (owner, name, options) =>
+      HttpClientRequest.get(`/v1/libraries/${owner}/${name}/resolution`).pipe(
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesGetLibraryResolution200),
+            "400": decodeError(
+              "LibrariesGetLibraryResolution400",
+              LibrariesGetLibraryResolution400,
+            ),
+            "404": decodeError(
+              "LibrariesGetLibraryResolution404",
+              LibrariesGetLibraryResolution404,
+            ),
+            "422": decodeError(
+              "LibrariesGetLibraryResolution422",
+              LibrariesGetLibraryResolution422,
+            ),
+            "304": () => Effect.void,
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesListLibraryMembers: (owner, name, options) =>
+      HttpClientRequest.get(`/v1/libraries/${owner}/${name}/members`).pipe(
+        HttpClientRequest.setUrlParams({
+          limit: options?.params?.["limit"] as any,
+          offset: options?.params?.["offset"] as any,
+          q: options?.params?.["q"] as any,
+          "filter[type]": options?.params?.["filter[type]"] as any,
+        }),
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesListLibraryMembers200),
+            "400": decodeError("LibrariesListLibraryMembers400", LibrariesListLibraryMembers400),
+            "404": decodeError("LibrariesListLibraryMembers404", LibrariesListLibraryMembers404),
+            "422": decodeError("LibrariesListLibraryMembers422", LibrariesListLibraryMembers422),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    LibrariesPatchLibraryMembers: (owner, name, options) =>
+      HttpClientRequest.patch(`/v1/libraries/${owner}/${name}/members`).pipe(
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesPatchLibraryMembers200),
+            "400": decodeError("LibrariesPatchLibraryMembers400", LibrariesPatchLibraryMembers400),
+            "401": decodeError("LibrariesPatchLibraryMembers401", LibrariesPatchLibraryMembers401),
+            "403": decodeError("LibrariesPatchLibraryMembers403", LibrariesPatchLibraryMembers403),
+            "404": decodeError("LibrariesPatchLibraryMembers404", LibrariesPatchLibraryMembers404),
+            "422": decodeError("LibrariesPatchLibraryMembers422", LibrariesPatchLibraryMembers422),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3894,6 +4241,13 @@ export const make = (
           q: options.params["q"] as any,
           cursor: options.params["cursor"] as any,
           limit: options.params["limit"] as any,
+          type: options.params["type"] as any,
+          sort: options.params["sort"] as any,
+          owner: options.params["owner"] as any,
+          package: options.params["package"] as any,
+          license: options.params["license"] as any,
+          lifecycle: options.params["lifecycle"] as any,
+          visibility: options.params["visibility"] as any,
         }),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
@@ -4017,6 +4371,21 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"AuthExchangeOidcToken400", typeof AuthExchangeOidcToken400.Type>
     | RegistryClientError<"AuthExchangeOidcToken501", typeof AuthExchangeOidcToken501.Type>
+  >;
+  /**
+   * Create an exact browser-reviewed publish authorization request
+   */
+  readonly AuthCreatePublishAuthorizationRequest: <Config extends OperationConfig>(options: {
+    readonly payload: typeof AuthCreatePublishAuthorizationRequestRequestJson.Encoded;
+    readonly config?: Config | undefined;
+  }) => Effect.Effect<
+    WithOptionalResponse<typeof AuthCreatePublishAuthorizationRequest201.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "AuthCreatePublishAuthorizationRequest400",
+        typeof AuthCreatePublishAuthorizationRequest400.Type
+      >
   >;
   /**
    * List access tokens
@@ -4393,10 +4762,7 @@ export interface RegistryClient {
     type: string,
     name: string,
     version: string,
-    options: {
-      readonly payload: typeof ExtensionsPublishVersionRequestFormData.Encoded;
-      readonly config?: Config | undefined;
-    },
+    options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsPublishVersion201.Type, Config>,
     | HttpClientError.HttpClientError
@@ -4455,7 +4821,6 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"ExtensionsDownloadArchive400", typeof ExtensionsDownloadArchive400.Type>
     | RegistryClientError<"ExtensionsDownloadArchive404", typeof ExtensionsDownloadArchive404.Type>
-    | RegistryClientError<"ExtensionsDownloadArchive410", typeof ExtensionsDownloadArchive410.Type>
     | RegistryClientError<"ExtensionsDownloadArchive500", typeof ExtensionsDownloadArchive500.Type>
   >;
   /**
@@ -4467,6 +4832,23 @@ export interface RegistryClient {
     name: string,
     version: string,
   ) => Stream.Stream<Uint8Array, HttpClientError.HttpClientError>;
+  /**
+   * Inspect extension archive metadata
+   */
+  readonly ExtensionsHeadArchive: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    version: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"400", undefined>
+    | RegistryClientError<"404", undefined>
+    | RegistryClientError<"500", undefined>
+  >;
   /**
    * Deprecate an extension
    */
@@ -4646,7 +5028,12 @@ export interface RegistryClient {
    */
   readonly LibrariesListLibraries: <Config extends OperationConfig>(
     owner: string,
-    options: { readonly config?: Config | undefined } | undefined,
+    options:
+      | {
+          readonly params?: typeof LibrariesListLibrariesParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof LibrariesListLibraries200.Type, Config>,
     | HttpClientError.HttpClientError
@@ -4725,6 +5112,94 @@ export interface RegistryClient {
     | RegistryClientError<"LibrariesUpdateLibrary403", typeof LibrariesUpdateLibrary403.Type>
     | RegistryClientError<"LibrariesUpdateLibrary404", typeof LibrariesUpdateLibrary404.Type>
     | RegistryClientError<"LibrariesUpdateLibrary422", typeof LibrariesUpdateLibrary422.Type>
+  >;
+  /**
+   * Resolve a Library for the current viewer
+   */
+  readonly LibrariesGetLibraryResolution: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesGetLibraryResolution200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "LibrariesGetLibraryResolution400",
+        typeof LibrariesGetLibraryResolution400.Type
+      >
+    | RegistryClientError<
+        "LibrariesGetLibraryResolution404",
+        typeof LibrariesGetLibraryResolution404.Type
+      >
+    | RegistryClientError<
+        "LibrariesGetLibraryResolution422",
+        typeof LibrariesGetLibraryResolution422.Type
+      >
+  >;
+  /**
+   * List viewer-visible Library members
+   */
+  readonly LibrariesListLibraryMembers: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options:
+      | {
+          readonly params?: typeof LibrariesListLibraryMembersParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesListLibraryMembers200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "LibrariesListLibraryMembers400",
+        typeof LibrariesListLibraryMembers400.Type
+      >
+    | RegistryClientError<
+        "LibrariesListLibraryMembers404",
+        typeof LibrariesListLibraryMembers404.Type
+      >
+    | RegistryClientError<
+        "LibrariesListLibraryMembers422",
+        typeof LibrariesListLibraryMembers422.Type
+      >
+  >;
+  /**
+   * Atomically patch Library members
+   */
+  readonly LibrariesPatchLibraryMembers: <Config extends OperationConfig>(
+    owner: string,
+    name: string,
+    options: {
+      readonly payload: typeof LibrariesPatchLibraryMembersRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof LibrariesPatchLibraryMembers200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<
+        "LibrariesPatchLibraryMembers400",
+        typeof LibrariesPatchLibraryMembers400.Type
+      >
+    | RegistryClientError<
+        "LibrariesPatchLibraryMembers401",
+        typeof LibrariesPatchLibraryMembers401.Type
+      >
+    | RegistryClientError<
+        "LibrariesPatchLibraryMembers403",
+        typeof LibrariesPatchLibraryMembers403.Type
+      >
+    | RegistryClientError<
+        "LibrariesPatchLibraryMembers404",
+        typeof LibrariesPatchLibraryMembers404.Type
+      >
+    | RegistryClientError<
+        "LibrariesPatchLibraryMembers422",
+        typeof LibrariesPatchLibraryMembers422.Type
+      >
   >;
   /**
    * Set Library visibility
@@ -4999,7 +5474,7 @@ export interface RegistryClient {
       >
   >;
   /**
-   * Returns extensions whose name matches the query, ordered by most recently published version. When `q` is empty, returns the public catalog. Only public, available, non-yanked versions are returned.
+   * Returns viewer-visible, available, non-yanked extensions using predictable textual relevance by default. Supports structured type, owner, package, license, lifecycle, visibility, and sort filters.
    */
   readonly SearchSearchExtensions: <Config extends OperationConfig>(options: {
     readonly params: typeof SearchSearchExtensionsParams.Encoded;

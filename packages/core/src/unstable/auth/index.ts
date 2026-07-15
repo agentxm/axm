@@ -57,9 +57,13 @@ export { AuthMiddlewareLive, makeAuthMiddlewareLive } from "./auth-middleware.js
 // Auth client
 export type {
   AuthClientService,
+  CreatePublishAuthorizationRequestParams,
   DeviceFlowResponse,
+  ExchangePublishAuthorizationCodeParams,
   MeResponse,
   PollResult,
+  PublishAuthorizationRequestResponse,
+  PublishCapabilityResponse,
 } from "./auth-client.js";
 export { AuthClient, AuthClientLive, AuthClientTest, pollOnce } from "./auth-client.js";
 
@@ -90,6 +94,10 @@ export {
   LoopbackLoginFallback,
   startLoopbackServer,
 } from "./loopback-server.js";
+export {
+  runPublishAuthorization,
+  type PublishAuthorizationInput,
+} from "./publish-authorization.js";
 export {
   selectLoginStrategy,
   type LoginStrategy,

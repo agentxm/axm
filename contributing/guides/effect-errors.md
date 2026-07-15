@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-04-03
-version: 0.2.0
+last-reviewed: 2026-07-14
+version: 0.2.1
 description: Error architecture, AppError conventions, typed service errors, and recovery
   operators
 depends-on:
@@ -829,7 +829,7 @@ entering the error channel.
   Official error handling documentation
 - [Effect: Data.TaggedError](https://effect.website/docs/data-types/data/#taggederror) —
   API reference for tagged error classes
-- [Effect v4: Result module](https://github.com/Effect-TS/effect-smol/blob/main/packages/effect/src/Result.ts)
+- [Effect v4: Result module](https://github.com/Effect-TS/effect/blob/main/packages/effect/src/Result.ts)
   — `Result<A, E>` API reference (v4 replacement for `Either`); JSDoc covers
   construction, transformation, pattern matching, and `Yieldable` protocol
 - [Effect Solutions](https://www.effect.solutions/) — Prescriptive patterns by

@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-05-08
-version: 0.2.1
+last-reviewed: 2026-07-14
+version: 0.2.2
 description: CLI command design conventions for command shape, flags, prompts, and handler structure
 depends-on:
   - ../../CLAUDE.md
@@ -475,9 +475,9 @@ Registered once at the root:
 - `--quiet` / `-q`
 
 `--log-level` is not an axm global flag. Effect CLI currently bakes it in
-automatically; see
-[effect-smol#1954](https://github.com/Effect-TS/effect-smol/issues/1954) for
-the open issue to make it removable.
+automatically; AXM removes it from `GlobalFlag.BuiltIns` before command
+construction. The canonical upstream history is
+[Effect-TS/effect#6370](https://github.com/Effect-TS/effect/issues/6370).
 
 ### Per-Command Flag Semantics
 

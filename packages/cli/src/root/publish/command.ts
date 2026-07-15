@@ -11,7 +11,15 @@ import {
   type AppError,
   type AppErrorCode,
 } from "@agentxm/client-core/unstable/app-error";
-import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
+import {
+  AuthClient,
+  CredentialStore,
+  DeviceLoginInteraction,
+  RegistryUrl,
+  resolveRequestToken,
+  runPublishAuthorization,
+} from "@agentxm/client-core/unstable/auth";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -613,7 +621,7 @@ const publishCandidate = (
   candidate: PublishCandidate,
   registry: TargetRegistry,
   visibility: Option.Option<ExtensionVisibility>,
-): Effect.Effect<JobStepResult, AppError, FileSystem.FileSystem | Path.Path> =>
+) =>
   Effect.gen(function* () {
     if (candidate.action === "skip") {
       return {
@@ -622,6 +630,33 @@ const publishCandidate = (
       } satisfies JobStepResult;
     }
     const client = yield* createRegistryClient(registry.url);
+    const defaultRegistryUrl = yield* RegistryUrl;
+    const storedToken = yield* resolveRequestToken(registry.url, defaultRegistryUrl);
+    const isRemoteRegistry =
+      registry.url.startsWith("https://") || registry.url.startsWith("http://");
+    if (isRemoteRegistry && Option.isNone(storedToken) && Option.isSome(visibility)) {
+      return yield* makeAppError({
+        code: "auth",
+        detail:
+          "--visibility requires a logged-in session or PAT; an exact publish capability can only upload the approved archive",
+        suggestions: [
+          {
+            description: "Log in or configure a PAT, then rerun publish with --visibility.",
+          },
+        ],
+      });
+    }
+    const accessToken =
+      isRemoteRegistry && Option.isNone(storedToken)
+        ? yield* runPublishAuthorization({
+            registryUrl: registry.url,
+            owner: candidate.owner,
+            type: candidate.type,
+            name: candidate.name,
+            version: candidate.version,
+            archive: candidate.archive,
+          })
+        : undefined;
     const metadata: VersionEntry = {
       version: candidate.version,
       published: new Date().toISOString(),
@@ -636,6 +671,7 @@ const publishCandidate = (
       version: candidate.version,
       archive: candidate.archive,
       metadata,
+      ...(accessToken === undefined ? {} : { accessToken }),
     });
     if (Option.isSome(visibility)) {
       if (client.updateExtensionVisibility === undefined) {
@@ -722,6 +758,11 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const catalog = yield* catalogEntries();
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const authClient = yield* AuthClient;
+  const credentialStore = yield* CredentialStore;
+  const deviceLoginInteraction = yield* DeviceLoginInteraction;
+  const registryUrl = yield* RegistryUrl;
+  const renderer = yield* CliRenderer;
   const selection = yield* selectEntries(catalog, args);
   const selected = selection.entries;
   const effectivePolicy: ExistingVersionPolicy = args.skipExisting ? "skip" : args.onExisting;
@@ -733,6 +774,10 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const candidates = decoded.filter(
     (candidate): candidate is PublishCandidate => candidate !== undefined,
   );
+  const isRemoteRegistry =
+    registry.url.startsWith("https://") || registry.url.startsWith("http://");
+  const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
+  const publishConcurrency = isRemoteRegistry && Option.isNone(storedToken) ? 1 : 4;
   const selectionOutput = {
     mode: selection.mode,
     scope: args.scope,
@@ -757,13 +802,18 @@ const runPublish = Effect.fn("Publish.run")(function* (
     ),
     jobs: [
       {
-        concurrency: 4,
+        concurrency: publishConcurrency,
         steps: candidates.map((candidate) => ({
           readiness: "ready",
           label: `${candidate.action === "skip" ? "Skip" : "Publish"} ${candidate.fqn}`,
           run: publishCandidate(candidate, registry, args.visibility).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
+            Effect.provideService(AuthClient, authClient),
+            Effect.provideService(CredentialStore, credentialStore),
+            Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
+            Effect.provideService(RegistryUrl, registryUrl),
+            Effect.provideService(CliRenderer, renderer),
           ),
         })),
       },
@@ -828,7 +878,7 @@ export const handleRootPublish = Effect.fn("Publish.handle")(function* (
   args: RootPublishHandlerArgs,
 ) {
   const registry = yield* resolveTargetRegistry(args.registry, args.registryUrl);
-  yield* withAuthGuard(runPublish(args, registry), { registryUrl: registry.url });
+  yield* runPublish(args, registry);
 });
 
 const publishConfig = {

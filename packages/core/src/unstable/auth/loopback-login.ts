@@ -98,6 +98,7 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
     const expectedIssuer = authClient.getAuthorizationIssuer();
     if (callback.iss !== expectedIssuer) {
       return yield* new LoopbackCallbackRejected({
+        reason: "invalid_callback",
         message: "Authorization callback issuer did not match.",
       });
     }

@@ -100,12 +100,52 @@ export const uninstallSkill: OperationHandler<
     const agentFilter = op.args.agents;
     const isPartialUninstall = agentFilter.length > 0;
     const agentsToRemove = isPartialUninstall ? agentFilter : lockAgents;
+    const remainingAgents = isPartialUninstall
+      ? lockAgents.filter((agent) => !agentFilter.includes(agent))
+      : [];
     const materializationAgents =
       yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
         Effect.provideService(WorkspaceMutations, ws),
       );
     const agentsById: ReadonlyMap<string, (typeof materializationAgents)[number]> = new Map(
       materializationAgents.map((agent) => [agent.id, agent]),
+    );
+
+    const resolveAgentArtifactPath = (agentId: string) => {
+      const configuredAgent = agentsById.get(agentId);
+      const agentEffect =
+        configuredAgent !== undefined
+          ? Effect.succeed(Option.some(configuredAgent))
+          : isKnownAgentId(agentId)
+            ? DefaultCodingAgentRepository.get(agentId).pipe(Effect.map(Option.some))
+            : Effect.succeed(Option.none());
+
+      return agentEffect.pipe(
+        Effect.flatMap((agentOption) => {
+          if (Option.isNone(agentOption)) return Effect.succeed(Option.none<string>());
+          return agentOption.value
+            .resolveEffectiveSkillsDir({ workspaceRoot: base })
+            .pipe(
+              Effect.map((outcome) =>
+                outcome._tag === "supported"
+                  ? Option.some(path.normalize(path.join(outcome.dir, sanitizedName)))
+                  : Option.none<string>(),
+              ),
+            );
+        }),
+        Effect.provide(fsPathLayer),
+      );
+    };
+
+    const retainedArtifactOptions = yield* Effect.forEach(
+      remainingAgents,
+      resolveAgentArtifactPath,
+      { concurrency: "unbounded" },
+    );
+    const retainedArtifactPaths = new Set(
+      retainedArtifactOptions.flatMap((artifactPath) =>
+        Option.isSome(artifactPath) ? [artifactPath.value] : [],
+      ),
     );
 
     // Remove agent symlinks/copies concurrently.
@@ -120,10 +160,14 @@ export const uninstallSkill: OperationHandler<
         if (tracked !== undefined && tracked.length > 0) {
           return Effect.forEach(
             tracked,
-            (entry) =>
-              fs
-                .remove(path.resolve(base, entry.path), { recursive: true })
-                .pipe(Effect.catch(() => Effect.void)),
+            (entry) => {
+              const artifactPath = path.normalize(path.resolve(base, entry.path));
+              return retainedArtifactPaths.has(artifactPath)
+                ? Effect.void
+                : fs
+                    .remove(artifactPath, { recursive: true })
+                    .pipe(Effect.catch(() => Effect.void));
+            },
             { concurrency: "unbounded" },
           );
         }
@@ -149,11 +193,14 @@ export const uninstallSkill: OperationHandler<
           Effect.provide(fsPathLayer),
           Effect.flatMap((outcome) =>
             outcome._tag === "supported"
-              ? fs
-                  .remove(path.join(path.normalize(outcome.dir), sanitizedName), {
-                    recursive: true,
-                  })
-                  .pipe(Effect.catch(() => Effect.void))
+              ? (() => {
+                  const artifactPath = path.normalize(path.join(outcome.dir, sanitizedName));
+                  return retainedArtifactPaths.has(artifactPath)
+                    ? Effect.void
+                    : fs
+                        .remove(artifactPath, { recursive: true })
+                        .pipe(Effect.catch(() => Effect.void));
+                })()
               : Effect.void,
           ),
         );
@@ -163,8 +210,6 @@ export const uninstallSkill: OperationHandler<
 
     // Handle partial vs full uninstall
     if (isPartialUninstall && lockEntry) {
-      const remainingAgents = lockAgents.filter((a) => !agentFilter.includes(a));
-
       if (remainingAgents.length > 0) {
         // Update lockfile entry with remaining agents via WorkspaceMutations.setSkill
         yield* ws

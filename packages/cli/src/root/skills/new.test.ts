@@ -483,5 +483,31 @@ describe("skills-new.handler", () => {
         }),
       );
     });
+
+    it.effect("preserves a shared universal skill target requested by Codex", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        owner: "@acme",
+        agents: ["codex", "claude-code"],
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSkillsNew(
+            defaultArgs("my-skill", {
+              agents: Option.some(["codex", "claude-code"]),
+            }),
+          );
+
+          const codexLink = path.join(tempDir, ".agents", "skills", "my-skill");
+          const claudeLink = path.join(tempDir, ".claude", "skills", "my-skill");
+
+          expect(fs.existsSync(codexLink)).toBe(true);
+          expect(fs.lstatSync(codexLink).isSymbolicLink()).toBe(true);
+          expect(fs.existsSync(claudeLink)).toBe(true);
+          expect(fs.lstatSync(claudeLink).isSymbolicLink()).toBe(true);
+        }),
+      );
+    });
   });
 });

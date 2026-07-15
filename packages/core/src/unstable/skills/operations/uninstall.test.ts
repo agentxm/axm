@@ -458,6 +458,27 @@ describe("uninstallSkill", () => {
         expect(removeSkillFn).not.toHaveBeenCalled();
       }),
     );
+
+    it.effect("preserves an artifact path shared with a remaining agent", () =>
+      Effect.gen(function* () {
+        const agents = ["universal", "codex", "claude-code"];
+        const { axmDir, base, canonicalPath, lockfileSkills } = setupWorkspace({ agents });
+        const sharedSkillPath = path.join(base, ".agents", "skills", "my-skill");
+        fs.mkdirSync(path.dirname(sharedSkillPath), { recursive: true });
+        fs.symlinkSync(canonicalPath, sharedSkillPath);
+
+        const result = yield* uninstallSkill(makeOp({ agents: ["universal"] })).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(fs.existsSync(sharedSkillPath)).toBe(true);
+        expect(fs.lstatSync(sharedSkillPath).isSymbolicLink()).toBe(true);
+
+        const lockfile = readLockfileYaml(axmDir);
+        expect(lockfile.skills["my-skill"].agents).toEqual(["codex", "claude-code"]);
+      }),
+    );
   });
 
   describe("partial uninstall leaving no agents", () => {

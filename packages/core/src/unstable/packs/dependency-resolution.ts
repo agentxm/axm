@@ -41,13 +41,7 @@ export interface ResolvedPackDependencies {
 }
 
 type SupportedPackDependencyType =
-  | "skill"
-  | "command"
-  | "mcp-server"
-  | "subagent"
-  | "files"
-  | "rule"
-  | "hook";
+  "skill" | "command" | "mcp-server" | "subagent" | "files" | "rule" | "hook";
 
 const registrySourceForDependency = (
   pack: PackRef,

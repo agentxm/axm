@@ -535,8 +535,7 @@ export const make = (
   httpClient: HttpClient.HttpClient,
   options: {
     readonly transformClient?:
-      | ((client: HttpClient.HttpClient) => Effect.Effect<HttpClient.HttpClient>)
-      | undefined;
+      ((client: HttpClient.HttpClient) => Effect.Effect<HttpClient.HttpClient>) | undefined;
   } = {},
 ): TelemetryClient => {
   const unexpectedStatus = (response: HttpClientResponse.HttpClientResponse) =>

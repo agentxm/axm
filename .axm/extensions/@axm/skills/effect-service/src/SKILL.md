@@ -59,14 +59,10 @@ interface DocumentStore {
 const DocumentStore = ServiceMap.Service<DocumentStore>("axm.sh/DocumentStore");
 
 // Implementation A
-const S3DocumentStoreLayer = Layer.succeed(DocumentStore, {
-  /* ... */
-});
+const S3DocumentStoreLayer = Layer.succeed(DocumentStore, {/* ... */});
 
 // Implementation B
-const PostgresDocumentStoreLayer = Layer.succeed(DocumentStore, {
-  /* ... */
-});
+const PostgresDocumentStoreLayer = Layer.succeed(DocumentStore, {/* ... */});
 ```
 
 This pattern is warranted when:
@@ -187,18 +183,8 @@ Benefits:
 Use `axm.sh/<ServiceName>` as the identifier string:
 
 ```typescript
-ServiceMap.Service<
-  Workspace,
-  {
-    /* ... */
-  }
->()("axm.sh/Workspace");
-ServiceMap.Service<
-  SourceHostProviders,
-  {
-    /* ... */
-  }
->()("axm.sh/SourceHostProviders");
+ServiceMap.Service<Workspace, {/* ... */}>()("axm.sh/Workspace");
+ServiceMap.Service<SourceHostProviders, {/* ... */}>()("axm.sh/SourceHostProviders");
 ```
 
 ### Layer names

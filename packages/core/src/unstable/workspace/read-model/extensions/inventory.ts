@@ -175,38 +175,34 @@ export const projectExtensionInventory = (
       if (ignoredByKey.has(candidateKey)) return false;
       return matchesAgentFilter(sorted(aggregate.agents), agentFilter);
     })
-    .map(
-      ([, aggregate]): ExtensionInventoryRow => ({
-        scope: aggregate.key.scope,
-        type: aggregate.key.type,
-        name: aggregate.key.name,
-        classification: { kind: "lifecycle", lifecycle: aggregate.lifecycle },
-        activation: aggregate.activation,
-        agents: sorted(aggregate.agents),
-        origins: sorted(aggregate.origins),
-        paths: sorted(aggregate.paths),
-      }),
-    );
+    .map(([, aggregate]): ExtensionInventoryRow => ({
+      scope: aggregate.key.scope,
+      type: aggregate.key.type,
+      name: aggregate.key.name,
+      classification: { kind: "lifecycle", lifecycle: aggregate.lifecycle },
+      activation: aggregate.activation,
+      agents: sorted(aggregate.agents),
+      origins: sorted(aggregate.origins),
+      paths: sorted(aggregate.paths),
+    }));
 
   const ignoredRows = input.includeIgnored
     ? Array.from(ignoredByKey.values())
         .filter((aggregate) => matchesAgentFilter(sorted(aggregate.agents), agentFilter))
-        .map(
-          (aggregate): ExtensionInventoryRow => ({
-            scope: aggregate.key.scope,
-            type: aggregate.key.type,
-            name: aggregate.key.name,
-            classification: {
-              kind: "ignored",
-              matchedBy: matchingIgnoredPatterns(aggregate.key.name, input.ignoredPatterns),
-              reasons: sorted(aggregate.reasons),
-            },
-            activation: null,
-            agents: sorted(aggregate.agents),
-            origins: sorted(aggregate.origins),
-            paths: sorted(aggregate.paths),
-          }),
-        )
+        .map((aggregate): ExtensionInventoryRow => ({
+          scope: aggregate.key.scope,
+          type: aggregate.key.type,
+          name: aggregate.key.name,
+          classification: {
+            kind: "ignored",
+            matchedBy: matchingIgnoredPatterns(aggregate.key.name, input.ignoredPatterns),
+            reasons: sorted(aggregate.reasons),
+          },
+          activation: null,
+          agents: sorted(aggregate.agents),
+          origins: sorted(aggregate.origins),
+          paths: sorted(aggregate.paths),
+        }))
     : [];
 
   const items = [...lifecycleRows, ...ignoredRows].sort((left, right) =>

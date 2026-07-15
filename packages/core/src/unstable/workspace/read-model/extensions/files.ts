@@ -38,8 +38,7 @@ import {
 // ---------------------------------------------------------------------------
 
 export type FilesDetectionOrigin =
-  | { readonly _tag: "canonical-axm-file" }
-  | { readonly _tag: "external-axm-file" };
+  { readonly _tag: "canonical-axm-file" } | { readonly _tag: "external-axm-file" };
 
 // ---------------------------------------------------------------------------
 // Payloads

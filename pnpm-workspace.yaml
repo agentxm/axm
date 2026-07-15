@@ -3,39 +3,39 @@ packages:
 
 catalog:
   "@effect/eslint-plugin": ^0.3.2
-  "@effect/language-service": ^0.86.5
+  "@effect/language-service": ^0.87.0
   "@effect/openapi-generator": 4.0.0-beta.98
   "@effect/platform-node": 4.0.0-beta.98
   "@effect/vitest": 4.0.0-beta.98
   "@eslint/js": ^10.0.0
-  "@nx/eslint": 22.6.3
-  "@nx/eslint-plugin": 22.6.3
-  "@nx/js": 22.6.3
-  "@nx/vitest": 22.6.3
+  "@nx/eslint": 23.1.0
+  "@nx/eslint-plugin": 23.1.0
+  "@nx/js": 23.1.0
+  "@nx/vitest": 23.1.0
   "@swc-node/register": ^1.11.1
-  "@swc/core": ^1.15.33
-  "@types/bun": ^1.3.13
+  "@swc/core": ^1.15.43
+  "@types/bun": ^1.3.14
   "@types/semver": ^7.5.8
-  "@typescript-eslint/parser": ^8.59.2
+  "@typescript-eslint/parser": ^8.64.0
   effect: 4.0.0-beta.98
   eslint: ^10.3.0
   execa: ^9.6.1
-  fflate: ^0.8.2
+  fflate: ^0.8.3
   gray-matter: ^4.0.3
   husky: ^9.1.7
   jsonc-parser: ^3.3.1
-  lint-staged: ^16.4.0
-  nx: 22.6.3
+  lint-staged: ^17.0.8
+  nx: 23.1.0
   packageurl-js: ^2.0.1
-  prettier: ^3.8.3
-  semver: ^7.8.0
+  prettier: ^3.9.5
+  semver: ^7.8.5
   simple-git: ^3.36.0
   swagger2openapi: ^7.0.8
-  typescript: ^5.9.3
-  typescript-eslint: ^8.59.2
-  vite: ^8.0.11
-  vitest: ^4.1.5
-  yaml: ^2.8.4
+  typescript: 6.0.3
+  typescript-eslint: ^8.64.0
+  vite: ^8.1.4
+  vitest: ^4.1.10
+  yaml: ^2.9.0
 
 onlyBuiltDependencies:
   - "@swc/core"

@@ -40,7 +40,4 @@ export type WorkspaceSkillRef = SkillExtensionRefBase<"workspace", WorkspaceSour
 
 /** @experimental */
 export type SkillExtensionRef =
-  | GitHostedSkillRef
-  | RegistrySkillRef
-  | LocalSkillRef
-  | WorkspaceSkillRef;
+  GitHostedSkillRef | RegistrySkillRef | LocalSkillRef | WorkspaceSkillRef;

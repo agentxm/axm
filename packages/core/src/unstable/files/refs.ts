@@ -33,7 +33,4 @@ export type WorkspaceFilesRef = FilesExtensionRefBase<"workspace", WorkspaceSour
 
 /** @experimental */
 export type FilesExtensionRef =
-  | GitHostedFilesRef
-  | RegistryFilesRef
-  | LocalFilesRef
-  | WorkspaceFilesRef;
+  GitHostedFilesRef | RegistryFilesRef | LocalFilesRef | WorkspaceFilesRef;

@@ -259,12 +259,12 @@
     "fflate": "catalog:",
     "gray-matter": "catalog:",
     "jsonc-parser": "catalog:",
-    "marked": "^18.0.3",
+    "marked": "^18.0.6",
     "packageurl-js": "catalog:",
     "proper-lockfile": "^4.1.2",
     "semver": "catalog:",
     "simple-git": "catalog:",
-    "spdx-expression-parse": "3.0.1",
+    "spdx-expression-parse": "4.0.0",
     "yaml": "catalog:"
   },
   "devDependencies": {

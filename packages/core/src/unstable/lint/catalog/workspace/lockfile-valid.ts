@@ -87,15 +87,13 @@ export const lockfileValidRule: AutofixingRule<WorkspaceRuleContext> = {
       const lockfileResult = yield* Effect.result(scoped.state.lockfile);
       if (Result.isFailure(lockfileResult)) {
         if (lockfileResult.failure._tag === "LockfileDecodeError") {
-          return lockfileResult.failure.issues.map(
-            (issue): AdvisoryFinding => ({
-              kind: "advisory",
-              ruleId: RULE_ID,
-              severity: "error",
-              message: `The lockfile does not match the expected schema. Detail: ${issue}. Regenerate \`${LOCKFILE_REL}\` from \`${SETTINGS_REL}\` by reinstalling the declared extensions.`,
-              location: { file: LOCKFILE_REL },
-            }),
-          );
+          return lockfileResult.failure.issues.map((issue): AdvisoryFinding => ({
+            kind: "advisory",
+            ruleId: RULE_ID,
+            severity: "error",
+            message: `The lockfile does not match the expected schema. Detail: ${issue}. Regenerate \`${LOCKFILE_REL}\` from \`${SETTINGS_REL}\` by reinstalling the declared extensions.`,
+            location: { file: LOCKFILE_REL },
+          }));
         }
         // Read failure surfaces as advisory finding naming the IO problem.
         const advisory: AdvisoryFinding = {

@@ -49,8 +49,7 @@ export interface PackAccessorPlatform {
 }
 
 type ResolveResult =
-  | { readonly kind: "ok"; readonly absolute: string }
-  | { readonly kind: "escape" };
+  { readonly kind: "ok"; readonly absolute: string } | { readonly kind: "escape" };
 
 /**
  * Build a platform-backed `PackFileAccessor` rooted at `absoluteRoot`.

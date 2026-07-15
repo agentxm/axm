@@ -31,5 +31,4 @@ export interface FrozenInstallLibraryCommandIntent extends Omit<
 }
 
 export type InstallLibraryCommandIntent =
-  | LiveInstallLibraryCommandIntent
-  | FrozenInstallLibraryCommandIntent;
+  LiveInstallLibraryCommandIntent | FrozenInstallLibraryCommandIntent;

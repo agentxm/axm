@@ -6,9 +6,7 @@ export const REGISTRY_PUBLISH_MAX_ARCHIVE_BYTES = 25 * 1024 * 1024;
 
 export class IngestLimitError extends Data.TaggedError("IngestLimitError")<{
   readonly code:
-    | "ingest_request_too_large"
-    | "ingest_archive_too_large"
-    | "ingest_decompression_limit";
+    "ingest_request_too_large" | "ingest_archive_too_large" | "ingest_decompression_limit";
   readonly detail: string;
   readonly limit?: number;
   readonly actual?: number;

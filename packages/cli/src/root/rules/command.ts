@@ -165,15 +165,13 @@ export const handleRulesStatus = Effect.fn("Rules.status")(function* () {
     });
     return;
   }
-  const tableItems = status.items.map(
-    (item): InstructionTableItem => ({
-      agentId: item.agentId,
-      mechanism: item.mechanism,
-      health: item.health,
-      sourceFile: item.sourceFile,
-      targetFile: item.targetFile,
-    }),
-  );
+  const tableItems = status.items.map((item): InstructionTableItem => ({
+    agentId: item.agentId,
+    mechanism: item.mechanism,
+    health: item.health,
+    sourceFile: item.sourceFile,
+    targetFile: item.targetFile,
+  }));
   yield* renderer.list("agent-rule", {
     items: tableItems,
     count: tableItems.length,

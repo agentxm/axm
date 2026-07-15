@@ -1,13 +1,11 @@
 {
-  "agents": [
-    "amp",
-    "antigravity",
-    "claude-code",
-    "codex",
-    "cursor",
-    "gemini-cli",
-    "github-copilot-cli"
-  ],
+  "agents": ["claude-code"],
+  "rulesConfig": {
+    "instructions": {
+      "fileName": "AGENTS.md",
+      "gitignoreAliases": true
+    }
+  },
   "skills": {
     "effect-basics": "@axm/skills/effect-basics",
     "code-review": "@axm/skills/code-review",

@@ -73,12 +73,10 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
 
     case "ready":
       return step.run.pipe(
-        Effect.map(
-          (result): CompletedJobStep => ({
-            label: step.label,
-            result,
-          }),
-        ),
+        Effect.map((result): CompletedJobStep => ({
+          label: step.label,
+          result,
+        })),
         Effect.catch((error): Effect.Effect<CompletedJobStep> => {
           return Effect.succeed({
             label: step.label,
@@ -93,12 +91,10 @@ const executeStep = (step: PlannedJobStep): Effect.Effect<CompletedJobStep, neve
 
     case "warn":
       return step.run.pipe(
-        Effect.map(
-          (result): CompletedJobStep => ({
-            label: step.label,
-            result: appendReadinessWarning(step, result),
-          }),
-        ),
+        Effect.map((result): CompletedJobStep => ({
+          label: step.label,
+          result: appendReadinessWarning(step, result),
+        })),
         Effect.catch((error): Effect.Effect<CompletedJobStep> => {
           return Effect.succeed({
             label: step.label,

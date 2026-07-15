@@ -80,8 +80,7 @@ export type ImplicitSkill = ImplicitExtensionState<AlwaysEnabledState>;
 export type UnmanagedSkill = UnmanagedExtensionState<AlwaysEnabledState & LocatedState>;
 
 export type InstalledSkill =
-  | LifecycleConfigured<ConfiguredSkill>
-  | LifecycleImplicit<ImplicitSkill>;
+  LifecycleConfigured<ConfiguredSkill> | LifecycleImplicit<ImplicitSkill>;
 
 // ---------------------------------------------------------------------------
 // Command read-model records
@@ -94,8 +93,7 @@ export type ImplicitCommand = ImplicitExtensionState<AlwaysEnabledState>;
 export type UnmanagedCommand = UnmanagedExtensionState<AlwaysEnabledState>;
 
 export type InstalledCommand =
-  | LifecycleConfigured<ConfiguredCommand>
-  | LifecycleImplicit<ImplicitCommand>;
+  LifecycleConfigured<ConfiguredCommand> | LifecycleImplicit<ImplicitCommand>;
 
 // ---------------------------------------------------------------------------
 // Subagent read-model records
@@ -109,8 +107,7 @@ export type ImplicitSubagent = ImplicitExtensionState<AlwaysEnabledState>;
 export type UnmanagedSubagent = UnmanagedExtensionState<AlwaysEnabledState>;
 
 export type InstalledSubagent =
-  | LifecycleConfigured<ConfiguredSubagent>
-  | LifecycleImplicit<ImplicitSubagent>;
+  LifecycleConfigured<ConfiguredSubagent> | LifecycleImplicit<ImplicitSubagent>;
 
 // ---------------------------------------------------------------------------
 // Generic extension ref read-model records (MCP servers, packs)
@@ -124,5 +121,4 @@ export type ImplicitExtensionRef = ImplicitExtensionState;
 export type UnmanagedExtensionRef = UnmanagedExtensionState;
 
 export type InstalledExtensionRef =
-  | LifecycleConfigured<ConfiguredExtensionRef>
-  | LifecycleImplicit<ImplicitExtensionRef>;
+  LifecycleConfigured<ConfiguredExtensionRef> | LifecycleImplicit<ImplicitExtensionRef>;

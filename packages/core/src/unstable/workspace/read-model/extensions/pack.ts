@@ -52,8 +52,7 @@ import {
 // ---------------------------------------------------------------------------
 
 export type PackDetectionOrigin =
-  | { readonly _tag: "canonical-axm-pack" }
-  | { readonly _tag: "external-axm-pack" };
+  { readonly _tag: "canonical-axm-pack" } | { readonly _tag: "external-axm-pack" };
 
 // ---------------------------------------------------------------------------
 // Payloads

@@ -91,8 +91,7 @@ const stripRegion = (
 export const extractMarkdownHeadings = (
   markdown: string,
   ownRegion?:
-    | { readonly marker: FileRegionMarkerIdentity; readonly style: FileCommentStyle }
-    | undefined,
+    { readonly marker: FileRegionMarkerIdentity; readonly style: FileCommentStyle } | undefined,
 ): ReadonlyArray<TableOfContentsHeading> => {
   const source = stripRegion(markdown, ownRegion?.marker, ownRegion?.style);
   return source.split(/\r?\n/).flatMap((line) => {
@@ -108,8 +107,7 @@ export const extractMarkdownHeadings = (
 export const generateTableOfContents = (
   markdown: string,
   ownRegion?:
-    | { readonly marker: FileRegionMarkerIdentity; readonly style: FileCommentStyle }
-    | undefined,
+    { readonly marker: FileRegionMarkerIdentity; readonly style: FileCommentStyle } | undefined,
 ): string =>
   extractMarkdownHeadings(markdown, ownRegion)
     .map(

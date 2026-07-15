@@ -64,11 +64,10 @@ export const buildSkillUninstallPlan = (
 
       // Capture services in run closure
       const runEffect = uninstallSkill(op).pipe(
-        Effect.map(
-          (result): JobStepResult =>
-            result.result === "error"
-              ? { result: "error", message: result.message, error: result.error }
-              : { result: "success", message: result.message },
+        Effect.map((result): JobStepResult =>
+          result.result === "error"
+            ? { result: "error", message: result.message, error: result.error }
+            : { result: "success", message: result.message },
         ),
         Effect.provideService(WorkspaceMutations, workspace),
         Effect.provideService(FileSystem.FileSystem, fs),

@@ -27,7 +27,4 @@ export type LocalKnowledgeRef = KnowledgeExtensionRefBase<"local", LocalSource> 
 export type WorkspaceKnowledgeRef = KnowledgeExtensionRefBase<"workspace", WorkspaceSource> &
   WorkspaceRefDetails;
 export type KnowledgeExtensionRef =
-  | GitHostedKnowledgeRef
-  | RegistryKnowledgeRef
-  | LocalKnowledgeRef
-  | WorkspaceKnowledgeRef;
+  GitHostedKnowledgeRef | RegistryKnowledgeRef | LocalKnowledgeRef | WorkspaceKnowledgeRef;

@@ -44,12 +44,10 @@ const hookUninstallArtifactTargets = (
       : `${EXTERNAL_EXTENSIONS_DIR}/hooks/${targetName}`;
   const materializedTargets = [...(entry.value.materializedTargets ?? [])]
     .sort((left, right) => left.target.localeCompare(right.target))
-    .map(
-      (target): JobStepArtifactTarget => ({
-        path: target.target,
-        change: retained ? "unchanged" : "updated",
-      }),
-    );
+    .map((target): JobStepArtifactTarget => ({
+      path: target.target,
+      change: retained ? "unchanged" : "updated",
+    }));
   return [
     { path: ".axm/axm-lock.yaml", change: "updated" },
     { path: ".axm/settings.json", change: "updated" },

@@ -390,17 +390,11 @@ export type Source =
 
 /** Git hosting providers that require a configured URL. @experimental */
 export type GitHostingSourceHost =
-  | GitHubSourceHost
-  | GitLabSourceHost
-  | BitbucketSourceHost
-  | AzureReposSourceHost;
+  GitHubSourceHost | GitLabSourceHost | BitbucketSourceHost | AzureReposSourceHost;
 
 /** @experimental */
 export type GitHostingSourceParams =
-  | GitHubSourceParams
-  | GitLabSourceParams
-  | BitbucketSourceParams
-  | AzureReposSourceParams;
+  GitHubSourceParams | GitLabSourceParams | BitbucketSourceParams | AzureReposSourceParams;
 
 /** @experimental */
 export type GitHostingSource = GitHubSource | GitLabSource | BitbucketSource | AzureReposSource;

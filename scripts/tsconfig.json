@@ -2,7 +2,8 @@
   "extends": "../tsconfig.scripts-base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["bun"]
+    "types": ["bun"],
+    "ignoreDeprecations": "6.0"
   },
   "include": ["**/*.ts", "**/*.cts", "**/*.mts"],
   "references": []

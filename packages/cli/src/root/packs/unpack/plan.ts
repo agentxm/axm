@@ -133,11 +133,10 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs) =>
       })();
 
       return provideServices(runOperation).pipe(
-        Effect.map(
-          (result): JobStepResult =>
-            result.result === "error"
-              ? { result: "error", message: result.message, error: result.error }
-              : result,
+        Effect.map((result): JobStepResult =>
+          result.result === "error"
+            ? { result: "error", message: result.message, error: result.error }
+            : result,
         ),
       );
     };

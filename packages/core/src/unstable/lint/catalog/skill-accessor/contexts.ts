@@ -68,14 +68,12 @@ export interface InstalledSkillInfo {
 export const buildSkillRuleContexts = (input: {
   readonly installedSkills: ReadonlyArray<InstalledSkillInfo>;
 }): ReadonlyArray<SkillRuleContext> =>
-  input.installedSkills.map(
-    (info): SkillRuleContext => ({
-      subject: {
-        isNative: info.isNative,
-        skillJson: info.skillJson,
-      },
-      files: info.files,
-      packageFiles: info.packageFiles,
-      displayRoot: info.displayRoot,
-    }),
-  );
+  input.installedSkills.map((info): SkillRuleContext => ({
+    subject: {
+      isNative: info.isNative,
+      skillJson: info.skillJson,
+    },
+    files: info.files,
+    packageFiles: info.packageFiles,
+    displayRoot: info.displayRoot,
+  }));

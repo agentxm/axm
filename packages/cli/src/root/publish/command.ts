@@ -808,9 +808,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     (entry) => decodeCandidate(entry, effectivePolicy, registry, args.visibility),
     { concurrency: 4 },
   );
-  const candidates = decoded.filter(
-    (candidate): candidate is PublishCandidate => candidate !== undefined,
-  );
+  const candidates = decoded.filter((candidate) => candidate !== undefined);
   const isRemoteRegistry =
     registry.url.startsWith("https://") || registry.url.startsWith("http://");
   const storedToken = yield* resolveRequestToken(registry.url, registryUrl);

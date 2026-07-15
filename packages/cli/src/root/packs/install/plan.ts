@@ -194,11 +194,10 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
       })();
 
       return provideServices(runOperation).pipe(
-        Effect.map(
-          (result): JobStepResult =>
-            result.result === "error"
-              ? { result: "error", message: result.message, error: result.error }
-              : { result: "success", message: result.message },
+        Effect.map((result): JobStepResult =>
+          result.result === "error"
+            ? { result: "error", message: result.message, error: result.error }
+            : { result: "success", message: result.message },
         ),
       );
     };

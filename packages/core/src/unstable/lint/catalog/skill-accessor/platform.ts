@@ -47,8 +47,7 @@ export interface SkillAccessorPlatform {
 }
 
 type ResolveResult =
-  | { readonly kind: "ok"; readonly absolute: string }
-  | { readonly kind: "escape" };
+  { readonly kind: "ok"; readonly absolute: string } | { readonly kind: "escape" };
 
 /**
  * Build a platform-backed `SkillFileAccessor` rooted at `absoluteRoot`.

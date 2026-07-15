@@ -37,7 +37,4 @@ export type WorkspaceCommandRef = CommandExtensionRefBase<"workspace", Workspace
 
 /** @experimental */
 export type CommandExtensionRef =
-  | GitHostedCommandRef
-  | RegistryCommandRef
-  | LocalCommandRef
-  | WorkspaceCommandRef;
+  GitHostedCommandRef | RegistryCommandRef | LocalCommandRef | WorkspaceCommandRef;

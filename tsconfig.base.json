@@ -25,6 +25,9 @@
     "verbatimModuleSyntax": true,
     "rewriteRelativeImportExtensions": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "react"
+    "jsxImportSource": "react",
+    "noUncheckedSideEffectImports": false,
+    "types": ["*"],
+    "ignoreDeprecations": "6.0"
   }
 }

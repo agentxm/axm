@@ -56,13 +56,11 @@ const renderedFileTargets = (
 
   return Array.from(agentIdsByPath.entries())
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(
-      ([targetPath, agentIds]): JobStepArtifactTarget => ({
-        path: targetPath,
-        change: "updated",
-        agentIds: [...agentIds].sort(),
-      }),
-    );
+    .map(([targetPath, agentIds]): JobStepArtifactTarget => ({
+      path: targetPath,
+      change: "updated",
+      agentIds: [...agentIds].sort(),
+    }));
 };
 
 const commandArtifactFromLockEntry = (

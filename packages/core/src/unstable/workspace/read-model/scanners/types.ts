@@ -206,10 +206,7 @@ export interface OccurrenceIdentity {
  * downstream subject modules narrow without a centralized origin union.
  */
 export type ScannerOccurrence =
-  | CanonicalExtensionOccurrence
-  | AgentDirOccurrence
-  | McpConfigOccurrence
-  | AgentSettingsOccurrence;
+  CanonicalExtensionOccurrence | AgentDirOccurrence | McpConfigOccurrence | AgentSettingsOccurrence;
 
 /**
  * Compute the identity tuple for one occurrence. Two scanner paths observing

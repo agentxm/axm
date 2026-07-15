@@ -3,7 +3,9 @@
   "compilerOptions": {
     "incremental": true,
     "composite": true,
-    "outDir": "./out-tsc/vitest"
+    "outDir": "./out-tsc/vitest",
+    "ignoreDeprecations": "6.0",
+    "rootDir": "."
   },
   "include": ["src/**/*.ts", "vitest.config.ts"]
 }

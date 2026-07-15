@@ -141,8 +141,7 @@ that make the type system do the work.
 ```typescript
 // Discriminated union — compiler narrows automatically
 type Result =
-  | { readonly _tag: "Ok"; readonly value: string }
-  | { readonly _tag: "Err"; readonly error: Error };
+  { readonly _tag: "Ok"; readonly value: string } | { readonly _tag: "Err"; readonly error: Error };
 
 function handle(r: Result) {
   switch (r._tag) {

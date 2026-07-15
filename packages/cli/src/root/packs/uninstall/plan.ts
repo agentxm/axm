@@ -237,16 +237,14 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
       ...skillDisposition.preservedConfigured,
       ...commandDisposition.preservedConfigured,
       ...mcpServerDisposition.preservedConfigured,
-    ].map(
-      (fqn): PlannedJobStep => ({
-        readiness: "ready",
-        label: fqn,
-        run: Effect.succeed<JobStepResult>({
-          result: "success",
-          message: `preserved (directly configured in settings)`,
-        }),
+    ].map((fqn): PlannedJobStep => ({
+      readiness: "ready",
+      label: fqn,
+      run: Effect.succeed<JobStepResult>({
+        result: "success",
+        message: `preserved (directly configured in settings)`,
       }),
-    );
+    }));
 
     return {
       _tag: "Plan",

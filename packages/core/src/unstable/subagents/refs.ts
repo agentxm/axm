@@ -37,7 +37,4 @@ export type WorkspaceSubagentRef = SubagentExtensionRefBase<"workspace", Workspa
 
 /** @experimental */
 export type SubagentExtensionRef =
-  | GitHostedSubagentRef
-  | RegistrySubagentRef
-  | LocalSubagentRef
-  | WorkspaceSubagentRef;
+  GitHostedSubagentRef | RegistrySubagentRef | LocalSubagentRef | WorkspaceSubagentRef;

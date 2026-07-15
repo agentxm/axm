@@ -59,12 +59,10 @@ export interface InstalledPackInfo {
 export const buildPackRuleContexts = (input: {
   readonly installedPacks: ReadonlyArray<InstalledPackInfo>;
 }): ReadonlyArray<PackRuleContext> =>
-  input.installedPacks.map(
-    (info): PackRuleContext => ({
-      subject: {
-        packJson: info.packJson,
-      },
-      files: info.files,
-      displayRoot: info.displayRoot,
-    }),
-  );
+  input.installedPacks.map((info): PackRuleContext => ({
+    subject: {
+      packJson: info.packJson,
+    },
+    files: info.files,
+    displayRoot: info.displayRoot,
+  }));

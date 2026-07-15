@@ -67,11 +67,7 @@ export const isLeafExtensionType = (value: ExtensionType): value is LeafExtensio
 
 /** @experimental This API is unstable and may change without notice. */
 export type AgentCapabilityStatus =
-  | "native"
-  | "native-deprecated"
-  | "plugin"
-  | "plugin-deprecated"
-  | "none";
+  "native" | "native-deprecated" | "plugin" | "plugin-deprecated" | "none";
 
 /** @experimental This API is unstable and may change without notice. */
 export type AxmIntegrationStatus = AxmSupport | "writer";
@@ -344,8 +340,7 @@ export interface HookInstallBinding {
     | undefined;
   readonly matcherRaw?: string | undefined;
   readonly targets?:
-    | Readonly<Record<string, { readonly matcherRaw?: string | undefined }>>
-    | undefined;
+    Readonly<Record<string, { readonly matcherRaw?: string | undefined }>> | undefined;
   readonly requires?:
     | {
         readonly decision: HookDecisionRequirement;

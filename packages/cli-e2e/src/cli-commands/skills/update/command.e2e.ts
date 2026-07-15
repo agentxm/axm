@@ -11,18 +11,20 @@ import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
 
+const setupWorkspaceWithoutBundledSkill = async (cwd: string): Promise<void> => {
+  const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd });
+  expect(setup.exitCode).toBe(0);
+
+  const uninstall = await runCli(["skills", "uninstall", "axm", "--yes"], { cwd });
+  expect(uninstall.exitCode).toBe(0);
+};
+
 describe("axm skills update", () => {
   describe("no installed skills", () => {
     it("exits 0 with no-skills message when nothing is installed", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
-        const uninstallDefault = await runCli(["skills", "uninstall", "axm", "--yes"], {
-          cwd: temp.path,
-        });
-        expect(uninstallDefault.exitCode).toBe(0);
+        await setupWorkspaceWithoutBundledSkill(temp.path);
 
         const result = await runCli(["skills", "update", "--yes"], {
           cwd: temp.path,
@@ -41,9 +43,7 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await setupWorkspaceWithoutBundledSkill(temp.path);
 
         // Install all skills
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
@@ -94,9 +94,7 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize and install
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await setupWorkspaceWithoutBundledSkill(temp.path);
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
           cwd: temp.path,
@@ -136,9 +134,7 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize and install
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await setupWorkspaceWithoutBundledSkill(temp.path);
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
           cwd: temp.path,
@@ -182,9 +178,7 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize and install both skills
-        await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        await setupWorkspaceWithoutBundledSkill(temp.path);
 
         await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
           cwd: temp.path,

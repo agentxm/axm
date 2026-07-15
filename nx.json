@@ -41,7 +41,13 @@
       "options": {
         "maxWarnings": 192
       },
-      "inputs": ["default", "^production", "{workspaceRoot}/eslint.config.mjs"]
+      "inputs": [
+        "default",
+        "^default",
+        "^production",
+        "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/tools/eslint-rules/**/*"
+      ]
     },
     "test": {
       "cache": true,

@@ -50,15 +50,13 @@ export const settingsSchemaValidRule: AdvisoryRule<WorkspaceRuleContext> = {
       if (Result.isFailure(settings)) {
         const error = settings.failure;
         if (error._tag === "SettingsDecodeError") {
-          return error.issues.map(
-            (issue): AdvisoryFinding => ({
-              kind: "advisory",
-              ruleId: RULE_ID,
-              severity: "error",
-              message: `The workspace settings file does not match the expected schema. Detail: ${issue}. Edit \`${SETTINGS_REL}\` to fix the invalid value.`,
-              location: { file: SETTINGS_REL },
-            }),
-          );
+          return error.issues.map((issue): AdvisoryFinding => ({
+            kind: "advisory",
+            ruleId: RULE_ID,
+            severity: "error",
+            message: `The workspace settings file does not match the expected schema. Detail: ${issue}. Edit \`${SETTINGS_REL}\` to fix the invalid value.`,
+            location: { file: SETTINGS_REL },
+          }));
         }
         return [
           {

@@ -7,3 +7,5 @@ pnpm-lock.yaml
 # skill.json / extension-pack.json inputs that prettier would rewrite into
 # validity (destroying the fixture). Keep contents stable byte-for-byte.
 packages/core/src/unstable/lint/__fixtures__/
+
+.nx/self-healing

@@ -37,7 +37,4 @@ export type WorkspaceMcpServerRef = McpServerExtensionRefBase<"workspace", Works
 
 /** @experimental */
 export type McpServerExtensionRef =
-  | GitHostedMcpServerRef
-  | RegistryMcpServerRef
-  | LocalMcpServerRef
-  | WorkspaceMcpServerRef;
+  GitHostedMcpServerRef | RegistryMcpServerRef | LocalMcpServerRef | WorkspaceMcpServerRef;

@@ -257,14 +257,7 @@ export const Handle = Schema.String.check(
   }),
 );
 export type ExtensionType =
-  | "skill"
-  | "command"
-  | "mcp-server"
-  | "subagent"
-  | "files"
-  | "rule"
-  | "hook"
-  | "pack";
+  "skill" | "command" | "mcp-server" | "subagent" | "files" | "rule" | "hook" | "pack";
 export const ExtensionType = Schema.Literals([
   "skill",
   "command",
@@ -655,21 +648,9 @@ export type PublishFindingLocation = {
   readonly line?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
   readonly column?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
   readonly byteOffset?:
-    | number
-    | "NaN"
-    | "Infinity"
-    | "-Infinity"
-    | "Infinity"
-    | "-Infinity"
-    | "NaN";
+    number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
   readonly byteLength?:
-    | number
-    | "NaN"
-    | "Infinity"
-    | "-Infinity"
-    | "Infinity"
-    | "-Infinity"
-    | "NaN";
+    number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
 };
 export const PublishFindingLocation = Schema.Struct({
   file: Schema.String,
@@ -2205,30 +2186,11 @@ export type ExtensionsDeleteExtension202 = {
   readonly warnings: {
     readonly versions: ReadonlyArray<string>;
     readonly dependentPackCount:
-      | number
-      | "NaN"
-      | "Infinity"
-      | "-Infinity"
-      | "Infinity"
-      | "-Infinity"
-      | "NaN";
+      number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
     readonly libraryMembershipCount:
-      | number
-      | "NaN"
-      | "Infinity"
-      | "-Infinity"
-      | "Infinity"
-      | "-Infinity"
-      | "NaN";
+      number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
     readonly downloadCount:
-      | number
-      | "NaN"
-      | "Infinity"
-      | "-Infinity"
-      | "Infinity"
-      | "-Infinity"
-      | "NaN"
-      | null;
+      number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN" | null;
   };
 };
 export const ExtensionsDeleteExtension202 = Schema.Struct({
@@ -2392,9 +2354,7 @@ export const ExtensionsPublishVersion413 = ProblemDetails;
 export type ExtensionsPublishVersion415 = ProblemDetails;
 export const ExtensionsPublishVersion415 = ProblemDetails;
 export type ExtensionsPublishVersion422 =
-  | ProblemDetails
-  | ExtensionLintFailedError
-  | ExtensionIdentityMismatchError;
+  ProblemDetails | ExtensionLintFailedError | ExtensionIdentityMismatchError;
 export const ExtensionsPublishVersion422 = Schema.Union([
   ProblemDetails,
   ExtensionLintFailedError,
@@ -2579,30 +2539,11 @@ export type ExtensionsGetDeletionPreview200 = {
   readonly warnings: {
     readonly versions: ReadonlyArray<string>;
     readonly dependentPackCount:
-      | number
-      | "NaN"
-      | "Infinity"
-      | "-Infinity"
-      | "Infinity"
-      | "-Infinity"
-      | "NaN";
+      number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
     readonly libraryMembershipCount:
-      | number
-      | "NaN"
-      | "Infinity"
-      | "-Infinity"
-      | "Infinity"
-      | "-Infinity"
-      | "NaN";
+      number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
     readonly downloadCount:
-      | number
-      | "NaN"
-      | "Infinity"
-      | "-Infinity"
-      | "Infinity"
-      | "-Infinity"
-      | "NaN"
-      | null;
+      number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN" | null;
   };
 };
 export const ExtensionsGetDeletionPreview200 = Schema.Struct({
@@ -3215,8 +3156,7 @@ export const make = (
   httpClient: HttpClient.HttpClient,
   options: {
     readonly transformClient?:
-      | ((client: HttpClient.HttpClient) => Effect.Effect<HttpClient.HttpClient>)
-      | undefined;
+      ((client: HttpClient.HttpClient) => Effect.Effect<HttpClient.HttpClient>) | undefined;
   } = {},
 ): RegistryClient => {
   const unexpectedStatus = (response: HttpClientResponse.HttpClientResponse) =>

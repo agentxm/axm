@@ -526,12 +526,10 @@ const pollOnceInternal = (
     device_code: deviceCode,
     grant_type: DEVICE_CODE_GRANT_TYPE,
   }).pipe(
-    Effect.map(
-      (token): PollResult => ({
-        _tag: "Success",
-        token,
-      }),
-    ),
+    Effect.map((token): PollResult => ({
+      _tag: "Success",
+      token,
+    })),
     Effect.catch((error): Effect.Effect<PollResult, AppError | RetryableDevicePollError> => {
       const code = getOAuthErrorCode(error);
       switch (code) {

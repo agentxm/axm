@@ -87,12 +87,10 @@ const cleanupStep = (
               agents: [...removedAgentIds],
               change: result.removedPaths.length === 0 ? "unchanged" : "removed",
               fileCount: result.removedPaths.length,
-              targets: result.removedPaths.map(
-                (removedPath): JobStepArtifactTarget => ({
-                  path: services.path.relative(services.ws.baseDir, removedPath),
-                  change: "removed",
-                }),
-              ),
+              targets: result.removedPaths.map((removedPath): JobStepArtifactTarget => ({
+                path: services.path.relative(services.ws.baseDir, removedPath),
+                change: "removed",
+              })),
             },
           }) satisfies JobStepResult,
       ),

@@ -9,12 +9,10 @@ export interface InstalledFilesInfo {
 export const buildFilesRuleContexts = (input: {
   readonly installedFiles: ReadonlyArray<InstalledFilesInfo>;
 }): ReadonlyArray<FilesRuleContext> =>
-  input.installedFiles.map(
-    (info): FilesRuleContext => ({
-      subject: {
-        filesJson: info.filesJson,
-      },
-      files: info.files,
-      displayRoot: info.displayRoot,
-    }),
-  );
+  input.installedFiles.map((info): FilesRuleContext => ({
+    subject: {
+      filesJson: info.filesJson,
+    },
+    files: info.files,
+    displayRoot: info.displayRoot,
+  }));

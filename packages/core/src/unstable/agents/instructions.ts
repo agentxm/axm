@@ -23,12 +23,7 @@ export interface ResolvedInstructionsConfig {
 export type InstructionMechanism = "native" | "symlink" | "copy" | "adapter";
 
 export type InstructionHealth =
-  | "ok"
-  | "missing-source"
-  | "missing-target"
-  | "drift"
-  | "broken-link"
-  | "unsupported";
+  "ok" | "missing-source" | "missing-target" | "drift" | "broken-link" | "unsupported";
 
 export interface InstructionStatusItem {
   readonly root: string;

@@ -186,9 +186,8 @@ const resolveBareViewHandle = (handle: string) =>
         ).pipe(Effect.result),
       { concurrency: "unbounded" },
     );
-    const matches = attempts.flatMap(
-      (result): ReadonlyArray<ResolvedIdentifier> =>
-        result._tag === "Success" ? [result.success] : [],
+    const matches = attempts.flatMap((result): ReadonlyArray<ResolvedIdentifier> =>
+      result._tag === "Success" ? [result.success] : [],
     );
 
     if (matches.length === 1) {

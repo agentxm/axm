@@ -1,3 +1,13 @@
+## 0.22.4 (2026-07-15)
+
+### 🩹 Fixes
+
+- Preserve shared skill target paths when narrowing an extension to explicit agents. ([e9e09ff6](https://github.com/agentxm/axm/commit/e9e09ff6))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.22.3 (2026-07-15)
 
 ### 🩹 Fixes

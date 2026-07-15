@@ -613,8 +613,6 @@ const bucketForFinding = (entry: RenderedFinding, parsed: { readonly title: stri
       return "alignment";
     case "workspace/skills-integrity-valid":
       return "integrity";
-    case "workspace/skills-universal-artifact-present":
-      return "universal-agent";
     default:
       return entry.finding.ruleId;
   }
@@ -826,19 +824,6 @@ const coalesceFullDiagnostic = (
         fixable: findings.some((finding) => finding.fixable),
         paths,
       };
-    case "workspace/skills-universal-artifact-present:universal-agent":
-      return {
-        severity: first.severity,
-        ruleId: first.ruleId,
-        title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} missing the universal lockfile target.`,
-        details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: mergedRuleHelps(
-          findings,
-          "Run `axm lint --fix` to reconcile universal skill materialization.",
-        ),
-        fixable: findings.some((finding) => finding.fixable),
-        paths,
-      };
     default:
       return {
         severity: first.severity,
@@ -971,19 +956,6 @@ const coalesceGroupedDiagnostic = (
         title: "Installed skill sources do not match their lockfile entries.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
-        fixable: findings.some((finding) => finding.fixable),
-        paths,
-      };
-    case "workspace/skills-universal-artifact-present:universal-agent":
-      return {
-        severity: first.severity,
-        ruleId: first.ruleId,
-        title: `${findings.length} ${pluralize(findings.length, "skill is", "skills are")} missing the universal lockfile target.`,
-        details: compressDetails(findings.map(summarizeSkillByDetail)),
-        helps: mergedRuleHelps(
-          findings,
-          "Run `axm lint --fix` to reconcile universal skill materialization.",
-        ),
         fixable: findings.some((finding) => finding.fixable),
         paths,
       };

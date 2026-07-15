@@ -37,7 +37,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/skills-lockfile-aligned", severity: "error" },
   // Integrity intact (configured + implicit).
   { id: "workspace/skills-integrity-valid", severity: "error" },
-  // Universal artifact present (configured + implicit).
+  // Deprecated compatibility alias retained through the current major.
   { id: "workspace/skills-universal-artifact-present", severity: "error" },
   // Artifacts correct (configured + implicit).
   { id: "workspace/skills-artifacts-correct", severity: "error" },

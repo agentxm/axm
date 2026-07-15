@@ -1,10 +1,13 @@
 {
-  "description": "Enabled managed skill has canonical and per-agent artifacts, but its lockfile entry does not target the universal agent. workspace/skills-universal-artifact-present fires and autofix reconciles universal materialization.",
+  "description": "An enabled managed skill explicitly scoped to Claude Code is valid without a synthetic universal lockfile target.",
   "state": {
     "settings": {
-      "agents": [
-        "claude-code"
-      ],
+      "agents": ["claude-code"],
+      "lint": {
+        "rules": {
+          "workspace/skills-universal-artifact-present": "error"
+        }
+      },
       "skills": {
         "reviewer": "@acme/skills/reviewer@1.0.0"
       }
@@ -19,9 +22,7 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
-          "agents": [
-            "claude-code"
-          ],
+          "agents": ["claude-code"],
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "sourceHash": "sha"
@@ -35,22 +36,10 @@
       ".claude/skills/reviewer"
     ],
     "listings": {
-      ".claude/skills": [
-        "reviewer"
-      ]
+      ".claude/skills": ["reviewer"]
     },
-    "detectedProjectAgents": [
-      "claude-code"
-    ]
+    "detectedProjectAgents": ["claude-code"]
   },
   "scope": "project",
-  "expectedFindings": [
-    {
-      "ruleId": "workspace/skills-universal-artifact-present",
-      "severity": "error",
-      "file": ".axm/axm-lock.yaml",
-      "messageIncludes": "universal agent"
-    }
-  ],
-  "expectedAfterFix": []
+  "expectedFindings": []
 }

@@ -1,5 +1,5 @@
 /**
- * `workspace/*` rule catalog — the v1 thirteen-rule set.
+ * `workspace/*` rule catalog — the v1 rule set.
  *
  * Per `docs/design/lint-engine.md §10.workspace`, `axm lint` (locally only —
  * never publish) runs exactly these rules against each workspace read model.
@@ -17,7 +17,7 @@
  * | `workspace/packs-declarations-valid`    | error    | —           |
  * | `workspace/skills-lockfile-aligned`     | error    | autofixing  |
  * | `workspace/skills-integrity-valid`      | error    | autofixing  |
- * | `workspace/skills-universal-artifact-present` | error | autofixing  |
+ * | `workspace/skills-universal-artifact-present` | error | deprecated  |
  * | `workspace/skills-artifacts-correct`    | error    | autofixing  |
  * | `workspace/skills-managed`              | error    | —           |
  * | `workspace/packs-dependencies-resolved` | error    | —           |
@@ -97,7 +97,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   skillsLockfileAlignedRule,
   // Integrity intact (configured + implicit).
   skillsIntegrityValidRule,
-  // Universal workspace-level artifacts present (configured + implicit).
+  // Deprecated compatibility alias retained through the current major.
   skillsUniversalArtifactPresentRule,
   // Artifacts correct (configured + implicit).
   skillsArtifactsCorrectRule,

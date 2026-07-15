@@ -1,3 +1,13 @@
+## 0.22.2 (2026-07-15)
+
+### 🩹 Fixes
+
+- Upgrade the AXM toolchain and runtime dependencies, including Nx 23, TypeScript 6, Vite 8, and Vitest 4. ([73233452](https://github.com/agentxm/axm/commit/73233452))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.22.1 (2026-07-15)
 
 ### 🩹 Fixes

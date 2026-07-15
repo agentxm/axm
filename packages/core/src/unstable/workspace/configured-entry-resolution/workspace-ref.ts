@@ -18,6 +18,11 @@ import type { WorkspaceFilesRef } from "../../files/refs.js";
 import { HookManifestSchema, HOOK_MANIFEST_FILENAME } from "../../hooks/manifest-schema.js";
 import type { WorkspaceHookRef } from "../../hooks/refs.js";
 import {
+  KnowledgeManifestSchema,
+  KNOWLEDGE_MANIFEST_FILENAME,
+} from "../../knowledge/manifest-schema.js";
+import type { WorkspaceKnowledgeRef } from "../../knowledge/refs.js";
+import {
   McpServerManifestSchema,
   MCP_SERVER_MANIFEST_FILENAME,
 } from "../../mcps/manifest-schema.js";
@@ -49,6 +54,7 @@ const WorkspaceManifestSchema = Schema.Union([
   FilesManifestSchema,
   RuleManifestSchema,
   HookManifestSchema,
+  KnowledgeManifestSchema,
   PackManifestSchema,
 ]);
 
@@ -60,6 +66,7 @@ type WorkspaceExtensionRef =
   | WorkspaceFilesRef
   | WorkspaceRuleRef
   | WorkspaceHookRef
+  | WorkspaceKnowledgeRef
   | WorkspacePackRef;
 
 const manifestFilename = (type: ExtensionType): string => {
@@ -78,6 +85,8 @@ const manifestFilename = (type: ExtensionType): string => {
       return RULE_MANIFEST_FILENAME;
     case "hook":
       return HOOK_MANIFEST_FILENAME;
+    case "knowledge":
+      return KNOWLEDGE_MANIFEST_FILENAME;
     case "pack":
       return PACK_MANIFEST_FILENAME;
   }
@@ -99,6 +108,8 @@ const pluralType = (type: ExtensionType): string => {
       return "rules";
     case "hook":
       return "hooks";
+    case "knowledge":
+      return "knowledge";
     case "pack":
       return "packs";
   }
@@ -281,6 +292,7 @@ export const resolveWorkspaceExtensionRef = (args: {
             name: manifest.name,
             description: Option.fromUndefinedOr(manifest.description),
           },
+          ...(manifest.fallback === undefined ? {} : { fallback: manifest.fallback }),
         };
       case "files":
         return {
@@ -302,6 +314,14 @@ export const resolveWorkspaceExtensionRef = (args: {
           refType: "workspace",
           ...details,
           hook: { name: manifest.name },
+          ...(manifest.fallback === undefined ? {} : { fallback: manifest.fallback }),
+        };
+      case "knowledge":
+        return {
+          type: "knowledge",
+          refType: "workspace",
+          ...details,
+          knowledge: { name: manifest.name },
         };
       case "pack":
         return {

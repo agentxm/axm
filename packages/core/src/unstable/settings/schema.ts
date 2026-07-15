@@ -784,6 +784,41 @@ export const HooksMapSchema = Schema.Record(Schema.String, HookEntrySchema)
 export type HooksMap = Schema.Schema.Type<typeof HooksMapSchema>;
 
 // -----------------------------------------------------------------------------
+// Knowledge Entry Schemas
+// -----------------------------------------------------------------------------
+
+export const KnowledgeEntryObjectSchema = Schema.Struct({
+  source: entrySourceFieldSchema("knowledge bundle", "knowledge"),
+  enabled: enabledFieldSchema,
+}).annotate({
+  title: "Knowledge Entry Object",
+  description: "A knowledge bundle entry with source and an optional enabled flag.",
+});
+
+export const KnowledgeEntrySchema = compactEnabledEntry(KnowledgeEntryObjectSchema, {
+  identifier: "KnowledgeEntry",
+  title: "Knowledge Entry",
+  description: "A knowledge bundle source string, or an object with optional flags.",
+  examples: [
+    "@acme/knowledge/payments@^1.0.0",
+    { source: "@acme/knowledge/payments@^1.0.0", enabled: false },
+  ],
+});
+
+export type KnowledgeEntry = Schema.Schema.Type<typeof KnowledgeEntrySchema>;
+
+export const KnowledgeMapSchema = Schema.Record(Schema.String, KnowledgeEntrySchema)
+  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(workspaceEntriesMatch("knowledge"))
+  .annotate({
+    identifier: "KnowledgeMap",
+    title: "Knowledge Map",
+    description: "A map of isolated Open Knowledge Format bundles.",
+  });
+
+export type KnowledgeMap = Schema.Schema.Type<typeof KnowledgeMapSchema>;
+
+// -----------------------------------------------------------------------------
 // MCP Server Entry Schemas
 // -----------------------------------------------------------------------------
 
@@ -1405,6 +1440,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "files",
   "rules",
   "hooks",
+  "knowledge",
   "subagents",
   "subagentsConfig",
   "packs",
@@ -1527,6 +1563,12 @@ export const SettingsSchema = Schema.Struct({
     Schema.Union([HooksMapSchema]).annotate({
       description:
         "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+    }),
+  ),
+  knowledge: Schema.optionalKey(
+    Schema.Union([KnowledgeMapSchema]).annotate({
+      description:
+        "Installed Open Knowledge Format bundles, isolated from agent instruction files.",
     }),
   ),
   subagents: Schema.optionalKey(

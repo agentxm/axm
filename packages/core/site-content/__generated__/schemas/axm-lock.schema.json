@@ -6,6 +6,31 @@
     "SourceSegment": { "type": "string", "allOf": [{ "minLength": 1 }] },
     "SourceSubPath": { "type": "string", "allOf": [{ "minLength": 1 }] },
     "IsoDateTimeString": { "type": "string", "allOf": [{ "minLength": 1 }] },
+    "CapabilityRenderInput": {
+      "type": "object",
+      "properties": {
+        "sourceHash": { "type": "string" },
+        "agent": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "catalogVersion": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "dslVersion": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "capabilityHash": { "type": "string" },
+        "referencedCapabilities": {
+          "type": "array",
+          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+        }
+      },
+      "required": [
+        "sourceHash",
+        "agent",
+        "catalogVersion",
+        "dslVersion",
+        "capabilityHash",
+        "referencedCapabilities"
+      ],
+      "additionalProperties": false,
+      "title": "Capability Render Input",
+      "description": "Pinned source, target, catalog, DSL, and referenced-capability inputs for a rendered artifact."
+    },
     "Handle": {
       "type": "string",
       "allOf": [
@@ -119,7 +144,7 @@
       "type": "string",
       "allOf": [
         {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
           "title": "Extension FQN",
           "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
           "examples": ["@acme/skills/code-review", "@my-org/commands/format"]
@@ -415,6 +440,27 @@
                       },
                       { "type": "null" }
                     ]
+                  },
+                  "renderInputs": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/definitions/CapabilityRenderInput" }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "degradedRenders": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                        }
+                      },
+                      { "type": "null" }
+                    ]
                   }
                 },
                 "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
@@ -453,6 +499,27 @@
                             "required": ["path"],
                             "additionalProperties": false
                           }
+                        }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "renderInputs": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/definitions/CapabilityRenderInput" }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "degradedRenders": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
                         }
                       },
                       { "type": "null" }
@@ -499,6 +566,27 @@
                       },
                       { "type": "null" }
                     ]
+                  },
+                  "renderInputs": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/definitions/CapabilityRenderInput" }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "degradedRenders": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                        }
+                      },
+                      { "type": "null" }
+                    ]
                   }
                 },
                 "required": ["type", "owner", "repo", "agents", "installedAt", "updatedAt"],
@@ -538,6 +626,27 @@
                             "required": ["path"],
                             "additionalProperties": false
                           }
+                        }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "renderInputs": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/definitions/CapabilityRenderInput" }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "degradedRenders": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
                         }
                       },
                       { "type": "null" }
@@ -591,6 +700,27 @@
                       },
                       { "type": "null" }
                     ]
+                  },
+                  "renderInputs": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/definitions/CapabilityRenderInput" }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "degradedRenders": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                        }
+                      },
+                      { "type": "null" }
+                    ]
                   }
                 },
                 "required": ["type", "url", "agents", "installedAt", "updatedAt"],
@@ -619,6 +749,27 @@
                             "required": ["path"],
                             "additionalProperties": false
                           }
+                        }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "renderInputs": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/definitions/CapabilityRenderInput" }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "degradedRenders": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
                         }
                       },
                       { "type": "null" }
@@ -665,6 +816,27 @@
                       },
                       { "type": "null" }
                     ]
+                  },
+                  "renderInputs": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/definitions/CapabilityRenderInput" }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "degradedRenders": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                        }
+                      },
+                      { "type": "null" }
+                    ]
                   }
                 },
                 "required": [
@@ -705,6 +877,27 @@
                             "required": ["path"],
                             "additionalProperties": false
                           }
+                        }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "renderInputs": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/definitions/CapabilityRenderInput" }
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "degradedRenders": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
                         }
                       },
                       { "type": "null" }
@@ -2550,6 +2743,283 @@
                       "type": { "type": "string", "enum": ["workspace"] },
                       "owner": { "$ref": "#/definitions/Handle" },
                       "extensionType": { "type": "string", "enum": ["hook"] },
+                      "name": { "$ref": "#/definitions/ExtensionName" },
+                      "version": { "$ref": "#/definitions/Version" },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "sourceHash": { "type": "string" }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "extensionType",
+                      "name",
+                      "version",
+                      "installedAt",
+                      "updatedAt",
+                      "sourceHash"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "knowledge": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["github"] },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
+                      "repo": { "$ref": "#/definitions/SourceSegment" },
+                      "ref": {
+                        "anyOf": [
+                          { "type": "string", "allOf": [{ "minLength": 1 }] },
+                          { "type": "null" }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      }
+                    },
+                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["gitlab"] },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
+                      "repo": { "$ref": "#/definitions/SourceSegment" },
+                      "ref": {
+                        "anyOf": [
+                          { "type": "string", "allOf": [{ "minLength": 1 }] },
+                          { "type": "null" }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      }
+                    },
+                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["bitbucket"] },
+                      "owner": { "$ref": "#/definitions/SourceNamespace" },
+                      "repo": { "$ref": "#/definitions/SourceSegment" },
+                      "ref": {
+                        "anyOf": [
+                          { "type": "string", "allOf": [{ "minLength": 1 }] },
+                          { "type": "null" }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      }
+                    },
+                    "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["azurerepos"] },
+                      "organization": { "$ref": "#/definitions/SourceSegment" },
+                      "project": { "$ref": "#/definitions/SourceSegment" },
+                      "repo": { "$ref": "#/definitions/SourceSegment" },
+                      "ref": {
+                        "anyOf": [
+                          { "type": "string", "allOf": [{ "minLength": 1 }] },
+                          { "type": "null" }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "organization",
+                      "project",
+                      "repo",
+                      "installedAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["git"] },
+                      "url": { "type": "string" },
+                      "ref": {
+                        "anyOf": [
+                          { "type": "string", "allOf": [{ "minLength": 1 }] },
+                          { "type": "null" }
+                        ]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      }
+                    },
+                    "required": ["type", "url", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["local"] },
+                      "path": { "type": "string" },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      }
+                    },
+                    "required": ["type", "path", "installedAt", "updatedAt"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["registry"] },
+                      "owner": { "$ref": "#/definitions/Handle" },
+                      "name": { "$ref": "#/definitions/ExtensionName" },
+                      "resolvedVersion": { "$ref": "#/definitions/Version" },
+                      "integrity": { "type": "string" },
+                      "sourceName": { "type": "string" },
+                      "publisherBindingId": {
+                        "anyOf": [
+                          { "type": "string", "allOf": [{ "minLength": 1 }] },
+                          { "type": "null" }
+                        ]
+                      },
+                      "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
+                      "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+                      "materializedTargets": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": { "$ref": "#/definitions/MaterializedFileTarget" }
+                          },
+                          { "type": "null" }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "name",
+                      "resolvedVersion",
+                      "integrity",
+                      "sourceName",
+                      "installedAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "enum": ["workspace"] },
+                      "owner": { "$ref": "#/definitions/Handle" },
+                      "extensionType": { "type": "string", "enum": ["knowledge"] },
                       "name": { "$ref": "#/definitions/ExtensionName" },
                       "version": { "$ref": "#/definitions/Version" },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },

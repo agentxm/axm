@@ -24,6 +24,10 @@ import {
   type InstallLibraryHandlerArgs,
 } from "../libraries/install/command-actions.js";
 import {
+  InstallKnowledgeCommandWorkflowActions,
+  type InstallKnowledgeHandlerArgs,
+} from "../knowledge/install/command-actions.js";
+import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
 } from "../mcps/install/command-actions.js";
@@ -265,6 +269,24 @@ describe("root update handler", () => {
       buildPlan: () => Effect.succeed(makePlan("library")),
     };
 
+    const knowledgeActions = {
+      parseArgs: (args: InstallKnowledgeHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({
+            type: "knowledge",
+            source: args.source,
+            yes: false,
+            force: false,
+            preview: true,
+          });
+          return {};
+        }),
+      resolveSourceRequests: () => Effect.succeed([]),
+      discoverRefs: () => Effect.succeed([]),
+      finalizeIntent: () => Effect.succeed({}),
+      buildPlan: () => Effect.succeed(makePlan("knowledge")),
+    };
+
     const fullLayer = Layer.mergeAll(
       ctx.fullLayer,
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
@@ -328,6 +350,13 @@ describe("root update handler", () => {
         InstallLibraryCommandWorkflowActions,
         libraryActions as unknown as ServiceMap.Service.Shape<
           typeof InstallLibraryCommandWorkflowActions
+        >,
+      ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
+        InstallKnowledgeCommandWorkflowActions,
+        knowledgeActions as unknown as ServiceMap.Service.Shape<
+          typeof InstallKnowledgeCommandWorkflowActions
         >,
       ),
     );

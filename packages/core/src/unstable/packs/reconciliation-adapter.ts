@@ -122,6 +122,7 @@ const parsePackDependency = (
     case "files":
     case "rule":
     case "hook":
+    case "knowledge":
     case "pack":
       return Option.none();
   }

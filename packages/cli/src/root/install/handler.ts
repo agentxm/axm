@@ -30,6 +30,10 @@ import {
   type InstallLibraryHandlerArgs,
 } from "../libraries/install/command-actions.js";
 import {
+  makeInstallKnowledgeCommandWorkflowActions,
+  type InstallKnowledgeHandlerArgs,
+} from "../knowledge/install/command-actions.js";
+import {
   InstallPackCommandWorkflowActions,
   type InstallPackHandlerArgs,
 } from "../packs/install/command-actions.js";
@@ -108,6 +112,11 @@ const runRegistryInstallIntent = (
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(hookArgs, actions, args);
       }
+      case "knowledge": {
+        const actions = yield* makeInstallKnowledgeCommandWorkflowActions;
+        const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
+        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, args);
+      }
       case "subagent": {
         const actions = yield* InstallSubagentCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
@@ -151,6 +160,7 @@ const runLocatorInstallIntent = (source: string, args: RootInstallFlags) =>
     const fileActions = yield* InstallFilesCommandWorkflowActions;
     const ruleActions = yield* InstallRuleCommandWorkflowActions;
     const hookActions = yield* InstallHookCommandWorkflowActions;
+    const knowledgeActions = yield* makeInstallKnowledgeCommandWorkflowActions;
     const subagentActions = yield* InstallSubagentCommandWorkflowActions;
 
     const attempts = [
@@ -169,6 +179,10 @@ const runLocatorInstallIntent = (source: string, args: RootInstallFlags) =>
       yield* runLocatorWorkflow("files", runInstallCommandWorkflow({ source }, fileActions, args)),
       yield* runLocatorWorkflow("rule", runInstallCommandWorkflow({ source }, ruleActions, args)),
       yield* runLocatorWorkflow("hook", runInstallCommandWorkflow({ source }, hookActions, args)),
+      yield* runLocatorWorkflow(
+        "knowledge",
+        runInstallCommandWorkflow({ source }, knowledgeActions, args),
+      ),
       yield* runLocatorWorkflow(
         "subagent",
         runInstallCommandWorkflow({ source, subagents: [], all: true }, subagentActions, args),

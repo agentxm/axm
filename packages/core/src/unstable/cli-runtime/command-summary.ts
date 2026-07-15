@@ -12,6 +12,7 @@ export type SubjectType =
   | "files"
   | "rule"
   | "hook"
+  | "knowledge"
   | "subagent"
   | "pack"
   | "library"

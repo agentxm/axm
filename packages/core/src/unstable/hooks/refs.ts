@@ -26,6 +26,8 @@ type HookExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource>
 > & {
   readonly hook: { readonly name: ExtensionName };
+  /** Override platform capability degradation for this extension. */
+  readonly fallback?: "auto" | "none";
 };
 
 /** @experimental */

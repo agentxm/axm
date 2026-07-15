@@ -62,6 +62,33 @@ const CommonFields = {
   ...BaseCommonFields,
 };
 
+/** Inputs that deterministically pin one capability-targeted render. */
+export const CapabilityRenderInputSchema = Schema.Struct({
+  sourceHash: SourceHashSchema,
+  agent: Schema.NonEmptyString,
+  catalogVersion: Schema.NonEmptyString,
+  dslVersion: Schema.NonEmptyString,
+  capabilityHash: SourceHashSchema,
+  referencedCapabilities: Schema.Array(Schema.NonEmptyString),
+}).annotate({
+  identifier: "CapabilityRenderInput",
+  title: "Capability Render Input",
+  description:
+    "Pinned source, target, catalog, DSL, and referenced-capability inputs for a rendered artifact.",
+});
+
+export type CapabilityRenderInput = Schema.Schema.Type<typeof CapabilityRenderInputSchema>;
+
+export const CapabilityRenderInputsMapSchema = Schema.Record(
+  Schema.String,
+  CapabilityRenderInputSchema,
+);
+
+export const DegradedRendersMapSchema = Schema.Record(
+  Schema.String,
+  Schema.Array(Schema.NonEmptyString),
+);
+
 /**
  * Common fields for skill lock entries (includes agents + rendered files).
  */
@@ -69,6 +96,8 @@ const SkillCommonFields = {
   ...CommonFields,
   sourceHash: Schema.optional(SourceHashSchema),
   renderedFiles: Schema.optional(RenderedFilesMapSchema),
+  renderInputs: Schema.optional(CapabilityRenderInputsMapSchema),
+  degradedRenders: Schema.optional(DegradedRendersMapSchema),
 };
 
 // =============================================================================
@@ -197,6 +226,8 @@ const InlineMcpServerLockEntrySchema = Schema.Struct({
 const SkillWorkspaceFields = {
   ...CommonFields,
   renderedFiles: Schema.optional(RenderedFilesMapSchema),
+  renderInputs: Schema.optional(CapabilityRenderInputsMapSchema),
+  degradedRenders: Schema.optional(DegradedRendersMapSchema),
 };
 
 export const SkillLockEntrySchema = makeSourceLockUnion(
@@ -530,6 +561,25 @@ export const HooksLockMapSchema = Schema.Record(Schema.String, HookLockEntrySche
 export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
 
 // =============================================================================
+// Knowledge Lock Entry (isolated OKF bundle plus derived index)
+// =============================================================================
+
+const KnowledgeCommonFields = {
+  ...BaseCommonFields,
+  materializedTargets: Schema.optional(Schema.Array(MaterializedFileTargetSchema)),
+};
+
+export const KnowledgeLockEntrySchema = makeSourceLockUnion(
+  KnowledgeCommonFields,
+  "knowledge",
+  KnowledgeCommonFields,
+);
+
+export type KnowledgeLockEntry = Schema.Schema.Type<typeof KnowledgeLockEntrySchema>;
+export const KnowledgeLockMapSchema = Schema.Record(Schema.String, KnowledgeLockEntrySchema);
+export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>;
+
+// =============================================================================
 // Pack Lock Entry
 // =============================================================================
 
@@ -772,6 +822,7 @@ export const LockfileSchema = Schema.Struct({
   files: Schema.optional(FilesLockMapSchema),
   rules: Schema.optional(RulesLockMapSchema),
   hooks: Schema.optional(HooksLockMapSchema),
+  knowledge: Schema.optional(KnowledgeLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
   libraries: Schema.optional(LibrariesLockMapSchema),
 }).annotate({

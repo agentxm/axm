@@ -47,6 +47,7 @@ const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
   files: 5,
   rules: 6,
   hooks: 7,
+  knowledge: 8,
 };
 
 const dedupeDeclarationKey = (declaration: ReconciliationDeclaration): string =>
@@ -194,7 +195,9 @@ const reconstructWorkspaceDeclaration = (
                   ? "rule"
                   : declaration.type === "hooks"
                     ? "hook"
-                    : "files",
+                    : declaration.type === "knowledge"
+                      ? "knowledge"
+                      : "files",
     baseDir: context.baseDir,
     scope: context.scope ?? "project",
   }).pipe(
@@ -273,6 +276,15 @@ const reconstructWorkspaceDeclaration = (
               type: "hooks",
               name: ref.name,
               entry: { ...base, extensionType: "hook" },
+            },
+          });
+        case "knowledge":
+          return Effect.succeed({
+            _tag: "Compatible",
+            reconstructed: {
+              type: "knowledge",
+              name: ref.name,
+              entry: { ...base, extensionType: "knowledge" },
             },
           });
         case "pack":

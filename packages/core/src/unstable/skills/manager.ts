@@ -28,14 +28,23 @@ import {
   makeWorkspaceRelativeSourcePath,
   removeFromAllCanonicalLocations,
 } from "../utils/index.js";
-import { CodingAgentRepository } from "../agents/index.js";
+import { CodingAgentRepository, type AgentId } from "../agents/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
+import type {
+  CapabilityRenderInput as LockedCapabilityRenderInput,
+  SkillLockEntry,
+} from "../lockfile/index.js";
 import {
   ensureSkillAgentArtifact,
   materializeSkillCanonical,
   removeSkillAgentArtifact,
   type ProvideFs,
 } from "./materialization.js";
+import {
+  capabilityRenderTargetForAgentId,
+  materializeCapabilityTargetedBuild,
+} from "../capability-targeting/index.js";
+import { renderTargetAgentIdForLocation } from "./operations/install.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -82,6 +91,13 @@ export const SkillManagerLive = Layer.effect(
       .pipe(Effect.provideService(WorkspaceMutations, ws));
     const agents = materializationAgents.map((agent) => agent.id);
     const baseDir = ws.baseDir;
+    const lastRenderState = new Map<
+      string,
+      {
+        readonly renderInputs: Readonly<Record<string, LockedCapabilityRenderInput>>;
+        readonly degradedRenders: Readonly<Record<string, ReadonlyArray<string>>>;
+      }
+    >();
 
     // Build a layer to provide FileSystem + Path to inner effects
     const fsPathLayer = Layer.mergeAll(
@@ -131,28 +147,89 @@ export const SkillManagerLive = Layer.effect(
         });
       }
 
-      const installTargets: Array<string> = [];
-      for (const { outcome } of resolved) {
+      const installTargets: Array<{ readonly agentId: AgentId; readonly dir: string }> = [];
+      for (const { agent, outcome } of resolved) {
         if (outcome._tag === "supported") {
-          installTargets.push(path.normalize(outcome.dir));
+          installTargets.push({ agentId: agent.id, dir: path.normalize(outcome.dir) });
         }
       }
-      const distinctDirs = Array.dedupe(installTargets);
+      const locations = new Map<
+        string,
+        { readonly dir: string; readonly agentIds: Array<AgentId> }
+      >();
+      for (const target of installTargets) {
+        const existing = locations.get(target.dir);
+        if (existing === undefined) {
+          locations.set(target.dir, { dir: target.dir, agentIds: [target.agentId] });
+        } else if (!existing.agentIds.includes(target.agentId)) {
+          existing.agentIds.push(target.agentId);
+        }
+      }
 
-      yield* Effect.forEach(
-        distinctDirs,
-        (dir) =>
-          ensureSkillAgentArtifact({
-            canonicalSkillSrcPath: skillSrcPath,
-            targetDir: dir,
-            sanitizedName: sanitized,
-            pathService: path,
-            baseDir,
-            provide,
+      const builds = yield* Effect.forEach(
+        [...locations.values()],
+        (location) =>
+          Effect.gen(function* () {
+            const targetAgentId = renderTargetAgentIdForLocation(location.agentIds);
+            const build = yield* provide(
+              materializeCapabilityTargetedBuild({
+                baseDir,
+                canonicalSourcePath: skillSrcPath,
+                extensionName: sanitized,
+                target: capabilityRenderTargetForAgentId(targetAgentId),
+              }),
+            ).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to render ${ref.skill.name} for ${targetAgentId}`,
+                  cause: error,
+                }),
+              ),
+            );
+            yield* ensureSkillAgentArtifact({
+              canonicalSkillSrcPath: build.artifactSourcePath,
+              targetDir: location.dir,
+              sanitizedName: sanitized,
+              pathService: path,
+              baseDir,
+              provide,
+            });
+            for (const finding of build.findings) {
+              yield* Effect.logWarning(
+                `[${finding.code}] ${ref.skill.name} (${targetAgentId}): ${finding.message}`,
+              );
+            }
+            return { targetAgentId, build };
           }),
         { concurrency: "unbounded" },
       );
+      const renderInputs: Record<string, LockedCapabilityRenderInput> = {};
+      const degradedRenders: Record<string, ReadonlyArray<string>> = {};
+      for (const { targetAgentId, build } of builds) {
+        if (build.renderInput !== undefined) renderInputs[targetAgentId] = build.renderInput;
+        if (build.degraded) {
+          degradedRenders[targetAgentId] = [
+            ...new Set(build.findings.map((finding) => finding.code)),
+          ].sort();
+        }
+      }
+      lastRenderState.set(ref.skill.name, { renderInputs, degradedRenders });
     });
+
+    const withRenderState = (ref: SkillExtensionRef, entry: SkillLockEntry): SkillLockEntry => {
+      const state = lastRenderState.get(ref.skill.name);
+      if (state === undefined) return entry;
+      return {
+        ...entry,
+        ...(Object.keys(state.renderInputs).length === 0
+          ? {}
+          : { renderInputs: state.renderInputs }),
+        ...(Object.keys(state.degradedRenders).length === 0
+          ? {}
+          : { degradedRenders: state.degradedRenders }),
+      };
+    };
 
     const materializeUninstall: ExtensionManager<SkillExtensionRef>["materializeUninstall"] =
       Effect.fn("SkillManager.materializeUninstall")(function* ({ target, preserveSource }) {
@@ -242,7 +319,10 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const lockEntry = buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath);
+        const lockEntry = withRenderState(
+          ref,
+          buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath),
+        );
         if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `skills.${ref.skill.name}.resolvedVersion`,
@@ -274,7 +354,10 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const baseLockEntry = buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath);
+        const baseLockEntry = withRenderState(
+          ref,
+          buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath),
+        );
         const lockEntry =
           retainedByPack === true ? { ...baseLockEntry, retainedByPack: true } : baseLockEntry;
         if (lockEntry.type === "registry") {

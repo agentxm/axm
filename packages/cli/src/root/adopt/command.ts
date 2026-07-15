@@ -15,6 +15,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
@@ -79,6 +80,11 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
         });
       case "hook":
         return buildInstallOperation(yield* HookManager, {
+          ref,
+          versionRange: Option.none(),
+        });
+      case "knowledge":
+        return buildInstallOperation(yield* KnowledgeManager, {
           ref,
           versionRange: Option.none(),
         });

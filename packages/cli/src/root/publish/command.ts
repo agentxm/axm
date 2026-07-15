@@ -76,7 +76,7 @@ const publishableTypes = [
   "pack",
 ] as const;
 
-const selectableTypes = [...publishableTypes, "rule"] as const;
+const selectableTypes = [...publishableTypes, "rule", "knowledge"] as const;
 type PublishableType = (typeof publishableTypes)[number];
 type SelectableType = (typeof selectableTypes)[number];
 type SelectionMode = "authored" | "all" | "explicit" | "filtered-explicit";
@@ -111,6 +111,7 @@ const manifestFilename: Readonly<Record<SelectableType, string>> = {
   files: "files.json",
   rule: "rule.json",
   hook: "hook.json",
+  knowledge: "knowledge.json",
   pack: "pack.json",
 };
 
@@ -184,19 +185,21 @@ const entrySource = (entry: unknown): string | undefined => {
 
 const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
   const ws = yield* WorkspaceMutations;
-  const [skills, commands, mcps, subagents, files, rules, hooks, packs] = yield* Effect.all(
-    [
-      ws.records.getConfiguredSkills(),
-      ws.records.getConfiguredCommands(),
-      ws.records.getConfiguredMcpServers(),
-      ws.records.getConfiguredSubagents(),
-      ws.getConfiguredFilesEntries(),
-      ws.getConfiguredRuleEntries(),
-      ws.getConfiguredHookEntries(),
-      ws.records.getConfiguredPacks(),
-    ],
-    { concurrency: "unbounded" },
-  );
+  const [skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs] =
+    yield* Effect.all(
+      [
+        ws.records.getConfiguredSkills(),
+        ws.records.getConfiguredCommands(),
+        ws.records.getConfiguredMcpServers(),
+        ws.records.getConfiguredSubagents(),
+        ws.getConfiguredFilesEntries(),
+        ws.getConfiguredRuleEntries(),
+        ws.getConfiguredHookEntries(),
+        ws.getConfiguredKnowledgeEntries(),
+        ws.records.getConfiguredPacks(),
+      ],
+      { concurrency: "unbounded" },
+    );
 
   const group = (type: SelectableType, entries: Readonly<Record<string, unknown>>) =>
     Object.entries(entries).flatMap(([name, entry]) => {
@@ -212,6 +215,7 @@ const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
     ...group("files", files),
     ...group("rule", rules),
     ...group("hook", hooks),
+    ...group("knowledge", knowledge),
     ...group("pack", packs),
   ];
 });
@@ -518,7 +522,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   visibility: Option.Option<ExtensionVisibility>,
 ) {
   if (selected.skipReason !== undefined) return undefined;
-  if (selected.type === "rule") return undefined;
+  if (selected.type === "rule" || selected.type === "knowledge") return undefined;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;

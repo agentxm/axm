@@ -458,6 +458,8 @@ const identityKey = (ref: ExtensionRef): string | undefined => {
       return `${ref.type}:${ref.rule.name}`;
     case "hook":
       return `${ref.type}:${ref.hook.name}`;
+    case "knowledge":
+      return `${ref.type}:${ref.knowledge.name}`;
     case "skill":
       return `${ref.type}:${ref.skill.name}`;
     case "mcp-server":

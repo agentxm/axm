@@ -61,6 +61,11 @@ import {
 } from "../../extensions/utils.js";
 import type { InstallResult } from "./install-result.js";
 import { computeSkillSourceHash } from "./source-hash.js";
+import {
+  capabilityRenderTargetForAgentId,
+  materializeCapabilityTargetedBuild,
+  type CapabilityRenderInput,
+} from "../../capability-targeting/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -111,6 +116,16 @@ export type InstallableSkillTargetLocation = {
 };
 
 const UNIVERSAL_AGENT_ID = "universal";
+
+/**
+ * A universal target sharing a directory with exactly one configured agent
+ * adopts that agent's profile. Ambiguous multi-agent shared directories keep
+ * the universal baseline because one path cannot truthfully hold two renders.
+ */
+export const renderTargetAgentIdForLocation = (agentIds: ReadonlyArray<AgentId>): AgentId => {
+  const configured = agentIds.filter((agentId) => agentId !== UNIVERSAL_AGENT_ID);
+  return configured.length === 1 ? (configured[0] ?? UNIVERSAL_AGENT_ID) : UNIVERSAL_AGENT_ID;
+};
 
 export const artifactAgentIdsFromTargets = (
   targets: ReadonlyArray<InstallableSkillTarget>,
@@ -776,11 +791,29 @@ export const installSkill: OperationHandler<
     const perDirectoryResults = yield* Effect.forEach(
       targetLocations,
       (location) =>
-        installForDirectory({
-          targetDir: location.targetDir,
-          canonicalSkillSrcPath: materialized.skillSrcPath,
-          sanitizedName,
-        }).pipe(Effect.map((result) => ({ location, result }))),
+        Effect.gen(function* () {
+          const targetAgentId = renderTargetAgentIdForLocation(location.agentIds);
+          const build = yield* materializeCapabilityTargetedBuild({
+            baseDir: ws.baseDir,
+            canonicalSourcePath: materialized.skillSrcPath,
+            extensionName: sanitizedName,
+            target: capabilityRenderTargetForAgentId(targetAgentId),
+          }).pipe(
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to render ${ref.skill.name} for ${targetAgentId}`,
+                cause: error,
+              }),
+            ),
+          );
+          const result = yield* installForDirectory({
+            targetDir: location.targetDir,
+            canonicalSkillSrcPath: build.artifactSourcePath,
+            sanitizedName,
+          });
+          return { location, result, build, targetAgentId };
+        }),
       { concurrency: "unbounded" },
     );
 
@@ -808,9 +841,28 @@ export const installSkill: OperationHandler<
           path.relative(ws.baseDir, targetPath),
         )
       : undefined;
-    const sourceHash = hasCopyResults
-      ? yield* computeSkillSourceHash(materialized.skillSrcPath)
-      : undefined;
+    const renderInputs: Record<string, CapabilityRenderInput> = {};
+    const degradedRenders: Record<string, ReadonlyArray<string>> = {};
+    const renderWarnings: Array<string> = [];
+    for (const { build, targetAgentId } of perDirectoryResults) {
+      if (build.renderInput !== undefined) renderInputs[targetAgentId] = build.renderInput;
+      if (build.degraded) {
+        const codes = Array.dedupe(build.findings.map((item) => item.code));
+        degradedRenders[targetAgentId] = codes;
+        renderWarnings.push(
+          `Capability targeting for ${targetAgentId} used verbatim fallback: ${codes.join(", ")}`,
+        );
+      }
+      const drift = build.findings.filter((item) => item.code === "rendered-artifact-drift");
+      if (drift.length > 0) {
+        renderWarnings.push(...drift.map((item) => item.message));
+      }
+    }
+    const hasRenderInputs = Object.keys(renderInputs).length > 0;
+    const sourceHash =
+      hasCopyResults || hasRenderInputs
+        ? yield* computeSkillSourceHash(materialized.skillSrcPath)
+        : undefined;
 
     // ── Shared: update lockfile + settings ──────────────────────────
     const workspaceRelativeLocalSourcePath =
@@ -835,6 +887,8 @@ export const installSkill: OperationHandler<
       ...baseLockEntry,
       ...(sourceHash !== undefined ? { sourceHash } : {}),
       ...(renderedFiles !== undefined ? { renderedFiles } : {}),
+      ...(hasRenderInputs ? { renderInputs } : {}),
+      ...(Object.keys(degradedRenders).length > 0 ? { degradedRenders } : {}),
     };
 
     if (lockEntry.type === "registry") {
@@ -902,9 +956,12 @@ export const installSkill: OperationHandler<
       } satisfies JobStepResult;
     }
 
-    const warnings = [unknownAgentWarning, skippedOutcomeWarning, writeWarning].filter(
-      (warning): warning is string => warning !== undefined,
-    );
+    const warnings = [
+      unknownAgentWarning,
+      skippedOutcomeWarning,
+      ...renderWarnings,
+      writeWarning,
+    ].filter((warning): warning is string => warning !== undefined);
     const sourceDetails = gitHostedSkillArtifactSource(ref);
 
     return {

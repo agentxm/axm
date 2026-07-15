@@ -20,6 +20,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
@@ -34,6 +35,7 @@ import {
   resolveConfiguredCommand,
   resolveConfiguredFiles,
   resolveConfiguredHook,
+  resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredRule,
@@ -76,6 +78,8 @@ const configuredEntry = Effect.fn("Demote.configuredEntry")(function* (
       return (yield* ws.getConfiguredRuleEntries())[name];
     case "hook":
       return (yield* ws.getConfiguredHookEntries())[name];
+    case "knowledge":
+      return (yield* ws.getConfiguredKnowledgeEntries())[name];
     case "pack":
       return (yield* ws.getConfiguredPackEntries())[name];
   }
@@ -113,6 +117,9 @@ const restoreDisabledState = Effect.fn("Demote.restoreDisabledState")(function* 
       return;
     case "hook":
       yield* ws.updateHookEntry(name, disable);
+      return;
+    case "knowledge":
+      yield* ws.updateKnowledgeEntry(name, disable);
       return;
     case "pack":
       return;
@@ -185,6 +192,13 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
       case "hook": {
         const resolved = yield* resolveConfiguredHook(parsed.name, source);
         return buildInstallOperation(yield* HookManager, {
+          ...resolved,
+          allowWorkspaceReplacement: true,
+        });
+      }
+      case "knowledge": {
+        const resolved = yield* resolveConfiguredKnowledge(parsed.name, source);
+        return buildInstallOperation(yield* KnowledgeManager, {
           ...resolved,
           allowWorkspaceReplacement: true,
         });

@@ -17,7 +17,7 @@ import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import { skipExistingFlag } from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
-type PerTypePublishType = Exclude<ExtensionType, "rule">;
+type PerTypePublishType = Exclude<ExtensionType, "rule" | "knowledge">;
 
 const normalizeSelector = (type: PerTypePublishType, selector: string) =>
   Effect.gen(function* () {

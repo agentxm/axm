@@ -7,6 +7,19 @@ export const codexAgent = {
   interfaces: ["cli", "ide-extension"],
   family: "openai",
   rootDir: ".codex",
+  targeting: {
+    extends: null,
+    capabilities: {
+      "structured-input": {
+        grades: ["native"],
+        nouns: { "tool:structured-input": "request_user_input" },
+        affordances: {
+          "do:ask-structured":
+            "Use request_user_input to collect structured input, then STOP and wait for the response.",
+        },
+      },
+    },
+  },
   lifecycle: { state: "active" },
   detection: {
     project: {

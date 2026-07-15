@@ -29,6 +29,8 @@ import type {
   FilesLockMap,
   HookLockEntry,
   HooksLockMap,
+  KnowledgeLockEntry,
+  KnowledgeLockMap,
   LibraryLockEntry,
   LibrariesLockMap,
   RegistryLibraryLockEntryArgs,
@@ -50,6 +52,8 @@ import type {
   FilesMap,
   HookEntry,
   HooksMap,
+  KnowledgeEntry,
+  KnowledgeMap,
   LibraryEntry,
   LibrariesMap,
   InstructionsConfigValue,
@@ -153,6 +157,11 @@ export interface HookExtensionTarget {
   readonly name: string;
 }
 
+export interface KnowledgeExtensionTarget {
+  readonly type: "knowledge";
+  readonly name: string;
+}
+
 /**
  * Identifies a specific extension by type and name.
  */
@@ -164,7 +173,8 @@ export type ExtensionTarget =
   | SubagentExtensionTarget
   | FilesExtensionTarget
   | RuleExtensionTarget
-  | HookExtensionTarget;
+  | HookExtensionTarget
+  | KnowledgeExtensionTarget;
 
 /**
  * Maps an ExtensionRef type to its corresponding ExtensionTarget type.
@@ -370,6 +380,12 @@ export interface SetHookArgs {
   readonly versionRange: Option.Option<string>;
 }
 
+export interface SetKnowledgeArgs {
+  readonly name: string;
+  readonly lockEntry: KnowledgeLockEntry;
+  readonly versionRange: Option.Option<string>;
+}
+
 // ---------------------------------------------------------------------------
 // Service interface
 // ---------------------------------------------------------------------------
@@ -506,6 +522,25 @@ export interface WorkspaceMutationsService {
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a hook entry in settings only. Serialized by semaphore. */
   readonly setHookEntry: (name: string, entry: HookEntry) => Effect.Effect<void, AppError>;
+  /** Read, write, and remove isolated Open Knowledge Format bundles. */
+  readonly getConfiguredKnowledgeEntries: () => Effect.Effect<KnowledgeMap, AppError>;
+  readonly getLockedKnowledge: () => Effect.Effect<KnowledgeLockMap, AppError>;
+  readonly getLockedKnowledgeEntry: (
+    name: string,
+  ) => Effect.Effect<Option.Option<KnowledgeLockEntry>, AppError>;
+  readonly setKnowledge: (args: SetKnowledgeArgs) => Effect.Effect<void, AppError>;
+  readonly setKnowledgeLock: (args: SetKnowledgeArgs) => Effect.Effect<void, AppError>;
+  readonly removeKnowledge: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeKnowledgeSettings: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeKnowledgeLock: (name: string) => Effect.Effect<void, AppError>;
+  readonly updateKnowledgeEntry: (
+    name: string,
+    updater: (entry: KnowledgeEntry) => KnowledgeEntry,
+  ) => Effect.Effect<void, AppError>;
+  readonly setKnowledgeEntry: (
+    name: string,
+    entry: KnowledgeEntry,
+  ) => Effect.Effect<void, AppError>;
   /** Read lockfile and return the skills lock map. */
   readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific skill, or Option.none(). */

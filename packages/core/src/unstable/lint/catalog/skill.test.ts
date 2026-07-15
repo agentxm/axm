@@ -1,9 +1,9 @@
 /**
- * Spec + unit tests for the v1 `skill/*` rule catalog.
+ * Spec + unit tests for the `skill/*` rule catalog.
  *
  * Covers the spec scenarios for:
  *
- * - "Skill rule catalog ships the v1 five-rule set" — exact membership, ids,
+ * - "Skill rule catalog ships the supported rule set" — exact membership, ids,
  *   severities.
  * - "Rule ids and descriptions are public API" — id grammar per catalog entry.
  * - "Schema-valid rules delegate to Effect Schema" — smoke tests that the
@@ -29,10 +29,16 @@ const V1_SKILL_RULES = [
   { id: "skill/frontmatter-parseable", severity: "error", kind: "advisory" },
   { id: "skill/manifest-schema-valid", severity: "error", kind: "advisory" },
   { id: "skill/manifest-keys-recognized", severity: "error", kind: "advisory" },
+  {
+    id: "skill/capability-targeting-structural",
+    severity: "warning",
+    kind: "advisory",
+  },
+  { id: "skill/capability-targeting-metadata", severity: "warning", kind: "advisory" },
 ] as const;
 
 describe("skillRules catalog membership", () => {
-  it("exports exactly the v1 five rules in declaration order", () => {
+  it("exports exactly the supported rules in declaration order", () => {
     expect(skillRules.map((r) => r.id)).toEqual(V1_SKILL_RULES.map((r) => r.id));
   });
 

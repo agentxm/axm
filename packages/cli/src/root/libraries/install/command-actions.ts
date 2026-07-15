@@ -131,9 +131,9 @@ interface ResolvedLibraryMembers {
   readonly skippedMessages: ReadonlyArray<string>;
 }
 
-type LibraryDependencyTarget = Exclude<ExtensionTarget, { readonly type: "pack" }>;
+type LibraryDependencyTarget = Exclude<ExtensionTarget, { readonly type: "pack" | "knowledge" }>;
 
-type LibraryMemberExtensionType = Exclude<ExtensionType, "pack">;
+type LibraryMemberExtensionType = Exclude<ExtensionType, "pack" | "knowledge">;
 
 const refName = (ref: ExtensionRef): ExtensionName => {
   switch (ref.type) {
@@ -151,6 +151,8 @@ const refName = (ref: ExtensionRef): ExtensionName => {
       return ref.rule.name;
     case "hook":
       return ref.hook.name;
+    case "knowledge":
+      return ref.knowledge.name;
     case "pack":
       return ref.pack.name;
   }
@@ -300,6 +302,8 @@ const validateFrozenPublisherEpochs = (refs: ReadonlyArray<ExtensionRef>, source
                 return rules[name];
               case "hook":
                 return hooks[name];
+              case "knowledge":
+                return undefined;
               case "pack":
                 return undefined;
             }
@@ -445,6 +449,8 @@ const targetFromMemberRef = (ref: ExtensionRef): LibraryDependencyTarget | undef
       return { type: "rule", name: ref.rule.name };
     case "hook":
       return { type: "hook", name: ref.hook.name };
+    case "knowledge":
+      return undefined;
     case "pack":
       return undefined;
   }
@@ -693,6 +699,15 @@ const buildInstallStep = (
       skipSettings: true,
       installedBefore: Effect.succeed(installedBefore),
     });
+  }
+
+  if (ref.type === "knowledge") {
+    return {
+      key: `unsupported:knowledge:${ref.knowledge.name}`,
+      label: `knowledge:${ref.knowledge.name}`,
+      readiness: "error",
+      errorMessage: "Libraries do not yet support knowledge bundle members",
+    };
   }
 
   const target = targetFromRef(ref);
@@ -1001,10 +1016,10 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
 
             for (const member of sortedMembers(library.members)) {
               const memberType = member.extensionType;
-              if (memberType === "pack") {
+              if (memberType === "pack" || memberType === "knowledge") {
                 return yield* makeAppError({
                   code: "validation",
-                  detail: `Library member ${memberLabel(member)} is a pack; Libraries can only include installable extension members.`,
+                  detail: `Library member ${memberLabel(member)} uses an unsupported Library member type.`,
                 });
               }
 
@@ -1195,6 +1210,8 @@ export const InstallLibraryCommandWorkflowActionsLive = Layer.effect(
               return Object.hasOwn(lockedRules, ref.rule.name);
             case "hook":
               return Object.hasOwn(lockedHooks, ref.hook.name);
+            case "knowledge":
+              return false;
             case "pack":
               return false;
           }

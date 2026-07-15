@@ -16,6 +16,7 @@ import type { SubagentExtensionRef } from "../subagents/refs.js";
 import type { FilesExtensionRef } from "../files/refs.js";
 import type { RuleExtensionRef } from "../rules/refs.js";
 import type { HookExtensionRef } from "../hooks/refs.js";
+import type { KnowledgeExtensionRef } from "../knowledge/refs.js";
 import type { PackRef } from "../packs/refs.js";
 
 /** @experimental */
@@ -27,4 +28,5 @@ export type ExtensionRef =
   | FilesExtensionRef
   | RuleExtensionRef
   | HookExtensionRef
+  | KnowledgeExtensionRef
   | PackRef;

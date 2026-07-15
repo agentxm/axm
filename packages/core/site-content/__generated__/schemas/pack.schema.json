@@ -204,7 +204,7 @@
       "type": "string",
       "allOf": [
         {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|knowledge)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
           "title": "Non-Pack Extension FQN",
           "description": "Extension identifier restricted to non-pack types (skills, commands, mcps, subagents, context, rules, hooks).",
           "examples": ["@acme/skills/code-review", "@my-org/commands/format"]

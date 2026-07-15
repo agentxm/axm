@@ -352,6 +352,8 @@ const registryPluralSegment = (ref: ExtensionRef): string => {
       return "rules";
     case "hook":
       return "hooks";
+    case "knowledge":
+      return "knowledge";
   }
 };
 

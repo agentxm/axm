@@ -239,6 +239,7 @@ export const makeReadModelRecordReaders = (args: {
       case "files":
       case "rule":
       case "hook":
+      case "knowledge":
         return [];
     }
   };
@@ -613,6 +614,8 @@ export const makeReadModelRecordReaders = (args: {
               .map((name) => packMemberToImplicit(type, name));
             return [...configuredRows, ...lockedRows, ...packRows];
           }
+          case "knowledge":
+            return [];
         }
       }),
     );
@@ -845,6 +848,14 @@ export const makeReadModelRecordReaders = (args: {
               agents,
             });
           }
+          case "knowledge":
+            return projectExtensionInventory({
+              lifecycle: [],
+              ignored: [],
+              ignoredPatterns: new Set(),
+              includeIgnored: false,
+              agents,
+            });
         }
       }),
     );

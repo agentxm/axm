@@ -846,6 +846,32 @@ describe("lockfile schema", () => {
       expect(result.agents).toEqual(["universal", "claude-code"]);
     });
 
+    it("accepts pinned capability render inputs and degraded render findings", () => {
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)({
+        type: "local",
+        path: "skills/review",
+        agents: ["codex"],
+        installedAt: "2026-07-15T00:00:00.000Z",
+        updatedAt: "2026-07-15T00:00:00.000Z",
+        renderInputs: {
+          codex: {
+            sourceHash: "abc123",
+            agent: "codex",
+            catalogVersion: "2026-07-15.1",
+            dslVersion: "1",
+            capabilityHash: "def456",
+            referencedCapabilities: ["subagents"],
+          },
+        },
+        degradedRenders: {
+          codex: ["missing-default-variant"],
+        },
+      });
+
+      expect(result.renderInputs?.["codex"]?.catalogVersion).toBe("2026-07-15.1");
+      expect(result.degradedRenders?.["codex"]).toEqual(["missing-default-variant"]);
+    });
+
     it("accepts skill lock entry without optional sourceHash and renderedFiles", () => {
       const input = {
         type: "github",

@@ -4,7 +4,7 @@ import {
   EXTENSION_TYPES,
   EXTENSION_TYPES_BY_ID,
   ExtensionTypeCatalogSchema,
-  LEAF_EXTENSION_TYPES,
+  CATALOG_EXTENSION_TYPES,
   getExtensionTypeDefinition,
   getStandardForExtensionType,
   isSpecTracked,
@@ -16,9 +16,9 @@ describe("extension type catalog", () => {
       onExcessProperty: "error",
     });
 
-    expect(Object.keys(decoded).sort()).toEqual([...LEAF_EXTENSION_TYPES].sort());
+    expect(Object.keys(decoded).sort()).toEqual([...CATALOG_EXTENSION_TYPES].sort());
     expect(EXTENSION_TYPES.map((entry) => entry.id).sort()).toEqual(
-      [...LEAF_EXTENSION_TYPES].sort(),
+      [...CATALOG_EXTENSION_TYPES].sort(),
     );
   });
 
@@ -30,6 +30,7 @@ describe("extension type catalog", () => {
     expect(getStandardForExtensionType("command")).toBe(null);
     expect(getStandardForExtensionType("subagent")).toBe(null);
     expect(getStandardForExtensionType("hook")).toBe(null);
+    expect(getStandardForExtensionType("knowledge")?.id).toBe("okf-0.1-draft");
   });
 
   it("derives spec-tracked status from catalog standard presence", () => {

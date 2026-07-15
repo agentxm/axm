@@ -30,6 +30,7 @@ import { packsCommand } from "./root/packs/_packs.js";
 import { commandsCommand } from "./root/commands/_commands.js";
 import { filesCommand } from "./root/files/_files.js";
 import { hooksCommand } from "./root/hooks/_hooks.js";
+import { knowledgeCommand } from "./root/knowledge/command.js";
 import { mcpsCommand } from "./root/mcps/_mcps.js";
 import { subagentsCommand } from "./root/subagents/_subagents.js";
 import { authCommand } from "./root/auth/_auth.js";
@@ -95,6 +96,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         commandsCommand,
         filesCommand,
         hooksCommand,
+        knowledgeCommand,
         mcpsCommand,
         subagentsCommand,
         packsCommand,

@@ -29,7 +29,11 @@ import { decodeRelativePathSync } from "../utils/path-types.js";
 // Test helpers
 // ---------------------------------------------------------------------------
 
-const makeLocalSubagentRef = (name: string, sourcePath: string): LocalSubagentRef => ({
+const makeLocalSubagentRef = (
+  name: string,
+  sourcePath: string,
+  fallback?: "auto" | "none",
+): LocalSubagentRef => ({
   type: "subagent",
   refType: "local",
   subagent: {
@@ -38,6 +42,7 @@ const makeLocalSubagentRef = (name: string, sourcePath: string): LocalSubagentRe
   },
   source: { type: "local", path: sourcePath },
   location: `file://${sourcePath}`,
+  ...(fallback === undefined ? {} : { fallback }),
 });
 
 const makeSubagentContent = (name: string, description: string) =>
@@ -357,6 +362,77 @@ describe("SubagentManager", () => {
           }),
         ),
       );
+    });
+
+    it.effect("degrades unsupported subagents to an explicitly reported role skill", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      nodeFs.mkdirSync(sourceDir, { recursive: true });
+      nodeFs.writeFileSync(
+        nodePath.join(sourceDir, "planner.md"),
+        makeSubagentContent("planner", "Plans work"),
+      );
+      const projectDir = nodePath.join(tmpDir, "project");
+      const axmDir = nodePath.join(projectDir, ".axm");
+      const skillsDir = nodePath.join(projectDir, ".cline", "skills");
+      nodeFs.mkdirSync(axmDir, { recursive: true });
+      let captured: SubagentLockEntry | undefined;
+      const fallbackAgent = makeMockCodingAgent("cline", {
+        addSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "no native surface" }),
+        resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: skillsDir }),
+      });
+
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        yield* manager.materializeInstall({ ref });
+        yield* manager.upsertLockfileEntry({ ref });
+
+        const skillPath = nodePath.join(skillsDir, "planner", "SKILL.md");
+        if (!nodeFs.existsSync(skillPath)) {
+          throw new Error(
+            `polyfill missing; project entries: ${JSON.stringify(nodeFs.readdirSync(projectDir, { recursive: true }))}`,
+          );
+        }
+        const content = nodeFs.readFileSync(skillPath, "utf8");
+        expect(content).toContain("advisory role-skill fallback");
+        expect(captured?.renderedFiles?.["cline"]?.[0]?.path).toBe(".cline/skills/planner");
+      }).pipe(
+        Effect.provide(
+          makeTestLayer({
+            axmDir,
+            agents: [fallbackAgent],
+            wsOverrides: {
+              setSubagentLock: (args) =>
+                Effect.sync(() => {
+                  captured = args.lockEntry;
+                }),
+            },
+          }),
+        ),
+      );
+    });
+
+    it.effect("rejects role-skill degradation when fallback is none", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner-native-only");
+      nodeFs.mkdirSync(sourceDir, { recursive: true });
+      nodeFs.writeFileSync(
+        nodePath.join(sourceDir, "planner.md"),
+        makeSubagentContent("planner", "Plans work"),
+      );
+      const projectDir = nodePath.join(tmpDir, "project-native-only");
+      const axmDir = nodePath.join(projectDir, ".axm");
+      nodeFs.mkdirSync(axmDir, { recursive: true });
+      const fallbackAgent = makeMockCodingAgent("cline", {
+        addSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "no native surface" }),
+      });
+
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const error = yield* manager
+          .materializeInstall({ ref: makeLocalSubagentRef("planner", sourceDir, "none") })
+          .pipe(Effect.flip);
+        expect(error.detail).toContain("fallback is none");
+      }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [fallbackAgent] })));
     });
   });
 

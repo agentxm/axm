@@ -32,6 +32,10 @@ import {
   type UninstallLibraryHandlerArgs,
 } from "../libraries/uninstall/command-actions.js";
 import {
+  makeUninstallKnowledgeCommandWorkflowActions,
+  type UninstallKnowledgeHandlerArgs,
+} from "../knowledge/uninstall/command-actions.js";
+import {
   UninstallPackCommandWorkflowActions,
   type UninstallPackHandlerArgs,
 } from "../packs/uninstall/command-actions.js";
@@ -79,6 +83,8 @@ const uninstallSuggestions = (type: RootUninstallableType): ReadonlyArray<Sugges
       return [{ description: "Inspect instruction-file management", cmd: "axm rules" }];
     case "hook":
       return [{ description: "Inspect installed hooks packages", cmd: "axm hooks list" }];
+    case "knowledge":
+      return [{ description: "Inspect installed knowledge", cmd: "axm knowledge list" }];
     case "subagent":
       return [{ description: "Inspect installed subagents", cmd: "axm subagents list" }];
     case "pack":
@@ -108,6 +114,8 @@ const uninstallNoOpMessage = (
       return "No rules uninstalled.";
     case "hook":
       return "No hooks packages uninstalled.";
+    case "knowledge":
+      return "No knowledge bundles uninstalled.";
     case "subagent":
       return "No subagents uninstalled.";
     case "pack":
@@ -151,6 +159,11 @@ const runUninstallIntent = (args: RootUninstallHandlerArgs) =>
         case "hook": {
           const actions = yield* UninstallHookCommandWorkflowActions;
           const uninstallArgs: UninstallHookHandlerArgs = { name: intent.name };
+          return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
+        }
+        case "knowledge": {
+          const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
+          const uninstallArgs: UninstallKnowledgeHandlerArgs = { name: intent.name };
           return yield* runUninstallCommandWorkflow(uninstallArgs, actions, args);
         }
         case "subagent": {

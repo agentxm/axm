@@ -522,6 +522,57 @@
         }
       ]
     },
+    "KnowledgeEntry": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "allOf": [
+                {
+                  "minLength": 1,
+                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+                  "examples": [
+                    "@acme/knowledge/code-review@^1.0.0",
+                    "github:acme/agent-extensions",
+                    "./extensions/code-review"
+                  ]
+                }
+              ]
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
+              "default": true
+            }
+          },
+          "required": ["source"],
+          "additionalProperties": false,
+          "title": "Knowledge Entry Object",
+          "description": "A knowledge bundle entry with source and an optional enabled flag."
+        }
+      ],
+      "title": "Knowledge Entry",
+      "description": "A knowledge bundle source string, or an object with optional flags.",
+      "examples": [
+        "@acme/knowledge/payments@^1.0.0",
+        { "source": "@acme/knowledge/payments@^1.0.0", "enabled": false }
+      ]
+    },
+    "KnowledgeMap": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/KnowledgeEntry" },
+      "allOf": [
+        {
+          "propertyNames": {
+            "type": "string",
+            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
+          }
+        }
+      ]
+    },
     "SubagentEntry": {
       "anyOf": [
         { "type": "string" },
@@ -889,6 +940,10 @@
         "hooks": {
           "anyOf": [{ "$ref": "#/definitions/HooksMap" }],
           "description": "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`."
+        },
+        "knowledge": {
+          "anyOf": [{ "$ref": "#/definitions/KnowledgeMap" }],
+          "description": "Installed Open Knowledge Format bundles, isolated from agent instruction files."
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],

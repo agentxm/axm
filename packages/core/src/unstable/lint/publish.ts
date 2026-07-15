@@ -38,6 +38,8 @@ import { manifestKeysRecognizedRule as skillManifestKeysRecognizedRule } from ".
 import { manifestPresentRule as skillManifestPresentRule } from "./catalog/skill/manifest-present.js";
 import { manifestSchemaValidRule as skillManifestSchemaValidRule } from "./catalog/skill/manifest-schema-valid.js";
 import { skillMdPresentRule } from "./catalog/skill/skill-md-present.js";
+import { capabilityTargetingMetadataRule as skillCapabilityTargetingMetadataRule } from "./catalog/skill/capability-targeting-metadata.js";
+import { makeCapabilityTargetingStructuralRule } from "./catalog/skill/capability-targeting-structural.js";
 import type {
   CommandRuleContext,
   FilesRuleContext,
@@ -107,6 +109,8 @@ export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
   skillFrontmatterParseableRule,
   skillManifestSchemaValidRule,
   skillManifestKeysRecognizedRule,
+  makeCapabilityTargetingStructuralRule("error"),
+  skillCapabilityTargetingMetadataRule,
 ];
 
 export const commandRules: ReadonlyArray<LintRule<CommandRuleContext>> = [

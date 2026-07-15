@@ -34,6 +34,8 @@ import { manifestPresentRule } from "./skill/manifest-present.js";
 import { frontmatterParseableRule } from "./skill/frontmatter-parseable.js";
 import { manifestSchemaValidRule } from "./skill/manifest-schema-valid.js";
 import { manifestKeysRecognizedRule } from "./skill/manifest-keys-recognized.js";
+import { capabilityTargetingMetadataRule } from "./skill/capability-targeting-metadata.js";
+import { capabilityTargetingStructuralRule } from "./skill/capability-targeting-structural.js";
 
 /**
  * Ordered v1 `skill/*` rule catalog. Declaration order is the evaluation
@@ -48,6 +50,8 @@ export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
   frontmatterParseableRule,
   manifestSchemaValidRule,
   manifestKeysRecognizedRule,
+  capabilityTargetingStructuralRule,
+  capabilityTargetingMetadataRule,
 ];
 
 // Register ids into the `LintConfig.rules` allowlist. Module-load side effect:

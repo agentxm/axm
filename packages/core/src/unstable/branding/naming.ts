@@ -54,6 +54,13 @@ export const CANONICAL_NAMING = [
     manifestFilename: "hook.json",
   },
   {
+    id: "knowledge",
+    pluralSegment: "knowledge",
+    displayLabel: "Knowledge",
+    sentenceLabel: "knowledge bundle",
+    manifestFilename: "knowledge.json",
+  },
+  {
     id: "pack",
     pluralSegment: "packs",
     displayLabel: "Pack",
@@ -70,5 +77,6 @@ export const NAMING_BY_ID: Record<ExtensionType, CanonicalNamingEntry> = {
   files: CANONICAL_NAMING[4],
   rule: CANONICAL_NAMING[5],
   hook: CANONICAL_NAMING[6],
-  pack: CANONICAL_NAMING[7],
+  knowledge: CANONICAL_NAMING[7],
+  pack: CANONICAL_NAMING[8],
 };

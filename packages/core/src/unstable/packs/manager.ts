@@ -101,6 +101,7 @@ const dependencyManifestFilename = {
   files: "files.json",
   rule: "rule.json",
   hook: "hook.json",
+  knowledge: "knowledge.json",
   pack: "pack.json",
 } as const;
 

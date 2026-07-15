@@ -167,6 +167,7 @@ export const extensionTypes = [
   "files",
   "rule",
   "hook",
+  "knowledge",
   "pack",
 ] as const;
 
@@ -185,6 +186,7 @@ export const extensionTypePluralSegments = [
   "files",
   "rules",
   "hooks",
+  "knowledge",
   "packs",
 ] as const;
 
@@ -203,6 +205,7 @@ export const extensionTypeFromPlural: Record<ExtensionTypePlural, ExtensionType>
   files: "files",
   rules: "rule",
   hooks: "hook",
+  knowledge: "knowledge",
   packs: "pack",
 };
 
@@ -214,6 +217,7 @@ export const extensionTypeToPlural: Record<ExtensionType, ExtensionTypePlural> =
   files: "files",
   rule: "rules",
   hook: "hooks",
+  knowledge: "knowledge",
   pack: "packs",
 };
 
@@ -231,6 +235,7 @@ export const extensionTypeLabels: Record<ExtensionType, string> = {
   files: "Context Files",
   rule: "Rule",
   hook: "Hook",
+  knowledge: "Knowledge",
   pack: "Pack",
 };
 
@@ -242,6 +247,7 @@ export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
   files: "Context Files",
   rules: "Rules",
   hooks: "Hooks",
+  knowledge: "Knowledge",
   packs: "Packs",
 };
 
@@ -253,6 +259,7 @@ export const extensionTypeSentenceLabels: Record<ExtensionType, string> = {
   files: "context files",
   rule: "rule",
   hook: "hook",
+  knowledge: "knowledge bundle",
   pack: "pack",
 };
 
@@ -264,6 +271,7 @@ export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, stri
   files: "context files",
   rules: "rules",
   hooks: "hooks",
+  knowledge: "knowledge bundles",
   packs: "packs",
 };
 
@@ -283,6 +291,7 @@ export const nonPackExtensionTypePluralSegments = [
   "files",
   "rules",
   "hooks",
+  "knowledge",
 ] as const satisfies ReadonlyArray<Exclude<ExtensionTypePlural, "packs">>;
 
 export type NonPackExtensionTypePlural = (typeof nonPackExtensionTypePluralSegments)[number];
@@ -372,7 +381,7 @@ export const ExtensionTypeSchema = Schema.Literals(extensionTypes).annotate({
   identifier: "ExtensionType",
   title: "Extension Type",
   description:
-    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, or pack.",
+    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, knowledge, or pack.",
 });
 
 /**
@@ -735,6 +744,52 @@ export const CommonManifestBaseFields = {
  * @experimental This API is unstable and may change without notice.
  */
 export const NonPackManifestFields = {
+  enhances: Schema.optional(
+    Schema.Array(
+      Schema.NonEmptyString.pipe(
+        Schema.check(
+          Schema.isPattern(
+            /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$/,
+            {
+              message:
+                "Expected a lowercase kebab-case capability key with an optional :grade suffix.",
+            },
+          ),
+        ),
+      ),
+    )
+      .pipe(Schema.check(Schema.isUnique()))
+      .annotate({
+        description:
+          "Soft capability enhancements used by the source. These never block installation.",
+      }),
+  ),
+  requires: Schema.optional(
+    Schema.Array(
+      Schema.NonEmptyString.pipe(
+        Schema.check(
+          Schema.isPattern(
+            /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$/,
+            {
+              message:
+                "Expected a lowercase kebab-case capability key with an optional :grade suffix.",
+            },
+          ),
+        ),
+      ),
+    )
+      .pipe(Schema.check(Schema.isUnique()))
+      .annotate({
+        description: "Hard capabilities without which the extension cannot operate.",
+      }),
+  ),
+  fallback: Schema.optional(
+    Schema.Literals(["auto", "none"]).annotate({
+      description:
+        "Whether AXM may apply platform-provided capability fallbacks. Defaults to auto.",
+      default: "auto",
+    }),
+  ),
   recommendedPacks: Schema.optional(
     Schema.Array(PackSpecSchema).pipe(
       Schema.annotate({

@@ -7,6 +7,19 @@ export const claudeCodeAgent = {
   interfaces: ["cli", "ide-extension"],
   family: "anthropic",
   rootDir: ".claude",
+  targeting: {
+    extends: null,
+    capabilities: {
+      "structured-input": {
+        grades: ["native"],
+        nouns: { "tool:structured-input": "AskUserQuestion" },
+        affordances: {
+          "do:ask-structured":
+            "Use the AskUserQuestion tool to collect structured input, then STOP and wait for the response.",
+        },
+      },
+    },
+  },
   lifecycle: { state: "active" },
   detection: {
     project: {

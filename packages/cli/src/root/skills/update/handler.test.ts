@@ -79,9 +79,11 @@ const defaultArgs = (overrides: Partial<UpdateHandlerArgs> = {}): UpdateHandlerA
 const createTestZip = (fileName: string, content: string): Uint8Array => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "skills-update-zip-"));
   try {
-    fs.writeFileSync(path.join(dir, fileName), content);
+    const sourceDir = path.join(dir, "src");
+    fs.mkdirSync(sourceDir, { recursive: true });
+    fs.writeFileSync(path.join(sourceDir, fileName), content);
     const opts: ExecSyncOptions = { stdio: "pipe" };
-    execSync(`cd "${dir}" && zip -q archive.zip "${fileName}"`, opts);
+    execSync(`cd "${dir}" && zip -q archive.zip "src/${fileName}"`, opts);
     return fs.readFileSync(path.join(dir, "archive.zip"));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

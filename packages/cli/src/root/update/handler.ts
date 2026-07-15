@@ -29,6 +29,10 @@ import {
   type InstallLibraryHandlerArgs,
 } from "../libraries/install/command-actions.js";
 import {
+  makeInstallKnowledgeCommandWorkflowActions,
+  type InstallKnowledgeHandlerArgs,
+} from "../knowledge/install/command-actions.js";
+import {
   InstallPackCommandWorkflowActions,
   type InstallPackHandlerArgs,
 } from "../packs/install/command-actions.js";
@@ -94,6 +98,11 @@ const runUpdateIntent = (intent: RootUpdateIntent, args: RootUpdateFlags) =>
         const actions = yield* InstallHookCommandWorkflowActions;
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(hookArgs, actions, args);
+      }
+      case "knowledge": {
+        const actions = yield* makeInstallKnowledgeCommandWorkflowActions;
+        const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
+        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, args);
       }
       case "subagent": {
         const actions = yield* InstallSubagentCommandWorkflowActions;

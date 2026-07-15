@@ -25,6 +25,7 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   "rule-schema": "JSON Schema for a rule extension manifest.",
   hooks: "How hook extensions run on agent lifecycle events and how AXM installs and manages them.",
   "hook-schema": "JSON Schema for a hook extension manifest.",
+  "knowledge-schema": "JSON Schema for an Open Knowledge Format bundle manifest.",
   settings: "What AXM tracks in the .axm/settings.json workspace state file.",
   "settings-schema": "JSON Schema for the .axm/settings.json file.",
   mcps: "How MCP server extensions work and how AXM installs and manages them.",

@@ -641,6 +641,63 @@
             { "type": "null" }
           ]
         },
+        "enhances": {
+          "anyOf": [
+            {
+              "type": "array",
+              "allOf": [
+                {
+                  "uniqueItems": true,
+                  "description": "Soft capability enhancements used by the source. These never block installation."
+                }
+              ],
+              "items": {
+                "type": "string",
+                "allOf": [
+                  { "minLength": 1 },
+                  {
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
+                  }
+                ]
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "requires": {
+          "anyOf": [
+            {
+              "type": "array",
+              "allOf": [
+                {
+                  "uniqueItems": true,
+                  "description": "Hard capabilities without which the extension cannot operate."
+                }
+              ],
+              "items": {
+                "type": "string",
+                "allOf": [
+                  { "minLength": 1 },
+                  {
+                    "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
+                  }
+                ]
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "fallback": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": ["auto", "none"],
+              "description": "Whether AXM may apply platform-provided capability fallbacks. Defaults to auto.",
+              "default": "auto"
+            },
+            { "type": "null" }
+          ]
+        },
         "recommendedPacks": {
           "anyOf": [
             {

@@ -722,6 +722,7 @@ const makeDependencyStep = (
       );
     case "files":
     case "rule":
+    case "knowledge":
       return Effect.fail(
         makeAppError({
           code: "internal",

@@ -24,6 +24,7 @@ import { PackManifestSchema } from "../../core/src/unstable/packs/index.js";
 import { FilesManifestSchema } from "../../core/src/unstable/files/index.js";
 import { RuleManifestSchema } from "../../core/src/unstable/rules/index.js";
 import { HookManifestSchema } from "../../core/src/unstable/hooks/index.js";
+import { KnowledgeManifestSchema } from "../../core/src/unstable/knowledge/index.js";
 import { LockfileSchema } from "../../core/src/unstable/lockfile/index.js";
 import { AxmPackageMetaSchema } from "../../core/src/unstable/packaging/index.js";
 import { SettingsSchema } from "../../core/src/unstable/settings/index.js";
@@ -87,6 +88,11 @@ const schemas: SchemaConfig[] = [
   {
     name: "hook.schema.json",
     schema: HookManifestSchema,
+    outputDir: SITE_CONTENT_SCHEMAS_DIR,
+  },
+  {
+    name: "knowledge.schema.json",
+    schema: KnowledgeManifestSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {

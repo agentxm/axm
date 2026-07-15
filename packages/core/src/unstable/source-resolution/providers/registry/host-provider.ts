@@ -321,6 +321,14 @@ const toExtensionRef = (
         source,
         ...details,
       });
+    case "knowledge":
+      return Option.some({
+        type: "knowledge",
+        refType: "registry" as const,
+        knowledge: { name: entry.name },
+        source,
+        ...details,
+      });
     case "pack":
       return Option.some({
         type: "pack",
@@ -351,6 +359,8 @@ const refName = (ref: ExtensionRef): ExtensionName => {
       return ref.rule.name;
     case "hook":
       return ref.hook.name;
+    case "knowledge":
+      return ref.knowledge.name;
   }
 };
 

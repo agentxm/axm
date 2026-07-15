@@ -70,6 +70,24 @@ const hook = {
   docs: [],
 } satisfies ExtensionTypeDefinition;
 
+const knowledge = {
+  id: "knowledge",
+  summary: "Package portable Open Knowledge Format concept bundles.",
+  description:
+    "Reference knowledge installed as isolated Markdown concept bundles using the Open Knowledge Format 0.1 draft. Knowledge is discoverable and readable without being injected into agent instructions.",
+  standard: {
+    id: "okf-0.1-draft",
+    name: "Open Knowledge Format 0.1 draft",
+    url: "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md",
+  },
+  docs: [
+    {
+      label: "Open Knowledge Format",
+      url: "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md",
+    },
+  ],
+} satisfies ExtensionTypeDefinition;
+
 /** @experimental This API is unstable and may change without notice. */
 export const EXTENSION_TYPES_BY_ID = {
   skill,
@@ -79,6 +97,7 @@ export const EXTENSION_TYPES_BY_ID = {
   files,
   rule,
   hook,
+  knowledge,
 } satisfies ExtensionTypeCatalog;
 
 /** @experimental This API is unstable and may change without notice. */

@@ -37,6 +37,19 @@ export const LeafExtensionTypeSchema = Schema.Literals(LEAF_EXTENSION_TYPES).ann
   description: "Installable extension type excluding packs.",
 });
 
+/** Registry/package extension types, including workspace-only knowledge bundles. */
+export const CATALOG_EXTENSION_TYPES = [...LEAF_EXTENSION_TYPES, "knowledge"] as const;
+
+/** @experimental This API is unstable and may change without notice. */
+export type CatalogExtensionType = (typeof CATALOG_EXTENSION_TYPES)[number];
+
+/** @experimental This API is unstable and may change without notice. */
+export const CatalogExtensionTypeSchema = Schema.Literals(CATALOG_EXTENSION_TYPES).annotate({
+  identifier: "CatalogExtensionType",
+  title: "Catalog Extension Type",
+  description: "Non-pack extension types represented by the AgentXM registry.",
+});
+
 /** @experimental This API is unstable and may change without notice. */
 export const UrlSchema = Schema.NonEmptyString.pipe(
   Schema.check(
@@ -81,7 +94,7 @@ export type DocLink = Schema.Schema.Type<typeof DocLinkSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const ExtensionTypeDefinitionSchema = Schema.Struct({
-  id: LeafExtensionTypeSchema,
+  id: CatalogExtensionTypeSchema,
   summary: Schema.NonEmptyString,
   description: Schema.NonEmptyString,
   standard: Schema.NullOr(StandardSchema),
@@ -97,7 +110,7 @@ export type ExtensionTypeDefinition = Schema.Schema.Type<typeof ExtensionTypeDef
 
 /** @experimental This API is unstable and may change without notice. */
 export type ExtensionTypeCatalog = {
-  readonly [Type in LeafExtensionType]: ExtensionTypeDefinition;
+  readonly [Type in CatalogExtensionType]: ExtensionTypeDefinition;
 };
 
 /** @experimental This API is unstable and may change without notice. */
@@ -109,6 +122,7 @@ export const ExtensionTypeCatalogSchema = Schema.Struct({
   files: ExtensionTypeDefinitionSchema,
   rule: ExtensionTypeDefinitionSchema,
   hook: ExtensionTypeDefinitionSchema,
+  knowledge: ExtensionTypeDefinitionSchema,
 }).annotate({
   identifier: "ExtensionTypeCatalog",
   title: "Extension Type Catalog",

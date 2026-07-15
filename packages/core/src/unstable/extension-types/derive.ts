@@ -5,16 +5,16 @@
  */
 
 import { EXTENSION_TYPES_BY_ID } from "./catalog.js";
-import type { ExtensionTypeDefinition, LeafExtensionType, Standard } from "./schema.js";
+import type { CatalogExtensionType, ExtensionTypeDefinition, Standard } from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */
-export const getExtensionTypeDefinition = (id: LeafExtensionType): ExtensionTypeDefinition =>
+export const getExtensionTypeDefinition = (id: CatalogExtensionType): ExtensionTypeDefinition =>
   EXTENSION_TYPES_BY_ID[id];
 
 /** @experimental This API is unstable and may change without notice. */
-export const getStandardForExtensionType = (id: LeafExtensionType): Standard | null =>
+export const getStandardForExtensionType = (id: CatalogExtensionType): Standard | null =>
   getExtensionTypeDefinition(id).standard;
 
 /** @experimental This API is unstable and may change without notice. */
-export const isSpecTracked = (id: LeafExtensionType): boolean =>
+export const isSpecTracked = (id: CatalogExtensionType): boolean =>
   getStandardForExtensionType(id) !== null;

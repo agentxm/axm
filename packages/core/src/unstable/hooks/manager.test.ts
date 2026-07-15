@@ -28,6 +28,7 @@ const writeHookPackage = (
     readonly timeoutMs?: number;
     readonly bindings?: ReadonlyArray<Record<string, unknown>>;
     readonly blocking?: boolean;
+    readonly fallback?: "auto" | "none";
   },
 ) => {
   mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
@@ -44,6 +45,7 @@ const writeHookPackage = (
         bindings: options?.bindings ?? [{ on: "tool.pre", matcherRaw: "Write|Edit" }],
         ...(options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
         ...(options?.blocking === undefined ? {} : { blocking: options.blocking }),
+        ...(options?.fallback === undefined ? {} : { fallback: options.fallback }),
       },
       null,
       2,
@@ -155,7 +157,7 @@ describe("HookManager", () => {
     }),
   );
 
-  it.effect("fails before writing settings when a configured agent has no writer", () =>
+  it.effect("degrades a hook to a managed advisory rule when an agent has no writer", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
       try {
@@ -163,20 +165,44 @@ describe("HookManager", () => {
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
         writeHookPackage(packageRoot, "unsupported-agent");
 
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          yield* manager.materializeInstall({
+            ref: makeLocalHookRef("unsupported-agent", packageRoot),
+          });
+        }).pipe(
+          Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["windsurf"] })),
+        );
+
+        const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
+        expect(instructions).toContain("region=hook-fallbacks");
+        expect(instructions).toContain("managed advisory rule");
+        expect(instructions).toContain("unsupported-agent/src/hook.sh");
+        expect(existsSync(settingsPath)).toBe(false);
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("rejects advisory degradation when fallback is none", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "native-only", { fallback: "none" });
+
         const error = yield* Effect.gen(function* () {
           const manager = yield* HookManager;
           yield* manager.materializeInstall({
-            ref: makeLocalHookRef("unsupported-event", packageRoot),
+            ref: makeLocalHookRef("native-only", packageRoot),
           });
         }).pipe(
           Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["windsurf"] })),
           Effect.flip,
         );
 
-        expect(error.detail).toContain(
-          "AXM has not built a hook writer for Devin Desktop (Windsurf)",
-        );
-        expect(existsSync(settingsPath)).toBe(false);
+        expect(error.detail).toContain("requires native hook support");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }

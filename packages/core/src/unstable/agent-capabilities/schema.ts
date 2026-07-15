@@ -1510,6 +1510,29 @@ export const AgentLifecycleSchema = Schema.Union([
 /** @experimental This API is unstable and may change without notice. */
 export type AgentLifecycle = Schema.Schema.Type<typeof AgentLifecycleSchema>;
 
+/** @experimental This API is unstable and may change without notice. */
+export const CapabilityTargetingEntrySchema = Schema.Struct({
+  grades: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
+  nouns: Schema.Record(Schema.String, Schema.NonEmptyString),
+  affordances: Schema.Record(Schema.String, Schema.NonEmptyString),
+}).annotate({
+  identifier: "CapabilityTargetingEntry",
+  title: "Capability Targeting Entry",
+  description:
+    "Additional portable grades, target-native nouns, and maintained affordance phrases for one capability.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export const CapabilityTargetingSchema = Schema.Struct({
+  extends: Schema.NullOr(AgentIdFromYamlSchema),
+  capabilities: Schema.Record(Schema.String, CapabilityTargetingEntrySchema),
+}).annotate({
+  identifier: "CapabilityTargeting",
+  title: "Capability Targeting",
+  description:
+    "Catalog inputs used by AXM's capability-targeted extension renderer and fallback graph.",
+});
+
 const AgentStruct = Schema.Struct({
   id: AgentIdFromYamlSchema,
   name: Schema.NonEmptyString,
@@ -1523,6 +1546,7 @@ const AgentStruct = Schema.Struct({
   docs: Schema.Array(DocLinkSchema),
   capabilities: AgentCapabilitiesSchema,
   permissions: PermissionsExtensionCapabilitySchema,
+  targeting: Schema.optionalKey(CapabilityTargetingSchema),
 });
 
 /** @experimental This API is unstable and may change without notice. */

@@ -5,6 +5,7 @@ import type { CommandExtensionRef } from "../../commands/index.js";
 import { parseRegistrySourcePatternParts, parseRegistrySourceRef } from "../../extensions/index.js";
 import type { FilesExtensionRef } from "../../files/index.js";
 import type { HookExtensionRef } from "../../hooks/index.js";
+import type { KnowledgeExtensionRef } from "../../knowledge/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import { parseMinimumReleaseAge, type ReleaseAgePolicy } from "../../registry/index.js";
@@ -563,6 +564,80 @@ export const resolveConfiguredHook = (name: string, source: string) =>
       });
     }
 
+    return {
+      ref,
+      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
+    };
+  });
+
+export const resolveConfiguredKnowledge = (name: string, source: string) =>
+  Effect.gen(function* () {
+    if (isWorkspaceSourceLocator(source)) {
+      const ws = yield* WorkspaceMutations;
+      const ref = yield* resolveWorkspaceExtensionRef({
+        settingsName: name,
+        source,
+        expectedType: "knowledge",
+        baseDir: ws.baseDir,
+        scope: ws.scope,
+      });
+      if (ref.type !== "knowledge") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Workspace knowledge resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
+    const providers = yield* SourceHostProviders;
+    const resolvedSource = yield* resolveSource(source).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "validation",
+          detail: `Invalid knowledge source for ${name}: ${cause.message}`,
+          cause,
+        }),
+      ),
+    );
+    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const requestedOwner =
+      parsedPattern?.type === "knowledge"
+        ? Option.some(parsedPattern.owner)
+        : resolvedSource.type === "registry"
+          ? resolvedSource.owner
+          : Option.none();
+    const versionRange =
+      resolvedSource.type === "registry" && parsedPattern?.type === "knowledge"
+        ? Option.fromUndefinedOr(parsedPattern.versionRange)
+        : Option.none<VersionRange>();
+    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const refs = yield* providers
+      .find(resolvedSource, {
+        names: [name],
+        type: "knowledge",
+        owner: requestedOwner,
+        versionRange,
+        releaseAgePolicy,
+      })
+      .pipe(
+        Effect.map((entries) =>
+          entries.filter((entry): entry is KnowledgeExtensionRef => entry.type === "knowledge"),
+        ),
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to resolve configured knowledge bundle "${name}"`,
+            cause,
+          }),
+        ),
+      );
+    const ref = refs.find((entry) => entry.knowledge.name === name);
+    if (ref === undefined) {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Configured knowledge bundle "${name}" could not be found in its source`,
+      });
+    }
     return {
       ref,
       versionRange: ref.refType === "registry" ? versionRange : Option.none(),

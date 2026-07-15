@@ -11,6 +11,7 @@ import type {
   FilesLockEntry,
   McpServerLockEntry,
   HookLockEntry,
+  KnowledgeLockEntry,
   RuleLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
@@ -30,6 +31,7 @@ type SourceLockEntry =
   | FilesLockEntry
   | RuleLockEntry
   | HookLockEntry
+  | KnowledgeLockEntry
   | SubagentLockEntry;
 
 /**

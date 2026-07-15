@@ -8,6 +8,7 @@ import type {
   CommandLockEntry,
   FilesLockEntry,
   HookLockEntry,
+  KnowledgeLockEntry,
   McpServerLockEntry,
   PackLockEntry,
   RuleLockEntry,
@@ -19,7 +20,7 @@ import type { WorkspaceScope } from "./scope.js";
 
 export type ReconcileExtensionType = Extract<
   ExtensionTypePlural,
-  "skills" | "commands" | "mcps" | "subagents" | "files" | "rules" | "hooks" | "packs"
+  "skills" | "commands" | "mcps" | "subagents" | "files" | "rules" | "hooks" | "knowledge" | "packs"
 >;
 
 export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
@@ -90,6 +91,11 @@ export type ReconstructedLockEntry =
       readonly type: "files";
       readonly name: ExtensionName;
       readonly entry: FilesLockEntry;
+    }
+  | {
+      readonly type: "knowledge";
+      readonly name: ExtensionName;
+      readonly entry: KnowledgeLockEntry;
     }
   | {
       readonly type: "rules";

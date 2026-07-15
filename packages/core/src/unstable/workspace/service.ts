@@ -31,6 +31,7 @@ import {
   type RegistryLibraryLockEntry,
   type FilesLockMap,
   type HooksLockMap,
+  type KnowledgeLockMap,
   type RulesLockMap,
   type SkillLockEntry,
   type SubagentLockEntry,
@@ -57,6 +58,8 @@ import {
   type FilesMap,
   type HookEntry,
   type HooksMap,
+  type KnowledgeEntry,
+  type KnowledgeMap,
   type InstructionsConfigValue,
   type LibraryEntry,
   type LibrariesMap,
@@ -103,6 +106,7 @@ import {
   type SetFilesArgs,
   type SetRuleArgs,
   type SetHookArgs,
+  type SetKnowledgeArgs,
   type SetLibraryArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
@@ -1123,6 +1127,156 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             }).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setHookEntry")),
+
+      getConfiguredKnowledgeEntries: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((settings): KnowledgeMap => settings.knowledge ?? {}),
+          Effect.withSpan("WorkspaceMutations.getConfiguredKnowledgeEntries"),
+        ),
+
+      getLockedKnowledge: () =>
+        readLockfileSafe(workspaceDir).pipe(Effect.map((lockfile) => lockfile.knowledge ?? {})),
+
+      getLockedKnowledgeEntry: (name: string) =>
+        readLockfileSafe(workspaceDir).pipe(
+          Effect.map((lockfile) => Option.fromUndefinedOr((lockfile.knowledge ?? {})[name])),
+        ),
+
+      setKnowledge: ({ name, lockEntry, versionRange }: SetKnowledgeArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            const source =
+              lockEntry.type === "registry"
+                ? (() => {
+                    const fqn = formatFqn({
+                      owner: lockEntry.owner,
+                      type: "knowledge",
+                      name: decodeExtensionNameSync(name),
+                    });
+                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                  })()
+                : printSourceParams(lockEntryToSourceParams(lockEntry));
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentKnowledge: KnowledgeMap = currentSettings.knowledge ?? {};
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              knowledge: { ...currentKnowledge, [name]: { source, enabled: true } },
+            }).pipe(Effect.provide(fsLayer));
+
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLocked = currentLockfile.knowledge ?? {};
+            const previous = currentLocked[name];
+            yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, {
+              ...currentLockfile,
+              knowledge: {
+                ...currentLocked,
+                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+              },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setKnowledge")),
+
+      setKnowledgeLock: ({ name, lockEntry }: SetKnowledgeArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLocked = currentLockfile.knowledge ?? {};
+            const previous = currentLocked[name];
+            yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, {
+              ...currentLockfile,
+              knowledge: {
+                ...currentLocked,
+                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+              },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setKnowledgeLock")),
+
+      removeKnowledge: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const configured: KnowledgeMap = currentSettings.knowledge ?? {};
+            const nextSettings =
+              name in configured
+                ? (() => {
+                    const { [name]: removed, ...remaining } = configured;
+                    void removed;
+                    return { ...currentSettings, knowledge: remaining };
+                  })()
+                : currentSettings;
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const locked = currentLockfile.knowledge ?? {};
+            const nextLockfile =
+              name in locked
+                ? (() => {
+                    const { [name]: removed, ...remaining } = locked;
+                    void removed;
+                    return { ...currentLockfile, knowledge: remaining };
+                  })()
+                : currentLockfile;
+            yield* writeSettings(workspaceDir, nextSettings).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, nextLockfile).pipe(
+              Effect.provide(fsLayer),
+            );
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeKnowledge")),
+
+      removeKnowledgeSettings: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const configured: KnowledgeMap = currentSettings.knowledge ?? {};
+            if (!(name in configured)) return;
+            const { [name]: removed, ...remaining } = configured;
+            void removed;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              knowledge: remaining,
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeKnowledgeSettings")),
+
+      removeKnowledgeLock: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const locked: KnowledgeLockMap = currentLockfile.knowledge ?? {};
+            if (!(name in locked)) return;
+            const { [name]: removed, ...remaining } = locked;
+            void removed;
+            yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, {
+              ...currentLockfile,
+              knowledge: remaining,
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeKnowledgeLock")),
+
+      updateKnowledgeEntry: (name: string, updater: (entry: KnowledgeEntry) => KnowledgeEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const configured: KnowledgeMap = currentSettings.knowledge ?? {};
+            const existing = configured[name];
+            if (existing === undefined) return;
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              knowledge: { ...configured, [name]: updater(existing) },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.updateKnowledgeEntry")),
+
+      setKnowledgeEntry: (name: string, entry: KnowledgeEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const configured: KnowledgeMap = currentSettings.knowledge ?? {};
+            yield* writeSettings(workspaceDir, {
+              ...currentSettings,
+              knowledge: { ...configured, [name]: entry },
+            }).pipe(Effect.provide(fsLayer));
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.setKnowledgeEntry")),
 
       getLockedSkills: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.skills)),
 

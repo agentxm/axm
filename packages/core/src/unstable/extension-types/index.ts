@@ -6,6 +6,8 @@ export {
 } from "./derive.js";
 export {
   DocLinkSchema,
+  CATALOG_EXTENSION_TYPES,
+  CatalogExtensionTypeSchema,
   ExtensionTypeCatalogSchema,
   ExtensionTypeDefinitionSchema,
   LEAF_EXTENSION_TYPES,
@@ -13,6 +15,7 @@ export {
   StandardSchema,
   UrlSchema,
   type DocLink,
+  type CatalogExtensionType,
   type ExtensionTypeCatalog,
   type ExtensionTypeDefinition,
   type LeafExtensionType,

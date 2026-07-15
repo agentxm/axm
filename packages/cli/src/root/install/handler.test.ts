@@ -24,6 +24,10 @@ import {
   type InstallLibraryHandlerArgs,
 } from "../libraries/install/command-actions.js";
 import {
+  InstallKnowledgeCommandWorkflowActions,
+  type InstallKnowledgeHandlerArgs,
+} from "../knowledge/install/command-actions.js";
+import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
 } from "../mcps/install/command-actions.js";
@@ -51,6 +55,7 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 
 import { handleInstall, type RootInstallFlags } from "./handler.js";
 
@@ -249,6 +254,24 @@ describe("root install handler", () => {
       buildPlan: () => Effect.succeed(makePlan("library")),
     };
 
+    const knowledgeActions = {
+      parseArgs: (args: InstallKnowledgeHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({
+            type: "knowledge",
+            source: args.source,
+            yes: false,
+            force: false,
+            preview: true,
+          });
+          return {};
+        }),
+      resolveSourceRequests: () => Effect.succeed([]),
+      discoverRefs: () => Effect.succeed([]),
+      finalizeIntent: () => Effect.succeed({}),
+      buildPlan: () => Effect.succeed(makePlan("knowledge")),
+    };
+
     const ruleActions = {
       parseArgs: (args: InstallRuleHandlerArgs) =>
         Effect.sync(() => {
@@ -269,6 +292,12 @@ describe("root install handler", () => {
 
     const fullLayer = Layer.mergeAll(
       ctx.fullLayer,
+      Layer.succeed(SourceHostProviders, {
+        find: () => Effect.succeed([]),
+        fetch: () => Effect.die("Unexpected source fetch"),
+        cloneUrl: () => Option.none(),
+        origin: () => "test source",
+      }),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
         InstallSkillCommandWorkflowActions,
@@ -323,6 +352,13 @@ describe("root install handler", () => {
         InstallLibraryCommandWorkflowActions,
         libraryActions as unknown as ServiceMap.Service.Shape<
           typeof InstallLibraryCommandWorkflowActions
+        >,
+      ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
+        InstallKnowledgeCommandWorkflowActions,
+        knowledgeActions as unknown as ServiceMap.Service.Shape<
+          typeof InstallKnowledgeCommandWorkflowActions
         >,
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.

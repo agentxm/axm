@@ -3,6 +3,7 @@ import type { CommandExtensionRef } from "../../commands/index.js";
 import type { AppError } from "../../app-error/index.js";
 import type { FilesExtensionRef } from "../../files/index.js";
 import type { HookExtensionRef } from "../../hooks/index.js";
+import type { KnowledgeExtensionRef } from "../../knowledge/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
 import type { RuleExtensionRef } from "../../rules/index.js";
@@ -28,6 +29,7 @@ export type ResolvedConfiguredCommand = ResolvedConfiguredEntry<CommandExtension
 export type ResolvedConfiguredFiles = ResolvedConfiguredEntry<FilesExtensionRef>;
 export type ResolvedConfiguredRule = ResolvedConfiguredEntry<RuleExtensionRef>;
 export type ResolvedConfiguredHook = ResolvedConfiguredEntry<HookExtensionRef>;
+export type ResolvedConfiguredKnowledge = ResolvedConfiguredEntry<KnowledgeExtensionRef>;
 export type ResolvedConfiguredMcpServer = ResolvedConfiguredEntry<McpServerExtensionRef>;
 export type ResolvedConfiguredPack = ResolvedConfiguredEntry<PackRef>;
 

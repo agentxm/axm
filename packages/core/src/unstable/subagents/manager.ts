@@ -15,11 +15,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as Schema from "effect/Schema";
+import type { PlatformError } from "effect/PlatformError";
 import { makeAppError } from "../app-error/index.js";
 import type { SubagentExtensionRef, RegistrySubagentRef } from "./refs.js";
 import type { ExtensionManager, SubagentExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { CodingAgentRepository } from "../agents/index.js";
+import { CodingAgentRepository, type SubagentSyncOutcome } from "../agents/index.js";
 import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
 import {
   removeFromAllCanonicalLocations,
@@ -38,8 +39,10 @@ import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { computeSourceHash, RenderedFilesMapSchema, type SourceHash } from "../extensions/index.js";
 import type { SubagentLockEntry } from "../lockfile/index.js";
+import { MANIFEST_FILENAME, SubagentManifestSchema } from "./manifest-schema.js";
 
 const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
+const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
@@ -84,6 +87,50 @@ export const SubagentManagerLive = Layer.effect(
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.provide(effect, fsPathLayer);
+    const materializeRoleSkillFallback = (args: {
+      readonly agentId: string;
+      readonly name: string;
+      readonly sanitized: string;
+      readonly body: string;
+      readonly description: string;
+      readonly targetDir: string;
+    }): Effect.Effect<SubagentSyncOutcome, PlatformError> =>
+      Effect.gen(function* () {
+        const polyfillHash = computeSourceHash(
+          JSON.stringify({ agent: args.agentId, name: args.name, body: args.body }),
+        );
+        const polyfillDir = path.join(
+          baseDir,
+          ".axm",
+          "build",
+          "polyfills",
+          "subagents",
+          args.sanitized,
+          polyfillHash,
+        );
+        const skillMdPath = path.join(polyfillDir, "SKILL.md");
+        const skillContent = `---\nname: ${args.name}\ndescription: ${args.description}\n---\n\n# ${args.name} role\n\nAdopt this role for the current task. This is an advisory role-skill fallback because ${args.agentId} has no native subagent surface.\n\n${args.body.trim()}\n`;
+        yield* fs.makeDirectory(polyfillDir, { recursive: true });
+        const current = yield* fs.readFileString(skillMdPath).pipe(Effect.option);
+        if (Option.isNone(current) || current.value !== skillContent) {
+          yield* fs.writeFileString(skillMdPath, skillContent);
+        }
+        const targetPath = path.join(path.normalize(args.targetDir), args.sanitized);
+        yield* fs.remove(targetPath, { recursive: true }).pipe(Effect.ignore);
+        yield* provide(
+          copyExtensionDirectory(polyfillDir, targetPath, {
+            forAgentArtifact: true,
+          }),
+        );
+        yield* Effect.logWarning(
+          `Degraded subagent ${args.name} to a role skill for ${args.agentId}`,
+        );
+        return {
+          _tag: "success",
+          renderedFilePaths: [targetPath],
+          warnings: [`Degraded subagent ${args.name} to a role skill for ${args.agentId}`],
+        };
+      });
     const lastInstallState = new Map<
       string,
       {
@@ -287,6 +334,20 @@ export const SubagentManagerLive = Layer.effect(
 
         // --- Materialize canonical source ---
         yield* materializeCanonical(ref, sanitized, canonicalPath, subagentSrcPath);
+        const manifestRaw = yield* fs
+          .readFileString(path.join(canonicalPath, MANIFEST_FILENAME))
+          .pipe(Effect.option);
+        const manifestFallback = Option.isNone(manifestRaw)
+          ? undefined
+          : yield* Effect.try({
+              try: () => decodeSubagentManifest(JSON.parse(manifestRaw.value)).fallback,
+              catch: (cause) =>
+                makeAppError({
+                  code: "validation",
+                  detail: `Failed to parse ${MANIFEST_FILENAME}`,
+                  cause,
+                }),
+            });
 
         // --- Read content file ---
         const contentPath = subagentContentPath(path.join, subagentSrcPath, ref.subagent.name);
@@ -339,6 +400,45 @@ export const SubagentManagerLive = Layer.effect(
               })
               .pipe(
                 Effect.provide(fsPathLayer),
+                Effect.flatMap((outcome) => {
+                  if (outcome._tag !== "unsupported") {
+                    return Effect.succeed<SubagentSyncOutcome>(outcome);
+                  }
+                  if ((ref.fallback ?? manifestFallback) === "none") {
+                    return makeAppError({
+                      code: "validation",
+                      detail: `Subagent ${ref.subagent.name} requires native subagent support for ${agent.id} because fallback is none`,
+                    });
+                  }
+                  return agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
+                    Effect.provide(fsPathLayer),
+                    Effect.flatMap((skillsOutcome) => {
+                      if (skillsOutcome._tag !== "supported") {
+                        return Effect.succeed<SubagentSyncOutcome>(outcome);
+                      }
+                      const description = Option.getOrElse(
+                        ref.subagent.description,
+                        () => `Adopt the ${ref.subagent.name} role`,
+                      );
+                      return materializeRoleSkillFallback({
+                        agentId: agent.id,
+                        name: ref.subagent.name,
+                        sanitized,
+                        body: parsed.body,
+                        description,
+                        targetDir: skillsOutcome.dir,
+                      }).pipe(
+                        Effect.mapError((cause) =>
+                          makeAppError({
+                            code: "internal",
+                            detail: `Failed to materialize subagent fallback for ${agent.id}`,
+                            cause,
+                          }),
+                        ),
+                      );
+                    }),
+                  );
+                }),
                 Effect.map((outcome) => ({ agentId: agent.id, outcome })),
               ),
           { concurrency: "unbounded" },
@@ -398,7 +498,17 @@ export const SubagentManagerLive = Layer.effect(
                   subagentName: target.name,
                   renderedFilePaths: agentFiles.map((f) => f.path),
                 })
-                .pipe(Effect.provide(fsPathLayer));
+                .pipe(
+                  Effect.provide(fsPathLayer),
+                  Effect.flatMap((outcome) =>
+                    Effect.forEach(agentFiles, (file) => {
+                      const absolute = path.resolve(baseDir, file.path);
+                      return absolute.startsWith(path.resolve(baseDir))
+                        ? fs.remove(absolute, { recursive: true }).pipe(Effect.ignore)
+                        : Effect.void;
+                    }).pipe(Effect.as(outcome)),
+                  ),
+                );
             },
             { concurrency: "unbounded" },
           );

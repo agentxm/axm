@@ -144,7 +144,7 @@ describe("hooks-new.handler", () => {
           yield* handleHooksNew(defaultArgs("machine-hook"));
 
           expect(logs.success).toEqual([
-            "Created hooks package @acme/hooks/machine-hook with 1 target",
+            "Created hooks package @acme/hooks/machine-hook with 2 targets",
           ]);
           const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
           const result = expectAppliedPlanResult(renderedResult.data, {
@@ -161,10 +161,14 @@ describe("hooks-new.handler", () => {
               scope: "project",
               version: "0.1.0",
               change: "created",
-              fileCount: 1,
+              fileCount: 2,
               targets: [
                 {
                   path: ".claude/settings.json",
+                  change: "created",
+                },
+                {
+                  path: "AGENTS.md",
                   change: "created",
                 },
               ],

@@ -28,6 +28,10 @@ import {
   type UninstallLibraryHandlerArgs,
 } from "../libraries/uninstall/command-actions.js";
 import {
+  UninstallKnowledgeCommandWorkflowActions,
+  type UninstallKnowledgeHandlerArgs,
+} from "../knowledge/uninstall/command-actions.js";
+import {
   UninstallPackCommandWorkflowActions,
   type UninstallPackHandlerArgs,
 } from "../packs/uninstall/command-actions.js";
@@ -193,6 +197,16 @@ describe("root uninstall handler", () => {
       buildUninstallPlan: () => Effect.succeed(makePlan("library")),
     };
 
+    const knowledgeActions = {
+      parseArgs: (args: UninstallKnowledgeHandlerArgs) =>
+        Effect.sync(() => {
+          calls.push({ type: "knowledge", name: args.name });
+          return {};
+        }),
+      finalizeIntent: () => Effect.succeed({}),
+      buildUninstallPlan: () => Effect.succeed(makePlan("knowledge")),
+    };
+
     const fullLayer = Layer.mergeAll(
       ctx.fullLayer,
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
@@ -256,6 +270,13 @@ describe("root uninstall handler", () => {
         UninstallLibraryCommandWorkflowActions,
         libraryActions as unknown as ServiceMap.Service.Shape<
           typeof UninstallLibraryCommandWorkflowActions
+        >,
+      ),
+      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
+      Layer.succeed(
+        UninstallKnowledgeCommandWorkflowActions,
+        knowledgeActions as unknown as ServiceMap.Service.Shape<
+          typeof UninstallKnowledgeCommandWorkflowActions
         >,
       ),
     );

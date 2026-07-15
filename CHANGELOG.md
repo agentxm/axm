@@ -1,3 +1,13 @@
+## 0.22.0 (2026-07-15)
+
+### 🚀 Features
+
+- Add capability-targeted extensions and Open Knowledge Format bundles ([2f8cfc94](https://github.com/agentxm/axm/commit/2f8cfc94))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.21.1 (2026-07-15)
 
 ### 🩹 Fixes

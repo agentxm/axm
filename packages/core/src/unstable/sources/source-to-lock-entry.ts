@@ -19,7 +19,6 @@ import type { SkillExtensionRef } from "../skills/refs.js";
 
 export interface SourceToLockEntryInput {
   readonly ref: SkillExtensionRef;
-  readonly agents: ReadonlyArray<string>;
   readonly now: Date;
   /** Required for registry sources — which named registry config was used. */
   readonly sourceName: Option.Option<string>;
@@ -34,7 +33,6 @@ export interface SourceToLockEntryInput {
 // -----------------------------------------------------------------------------
 
 const commonFields = (input: SourceToLockEntryInput) => ({
-  agents: [...input.agents],
   installedAt: Option.getOrElse(input.existingInstalledAt, () => input.now),
   updatedAt: input.now,
 });

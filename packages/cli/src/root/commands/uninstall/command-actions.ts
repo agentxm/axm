@@ -20,11 +20,7 @@ import { buildUninstallOperation } from "@agentxm/client-core/unstable/extension
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallCommandCommandIntent } from "./intent.js";
-import {
-  combinePlanSections,
-  makeAgentSection,
-  makeRenderedFilesSection,
-} from "../preview-sections.js";
+import { combinePlanSections, makeAgentSection } from "../preview-sections.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 
 // -----------------------------------------------------------------------------
@@ -107,29 +103,9 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
         );
 
         const targetNames = intent.targets.map((t) => t.name).join(", ");
-        const affectedAgents = [
-          ...new Set(
-            lockEntries.flatMap((lockEntry) =>
-              Option.isSome(lockEntry) ? [...lockEntry.value.agents] : [],
-            ),
-          ),
-        ];
-        const filesByAgent: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
+        const affectedAgents = yield* ws.getConfiguredAgents();
 
-        for (const lockEntry of lockEntries) {
-          if (Option.isNone(lockEntry) || lockEntry.value.renderedFiles === undefined) {
-            continue;
-          }
-
-          for (const [agentId, files] of Object.entries(lockEntry.value.renderedFiles)) {
-            filesByAgent[agentId] = [...(filesByAgent[agentId] ?? []), ...files];
-          }
-        }
-
-        const sections = combinePlanSections(
-          makeAgentSection("Affected agents", affectedAgents),
-          makeRenderedFilesSection("Files that would be removed", filesByAgent),
-        );
+        const sections = combinePlanSections(makeAgentSection("Affected agents", affectedAgents));
         const lockEntryByName = new Map(
           intent.targets.map((target, index) => [target.name, lockEntries[index] ?? Option.none()]),
         );

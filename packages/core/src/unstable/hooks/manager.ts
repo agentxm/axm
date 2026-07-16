@@ -78,11 +78,7 @@ const HOOK_FALLBACKS_REGION = "hook-fallbacks";
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryHookLockEntry = (
-  ref: RegistryHookRef,
-  now: Date,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
-): HookLockEntry => ({
+const registryHookLockEntry = (ref: RegistryHookRef, now: Date): HookLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -90,17 +86,11 @@ const registryHookLockEntry = (
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
-  materializedTargets,
   ...commonLockFields(now),
 });
 
-const gitHookLockEntry = (
-  ref: GitHostedHookRef,
-  now: Date,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
-): HookLockEntry => {
+const gitHookLockEntry = (ref: GitHostedHookRef, now: Date): HookLockEntry => {
   const common = {
-    materializedTargets,
     ...commonLockFields(now),
   };
 
@@ -113,27 +103,20 @@ const gitHookLockEntry = (
 const localHookLockEntry = (
   ref: LocalHookRef,
   now: Date,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ): HookLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
-  materializedTargets,
   ...commonLockFields(now),
 });
 
-const workspaceHookLockEntry = (
-  ref: WorkspaceHookRef,
-  now: Date,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
-): HookLockEntry => ({
+const workspaceHookLockEntry = (ref: WorkspaceHookRef, now: Date): HookLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "hook",
   name: ref.name,
   version: ref.version,
   sourceHash: ref.sourceHash,
-  materializedTargets,
   ...commonLockFields(now),
 });
 
@@ -947,24 +930,18 @@ export const HookManagerLive = Layer.effect(
 
     const buildLockEntry = (ref: HookExtensionRef): Effect.Effect<HookLockEntry, never> => {
       const state = lastInstallState.get(ref.hook.name);
-      const materializedTargets = state?.materializedTargets ?? [];
       const now = new Date();
       switch (ref.refType) {
         case "registry":
-          return Effect.succeed(registryHookLockEntry(ref, now, materializedTargets));
+          return Effect.succeed(registryHookLockEntry(ref, now));
         case "git-hosted":
-          return Effect.succeed(gitHookLockEntry(ref, now, materializedTargets));
+          return Effect.succeed(gitHookLockEntry(ref, now));
         case "local":
           return Effect.succeed(
-            localHookLockEntry(
-              ref,
-              now,
-              materializedTargets,
-              state?.workspaceRelativeLocalSourcePath ?? Option.none(),
-            ),
+            localHookLockEntry(ref, now, state?.workspaceRelativeLocalSourcePath ?? Option.none()),
           );
         case "workspace":
-          return Effect.succeed(workspaceHookLockEntry(ref, now, materializedTargets));
+          return Effect.succeed(workspaceHookLockEntry(ref, now));
       }
     };
 
@@ -999,6 +976,13 @@ export const HookManagerLive = Layer.effect(
         ),
 
       materializeInstall,
+      getLastMaterialization: ({ target }) =>
+        Effect.succeed({
+          agents: [],
+          targets: (lastInstallState.get(target.name)?.materializedTargets ?? []).map(
+            (materializedTarget) => ({ path: materializedTarget.target }),
+          ),
+        }),
       getConfiguredSource: Effect.fn("HookManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredHookEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);

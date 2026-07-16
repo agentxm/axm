@@ -5,7 +5,6 @@ import type { GitHostedSkillRef, LocalSkillRef, RegistrySkillRef } from "../skil
 import { extensionName, exactVersion, handle } from "../test-helpers.js";
 import { sourceToLockEntry } from "./source-to-lock-entry.js";
 
-const agents = ["claude", "cursor"];
 const now = new Date("2025-01-15T00:00:00.000Z");
 
 const skillBase = {
@@ -40,7 +39,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -52,7 +50,6 @@ describe("sourceToLockEntry", () => {
       repo: "skills",
       ref: "v1.0",
       path: "prompts/code-review",
-      agents,
       installedAt: now,
       updatedAt: now,
       gitTreeHash: "abc123",
@@ -76,7 +73,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -86,7 +82,6 @@ describe("sourceToLockEntry", () => {
       type: "github",
       owner: "acme",
       repo: "skills",
-      agents,
       installedAt: now,
       updatedAt: now,
     } satisfies SkillLockEntry);
@@ -113,7 +108,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -124,7 +118,6 @@ describe("sourceToLockEntry", () => {
       owner: "team",
       repo: "prompts",
       ref: "main",
-      agents,
       installedAt: now,
       updatedAt: now,
     } satisfies SkillLockEntry);
@@ -151,7 +144,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -162,7 +154,6 @@ describe("sourceToLockEntry", () => {
       owner: "workspace",
       repo: "skills-repo",
       path: "skills/lint",
-      agents,
       installedAt: now,
       updatedAt: now,
     } satisfies SkillLockEntry);
@@ -190,7 +181,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -203,7 +193,6 @@ describe("sourceToLockEntry", () => {
       repo: "skills",
       ref: "develop",
       path: "src/skill",
-      agents,
       installedAt: now,
       updatedAt: now,
       gitTreeHash: "def456",
@@ -228,7 +217,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -238,7 +226,6 @@ describe("sourceToLockEntry", () => {
       type: "git",
       url: "https://example.com/repo.git",
       ref: "main",
-      agents,
       installedAt: now,
       updatedAt: now,
     } satisfies SkillLockEntry);
@@ -263,7 +250,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -273,7 +259,6 @@ describe("sourceToLockEntry", () => {
     expect(result).toEqual({
       type: "local",
       path: "skills/my-skill",
-      agents,
       installedAt: now,
       updatedAt: now,
     } satisfies SkillLockEntry);
@@ -306,7 +291,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.some("local"),
       existingInstalledAt: Option.none(),
@@ -319,7 +303,6 @@ describe("sourceToLockEntry", () => {
       resolvedVersion: exactVersion("2.1.0"),
       integrity: "sha512-AAAA==",
       sourceName: "local",
-      agents,
       installedAt: now,
       updatedAt: now,
     } satisfies SkillLockEntry);
@@ -348,7 +331,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -380,7 +362,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents: [],
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -415,7 +396,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.some(originalInstallDate),
@@ -442,7 +422,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents,
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),
@@ -469,7 +448,6 @@ describe("sourceToLockEntry", () => {
 
     const result = sourceToLockEntry({
       ref,
-      agents: [],
       now,
       sourceName: Option.none(),
       existingInstalledAt: Option.none(),

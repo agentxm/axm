@@ -64,22 +64,14 @@ const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
       ? entry.version
       : undefined;
 
-const hookNewArtifactTargets = (entry: HookLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
-  [...(entry.materializedTargets ?? [])]
-    .sort((left, right) => left.target.localeCompare(right.target))
-    .map((target) => ({
-      path: target.target,
-      change: "created",
-    }));
-
 const hookNewArtifact = (args: {
   readonly lockEntry: HookLockEntry;
+  readonly targets: ReadonlyArray<JobStepArtifactTarget>;
   readonly canonicalPath: string;
   readonly workspaceRoot: string;
   readonly scope: JobStepArtifact["scope"];
   readonly pathService: Path.Path;
 }): JobStepArtifact => {
-  const targets = hookNewArtifactTargets(args.lockEntry);
   const version = hookLockEntryVersion(args.lockEntry);
 
   return {
@@ -87,7 +79,7 @@ const hookNewArtifact = (args: {
     scope: args.scope,
     ...(version === undefined ? {} : { version }),
     change: "created",
-    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+    ...(args.targets.length === 0 ? {} : { fileCount: args.targets.length, targets: args.targets }),
   };
 };
 
@@ -241,9 +233,19 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
             suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
           });
         }
+        const materialization =
+          manager.getLastMaterialization === undefined
+            ? { agents: [], targets: [] }
+            : yield* manager.getLastMaterialization({
+                target: { type: "hook", name: args.name },
+              });
 
         return hookNewArtifact({
           lockEntry: currentLockEntry.value,
+          targets: materialization.targets.map((target) => ({
+            ...target,
+            change: "created",
+          })),
           canonicalPath: targetDir,
           workspaceRoot: ws.baseDir,
           scope: ws.scope,

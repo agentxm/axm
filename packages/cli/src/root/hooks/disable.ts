@@ -38,10 +38,6 @@ const hookDisableArtifactTargets = (args: {
       path: hookPackagePath(args.lockEntry, args.name),
       change: args.lockEntry.type === "workspace" ? ("unchanged" as const) : ("removed" as const),
     },
-    ...[...(args.lockEntry.materializedTargets ?? [])].map((target) => ({
-      path: target.target,
-      change: "updated" as const,
-    })),
   ].sort((left, right) => left.path.localeCompare(right.path));
 
 const hookDisableArtifact = (args: {

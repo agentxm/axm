@@ -19,6 +19,22 @@ const setupWorkspaceWithoutBundledSkill = async (cwd: string): Promise<void> => 
   expect(uninstall.exitCode).toBe(0);
 };
 
+const copySkillsFixture = (cwd: string): string => {
+  const source = path.join(cwd, "skills-source");
+  fs.cpSync(SKILLS_REPO_FIXTURE, source, { recursive: true });
+  return source;
+};
+
+const changeSkillSource = (source: string, name: string): void => {
+  fs.appendFileSync(path.join(source, name, "SKILL.md"), "\nSource update for E2E.\n");
+};
+
+const installedSkillContent = (cwd: string, name: string): string =>
+  fs.readFileSync(
+    path.join(cwd, ".axm", "extensions", "external", "skills", name, "SKILL.md"),
+    "utf-8",
+  );
+
 describe("axm skills update", () => {
   describe("no installed skills", () => {
     it("exits 0 with no-skills message when nothing is installed", async () => {
@@ -39,24 +55,22 @@ describe("axm skills update", () => {
   });
 
   describe("update local source skill", () => {
-    it("refreshes files and updates lockfile updatedAt timestamp", async () => {
+    it("refreshes changed source files without changing the shared lock snapshot", async () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
         await setupWorkspaceWithoutBundledSkill(temp.path);
 
-        // Install all skills
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        const source = copySkillsFixture(temp.path);
+        await runCli(["skills", "install", source, "--all", "--yes"], {
           cwd: temp.path,
         });
 
         // Record lockfile state before update
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
-        const lockBefore = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        const updatedAtBefore = lockBefore.skills["my-skill"].updatedAt;
+        const lockBefore = fs.readFileSync(lockPath, "utf-8");
 
-        // Wait to ensure timestamp difference
-        await new Promise((r) => setTimeout(r, 50));
+        changeSkillSource(source, "my-skill");
 
         // Run update
         const result = await runCli(["skills", "update", "--yes"], {
@@ -65,12 +79,7 @@ describe("axm skills update", () => {
 
         expect(result.exitCode).toBe(0);
 
-        // Verify lockfile updatedAt changed (local sources always re-install)
-        const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        const updatedAtAfter = lockAfter.skills["my-skill"].updatedAt;
-        expect(new Date(updatedAtAfter).getTime()).toBeGreaterThan(
-          new Date(updatedAtBefore).getTime(),
-        );
+        expect(fs.readFileSync(lockPath, "utf-8")).toBe(lockBefore);
 
         // Verify skill files still exist
         const skillDir = path.join(
@@ -82,7 +91,9 @@ describe("axm skills update", () => {
           "my-skill",
         );
         expect(fs.existsSync(skillDir)).toBe(true);
-        expect(fs.existsSync(path.join(skillDir, "SKILL.md"))).toBe(true);
+        expect(fs.readFileSync(path.join(skillDir, "SKILL.md"), "utf-8")).toContain(
+          "Source update for E2E.",
+        );
       } finally {
         temp.cleanup();
       }
@@ -96,7 +107,8 @@ describe("axm skills update", () => {
         // Initialize and install
         await setupWorkspaceWithoutBundledSkill(temp.path);
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        const source = copySkillsFixture(temp.path);
+        await runCli(["skills", "install", source, "--all", "--yes"], {
           cwd: temp.path,
         });
 
@@ -136,7 +148,8 @@ describe("axm skills update", () => {
         // Initialize and install
         await setupWorkspaceWithoutBundledSkill(temp.path);
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        const source = copySkillsFixture(temp.path);
+        await runCli(["skills", "install", source, "--all", "--yes"], {
           cwd: temp.path,
         });
 
@@ -147,11 +160,10 @@ describe("axm skills update", () => {
 
         // Record lockfile state before update
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
-        const lockBefore = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        const anotherUpdatedBefore = lockBefore.skills["another-skill"].updatedAt;
+        const lockBefore = fs.readFileSync(lockPath, "utf-8");
 
-        // Wait to ensure timestamp difference
-        await new Promise((r) => setTimeout(r, 50));
+        changeSkillSource(source, "my-skill");
+        changeSkillSource(source, "another-skill");
 
         // Run update
         const result = await runCli(["skills", "update", "--yes"], {
@@ -161,11 +173,12 @@ describe("axm skills update", () => {
         expect(result.exitCode).toBe(0);
         expect(getOutput(result)).toMatch(/[Ss]kipping.*my-skill.*disabled/);
 
-        // another-skill should have been updated (updatedAt changed)
-        const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        const anotherUpdatedAfter = lockAfter.skills["another-skill"].updatedAt;
-        expect(new Date(anotherUpdatedAfter).getTime()).toBeGreaterThan(
-          new Date(anotherUpdatedBefore).getTime(),
+        expect(fs.readFileSync(lockPath, "utf-8")).toBe(lockBefore);
+        expect(installedSkillContent(temp.path, "my-skill")).not.toContain(
+          "Source update for E2E.",
+        );
+        expect(installedSkillContent(temp.path, "another-skill")).toContain(
+          "Source update for E2E.",
         );
       } finally {
         temp.cleanup();
@@ -180,18 +193,17 @@ describe("axm skills update", () => {
         // Initialize and install both skills
         await setupWorkspaceWithoutBundledSkill(temp.path);
 
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        const source = copySkillsFixture(temp.path);
+        await runCli(["skills", "install", source, "--all", "--yes"], {
           cwd: temp.path,
         });
 
         // Record lockfile state before update
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
-        const lockBefore = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        const mySkillUpdatedBefore = lockBefore.skills["my-skill"].updatedAt;
-        const anotherSkillUpdatedBefore = lockBefore.skills["another-skill"].updatedAt;
+        const lockBefore = fs.readFileSync(lockPath, "utf-8");
 
-        // Wait to ensure timestamp difference
-        await new Promise((r) => setTimeout(r, 50));
+        changeSkillSource(source, "my-skill");
+        changeSkillSource(source, "another-skill");
 
         // Update only my-skill
         const result = await runCli(["skills", "update", "--skill", "my-skill", "--yes"], {
@@ -200,18 +212,11 @@ describe("axm skills update", () => {
 
         expect(result.exitCode).toBe(0);
 
-        // Verify only my-skill was updated
-        const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        const mySkillUpdatedAfter = lockAfter.skills["my-skill"].updatedAt;
-        const anotherSkillUpdatedAfter = lockAfter.skills["another-skill"].updatedAt;
-
-        // my-skill should have a newer updatedAt
-        expect(new Date(mySkillUpdatedAfter).getTime()).toBeGreaterThan(
-          new Date(mySkillUpdatedBefore).getTime(),
+        expect(fs.readFileSync(lockPath, "utf-8")).toBe(lockBefore);
+        expect(installedSkillContent(temp.path, "my-skill")).toContain("Source update for E2E.");
+        expect(installedSkillContent(temp.path, "another-skill")).not.toContain(
+          "Source update for E2E.",
         );
-
-        // another-skill should be unchanged
-        expect(anotherSkillUpdatedAfter).toBe(anotherSkillUpdatedBefore);
       } finally {
         temp.cleanup();
       }

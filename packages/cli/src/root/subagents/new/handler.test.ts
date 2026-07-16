@@ -150,9 +150,9 @@ describe("subagents-new.handler", () => {
             extensionType: "subagent",
             name: "my-subagent",
             version: "0.0.1",
-            agents: ["claude-code"],
             sourceHash: expect.any(String),
           });
+          expect(lockfile.subagents["my-subagent"]).not.toHaveProperty("agents");
 
           expect(logs.success.some((m) => m.includes("@acme/subagents/my-subagent"))).toBe(true);
           expect(rendererState.suggestions).toEqual([

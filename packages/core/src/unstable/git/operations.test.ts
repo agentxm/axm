@@ -15,6 +15,31 @@ import { makeAppError } from "../app-error/index.js";
 describe("git", () => {
   let tempDir: string;
 
+  const isolatedGitEnv = (): Record<string, string | undefined> => {
+    const env = { ...process.env };
+    for (const name of [
+      "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+      "GIT_COMMON_DIR",
+      "GIT_CONFIG",
+      "GIT_CONFIG_COUNT",
+      "GIT_CONFIG_PARAMETERS",
+      "GIT_DIR",
+      "GIT_GRAFT_FILE",
+      "GIT_IMPLICIT_WORK_TREE",
+      "GIT_INDEX_FILE",
+      "GIT_INTERNAL_SUPER_PREFIX",
+      "GIT_NO_REPLACE_OBJECTS",
+      "GIT_OBJECT_DIRECTORY",
+      "GIT_PREFIX",
+      "GIT_REPLACE_REF_BASE",
+      "GIT_SHALLOW_FILE",
+      "GIT_WORK_TREE",
+    ]) {
+      delete env[name];
+    }
+    return env;
+  };
+
   beforeEach(() => {
     // Create a unique temp directory for each test
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "git-test-"));
@@ -31,12 +56,13 @@ describe("git", () => {
   const createLocalRepo = async (repoPath: string): Promise<void> => {
     fs.mkdirSync(repoPath, { recursive: true });
     const { execSync } = await import("node:child_process");
-    execSync("git init", { cwd: repoPath, stdio: "pipe" });
-    execSync("git config user.email 'test@test.com'", { cwd: repoPath, stdio: "pipe" });
-    execSync("git config user.name 'Test'", { cwd: repoPath, stdio: "pipe" });
+    const gitOptions = { cwd: repoPath, env: isolatedGitEnv(), stdio: "pipe" } as const;
+    execSync("git init", gitOptions);
+    execSync("git config user.email 'test@test.com'", gitOptions);
+    execSync("git config user.name 'Test'", gitOptions);
     fs.writeFileSync(path.join(repoPath, "README.md"), "# Test Repo");
-    execSync("git add .", { cwd: repoPath, stdio: "pipe" });
-    execSync("git commit -m 'Initial commit'", { cwd: repoPath, stdio: "pipe" });
+    execSync("git add .", gitOptions);
+    execSync("git commit -m 'Initial commit'", gitOptions);
   };
 
   describe("getTreeSha", () => {
@@ -61,8 +87,9 @@ describe("git", () => {
         // Add a new file and commit
         const { execSync } = yield* Effect.promise(() => import("node:child_process"));
         fs.writeFileSync(path.join(repoPath, "new-file.md"), "# New File");
-        execSync("git add .", { cwd: repoPath, stdio: "pipe" });
-        execSync("git commit -m 'Add new file'", { cwd: repoPath, stdio: "pipe" });
+        const gitOptions = { cwd: repoPath, env: isolatedGitEnv(), stdio: "pipe" } as const;
+        execSync("git add .", gitOptions);
+        execSync("git commit -m 'Add new file'", gitOptions);
 
         const treeSha2 = yield* getTreeSha(repoPath);
 
@@ -81,8 +108,9 @@ describe("git", () => {
         fs.mkdirSync(subDir);
         fs.writeFileSync(path.join(subDir, "file.txt"), "content");
         const { execSync } = yield* Effect.promise(() => import("node:child_process"));
-        execSync("git add .", { cwd: repoPath, stdio: "pipe" });
-        execSync("git commit -m 'Add subdir'", { cwd: repoPath, stdio: "pipe" });
+        const gitOptions = { cwd: repoPath, env: isolatedGitEnv(), stdio: "pipe" } as const;
+        execSync("git add .", gitOptions);
+        execSync("git commit -m 'Add subdir'", gitOptions);
 
         const treeSha = yield* getTreeSha(repoPath, "subdir");
 

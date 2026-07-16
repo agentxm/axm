@@ -4,12 +4,12 @@
  * The lockfile (axm-lock.yaml) records the exact resolved state of all installed
  * skills, enabling reproducible installations across environments.
  *
- * Lockfile v2 format boundary:
+ * Lockfile v3 format boundary:
  * - Shared package resolution and pins belong in the committed lockfile.
- * - Agent-specific and render-derived fields (`agents`, `renderedFiles`,
- *   `renderInputs`, `degradedRenders`, and render state in
- *   `materializedTargets`) are frozen compatibility debt pending the v3 split;
- *   do not add new fields of these kinds to v2.
+ * - Agent-specific and render-derived state (`agents`, `syncedAgents`, rendered
+ *   files and inputs, degraded renders, and materialized targets) is derived
+ *   from settings, manifests, markers, and the workspace filesystem. It is not
+ *   persisted in the shared lockfile.
  * - New observed or render state belongs in marker/scan-based ownership (see
  *   `workspace/rendered-file-cleanup.ts`) or feature-local storage, not here.
  *
@@ -22,7 +22,6 @@ import {
   ExtensionFqnSchema,
   type ExtensionType,
   HandleSchema,
-  RenderedFilesMapSchema,
   SourceHashSchema,
 } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
@@ -36,7 +35,7 @@ import {
   SourceSubPathSchema,
 } from "../sources/types.js";
 
-export const LOCKFILE_VERSION = 2;
+export const LOCKFILE_VERSION = 3;
 
 // =============================================================================
 // Flat Source Schemas (discriminated by type field)
@@ -64,49 +63,11 @@ const LocalSourceLockPathSchema = Schema.String.pipe(
 );
 
 /**
- * Common fields shared by skill lock entries (includes agents).
- */
-const CommonFields = {
-  agents: Schema.Array(Schema.String),
-  ...BaseCommonFields,
-};
-
-/** Inputs that deterministically pin one capability-targeted render. */
-export const CapabilityRenderInputSchema = Schema.Struct({
-  sourceHash: SourceHashSchema,
-  agent: Schema.NonEmptyString,
-  catalogVersion: Schema.NonEmptyString,
-  dslVersion: Schema.NonEmptyString,
-  capabilityHash: SourceHashSchema,
-  referencedCapabilities: Schema.Array(Schema.NonEmptyString),
-}).annotate({
-  identifier: "CapabilityRenderInput",
-  title: "Capability Render Input",
-  description:
-    "Pinned source, target, catalog, DSL, and referenced-capability inputs for a rendered artifact.",
-});
-
-export type CapabilityRenderInput = Schema.Schema.Type<typeof CapabilityRenderInputSchema>;
-
-export const CapabilityRenderInputsMapSchema = Schema.Record(
-  Schema.String,
-  CapabilityRenderInputSchema,
-);
-
-export const DegradedRendersMapSchema = Schema.Record(
-  Schema.String,
-  Schema.Array(Schema.NonEmptyString),
-);
-
-/**
- * Common fields for skill lock entries (includes agents + rendered files).
+ * Common fields for skill lock entries.
  */
 const SkillCommonFields = {
-  ...CommonFields,
+  ...BaseCommonFields,
   sourceHash: Schema.optional(SourceHashSchema),
-  renderedFiles: Schema.optional(RenderedFilesMapSchema),
-  renderInputs: Schema.optional(CapabilityRenderInputsMapSchema),
-  degradedRenders: Schema.optional(DegradedRendersMapSchema),
 };
 
 // =============================================================================
@@ -117,9 +78,7 @@ const SkillCommonFields = {
  * Creates a Schema.Union of all 8 source-type lock entry structs,
  * parameterized by extra fields to spread into each variant.
  *
- * Used to produce SkillLockEntrySchema (with `agents`),
- * CommandLockEntrySchema (with `agents` + extra fields) and
- * McpServerLockEntrySchema (without `agents`).
+ * Used to produce lock-entry schemas with feature-specific shared fields.
  */
 const makeSourceLockUnion = <
   F extends Schema.Struct.Fields,
@@ -203,7 +162,6 @@ const InlineMcpServerLockEntrySchema = Schema.Struct({
   args: Schema.optional(Schema.Array(Schema.String)),
   url: Schema.optional(Schema.NonEmptyString),
   headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-  syncedAgents: Schema.optional(Schema.Array(Schema.String)),
   ...BaseCommonFields,
 }).annotate({
   identifier: "InlineMcpServerLockEntry",
@@ -212,7 +170,7 @@ const InlineMcpServerLockEntrySchema = Schema.Struct({
 });
 
 // =============================================================================
-// Skill Lock Entry (union of all source types, with agents)
+// Skill Lock Entry (union of all source types)
 // =============================================================================
 
 /**
@@ -221,22 +179,17 @@ const InlineMcpServerLockEntrySchema = Schema.Struct({
  *
  * Fields common to all entries:
  * - type: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry")
- * - agents: Agent IDs this skill is installed for (can be empty)
  * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
  * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
  * - gitTreeHash: Git tree SHA of source folder (git sources, optional)
  * - sourceHash: SHA-256 hash of canonical skill source (copy-mode only, optional)
- * - renderedFiles: Map of agent ID to rendered file paths (copy-mode only, optional)
  *
  * Source-specific fields are at the top level based on source type.
  *
  * @experimental This API is unstable and may change without notice.
  */
 const SkillWorkspaceFields = {
-  ...CommonFields,
-  renderedFiles: Schema.optional(RenderedFilesMapSchema),
-  renderInputs: Schema.optional(CapabilityRenderInputsMapSchema),
-  degradedRenders: Schema.optional(DegradedRendersMapSchema),
+  ...BaseCommonFields,
 };
 
 export const SkillLockEntrySchema = makeSourceLockUnion(
@@ -272,30 +225,27 @@ export const SkillsLockMapSchema = Schema.Record(Schema.String, SkillLockEntrySc
 export type SkillsLockMap = Schema.Schema.Type<typeof SkillsLockMapSchema>;
 
 // =============================================================================
-// Command Lock Entry (union of all source types, with agents)
+// Command Lock Entry (union of all source types)
 // =============================================================================
 
 /**
- * Common fields for command lock entries (includes agents + rendered files).
+ * Common fields for command lock entries.
  */
 const CommandCommonFields = {
-  ...CommonFields,
+  ...BaseCommonFields,
   sourceHash: Schema.optional(Schema.String),
-  renderedFiles: Schema.optional(RenderedFilesMapSchema),
 };
 
 /**
  * Lock entry for a single installed command.
  * Discriminated union by the `type` field.
  *
- * Includes `agents` array (like skills), plus `sourceHash` and `renderedFiles`
- * for tracking rendered output.
+ * Includes `sourceHash` for tracking the shared source content.
  *
  * @experimental This API is unstable and may change without notice.
  */
 const CommandWorkspaceFields = {
-  ...CommonFields,
-  renderedFiles: Schema.optional(RenderedFilesMapSchema),
+  ...BaseCommonFields,
 };
 
 export const CommandLockEntrySchema = makeSourceLockUnion(
@@ -330,29 +280,26 @@ export const CommandsLockMapSchema = Schema.Record(Schema.String, CommandLockEnt
 export type CommandsLockMap = Schema.Schema.Type<typeof CommandsLockMapSchema>;
 
 // =============================================================================
-// Subagent Lock Entry (union of all source types, with agents)
+// Subagent Lock Entry (union of all source types)
 // =============================================================================
 
 /**
- * Common fields for subagent lock entries (includes agents + rendered files).
+ * Common fields for subagent lock entries.
  */
 const SubagentLockEntryCommonFields = {
-  ...CommonFields,
+  ...BaseCommonFields,
   sourceHash: Schema.optional(Schema.String),
-  renderedFiles: Schema.optional(RenderedFilesMapSchema),
 };
 
 const SubagentWorkspaceFields = {
-  ...CommonFields,
-  renderedFiles: Schema.optional(RenderedFilesMapSchema),
+  ...BaseCommonFields,
 };
 
 /**
  * Lock entry for a single installed subagent.
  * Discriminated union by the `type` field.
  *
- * Includes `agents` array (like skills), plus `sourceHash` and `renderedFiles`
- * for tracking rendered output.
+ * Includes `sourceHash` for tracking the shared source content.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -400,17 +347,7 @@ export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>
  * @experimental This API is unstable and may change without notice.
  */
 export const McpServerLockEntrySchema = Schema.Union([
-  makeSourceLockUnion(
-    {
-      syncedAgents: Schema.optional(Schema.Array(Schema.String)),
-      ...BaseCommonFields,
-    },
-    "mcp-server",
-    {
-      syncedAgents: Schema.optional(Schema.Array(Schema.String)),
-      ...BaseCommonFields,
-    },
-  ),
+  makeSourceLockUnion(BaseCommonFields, "mcp-server", BaseCommonFields),
   InlineMcpServerLockEntrySchema,
 ]);
 
@@ -483,7 +420,6 @@ export type MaterializedFileTarget = Schema.Schema.Type<typeof MaterializedFileT
 const FilesCommonFields = {
   ...BaseCommonFields,
   resolvedInputs: Schema.optional(FilesResolvedInputsMapSchema),
-  materializedTargets: Schema.optional(Schema.Array(MaterializedFileTargetSchema)),
 };
 
 /**
@@ -515,17 +451,12 @@ export type FilesLockMap = Schema.Schema.Type<typeof FilesLockMapSchema>;
 // Rule Lock Entry (union of all source types, no agents)
 // =============================================================================
 
-const RuleCommonFields = {
-  ...BaseCommonFields,
-  materializedTargets: Schema.optional(Schema.Array(MaterializedFileTargetSchema)),
-};
-
 /**
  * Lock entry for a single installed rule.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleLockEntrySchema = makeSourceLockUnion(RuleCommonFields, "rule", RuleCommonFields);
+export const RuleLockEntrySchema = makeSourceLockUnion(BaseCommonFields, "rule", BaseCommonFields);
 
 /** @experimental */
 export type RuleLockEntry = Schema.Schema.Type<typeof RuleLockEntrySchema>;
@@ -544,17 +475,12 @@ export type RulesLockMap = Schema.Schema.Type<typeof RulesLockMapSchema>;
 // Hook Lock Entry (union of all source types, no agents)
 // =============================================================================
 
-const HookCommonFields = {
-  ...BaseCommonFields,
-  materializedTargets: Schema.optional(Schema.Array(MaterializedFileTargetSchema)),
-};
-
 /**
  * Lock entry for a single installed hook.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookLockEntrySchema = makeSourceLockUnion(HookCommonFields, "hook", HookCommonFields);
+export const HookLockEntrySchema = makeSourceLockUnion(BaseCommonFields, "hook", BaseCommonFields);
 
 /** @experimental */
 export type HookLockEntry = Schema.Schema.Type<typeof HookLockEntrySchema>;
@@ -573,15 +499,10 @@ export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
 // Knowledge Lock Entry (isolated OKF bundle plus derived index)
 // =============================================================================
 
-const KnowledgeCommonFields = {
-  ...BaseCommonFields,
-  materializedTargets: Schema.optional(Schema.Array(MaterializedFileTargetSchema)),
-};
-
 export const KnowledgeLockEntrySchema = makeSourceLockUnion(
-  KnowledgeCommonFields,
+  BaseCommonFields,
   "knowledge",
-  KnowledgeCommonFields,
+  BaseCommonFields,
 );
 
 export type KnowledgeLockEntry = Schema.Schema.Type<typeof KnowledgeLockEntrySchema>;
@@ -807,7 +728,7 @@ export type LibrariesLockMap = Schema.Schema.Type<typeof LibrariesLockMapSchema>
  * enabling reproducible installations across environments.
  *
  * Structure:
- * - lockfileVersion: Schema version (currently 2)
+ * - lockfileVersion: Schema version (currently 3)
  * - skills: Map of skill names to their lock entries
  * - packs: Map of pack names to their lock entries (optional)
  *
@@ -817,7 +738,7 @@ export const LockfileSchema = Schema.Struct({
   lockfileVersion: Schema.Int.pipe(
     Schema.check(Schema.isGreaterThanOrEqualTo(1)),
     Schema.annotate({
-      description: "Lockfile schema version (currently 2).",
+      description: "Lockfile schema version (currently 3).",
       default: LOCKFILE_VERSION,
     }),
     Schema.annotateKey({ messageMissingKey: "lockfileVersion is required" }),

@@ -397,7 +397,7 @@ describe("setup.handler", () => {
           expect(axmLockEntry.name).toBe("axm");
           expect(axmLockEntry.resolvedVersion).toBe(AXM_SKILL_VERSION);
           expect(axmLockEntry.sourceName).toBe("default");
-          expect(axmLockEntry.agents).toEqual(["claude-code"]);
+          expect(axmLockEntry).not.toHaveProperty("agents");
         }),
       );
     });

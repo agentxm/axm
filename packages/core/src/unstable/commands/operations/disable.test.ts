@@ -15,7 +15,7 @@ import {
 import type { ConfiguredCommand } from "../../workspace/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
-import { expectRecord, handle, renderedFilePath } from "../../test-helpers.js";
+import { handle } from "../../test-helpers.js";
 import { makeRegistryCommandLockEntry } from "../../workspace/test-stubs.js";
 import type { DisableCommandOperation } from "./disable.js";
 import { disableCommand } from "./disable.js";
@@ -78,15 +78,7 @@ const makeOp = (commandName = "my-command"): DisableCommandOperation => ({
 const makeRegistryLockEntry = (
   overrides?: Partial<Extract<CommandLockEntry, { type: "registry" }>>,
 ): CommandLockEntry => {
-  const {
-    integrity,
-    resolvedVersion,
-    sourceName,
-    agents,
-    renderedFiles,
-    sourceHash,
-    retainedByPack,
-  } = overrides ?? {};
+  const { integrity, resolvedVersion, sourceName, sourceHash, retainedByPack } = overrides ?? {};
 
   return makeRegistryCommandLockEntry({
     owner: handle("@community"),
@@ -94,8 +86,6 @@ const makeRegistryLockEntry = (
     ...(integrity !== undefined ? { integrity } : {}),
     ...(resolvedVersion !== undefined ? { resolvedVersion } : {}),
     ...(sourceName !== undefined ? { sourceName } : {}),
-    ...(agents !== undefined ? { agents } : {}),
-    ...(renderedFiles !== undefined ? { renderedFiles } : {}),
     ...(sourceHash !== undefined ? { sourceHash } : {}),
     ...(retainedByPack !== undefined ? { retainedByPack } : {}),
     ...(overrides?.installedAt !== undefined ? { installedAt: overrides.installedAt } : {}),
@@ -168,11 +158,7 @@ describe("disableCommand", () => {
         fs.mkdirSync(path.dirname(renderedPath), { recursive: true });
         fs.writeFileSync(renderedPath, "rendered content");
 
-        const lockEntry = makeRegistryLockEntry({
-          renderedFiles: {
-            "claude-code": [{ path: renderedFilePath(".claude-code/commands/my-command.md") }],
-          },
-        });
+        const lockEntry = makeRegistryLockEntry();
 
         const result = yield* disableCommand(makeOp()).pipe(
           Effect.provide(withServices(axmDir, lockEntry)),
@@ -181,19 +167,11 @@ describe("disableCommand", () => {
         expect(result.result).toBe("success");
         if (result.result === "success") {
           expect(result.artifact).toEqual({
-            path: ".claude-code/commands/my-command.md",
+            path: ".axm/settings.json",
             scope: "project",
             agents: ["claude-code"],
             version: "1.0.0",
             change: "updated",
-            fileCount: 1,
-            targets: [
-              {
-                path: ".claude-code/commands/my-command.md",
-                change: "removed",
-                agentIds: ["claude-code"],
-              },
-            ],
           });
         }
         expect(fs.existsSync(renderedPath)).toBe(false);
@@ -229,13 +207,13 @@ describe("disableCommand", () => {
       }),
     );
 
-    it.effect("clears agents in lock entry", () =>
+    it.effect("leaves the shared lock entry unchanged", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        const lockEntry = makeRegistryLockEntry({ agents: ["claude-code"] });
+        const lockEntry = makeRegistryLockEntry();
         const setCommandLockFn = vi.fn(
           (_args: { name: string; lockEntry: unknown }) => Effect.void,
         );
@@ -244,9 +222,7 @@ describe("disableCommand", () => {
           Effect.provide(withServices(axmDir, lockEntry, { setCommandLockFn })),
         );
 
-        expect(setCommandLockFn).toHaveBeenCalledOnce();
-        const updatedLockEntry = expectRecord(setCommandLockFn.mock.calls[0]?.[0]?.lockEntry);
-        expect(updatedLockEntry["agents"]).toEqual([]);
+        expect(setCommandLockFn).not.toHaveBeenCalled();
       }),
     );
   });

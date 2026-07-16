@@ -14,7 +14,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { configuredCommandsToDiskRefs } from "../extensions/materializable-from-disk.js";
@@ -27,17 +26,19 @@ import type {
 } from "./refs.js";
 import type { CommandLockEntry } from "../lockfile/index.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
-import type { ExtensionManager, CommandExtensionTarget } from "../workspace/service-interface.js";
+import type {
+  CommandExtensionTarget,
+  ExtensionManager,
+  MaterializationObservation,
+} from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   computeSourceHash,
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
-  RenderedFilesMapSchema,
   type SourceHash,
   materializeExternalPackage,
   materializeRegistryPackage,
-  validatePathSafety,
 } from "../extensions/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
@@ -47,8 +48,6 @@ import {
   readCommandContent,
   renderToAgents,
 } from "./operations/shared-command-helpers.js";
-
-const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -68,7 +67,6 @@ const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockE
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
-  agents: [],
   installedAt: now,
   updatedAt: now,
 });
@@ -78,7 +76,6 @@ const buildGitHostedCommandLockEntry = (ref: GitHostedCommandRef, now: Date): Co
   const source = ref.source;
   return {
     ...gitSourceLockFields(source, ref.gitTreeSha),
-    agents: [],
     installedAt: now,
     updatedAt: now,
   };
@@ -98,7 +95,6 @@ const buildLocalCommandLockEntry = (
 ): CommandLockEntry => ({
   type: "local",
   path: localSourceLockPath(ref, workspaceRelativeLocalSourcePath),
-  agents: [],
   installedAt: now,
   updatedAt: now,
 });
@@ -110,7 +106,6 @@ const buildWorkspaceCommandLockEntry = (ref: WorkspaceCommandRef, now: Date): Co
   name: ref.name,
   version: ref.version,
   sourceHash: ref.sourceHash,
-  agents: [],
   installedAt: now,
   updatedAt: now,
 });
@@ -171,9 +166,8 @@ export const CommandManagerLive = Layer.effect(
     const lastInstallState = new Map<
       string,
       {
-        readonly agents: ReadonlyArray<string>;
         readonly sourceHash: SourceHash;
-        readonly renderedFiles: NonNullable<CommandLockEntry["renderedFiles"]>;
+        readonly materialization: MaterializationObservation;
       }
     >();
 
@@ -284,31 +278,45 @@ export const CommandManagerLive = Layer.effect(
             force: false,
           }),
         );
+        const agentIdsByPath = new Map<string, Array<string>>();
+        for (const [agentId, files] of Object.entries(renderResult.rawRenderedFiles)) {
+          for (const file of files) {
+            const agentIds = agentIdsByPath.get(file.path) ?? [];
+            if (!agentIds.includes(agentId)) agentIds.push(agentId);
+            agentIdsByPath.set(file.path, agentIds);
+          }
+        }
         lastInstallState.set(ref.command.name, {
-          agents: renderResult.successfulAgents,
           sourceHash: computeSourceHash(body),
-          renderedFiles: decodeRenderedFilesMap(renderResult.rawRenderedFiles),
+          materialization: {
+            agents: [...renderResult.successfulAgents].sort(),
+            targets: Array.from(agentIdsByPath.entries())
+              .sort(([left], [right]) => left.localeCompare(right))
+              .map(([targetPath, agentIds]) => ({
+                path: targetPath,
+                agentIds: [...agentIds].sort(),
+              })),
+          },
         });
       }, Effect.asVoid);
 
     const materializeUninstall: ExtensionManager<CommandExtensionRef>["materializeUninstall"] =
       Effect.fn("CommandManager.materializeUninstall")(function* ({ target, preserveSource }) {
-        const lockEntry = yield* ws.getLockedCommand(target.name);
-        if (Option.isSome(lockEntry) && lockEntry.value.renderedFiles !== undefined) {
-          const renderedPaths = Object.values(lockEntry.value.renderedFiles).flatMap((files) =>
-            files.map((file) => file.path),
-          );
-          yield* Effect.forEach(
-            renderedPaths,
-            (renderedPath) =>
-              Effect.gen(function* () {
-                const absolutePath = path.resolve(baseDir, renderedPath);
-                yield* validatePathSafety(baseDir, absolutePath);
-                yield* fs.remove(absolutePath).pipe(Effect.catch(() => Effect.void));
+        const configuredAgents = yield* agentRepo
+          .getConfiguredAgents()
+          .pipe(Effect.provideService(WorkspaceMutations, ws));
+        yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            provide(
+              agent.removeCommand({
+                workspaceRoot: baseDir,
+                scope: "project",
+                commandName: target.name,
               }),
-            { concurrency: "unbounded" },
-          );
-        }
+            ).pipe(Effect.catch(() => Effect.void)),
+          { concurrency: "unbounded" },
+        );
 
         // Remove from registry extensions dirs
         const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
@@ -353,6 +361,10 @@ export const CommandManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      getLastMaterialization: ({ target }) =>
+        Effect.succeed(
+          lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
+        ),
       getConfiguredSource: Effect.fn("CommandManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.records.getConfiguredCommands();
         return Option.fromUndefinedOr(configured[target.name]?.source);
@@ -385,24 +397,22 @@ export const CommandManagerLive = Layer.effect(
         }
         const lockEntry = buildLockEntryFromRef(ref, now, workspaceRelativeLocalSourcePath);
         const state = lastInstallState.get(ref.command.name);
-        const lockEntryWithMaterialization =
+        const sharedLockEntry =
           state === undefined
             ? lockEntry
             : {
                 ...lockEntry,
-                agents: [...state.agents],
                 sourceHash: state.sourceHash,
-                renderedFiles: state.renderedFiles,
               };
-        if (lockEntryWithMaterialization.type === "registry") {
+        if (sharedLockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `commands.${ref.command.name}.resolvedVersion`,
-            lockEntryWithMaterialization.resolvedVersion,
+            sharedLockEntry.resolvedVersion,
           );
         }
         return yield* ws.setCommand({
           name: ref.command.name,
-          lockEntry: lockEntryWithMaterialization,
+          lockEntry: sharedLockEntry,
         });
       }),
 
@@ -429,24 +439,22 @@ export const CommandManagerLive = Layer.effect(
         }
         const lockEntry = buildLockEntryFromRef(ref, now, workspaceRelativeLocalSourcePath);
         const state = lastInstallState.get(ref.command.name);
-        const lockEntryWithMaterialization =
+        const sharedLockEntry =
           state === undefined
             ? lockEntry
             : {
                 ...lockEntry,
-                agents: [...state.agents],
                 sourceHash: state.sourceHash,
-                renderedFiles: state.renderedFiles,
               };
-        if (lockEntryWithMaterialization.type === "registry") {
+        if (sharedLockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `commands.${ref.command.name}.resolvedVersion`,
-            lockEntryWithMaterialization.resolvedVersion,
+            sharedLockEntry.resolvedVersion,
           );
         }
         return yield* ws.setCommandLock({
           name: ref.command.name,
-          lockEntry: lockEntryWithMaterialization,
+          lockEntry: sharedLockEntry,
         });
       }),
 

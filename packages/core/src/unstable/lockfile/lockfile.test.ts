@@ -11,12 +11,7 @@ import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 import YAML from "yaml";
-import {
-  LockfileSchema,
-  MaterializedFileTargetSchema,
-  type Lockfile,
-  type SkillLockEntry,
-} from "./schema.js";
+import { LockfileSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
 import {
   applyLockfileUpdates,
   commitLockfileSnapshotUpdate,
@@ -51,13 +46,10 @@ describe("lockfile", () => {
     type: "github",
     owner: "example-org",
     repo: "agent-skills",
-    agents: ["claude-code"],
     installedAt: new Date("2026-01-28T10:00:00.000Z"),
     updatedAt: new Date("2026-01-28T10:00:00.000Z"),
     ...overrides,
   });
-
-  const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
   describe("writeLockfile", () => {
     it.effect("creates directory if it does not exist", () =>
@@ -222,6 +214,30 @@ describe("lockfile", () => {
   });
 
   describe("batched updates", () => {
+    it.effect("rewrites a v2 lockfile to shared-only v3 on the next commit", () =>
+      withContext(
+        Effect.gen(function* () {
+          const base: Lockfile = {
+            lockfileVersion: 2,
+            skills: {
+              "pr-review": createTestEntry(),
+            },
+          };
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(axmDir, "axm-lock.yaml"),
+            YAML.stringify(Schema.encodeSync(LockfileSchema)(base)),
+          );
+
+          yield* commitLockfileUpdates(axmDir, base, []);
+
+          const migrated = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(migrated.lockfileVersion).toBe(3);
+          expect(migrated.skills["pr-review"]).not.toHaveProperty("agents");
+        }),
+      ),
+    );
+
     it("applies lockfile updates in order without writing", () => {
       const lockfile: Lockfile = {
         lockfileVersion: 2,
@@ -239,9 +255,7 @@ describe("lockfile", () => {
               path: "./files/baseline",
               installedAt: new Date("2026-01-28T10:00:00.000Z"),
               updatedAt: new Date("2026-01-28T10:00:00.000Z"),
-              materializedTargets: [
-                decodeMaterializedTarget({ target: "README.md", mode: "sync-always" }),
-              ],
+              resolvedInputs: {},
             },
           },
         }),
@@ -254,20 +268,14 @@ describe("lockfile", () => {
               ...current.files,
               baseline: {
                 ...baseline,
-                materializedTargets: [
-                  decodeMaterializedTarget({
-                    target: "README.md",
-                    mode: "sync-always",
-                    renderHash: "abc123",
-                  }),
-                ],
+                resolvedInputs: { projectName: "AgentXM" },
               },
             },
           };
         },
       ]);
 
-      expect(updated.files?.["baseline"]?.materializedTargets?.[0]?.renderHash).toBe("abc123");
+      expect(updated.files?.["baseline"]?.resolvedInputs).toEqual({ projectName: "AgentXM" });
       expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(false);
     });
 
@@ -290,20 +298,14 @@ describe("lockfile", () => {
                   path: "./files/baseline",
                   installedAt: new Date("2026-01-28T10:00:00.000Z"),
                   updatedAt: new Date("2026-01-28T10:00:00.000Z"),
-                  materializedTargets: [
-                    decodeMaterializedTarget({
-                      target: "README.md",
-                      mode: "managed-region",
-                      region: "toc",
-                    }),
-                  ],
+                  resolvedInputs: { projectName: "AgentXM" },
                 },
               },
             }),
           ]);
 
           const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
-          expect(result.files.baseline.materializedTargets[0].region).toBe("toc");
+          expect(result.files.baseline.resolvedInputs.projectName).toBe("AgentXM");
         }),
       ),
     );
@@ -341,6 +343,7 @@ describe("lockfile", () => {
           );
 
           const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(result.lockfileVersion).toBe(3);
           expect(Object.keys(result.skills).sort()).toEqual(["alpha", "beta"]);
           expect(tempNames()).toEqual([]);
         }),
@@ -445,7 +448,6 @@ describe("lockfile", () => {
             repo: "agent-skills",
             ref: "main",
             path: "skills/pr-review",
-            agents: ["claude-code", "cursor"],
             gitTreeHash: "abc123def456789012345678901234567890",
             installedAt: new Date("2026-01-28T10:00:00.000Z"),
             updatedAt: new Date("2026-01-28T12:30:00.000Z"),
@@ -469,7 +471,6 @@ describe("lockfile", () => {
             expect(prReview?.ref).toBe(entry.ref);
             expect(prReview?.path).toBe(entry.path);
           }
-          expect(prReview?.agents).toEqual(entry.agents);
           expect(prReview?.gitTreeHash).toBe(entry.gitTreeHash);
           expect(prReview?.installedAt).toBe(entry.installedAt.toISOString());
           expect(prReview?.updatedAt).toBe(entry.updatedAt.toISOString());

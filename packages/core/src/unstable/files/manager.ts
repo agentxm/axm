@@ -23,8 +23,12 @@ import {
   materializeRegistryPackage,
 } from "../extensions/index.js";
 import { computeSourceHash } from "../extensions/rendered-files.js";
-import type { FilesLockEntry, MaterializedFileTarget } from "../lockfile/index.js";
-import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
+import type { FilesLockEntry } from "../lockfile/index.js";
+import {
+  MaterializedFileTargetSchema,
+  validateExactResolvedVersion,
+  type MaterializedFileTarget,
+} from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import {
@@ -67,7 +71,6 @@ const registryFilesLockEntry = (
   ref: RegistryFilesRef,
   now: Date,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
 ): FilesLockEntry => ({
   type: "registry",
   owner: ref.owner,
@@ -77,7 +80,6 @@ const registryFilesLockEntry = (
   sourceName: "default",
   ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
   resolvedInputs,
-  materializedTargets,
   ...commonLockFields(now),
 });
 
@@ -85,11 +87,9 @@ const gitFilesLockEntry = (
   ref: GitHostedFilesRef,
   now: Date,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
 ): FilesLockEntry => {
   const common = {
     resolvedInputs,
-    materializedTargets,
     ...commonLockFields(now),
   };
 
@@ -103,13 +103,11 @@ const localFilesLockEntry = (
   ref: LocalFilesRef,
   now: Date,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ): FilesLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   resolvedInputs,
-  materializedTargets,
   ...commonLockFields(now),
 });
 
@@ -117,7 +115,6 @@ const workspaceFilesLockEntry = (
   ref: WorkspaceFilesRef,
   now: Date,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
 ): FilesLockEntry => ({
   type: "workspace",
   owner: ref.owner,
@@ -126,7 +123,6 @@ const workspaceFilesLockEntry = (
   version: ref.version,
   sourceHash: ref.sourceHash,
   resolvedInputs,
-  materializedTargets,
   ...commonLockFields(now),
 });
 
@@ -382,13 +378,6 @@ export const FilesManagerLive = Layer.effect(
       const resolvedInputs = { ...defaultInputs(manifest), ...(entry?.inputs ?? {}) };
       const vars = yield* ws.getWorkspaceVars();
       const templateFiles = { inputs: resolvedInputs, vars, workspace: { root: baseDir } };
-      const previous = yield* ws.getLockedFilesEntry(ref.file.name);
-      const previousTargets = new Map(
-        (Option.isSome(previous) ? (previous.value.materializedTargets ?? []) : []).map(
-          (target) => [`${target.target}:${target.mode}:${target.region ?? ""}`, target],
-        ),
-      );
-
       const materializedTargets = yield* Effect.forEach(
         manifest.contents,
         (contentEntry) =>
@@ -408,9 +397,6 @@ export const FilesManagerLive = Layer.effect(
                   workspaceRoot: baseDir,
                   entry: contentEntry,
                   templateFiles,
-                  previousTarget: previousTargets.get(
-                    `${contentEntry.target}:${contentEntry.mode}:`,
-                  ),
                 }),
               ).pipe(Effect.map((result) => result.target)),
         { concurrency: 1 },
@@ -438,29 +424,23 @@ export const FilesManagerLive = Layer.effect(
     const buildLockEntry = (ref: FilesExtensionRef): Effect.Effect<FilesLockEntry, never> => {
       const state = lastInstallState.get(ref.file.name);
       const resolvedInputs = state?.resolvedInputs ?? {};
-      const materializedTargets = state?.materializedTargets ?? [];
       const now = new Date();
       switch (ref.refType) {
         case "registry":
-          return Effect.succeed(
-            registryFilesLockEntry(ref, now, resolvedInputs, materializedTargets),
-          );
+          return Effect.succeed(registryFilesLockEntry(ref, now, resolvedInputs));
         case "git-hosted":
-          return Effect.succeed(gitFilesLockEntry(ref, now, resolvedInputs, materializedTargets));
+          return Effect.succeed(gitFilesLockEntry(ref, now, resolvedInputs));
         case "local":
           return Effect.succeed(
             localFilesLockEntry(
               ref,
               now,
               resolvedInputs,
-              materializedTargets,
               state?.workspaceRelativeLocalSourcePath ?? Option.none(),
             ),
           );
         case "workspace":
-          return Effect.succeed(
-            workspaceFilesLockEntry(ref, now, resolvedInputs, materializedTargets),
-          );
+          return Effect.succeed(workspaceFilesLockEntry(ref, now, resolvedInputs));
       }
     };
 
@@ -468,38 +448,44 @@ export const FilesManagerLive = Layer.effect(
       Effect.fn("FilesManager.materializeUninstall")(function* ({ target, preserveSource }) {
         const locked = yield* ws.getLockedFilesEntry(target.name);
         if (Option.isNone(locked)) return;
+        const packageRoot =
+          locked.value.type === "registry" || locked.value.type === "workspace"
+            ? path.join(
+                baseDir,
+                REGISTRY_EXTENSIONS_DIR,
+                locked.value.owner,
+                FILES_EXTENSION_DIR,
+                locked.value.name,
+              )
+            : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, FILES_EXTENSION_DIR, target.name);
+        const manifest = yield* readManifest(packageRoot).pipe(Effect.option);
         const markerExt = yield* markerExtForLockedTarget(target.name, locked.value);
-        for (const materializedTarget of locked.value.materializedTargets ?? []) {
-          if (materializedTarget.mode === "sync-once") continue;
-          const absoluteTarget = path.resolve(baseDir, materializedTarget.target);
-          if (materializedTarget.mode === "sync-always") {
+        for (const contentEntry of Option.match(manifest, {
+          onNone: () => [],
+          onSome: (value) => value.contents,
+        })) {
+          if (contentEntry.mode === "sync-once") continue;
+          const relativeTarget = makeWorkspaceRelativePath(path, baseDir, contentEntry.target);
+          if (Option.isNone(relativeTarget)) continue;
+          const absoluteTarget = path.resolve(baseDir, relativeTarget.value);
+          if (contentEntry.mode === "sync-always") {
             yield* fs.remove(absoluteTarget).pipe(Effect.catch(() => Effect.void));
             continue;
           }
-          if (materializedTarget.region === undefined) continue;
-          const style = commentStyleForTarget(materializedTarget.target);
+          if (!("region" in contentEntry)) continue;
+          const style = commentStyleForTarget(contentEntry.target);
           if (Option.isNone(style)) continue;
           const existing = yield* fs
             .readFileString(absoluteTarget)
             .pipe(Effect.catch(() => Effect.succeed("")));
           const updated = stripManagedRegion(
             existing,
-            { region: materializedTarget.region, ext: markerExt },
+            { region: contentEntry.region, ext: markerExt },
             style.value,
           );
           yield* fs.writeFileString(absoluteTarget, updated).pipe(Effect.catch(() => Effect.void));
         }
         if (preserveSource !== true) {
-          const packageRoot =
-            locked.value.type === "registry" || locked.value.type === "workspace"
-              ? path.join(
-                  baseDir,
-                  REGISTRY_EXTENSIONS_DIR,
-                  locked.value.owner,
-                  FILES_EXTENSION_DIR,
-                  locked.value.name,
-                )
-              : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, FILES_EXTENSION_DIR, target.name);
           yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
         }
       }, Effect.asVoid);
@@ -513,6 +499,13 @@ export const FilesManagerLive = Layer.effect(
         ),
 
       materializeInstall,
+      getLastMaterialization: ({ target }) =>
+        Effect.succeed({
+          agents: [],
+          targets: (lastInstallState.get(target.name)?.materializedTargets ?? []).map(
+            (materializedTarget) => ({ path: materializedTarget.target }),
+          ),
+        }),
       getConfiguredSource: Effect.fn("FilesManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredFilesEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);

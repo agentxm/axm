@@ -82,24 +82,6 @@ export const makeReadModelRecordReaders = (args: {
   const isIgnoredName = (patterns: ReadonlyArray<string>, name: string): boolean =>
     patterns.some((pattern) => expandGlob(pattern, [name]).length > 0);
 
-  const stringArrayProperty = (
-    value: unknown,
-    property: "agents" | "syncedAgents",
-  ): ReadonlyArray<string> => {
-    if (typeof value !== "object" || value === null) return [];
-    const candidate =
-      property === "agents"
-        ? "agents" in value
-          ? value.agents
-          : undefined
-        : "syncedAgents" in value
-          ? value.syncedAgents
-          : undefined;
-    return Array.isArray(candidate)
-      ? candidate.filter((item): item is string => typeof item === "string")
-      : [];
-  };
-
   const stringProperty = (
     value: unknown,
     property: "_tag" | "agentId" | "contentRoot" | "configFile",
@@ -147,18 +129,6 @@ export const makeReadModelRecordReaders = (args: {
     paths: actuals.flatMap((actual) => observationFromActual(actual).paths),
   });
 
-  const agentsFromResolved = (resolved: Option.Option<unknown>): ReadonlyArray<string> =>
-    Option.match(resolved, {
-      onNone: () => [],
-      onSome: (row) => {
-        if (typeof row !== "object" || row === null || !("lockEntry" in row)) return [];
-        return [
-          ...stringArrayProperty(row.lockEntry, "agents"),
-          ...stringArrayProperty(row.lockEntry, "syncedAgents"),
-        ];
-      },
-    });
-
   const lifecycleCandidateFromInstalled = (
     row: {
       readonly key: ExtensionKey;
@@ -170,7 +140,7 @@ export const makeReadModelRecordReaders = (args: {
     defaultAgents: ReadonlyArray<string>,
   ): LifecycleInventoryCandidate => {
     const observations = mergeObservations(row.actual);
-    const observedAgents = [...agentsFromResolved(row.resolved), ...observations.agents];
+    const observedAgents = observations.agents;
     return {
       key: row.key,
       lifecycle: row.installationOrigin._tag === "direct" ? "configured" : "implicit",
@@ -208,17 +178,11 @@ export const makeReadModelRecordReaders = (args: {
     };
   };
 
-  const implicitCandidate = (
-    key: ExtensionKey,
-    lockEntry: unknown,
-  ): LifecycleInventoryCandidate => ({
+  const implicitCandidate = (key: ExtensionKey): LifecycleInventoryCandidate => ({
     key,
     lifecycle: "implicit",
     activation: "enabled",
-    agents: [
-      ...stringArrayProperty(lockEntry, "agents"),
-      ...stringArrayProperty(lockEntry, "syncedAgents"),
-    ],
+    agents: [],
   });
 
   const ignoredPatternsFor = (
@@ -264,14 +228,10 @@ export const makeReadModelRecordReaders = (args: {
     const implicit = [
       ...Object.entries(input.locked)
         .filter(([name]) => !configuredNames.has(name))
-        .map(([name, entry]) =>
-          implicitCandidate({ scope: input.scope, type: input.type, name }, entry),
-        ),
+        .map(([name]) => implicitCandidate({ scope: input.scope, type: input.type, name })),
       ...input.packMembers
         .filter((name) => !configuredNames.has(name) && !lockedNames.has(name))
-        .map((name) =>
-          implicitCandidate({ scope: input.scope, type: input.type, name }, undefined),
-        ),
+        .map((name) => implicitCandidate({ scope: input.scope, type: input.type, name })),
     ];
     const actual = input.actual.flatMap((observation) => {
       if (typeof observation !== "object" || observation === null || !("key" in observation)) {
@@ -651,9 +611,7 @@ export const makeReadModelRecordReaders = (args: {
     const ignoredPatterns = new Set(input.ignoredPatterns);
     const resolved = input.resolved
       .filter((row) => !claimed.has(row.name) && !isIgnoredName(input.ignoredPatterns, row.name))
-      .map((row) =>
-        implicitCandidate({ scope: input.scope, type: input.type, name: row.name }, row.lockEntry),
-      );
+      .map((row) => implicitCandidate({ scope: input.scope, type: input.type, name: row.name }));
     return projectExtensionInventory({
       lifecycle: [
         ...input.installed.map((row) =>

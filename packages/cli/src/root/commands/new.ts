@@ -183,6 +183,12 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
             suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
           });
         }
+        const materialization =
+          manager.getLastMaterialization === undefined
+            ? { agents: [], targets: [] }
+            : yield* manager.getLastMaterialization({
+                target: { type: "command", name: args.name },
+              });
 
         return commandInstallArtifact({
           lockEntry: currentLockEntry.value,
@@ -193,6 +199,8 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
           scope: ws.scope,
           workspaceRoot: ws.baseDir,
           pathService: path,
+          agents: materialization.agents,
+          materializedTargets: materialization.targets,
         });
       }),
   });

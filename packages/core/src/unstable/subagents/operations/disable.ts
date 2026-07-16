@@ -21,6 +21,12 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { SubagentLockEntry } from "../../lockfile/index.js";
 import { subagentLifecycleArtifact } from "./artifact.js";
+import { findManagedSubagentFiles } from "../../workspace/rendered-file-cleanup.js";
+import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
+import { RenderedFilePathSchema } from "../../extensions/index.js";
+
+const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -89,6 +95,12 @@ export const disableSubagent: OperationHandler<
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const fsPathLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
 
     // Read lifecycle to determine promotion needs
     const installedSubagents = yield* ws.records.getInstalledSubagents();
@@ -108,24 +120,38 @@ export const disableSubagent: OperationHandler<
     const lockEntry = Option.getOrUndefined(lockEntryOption);
     const hasLockEntry = lockEntry !== undefined;
 
+    const renderedFiles: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
+    const configuredAgents = hasLockEntry ? yield* agentRepo.getConfiguredAgents() : [];
+
     // Lock-backed file operations (when lock entry exists)
     if (hasLockEntry) {
-      const renderedFiles = lockEntry.renderedFiles ?? {};
-
       // Remove rendered files via CodingAgent.removeSubagent()
-      const configuredAgents = yield* agentRepo.getConfiguredAgents();
-
       yield* Effect.forEach(
         configuredAgents,
-        (agent) => {
-          const agentFiles = renderedFiles[agent.id] ?? [];
-          return agent.removeSubagent({
-            workspaceRoot: ws.baseDir,
-            scope: "project",
-            subagentName: op.args.subagentName,
-            renderedFilePaths: agentFiles.map((f) => f.path),
-          });
-        },
+        (agent) =>
+          agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
+            Effect.provide(fsPathLayer),
+            Effect.flatMap((resolved) =>
+              resolved._tag === "supported"
+                ? findManagedSubagentFiles(resolved.dir).pipe(
+                    Effect.provide(fsPathLayer),
+                    Effect.flatMap((managedPaths) => {
+                      renderedFiles[agent.id] = managedPaths.map((filePath) => ({
+                        path: path.relative(ws.baseDir, filePath),
+                      }));
+                      return agent.removeSubagent({
+                        workspaceRoot: ws.baseDir,
+                        scope: "project",
+                        subagentName: op.args.subagentName,
+                        renderedFilePaths: managedPaths.map((filePath) =>
+                          decodeRenderedFilePath(filePath),
+                        ),
+                      });
+                    }),
+                  )
+                : Effect.void,
+            ),
+          ),
         { concurrency: "unbounded" },
       );
     }
@@ -162,10 +188,12 @@ export const disableSubagent: OperationHandler<
       artifact: subagentLifecycleArtifact({
         name: op.args.subagentName,
         scope: ws.scope,
-        ...(hasLockEntry ? { agents: lockEntry.agents } : {}),
+        ...(configuredAgents.length === 0
+          ? {}
+          : { agents: configuredAgents.map((agent) => agent.id) }),
         ...(version === undefined ? {} : { version }),
         change: "updated",
-        ...(hasLockEntry ? { renderedFiles: lockEntry.renderedFiles ?? {} } : {}),
+        ...(hasLockEntry ? { renderedFiles } : {}),
         renderedChange: "removed",
       }),
     } satisfies JobStepResult;

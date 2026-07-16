@@ -159,6 +159,7 @@ describe("commands enable.handler", () => {
             agents: ["claude-code", "cursor"],
           },
         },
+        ["claude-code", "cursor"],
       );
 
       // Create canonical command directory so the enable operation can read command files
@@ -180,7 +181,8 @@ describe("commands enable.handler", () => {
           const allMessages = [...logs.info, ...logs.message];
           expect(
             allMessages.some(
-              (m) => m.includes("Would re-render to agents") || m.includes("Would render"),
+              (m) =>
+                m.includes("Would re-render to configured agents") || m.includes("Would render"),
             ),
           ).toBe(true);
         }),

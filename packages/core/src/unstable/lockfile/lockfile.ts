@@ -17,7 +17,7 @@ import type { PlatformError } from "effect/PlatformError";
 import YAML from "yaml";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { type Lockfile, LockfileSchema } from "./schema.js";
+import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -172,7 +172,7 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
   const libraries = patchOptionalMap(fresh.libraries, base.libraries, next.libraries);
 
   return {
-    lockfileVersion: next.lockfileVersion,
+    lockfileVersion: LOCKFILE_VERSION,
     skills: patchRequiredMap(fresh.skills, base.skills, next.skills),
     ...(commands !== undefined ? { commands } : {}),
     ...(subagents !== undefined ? { subagents } : {}),
@@ -221,7 +221,7 @@ const readLockfileIfPresent = (
           cause: error,
         }),
     });
-    return yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed).pipe(
+    const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
@@ -230,6 +230,13 @@ const readLockfileIfPresent = (
         }),
       ),
     );
+    // v2 remains read-compatible. The v3 schema drops its agent-local and
+    // render-derived fields during decoding, then a subsequent write performs
+    // the one-time shared-only migration.
+    return {
+      ...decoded,
+      lockfileVersion: LOCKFILE_VERSION,
+    } satisfies Lockfile;
   });
 
 const lockIsStale = (lockPath: string) =>

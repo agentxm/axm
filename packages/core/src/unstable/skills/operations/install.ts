@@ -64,7 +64,6 @@ import { computeSkillSourceHash } from "./source-hash.js";
 import {
   capabilityRenderTargetForAgentId,
   materializeCapabilityTargetedBuild,
-  type CapabilityRenderInput,
 } from "../../capability-targeting/index.js";
 
 // -----------------------------------------------------------------------------
@@ -715,7 +714,6 @@ export const installSkill: OperationHandler<
     const configuredAgents = yield* agentRepo
       .getMaterializationAgents()
       .pipe(Effect.provideService(WorkspaceMutations, ws));
-    const agents = configuredAgents.map((agent) => agent.id);
     const unknownConfiguredAgentIds = yield* agentRepo
       .getUnknownConfiguredAgentIds()
       .pipe(Effect.provideService(WorkspaceMutations, ws));
@@ -836,19 +834,13 @@ export const installSkill: OperationHandler<
     });
     // ── Shared: compute rendered files tracking for copy-mode ──────
     const hasCopyResults = agentResults.some((r) => r.mode === "copy" && r.success);
-    const renderedFiles = hasCopyResults
-      ? buildRenderedFilesFromResults(installableTargets, agentResults, (targetPath) =>
-          path.relative(ws.baseDir, targetPath),
-        )
-      : undefined;
-    const renderInputs: Record<string, CapabilityRenderInput> = {};
-    const degradedRenders: Record<string, ReadonlyArray<string>> = {};
+    const hasRenderInputs = perDirectoryResults.some(
+      ({ build }) => build.renderInput !== undefined,
+    );
     const renderWarnings: Array<string> = [];
     for (const { build, targetAgentId } of perDirectoryResults) {
-      if (build.renderInput !== undefined) renderInputs[targetAgentId] = build.renderInput;
       if (build.degraded) {
         const codes = Array.dedupe(build.findings.map((item) => item.code));
-        degradedRenders[targetAgentId] = codes;
         renderWarnings.push(
           `Capability targeting for ${targetAgentId} used verbatim fallback: ${codes.join(", ")}`,
         );
@@ -858,7 +850,6 @@ export const installSkill: OperationHandler<
         renderWarnings.push(...drift.map((item) => item.message));
       }
     }
-    const hasRenderInputs = Object.keys(renderInputs).length > 0;
     const sourceHash =
       hasCopyResults || hasRenderInputs
         ? yield* computeSkillSourceHash(materialized.skillSrcPath)
@@ -877,7 +868,6 @@ export const installSkill: OperationHandler<
     }
     const baseLockEntry = sourceToLockEntry({
       ref,
-      agents,
       now: new Date(),
       sourceName: op.args.sourceName,
       existingInstalledAt: op.args.existingInstalledAt,
@@ -886,9 +876,6 @@ export const installSkill: OperationHandler<
     const lockEntry = {
       ...baseLockEntry,
       ...(sourceHash !== undefined ? { sourceHash } : {}),
-      ...(renderedFiles !== undefined ? { renderedFiles } : {}),
-      ...(hasRenderInputs ? { renderInputs } : {}),
-      ...(Object.keys(degradedRenders).length > 0 ? { degradedRenders } : {}),
     };
 
     if (lockEntry.type === "registry") {

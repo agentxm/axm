@@ -53,7 +53,6 @@ export interface MaterializeFileEntryArgs {
   readonly workspaceRoot: string;
   readonly entry: FileContentsEntry;
   readonly templateFiles: FileTemplateFiles;
-  readonly previousTarget?: MaterializedFileTarget | undefined;
 }
 
 export interface MaterializeFileEntryResult {
@@ -422,7 +421,6 @@ export const materializeFileEntry = ({
   workspaceRoot,
   entry,
   templateFiles,
-  previousTarget,
 }: MaterializeFileEntryArgs): Effect.Effect<
   MaterializeFileEntryResult,
   AppError,
@@ -455,13 +453,11 @@ export const materializeFileEntry = ({
       };
     }
 
-    if (
-      entry.mode === "sync-always" &&
-      exists &&
-      previousTarget?.renderHash !== undefined &&
-      previousTarget.renderHash === renderHash
-    ) {
-      return { target, written: false, reason: "unchanged" };
+    if (entry.mode === "sync-always" && exists) {
+      const existing = yield* fs.readFileString(targetPath.absolute).pipe(Effect.option);
+      if (Option.isSome(existing) && existing.value === content) {
+        return { target, written: false, reason: "unchanged" };
+      }
     }
 
     yield* writeTarget(targetPath.absolute, content);

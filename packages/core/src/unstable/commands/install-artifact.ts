@@ -1,6 +1,10 @@
 import * as Option from "effect/Option";
 import type { Path } from "effect/Path";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import {
+  EXTERNAL_EXTENSIONS_DIR,
+  REGISTRY_EXTENSIONS_DIR,
+  type RenderedFilesMap,
+} from "../extensions/index.js";
 import type { CommandLockEntry } from "../lockfile/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../plan/plan.js";
 
@@ -15,7 +19,7 @@ const commandVersion = (
       : Option.getOrUndefined(versionRange);
 
 const renderedFileTargets = (
-  renderedFiles: CommandLockEntry["renderedFiles"],
+  renderedFiles: RenderedFilesMap | undefined,
   change: JobStepArtifact["change"],
 ): ReadonlyArray<JobStepArtifactTarget> => {
   if (renderedFiles === undefined) return [];
@@ -40,21 +44,6 @@ const renderedFileTargets = (
     }));
 };
 
-const renderedFilesEqual = (
-  left: CommandLockEntry["renderedFiles"],
-  right: CommandLockEntry["renderedFiles"],
-): boolean => {
-  const leftTargets = renderedFileTargets(left, "unchanged").map((target) => ({
-    path: target.path,
-    agentIds: target.agentIds ?? [],
-  }));
-  const rightTargets = renderedFileTargets(right, "unchanged").map((target) => ({
-    path: target.path,
-    agentIds: target.agentIds ?? [],
-  }));
-  return JSON.stringify(leftTargets) === JSON.stringify(rightTargets);
-};
-
 const sourceHashOf = (entry: CommandLockEntry): string | undefined =>
   "sourceHash" in entry ? entry.sourceHash : undefined;
 
@@ -64,9 +53,7 @@ const commandArtifactChange = (
 ): JobStepArtifact["change"] => {
   if (Option.isNone(previous)) return "created";
   const previousEntry = previous.value;
-  const sameSource = sourceHashOf(previousEntry) === sourceHashOf(current);
-  const sameTargets = renderedFilesEqual(previousEntry.renderedFiles, current.renderedFiles);
-  return sameSource && sameTargets ? "unchanged" : "updated";
+  return sourceHashOf(previousEntry) === sourceHashOf(current) ? "unchanged" : "updated";
 };
 
 export const commandInstallArtifact = (args: {
@@ -78,9 +65,17 @@ export const commandInstallArtifact = (args: {
   readonly scope: JobStepArtifact["scope"];
   readonly workspaceRoot: string;
   readonly pathService: Path;
+  readonly agents?: ReadonlyArray<string>;
+  readonly renderedFiles?: RenderedFilesMap;
+  readonly materializedTargets?: ReadonlyArray<{
+    readonly path: string;
+    readonly agentIds?: ReadonlyArray<string>;
+  }>;
 }): JobStepArtifact => {
   const change = commandArtifactChange(args.previousLockEntry, args.lockEntry);
-  const targets = renderedFileTargets(args.lockEntry.renderedFiles, change);
+  const targets =
+    args.materializedTargets?.map((target) => ({ ...target, change })) ??
+    renderedFileTargets(args.renderedFiles, change);
   const firstTarget = targets[0];
   const version = commandVersion(args.lockEntry, args.versionRange);
   const canonicalRelativePath =
@@ -91,7 +86,7 @@ export const commandInstallArtifact = (args: {
   return {
     path: firstTarget?.path ?? canonicalRelativePath,
     scope: args.scope,
-    ...(args.lockEntry.agents.length === 0 ? {} : { agents: args.lockEntry.agents }),
+    ...(args.agents === undefined || args.agents.length === 0 ? {} : { agents: args.agents }),
     ...(version === undefined ? {} : { version }),
     change,
     ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
@@ -117,12 +112,10 @@ export const commandUninstallArtifact = (args: {
     lockEntry.type === "registry" || lockEntry.type === "workspace"
       ? `${REGISTRY_EXTENSIONS_DIR}/${lockEntry.owner}/commands/${lockEntry.name}`
       : `${EXTERNAL_EXTENSIONS_DIR}/commands/${args.commandName}`;
-  const renderedTargets = renderedFileTargets(lockEntry.renderedFiles, args.change);
   const targets: ReadonlyArray<JobStepArtifactTarget> = [
     { path: ".axm/axm-lock.yaml", change: "updated" },
     { path: ".axm/settings.json", change: "updated" },
     { path: sourcePath, change: args.change },
-    ...renderedTargets,
   ];
   const firstTarget = targets[0];
   const version = commandVersion(lockEntry, Option.none());
@@ -130,7 +123,6 @@ export const commandUninstallArtifact = (args: {
   return {
     path: firstTarget?.path ?? args.commandName,
     scope: args.scope,
-    ...(lockEntry.agents.length === 0 ? {} : { agents: lockEntry.agents }),
     ...(version === undefined ? {} : { version }),
     change: args.change,
     ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),

@@ -28,14 +28,10 @@ const filesLockEntryVersion = (entry: FilesLockEntry): string | undefined =>
       ? entry.version
       : undefined;
 
-const filesEnableArtifactTargets = (entry: FilesLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
+const filesEnableArtifactTargets = (_entry: FilesLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
   mergeTargets([
     { path: ".axm/settings.json", change: "updated" },
     { path: ".axm/axm-lock.yaml", change: "updated" },
-    ...(entry.materializedTargets ?? []).map((target) => ({
-      path: target.target,
-      change: target.mode === "sync-once" ? ("unchanged" as const) : ("updated" as const),
-    })),
   ]);
 
 const mergeTargets = (

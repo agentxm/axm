@@ -42,10 +42,6 @@ const hookEnableArtifactTargets = (args: {
     { path: ".axm/settings.json", change: "updated" as const },
     { path: ".axm/axm-lock.yaml", change: "updated" as const },
     { path: hookPackagePath(args.entry, args.name), change: "created" as const },
-    ...[...(args.entry.materializedTargets ?? [])].map((target) => ({
-      path: target.target,
-      change: "updated" as const,
-    })),
   ].sort((left, right) => left.path.localeCompare(right.path));
 
 const hookEnableArtifact = (args: {

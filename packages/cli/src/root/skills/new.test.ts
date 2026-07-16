@@ -161,9 +161,9 @@ describe("skills-new.handler", () => {
             extensionType: "skill",
             name: "my-skill",
             version: "0.0.1",
-            agents: ["universal", "claude-code"],
             sourceHash: expect.any(String),
           });
+          expect(lockfile.skills["my-skill"]).not.toHaveProperty("agents");
 
           // Verify symlink
           const symlinkPath = path.join(tempDir, ".claude", "skills", "my-skill");
@@ -440,7 +440,7 @@ describe("skills-new.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         owner: "@acme",
-        agents: ["claude-code", "cursor"],
+        agents: ["amp", "claude-code", "cursor"],
       });
 
       return provide(
@@ -448,10 +448,13 @@ describe("skills-new.handler", () => {
           yield* handleSkillsNew(defaultArgs("my-skill"));
 
           const claudeLink = path.join(tempDir, ".claude", "skills", "my-skill");
+          const universalLink = path.join(tempDir, ".agents", "skills", "my-skill");
           const cursorLink = path.join(tempDir, ".cursor", "skills", "my-skill");
 
           expect(fs.existsSync(claudeLink)).toBe(true);
           expect(fs.lstatSync(claudeLink).isSymbolicLink()).toBe(true);
+          expect(fs.existsSync(universalLink)).toBe(true);
+          expect(fs.lstatSync(universalLink).isSymbolicLink()).toBe(true);
           expect(fs.existsSync(cursorLink)).toBe(true);
           expect(fs.lstatSync(cursorLink).isSymbolicLink()).toBe(true);
         }),
@@ -462,7 +465,7 @@ describe("skills-new.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         owner: "@acme",
-        agents: ["claude-code", "cursor"],
+        agents: ["amp", "claude-code", "cursor"],
       });
 
       return provide(
@@ -470,16 +473,18 @@ describe("skills-new.handler", () => {
           yield* handleSkillsNew(defaultArgs("my-skill", { agents: Option.some(["claude-code"]) }));
 
           const claudeLink = path.join(tempDir, ".claude", "skills", "my-skill");
+          const universalLink = path.join(tempDir, ".agents", "skills", "my-skill");
           const cursorLink = path.join(tempDir, ".cursor", "skills", "my-skill");
 
           expect(fs.existsSync(claudeLink)).toBe(true);
           expect(fs.lstatSync(claudeLink).isSymbolicLink()).toBe(true);
+          expect(fs.existsSync(universalLink)).toBe(false);
           expect(fs.existsSync(cursorLink)).toBe(false);
 
           const lockfile = YAML.parse(
             fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
           );
-          expect(lockfile.skills["my-skill"].agents).toEqual(["claude-code"]);
+          expect(lockfile.skills["my-skill"]).not.toHaveProperty("agents");
         }),
       );
     });

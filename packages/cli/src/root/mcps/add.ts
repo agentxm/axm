@@ -174,7 +174,6 @@ const makeInlineLockEntry = (
         args: commandParts.slice(1),
         installedAt: now,
         updatedAt: now,
-        syncedAgents: [],
       } satisfies McpServerLockEntry;
     }
     if (Option.isSome(args.url)) {
@@ -184,7 +183,6 @@ const makeInlineLockEntry = (
         headers,
         installedAt: now,
         updatedAt: now,
-        syncedAgents: [],
       } satisfies McpServerLockEntry;
     }
     return yield* makeAppError({

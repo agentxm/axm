@@ -163,7 +163,6 @@ export const subagentReconciliationAdapter: ReconciliationAdapter = {
             resolvedVersion: manifest.version,
             integrity: "",
             sourceName: "default",
-            agents: context.agents,
             installedAt: timestamp,
             updatedAt: timestamp,
           },

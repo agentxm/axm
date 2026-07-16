@@ -8,9 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import * as Schema from "effect/Schema";
 import type { PackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
-import { RenderedFilePathSchema } from "../../extensions/index.js";
 import { AppError, makeAppError } from "../../app-error/index.js";
 import {
   WorkspaceMutations,
@@ -31,7 +29,14 @@ import { uninstallSkill } from "./uninstall.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
+const legacyConfiguredAgents = (entries: Record<string, SkillLockEntry>): ReadonlyArray<string> => [
+  ...new Set(
+    Object.values(entries).flatMap((entry) => {
+      if (!("agents" in entry) || !Array.isArray(entry.agents)) return [];
+      return entry.agents.filter((agent): agent is string => typeof agent === "string");
+    }),
+  ),
+];
 
 /** Creates a workspace mock backed by in-memory skills + on-disk YAML. */
 const makeWorkspaceMock = (
@@ -72,7 +77,7 @@ const makeWorkspaceMock = (
   return makeBaseWorkspaceMock(axmDir, {
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
-    getConfiguredAgents: () => Effect.succeed([]),
+    getConfiguredAgents: () => Effect.succeed(legacyConfiguredAgents(lockfileSkills)),
     getLockedSkills: () =>
       lockfileErrorOverride !== undefined ? lockfileErrorOverride() : Effect.succeed(skills),
     getLockedSkill: (name: string) =>
@@ -412,7 +417,7 @@ describe("uninstallSkill", () => {
   });
 
   describe("partial uninstall with remaining agents", () => {
-    it.effect("removes specified agent symlinks and updates lockfile agents", () =>
+    it.effect("removes specified agent symlinks without rewriting the shared lock", () =>
       Effect.gen(function* () {
         const { axmDir, base, lockfileSkills } = setupWorkspace({
           agents: ["claude-code", "cursor"],
@@ -436,10 +441,10 @@ describe("uninstallSkill", () => {
           fs.existsSync(path.join(base, ".axm", "extensions", "external", "skills", "my-skill")),
         ).toBe(true);
 
-        // Lockfile should still have entry but without claude-code
+        // Partial materialization changes do not rewrite shared resolution state.
         const lockfile = readLockfileYaml(axmDir);
         expect(lockfile.skills["my-skill"]).toBeDefined();
-        expect(lockfile.skills["my-skill"].agents).toEqual(["cursor"]);
+        expect(lockfile.skills["my-skill"].agents).toEqual(["claude-code", "cursor"]);
       }),
     );
 
@@ -476,13 +481,13 @@ describe("uninstallSkill", () => {
         expect(fs.lstatSync(sharedSkillPath).isSymbolicLink()).toBe(true);
 
         const lockfile = readLockfileYaml(axmDir);
-        expect(lockfile.skills["my-skill"].agents).toEqual(["codex", "claude-code"]);
+        expect(lockfile.skills["my-skill"].agents).toEqual(agents);
       }),
     );
   });
 
-  describe("partial uninstall leaving no agents", () => {
-    it.effect("promotes to full uninstall when no agents remain", () =>
+  describe("partial uninstall of every configured agent", () => {
+    it.effect("preserves shared resolution state and canonical source", () =>
       Effect.gen(function* () {
         const { axmDir, base, canonicalPath, lockfileSkills } = setupWorkspace({
           agents: ["claude-code"],
@@ -494,17 +499,16 @@ describe("uninstallSkill", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled my-skill");
+        expect(result.message).toBe("Uninstalled my-skill from claude-code");
 
-        // Should do a full uninstall: canonical dir removed
-        expect(fs.existsSync(canonicalPath)).toBe(false);
+        expect(fs.existsSync(canonicalPath)).toBe(true);
 
         // Agent symlink removed
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
 
-        // Lockfile entry removed
+        // Shared resolution state is removed only by a full uninstall.
         const lockfile = readLockfileYaml(axmDir);
-        expect(lockfile.skills["my-skill"]).toBeUndefined();
+        expect(lockfile.skills["my-skill"]).toBeDefined();
       }),
     );
   });
@@ -622,8 +626,8 @@ describe("uninstallSkill", () => {
     );
   });
 
-  describe("lockfile write error propagation", () => {
-    it.effect("propagates setSkill failure during partial uninstall", () =>
+  describe("partial uninstall lockfile isolation", () => {
+    it.effect("does not invoke the shared lock writer", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace({
           agents: ["claude-code", "cursor"],
@@ -642,11 +646,9 @@ describe("uninstallSkill", () => {
               setSkillErrorOverride: () => Effect.fail(writeError),
             }),
           ),
-          Effect.flip,
         );
 
-        const error = getAppError(result);
-        expect(error.detail).toContain("Failed to update lockfile");
+        expect(result.result).toBe("success");
       }),
     );
 
@@ -1029,7 +1031,7 @@ describe("uninstallSkill", () => {
         // Lockfile should still have entry but without claude-code
         const lockfile = readLockfileYaml(axmDir);
         expect(lockfile.skills["my-skill"]).toBeDefined();
-        expect(lockfile.skills["my-skill"].agents).toEqual(["cursor"]);
+        expect(lockfile.skills["my-skill"].agents).toEqual(["claude-code", "cursor"]);
       }),
     );
 
@@ -1089,12 +1091,7 @@ describe("uninstallSkill", () => {
         fs.mkdirSync(canonicalPath, { recursive: true });
         fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), "# my-skill");
 
-        const lockEntry: SkillLockEntry = {
-          ...makeLocalLockEntry(["claude-code"]),
-          renderedFiles: {
-            "claude-code": [{ path: makeRenderedFilePath(".claude/skills/my-skill") }],
-          },
-        };
+        const lockEntry = makeLocalLockEntry(["claude-code"]);
 
         writeLockfileYaml(axmDir, {});
 
@@ -1115,12 +1112,7 @@ describe("uninstallSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         // Don't create the rendered path — it doesn't exist on disk
-        const lockEntry: SkillLockEntry = {
-          ...makeLocalLockEntry(["claude-code"]),
-          renderedFiles: {
-            "claude-code": [{ path: makeRenderedFilePath(".claude/skills/my-skill") }],
-          },
-        };
+        const lockEntry = makeLocalLockEntry(["claude-code"]);
 
         writeLockfileYaml(axmDir, {});
 

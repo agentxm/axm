@@ -81,7 +81,7 @@ describe("axm commands new", () => {
 
       const lockfile = fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf-8");
       expect(lockfile).toContain("fresh-command:");
-      expect(lockfile).toContain(".claude/commands/fresh-command.md");
+      expect(lockfile).not.toContain(".claude/commands/fresh-command.md");
     } finally {
       temp.cleanup();
     }

@@ -147,7 +147,7 @@ describe("commands disable.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("preview", () => {
-    it.effect("displays agents whose files would be removed in preview mode", () => {
+    it.effect("displays configured agents affected in preview mode", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -162,6 +162,7 @@ describe("commands disable.handler", () => {
             },
           },
         },
+        ["claude-code", "cursor"],
       );
 
       return provide(
@@ -174,9 +175,8 @@ describe("commands disable.handler", () => {
               message.includes("Would remove rendered files from agents"),
             ),
           ).toBe(true);
-          expect(
-            allMessages.some((message) => message.includes("Files that would be removed")),
-          ).toBe(true);
+          expect(allMessages.some((message) => message.includes("claude-code"))).toBe(true);
+          expect(allMessages.some((message) => message.includes("cursor"))).toBe(true);
         }),
       );
     });

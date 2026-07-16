@@ -527,7 +527,6 @@ describe("buildInstallPlan", () => {
           "skill-a": {
             type: "local" as const,
             path: decodeRelativePathSync("tmp/skills/skill-a"),
-            agents: [],
             installedAt: new Date(),
             updatedAt: new Date(),
           },
@@ -692,7 +691,6 @@ describe("buildInstallPlan", () => {
           "skill-a": {
             type: "local" as const,
             path: decodeRelativePathSync("tmp/skills/skill-a"),
-            agents: [],
             installedAt: new Date(),
             updatedAt: new Date(),
           },
@@ -705,7 +703,6 @@ describe("buildInstallPlan", () => {
             resolvedVersion: exactVersion("1.0.0"),
             integrity: "",
             sourceName: "default",
-            agents: [] as ReadonlyArray<string>,
             installedAt: new Date(),
             updatedAt: new Date(),
           },

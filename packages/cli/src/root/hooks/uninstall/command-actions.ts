@@ -42,17 +42,10 @@ const hookUninstallArtifactTargets = (
     entry.value.type === "registry"
       ? `${REGISTRY_EXTENSIONS_DIR}/${entry.value.owner}/hooks/${entry.value.name}`
       : `${EXTERNAL_EXTENSIONS_DIR}/hooks/${targetName}`;
-  const materializedTargets = [...(entry.value.materializedTargets ?? [])]
-    .sort((left, right) => left.target.localeCompare(right.target))
-    .map((target): JobStepArtifactTarget => ({
-      path: target.target,
-      change: retained ? "unchanged" : "updated",
-    }));
   return [
     { path: ".axm/axm-lock.yaml", change: "updated" },
     { path: ".axm/settings.json", change: "updated" },
     { path: sourcePath, change: retained ? "unchanged" : "removed" },
-    ...materializedTargets,
   ];
 };
 

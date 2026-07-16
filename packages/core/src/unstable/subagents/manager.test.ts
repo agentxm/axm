@@ -13,7 +13,6 @@ import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { LocalSubagentRef } from "./refs.js";
 import type { AddSubagentArgs, CodingAgent } from "../agents/coding-agent.js";
@@ -21,7 +20,6 @@ import { CodingAgentRepository } from "../agents/coding-agent.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { SubagentManager, SubagentManagerLive } from "./manager.js";
-import { RenderedFilesMapSchema } from "../extensions/rendered-files.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 
@@ -147,7 +145,6 @@ describe("SubagentManager", () => {
                   planner: {
                     type: "local",
                     path: decodeRelativePathSync("test"),
-                    agents: ["claude-code"],
                     installedAt: new Date(),
                     updatedAt: new Date(),
                   },
@@ -352,7 +349,6 @@ describe("SubagentManager", () => {
                   Option.some({
                     type: "local",
                     path: decodeRelativePathSync("source/planner"),
-                    agents: ["claude-code"],
                     installedAt: new Date(),
                     updatedAt: new Date(),
                     sourceHash: "stale-hash",
@@ -394,8 +390,15 @@ describe("SubagentManager", () => {
           );
         }
         const content = nodeFs.readFileSync(skillPath, "utf8");
+        expect(content).toContain("AXM managed file");
         expect(content).toContain("advisory role-skill fallback");
-        expect(captured?.renderedFiles?.["cline"]?.[0]?.path).toBe(".cline/skills/planner");
+        expect(captured?.sourceHash).toBeDefined();
+        expect(captured).not.toHaveProperty("renderedFiles");
+        yield* manager.materializeUninstall({
+          target: { type: "subagent", name: "planner" },
+          preserveSource: true,
+        });
+        expect(nodeFs.existsSync(nodePath.dirname(skillPath))).toBe(false);
       }).pipe(
         Effect.provide(
           makeTestLayer({
@@ -450,11 +453,6 @@ describe("SubagentManager", () => {
         removeSubagent: removeSubagentSpy,
       });
 
-      const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
-      const renderedFiles = decodeRenderedFiles({
-        "claude-code": [{ path: ".claude/agents/planner.md" }],
-      });
-
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
         yield* manager.materializeUninstall({
@@ -471,10 +469,8 @@ describe("SubagentManager", () => {
                   Option.some({
                     type: "local",
                     path: decodeRelativePathSync("tmp/source/planner"),
-                    agents: ["claude-code"],
                     installedAt: new Date(),
                     updatedAt: new Date(),
-                    renderedFiles,
                   } satisfies SubagentLockEntry),
                 ),
             },

@@ -99,10 +99,10 @@ untouched. Run `axm sync` after editing settings to re-materialize.
 
 ## Settings and lockfile
 
-Installed servers are tracked in `.axm/settings.json` under `mcpServers` and in
-`.axm/axm-lock.yaml` under `mcpServers` (with the `syncedAgents` each was
-written to). Every entry declares exactly one transport — `source`, `command`,
-or `url`:
+Installed servers are tracked in `.axm/settings.json` under `mcpServers`, with
+shared resolution state in `.axm/axm-lock.yaml` under `mcpServers`. The lockfile
+does not persist which agents received materialized configuration. Every entry
+declares exactly one transport — `source`, `command`, or `url`:
 
 ```jsonc
 {

@@ -3,8 +3,8 @@
  *
  * Supports all ref types (registry, git-hosted, local). After materialization,
  * reads the command's content file (`${name}.md`) and `command.json`, renders
- * to all configured agents concurrently, and writes lockfile entries with
- * agents, sourceHash, and renderedFiles.
+ * to all configured agents concurrently, and writes shared source resolution
+ * and content hashes to the lockfile.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -405,9 +405,7 @@ export const installCommand: (
 
     const lockEntry: CommandLockEntry = {
       ...baseLockEntry,
-      agents: successfulAgents,
       sourceHash,
-      renderedFiles,
     };
     const artifact = commandInstallArtifact({
       lockEntry,
@@ -418,6 +416,8 @@ export const installCommand: (
       scope: ws.scope,
       workspaceRoot: ws.baseDir,
       pathService: path,
+      agents: successfulAgents,
+      renderedFiles,
     });
 
     if (artifact.change === "unchanged") {

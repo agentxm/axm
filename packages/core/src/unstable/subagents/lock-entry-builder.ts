@@ -16,10 +16,7 @@ import type { SubagentExtensionRef } from "./refs.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const commonFields = (agents: ReadonlyArray<string>, now: Date) => ({
-  agents: [...agents],
-  ...commonLockFields(now),
-});
+const commonFields = (now: Date) => commonLockFields(now);
 
 const localSourceLockPath = (
   sourcePath: string,
@@ -37,11 +34,10 @@ const localSourceLockPath = (
  */
 export const buildSubagentLockEntry = (
   ref: SubagentExtensionRef,
-  agents: ReadonlyArray<string>,
   now: Date,
   workspaceRelativeLocalSourcePath: Option.Option<string> = Option.none(),
 ): SubagentLockEntry => {
-  const common = commonFields(agents, now);
+  const common = commonFields(now);
 
   switch (ref.refType) {
     case "git-hosted":

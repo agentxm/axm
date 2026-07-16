@@ -69,22 +69,16 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
   }
 
   const lockedEntry = yield* ws.getLockedCommand(commandName);
-  const configuredAgentIds = Option.isSome(lockedEntry) ? [] : yield* ws.getConfiguredAgents();
-  const planSections = Option.isSome(lockedEntry)
-    ? combinePlanSections(
-        makeAgentSection(
-          "Would re-render to agents",
-          lockedEntry.value.agents,
-          "(no agents recorded)",
-        ),
-      )
-    : combinePlanSections(
-        makeAgentSection(
-          "Would render to configured agents",
-          configuredAgentIds,
-          "(no agents configured)",
-        ),
-      );
+  const configuredAgentIds = yield* ws.getConfiguredAgents();
+  const planSections = combinePlanSections(
+    makeAgentSection(
+      Option.isSome(lockedEntry)
+        ? "Would re-render to configured agents"
+        : "Would render to configured agents",
+      configuredAgentIds,
+      "(no agents configured)",
+    ),
+  );
 
   // Build operation
   const op = {

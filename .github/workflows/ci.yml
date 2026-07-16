@@ -29,6 +29,7 @@ env:
   NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
   NX_PARALLEL: "2"
   VITEST_MAX_WORKERS: "2"
+  AXM_CI_IMAGE: ghcr.io/agentxm/agentxm-ci:0.1.0
 
 jobs:
   verify:
@@ -67,43 +68,45 @@ jobs:
           echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js 22
+        if: github.event_name == 'pull_request' &&
+          steps.changes.outputs.docs_only == 'true'
         uses: actions/setup-node@v6.3.0
         with:
           node-version: 22
           package-manager-cache: false
 
       - name: Set up pnpm
+        if: github.event_name == 'pull_request' &&
+          steps.changes.outputs.docs_only == 'true'
         run: |
           corepack enable
           corepack prepare pnpm@10.29.3 --activate
           pnpm --version
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2.2.0
-        with:
-          bun-version: 1.3.5
-
       - name: Install dependencies
+        if: github.event_name == 'pull_request' &&
+          steps.changes.outputs.docs_only == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Check release plan
+      - name: Verify affected pull request changes in shared Linux environment
         if: github.event_name == 'pull_request' &&
           steps.changes.outputs.docs_only != 'true'
-        run: pnpm release:plan:check
-
-      - name: Verify affected pull request changes
-        if: github.event_name == 'pull_request' &&
-          steps.changes.outputs.docs_only != 'true'
-        run: pnpm run ci:affected
+        run: |
+          scripts/container-environment.sh ci bash -lc \
+            'pnpm install --frozen-lockfile &&
+            pnpm release:plan:check &&
+            pnpm run ci:affected'
 
       - name: Verify documentation
         if: github.event_name == 'pull_request' &&
           steps.changes.outputs.docs_only == 'true'
         run: pnpm run format:check
 
-      - name: Verify main
+      - name: Verify main in shared Linux environment
         if: github.event_name == 'push'
-        run: pnpm run ci
+        run: |
+          scripts/container-environment.sh ci bash -lc \
+            'pnpm install --frozen-lockfile && pnpm run ci'
 
       - name: Upload JUnit artifacts
         uses: actions/upload-artifact@v7.0.1

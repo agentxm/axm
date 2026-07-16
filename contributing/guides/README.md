@@ -20,6 +20,8 @@ Each guide is a single markdown file named after its topic:
 - `lint-rule-authoring.md` — Authoring lint rules for skills, packs, and workspaces
 - `releasing.md` — Release versioning, prepare/publish flow, and status checks
 - `feature-delivery.md` — Proposal, design, and implementation checks
+- `development-environment.md` — Native and shared-container development and CI
+- `automated-pull-request-review.md` — Advisory Codex and Claude review model
 - `typescript-style.md` — Assertion-free TypeScript and narrowing patterns
 - `documentation-guidelines.md` — Writing rules for human and agent docs
 - `guide-authoring.md` — When and how to add a guide here

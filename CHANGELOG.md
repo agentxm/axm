@@ -1,3 +1,21 @@
+## 0.22.6 (2026-07-16)
+
+### 🚀 Features
+
+- Make lockfile v3 shared-only and derive agent materialization state locally ([#10](https://github.com/agentxm/axm/pull/10))
+
+### 🩹 Fixes
+
+- Harden browser authorization callback and install verification coverage ([#7](https://github.com/agentxm/axm/pull/7))
+- Document the frozen lockfile v2 format boundary ([#9](https://github.com/agentxm/axm/pull/9))
+- Make unchanged lockfile updates idempotent ([#8](https://github.com/agentxm/axm/pull/8))
+- Publish private extensions atomically ([#11](https://github.com/agentxm/axm/pull/11))
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test @songkang666
+
 ## 0.22.5 (2026-07-15)
 
 ### 🩹 Fixes

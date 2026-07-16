@@ -1,3 +1,7 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pathToFileURL } from "node:url";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as ServiceMap from "effect/Context";
@@ -600,6 +604,3 @@ describe("InstallLibraryCommandWorkflowActions", () => {
     }),
   );
 });
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { pathToFileURL } from "node:url";

@@ -46,7 +46,6 @@ const makeWorkspaceMock = (
     lockfileSkills?: Record<string, SkillLockEntry>;
     settingsSkills?: Record<string, SettingsSkillValue>;
     updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
-    updateLockEntryAgentsFn?: WorkspaceMutationsService["updateLockEntryAgents"];
     setSkillLockFn?: WorkspaceMutationsService["setSkillLock"];
   } = {},
 ): WorkspaceMutationsService => {
@@ -106,7 +105,6 @@ const makeWorkspaceMock = (
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
     updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
-    updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? ((_name, _agents) => Effect.void),
     setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
     getConfiguredMcpServers: () => Effect.succeed({}),
   });
@@ -126,21 +124,19 @@ const makeOp = (skillName = "my-skill"): EnableSkillOperation => ({
 });
 
 /** Creates a local source lock entry for the in-memory mock (Date objects). */
-const makeLocalLockEntry = (agents: string[], sourcePath = "tmp/source"): SkillLockEntry => ({
+const makeLocalLockEntry = (_agents: string[], sourcePath = "tmp/source"): SkillLockEntry => ({
   type: "local" as const,
   path: decodeRelativePathSync(sourcePath),
-  agents,
   installedAt: new Date(),
   updatedAt: new Date(),
 });
 
 /** Creates a registry source lock entry for the in-memory mock (Date objects). */
-const makeRegistryLockEntry = (agents: string[]): SkillLockEntry =>
+const makeRegistryLockEntry = (_agents: string[]): SkillLockEntry =>
   makeRegistrySkillLockEntry({
     owner: handle("@community"),
     name: "my-skill",
     sourceName: "local",
-    agents,
   });
 
 // -----------------------------------------------------------------------------
@@ -234,7 +230,7 @@ describe("enableSkill", () => {
       }),
     );
 
-    it.effect("updates lock entry with universal and configured agents", () =>
+    it.effect("leaves the shared lock entry unchanged", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
         const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
@@ -252,16 +248,7 @@ describe("enableSkill", () => {
           ),
         );
 
-        expect(setSkillLockFn).toHaveBeenCalledOnce();
-        expect(setSkillLockFn).toHaveBeenCalledWith({
-          name: "my-skill",
-          lockEntry: expect.objectContaining({
-            type: "local",
-            path: "tmp/source",
-            agents: ["universal", "claude-code"],
-          }),
-          versionRange: Option.none(),
-        });
+        expect(setSkillLockFn).not.toHaveBeenCalled();
       }),
     );
 
@@ -298,10 +285,6 @@ describe("enableSkill", () => {
         // Do NOT create canonical directory
 
         const updateSkillEntryFn = vi.fn(() => Effect.void);
-        const updateLockEntryAgentsFn = vi.fn(
-          (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
-        );
-
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
@@ -311,7 +294,6 @@ describe("enableSkill", () => {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
               updateSkillEntryFn,
-              updateLockEntryAgentsFn,
             }),
           ),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
@@ -321,7 +303,6 @@ describe("enableSkill", () => {
         expect(result.message).toContain("not found");
         // State should NOT have been updated
         expect(updateSkillEntryFn).not.toHaveBeenCalled();
-        expect(updateLockEntryAgentsFn).not.toHaveBeenCalled();
       }),
     );
   });
@@ -377,10 +358,6 @@ describe("enableSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
-        const updateLockEntryAgentsFn = vi.fn(
-          (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
-        );
-
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
@@ -390,7 +367,6 @@ describe("enableSkill", () => {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
               updateSkillEntryFn,
-              updateLockEntryAgentsFn,
             }),
           ),
         );
@@ -399,8 +375,6 @@ describe("enableSkill", () => {
         // Settings should be updated
         expect(updateSkillEntryFn).toHaveBeenCalledOnce();
         expect(updateSkillEntryFn).toHaveBeenCalledWith("my-skill", expect.any(Function));
-        // Lock agents should NOT be updated (no lock entry)
-        expect(updateLockEntryAgentsFn).not.toHaveBeenCalled();
         // No agent symlinks should have been created (no canonical dir)
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
       }),

@@ -51,7 +51,7 @@ export type UninstallCommandOperation = Operation<
  * Uninstall-command operation handler.
  *
  * 1. Read lockfile to determine if command is installed
- * 2. Remove rendered files from agents (using renderedFiles from lockfile)
+ * 2. Remove rendered files through configured agent adapters
  * 3. Remove canonical directory from disk (if exists)
  * 4. Remove lockfile + settings entry
  */
@@ -88,38 +88,19 @@ export const uninstallCommand: (
     }
 
     // --- Remove rendered files from agents ---
-    if (lockEntry?.renderedFiles) {
-      const renderedFiles = lockEntry.renderedFiles;
-      yield* Effect.forEach(
-        Object.entries(renderedFiles),
-        ([_agentId, files]) =>
-          Effect.forEach(
-            files,
-            (file) =>
-              fs
-                .remove(path.resolve(base, file.path), { recursive: true })
-                .pipe(Effect.catch(() => Effect.void)),
-            { concurrency: "unbounded" },
-          ),
-        { concurrency: "unbounded" },
-      );
-    } else if (lockEntry?.agents && lockEntry.agents.length > 0) {
-      // Fallback: remove via agent removeCommand
-      const configuredAgents = yield* agentRepo.getConfiguredAgents();
-
-      yield* Effect.forEach(
-        configuredAgents,
-        (agent) =>
-          agent
-            .removeCommand({
-              workspaceRoot: base,
-              scope: "project",
-              commandName: op.args.commandName,
-            })
-            .pipe(Effect.catch(() => Effect.void)),
-        { concurrency: "unbounded" },
-      );
-    }
+    const configuredAgents = yield* agentRepo.getConfiguredAgents();
+    yield* Effect.forEach(
+      configuredAgents,
+      (agent) =>
+        agent
+          .removeCommand({
+            workspaceRoot: base,
+            scope: "project",
+            commandName: op.args.commandName,
+          })
+          .pipe(Effect.catch(() => Effect.void)),
+      { concurrency: "unbounded" },
+    );
 
     // --- Remove canonical directory ---
     if (lockEntry?.type === "registry") {

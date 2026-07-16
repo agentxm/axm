@@ -111,7 +111,6 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
               resolvedVersion: version,
               integrity: "",
               sourceName: entry.sourceName,
-              agents: [],
               installedAt: now,
               updatedAt: now,
             } satisfies SkillLockEntry,
@@ -138,7 +137,6 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
               // Integrity unknown for individual extensions unpacked from a pack
               integrity: "",
               sourceName: entry.sourceName,
-              agents: [],
               installedAt: now,
               updatedAt: now,
             } satisfies CommandLockEntry,
@@ -188,7 +186,6 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
               resolvedVersion: version,
               integrity: "",
               sourceName: entry.sourceName,
-              agents: [],
               installedAt: now,
               updatedAt: now,
             } satisfies SubagentLockEntry,

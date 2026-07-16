@@ -406,6 +406,12 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                     suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
                   });
                 }
+                const materialization =
+                  commandMgr.getLastMaterialization === undefined
+                    ? { agents: [], targets: [] }
+                    : yield* commandMgr.getLastMaterialization({
+                        target: { type: "command", name: commandName },
+                      });
 
                 return commandInstallArtifact({
                   lockEntry: currentLockEntry.value,
@@ -415,6 +421,8 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
                   scope: ws.scope,
                   workspaceRoot: ws.baseDir,
                   pathService: path,
+                  agents: materialization.agents,
+                  materializedTargets: materialization.targets,
                 });
               }),
           });

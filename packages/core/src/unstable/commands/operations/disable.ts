@@ -13,62 +13,29 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
-import type { AgentId } from "../../agents/types.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
-import type {
-  JobStepArtifact,
-  JobStepArtifactTarget,
-  Operation,
-  JobStepResult,
-} from "../../plan/plan.js";
+import type { JobStepArtifact, Operation, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 
 const commandVersion = (entry: CommandLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
 
-const removedRenderedFileTargets = (
-  renderedFiles: CommandLockEntry["renderedFiles"],
-): ReadonlyArray<JobStepArtifactTarget> => {
-  if (renderedFiles === undefined) return [];
-
-  const agentIdsByPath = new Map<string, Array<string>>();
-  for (const [agentId, files] of Object.entries(renderedFiles)) {
-    for (const file of files) {
-      const agentIds = agentIdsByPath.get(file.path) ?? [];
-      if (!agentIds.includes(agentId)) {
-        agentIds.push(agentId);
-      }
-      agentIdsByPath.set(file.path, agentIds);
-    }
-  }
-
-  return Array.from(agentIdsByPath.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([targetPath, agentIds]): JobStepArtifactTarget => ({
-      path: targetPath,
-      change: "removed",
-      agentIds: [...agentIds].sort(),
-    }));
-};
-
 const commandDisableArtifact = (
   lockEntry: CommandLockEntry,
   scope: JobStepArtifact["scope"],
+  agents: ReadonlyArray<string>,
 ): JobStepArtifact => {
-  const targets = removedRenderedFileTargets(lockEntry.renderedFiles);
-  const firstTarget = targets[0];
   const version = commandVersion(lockEntry);
 
   return {
-    path: firstTarget?.path ?? ".axm/settings.json",
+    path: ".axm/settings.json",
     scope,
-    ...(lockEntry.agents.length === 0 ? {} : { agents: lockEntry.agents }),
+    ...(agents.length === 0 ? {} : { agents }),
     ...(version === undefined ? {} : { version }),
     change: "updated",
-    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
   };
 };
 
@@ -100,10 +67,9 @@ export type DisableCommandOperation = Operation<
  * Disable-command operation handler.
  *
  * Lock-backed path:
- * 1. Read rendered files from lockfile
- * 2. Remove rendered files from all agents (concurrent)
- * 3. Clear lockfile agents array (preserve materialised files)
- * 4. Update settings to set enabled: false
+ * 1. Resolve the configured materialization agents
+ * 2. Remove rendered files through each agent adapter (concurrent)
+ * 3. Update settings to set enabled: false
  *
  * Settings-only path (no lock entry):
  * 1. Update settings to set enabled: false
@@ -113,11 +79,10 @@ export const disableCommand: OperationHandler<
   FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
     const base = ws.baseDir;
+    const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
     // Check for lock entry
     const lockEntryOption = yield* ws.getLockedCommand(op.args.commandName).pipe(
@@ -132,53 +97,18 @@ export const disableCommand: OperationHandler<
 
     // Lock-backed file operations (when lock entry exists)
     if (Option.isSome(lockEntryOption)) {
-      const lockEntry = lockEntryOption.value;
-
-      // Remove rendered files from agents
-      if (lockEntry.renderedFiles) {
-        yield* Effect.forEach(
-          Object.entries(lockEntry.renderedFiles),
-          ([_agentId, files]) =>
-            Effect.forEach(
-              files,
-              (file) =>
-                fs
-                  .remove(path.resolve(base, file.path), { recursive: true })
-                  .pipe(Effect.catch(() => Effect.void)),
-              { concurrency: "unbounded" },
-            ),
-          { concurrency: "unbounded" },
-        );
-      } else if (lockEntry.agents.length > 0) {
-        // Fallback: remove via agent removeCommand
-        const configuredAgents = yield* agentRepo.getConfiguredAgents();
-
-        yield* Effect.forEach(
-          configuredAgents,
-          (agent) =>
-            agent
-              .removeCommand({
-                workspaceRoot: base,
-                scope: "project",
-                commandName: op.args.commandName,
-              })
-              .pipe(Effect.catch(() => Effect.void)),
-          { concurrency: "unbounded" },
-        );
-      }
-
-      // Clear lock agents and renderedFiles but preserve materialized files
-      const now = new Date();
-      const emptyAgents: ReadonlyArray<AgentId> = [];
-      const updatedLockEntry = {
-        ...lockEntry,
-        agents: emptyAgents,
-        renderedFiles: undefined,
-        updatedAt: now,
-      };
-      yield* ws
-        .setCommandLock({ name: op.args.commandName, lockEntry: updatedLockEntry })
-        .pipe(Effect.catch(() => Effect.void));
+      yield* Effect.forEach(
+        configuredAgents,
+        (agent) =>
+          agent
+            .removeCommand({
+              workspaceRoot: base,
+              scope: "project",
+              commandName: op.args.commandName,
+            })
+            .pipe(Effect.catch(() => Effect.void)),
+        { concurrency: "unbounded" },
+      );
     }
 
     // Update settings to mark as disabled
@@ -210,7 +140,12 @@ export const disableCommand: OperationHandler<
 
     const artifact = Option.match(lockEntryOption, {
       onNone: () => settingsOnlyCommandArtifact(ws.scope),
-      onSome: (lockEntry) => commandDisableArtifact(lockEntry, ws.scope),
+      onSome: (lockEntry) =>
+        commandDisableArtifact(
+          lockEntry,
+          ws.scope,
+          configuredAgents.map((agent) => agent.id),
+        ),
     });
 
     return {

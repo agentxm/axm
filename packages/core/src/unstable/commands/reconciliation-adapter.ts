@@ -189,7 +189,6 @@ export const commandReconciliationAdapter: ReconciliationAdapter = {
             resolvedVersion: manifest.version,
             integrity: "",
             sourceName: "default",
-            agents: context.agents,
             installedAt: context.now,
             updatedAt: context.now,
           },

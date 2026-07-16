@@ -5,12 +5,10 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { MaterializedFileTargetSchema, type MaterializedFileTarget } from "../lockfile/schema.js";
 import { FileContentsEntrySchema, type FileContentsEntry } from "./manifest-schema.js";
 import { materializeFileEntry, renderFileContent, renderFileTemplate } from "./materialization.js";
 
 const decodeEntry = Schema.decodeUnknownSync(FileContentsEntrySchema);
-const decodeTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
 describe("file materialization", () => {
   let tempDir: string;
@@ -213,7 +211,7 @@ describe("file materialization", () => {
     ),
   );
 
-  it.effect("skips sync-always when the rendered hash is unchanged", () =>
+  it.effect("skips sync-always when the target content is unchanged", () =>
     run(
       Effect.gen(function* () {
         nodeFs.writeFileSync(nodePath.join(packageRoot, "src", ".editorconfig"), "root = true\n");
@@ -229,21 +227,18 @@ describe("file materialization", () => {
           entry,
           templateFiles: files(),
         });
-        nodeFs.writeFileSync(nodePath.join(workspaceRoot, ".editorconfig"), "formatter rewrite\n");
-        const previousTarget: MaterializedFileTarget = decodeTarget(first.target);
         const second = yield* materializeFileEntry({
           packageRoot,
           workspaceRoot,
           entry,
           templateFiles: files(),
-          previousTarget,
         });
 
         expect(first.written).toBe(true);
         expect(second.written).toBe(false);
         expect(second.reason).toBe("unchanged");
         expect(nodeFs.readFileSync(nodePath.join(workspaceRoot, ".editorconfig"), "utf-8")).toBe(
-          "formatter rewrite\n",
+          "root = true\n",
         );
       }),
     ),

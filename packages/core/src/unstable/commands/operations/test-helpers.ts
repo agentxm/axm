@@ -4,6 +4,7 @@
  * @internal Test-only.
  */
 
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -37,7 +38,17 @@ export const makeStubAgent = (id: AgentId): CodingAgent =>
         renderedFilePath: path.join(workspaceRoot, `.${id}`, "commands", `${commandName}.md`),
         warnings: [],
       }),
-    removeCommand: () => Effect.succeed({ _tag: "success", renderedFilePath: "", warnings: [] }),
+    removeCommand: ({ workspaceRoot, commandName }) =>
+      Effect.sync(() => {
+        const renderedFilePath = path.join(
+          workspaceRoot,
+          `.${id}`,
+          "commands",
+          `${commandName}.md`,
+        );
+        fs.rmSync(renderedFilePath, { force: true });
+        return { _tag: "success" as const, renderedFilePath, warnings: [] };
+      }),
     resolveEffectiveSubagentsDir: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),
     addSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),
     removeSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),

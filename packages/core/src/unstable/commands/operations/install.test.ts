@@ -355,7 +355,7 @@ describe("installCommand", () => {
       }),
     );
 
-    it.effect("lock entry includes agents and sourceHash", () =>
+    it.effect("lock entry includes sourceHash without agent state", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -366,7 +366,7 @@ describe("installCommand", () => {
         );
 
         const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
-        expect(lockEntry["agents"]).toEqual(expect.any(Array));
+        expect(lockEntry).not.toHaveProperty("agents");
         expect(lockEntry["sourceHash"]).toEqual(expect.any(String));
       }),
     );
@@ -483,7 +483,7 @@ describe("installCommand", () => {
   });
 
   describe("agent rendering", () => {
-    it.effect("renders to configured agents and includes renderedFiles in lockfile", () =>
+    it.effect("renders to configured agents without persisting render state", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const canonicalPath = setupRegistryCanonical(base, "@community");
@@ -520,8 +520,8 @@ describe("installCommand", () => {
         }
         expect(setCommandFn).toHaveBeenCalledOnce();
         const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
-        expect(lockEntry["agents"]).toEqual(["claude-code"]);
-        expect(lockEntry["renderedFiles"]).toBeDefined();
+        expect(lockEntry).not.toHaveProperty("agents");
+        expect(lockEntry).not.toHaveProperty("renderedFiles");
         expect(lockEntry["sourceHash"]).toBeDefined();
       }),
     );
@@ -577,7 +577,7 @@ describe("installCommand", () => {
         );
 
         const lockEntry = expectRecord(setCommandFn.mock.calls[0]?.[0]?.lockEntry);
-        expect(lockEntry["agents"]).toEqual(["claude-code", "codex"]);
+        expect(lockEntry).not.toHaveProperty("agents");
       }),
     );
 

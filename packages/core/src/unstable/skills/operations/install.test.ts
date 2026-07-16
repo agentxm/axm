@@ -429,7 +429,7 @@ describe("installSkill", () => {
 
         const lockfile = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
         const lockEntry = expectRecord(lockfile.skills["my-skill"]);
-        expect(lockEntry["agents"]).toEqual(["universal"]);
+        expect(lockEntry).not.toHaveProperty("agents");
         expect(lockEntry["universalArtifact"]).toBeUndefined();
       }),
     );
@@ -1201,10 +1201,7 @@ describe("installSkill", () => {
           fs.readFileSync(path.join(base, ".agents", "skills", "my-skill", "SKILL.md"), "utf8"),
         ).toBe("# Review\n\nDelegate the review.\n");
         const lockEntry = expectRecord(at(setSkillFn.mock.calls, 0)[0].lockEntry);
-        const renderInputs = expectRecord(lockEntry["renderInputs"]);
-        expect(expectRecord(renderInputs["codex"])["referencedCapabilities"]).toEqual([
-          "subagents",
-        ]);
+        expect(lockEntry).not.toHaveProperty("renderInputs");
         expect(lockEntry["sourceHash"]).toBeDefined();
       }),
     );
@@ -1224,7 +1221,7 @@ describe("installSkill", () => {
         const lockEntry = expectRecord(at(setSkillFn.mock.calls, 0)[0].lockEntry);
         expect(lockEntry["renderedFiles"]).toBeUndefined();
         expect(lockEntry["sourceHash"]).toBeUndefined();
-        expect(lockEntry["agents"]).toEqual(["universal", "claude-code"]);
+        expect(lockEntry).not.toHaveProperty("agents");
         expect(lockEntry["universalArtifact"]).toBeUndefined();
       }),
     );

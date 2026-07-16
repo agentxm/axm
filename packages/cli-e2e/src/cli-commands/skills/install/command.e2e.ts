@@ -81,7 +81,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify lockfile structure
-        expect(lock.lockfileVersion).toBe(2);
+        expect(lock.lockfileVersion).toBe(3);
         expect(lock.skills).toBeDefined();
 
         // Each skill entry should have required fields per flat schema
@@ -91,7 +91,7 @@ describe("axm skills install", () => {
           // Flat schema: type is a string discriminator, not nested object
           expect(entry.type).toBe("local");
           expect(entry.path).toBeDefined();
-          expect(entry).toHaveProperty("agents");
+          expect(entry).not.toHaveProperty("agents");
           expect(entry).toHaveProperty("installedAt");
           expect(entry).toHaveProperty("updatedAt");
         }
@@ -264,7 +264,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify new lockfile structure
-        expect(lock.lockfileVersion).toBe(2);
+        expect(lock.lockfileVersion).toBe(3);
         expect(lock.skills).toBeDefined();
         expect(lock.skills["my-skill"]).toBeDefined();
 
@@ -272,8 +272,7 @@ describe("axm skills install", () => {
         // Flat schema: source is a string discriminator, path is at top level
         expect(entry.type).toBe("local");
         expect(entry.path).toBeDefined();
-        expect(entry.agents).toBeDefined();
-        expect(Array.isArray(entry.agents)).toBe(true);
+        expect(entry.agents).toBeUndefined();
         expect(entry.installedAt).toBeDefined();
         expect(entry.updatedAt).toBeDefined();
 

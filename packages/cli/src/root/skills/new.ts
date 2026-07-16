@@ -215,7 +215,10 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
           };
         }
 
-        const agentsToRemove = lockedSkill.value.agents.filter(
+        const materializationAgentIds = (yield* agentRepo
+          .getMaterializationAgents()
+          .pipe(Effect.provideService(WorkspaceMutations, ws))).map((agent) => agent.id);
+        const agentsToRemove = materializationAgentIds.filter(
           (agent) => !requestedAgentSet.has(agent),
         );
         if (agentsToRemove.length === 0) {

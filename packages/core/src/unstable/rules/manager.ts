@@ -63,11 +63,7 @@ const RULES_REGION = "rules";
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryRuleLockEntry = (
-  ref: RegistryRuleRef,
-  now: Date,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
-): RuleLockEntry => ({
+const registryRuleLockEntry = (ref: RegistryRuleRef, now: Date): RuleLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -75,17 +71,11 @@ const registryRuleLockEntry = (
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
-  materializedTargets,
   ...commonLockFields(now),
 });
 
-const gitRuleLockEntry = (
-  ref: GitHostedRuleRef,
-  now: Date,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
-): RuleLockEntry => {
+const gitRuleLockEntry = (ref: GitHostedRuleRef, now: Date): RuleLockEntry => {
   const common = {
-    materializedTargets,
     ...commonLockFields(now),
   };
 
@@ -98,27 +88,20 @@ const gitRuleLockEntry = (
 const localRuleLockEntry = (
   ref: LocalRuleRef,
   now: Date,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ): RuleLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
-  materializedTargets,
   ...commonLockFields(now),
 });
 
-const workspaceRuleLockEntry = (
-  ref: WorkspaceRuleRef,
-  now: Date,
-  materializedTargets: ReadonlyArray<MaterializedFileTarget>,
-): RuleLockEntry => ({
+const workspaceRuleLockEntry = (ref: WorkspaceRuleRef, now: Date): RuleLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "rule",
   name: ref.name,
   version: ref.version,
   sourceHash: ref.sourceHash,
-  materializedTargets,
   ...commonLockFields(now),
 });
 
@@ -445,24 +428,18 @@ export const RuleManagerLive = Layer.effect(
 
     const buildLockEntry = (ref: RuleExtensionRef): Effect.Effect<RuleLockEntry, never> => {
       const state = lastInstallState.get(ref.rule.name);
-      const materializedTargets = state?.materializedTargets ?? [];
       const now = new Date();
       switch (ref.refType) {
         case "registry":
-          return Effect.succeed(registryRuleLockEntry(ref, now, materializedTargets));
+          return Effect.succeed(registryRuleLockEntry(ref, now));
         case "git-hosted":
-          return Effect.succeed(gitRuleLockEntry(ref, now, materializedTargets));
+          return Effect.succeed(gitRuleLockEntry(ref, now));
         case "local":
           return Effect.succeed(
-            localRuleLockEntry(
-              ref,
-              now,
-              materializedTargets,
-              state?.workspaceRelativeLocalSourcePath ?? Option.none(),
-            ),
+            localRuleLockEntry(ref, now, state?.workspaceRelativeLocalSourcePath ?? Option.none()),
           );
         case "workspace":
-          return Effect.succeed(workspaceRuleLockEntry(ref, now, materializedTargets));
+          return Effect.succeed(workspaceRuleLockEntry(ref, now));
       }
     };
 

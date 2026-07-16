@@ -34,7 +34,7 @@ import {
   type RuleLockEntry,
   type SkillLockEntry,
 } from "../lockfile/index.js";
-import { decodeExtensionNameSync } from "../extensions/index.js";
+import { decodeExtensionNameSync, type RenderedFilesMap } from "../extensions/index.js";
 import { type Handle } from "../extensions/handle.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 import { decodeVersionSync, type Version } from "../version-constraints/version-constraints.js";
@@ -232,7 +232,6 @@ export const makeBaseWorkspaceMock = (
     removeSkillFromSettings: () => Effect.void,
     updateSkillEntry: () => Effect.void,
     setSkillEntry: () => Effect.void,
-    updateLockEntryAgents: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
     removeConfiguredAgent: () => Effect.void,
     getLockedPacks: () => Effect.succeed({}),
@@ -351,7 +350,6 @@ export const makeLocalSkillLockEntry = (opts?: {
 }): SkillLockEntry => ({
   type: "local",
   path: decodeRelativePathSync(opts?.path ?? "installed"),
-  agents: [...(opts?.agents ?? ["claude-code"])],
   installedAt: opts?.installedAt ?? TEST_DATE,
   updatedAt: opts?.updatedAt ?? TEST_DATE,
 });
@@ -372,7 +370,6 @@ export const makeRegistrySkillLockEntry = (opts: {
   resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
-  agents: [...(opts.agents ?? ["claude-code"])],
   installedAt: opts.installedAt ?? TEST_DATE,
   updatedAt: opts.updatedAt ?? TEST_DATE,
 });
@@ -384,7 +381,7 @@ export const makeRegistryCommandLockEntry = (opts: {
   readonly integrity?: string;
   readonly sourceName?: string;
   readonly agents?: ReadonlyArray<string>;
-  readonly renderedFiles?: CommandLockEntry["renderedFiles"];
+  readonly renderedFiles?: RenderedFilesMap;
   readonly sourceHash?: string;
   readonly retainedByPack?: boolean;
   readonly installedAt?: Date;
@@ -396,8 +393,6 @@ export const makeRegistryCommandLockEntry = (opts: {
   resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
-  agents: [...(opts.agents ?? ["claude-code"])],
-  ...(opts.renderedFiles ? { renderedFiles: opts.renderedFiles } : {}),
   ...(opts.sourceHash ? { sourceHash: opts.sourceHash } : {}),
   ...(opts.retainedByPack !== undefined ? { retainedByPack: opts.retainedByPack } : {}),
   installedAt: opts.installedAt ?? TEST_DATE,

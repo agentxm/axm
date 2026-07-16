@@ -124,7 +124,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
     });
 
-    it("accepts context lock entries with resolved inputs and materialized targets", () => {
+    it("drops legacy materialized targets while preserving resolved inputs", () => {
       const input = {
         lockfileVersion: LOCKFILE_VERSION,
         skills: {},
@@ -163,7 +163,7 @@ describe("lockfile schema", () => {
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.files?.["baseline"]?.type).toBe("registry");
-      expect(result.files?.["baseline"]?.materializedTargets).toHaveLength(2);
+      expect(result.files?.["baseline"]).not.toHaveProperty("materializedTargets");
       expect(result.files?.["baseline"]?.resolvedInputs).toEqual({
         projectName: "AgentXM",
         strict: true,
@@ -230,7 +230,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(LibraryLockEntrySchema)(input)).toThrow();
     });
 
-    it("rejects context lock entries with absolute target paths", () => {
+    it("drops legacy context targets regardless of their old path shape", () => {
       const input = {
         type: "local",
         path: "./files/baseline",
@@ -245,7 +245,8 @@ describe("lockfile schema", () => {
         ],
       };
 
-      expect(() => Schema.decodeUnknownSync(FilesLockEntrySchema)(input)).toThrow();
+      const result = Schema.decodeUnknownSync(FilesLockEntrySchema)(input);
+      expect(result).not.toHaveProperty("materializedTargets");
     });
 
     it("accepts valid skill lock entry with GitHub source", () => {
@@ -277,7 +278,7 @@ describe("lockfile schema", () => {
         expect(skill.repo).toBe("skills");
       }
       expect(skill?.gitTreeHash).toBe("abc123def456");
-      expect(skill?.agents).toEqual(["claude-code", "cursor"]);
+      expect(skill).not.toHaveProperty("agents");
       // Dates are decoded to Date objects
       expect(skill?.installedAt).toBeInstanceOf(Date);
       expect(skill?.updatedAt).toBeInstanceOf(Date);
@@ -422,7 +423,7 @@ describe("lockfile schema", () => {
       expect(result.skills["skill-two"]).toBeDefined();
     });
 
-    it("accepts skill with empty agents array", () => {
+    it("drops an empty legacy agents array", () => {
       const input = {
         lockfileVersion: 1,
         skills: {
@@ -438,7 +439,7 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
-      expect(result.skills["my-skill"]?.agents).toEqual([]);
+      expect(result.skills["my-skill"]).not.toHaveProperty("agents");
     });
   });
 
@@ -460,7 +461,7 @@ describe("lockfile schema", () => {
         expect(result.owner).toBe("example");
         expect(result.repo).toBe("skills");
       }
-      expect(result.agents).toEqual(["claude-code"]);
+      expect(result).not.toHaveProperty("agents");
       expect(result.installedAt).toBeInstanceOf(Date);
       expect(result.updatedAt).toBeInstanceOf(Date);
     });
@@ -637,7 +638,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("accepts lock entry with empty agents array", () => {
+    it("drops a legacy empty agents array", () => {
       const input = {
         type: "local",
         path: "./my-skill",
@@ -648,7 +649,7 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
-      expect(result.agents).toEqual([]);
+      expect(result).not.toHaveProperty("agents");
     });
 
     it("rejects lock entry missing source", () => {
@@ -662,7 +663,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("rejects lock entry missing agents", () => {
+    it("accepts a lock entry without agents", () => {
       const input = {
         type: "local",
         path: "./my-skill",
@@ -670,7 +671,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).not.toThrow();
     });
 
     it("rejects lock entry missing installedAt", () => {
@@ -828,7 +829,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("accepts skill lock entry with sourceHash and renderedFiles", () => {
+    it("preserves sourceHash and drops legacy skill materialization state", () => {
       const input = {
         type: "local",
         path: "./my-skill",
@@ -842,11 +843,11 @@ describe("lockfile schema", () => {
       };
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
       expect(result.sourceHash).toBe("abc123def456");
-      expect(result.renderedFiles).toBeDefined();
-      expect(result.agents).toEqual(["universal", "claude-code"]);
+      expect(result).not.toHaveProperty("renderedFiles");
+      expect(result).not.toHaveProperty("agents");
     });
 
-    it("accepts pinned capability render inputs and degraded render findings", () => {
+    it("drops pinned capability render inputs and degraded render findings", () => {
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)({
         type: "local",
         path: "skills/review",
@@ -868,8 +869,8 @@ describe("lockfile schema", () => {
         },
       });
 
-      expect(result.renderInputs?.["codex"]?.catalogVersion).toBe("2026-07-15.1");
-      expect(result.degradedRenders?.["codex"]).toEqual(["missing-default-variant"]);
+      expect(result).not.toHaveProperty("renderInputs");
+      expect(result).not.toHaveProperty("degradedRenders");
     });
 
     it("accepts skill lock entry without optional sourceHash and renderedFiles", () => {
@@ -883,10 +884,10 @@ describe("lockfile schema", () => {
       };
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
       expect(result.sourceHash).toBeUndefined();
-      expect(result.renderedFiles).toBeUndefined();
+      expect(result).not.toHaveProperty("renderedFiles");
     });
 
-    it("roundtrips skill lock entry with sourceHash and renderedFiles", () => {
+    it("roundtrips only shared skill fields", () => {
       const decode = Schema.decodeUnknownSync(SkillLockEntrySchema);
       const encode = Schema.encodeUnknownSync(SkillLockEntrySchema);
       const input = {
@@ -902,7 +903,13 @@ describe("lockfile schema", () => {
       };
       const decoded = decode(input);
       const encoded = encode(decoded);
-      expect(encoded).toEqual(input);
+      expect(encoded).toEqual({
+        type: "local",
+        path: "./my-skill",
+        installedAt: "2025-01-15T10:30:00.000Z",
+        updatedAt: "2025-01-15T10:30:00.000Z",
+        sourceHash: "abc123",
+      });
     });
   });
 
@@ -944,7 +951,7 @@ describe("lockfile schema", () => {
     const decode = Schema.decodeUnknownSync(CommandLockEntrySchema);
     const encode = Schema.encodeUnknownSync(CommandLockEntrySchema);
 
-    it("accepts valid local command lock entry with agents", () => {
+    it("drops legacy agents from a local command lock entry", () => {
       const input = {
         type: "local",
         path: "./commands/deploy",
@@ -954,10 +961,10 @@ describe("lockfile schema", () => {
       };
       const result = decode(input);
       expect(result.type).toBe("local");
-      expect(result.agents).toEqual(["claude-code", "cursor"]);
+      expect(result).not.toHaveProperty("agents");
     });
 
-    it("accepts command lock entry with sourceHash and renderedFiles", () => {
+    it("preserves command sourceHash and drops rendered files", () => {
       const input = {
         type: "local",
         path: "./commands/deploy",
@@ -971,7 +978,7 @@ describe("lockfile schema", () => {
       };
       const result = decode(input);
       expect(result.sourceHash).toBe("abc123def456");
-      expect(result.renderedFiles).toBeDefined();
+      expect(result).not.toHaveProperty("renderedFiles");
     });
 
     it("accepts command lock entry without optional sourceHash and renderedFiles", () => {
@@ -985,10 +992,10 @@ describe("lockfile schema", () => {
       };
       const result = decode(input);
       expect(result.sourceHash).toBeUndefined();
-      expect(result.renderedFiles).toBeUndefined();
+      expect(result).not.toHaveProperty("renderedFiles");
     });
 
-    it("roundtrips command lock entry with all fields", () => {
+    it("roundtrips only shared command fields", () => {
       const input = {
         type: "local",
         path: "./commands/deploy",
@@ -1002,17 +1009,23 @@ describe("lockfile schema", () => {
       };
       const decoded = decode(input);
       const encoded = encode(decoded);
-      expect(encoded).toEqual(input);
+      expect(encoded).toEqual({
+        type: "local",
+        path: "./commands/deploy",
+        installedAt: "2025-01-15T10:30:00.000Z",
+        updatedAt: "2025-01-15T10:30:00.000Z",
+        sourceHash: "abc123",
+      });
     });
 
-    it("rejects command lock entry missing agents", () => {
+    it("accepts a command lock entry without agents", () => {
       const input = {
         type: "local",
         path: "./commands/deploy",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
       };
-      expect(() => decode(input)).toThrow();
+      expect(() => decode(input)).not.toThrow();
     });
   });
 
@@ -1348,6 +1361,46 @@ describe("lockfile schema", () => {
   });
 
   describe("Lockfile round-trip with registry entries", () => {
+    it("drops v2 agent and render state from the shared lockfile shape", () => {
+      const input = {
+        lockfileVersion: 2,
+        skills: {
+          "registry-skill": {
+            type: "registry",
+            owner: "@acme",
+            name: "code-review",
+            resolvedVersion: "1.2.0",
+            integrity: "sha512-abc123",
+            sourceName: "default",
+            renderedFiles: { "claude-code": [{ path: ".claude/skills/code-review" }] },
+            renderInputs: {
+              "claude-code": {
+                sourceHash: "source",
+                agent: "claude-code",
+                catalogVersion: "1",
+                dslVersion: "1",
+                capabilityHash: "capability",
+                referencedCapabilities: [],
+              },
+            },
+            degradedRenders: { "claude-code": ["unsupported"] },
+            installedAt: "2025-01-15T10:30:00.000Z",
+            updatedAt: "2025-01-15T10:30:00.000Z",
+          },
+        },
+      };
+
+      const decoded = Schema.decodeUnknownSync(LockfileSchema)(input);
+      const encoded = Schema.encodeSync(LockfileSchema)(decoded);
+      const encodedSkill = encoded.skills["registry-skill"];
+
+      expect(encodedSkill).toBeDefined();
+      expect(encodedSkill).not.toHaveProperty("agents");
+      expect(encodedSkill).not.toHaveProperty("renderedFiles");
+      expect(encodedSkill).not.toHaveProperty("renderInputs");
+      expect(encodedSkill).not.toHaveProperty("degradedRenders");
+    });
+
     it("decodes and re-encodes lockfile with registry packs and skills", () => {
       const input = {
         lockfileVersion: 1,
@@ -1359,7 +1412,6 @@ describe("lockfile schema", () => {
             resolvedVersion: "1.2.0",
             integrity: "sha512-abc123",
             sourceName: "default",
-            agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00.000Z",
             updatedAt: "2025-01-15T10:30:00.000Z",
           },

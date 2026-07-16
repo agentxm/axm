@@ -95,18 +95,20 @@ export const uninstallSkill: OperationHandler<
       return { result: "success", message: "not installed" } satisfies JobStepResult;
     }
 
-    // Determine which agents to remove from
-    const lockAgents = lockEntry?.agents ?? [];
+    // Determine which configured agent artifacts to remove. Per-agent state is
+    // derived from settings and disk rather than persisted in the lockfile.
     const agentFilter = op.args.agents;
     const isPartialUninstall = agentFilter.length > 0;
-    const agentsToRemove = isPartialUninstall ? agentFilter : lockAgents;
-    const remainingAgents = isPartialUninstall
-      ? lockAgents.filter((agent) => !agentFilter.includes(agent))
-      : [];
     const materializationAgents =
       yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
         Effect.provideService(WorkspaceMutations, ws),
       );
+    const agentsToRemove = isPartialUninstall
+      ? agentFilter
+      : materializationAgents.map((agent) => agent.id);
+    const remainingAgents = materializationAgents
+      .map((agent) => agent.id)
+      .filter((agent) => !agentsToRemove.includes(agent));
     const agentsById: ReadonlyMap<string, (typeof materializationAgents)[number]> = new Map(
       materializationAgents.map((agent) => [agent.id, agent]),
     );
@@ -148,30 +150,10 @@ export const uninstallSkill: OperationHandler<
       ),
     );
 
-    // Remove agent symlinks/copies concurrently.
-    // When renderedFiles are tracked (copy-mode), prefer tracked paths;
-    // otherwise fall back to agent descriptor-based path resolution.
-    const renderedFiles = lockEntry?.renderedFiles;
+    // Remove agent symlinks/copies concurrently using adapter-derived paths.
     yield* Effect.forEach(
       agentsToRemove,
       (agentId) => {
-        // Check renderedFiles for tracked copy-mode paths
-        const tracked = renderedFiles?.[agentId];
-        if (tracked !== undefined && tracked.length > 0) {
-          return Effect.forEach(
-            tracked,
-            (entry) => {
-              const artifactPath = path.normalize(path.resolve(base, entry.path));
-              return retainedArtifactPaths.has(artifactPath)
-                ? Effect.void
-                : fs
-                    .remove(artifactPath, { recursive: true })
-                    .pipe(Effect.catch(() => Effect.void));
-            },
-            { concurrency: "unbounded" },
-          );
-        }
-
         const configuredAgent = agentsById.get(agentId);
         const agentEffect =
           configuredAgent !== undefined
@@ -209,32 +191,12 @@ export const uninstallSkill: OperationHandler<
     );
 
     // Handle partial vs full uninstall
-    if (isPartialUninstall && lockEntry) {
-      if (remainingAgents.length > 0) {
-        // Update lockfile entry with remaining agents via WorkspaceMutations.setSkill
-        yield* ws
-          .setSkill({
-            name: op.args.skillName,
-            lockEntry: { ...lockEntry, agents: remainingAgents },
-            versionRange: Option.none(),
-          })
-          .pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to update lockfile: ${e.message}`,
-                cause: e,
-              }),
-            ),
-          );
-
-        const agentList = [...agentsToRemove].join(", ");
-        return {
-          result: "success",
-          message: `Uninstalled ${op.args.skillName} from ${agentList}`,
-        } satisfies JobStepResult;
-      }
-      // Fall through to full uninstall if no agents remain
+    if (isPartialUninstall) {
+      const agentList = [...agentsToRemove].join(", ");
+      return {
+        result: "success",
+        message: `Uninstalled ${op.args.skillName} from ${agentList}`,
+      } satisfies JobStepResult;
     }
 
     // Check if a pack still references this skill

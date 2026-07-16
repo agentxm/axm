@@ -18,7 +18,11 @@ import * as Schema from "effect/Schema";
 import type { PlatformError } from "effect/PlatformError";
 import { makeAppError } from "../app-error/index.js";
 import type { SubagentExtensionRef, RegistrySubagentRef } from "./refs.js";
-import type { ExtensionManager, SubagentExtensionTarget } from "../workspace/service-interface.js";
+import type {
+  ExtensionManager,
+  MaterializationObservation,
+  SubagentExtensionTarget,
+} from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { CodingAgentRepository, type SubagentSyncOutcome } from "../agents/index.js";
 import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
@@ -26,7 +30,6 @@ import {
   removeFromAllCanonicalLocations,
   stripFileProtocol,
   makeWorkspaceRelativeSourcePath,
-  makeWorkspaceRelativePath,
   computeIntegrity,
 } from "../utils/index.js";
 import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "./paths.js";
@@ -37,12 +40,20 @@ import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
-import { computeSourceHash, RenderedFilesMapSchema, type SourceHash } from "../extensions/index.js";
-import type { SubagentLockEntry } from "../lockfile/index.js";
+import {
+  computeSourceHash,
+  insertManagedFileBanner,
+  RenderedFilePathSchema,
+  type SourceHash,
+} from "../extensions/index.js";
 import { MANIFEST_FILENAME, SubagentManifestSchema } from "./manifest-schema.js";
+import {
+  findManagedSubagentFiles,
+  hasAxmManagedMarker,
+} from "../workspace/rendered-file-cleanup.js";
 
-const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
 const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);
+const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
@@ -76,7 +87,6 @@ export const SubagentManagerLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
-    const agents = yield* ws.getConfiguredAgents();
     const baseDir = ws.baseDir;
 
     // Build a layer to provide FileSystem + Path to inner effects
@@ -109,7 +119,14 @@ export const SubagentManagerLive = Layer.effect(
           polyfillHash,
         );
         const skillMdPath = path.join(polyfillDir, "SKILL.md");
-        const skillContent = `---\nname: ${args.name}\ndescription: ${args.description}\n---\n\n# ${args.name} role\n\nAdopt this role for the current task. This is an advisory role-skill fallback because ${args.agentId} has no native subagent surface.\n\n${args.body.trim()}\n`;
+        const skillContent = insertManagedFileBanner(
+          `---\nname: ${args.name}\ndescription: ${args.description}\n---\n\n# ${args.name} role\n\nAdopt this role for the current task. This is an advisory role-skill fallback because ${args.agentId} has no native subagent surface.\n\n${args.body.trim()}\n`,
+          {
+            editPath: `subagents/${args.name}.md`,
+            helpTopic: "subagents",
+            format: "markdown",
+          },
+        );
         yield* fs.makeDirectory(polyfillDir, { recursive: true });
         const current = yield* fs.readFileString(skillMdPath).pipe(Effect.option);
         if (Option.isNone(current) || current.value !== skillContent) {
@@ -134,11 +151,10 @@ export const SubagentManagerLive = Layer.effect(
     const lastInstallState = new Map<
       string,
       {
-        readonly agents: ReadonlyArray<string>;
         readonly sourceHash: SourceHash;
-        readonly renderedFiles: SubagentLockEntry["renderedFiles"];
       }
     >();
+    const lastUninstallState = new Map<string, MaterializationObservation>();
 
     // Compute canonical paths for a subagent ref
     const getCanonicalPaths = (ref: SubagentExtensionRef) => {
@@ -443,32 +459,12 @@ export const SubagentManagerLive = Layer.effect(
               ),
           { concurrency: "unbounded" },
         );
-        const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
-        const successfulAgents: string[] = [];
         yield* Effect.forEach(renderResults, ({ agentId, outcome }) => {
           if (outcome._tag !== "success") return Effect.void;
-          successfulAgents.push(agentId);
-          return Effect.forEach(outcome.renderedFilePaths, (p) => {
-            const relativePath = makeWorkspaceRelativePath(path, baseDir, p);
-            if (Option.isNone(relativePath)) {
-              return Effect.fail(
-                makeAppError({
-                  code: "internal",
-                  detail: `Rendered subagent path escapes workspace root: ${p}`,
-                }),
-              );
-            }
-            return Effect.succeed({ path: relativePath.value });
-          }).pipe(
-            Effect.map((entries) => {
-              renderedFilesMap[agentId] = entries;
-            }),
-          );
+          return Effect.logDebug(`Rendered ${ref.subagent.name} for ${agentId}`);
         });
         lastInstallState.set(ref.subagent.name, {
-          agents: successfulAgents,
           sourceHash: computeSourceHash(parsed.body),
-          renderedFiles: decodeRenderedFiles(renderedFilesMap),
         });
       });
 
@@ -476,43 +472,70 @@ export const SubagentManagerLive = Layer.effect(
       Effect.fn("SubagentManager.materializeUninstall")(function* ({ target, preserveSource }) {
         const sanitized = sanitizeName(target.name);
 
-        // --- Read rendered files from lockfile ---
-        const lockEntryOption = yield* ws.getLockedSubagent(target.name);
-        if (Option.isSome(lockEntryOption)) {
-          const lockEntry = lockEntryOption.value;
-          const renderedFiles = lockEntry.renderedFiles ?? {};
-
-          // --- Remove rendered files via CodingAgent.removeSubagent() ---
-          const configuredAgents = yield* agentRepo
-            .getConfiguredAgents()
-            .pipe(Effect.provideService(WorkspaceMutations, ws));
-
-          yield* Effect.forEach(
-            configuredAgents,
-            (agent) => {
-              const agentFiles = renderedFiles[agent.id] ?? [];
-              return agent
-                .removeSubagent({
+        const configuredAgents = yield* agentRepo
+          .getConfiguredAgents()
+          .pipe(Effect.provideService(WorkspaceMutations, ws));
+        const removals = yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            Effect.gen(function* () {
+              const removedPaths: Array<string> = [];
+              const resolved = yield* agent.resolveEffectiveSubagentsDir({
+                workspaceRoot: baseDir,
+                scope: ws.scope,
+              });
+              if (resolved._tag === "supported") {
+                const renderedFilePaths = yield* findManagedSubagentFiles(resolved.dir).pipe(
+                  Effect.provide(fsPathLayer),
+                );
+                yield* agent.removeSubagent({
                   workspaceRoot: baseDir,
                   scope: "project",
                   subagentName: target.name,
-                  renderedFilePaths: agentFiles.map((f) => f.path),
-                })
-                .pipe(
-                  Effect.provide(fsPathLayer),
-                  Effect.flatMap((outcome) =>
-                    Effect.forEach(agentFiles, (file) => {
-                      const absolute = path.resolve(baseDir, file.path);
-                      return absolute.startsWith(path.resolve(baseDir))
-                        ? fs.remove(absolute, { recursive: true }).pipe(Effect.ignore)
-                        : Effect.void;
-                    }).pipe(Effect.as(outcome)),
+                  renderedFilePaths: renderedFilePaths.map((filePath) =>
+                    decodeRenderedFilePath(path.relative(baseDir, filePath)),
                   ),
-                );
-            },
-            { concurrency: "unbounded" },
-          );
+                });
+                removedPaths.push(...renderedFilePaths);
+              }
+
+              const skills = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir });
+              if (skills._tag === "supported") {
+                const fallbackPath = path.join(path.normalize(skills.dir), sanitized);
+                const fallbackContent = yield* fs
+                  .readFileString(path.join(fallbackPath, "SKILL.md"))
+                  .pipe(Effect.option);
+                if (Option.isSome(fallbackContent) && hasAxmManagedMarker(fallbackContent.value)) {
+                  yield* fs.remove(fallbackPath, { recursive: true }).pipe(Effect.ignore);
+                  removedPaths.push(fallbackPath);
+                }
+              }
+
+              return { agentId: agent.id, removedPaths };
+            }).pipe(Effect.provide(fsPathLayer)),
+          { concurrency: "unbounded" },
+        );
+        const agentIdsByPath = new Map<string, Array<string>>();
+        for (const removal of removals) {
+          for (const removedPath of removal.removedPaths) {
+            const relativePath = path.relative(baseDir, removedPath);
+            const agentIds = agentIdsByPath.get(relativePath) ?? [];
+            if (!agentIds.includes(removal.agentId)) agentIds.push(removal.agentId);
+            agentIdsByPath.set(relativePath, agentIds);
+          }
         }
+        lastUninstallState.set(target.name, {
+          agents: removals
+            .filter((removal) => removal.removedPaths.length > 0)
+            .map((removal) => removal.agentId)
+            .sort(),
+          targets: Array.from(agentIdsByPath.entries())
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([targetPath, agentIds]) => ({
+              path: targetPath,
+              agentIds: [...agentIds].sort(),
+            })),
+        });
 
         // --- Remove canonical source directory ---
         if (preserveSource !== true) {
@@ -544,6 +567,8 @@ export const SubagentManagerLive = Layer.effect(
         );
       }),
       materializeUninstall,
+      getLastUnmaterialization: ({ target }) =>
+        Effect.succeed(lastUninstallState.get(target.name) ?? { agents: [], targets: [] }),
 
       upsertSettingsEntry: Effect.fn("SubagentManager.upsertSettingsEntry")(function* ({
         ref,
@@ -561,31 +586,24 @@ export const SubagentManagerLive = Layer.effect(
             detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const lockEntry = buildSubagentLockEntry(
-          ref,
-          agents,
-          new Date(),
-          workspaceRelativeLocalSourcePath,
-        );
+        const lockEntry = buildSubagentLockEntry(ref, new Date(), workspaceRelativeLocalSourcePath);
         const state = lastInstallState.get(ref.subagent.name);
-        const lockEntryWithMaterialization =
+        const sharedLockEntry =
           state === undefined
             ? lockEntry
             : {
                 ...lockEntry,
-                agents: [...state.agents],
                 sourceHash: state.sourceHash,
-                renderedFiles: state.renderedFiles,
               };
-        if (lockEntryWithMaterialization.type === "registry") {
+        if (sharedLockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `subagents.${ref.subagent.name}.resolvedVersion`,
-            lockEntryWithMaterialization.resolvedVersion,
+            sharedLockEntry.resolvedVersion,
           );
         }
         return yield* ws.setSubagent({
           name: ref.subagent.name,
-          lockEntry: lockEntryWithMaterialization,
+          lockEntry: sharedLockEntry,
         });
       }),
 
@@ -609,31 +627,24 @@ export const SubagentManagerLive = Layer.effect(
             detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const lockEntry = buildSubagentLockEntry(
-          ref,
-          agents,
-          new Date(),
-          workspaceRelativeLocalSourcePath,
-        );
+        const lockEntry = buildSubagentLockEntry(ref, new Date(), workspaceRelativeLocalSourcePath);
         const state = lastInstallState.get(ref.subagent.name);
-        const lockEntryWithMaterialization =
+        const sharedLockEntry =
           state === undefined
             ? lockEntry
             : {
                 ...lockEntry,
-                agents: [...state.agents],
                 sourceHash: state.sourceHash,
-                renderedFiles: state.renderedFiles,
               };
-        if (lockEntryWithMaterialization.type === "registry") {
+        if (sharedLockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `subagents.${ref.subagent.name}.resolvedVersion`,
-            lockEntryWithMaterialization.resolvedVersion,
+            sharedLockEntry.resolvedVersion,
           );
         }
         return yield* ws.setSubagentLock({
           name: ref.subagent.name,
-          lockEntry: lockEntryWithMaterialization,
+          lockEntry: sharedLockEntry,
         });
       }),
 

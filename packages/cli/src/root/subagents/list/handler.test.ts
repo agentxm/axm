@@ -201,7 +201,7 @@ describe("subagents list.handler", () => {
     );
   });
 
-  it.effect("filters subagents by agent", () => {
+  it.effect("includes configured subagents for a configured agent", () => {
     const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       subagents: {
@@ -219,9 +219,12 @@ describe("subagents list.handler", () => {
         yield* handleListSubagents({ agents: ["claude-code"], includeIgnored: false });
 
         expect(rendererState.tables).toHaveLength(1);
-        expect(rendererState.tables[0]?.items).toEqual([
-          expect.objectContaining({ name: "subagent-claude", agents: ["claude-code"] }),
-        ]);
+        expect(rendererState.tables[0]?.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ name: "subagent-claude", agents: ["claude-code"] }),
+            expect.objectContaining({ name: "subagent-cursor", agents: ["claude-code"] }),
+          ]),
+        );
       }),
     );
   });

@@ -48,22 +48,14 @@ const filesLockEntryVersion = (entry: FilesLockEntry): string | undefined =>
       ? entry.version
       : undefined;
 
-const filesNewArtifactTargets = (lockEntry: FilesLockEntry): ReadonlyArray<JobStepArtifactTarget> =>
-  [...(lockEntry.materializedTargets ?? [])]
-    .sort((left, right) => left.target.localeCompare(right.target))
-    .map((target) => ({
-      path: target.target,
-      change: "created",
-    }));
-
 const filesNewArtifact = (args: {
   readonly lockEntry: FilesLockEntry;
+  readonly targets: ReadonlyArray<JobStepArtifactTarget>;
   readonly canonicalPath: string;
   readonly workspaceRoot: string;
   readonly scope: JobStepArtifact["scope"];
   readonly pathService: Path.Path;
 }): JobStepArtifact => {
-  const targets = filesNewArtifactTargets(args.lockEntry);
   const version = filesLockEntryVersion(args.lockEntry);
   const sourcePath = args.pathService.relative(args.workspaceRoot, args.canonicalPath);
 
@@ -72,7 +64,7 @@ const filesNewArtifact = (args: {
     scope: args.scope,
     ...(version === undefined ? {} : { version }),
     change: "created",
-    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+    ...(args.targets.length === 0 ? {} : { fileCount: args.targets.length, targets: args.targets }),
   };
 };
 
@@ -203,9 +195,19 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
                     suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
                   });
                 }
+                const materialization =
+                  manager.getLastMaterialization === undefined
+                    ? { agents: [], targets: [] }
+                    : yield* manager.getLastMaterialization({
+                        target: { type: "files", name },
+                      });
 
                 return filesNewArtifact({
                   lockEntry: currentLockEntry.value,
+                  targets: materialization.targets.map((target) => ({
+                    ...target,
+                    change: "created",
+                  })),
                   canonicalPath: targetDir,
                   workspaceRoot: ws.baseDir,
                   scope: ws.scope,

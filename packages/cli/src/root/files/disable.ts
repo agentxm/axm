@@ -20,34 +20,8 @@ import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 const filesDisableArtifactTargets = (
-  lockEntry: Option.Option<FilesLockEntry>,
-): ReadonlyArray<JobStepArtifactTarget> => {
-  const targets: Array<JobStepArtifactTarget> = [{ path: ".axm/settings.json", change: "updated" }];
-  if (Option.isSome(lockEntry)) {
-    for (const materializedTarget of lockEntry.value.materializedTargets ?? []) {
-      if (materializedTarget.mode === "sync-once") continue;
-      targets.push({
-        path: materializedTarget.target,
-        change: materializedTarget.mode === "sync-always" ? "removed" : "updated",
-      });
-    }
-  }
-  return mergeTargets(targets);
-};
-
-const mergeTargets = (
-  targets: ReadonlyArray<JobStepArtifactTarget>,
-): ReadonlyArray<JobStepArtifactTarget> => {
-  const order = { removed: 4, updated: 3, created: 2, unchanged: 1 } as const;
-  const merged = new Map<string, JobStepArtifactTarget>();
-  for (const target of targets) {
-    const current = merged.get(target.path);
-    if (current === undefined || order[target.change] > order[current.change]) {
-      merged.set(target.path, target);
-    }
-  }
-  return [...merged.values()].sort((left, right) => left.path.localeCompare(right.path));
-};
+  _lockEntry: Option.Option<FilesLockEntry>,
+): ReadonlyArray<JobStepArtifactTarget> => [{ path: ".axm/settings.json", change: "updated" }];
 
 const filesDisableArtifact = (args: {
   readonly lockEntry: Option.Option<FilesLockEntry>;

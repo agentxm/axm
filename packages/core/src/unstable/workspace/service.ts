@@ -1470,31 +1470,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
-      updateLockEntryAgents: (name: string, agents: ReadonlyArray<string>) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const oldEntry = yield* getEntryOrFail(
-              currentLockfile.skills,
-              name,
-              "not_found",
-              `Lock entry "${name}" not found in lockfile`,
-            );
-            const updatedLockfile = {
-              ...currentLockfile,
-              skills: {
-                ...currentLockfile.skills,
-                [name]: { ...oldEntry, agents: [...agents] },
-              },
-            };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ),
-
       addConfiguredAgent: (agentId: string) =>
         withMutex(
           Effect.gen(function* () {

@@ -12,9 +12,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
-import { normalizeHandle, RenderedFilesMapSchema } from "@agentxm/client-core/unstable/extensions";
+import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { exactVersion, extensionName, handle, makeBaseWorkspaceMock } from "../../../test-stubs.js";
@@ -102,17 +101,11 @@ const makeRegistryRef = (name = "my-cmd"): RegistryCommandRef => ({
   packages: [],
 });
 
-const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
-
 const makeCommandLockEntry = (): CommandLockEntry => ({
   type: "local",
   path: "fixtures/my-cmd",
-  agents: ["claude-code"],
   installedAt: new Date("2025-01-01T00:00:00.000Z"),
   updatedAt: new Date("2025-01-01T00:00:00.000Z"),
-  renderedFiles: decodeRenderedFilesMap({
-    "claude-code": [{ path: ".claude/commands/my-cmd.md" }],
-  }),
 });
 
 const expectReadyStep = (
@@ -231,6 +224,17 @@ describe("buildPlan", () => {
       const commandManager = {
         ...mockCommandManager,
         materializeInstall: vi.fn(() => Effect.void),
+        getLastMaterialization: vi.fn(() =>
+          Effect.succeed({
+            agents: ["claude-code"],
+            targets: [
+              {
+                path: ".claude/commands/my-cmd.md",
+                agentIds: ["claude-code"],
+              },
+            ],
+          }),
+        ),
         upsertLockfileEntry: vi.fn(() => Effect.void),
         upsertSettingsEntry: vi.fn(() => Effect.void),
       } satisfies ServiceMap.Service.Shape<typeof CommandManager>;
@@ -295,18 +299,9 @@ describe("buildPlan", () => {
         result: "success",
         message: "my-cmd already installed",
         artifact: {
-          path: ".claude/commands/my-cmd.md",
+          path: "my-cmd",
           scope: "project",
-          agents: ["claude-code"],
           change: "unchanged",
-          fileCount: 1,
-          targets: [
-            {
-              path: ".claude/commands/my-cmd.md",
-              change: "unchanged",
-              agentIds: ["claude-code"],
-            },
-          ],
         },
       });
       expect(commandManager.materializeInstall).not.toHaveBeenCalled();

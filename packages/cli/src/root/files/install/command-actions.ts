@@ -62,23 +62,12 @@ const filesInstallArtifactPath = (entry: FilesLockEntry): string => {
   return "path" in entry && entry.path !== undefined ? entry.path : ".axm/extensions";
 };
 
-const filesInstallArtifactTargets = (args: {
-  readonly lockEntry: FilesLockEntry;
-  readonly installedBefore: boolean;
-}): ReadonlyArray<JobStepArtifactTarget> =>
-  [...(args.lockEntry.materializedTargets ?? [])]
-    .sort((left, right) => left.target.localeCompare(right.target))
-    .map((target) => ({
-      path: target.target,
-      change: args.installedBefore ? "unchanged" : "created",
-    }));
-
 const filesInstallArtifact = (args: {
   readonly lockEntry: FilesLockEntry;
   readonly installedBefore: boolean;
   readonly scope: JobStepArtifact["scope"];
+  readonly targets: ReadonlyArray<JobStepArtifactTarget>;
 }): JobStepArtifact => {
-  const targets = filesInstallArtifactTargets(args);
   const version = filesLockEntryVersion(args.lockEntry);
 
   return {
@@ -86,7 +75,7 @@ const filesInstallArtifact = (args: {
     scope: args.scope,
     ...(version === undefined ? {} : { version }),
     change: args.installedBefore ? "updated" : "created",
-    ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+    ...(args.targets.length === 0 ? {} : { fileCount: args.targets.length, targets: args.targets }),
   };
 };
 
@@ -223,10 +212,20 @@ export const InstallFilesCommandWorkflowActionsLive = Layer.effect(
                         suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
                       });
                     }
+                    const materialization =
+                      filesManager.getLastMaterialization === undefined
+                        ? { agents: [], targets: [] }
+                        : yield* filesManager.getLastMaterialization({
+                            target: { type: "files", name: ref.file.name },
+                          });
                     return filesInstallArtifact({
                       lockEntry: currentLockEntry.value,
                       installedBefore,
                       scope: ws.scope,
+                      targets: materialization.targets.map((target) => ({
+                        ...target,
+                        change: installedBefore ? "updated" : "created",
+                      })),
                     });
                   }),
               }),

@@ -58,26 +58,13 @@ const uniqueTargets = (
 
 const filesUninstallArtifact = (
   scope: JobStepArtifact["scope"],
-  lockEntry: Option.Option<FilesLockEntry>,
+  _lockEntry: Option.Option<FilesLockEntry>,
   result: JobStepResult,
 ): JobStepArtifact => {
   const retained = result.result === "success" && result.message.startsWith("Kept on disk");
-  const materializedTargets =
-    Option.isSome(lockEntry) && lockEntry.value.materializedTargets !== undefined
-      ? lockEntry.value.materializedTargets
-      : [];
   const targets = uniqueTargets([
     { path: ".axm/axm-lock.yaml", change: "updated" },
     { path: ".axm/settings.json", change: "updated" },
-    ...materializedTargets.map((target): JobStepArtifactTarget => {
-      if (retained || target.mode === "sync-once") {
-        return { path: target.target, change: "unchanged" };
-      }
-      return {
-        path: target.target,
-        change: target.mode === "sync-always" ? "removed" : "updated",
-      };
-    }),
   ]);
   return {
     path: retained ? ".axm/settings.json" : ".axm/axm-lock.yaml",

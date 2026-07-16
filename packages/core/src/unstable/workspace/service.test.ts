@@ -33,7 +33,6 @@ import {
   handle,
   property,
   recordEntry,
-  renderedFilePath,
   stringProperty,
   versionRange,
 } from "../test-helpers.js";
@@ -573,26 +572,19 @@ describe("WorkspaceMutationsService", () => {
   };
 
   /** Create a sample SkillLockEntry for testing. */
-  const makeSampleLockEntry = (agents: readonly string[] = ["claude-code"]): SkillLockEntry => ({
+  const makeSampleLockEntry = (): SkillLockEntry => ({
     type: "github" as const,
     owner: "acme",
     repo: "code-review",
-    agents: [...agents],
     installedAt: new Date("2025-01-01T00:00:00.000Z"),
     updatedAt: new Date("2025-01-01T00:00:00.000Z"),
   });
 
-  const makeSampleSubagentLockEntry = (
-    agents: readonly string[] = ["claude-code"],
-  ): SubagentLockEntry => ({
+  const makeSampleSubagentLockEntry = (): SubagentLockEntry => ({
     type: "github" as const,
     owner: "acme",
     repo: "planner",
-    agents: [...agents],
     sourceHash: "abc123",
-    renderedFiles: {
-      "claude-code": [{ path: renderedFilePath(".claude/agents/planner.md") }],
-    },
     installedAt: new Date("2025-01-01T00:00:00.000Z"),
     updatedAt: new Date("2025-01-01T00:00:00.000Z"),
   });
@@ -722,7 +714,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -756,7 +747,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -874,16 +864,16 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("does not rewrite an unchanged local skill entry", () =>
+    it.effect("does not rewrite an unchanged local skill lock entry", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          skills: { "local-review": "./skills/local-review" },
+          skills: { "local-review": "skills/local-review" },
         });
         writeLockfileTo(projectDir, {
           "local-review": {
             type: "local",
-            path: "./skills/local-review",
+            path: "skills/local-review",
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -891,7 +881,6 @@ describe("WorkspaceMutationsService", () => {
         });
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
-        const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
         const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
 
         const ws = yield* getService(defaultOptions);
@@ -899,15 +888,15 @@ describe("WorkspaceMutationsService", () => {
           name: "local-review",
           lockEntry: {
             type: "local",
-            path: "./skills/local-review",
-            agents: ["claude-code"],
+            path: "skills/local-review",
             installedAt: new Date("2026-02-03T04:05:06.000Z"),
             updatedAt: new Date("2026-02-03T04:05:06.000Z"),
           },
           versionRange: Option.none(),
         });
 
-        expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills["local-review"]).toBe("./skills/local-review");
         expect(fs.readFileSync(lockfilePath, "utf-8")).toBe(lockfileBefore);
       }),
     );
@@ -942,7 +931,6 @@ describe("WorkspaceMutationsService", () => {
           type: "github",
           owner: "acme",
           repo: "code-review-v2",
-          agents: ["claude-code", "cursor"],
           installedAt: new Date("2025-01-01T00:00:00.000Z"),
           updatedAt: new Date("2025-01-01T00:00:00.000Z"),
         };
@@ -959,10 +947,7 @@ describe("WorkspaceMutationsService", () => {
 
         // Verify lockfile updated
         const lockfile = readLockfileFromDisk(projectDir);
-        expect(property(recordEntry(lockfile.skills, "code-review"), "agents")).toEqual([
-          "claude-code",
-          "cursor",
-        ]);
+        expect(recordEntry(lockfile.skills, "code-review")).not.toHaveProperty("agents");
         expect(
           new Date(
             stringProperty(recordEntry(lockfile.skills, "code-review"), "updatedAt"),
@@ -987,7 +972,6 @@ describe("WorkspaceMutationsService", () => {
           resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
-          agents: ["claude-code"],
           installedAt: new Date(),
           updatedAt: new Date(),
         };
@@ -1017,7 +1001,6 @@ describe("WorkspaceMutationsService", () => {
           resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
-          agents: ["claude-code"],
           installedAt: new Date(),
           updatedAt: new Date(),
         };
@@ -1047,7 +1030,6 @@ describe("WorkspaceMutationsService", () => {
           resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
-          agents: ["claude-code"],
           installedAt: new Date(),
           updatedAt: new Date(),
         };
@@ -1082,11 +1064,7 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "planner",
-            agents: ["claude-code"],
             sourceHash: "abc123",
-            renderedFiles: {
-              "claude-code": [{ path: ".claude/agents/planner.md" }],
-            },
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -1742,55 +1720,6 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const result = yield* ws
           .updateSkillEntry("nonexistent", (entry) => entry)
-          .pipe(Effect.flip);
-
-        expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("not_found");
-      }),
-    );
-  });
-
-  // ---------------------------------------------------------------------------
-  // updateLockEntryAgents
-  // ---------------------------------------------------------------------------
-
-  describe("updateLockEntryAgents", () => {
-    it.effect("updates agents field on lock entry", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          skills: { "code-review": "github:acme/code-review" },
-        });
-        writeLockfileTo(projectDir, {
-          "code-review": {
-            type: "github",
-            owner: "acme",
-            repo: "code-review",
-            agents: ["claude-code"],
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        yield* ws.updateLockEntryAgents("code-review", ["claude-code", "cursor"]);
-
-        const lockfile = readLockfileFromDisk(projectDir);
-        expect(property(recordEntry(lockfile.skills, "code-review"), "agents")).toEqual([
-          "claude-code",
-          "cursor",
-        ]);
-      }),
-    );
-
-    it.effect("fails with AppError when lock entry does not exist", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-        writeLockfileTo(projectDir, {});
-
-        const ws = yield* getService(defaultOptions);
-        const result = yield* ws
-          .updateLockEntryAgents("nonexistent", ["claude-code"])
           .pipe(Effect.flip);
 
         expect(result).toBeInstanceOf(AppError);
@@ -2862,7 +2791,6 @@ describe("WorkspaceMutationsService", () => {
     type: "github" as const,
     owner: "acme",
     repo: "my-command",
-    agents: ["claude-code"],
     installedAt: new Date("2025-01-01T00:00:00.000Z"),
     updatedAt: new Date("2025-01-01T00:00:00.000Z"),
   });
@@ -3009,7 +2937,6 @@ describe("WorkspaceMutationsService", () => {
           type: "github",
           owner: "acme",
           repo: "my-command-v2",
-          agents: ["claude-code"],
           installedAt: new Date("2025-01-01T00:00:00.000Z"),
           updatedAt: new Date("2025-01-01T00:00:00.000Z"),
         };

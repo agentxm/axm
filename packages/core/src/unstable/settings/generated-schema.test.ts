@@ -222,7 +222,7 @@ describe("generated schemas", () => {
       return;
     }
     expect(constraints[0]["minimum"]).toBe(1);
-    expect(constraints[0]["default"]).toBe(2);
+    expect(constraints[0]["default"]).toBe(3);
   });
 
   it("publishes common manifest field annotations", () => {

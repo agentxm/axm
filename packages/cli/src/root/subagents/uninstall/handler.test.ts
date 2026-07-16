@@ -266,7 +266,10 @@ describe("uninstall.handler (subagents)", () => {
       createCanonicalSubagent(tempDir, "my-subagent");
       const renderedDir = path.join(tempDir, ".claude", "agents");
       fs.mkdirSync(renderedDir, { recursive: true });
-      fs.writeFileSync(path.join(renderedDir, "my-subagent.md"), "# my-subagent");
+      fs.writeFileSync(
+        path.join(renderedDir, "my-subagent.md"),
+        "<!-- AXM managed file -->\n# my-subagent",
+      );
 
       return provide(
         Effect.gen(function* () {

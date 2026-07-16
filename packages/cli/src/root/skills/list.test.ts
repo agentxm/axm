@@ -46,6 +46,13 @@ const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
   updatedAt: new Date().toISOString(),
 });
 
+const createAgentSkill = (baseDir: string, agentId: "claude-code" | "cursor", name: string) => {
+  const agentDir = agentId === "claude-code" ? ".claude" : ".cursor";
+  const skillDir = path.join(baseDir, agentDir, "skills", name);
+  fs.mkdirSync(skillDir, { recursive: true });
+  fs.writeFileSync(path.join(skillDir, "SKILL.md"), `---\nname: ${name}\n---\n`);
+};
+
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
@@ -146,10 +153,16 @@ describe("list.handler", () => {
 
   it.effect("filters skills by single agent", () => {
     const { provide, rendererState } = makeLayers();
-    initWorkspace(path.join(tempDir, ".axm"), {
-      "skill-claude": makeLockEntry(["claude-code"]),
-      "skill-cursor": makeLockEntry(["cursor"]),
-    });
+    initWorkspace(
+      path.join(tempDir, ".axm"),
+      {
+        "skill-claude": makeLockEntry(["claude-code"]),
+        "skill-cursor": makeLockEntry(["cursor"]),
+      },
+      ["claude-code", "cursor"],
+    );
+    createAgentSkill(tempDir, "claude-code", "skill-claude");
+    createAgentSkill(tempDir, "cursor", "skill-cursor");
 
     return provide(
       Effect.gen(function* () {
@@ -169,11 +182,17 @@ describe("list.handler", () => {
 
   it.effect("filters by multiple agents using OR logic", () => {
     const { provide, rendererState } = makeLayers();
-    initWorkspace(path.join(tempDir, ".axm"), {
-      "skill-claude": makeLockEntry(["claude-code"]),
-      "skill-cursor": makeLockEntry(["cursor"]),
-      "skill-other": makeLockEntry(["other-agent"]),
-    });
+    initWorkspace(
+      path.join(tempDir, ".axm"),
+      {
+        "skill-claude": makeLockEntry(["claude-code"]),
+        "skill-cursor": makeLockEntry(["cursor"]),
+        "skill-other": makeLockEntry(["other-agent"]),
+      },
+      ["claude-code", "cursor"],
+    );
+    createAgentSkill(tempDir, "claude-code", "skill-claude");
+    createAgentSkill(tempDir, "cursor", "skill-cursor");
 
     return provide(
       Effect.gen(function* () {
@@ -218,10 +237,16 @@ describe("list.handler", () => {
 
   it.effect("emits machine-readable items for --json consumers", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
-    initWorkspace(path.join(tempDir, ".axm"), {
-      "skill-one": makeLockEntry(),
-      "skill-two": makeLockEntry(["cursor"]),
-    });
+    initWorkspace(
+      path.join(tempDir, ".axm"),
+      {
+        "skill-one": makeLockEntry(),
+        "skill-two": makeLockEntry(["cursor"]),
+      },
+      ["claude-code", "cursor"],
+    );
+    createAgentSkill(tempDir, "claude-code", "skill-one");
+    createAgentSkill(tempDir, "cursor", "skill-two");
 
     return provide(
       Effect.gen(function* () {
@@ -382,6 +407,8 @@ describe("list.handler", () => {
       fs.mkdirSync(skillDir, { recursive: true });
       fs.writeFileSync(path.join(skillDir, "SKILL.md"), `---\nname: ${name}\n---\n`);
     }
+    createAgentSkill(tempDir, "claude-code", "skill-claude");
+    createAgentSkill(tempDir, "cursor", "skill-cursor");
 
     return provide(
       Effect.gen(function* () {

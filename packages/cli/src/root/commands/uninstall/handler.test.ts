@@ -101,7 +101,7 @@ describe("commands uninstall.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("preview", () => {
-    it.effect("displays affected agents from lockfile in preview mode", () => {
+    it.effect("displays configured agents affected in preview mode", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -115,6 +115,7 @@ describe("commands uninstall.handler", () => {
             },
           }),
         },
+        ["claude-code", "cursor"],
       );
 
       return provide(
@@ -124,7 +125,7 @@ describe("commands uninstall.handler", () => {
           const allMessages = [...logs.info, ...logs.message];
           expect(allMessages.some((m) => m.includes("Affected agents"))).toBe(true);
           expect(allMessages.some((m) => m.includes("claude-code"))).toBe(true);
-          expect(allMessages.some((m) => m.includes("Files that would be removed"))).toBe(true);
+          expect(allMessages.some((m) => m.includes("cursor"))).toBe(true);
         }),
       );
     });

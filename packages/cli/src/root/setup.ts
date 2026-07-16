@@ -240,7 +240,6 @@ const installBundledAxmSkill = Effect.gen(function* () {
     resolvedVersion: decodeVersionSync(AXM_SKILL_VERSION),
     integrity: "",
     sourceName: "default",
-    agents: configuredAgents.map((agent) => agent.id),
     installedAt: now,
     updatedAt: now,
   };

@@ -25,6 +25,7 @@ import type {
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { canonicalExtensionPathForLockEntry, computeSourceHash } from "../../extensions/index.js";
 import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
+import type { RenderedFilesMap } from "../../extensions/rendered-files.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../../utils/path-types.js";
 import {
@@ -39,7 +40,7 @@ const commandVersion = (entry: CommandLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
 
 const renderedFileTargets = (
-  renderedFiles: CommandLockEntry["renderedFiles"],
+  renderedFiles: RenderedFilesMap,
 ): ReadonlyArray<JobStepArtifactTarget> => {
   if (renderedFiles === undefined) return [];
 
@@ -66,15 +67,17 @@ const renderedFileTargets = (
 const commandArtifactFromLockEntry = (
   lockEntry: CommandLockEntry,
   scope: JobStepArtifact["scope"],
+  agents: ReadonlyArray<string>,
+  renderedFiles: RenderedFilesMap,
 ): JobStepArtifact => {
-  const targets = renderedFileTargets(lockEntry.renderedFiles);
+  const targets = renderedFileTargets(renderedFiles);
   const firstTarget = targets[0];
   const version = commandVersion(lockEntry);
 
   return {
     path: firstTarget?.path ?? ".axm/settings.json",
     scope,
-    ...(lockEntry.agents.length === 0 ? {} : { agents: lockEntry.agents }),
+    ...(agents.length === 0 ? {} : { agents }),
     ...(version === undefined ? {} : { version }),
     change: "updated",
     ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
@@ -110,7 +113,7 @@ export type EnableCommandOperation = Operation<"enable-command", { readonly comm
  * 2. Verify canonical directory exists
  * 3. Read the command's `${name}.md` content file and `command.json`
  * 4. Render to all configured agents concurrently
- * 5. Update lock entry with agents and renderedFiles
+ * 5. Update the shared source hash in the lock entry
  * 6. Update settings entry to set enabled: true
  *
  * Settings-only path (no lock entry):
@@ -231,15 +234,14 @@ export const enableCommand: OperationHandler<
     });
     const renderingWarnings = collectRenderingWarningSummaries(outcomes);
 
-    // Update lock entry with agents and renderedFiles
+    // Persist only shared source state. Agent and render state is derived from
+    // settings and the workspace filesystem.
     const now = new Date();
     const sourceHash = computeSourceHash(body);
     const renderedFiles = decodeRenderedFilesMap(rawRenderedFiles);
     const updatedLockEntry = {
       ...lockEntry,
-      agents: successfulAgents,
       sourceHash,
-      renderedFiles,
       updatedAt: now,
     };
     // Update lockfile only (preserve existing settings source)
@@ -259,6 +261,11 @@ export const enableCommand: OperationHandler<
       result: "success",
       message: `Enabled ${op.args.commandName}`,
       ...(renderingWarnings.length === 0 ? {} : { warnings: renderingWarnings }),
-      artifact: commandArtifactFromLockEntry(updatedLockEntry, ws.scope),
+      artifact: commandArtifactFromLockEntry(
+        updatedLockEntry,
+        ws.scope,
+        successfulAgents,
+        renderedFiles,
+      ),
     } satisfies JobStepResult;
   });

@@ -80,7 +80,7 @@ const lockEntryToPathSource = (lockEntry: SubagentLockEntry): SubagentPathSource
  * 3. Verify canonical directory exists
  * 4. Read and parse the subagent content file
  * 5. Render to all agents (concurrent)
- * 6. Update lockfile with rendered files and source hash
+ * 6. Update the shared source hash in the lockfile
  * 7. Update settings entry to set enabled: true
  *
  * Settings-only path (no lock entry):
@@ -225,12 +225,12 @@ export const enableSubagent: OperationHandler<
       { concurrency: "unbounded" },
     );
 
-    // Update lockfile with rendered files and source hash
+    // Persist only the shared source hash. Rendered paths remain transient.
     const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
+    const renderedFiles = decodeRenderedFiles(renderedFilesMap);
     const updatedLockEntry = {
       ...lockEntry,
       sourceHash: currentHash,
-      renderedFiles: decodeRenderedFiles(renderedFilesMap),
     };
     yield* ws.setSubagentLock({ name: op.args.subagentName, lockEntry: updatedLockEntry });
 
@@ -246,10 +246,10 @@ export const enableSubagent: OperationHandler<
       artifact: subagentLifecycleArtifact({
         name: op.args.subagentName,
         scope: ws.scope,
-        agents: updatedLockEntry.agents,
+        agents: configuredAgents.map((agent) => agent.id),
         ...(version === undefined ? {} : { version }),
         change: "updated",
-        renderedFiles: updatedLockEntry.renderedFiles,
+        renderedFiles,
         renderedChange: "updated",
       }),
     } satisfies JobStepResult;

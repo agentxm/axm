@@ -2,7 +2,7 @@
  * Enable skill executor — re-creates agent symlinks for a previously disabled skill.
  *
  * Two paths:
- * - Lock entry present: full enable (symlinks + lock agents + settings)
+ * - Lock entry present: full enable (materialize artifacts + settings)
  * - No lock entry: settings-only toggle (configured skill with no lock backing)
  *
  * @experimental This API is unstable and may change without notice.
@@ -31,7 +31,6 @@ import {
   capabilityRenderTargetForAgentId,
   materializeCapabilityTargetedBuild,
 } from "../../capability-targeting/index.js";
-import type { CapabilityRenderInput } from "../../lockfile/index.js";
 
 // Operation types
 // -----------------------------------------------------------------------------
@@ -55,8 +54,7 @@ export type EnableSkillOperation = Operation<"enable-skill", { readonly skillNam
  * 2. Compute canonical path via getSkillDir (uses lockfile)
  * 3. Verify canonical directory exists
  * 4. Create agent symlinks (concurrent)
- * 5. Update lock agents
- * 6. Update settings entry to set enabled: true
+ * 5. Update settings entry to set enabled: true
  *
  * Settings-only path (no lock entry):
  * 1. Update settings entry to set enabled: true
@@ -176,34 +174,13 @@ export const enableSkill: OperationHandler<
         }),
       { concurrency: "unbounded" },
     );
-    const renderInputs: Record<string, CapabilityRenderInput> = {};
-    const degradedRenders: Record<string, ReadonlyArray<string>> = {};
     for (const { targetAgentId, build } of builds) {
-      if (build.renderInput !== undefined) renderInputs[targetAgentId] = build.renderInput;
-      if (build.degraded) {
-        degradedRenders[targetAgentId] = [
-          ...new Set(build.findings.map((finding) => finding.code)),
-        ].sort();
-      }
       for (const finding of build.findings) {
         yield* Effect.logWarning(
           `[${finding.code}] ${op.args.skillName} (${targetAgentId}): ${finding.message}`,
         );
       }
     }
-
-    yield* ws
-      .setSkillLock({
-        name: op.args.skillName,
-        lockEntry: {
-          ...lockEntry.value,
-          agents: materializationAgents.map((agent) => agent.id),
-          ...(Object.keys(renderInputs).length === 0 ? {} : { renderInputs }),
-          ...(Object.keys(degradedRenders).length === 0 ? {} : { degradedRenders }),
-        },
-        versionRange: Option.none(),
-      })
-      .pipe(Effect.catch(() => Effect.void));
 
     yield* ws
       .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: true }))
@@ -215,10 +192,7 @@ export const enableSkill: OperationHandler<
       sanitizedName,
       scope: ws.scope,
       change: "created",
-      workspaceTargets: [
-        { path: ".axm/axm-lock.yaml", change: "updated" },
-        { path: ".axm/settings.json", change: "updated" },
-      ],
+      workspaceTargets: [{ path: ".axm/settings.json", change: "updated" }],
     }).pipe(
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),

@@ -65,33 +65,6 @@ const resolvedVersion = (entry: unknown): string | undefined => {
   return entry.resolvedVersion;
 };
 
-const renderedFileTargets = (
-  renderedFiles: Readonly<Record<string, ReadonlyArray<{ readonly path: string }>>>,
-  change: JobStepArtifact["change"],
-): ReadonlyArray<JobStepArtifactTarget> => {
-  const byPath = new Map<string, Array<string>>();
-  for (const [agentId, files] of Object.entries(renderedFiles)) {
-    for (const file of files) {
-      const existing = byPath.get(file.path);
-      if (existing === undefined) {
-        byPath.set(file.path, [agentId]);
-        continue;
-      }
-      if (!existing.includes(agentId)) {
-        existing.push(agentId);
-      }
-    }
-  }
-
-  return [...byPath.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([path, agentIds]) => ({
-      path,
-      change,
-      ...(agentIds.length > 0 ? { agentIds } : {}),
-    }));
-};
-
 const subagentSourceTarget = (args: {
   readonly name: string;
   readonly lockEntry: SubagentLockEntry | undefined;
@@ -112,11 +85,15 @@ const subagentSourceTarget = (args: {
 const subagentArtifact = (args: {
   readonly name: string;
   readonly lockEntry: SubagentLockEntry | undefined;
-  readonly renderedFiles: Readonly<Record<string, ReadonlyArray<{ readonly path: string }>>>;
+  readonly materializedTargets: ReadonlyArray<{
+    readonly path: string;
+    readonly agentIds?: ReadonlyArray<string>;
+  }>;
   readonly agents: ReadonlyArray<string>;
   readonly change: JobStepArtifact["change"];
 }): JobStepArtifact => {
-  const targetChange = args.change === "removed" ? "removed" : "unchanged";
+  const targetChange: JobStepArtifactTarget["change"] =
+    args.change === "removed" ? "removed" : "unchanged";
   const targets: ReadonlyArray<JobStepArtifactTarget> = [
     { path: ".axm/axm-lock.yaml", change: "updated" },
     { path: ".axm/settings.json", change: "updated" },
@@ -125,7 +102,7 @@ const subagentArtifact = (args: {
       lockEntry: args.lockEntry,
       change: targetChange,
     }),
-    ...renderedFileTargets(args.renderedFiles, targetChange),
+    ...args.materializedTargets.map((target) => ({ ...target, change: targetChange })),
   ];
   const firstTarget = targets[0];
   const version = resolvedVersion(args.lockEntry);
@@ -228,20 +205,11 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
             const run = Effect.gen(function* () {
               const lockEntryOption = yield* ws.getLockedSubagent(entry.subagentName);
               const lockEntry = Option.getOrUndefined(lockEntryOption);
-              const renderedFiles = lockEntry?.renderedFiles ?? {};
-              const agents = lockEntry?.agents ?? [];
-              const removedArtifact = subagentArtifact({
-                name: entry.subagentName,
-                lockEntry,
-                renderedFiles,
-                agents,
-                change: "removed",
-              });
               const unchangedArtifact = subagentArtifact({
                 name: entry.subagentName,
                 lockEntry,
-                renderedFiles,
-                agents,
+                materializedTargets: [],
+                agents: [],
                 change: "unchanged",
               });
 
@@ -256,9 +224,20 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
                 } satisfies JobStepResult;
               }
 
+              const unmaterialization =
+                subagentMgr.getLastUnmaterialization === undefined
+                  ? { agents: [], targets: [] }
+                  : yield* subagentMgr.getLastUnmaterialization({ target });
+
               return {
                 ...result,
-                artifact: removedArtifact,
+                artifact: subagentArtifact({
+                  name: entry.subagentName,
+                  lockEntry,
+                  materializedTargets: unmaterialization.targets,
+                  agents: unmaterialization.agents,
+                  change: "removed",
+                }),
               } satisfies JobStepResult;
             });
 

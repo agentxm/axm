@@ -7,9 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
-import * as Schema from "effect/Schema";
 import type { SkillLockEntry } from "../../lockfile/index.js";
-import { RenderedFilePathSchema } from "../../extensions/index.js";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
@@ -24,8 +22,6 @@ import { decodeRelativePathSync } from "../../utils/path-types.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
-
 /** Creates a workspace mock for disable tests. */
 const makeWorkspaceMock = (
   axmDir: string,
@@ -33,7 +29,6 @@ const makeWorkspaceMock = (
     configuredAgents?: ReadonlyArray<string>;
     lockfileSkills?: Record<string, SkillLockEntry>;
     updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
-    updateLockEntryAgentsFn?: WorkspaceMutationsService["updateLockEntryAgents"];
     setSkillLockFn?: WorkspaceMutationsService["setSkillLock"];
   } = {},
 ): WorkspaceMutationsService => {
@@ -47,7 +42,6 @@ const makeWorkspaceMock = (
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
     updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
-    updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? ((_name, _agents) => Effect.void),
     setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
     getConfiguredMcpServers: () => Effect.succeed({}),
   });
@@ -66,21 +60,19 @@ const makeOp = (skillName = "my-skill"): DisableSkillOperation => ({
 });
 
 /** Creates a local source lock entry. */
-const makeLocalLockEntry = (agents: string[]): SkillLockEntry => ({
+const makeLocalLockEntry = (_agents: string[]): SkillLockEntry => ({
   type: "local" as const,
   path: decodeRelativePathSync("tmp/source"),
-  agents,
   installedAt: new Date(),
   updatedAt: new Date(),
 });
 
 /** Creates a registry source lock entry. */
-const makeRegistryLockEntry = (agents: string[]): SkillLockEntry =>
+const makeRegistryLockEntry = (_agents: string[]): SkillLockEntry =>
   makeRegistrySkillLockEntry({
     owner: handle("@community"),
     name: "my-skill",
     sourceName: "local",
-    agents,
   });
 
 // -----------------------------------------------------------------------------
@@ -194,7 +186,7 @@ describe("disableSkill", () => {
       }),
     );
 
-    it.effect("updates lock entry with empty agents", () =>
+    it.effect("leaves the shared lock entry unchanged", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
         const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
@@ -211,16 +203,7 @@ describe("disableSkill", () => {
           ),
         );
 
-        expect(setSkillLockFn).toHaveBeenCalledOnce();
-        expect(setSkillLockFn).toHaveBeenCalledWith({
-          name: "my-skill",
-          lockEntry: expect.objectContaining({
-            type: "local",
-            path: "tmp/source",
-            agents: [],
-          }),
-          versionRange: Option.none(),
-        });
+        expect(setSkillLockFn).not.toHaveBeenCalled();
       }),
     );
 
@@ -264,7 +247,7 @@ describe("disableSkill", () => {
           ),
         );
 
-        expect(setSkillLockFn).toHaveBeenCalledOnce();
+        expect(setSkillLockFn).not.toHaveBeenCalled();
         expect(updateSkillEntryFn).toHaveBeenCalledOnce();
       }),
     );
@@ -358,17 +341,12 @@ describe("disableSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
-        const updateLockEntryAgentsFn = vi.fn(
-          (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
-        );
-
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
               lockfileSkills: {},
               updateSkillEntryFn,
-              updateLockEntryAgentsFn,
             }),
           ),
         );
@@ -377,8 +355,6 @@ describe("disableSkill", () => {
         // Settings should be updated
         expect(updateSkillEntryFn).toHaveBeenCalledOnce();
         expect(updateSkillEntryFn).toHaveBeenCalledWith("my-skill", expect.any(Function));
-        // Lock agents should NOT be updated (no lock entry)
-        expect(updateLockEntryAgentsFn).not.toHaveBeenCalled();
       }),
     );
   });
@@ -554,12 +530,7 @@ describe("disableSkill", () => {
         fs.mkdirSync(renderedPath, { recursive: true });
         fs.writeFileSync(path.join(renderedPath, "SKILL.md"), "# my-skill");
 
-        const lockEntry: SkillLockEntry = {
-          ...makeLocalLockEntry(["claude-code"]),
-          renderedFiles: {
-            "claude-code": [{ path: makeRenderedFilePath(".claude/skills/my-skill") }],
-          },
-        };
+        const lockEntry = makeLocalLockEntry(["claude-code"]);
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(withServices(axmDir, { lockfileSkills: { "my-skill": lockEntry } })),
@@ -581,12 +552,7 @@ describe("disableSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         // Don't create the rendered path — it doesn't exist on disk
-        const lockEntry: SkillLockEntry = {
-          ...makeLocalLockEntry(["claude-code"]),
-          renderedFiles: {
-            "claude-code": [{ path: makeRenderedFilePath(".claude/skills/my-skill") }],
-          },
-        };
+        const lockEntry = makeLocalLockEntry(["claude-code"]);
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(withServices(axmDir, { lockfileSkills: { "my-skill": lockEntry } })),

@@ -59,7 +59,6 @@ import {
   applyPlan,
   resolvePlan,
   type JobStepArtifact,
-  type JobStepArtifactTarget,
   type JobStepResult,
   type Operation,
   type Plan,
@@ -107,37 +106,9 @@ const dependencyEntries = (
   return entries;
 };
 
-type RenderedFilesByAgent = Readonly<Record<string, ReadonlyArray<{ readonly path: string }>>>;
-
 const registryVersion = (
   ref: SkillExtensionRef | CommandExtensionRef | SubagentExtensionRef,
 ): string | undefined => (ref.refType === "registry" ? ref.version : undefined);
-
-const renderedArtifactTargets = (
-  renderedFiles: RenderedFilesByAgent | undefined,
-  change: JobStepArtifactTarget["change"],
-): ReadonlyArray<JobStepArtifactTarget> => {
-  if (renderedFiles === undefined) return [];
-
-  const agentIdsByPath = new Map<string, Array<string>>();
-  for (const [agentId, files] of Object.entries(renderedFiles)) {
-    for (const file of files) {
-      const agentIds = agentIdsByPath.get(file.path) ?? [];
-      if (!agentIds.includes(agentId)) {
-        agentIds.push(agentId);
-      }
-      agentIdsByPath.set(file.path, agentIds);
-    }
-  }
-
-  return [...agentIdsByPath.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([targetPath, agentIds]) => ({
-      path: targetPath,
-      change,
-      agentIds: [...agentIds].sort(),
-    }));
-};
 
 const skillSyncArtifact = (args: {
   readonly ref: SkillExtensionRef;
@@ -184,17 +155,13 @@ const commandSyncArtifact = (args: {
   readonly ref: CommandExtensionRef;
   readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
 }): Effect.Effect<JobStepArtifact, AppError, never> =>
-  Effect.gen(function* () {
-    const lockEntry = yield* args.ws.getLockedCommand(args.ref.command.name);
-    const renderedFiles = Option.isSome(lockEntry) ? lockEntry.value.renderedFiles : undefined;
-    const targets = renderedArtifactTargets(renderedFiles, "updated");
+  Effect.sync(() => {
     const version = registryVersion(args.ref);
     return {
-      path: targets[0]?.path ?? args.ref.command.name,
+      path: args.ref.command.name,
       scope: args.ws.scope,
       ...(version === undefined ? {} : { version }),
       change: "updated",
-      ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
     };
   });
 
@@ -202,17 +169,13 @@ const subagentSyncArtifact = (args: {
   readonly ref: SubagentExtensionRef;
   readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
 }): Effect.Effect<JobStepArtifact, AppError, never> =>
-  Effect.gen(function* () {
-    const lockEntry = yield* args.ws.getLockedSubagent(args.ref.subagent.name);
-    const renderedFiles = Option.isSome(lockEntry) ? lockEntry.value.renderedFiles : undefined;
-    const targets = renderedArtifactTargets(renderedFiles, "updated");
+  Effect.sync(() => {
     const version = registryVersion(args.ref);
     return {
-      path: targets[0]?.path ?? args.ref.subagent.name,
+      path: args.ref.subagent.name,
       scope: args.ws.scope,
       ...(version === undefined ? {} : { version }),
       change: "updated",
-      ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
     };
   });
 

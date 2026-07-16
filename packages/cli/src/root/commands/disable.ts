@@ -18,11 +18,7 @@ import { scopeFlag } from "../../cli-flags.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { toJobStepResult } from "./job-step-result.js";
-import {
-  combinePlanSections,
-  makeAgentSection,
-  makeRenderedFilesSection,
-} from "./preview-sections.js";
+import { combinePlanSections, makeAgentSection } from "./preview-sections.js";
 
 export interface DisableCommandHandlerArgs {
   readonly name: string;
@@ -73,16 +69,13 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
   }
 
   const lockedEntry = yield* ws.getLockedCommand(commandName);
+  const configuredAgentIds = yield* ws.getConfiguredAgents();
   const planSections = Option.isSome(lockedEntry)
     ? combinePlanSections(
         makeAgentSection(
           "Would remove rendered files from agents",
-          lockedEntry.value.agents,
-          "(no agents recorded)",
-        ),
-        makeRenderedFilesSection(
-          "Files that would be removed",
-          lockedEntry.value.renderedFiles ?? {},
+          configuredAgentIds,
+          "(no agents configured)",
         ),
       )
     : undefined;

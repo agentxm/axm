@@ -184,6 +184,20 @@ export type ExtensionTargetFor<TRef extends ExtensionRef> = Extract<
   { readonly type: TRef["type"] }
 >;
 
+/**
+ * Machine-local effects observed during the most recent materialization.
+ *
+ * This data is intentionally ephemeral. It supports operation output without
+ * making agent-specific paths part of the shared lockfile contract.
+ */
+export interface MaterializationObservation {
+  readonly agents: ReadonlyArray<string>;
+  readonly targets: ReadonlyArray<{
+    readonly path: string;
+    readonly agentIds?: ReadonlyArray<string>;
+  }>;
+}
+
 // ---------------------------------------------------------------------------
 // Extension Manager Interface
 // ---------------------------------------------------------------------------
@@ -201,6 +215,12 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly materializeInstall: (args: {
     readonly ref: TRef;
   }) => Effect.Effect<void, AppError, never>;
+  readonly getLastMaterialization?: (args: {
+    readonly target: ExtensionTargetFor<TRef>;
+  }) => Effect.Effect<MaterializationObservation, never, never>;
+  readonly getLastUnmaterialization?: (args: {
+    readonly target: ExtensionTargetFor<TRef>;
+  }) => Effect.Effect<MaterializationObservation, never, never>;
   readonly getConfiguredSource?: (args: {
     readonly target: ExtensionTarget;
   }) => Effect.Effect<Option.Option<string>, AppError, never>;
@@ -566,10 +586,6 @@ export interface WorkspaceMutationsService {
   /** Create or overwrite a skill entry in settings only (no lockfile). Serialized by semaphore. */
   readonly setSkillEntry: (name: string, entry: SkillEntry) => Effect.Effect<void, AppError>;
   /** Update the agents field on a lock entry. Serialized by semaphore. */
-  readonly updateLockEntryAgents: (
-    name: string,
-    agents: ReadonlyArray<string>,
-  ) => Effect.Effect<void, AppError>;
   /** Append an agent ID if not already present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */
   readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
   /** Remove an agent ID if present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */

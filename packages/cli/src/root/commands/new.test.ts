@@ -150,8 +150,8 @@ describe("commands-new.handler", () => {
           expect(lockfile).toContain("my-command:");
           expect(lockfile).toContain("type: workspace");
           expect(lockfile).toContain("version: 0.1.0");
-          expect(lockfile).toContain("claude-code");
-          expect(lockfile).toContain(".claude/commands/my-command.md");
+          expect(lockfile).not.toContain("claude-code");
+          expect(lockfile).not.toContain(".claude/commands/my-command.md");
 
           expect(logs.success.some((m) => m.includes("@acme/commands/my-command"))).toBe(true);
           expect(rendererState.suggestions).toEqual([

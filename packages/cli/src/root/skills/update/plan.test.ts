@@ -201,7 +201,6 @@ const emptyLockfile: Lockfile = {
 };
 
 const makeCommonLockFields = (overrides?: Partial<SkillLockEntry>) => ({
-  agents: overrides?.agents ?? [],
   installedAt: overrides?.installedAt ?? new Date(),
   updatedAt: overrides?.updatedAt ?? new Date(),
   ...(overrides?.gitTreeHash !== undefined && { gitTreeHash: overrides.gitTreeHash }),

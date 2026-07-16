@@ -31,7 +31,7 @@ Use `axm agents list` to inspect configured and detected coding agents. Use
 AXM also creates or removes the per-agent managed artifacts for installed
 extensions.
 
-Extensions are typically referenced by their full name: `<@owner>/<skills|subagents|...>/<name>` and vendored under `.axm/extensions/<@owner>/<type>/<name>`. Non-registry sourced extensions are vendored under `.axm/extensions/external/<type>/<name>`. `.axm` should not be ignored by source control. The `.axm/axm-lock.yaml` file records resolved metadata captured at install time.
+Extensions are typically referenced by their full name: `<@owner>/<skills|subagents|...>/<name>` and vendored under `.axm/extensions/<@owner>/<type>/<name>`. Non-registry sourced extensions are vendored under `.axm/extensions/external/<type>/<name>`. `.axm` should not be ignored by source control. The v3 `.axm/axm-lock.yaml` file records shared resolution metadata captured at install time; agent-specific paths and render state are derived from settings, manifests, AXM ownership markers, and the local workspace.
 
 ### Authoring and editing extensions
 

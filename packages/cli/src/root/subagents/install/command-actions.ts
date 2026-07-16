@@ -31,11 +31,7 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type {
-  JobStepArtifact,
-  JobStepArtifactTarget,
-  Plan,
-} from "@agentxm/client-core/unstable/plan";
+import type { JobStepArtifact, Plan } from "@agentxm/client-core/unstable/plan";
 import type { InstallSubagentCommandIntent } from "./intent.js";
 import {
   resolveSubagentInstallSource,
@@ -180,33 +176,6 @@ const artifactChange = (args: {
     args.sourceHash === undefined ||
     args.previousSourceHash === args.sourceHash;
   return sameVersion && sameSource ? "unchanged" : "updated";
-};
-
-const renderedFileTargets = (
-  renderedFiles: Readonly<Record<string, ReadonlyArray<{ readonly path: string }>>>,
-  change: JobStepArtifact["change"],
-): ReadonlyArray<JobStepArtifactTarget> => {
-  const byPath = new Map<string, Array<string>>();
-  for (const [agentId, files] of Object.entries(renderedFiles)) {
-    for (const file of files) {
-      const existing = byPath.get(file.path);
-      if (existing === undefined) {
-        byPath.set(file.path, [agentId]);
-        continue;
-      }
-      if (!existing.includes(agentId)) {
-        existing.push(agentId);
-      }
-    }
-  }
-
-  return [...byPath.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([path, agentIds]) => ({
-      path,
-      change,
-      ...(agentIds.length > 0 ? { agentIds } : {}),
-    }));
 };
 
 // -----------------------------------------------------------------------------
@@ -442,7 +411,6 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                 Effect.gen(function* () {
                   const lockEntryOption = yield* ws.getLockedSubagent(ref.subagent.name);
                   const lockEntry = Option.getOrUndefined(lockEntryOption);
-                  const renderedFiles = lockEntry?.renderedFiles ?? {};
                   const sourceHash = lockEntry?.sourceHash;
                   const change = artifactChange({
                     installedBefore,
@@ -451,22 +419,17 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
                     previousSourceHash: sourceHashBeforeInstall,
                     sourceHash,
                   });
-                  const targets = renderedFileTargets(renderedFiles, change);
-                  const firstTarget = targets[0];
+                  const configuredAgents = yield* ws.getConfiguredAgents();
 
                   return {
-                    path: firstTarget?.path ?? ref.subagent.name,
+                    path: ref.subagent.name,
                     scope: "project",
-                    ...(lockEntry !== undefined && lockEntry.agents.length > 0
-                      ? { agents: lockEntry.agents }
-                      : {}),
+                    ...(configuredAgents.length > 0 ? { agents: configuredAgents } : {}),
                     ...(version !== undefined ? { version } : {}),
                     change,
                     ...(previousVersion !== undefined && previousVersion !== version
                       ? { previousVersion }
                       : {}),
-                    fileCount: targets.length,
-                    ...(targets.length > 0 ? { targets } : {}),
                   } satisfies JobStepArtifact;
                 });
 

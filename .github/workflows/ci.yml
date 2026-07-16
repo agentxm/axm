@@ -27,6 +27,8 @@ env:
   NX_TUI: "false"
   NX_DEFAULT_OUTPUT_STYLE: static
   NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
+  NX_PARALLEL: "2"
+  VITEST_MAX_WORKERS: "2"
 
 jobs:
   verify:

@@ -30,10 +30,6 @@ import {
 } from "../utils/index.js";
 import { CodingAgentRepository, type AgentId } from "../agents/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
-import type {
-  CapabilityRenderInput as LockedCapabilityRenderInput,
-  SkillLockEntry,
-} from "../lockfile/index.js";
 import {
   ensureSkillAgentArtifact,
   materializeSkillCanonical,
@@ -62,12 +58,10 @@ export class SkillManager extends ServiceMap.Service<
 // Build skill lock entry from ref
 const buildSkillLockEntry = (
   ref: SkillExtensionRef,
-  agents: ReadonlyArray<string>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ) =>
   sourceToLockEntry({
     ref,
-    agents,
     now: new Date(),
     sourceName: Option.none(),
     existingInstalledAt: Option.none(),
@@ -86,18 +80,7 @@ export const SkillManagerLive = Layer.effect(
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
     const agentRepo = yield* CodingAgentRepository;
-    const materializationAgents = yield* agentRepo
-      .getMaterializationAgents()
-      .pipe(Effect.provideService(WorkspaceMutations, ws));
-    const agents = materializationAgents.map((agent) => agent.id);
     const baseDir = ws.baseDir;
-    const lastRenderState = new Map<
-      string,
-      {
-        readonly renderInputs: Readonly<Record<string, LockedCapabilityRenderInput>>;
-        readonly degradedRenders: Readonly<Record<string, ReadonlyArray<string>>>;
-      }
-    >();
 
     // Build a layer to provide FileSystem + Path to inner effects
     const fsPathLayer = Layer.mergeAll(
@@ -204,32 +187,13 @@ export const SkillManagerLive = Layer.effect(
           }),
         { concurrency: "unbounded" },
       );
-      const renderInputs: Record<string, LockedCapabilityRenderInput> = {};
-      const degradedRenders: Record<string, ReadonlyArray<string>> = {};
       for (const { targetAgentId, build } of builds) {
-        if (build.renderInput !== undefined) renderInputs[targetAgentId] = build.renderInput;
-        if (build.degraded) {
-          degradedRenders[targetAgentId] = [
-            ...new Set(build.findings.map((finding) => finding.code)),
-          ].sort();
-        }
+        if (!build.degraded) continue;
+        yield* Effect.logWarning(
+          `Capability targeting for ${ref.skill.name} on ${targetAgentId} used fallback output`,
+        );
       }
-      lastRenderState.set(ref.skill.name, { renderInputs, degradedRenders });
     });
-
-    const withRenderState = (ref: SkillExtensionRef, entry: SkillLockEntry): SkillLockEntry => {
-      const state = lastRenderState.get(ref.skill.name);
-      if (state === undefined) return entry;
-      return {
-        ...entry,
-        ...(Object.keys(state.renderInputs).length === 0
-          ? {}
-          : { renderInputs: state.renderInputs }),
-        ...(Object.keys(state.degradedRenders).length === 0
-          ? {}
-          : { degradedRenders: state.degradedRenders }),
-      };
-    };
 
     const materializeUninstall: ExtensionManager<SkillExtensionRef>["materializeUninstall"] =
       Effect.fn("SkillManager.materializeUninstall")(function* ({ target, preserveSource }) {
@@ -319,10 +283,7 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const lockEntry = withRenderState(
-          ref,
-          buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath),
-        );
+        const lockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath);
         if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `skills.${ref.skill.name}.resolvedVersion`,
@@ -354,10 +315,7 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const baseLockEntry = withRenderState(
-          ref,
-          buildSkillLockEntry(ref, agents, workspaceRelativeLocalSourcePath),
-        );
+        const baseLockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath);
         const lockEntry =
           retainedByPack === true ? { ...baseLockEntry, retainedByPack: true } : baseLockEntry;
         if (lockEntry.type === "registry") {

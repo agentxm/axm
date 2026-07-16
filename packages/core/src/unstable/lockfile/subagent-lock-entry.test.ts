@@ -15,13 +15,12 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { SubagentLockEntrySchema, LockfileSchema, type Lockfile } from "./schema.js";
 import { writeLockfile } from "./lockfile.js";
-import { renderedFilePath } from "../test-helpers.js";
 
 describe("SubagentLockEntry schema", () => {
   const decode = Schema.decodeUnknownSync(SubagentLockEntrySchema);
   const encode = Schema.encodeUnknownSync(SubagentLockEntrySchema);
 
-  it("accepts valid local subagent lock entry with agents", () => {
+  it("drops legacy agents from a valid local subagent lock entry", () => {
     const input = {
       type: "local",
       path: "./subagents/planner",
@@ -31,10 +30,10 @@ describe("SubagentLockEntry schema", () => {
     };
     const result = decode(input);
     expect(result.type).toBe("local");
-    expect(result.agents).toEqual(["claude-code", "cursor"]);
+    expect(result).not.toHaveProperty("agents");
   });
 
-  it("accepts subagent lock entry with sourceHash and renderedFiles", () => {
+  it("preserves sourceHash and drops legacy renderedFiles", () => {
     const input = {
       type: "local",
       path: "./subagents/planner",
@@ -48,7 +47,7 @@ describe("SubagentLockEntry schema", () => {
     };
     const result = decode(input);
     expect(result.sourceHash).toBe("abc123def456");
-    expect(result.renderedFiles).toBeDefined();
+    expect(result).not.toHaveProperty("renderedFiles");
   });
 
   it("accepts subagent lock entry without optional sourceHash and renderedFiles", () => {
@@ -62,7 +61,7 @@ describe("SubagentLockEntry schema", () => {
     };
     const result = decode(input);
     expect(result.sourceHash).toBeUndefined();
-    expect(result.renderedFiles).toBeUndefined();
+    expect(result).not.toHaveProperty("renderedFiles");
   });
 
   it("roundtrips subagent lock entry with all fields", () => {
@@ -79,17 +78,23 @@ describe("SubagentLockEntry schema", () => {
     };
     const decoded = decode(input);
     const encoded = encode(decoded);
-    expect(encoded).toEqual(input);
+    expect(encoded).toEqual({
+      type: "local",
+      path: "./subagents/planner",
+      installedAt: "2025-01-15T10:30:00.000Z",
+      updatedAt: "2025-01-15T10:30:00.000Z",
+      sourceHash: "abc123",
+    });
   });
 
-  it("rejects subagent lock entry missing agents", () => {
+  it("accepts subagent lock entry without agents", () => {
     const input = {
       type: "local",
       path: "./subagents/planner",
       installedAt: "2025-01-15T10:30:00Z",
       updatedAt: "2025-01-15T10:30:00Z",
     };
-    expect(() => decode(input)).toThrow();
+    expect(decode(input).type).toBe("local");
   });
 
   it("accepts valid GitHub lock entry", () => {
@@ -173,7 +178,8 @@ describe("Lockfile with subagents", () => {
     const planner = result.subagents?.["planner"];
     expect(planner?.type).toBe("local");
     expect(planner?.sourceHash).toBe("abc123");
-    expect(planner?.renderedFiles).toBeDefined();
+    expect(planner).not.toHaveProperty("agents");
+    expect(planner).not.toHaveProperty("renderedFiles");
   });
 
   it("accepts lockfile without subagents section", () => {
@@ -245,13 +251,9 @@ describe("lockfile subagent round-trip", () => {
               repo: "subagents",
               ref: "main",
               path: "subagents/planner",
-              agents: ["claude-code"],
               installedAt: new Date("2025-01-15T10:30:00.000Z"),
               updatedAt: new Date("2025-01-15T10:30:00.000Z"),
               sourceHash: "abc123",
-              renderedFiles: {
-                "claude-code": [{ path: renderedFilePath(".claude/agents/planner.md") }],
-              },
             },
           },
         };
@@ -269,11 +271,9 @@ describe("lockfile subagent round-trip", () => {
           expect(planner.repo).toBe("subagents");
           expect(planner.ref).toBe("main");
         }
-        expect(planner?.agents).toEqual(["claude-code"]);
         expect(planner?.sourceHash).toBe("abc123");
-        expect(planner?.renderedFiles?.["claude-code"]).toEqual([
-          { path: ".claude/agents/planner.md" },
-        ]);
+        expect(planner).not.toHaveProperty("agents");
+        expect(planner).not.toHaveProperty("renderedFiles");
       }),
     ),
   );

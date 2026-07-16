@@ -52,8 +52,11 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
           docs_only=true
+          release_preparation=false
 
           while IFS= read -r -d '' path; do
             if [[ "$path" == contributing/* ]] ||
@@ -66,7 +69,15 @@ jobs:
             break
           done < <(git diff --name-only -z "$BASE_SHA...$HEAD_SHA")
 
+          release_subject="release: ${HEAD_REF#release/}"
+          if [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
+            [[ "$HEAD_REF" =~ ^release/cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] &&
+            [[ "$(git show --no-patch --format=%s "$HEAD_SHA")" == "$release_subject" ]]; then
+            release_preparation=true
+          fi
+
           echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js 22
         if: github.event_name == 'pull_request' &&
@@ -103,8 +114,11 @@ jobs:
           steps.changes.outputs.docs_only != 'true'
         run: |
           scripts/container-environment.sh ci bash -lc \
-            'pnpm install --frozen-lockfile &&
-            pnpm release:plan:check &&
+            'set -euo pipefail
+            pnpm install --frozen-lockfile
+            if [[ "${{ steps.changes.outputs.release_preparation }}" != "true" ]]; then
+              pnpm release:plan:check
+            fi
             pnpm run ci:affected'
 
       - name: Verify documentation

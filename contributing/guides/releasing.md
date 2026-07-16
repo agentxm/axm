@@ -21,7 +21,7 @@ prepared release is ready to publish.
 - Releases are published from GitHub Actions. Do not publish packages or create
   GitHub Releases manually.
 - `pnpm release:prepare` is the only supported local entry point for cutting a
-  release commit.
+  release commit and opening its pull request.
 - `packages/utils`, `packages/core`, and `packages/cli` are a fixed release
   group. Their versions must match.
 - Pending version plans in `.nx/version-plans/*.md` and those three package
@@ -54,16 +54,25 @@ prepared release is ready to publish.
    Dry-run previews the version and artifact changes. The real run validates the
    repo state, runs `pnpm run ci` via Nx `preVersionCommand`, consumes the
    pending version plan, updates `utils`/`core`/`cli`, refreshes
-   `CHANGELOG.md`, commits the release artifacts, and pushes `release:
-cli-v{VERSION}` to `origin/main`.
+   `CHANGELOG.md`, creates and pushes `release/cli-v{VERSION}`, and opens the
+   release pull request.
 
-3. Wait for CI on that exact release commit.
+3. Wait for pull request CI, then squash-merge with the exact release subject.
+
+   ```bash
+   gh pr merge --squash --subject "release: cli-v0.1.0" --delete-branch
+   ```
+
+   The exact subject is part of the publishing contract. The default GitHub
+   squash subject includes the pull request number and must not be used.
+
+4. Wait for CI on the merged release commit.
 
    The release commit must complete the `ci.yml` workflow successfully before
    publishing. That run also produces the compiled artifacts used by the publish
    workflow.
 
-4. Publish the GitHub release after CI is green.
+5. Publish the GitHub release after CI is green.
 
    ```bash
    pnpm release:publish -- cli-v0.1.0 --dry-run
@@ -75,7 +84,7 @@ cli-v{VERSION}` to `origin/main`.
    release package versions at that commit, and requires a successful CI run
    before creating the GitHub Release.
 
-5. Let GitHub Actions finish the publish.
+6. Let GitHub Actions finish the publish.
 
    The GitHub Release triggers `publish.yml`, which validates the tag, downloads
    the matching CI artifacts, uploads release binaries, packs npm tarballs with

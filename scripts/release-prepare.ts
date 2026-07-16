@@ -15,6 +15,7 @@ import {
 } from "nx/release/index.js";
 
 import {
+  RELEASE_REPO,
   currentHeadSha,
   fetchOriginMain,
   fail,
@@ -106,14 +107,33 @@ const prepareReleaseArtifacts = async () => {
 };
 
 const commitReleaseArtifacts = (tag: string) => {
-  console.log("\n==> Phase 3: Commit");
+  const branch = `release/${tag}`;
+  console.log("\n==> Phase 3: Create release branch and commit");
+  run("git", ["switch", "--create", branch]);
   run("git", ["add", "--all"]);
   run("git", ["commit", "-m", `release: ${tag}`]);
+  return branch;
 };
 
-const pushReleaseCommit = (tag: string) => {
-  console.log("\n==> Phase 4: Push");
-  run("git", ["push", "origin", "main"]);
+const pushReleaseCommit = (tag: string, branch: string) => {
+  console.log("\n==> Phase 4: Push release branch");
+  run("git", ["push", "--set-upstream", "origin", branch]);
+
+  console.log("\n==> Phase 5: Create release pull request");
+  run("gh", [
+    "pr",
+    "create",
+    "--repo",
+    RELEASE_REPO,
+    "--base",
+    "main",
+    "--head",
+    branch,
+    "--title",
+    `release: ${tag}`,
+    "--body",
+    `Prepare ${tag} from the pending version plans.`,
+  ]);
 
   const sha = currentHeadSha();
   const version = tag.replace("cli-v", "");
@@ -121,7 +141,10 @@ const pushReleaseCommit = (tag: string) => {
   console.log(`  Version: ${version}`);
   console.log(`  Tag: ${tag}`);
   console.log(`  Commit: ${sha}`);
-  console.log(`  Next: wait for CI on ${sha} to pass, then run pnpm release:publish ${tag}`);
+  console.log(`  Branch: ${branch}`);
+  console.log(
+    `  Next: wait for pull request CI, then squash-merge with subject "release: ${tag}".`,
+  );
 };
 
 const main = async () => {
@@ -133,8 +156,8 @@ const main = async () => {
     return;
   }
 
-  commitReleaseArtifacts(tag);
-  pushReleaseCommit(tag);
+  const branch = commitReleaseArtifacts(tag);
+  pushReleaseCommit(tag, branch);
 };
 
 void main().catch((error) => fail(error instanceof Error ? error.message : String(error)));

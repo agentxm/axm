@@ -4,6 +4,15 @@
  * The lockfile (axm-lock.yaml) records the exact resolved state of all installed
  * skills, enabling reproducible installations across environments.
  *
+ * Lockfile v2 format boundary:
+ * - Shared package resolution and pins belong in the committed lockfile.
+ * - Agent-specific and render-derived fields (`agents`, `renderedFiles`,
+ *   `renderInputs`, `degradedRenders`, and render state in
+ *   `materializedTargets`) are frozen compatibility debt pending the v3 split;
+ *   do not add new fields of these kinds to v2.
+ * - New observed or render state belongs in marker/scan-based ownership (see
+ *   `workspace/rendered-file-cleanup.ts`) or feature-local storage, not here.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 

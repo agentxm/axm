@@ -840,6 +840,28 @@ describe("publishExtension", () => {
     }),
   );
 
+  it.effect("applies initial visibility on the publish request", () =>
+    Effect.gen(function* () {
+      let capturedRequest: HttpClientRequest.HttpClientRequest | undefined;
+      const httpClient = makeMockHttpClient((request) => {
+        capturedRequest = request;
+        return new Response(JSON.stringify(publishSuccessResponse), { status: 201 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      yield* client.publishExtension({ ...publishArgs, initialVisibility: "private" });
+
+      const requestUrl =
+        capturedRequest === undefined
+          ? undefined
+          : Option.getOrUndefined(HttpClientRequest.toUrl(capturedRequest));
+      expect(requestUrl).toBeDefined();
+      if (requestUrl !== undefined) {
+        expect(requestUrl.searchParams.get("visibility")).toBe("private");
+      }
+    }),
+  );
+
   it.effect("returns published:true on 200", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(

@@ -127,6 +127,8 @@ export interface PublishExtensionArgs {
   readonly version: Version;
   readonly archive: Uint8Array;
   readonly metadata: VersionEntry;
+  /** Visibility applied atomically when the extension is first created. */
+  readonly initialVisibility?: ExtensionVisibility;
   /** Ephemeral exact publish capability. Never persisted by the registry client. */
   readonly accessToken?: string;
 }

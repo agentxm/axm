@@ -11,7 +11,7 @@ depends-on:
 
 # Development Environment
 
-AXM supports a shared public Linux image and native development. The image is
+AXM supports a shared Linux image and native development. The image is
 the documented default for Linux feature work and CI reproduction. Both modes
 use `mise.toml` as the repository tool-version authority and the same `pnpm`/Nx
 commands. The image does not replace native macOS, Windows, or release-binary
@@ -22,7 +22,7 @@ verification.
 ## Key Resources
 
 - [Contributing](../../CONTRIBUTING.md) - setup and daily contribution flow
-- [AgentXM images on GHCR](https://github.com/orgs/agentxm/packages) - public
+- [AgentXM images on GHCR](https://github.com/orgs/agentxm/packages) - private,
   versioned CI and development images
 - [GitHub Actions CI](../../.github/workflows/ci.yml) - pinned image consumer
 
@@ -37,7 +37,7 @@ verification.
 | Reproduce required Linux CI | `pnpm run container:ci`                 |
 | Platform-specific behavior  | Native GitHub runner                    |
 
-The public images contain tools only. Source, Git metadata, dependencies,
+The images contain tools only. Source, Git metadata, dependencies,
 credentials, and user state enter at runtime. The wrapper mounts the current
 worktree and Git common directory at their existing absolute paths. CI uses an
 ephemeral home and anonymous root `node_modules` volume; Docker removes both
@@ -80,6 +80,10 @@ test an intentional image upgrade. Set `AXM_DEV_DEPS_VOLUME` only when a stable,
 operator-chosen dependency-volume name is preferable to the per-worktree
 default.
 
+GitHub Actions authenticates with its repository-scoped token. For workstation
+or VM use, authenticate Docker with a personal token that can read packages
+before running a container command.
+
 The development image may mount the Docker socket. Socket access is equivalent
 to authority over the host Docker engine; use it only on a trusted workstation
 or disposable development VM. Public and fork PR code runs on ephemeral
@@ -108,7 +112,7 @@ revoked.
 
 ## Image Upgrade
 
-The image is an external public contract. Upgrade the workflow pin and wrapper
+The image is an external versioned contract. Upgrade the workflow pin and wrapper
 defaults together, run the smoke command against the new immutable version, run
 full `pnpm run ci`, and retain the previous version for rollback. Image build,
 publication, SBOM, and vulnerability-scan ownership is outside this repository.

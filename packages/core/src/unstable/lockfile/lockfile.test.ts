@@ -195,6 +195,30 @@ describe("lockfile", () => {
         }),
       ),
     );
+
+    it.effect("does not replace an unchanged lockfile", () =>
+      withContext(
+        Effect.gen(function* () {
+          const lockfile: Lockfile = {
+            lockfileVersion: 1,
+            skills: {
+              "pr-review": createTestEntry(),
+            },
+          };
+          const lockfilePath = path.join(axmDir, "axm-lock.yaml");
+          const unchangedTimestamp = new Date("2020-01-01T00:00:00.000Z");
+
+          yield* writeLockfile(axmDir, lockfile);
+          const bytesBefore = fs.readFileSync(lockfilePath);
+          fs.utimesSync(lockfilePath, unchangedTimestamp, unchangedTimestamp);
+
+          yield* writeLockfile(axmDir, lockfile);
+
+          expect(fs.readFileSync(lockfilePath)).toEqual(bytesBefore);
+          expect(fs.statSync(lockfilePath).mtimeMs).toBe(unchangedTimestamp.getTime());
+        }),
+      ),
+    );
   });
 
   describe("batched updates", () => {

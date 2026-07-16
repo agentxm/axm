@@ -874,6 +874,44 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
+    it.effect("does not rewrite an unchanged local skill entry", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "local-review": "./skills/local-review" },
+        });
+        writeLockfileTo(projectDir, {
+          "local-review": {
+            type: "local",
+            path: "./skills/local-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+        const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
+        const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setSkill({
+          name: "local-review",
+          lockEntry: {
+            type: "local",
+            path: "./skills/local-review",
+            agents: ["claude-code"],
+            installedAt: new Date("2026-02-03T04:05:06.000Z"),
+            updatedAt: new Date("2026-02-03T04:05:06.000Z"),
+          },
+          versionRange: Option.none(),
+        });
+
+        expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
+        expect(fs.readFileSync(lockfilePath, "utf-8")).toBe(lockfileBefore);
+      }),
+    );
+
     it.effect("updates existing skill: replaces in settings and lockfile", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -888,6 +926,14 @@ describe("WorkspaceMutationsService", () => {
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          unrelated: {
+            type: "github",
+            owner: "acme",
+            repo: "unrelated",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-02T00:00:00.000Z",
           },
         });
 
@@ -917,6 +963,14 @@ describe("WorkspaceMutationsService", () => {
           "claude-code",
           "cursor",
         ]);
+        expect(
+          new Date(
+            stringProperty(recordEntry(lockfile.skills, "code-review"), "updatedAt"),
+          ).getTime(),
+        ).toBeGreaterThan(new Date("2025-01-01T00:00:00.000Z").getTime());
+        expect(stringProperty(recordEntry(lockfile.skills, "unrelated"), "updatedAt")).toBe(
+          "2025-01-02T00:00:00.000Z",
+        );
       }),
     );
 

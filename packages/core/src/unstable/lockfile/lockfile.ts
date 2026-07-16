@@ -306,6 +306,27 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
     const tempPath = makeTempPath(path, axmDir);
 
     const yamlContent = yield* encodeLockfileYaml(lockfile);
+    const exists = yield* fs.exists(lockfilePath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to check lockfile at ${lockfilePath}`,
+          cause: error,
+        }),
+      ),
+    );
+    if (exists) {
+      const currentContent = yield* fs.readFileString(lockfilePath).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to read lockfile at ${lockfilePath}`,
+            cause: error,
+          }),
+        ),
+      );
+      if (currentContent === yamlContent) return;
+    }
 
     yield* Effect.scoped(
       Effect.gen(function* () {
@@ -345,7 +366,8 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
  * Creates the `.axm` directory if it does not exist. Writes are serialized by
  * an in-process keyed semaphore plus a best-effort local advisory lock file.
  * Temporary files are removed by scoped finalizer on interruption, and stale
- * temp files from older crashed writers are swept before each write.
+ * temp files from older crashed writers are swept before each write. When the
+ * encoded bytes already match, the existing lockfile is left untouched.
  *
  * `writeLockfile` remains a full replacement operation. Call
  * `commitLockfileUpdates` when applying deltas that must reread the latest

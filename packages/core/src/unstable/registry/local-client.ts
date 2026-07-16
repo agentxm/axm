@@ -536,6 +536,12 @@ export const createLocalRegistryClient = (
                     }),
                   ),
                 );
+                if (args.initialVisibility !== undefined) {
+                  return yield* makeAppError({
+                    code: "conflict",
+                    detail: "Initial visibility is only valid when creating an extension.",
+                  });
+                }
                 if (existingIndex.versions.some((version) => version.version === args.version)) {
                   return yield* errPublishConflict({ version: args.version });
                 }
@@ -548,6 +554,7 @@ export const createLocalRegistryClient = (
                 name: args.name,
                 owner,
                 type: args.type,
+                visibility: args.initialVisibility ?? "public",
                 versions: [args.metadata],
               } satisfies ExtensionIndex);
 

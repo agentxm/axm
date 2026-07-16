@@ -708,22 +708,9 @@ const publishCandidate = (
       version: candidate.version,
       archive: candidate.archive,
       metadata,
+      ...(Option.isNone(visibility) ? {} : { initialVisibility: visibility.value }),
       ...(accessToken === undefined ? {} : { accessToken }),
     });
-    if (Option.isSome(visibility)) {
-      if (client.updateExtensionVisibility === undefined) {
-        return yield* makeAppError({
-          code: "internal",
-          detail: `Registry does not support extension visibility updates`,
-        });
-      }
-      yield* client.updateExtensionVisibility({
-        owner: candidate.owner,
-        type: candidate.type,
-        name: candidate.name,
-        visibility: visibility.value,
-      });
-    }
     let verified = false;
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const readback = yield* client.getExtensionIndex({

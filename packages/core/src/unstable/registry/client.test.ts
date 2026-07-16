@@ -614,6 +614,7 @@ describe("LocalRegistryClient.publishExtension", () => {
       const index: ExtensionIndex = JSON.parse(indexContent);
       expect(index.name).toBe("my-skill");
       expect(index.owner).toBe("@test");
+      expect(index.visibility).toBe("public");
       expect(index.versions).toHaveLength(1);
       expect(at(index.versions, 0).version).toBe("1.0.0");
 
@@ -626,6 +627,74 @@ describe("LocalRegistryClient.publishExtension", () => {
       Effect.provide(NodeServices.layer),
     );
   });
+
+  it.effect("creates a private index in the publish operation", () => {
+    const registryRoot = makeRegistryDir();
+    const archive = createTestZip("SKILL.md", "private content");
+
+    return Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const integrity = yield* computeIntegrity(archive);
+      const entry = makeVersionEntry({ integrity });
+      const client = yield* makeLocalClient(registryRoot);
+      yield* client.publishExtension({
+        ...makePublishArgs(archive, entry),
+        initialVisibility: "private",
+      });
+
+      const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+      const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
+      const index: ExtensionIndex = JSON.parse(indexContent);
+      expect(index.visibility).toBe("private");
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+      ),
+      Effect.provide(NodeServices.layer),
+    );
+  });
+
+  it.effect(
+    "rejects initial visibility for an existing extension before writing the archive",
+    () => {
+      const registryRoot = makeRegistryDir();
+      const v1Archive = createTestZip("SKILL.md", "v1");
+      const v2Archive = createTestZip("SKILL.md", "v2");
+
+      return Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const client = yield* makeLocalClient(registryRoot);
+        const v1Integrity = yield* computeIntegrity(v1Archive);
+        const v2Integrity = yield* computeIntegrity(v2Archive);
+        yield* client.publishExtension(
+          makePublishArgs(v1Archive, makeVersionEntry({ integrity: v1Integrity })),
+        );
+
+        const result = yield* client
+          .publishExtension({
+            ...makePublishArgs(
+              v2Archive,
+              makeVersionEntry({ version: "2.0.0", integrity: v2Integrity }),
+              "2.0.0",
+            ),
+            initialVisibility: "private",
+          })
+          .pipe(Effect.result);
+
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("conflict");
+        }
+        const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+        expect(yield* fs.exists(nodePath.join(skillDir, "2.0.0.zip"))).toBe(false);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+        ),
+        Effect.provide(NodeServices.layer),
+      );
+    },
+  );
 
   it.effect("prepends new version to existing index", () => {
     const registryRoot = makeRegistryDir();

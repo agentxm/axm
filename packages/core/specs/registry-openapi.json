@@ -2192,6 +2192,14 @@
             "in": "path",
             "schema": { "$ref": "#/components/schemas/Version" },
             "required": true
+          },
+          {
+            "name": "visibility",
+            "in": "query",
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/Visibility" }, { "type": "null" }]
+            },
+            "required": false
           }
         ],
         "security": [{ "bearer": [] }],
@@ -5484,9 +5492,19 @@
       },
       "ExtensionType": {
         "type": "string",
-        "enum": ["skill", "command", "mcp-server", "subagent", "files", "rule", "hook", "pack"],
+        "enum": [
+          "skill",
+          "command",
+          "mcp-server",
+          "subagent",
+          "files",
+          "rule",
+          "hook",
+          "knowledge",
+          "pack"
+        ],
         "title": "Extension Type",
-        "description": "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, or pack."
+        "description": "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, knowledge, or pack."
       },
       "ExtensionName": {
         "type": "string",
@@ -6054,7 +6072,17 @@
       },
       "ExtensionTypePlural": {
         "type": "string",
-        "enum": ["skills", "commands", "mcps", "subagents", "files", "rules", "hooks", "packs"],
+        "enum": [
+          "skills",
+          "commands",
+          "mcps",
+          "subagents",
+          "files",
+          "rules",
+          "hooks",
+          "knowledge",
+          "packs"
+        ],
         "title": "Extension Type (Plural)",
         "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, commands, packs)."
       },
@@ -6201,6 +6229,7 @@
         "title": "Deprecate Body",
         "description": "Request body for deprecating an extension."
       },
+      "Visibility": { "type": "string", "enum": ["public", "private"], "title": "Visibility" },
       "PublishIdentity": {
         "type": "object",
         "properties": {
@@ -6914,7 +6943,7 @@
         "type": "string",
         "allOf": [
           {
-            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
             "title": "Extension FQN",
             "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
             "examples": ["@acme/skills/code-review", "@my-org/commands/format"]

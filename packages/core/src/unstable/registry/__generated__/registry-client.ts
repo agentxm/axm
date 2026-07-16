@@ -257,7 +257,15 @@ export const Handle = Schema.String.check(
   }),
 );
 export type ExtensionType =
-  "skill" | "command" | "mcp-server" | "subagent" | "files" | "rule" | "hook" | "pack";
+  | "skill"
+  | "command"
+  | "mcp-server"
+  | "subagent"
+  | "files"
+  | "rule"
+  | "hook"
+  | "knowledge"
+  | "pack";
 export const ExtensionType = Schema.Literals([
   "skill",
   "command",
@@ -266,11 +274,12 @@ export const ExtensionType = Schema.Literals([
   "files",
   "rule",
   "hook",
+  "knowledge",
   "pack",
 ]).annotate({
   title: "Extension Type",
   description:
-    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, or pack.",
+    "What kind of extension this is: skill, command, mcp-server, subagent, context, rule, hook, knowledge, or pack.",
 });
 export type ExtensionName = string;
 export const ExtensionName = Schema.String.check(Schema.isMinLength(1)).check(
@@ -643,6 +652,8 @@ export const DeprecateBody = Schema.Struct({
     ]),
   ),
 }).annotate({ title: "Deprecate Body", description: "Request body for deprecating an extension." });
+export type Visibility = "public" | "private";
+export const Visibility = Schema.Literals(["public", "private"]).annotate({ title: "Visibility" });
 export type PublishFindingLocation = {
   readonly file: string;
   readonly line?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN";
@@ -819,7 +830,7 @@ export type ExtensionFqn = string;
 export const ExtensionFqn = Schema.String.check(
   Schema.isPattern(
     new RegExp(
-      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|commands|mcps|subagents|files|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
     ),
     {
       title: "Extension FQN",
@@ -2317,6 +2328,10 @@ export type ExtensionsGetVersion404 = ProblemDetails;
 export const ExtensionsGetVersion404 = ProblemDetails;
 export type ExtensionsGetVersion410 = ProblemDetails;
 export const ExtensionsGetVersion410 = ProblemDetails;
+export type ExtensionsPublishVersionParams = { readonly visibility?: Visibility | null };
+export const ExtensionsPublishVersionParams = Schema.Struct({
+  visibility: Schema.optionalKey(Schema.Union([Visibility, Schema.Null])),
+});
 export type ExtensionsPublishVersion201 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -3619,6 +3634,7 @@ export const make = (
       ),
     ExtensionsPublishVersion: (owner, type, name, version, options) =>
       HttpClientRequest.put(`/v1/extensions/${owner}/${type}/${name}/${version}`).pipe(
+        HttpClientRequest.setUrlParams({ visibility: options?.params?.["visibility"] as any }),
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ExtensionsPublishVersion201),
@@ -4702,7 +4718,12 @@ export interface RegistryClient {
     type: string,
     name: string,
     version: string,
-    options: { readonly config?: Config | undefined } | undefined,
+    options:
+      | {
+          readonly params?: typeof ExtensionsPublishVersionParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsPublishVersion201.Type, Config>,
     | HttpClientError.HttpClientError

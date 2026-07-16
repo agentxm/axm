@@ -691,7 +691,9 @@ export const createRemoteRegistryClient = (
         pluralizeType(args.type),
         args.name,
         args.version,
-        undefined,
+        args.initialVisibility === undefined
+          ? undefined
+          : { params: { visibility: args.initialVisibility } },
       )
       .pipe(
         Effect.map((response) => ({ published: true as const, links: response.links })),

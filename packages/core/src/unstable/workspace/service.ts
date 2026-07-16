@@ -174,15 +174,6 @@ const skillLockEntrySemanticallyEqual = (
   next: SkillLockEntry,
 ): boolean => lockEntrySemanticallyEqual(current, next);
 
-const shouldTouchLocalSkillLockEntry = (
-  current: SkillLockEntry | undefined,
-  next: SkillLockEntry,
-): boolean =>
-  current !== undefined &&
-  current.type === "local" &&
-  next.type === "local" &&
-  skillLockEntrySemanticallyEqual(current, next);
-
 const nextUpdatedAt = (current: TimestampedLockEntry | undefined): Date => {
   const now = new Date();
   if (current === undefined) return now;
@@ -1350,13 +1341,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentLockEntry = currentLockfile.skills[name];
             const settingsChanged = !stableCompare(currentSkills[name], nextSkillEntry);
             const lockChanged = !skillLockEntrySemanticallyEqual(currentLockEntry, lockEntry);
-            const touchLocalLock = shouldTouchLocalSkillLockEntry(currentLockEntry, lockEntry);
 
             if (settingsChanged) {
               yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
             }
 
-            if (!lockChanged && !touchLocalLock) return;
+            if (!lockChanged) return;
 
             const updatedLockfile = {
               ...currentLockfile,

@@ -11,7 +11,13 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 ### Setup
 
-After installing and activating `mise` in your shell, run:
+The documented default for Linux development is the shared Docker environment:
+
+```bash
+scripts/container-environment.sh shell
+```
+
+For native development, install and activate `mise`, then run:
 
 ```bash
 mise install             # install Node.js, Bun, and pnpm from mise.toml
@@ -19,6 +25,12 @@ pnpm install             # install all workspace dependencies
 pnpm build               # build all packages
 pnpm test                # run tests
 ```
+
+The shared image, CI reproduction, identity storage, and native-platform
+boundaries are documented in the
+[Development Environment Guide](contributing/guides/development-environment.md).
+Automated review behavior and maintainer controls are documented in the
+[Automated Pull Request Review Guide](contributing/guides/automated-pull-request-review.md).
 
 ### Useful Commands
 
@@ -42,6 +54,8 @@ ranges.
 | `pnpm lint:fix`              | Lint and auto-fix                         |
 | `pnpm run ci`                | Run the full CI pipeline locally          |
 | `pnpm run ci:affected`       | Run CI pipeline for affected packages     |
+| `pnpm run container:ci`      | Run full CI in the shared Linux image     |
+| `pnpm run container:dev`     | Open the shared Linux development image   |
 | `pnpm build:affected`        | Build only packages changed since `main`  |
 | `pnpm test:affected`         | Test only packages changed since `main`   |
 | `pnpm lint:affected`         | Lint only packages changed since `main`   |

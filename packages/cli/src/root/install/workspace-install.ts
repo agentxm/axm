@@ -16,6 +16,7 @@ import {
   resolveConfiguredCommand,
   resolveConfiguredFiles,
   resolveConfiguredHook,
+  resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredRule,
@@ -36,6 +37,8 @@ import { InstallFilesCommandWorkflowActions } from "../files/install/command-act
 import type { InstallFilesCommandIntent } from "../files/install/intent.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
+import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
+import type { InstallKnowledgeCommandIntent } from "../knowledge/install/intent.js";
 import { InstallLibraryCommandWorkflowActions } from "../libraries/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
@@ -77,6 +80,7 @@ type WorkspaceInstallCollectorContext =
   | InstallCommandCommandWorkflowActions
   | InstallFilesCommandWorkflowActions
   | InstallHookCommandWorkflowActions
+  | InstallKnowledgeCommandWorkflowActions
   | InstallRuleCommandWorkflowActions
   | InstallSubagentCommandWorkflowActions
   | InstallMcpServerCommandWorkflowActions
@@ -247,6 +251,14 @@ const resolveHookIntent = (name: string, source: string) =>
     ),
   );
 
+const resolveKnowledgeIntent = (name: string, source: string) =>
+  resolveConfiguredKnowledge(name, source).pipe(
+    Effect.map(
+      ({ ref, versionRange }) =>
+        ({ refs: [{ ref, versionRange }] }) satisfies InstallKnowledgeCommandIntent,
+    ),
+  );
+
 const resolveMcpServerIntent = (name: string, source: string) =>
   resolveConfiguredMcpServer(name, source).pipe(
     Effect.map(
@@ -366,6 +378,23 @@ const collectHookPlans = () =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
+const collectKnowledgePlans = () =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const actions = yield* InstallKnowledgeCommandWorkflowActions;
+    const configured = yield* ws.getConfiguredKnowledgeEntries();
+    const entries = enabledConfiguredEntries(configured);
+    const plans = yield* Effect.forEach(
+      entries,
+      ([name, entry]) =>
+        resolveKnowledgeIntent(name, entry.source).pipe(
+          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        ),
+      { concurrency: "unbounded" },
+    );
+    return toCollectedWorkspaceInstallPlans({ plans });
+  });
+
 const collectSubagentPlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -472,6 +501,7 @@ const workspaceInstallCollectors: ReadonlyArray<WorkspaceInstallCollector> = [
   { type: "files" as const, collect: collectFilePlans },
   { type: "rule" as const, collect: collectRulePlans },
   { type: "hook" as const, collect: collectHookPlans },
+  { type: "knowledge" as const, collect: collectKnowledgePlans },
   { type: "subagent" as const, collect: collectSubagentPlans },
   { type: "mcp-server" as const, collect: collectMcpServerPlans },
   { type: "pack" as const, collect: collectPackPlans },

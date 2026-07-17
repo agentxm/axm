@@ -1335,6 +1335,31 @@ export const PacksConfigSchema = Schema.Struct({
 export type PacksConfig = Schema.Schema.Type<typeof PacksConfigSchema>;
 
 /**
+ * Agent-facing Knowledge projection settings.
+ *
+ * The directory is validated against the active workspace root when it is
+ * resolved because schema decoding does not have filesystem context.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const KnowledgeConfigSchema = Schema.Struct({
+  directory: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "Workspace-relative directory where AXM projects enabled Knowledge bundles.",
+      default: ".agents/knowledge",
+      examples: [".agents/knowledge", "docs/agent-knowledge"],
+    }),
+  ),
+}).annotate({
+  identifier: "KnowledgeConfig",
+  title: "Knowledge Config",
+  description: "Agent-facing Knowledge projection settings.",
+});
+
+/** @experimental */
+export type KnowledgeConfig = Schema.Schema.Type<typeof KnowledgeConfigSchema>;
+
+/**
  * Workspace instruction-file propagation settings.
  *
  * @experimental This API is unstable and may change without notice.
@@ -1441,6 +1466,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "rules",
   "hooks",
   "knowledge",
+  "knowledgeConfig",
   "subagents",
   "subagentsConfig",
   "packs",
@@ -1468,6 +1494,8 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - files: Desired Context Files packages by name to source string or input config
  * - rules: Desired rules by name to source string
  * - hooks: Desired hooks by name to source string
+ * - knowledge: Desired Open Knowledge Format bundles by name to source string
+ * - knowledgeConfig: Agent-facing Knowledge projection options
  * - subagents: Desired subagents by name to version specifier
  * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
@@ -1569,6 +1597,11 @@ export const SettingsSchema = Schema.Struct({
     Schema.Union([KnowledgeMapSchema]).annotate({
       description:
         "Installed Open Knowledge Format bundles, isolated from agent instruction files.",
+    }),
+  ),
+  knowledgeConfig: Schema.optionalKey(
+    Schema.Union([KnowledgeConfigSchema]).annotate({
+      description: "Agent-facing Knowledge projection options.",
     }),
   ),
   subagents: Schema.optionalKey(

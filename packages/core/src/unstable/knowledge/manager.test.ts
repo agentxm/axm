@@ -99,11 +99,17 @@ describe("KnowledgeManager", () => {
           ),
         ).toBe(true);
         expect(
-          readFileSync(nodePath.join(workspaceRoot, ".axm", "knowledge", "index.md"), "utf8"),
-        ).toContain("[handbook]");
+          readFileSync(nodePath.join(workspaceRoot, ".agents", "knowledge", "index.md"), "utf8"),
+        ).toContain("[@acme/handbook]");
+        expect(
+          existsSync(
+            nodePath.join(workspaceRoot, ".agents", "knowledge", "@acme", "handbook", "index.md"),
+          ),
+        ).toBe(true);
         const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
         expect(instructions).toContain("region=knowledge-discovery");
         expect(instructions).toContain("untrusted reference material");
+        expect(instructions).toContain(".agents/knowledge/index.md");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
@@ -139,5 +145,54 @@ describe("KnowledgeManager", () => {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
     }),
+  );
+
+  it.effect(
+    "preserves the previous canonical package and projection when replacement validation fails",
+    () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+        try {
+          const validRoot = nodePath.join(workspaceRoot, "valid-source");
+          const invalidRoot = nodePath.join(workspaceRoot, "invalid-source");
+          writeKnowledgePackage(validRoot, "handbook", true);
+          writeKnowledgePackage(invalidRoot, "handbook", false);
+
+          yield* Effect.gen(function* () {
+            const manager = yield* KnowledgeManager;
+            yield* manager.materializeInstall({ ref: localRef("handbook", validRoot) });
+            yield* manager
+              .materializeInstall({ ref: localRef("handbook", invalidRoot) })
+              .pipe(Effect.flip);
+          }).pipe(Effect.provide(managerLayer(workspaceRoot)));
+
+          const canonicalConcept = nodePath.join(
+            workspaceRoot,
+            ".axm",
+            "extensions",
+            "external",
+            "knowledge",
+            "handbook",
+            "src",
+            "concept.md",
+          );
+          expect(readFileSync(canonicalConcept, "utf8")).toContain("type: concept");
+          expect(
+            readFileSync(
+              nodePath.join(
+                workspaceRoot,
+                ".agents",
+                "knowledge",
+                "@acme",
+                "handbook",
+                "concept.md",
+              ),
+              "utf8",
+            ),
+          ).toContain("type: concept");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
   );
 });

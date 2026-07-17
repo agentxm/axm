@@ -19,9 +19,10 @@
  */
 
 // Plan types
-export { ArtifactChangeSchema } from "./plan.js";
+export { ArtifactChangeSchema, ArtifactMechanismSchema } from "./plan.js";
 export type {
   ArtifactChange,
+  ArtifactMechanism,
   CancelledPlan,
   CompletedJobStep,
   ErrorJobStep,

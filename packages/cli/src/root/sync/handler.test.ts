@@ -10,6 +10,7 @@ import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
@@ -137,6 +138,7 @@ describe("root sync handler", () => {
         CommandManagerLive,
         FilesManagerLive,
         HookManagerLive,
+        KnowledgeManagerLive,
         McpServerManagerLive,
         RuleManagerLive,
         SkillManagerLive,

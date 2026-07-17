@@ -54,6 +54,7 @@ import { FilesManager, renderWorkspaceGeneratorRegions } from "@agentxm/client-c
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
+import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import {
   applyPlan,
@@ -574,9 +575,11 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
 
 const makeSyncPlan = ({
   materializeSteps,
+  knowledgeStep,
   workspaceGeneratorStep,
 }: {
   readonly materializeSteps: ReadonlyArray<PlannedJobStep>;
+  readonly knowledgeStep: Option.Option<PlannedJobStep>;
   readonly workspaceGeneratorStep: Option.Option<PlannedJobStep>;
 }): Plan => ({
   _tag: "Plan",
@@ -586,10 +589,58 @@ const makeSyncPlan = ({
     ...(materializeSteps.length > 0
       ? [{ concurrency: "unbounded" as const, steps: materializeSteps }]
       : []),
+    ...(Option.isSome(knowledgeStep)
+      ? [{ concurrency: 1 as const, steps: [knowledgeStep.value] }]
+      : []),
     ...(Option.isSome(workspaceGeneratorStep)
       ? [{ concurrency: 1 as const, steps: [workspaceGeneratorStep.value] }]
       : []),
   ],
+});
+
+const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* () {
+  const manager = yield* KnowledgeManager;
+  const ws = yield* WorkspaceMutations;
+  const preview = yield* manager.sync({ dryRun: true });
+  if (!preview.changed && preview.warnings.length === 0) return Option.none<PlannedJobStep>();
+  const config = yield* ws.getKnowledgeProjectionConfig();
+  const details = preview.artifacts
+    .filter((artifact) => artifact.change !== "unchanged")
+    .map(
+      (artifact) =>
+        `${artifact.change} ${artifact.path}${artifact.mechanism === undefined ? "" : ` (${artifact.mechanism})`}`,
+    );
+  const message = [...details, ...preview.warnings].join("; ");
+  return Option.some({
+    key: "knowledge:projection",
+    label: "Knowledge projections",
+    readiness: "ready",
+    ...(message.length === 0 ? {} : { message }),
+    run: manager.sync({ dryRun: false }).pipe(
+      Effect.map((result): JobStepResult => {
+        const mechanism = result.artifacts.find(
+          (artifact) => artifact.mechanism !== undefined,
+        )?.mechanism;
+        return {
+          result: "success",
+          message: result.changed
+            ? "Reconciled Knowledge projections"
+            : "Knowledge projections already current",
+          ...(result.warnings.length === 0 ? {} : { warnings: result.warnings }),
+          artifact: {
+            path: config.directory,
+            scope: ws.scope,
+            change: result.changed ? "updated" : "unchanged",
+            ...(mechanism === undefined ? {} : { mechanism }),
+            targets: result.artifacts.map((artifact) => ({
+              path: artifact.path,
+              change: artifact.change,
+            })),
+          },
+        };
+      }),
+    ),
+  } satisfies PlannedJobStep);
 });
 
 const previewPlan = (plan: Plan): PlanResolution => ({
@@ -909,11 +960,13 @@ const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function
 export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
   const libraryResolution = yield* collectLibrarySubscriptionResolution(args);
   const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({ force: args.force });
+  const knowledgeStep = yield* collectKnowledgeStep();
   const workspaceGeneratorStep = yield* collectWorkspaceGeneratorStep();
 
   if (
     Option.isNone(libraryResolution) &&
     steps.length === 0 &&
+    Option.isNone(knowledgeStep) &&
     Option.isNone(workspaceGeneratorStep)
   ) {
     yield* renderInstructionPhase(args.dryRun);
@@ -931,6 +984,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
   if (
     Option.isSome(libraryResolution) &&
     steps.length === 0 &&
+    Option.isNone(knowledgeStep) &&
     Option.isNone(workspaceGeneratorStep)
   ) {
     yield* renderInstructionPhase(args.dryRun);
@@ -941,7 +995,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
     return;
   }
 
-  const plan = makeSyncPlan({ materializeSteps: steps, workspaceGeneratorStep });
+  const plan = makeSyncPlan({ materializeSteps: steps, knowledgeStep, workspaceGeneratorStep });
 
   if (args.dryRun) {
     yield* displayPlan(plan);

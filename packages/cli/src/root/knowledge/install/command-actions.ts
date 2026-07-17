@@ -7,8 +7,10 @@ import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  buildInstallOperation,
   parseRegistrySourcePatternParts,
+  targetFromRef,
+  toLabelWithCompanions,
+  toStepKey,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import {
@@ -139,14 +141,28 @@ export const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* (
           {
             concurrency: 1,
             steps: intent.refs.map(({ ref, versionRange }) =>
-              buildInstallOperation(manager, {
-                ref,
-                versionRange,
-                installedBefore: manager.isInstalled({
-                  target: { type: "knowledge", name: ref.knowledge.name },
-                }),
-                message: `Installed ${ref.knowledge.name}`,
-              }),
+              (() => {
+                const target = targetFromRef(ref);
+                const packages = ref.refType === "registry" ? ref.packages : [];
+                const base = {
+                  key: toStepKey(target),
+                  label: toLabelWithCompanions(target, packages),
+                  run: manager.install({ ref, versionRange }).pipe(
+                    Effect.as({
+                      result: "success" as const,
+                      message: `Installed ${ref.knowledge.name}`,
+                    }),
+                  ),
+                };
+                const warnings = ref.refType === "registry" ? (ref.lifecycleWarnings ?? []) : [];
+                return warnings.length === 0
+                  ? { ...base, readiness: "ready" as const }
+                  : {
+                      ...base,
+                      readiness: "warn" as const,
+                      warnMessage: warnings.join("; "),
+                    };
+              })(),
             ),
           },
         ],

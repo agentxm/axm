@@ -21,7 +21,7 @@ import type {
   PlanResolution,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { ArtifactChangeSchema } from "@agentxm/client-core/unstable/plan";
+import { ArtifactChangeSchema, ArtifactMechanismSchema } from "@agentxm/client-core/unstable/plan";
 import { serializeErrorCauseChain } from "@agentxm/client-core/unstable/app-error";
 import {
   ExtensionNameSchema,
@@ -78,6 +78,7 @@ const StepArtifactSchema = Schema.Struct({
   agents: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.optional(Schema.String),
   change: ArtifactChangeSchema,
+  mechanism: Schema.optional(ArtifactMechanismSchema),
   previousVersion: Schema.optional(Schema.String),
   fileCount: Schema.optional(Schema.Number),
   targets: Schema.optional(Schema.Array(StepArtifactTargetSchema)),

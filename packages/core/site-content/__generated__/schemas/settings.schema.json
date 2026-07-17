@@ -573,6 +573,20 @@
         }
       ]
     },
+    "KnowledgeConfig": {
+      "type": "object",
+      "properties": {
+        "directory": {
+          "type": "string",
+          "description": "Workspace-relative directory where AXM projects enabled Knowledge bundles.",
+          "default": ".agents/knowledge",
+          "examples": [".agents/knowledge", "docs/agent-knowledge"]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Knowledge Config",
+      "description": "Agent-facing Knowledge projection settings."
+    },
     "SubagentEntry": {
       "anyOf": [
         { "type": "string" },
@@ -944,6 +958,10 @@
         "knowledge": {
           "anyOf": [{ "$ref": "#/definitions/KnowledgeMap" }],
           "description": "Installed Open Knowledge Format bundles, isolated from agent instruction files."
+        },
+        "knowledgeConfig": {
+          "anyOf": [{ "$ref": "#/definitions/KnowledgeConfig" }],
+          "description": "Agent-facing Knowledge projection options."
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],

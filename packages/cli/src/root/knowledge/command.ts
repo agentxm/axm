@@ -360,9 +360,10 @@ const setKnowledgeEnabled = Effect.fn("Knowledge.setEnabled")(function* (
       detail: `Knowledge bundle "${name}" is not configured`,
     });
   }
+  const previous = configured[name];
   yield* ws.updateKnowledgeEntry(name, (entry) => ({ ...entry, enabled }));
   const manager = yield* KnowledgeManager;
-  yield* manager.refreshCatalog();
+  yield* manager.refreshCatalog().pipe(Effect.tapError(() => ws.setKnowledgeEntry(name, previous)));
   const renderer = yield* CliRenderer;
   yield* renderer.success(`${enabled ? "Enabled" : "Disabled"} knowledge bundle ${name}`);
 });

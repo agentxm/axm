@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import { decodeHandleSync } from "../../extensions/index.js";
 import type { LocalSource } from "../../sources/index.js";
 import { discoverConventionRefs } from "./convention-discovery.js";
 
@@ -19,6 +20,21 @@ const writeSkill = (dir: string, name: string) => {
   fs.writeFileSync(
     path.join(dir, "SKILL.md"),
     `---\nname: "${name}"\ndescription: "A useful skill"\n---\n\n# ${name}\n`,
+  );
+};
+
+const writeKnowledge = (dir: string, name: string) => {
+  fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "knowledge.json"),
+    JSON.stringify({
+      owner: "@acme",
+      type: "knowledge",
+      name,
+      version: "1.0.0",
+      format: { name: "okf", version: "0.1" },
+      bundleRoot: "src",
+    }),
   );
 };
 
@@ -87,6 +103,27 @@ describe("discoverConventionRefs", () => {
 
       expect(error.code).toBe("validation");
       expect(error.detail).toContain("skill:pretty-skill");
+    }),
+  );
+
+  it.effect("discovers Knowledge packages by manifest identity", () =>
+    Effect.gen(function* () {
+      writeKnowledge(path.join(tempDir, "packages", "directory-alias"), "platform");
+
+      const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
+        type: "knowledge",
+        names: ["platform"],
+        owner: Option.some(decodeHandleSync("@acme")),
+        versionRange: Option.none(),
+      }).pipe(Effect.provide(NodeServices.layer));
+
+      expect(refs).toHaveLength(1);
+      const ref = refs[0];
+      expect(ref?.type).toBe("knowledge");
+      if (ref?.type === "knowledge" && ref.refType === "local") {
+        expect(ref.knowledge.name).toBe("platform");
+        expect(ref.location).toContain("directory-alias");
+      }
     }),
   );
 });

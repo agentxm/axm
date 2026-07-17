@@ -22,7 +22,9 @@ this array; the commands also reconcile per-agent managed artifacts for
 installed extensions. `sources` names registries and source hosts that entries
 can reference.
 
-Extension entries live under `skills`, `commands`, `subagents`, `packs`, and `mcpServers`. Each entry can be a source string or an object with metadata such as `enabled`.
+Extension entries live under `skills`, `commands`, `files`, `rules`, `hooks`,
+`knowledge`, `subagents`, `packs`, and `mcpServers`. Each entry can be a source
+string or an object with metadata such as `enabled`.
 
 Prefer the plain source string. Use the object form when you need metadata such
 as `enabled: false`. A workspace-authored package uses the intrinsic source
@@ -38,7 +40,21 @@ as `enabled: false`. A workspace-authored package uses the intrinsic source
 }
 ```
 
-Feature config lives under `rulesConfig`, `skillsConfig`, `commandsConfig`, `subagentsConfig`, `packsConfig`, and `mcpServersConfig`.
+Feature config lives under `rulesConfig`, `skillsConfig`, `commandsConfig`,
+`knowledgeConfig`, `subagentsConfig`, `packsConfig`, and `mcpServersConfig`.
+
+`knowledgeConfig.directory` selects the agent-facing Knowledge projection root
+relative to the active project or user scope. It defaults to
+`.agents/knowledge`. AXM rejects absolute paths, scope escapes, the scope root,
+and paths that overlap `.axm`.
+
+```jsonc
+{
+  "knowledgeConfig": {
+    "directory": "docs/agent-knowledge",
+  },
+}
+```
 
 `lint` configures workspace-only severity overrides for `axm lint`.
 
@@ -101,3 +117,4 @@ Use each feature's `ignore` list to leave matching pre-existing extensions unman
 - `axm help commands` — working with slash commands
 - `axm help subagents` — working with subagents
 - `axm help packs` — working with packs
+- `axm help knowledge` — working with Knowledge bundles

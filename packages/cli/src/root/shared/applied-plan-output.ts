@@ -47,6 +47,7 @@ const formatCompletedArtifactStep = (
   const artifact = step.result.artifact;
   const details = [
     artifact.change,
+    artifact.mechanism,
     artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
     formatArtifactTargets(artifact),
   ].filter((part): part is string => part !== undefined && part.length > 0);

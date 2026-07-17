@@ -16,6 +16,11 @@ import type { CommandExtensionRef } from "../../commands/index.js";
 import { filesPackagesInDir, type FilesExtensionRef } from "../../files/index.js";
 import { getTreeSha } from "../../git/index.js";
 import { hookPackagesInDir, type HookExtensionRef } from "../../hooks/index.js";
+import {
+  KNOWLEDGE_MANIFEST_FILENAME,
+  KnowledgeManifestSchema,
+  type KnowledgeExtensionRef,
+} from "../../knowledge/index.js";
 import { rulePackagesInDir, type RuleExtensionRef } from "../../rules/index.js";
 import { MANIFEST_FILENAME, SubagentManifestSchema } from "../../subagents/manifest-schema.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
@@ -39,6 +44,13 @@ type SubagentDiscovery = {
   readonly owner: Handle;
   readonly name: ExtensionName;
   readonly description: Option.Option<string>;
+  readonly location: string;
+};
+
+type KnowledgeDiscovery = {
+  readonly type: "knowledge";
+  readonly owner: Handle;
+  readonly name: ExtensionName;
   readonly location: string;
 };
 
@@ -232,6 +244,29 @@ const readSubagentDiscovery = (dir: string) =>
     } satisfies SubagentDiscovery);
   });
 
+const readKnowledgeDiscovery = (dir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const manifestPath = path.join(dir, KNOWLEDGE_MANIFEST_FILENAME);
+    const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
+    if (Option.isNone(raw)) return Option.none<KnowledgeDiscovery>();
+    const json = yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(raw.value).pipe(
+      Effect.option,
+    );
+    if (Option.isNone(json)) return Option.none<KnowledgeDiscovery>();
+    const manifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(json.value).pipe(
+      Effect.option,
+    );
+    if (Option.isNone(manifest)) return Option.none<KnowledgeDiscovery>();
+    return Option.some({
+      type: "knowledge",
+      owner: manifest.value.owner,
+      name: manifest.value.name,
+      location: `file://${dir}`,
+    } satisfies KnowledgeDiscovery);
+  });
+
 const commandDiscoveries = (
   root: string,
 ): Effect.Effect<ReadonlyArray<CommandDiscovery>, never, FileSystem.FileSystem | Path.Path> =>
@@ -249,6 +284,17 @@ const subagentDiscoveries = (
   Effect.gen(function* () {
     const dirs = yield* manifestDirs(root, MANIFEST_FILENAME);
     const discoveries = yield* Effect.forEach(dirs, (dir) => readSubagentDiscovery(dir), {
+      concurrency: "unbounded",
+    });
+    return discoveries.flatMap((discovery) => (Option.isSome(discovery) ? [discovery.value] : []));
+  });
+
+const knowledgeDiscoveries = (
+  root: string,
+): Effect.Effect<ReadonlyArray<KnowledgeDiscovery>, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const dirs = yield* manifestDirs(root, KNOWLEDGE_MANIFEST_FILENAME);
+    const discoveries = yield* Effect.forEach(dirs, (dir) => readKnowledgeDiscovery(dir), {
       concurrency: "unbounded",
     });
     return discoveries.flatMap((discovery) => (Option.isSome(discovery) ? [discovery.value] : []));
@@ -310,6 +356,35 @@ const subagentRef = (source: ExternalSource, basePath: string, discovery: Subage
     }
   });
 
+const knowledgeRef = (source: ExternalSource, basePath: string, discovery: KnowledgeDiscovery) =>
+  Effect.gen(function* () {
+    const knowledge = { name: discovery.name };
+    switch (source.type) {
+      case "local":
+        return {
+          type: "knowledge",
+          refType: "local",
+          knowledge,
+          source,
+          location: discovery.location,
+        } satisfies KnowledgeExtensionRef;
+      case "github":
+      case "gitlab":
+      case "bitbucket":
+      case "azurerepos":
+      case "git":
+        return {
+          type: "knowledge",
+          refType: "git-hosted",
+          knowledge,
+          source,
+          location: discovery.location,
+          sourcePath: yield* relativeDir(basePath, discovery.location),
+          gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
+        } satisfies KnowledgeExtensionRef;
+    }
+  });
+
 const commandRefsInDir = (source: ExternalSource, basePath: string, options: FindOptions) =>
   Effect.gen(function* () {
     const root = yield* searchRootFor(source, basePath);
@@ -328,6 +403,18 @@ const subagentRefsInDir = (source: ExternalSource, basePath: string, options: Fi
     return yield* Effect.forEach(
       matching,
       (discovery) => subagentRef(source, basePath, discovery),
+      { concurrency: "unbounded" },
+    );
+  });
+
+const knowledgeRefsInDir = (source: ExternalSource, basePath: string, options: FindOptions) =>
+  Effect.gen(function* () {
+    const root = yield* searchRootFor(source, basePath);
+    const discoveries = yield* knowledgeDiscoveries(root);
+    const matching = discoveries.filter((discovery) => matchesIdentity(discovery, options));
+    return yield* Effect.forEach(
+      matching,
+      (discovery) => knowledgeRef(source, basePath, discovery),
       { concurrency: "unbounded" },
     );
   });
@@ -510,6 +597,9 @@ export const discoverConventionRefs = (
         : []),
       ...(options.type === "hook" || options.type === "*"
         ? yield* hookRefsInDir(source, basePath, options)
+        : []),
+      ...(options.type === "knowledge" || options.type === "*"
+        ? yield* knowledgeRefsInDir(source, basePath, options)
         : []),
     ];
 

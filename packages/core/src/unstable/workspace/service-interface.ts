@@ -86,6 +86,7 @@ import type {
 import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
+import type { ResolvedKnowledgeProjectionConfig } from "../knowledge/projection-config.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -543,6 +544,10 @@ export interface WorkspaceMutationsService {
   /** Create or overwrite a hook entry in settings only. Serialized by semaphore. */
   readonly setHookEntry: (name: string, entry: HookEntry) => Effect.Effect<void, AppError>;
   /** Read, write, and remove isolated Open Knowledge Format bundles. */
+  readonly getKnowledgeProjectionConfig: () => Effect.Effect<
+    ResolvedKnowledgeProjectionConfig,
+    AppError
+  >;
   readonly getConfiguredKnowledgeEntries: () => Effect.Effect<KnowledgeMap, AppError>;
   readonly getLockedKnowledge: () => Effect.Effect<KnowledgeLockMap, AppError>;
   readonly getLockedKnowledgeEntry: (

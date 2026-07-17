@@ -98,10 +98,11 @@ axm install @acme/skills/code-review
 | **Commands**    | User-invokable prompts (slash commands, saved prompts)                                     | `@acme/commands/release-notes` — draft release notes from recent commits         |
 | **Subagents**   | Task-specialized agents the main agent delegates to                                        | `@acme/subagents/researcher` — delegate doc-reading to a cheaper model           |
 | **MCP servers** | Model Context Protocol servers exposing tools, data, and integrations                      | `@acme/mcps/linear` — tools for reading and updating Linear issues               |
+| **Knowledge**   | Open Knowledge Format reference bundles for progressive agent discovery                    | `@acme/knowledge/platform` — trusted-team reference material for platform work   |
 | **Packs**       | Curated bundles teams install and keep in sync                                             | `@acme/packs/frontend-tools` — the frontend guild's standard skills and commands |
 
 Every type has its own subcommand namespace (`axm skills`, `axm commands`,
-`axm subagents`, `axm mcps`, `axm packs`) sharing a common shape:
+`axm subagents`, `axm mcps`, `axm knowledge`, `axm packs`) sharing a common shape:
 `install`, `uninstall`, `list`, `update`, `new`, `publish`, plus
 `enable`/`disable` where it applies.
 
@@ -121,6 +122,13 @@ axm skills publish                            # Publish authored skills
 
 Installed and enabled skills are always materialized in `.agents/skills/` for
 the agentskills.io format, plus any declared agent-native skill directories.
+
+Enabled Knowledge bundles remain canonical under `.axm/extensions/` and expose
+only their `src/` content through `.agents/knowledge/@owner/name` by default.
+AXM maintains the aggregate `.agents/knowledge/index.md` and an instruction-file
+bridge; `.agents/knowledge` is an AXM convention rather than native agent
+discovery. Configure another relative projection root with
+`knowledgeConfig.directory`.
 
 `axm packs` adds bundling commands:
 

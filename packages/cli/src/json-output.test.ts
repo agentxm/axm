@@ -392,6 +392,7 @@ describe("toPlanResolutionResult", () => {
                   scope: "project",
                   version: "1.2.3",
                   change: "created",
+                  mechanism: "symlink",
                   fileCount: 4,
                   targets: [
                     {
@@ -419,6 +420,7 @@ describe("toPlanResolutionResult", () => {
           scope: "project",
           version: "1.2.3",
           change: "created",
+          mechanism: "symlink",
           fileCount: 4,
           targets: [
             {

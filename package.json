@@ -22,6 +22,7 @@
     "validate-release-assets": "bash scripts/validate-release-assets.sh",
     "update-homebrew-formula": "bash scripts/update-homebrew-formula.sh",
     "verify-e2e-boundaries": "bun scripts/verify-e2e-boundaries.ts",
+    "classify:ci": "bun scripts/classify-ci-changes.ts",
     "check:ci-image": "node scripts/check-ci-image.mjs",
     "generate-registry": "pnpm exec nx run core:generate:registry-client --outputStyle=static",
     "generate-telemetry": "pnpm exec nx run core:generate:telemetry-client --outputStyle=static",

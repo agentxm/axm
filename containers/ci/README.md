@@ -15,7 +15,7 @@ dependencies, Git metadata, credentials, or user state.
   commit.
 - `latest` is a convenience tag and is never a required-CI input.
 - Required CI pins `<version>@sha256:<digest>` after the semantic image has been
-  published and verified.
+  published and verified. The active consumer pin lives in `CI_IMAGE`.
 
 The CI image workflow builds amd64 and arm64 once, smoke-tests and scans those
 exact artifacts, promotes them without rebuilding, publishes SBOM and

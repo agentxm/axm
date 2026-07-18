@@ -1,4 +1,5 @@
 name: CI
+
 run-name: >-
   ${{
     github.event_name == 'pull_request' &&
@@ -7,22 +8,26 @@ run-name: >-
   }}
 
 on:
+  pull_request:
   push:
     branches: [main]
-    paths-ignore:
-      - "contributing/**"
-      - "*.md"
-      - ".github/pull_request_template.md"
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner substrate for full verification
+        required: true
+        default: trusted-ci
+        type: choice
+        options:
+          - trusted-ci
+          - github-hosted
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
-  checks: write
   contents: read
-  packages: read
 
 env:
   NX_TUI: "false"
@@ -30,120 +35,242 @@ env:
   NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
   NX_PARALLEL: "2"
   VITEST_MAX_WORKERS: "2"
-  AXM_CI_IMAGE: ghcr.io/agentxm/agentxm-ci:0.1.0
 
 jobs:
-  verify:
-    name: Verify Workspace
+  classify:
+    name: Classify changes
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+      documentation: ${{ steps.classify.outputs.documentation }}
+      image: ${{ steps.classify.outputs.image }}
+      workflow: ${{ steps.classify.outputs.workflow }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
 
-      - name: Create local main ref for affected/base diff
-        if: github.event_name == 'pull_request'
-        run: git fetch --no-tags origin main:main
-
-      - name: Classify pull request changes
-        id: changes
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-        run: |
-          docs_only=true
-          release_preparation=false
-
-          while IFS= read -r -d '' path; do
-            if [[ "$path" == contributing/* ]] ||
-              [[ "$path" != */* && "$path" == *.md ]] ||
-              [[ "$path" == ".github/pull_request_template.md" ]]; then
-              continue
-            fi
-
-            docs_only=false
-            break
-          done < <(git diff --name-only -z "$BASE_SHA...$HEAD_SHA")
-
-          release_subject="release: ${HEAD_REF#release/}"
-          if [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
-            [[ "$HEAD_REF" =~ ^release/cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] &&
-            [[ "$(git show --no-patch --format=%s "$HEAD_SHA")" == "$release_subject" ]]; then
-            release_preparation=true
-          fi
-
-          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
-          echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
-
       - name: Set up Node.js 22
-        if: github.event_name == 'pull_request' &&
-          steps.changes.outputs.docs_only == 'true'
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
           package-manager-cache: false
 
       - name: Set up pnpm
-        if: github.event_name == 'pull_request' &&
-          steps.changes.outputs.docs_only == 'true'
         run: |
           corepack enable
           corepack prepare pnpm@10.29.3 --activate
-          pnpm --version
 
-      - name: Install dependencies
-        if: github.event_name == 'pull_request' &&
-          steps.changes.outputs.docs_only == 'true'
+      - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Log in to GHCR
-        if: github.event_name == 'push' ||
-          steps.changes.outputs.docs_only != 'true'
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+      - name: Classify changed paths and affected projects
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: pnpm run classify:ci -- --base "$BASE_SHA" --head "$HEAD_SHA"
+
+  format:
+    name: Format
+    needs: classify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      - name: Verify affected pull request changes in shared Linux environment
-        if: github.event_name == 'pull_request' &&
-          steps.changes.outputs.docs_only != 'true'
+      - name: Set up Node.js 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Set up pnpm
         run: |
-          scripts/container-environment.sh ci bash -lc \
-            'set -euo pipefail
-            pnpm install --frozen-lockfile
-            if [[ "${{ steps.changes.outputs.release_preparation }}" != "true" ]]; then
-              pnpm release:plan:check
-            fi
-            pnpm run ci:affected'
+          corepack enable
+          corepack prepare pnpm@10.29.3 --activate
 
-      - name: Verify documentation
-        if: github.event_name == 'pull_request' &&
-          steps.changes.outputs.docs_only == 'true'
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify formatting
         run: pnpm run format:check
 
-      - name: Verify main in shared Linux environment
-        if: github.event_name == 'push'
+  documentation:
+    name: Documentation integrity
+    needs: classify
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.classify.outputs.documentation == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Verify changed documentation patch integrity
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: git diff --check "$BASE_SHA...$HEAD_SHA" -- '*.md' '*.mdx'
+
+  workflow-validation:
+    name: Workflow validation
+    needs: classify
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.classify.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Run actionlint from the pinned CI image
+        run: scripts/container-environment.sh ci actionlint
+
+  image:
+    name: CI image
+    needs: classify
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.classify.outputs.image == 'true'
+    uses: ./.github/workflows/ci-image.yml
+    with:
+      base_sha: ${{ github.event.pull_request.base.sha }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
+      runner: github-hosted
+
+  verify-pr:
+    name: Verify affected workspace
+    needs: classify
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.classify.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Create local main ref for affected diff
+        run: git fetch --no-tags origin main:main
+
+      - name: Verify affected changes in pinned CI image
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
+          release_preparation=false
+          release_subject="release: ${HEAD_REF#release/}"
+          if [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
+            [[ "$HEAD_REF" =~ ^release/cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] &&
+            [[ "$(git show --no-patch --format=%s HEAD)" == "$release_subject" ]]; then
+            release_preparation=true
+          fi
           scripts/container-environment.sh ci bash -lc \
-            'pnpm install --frozen-lockfile && pnpm run ci'
+            "set -euo pipefail
+            pnpm install --frozen-lockfile
+            if [[ '$release_preparation' != 'true' ]]; then
+              pnpm release:plan:check
+            fi
+            pnpm run ci:affected"
 
       - name: Upload JUnit artifacts
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always() && steps.changes.outputs.docs_only != 'true'
         with:
-          name: test-results
+          name: test-results-pr
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
 
       - name: Publish JUnit report
+        if: always()
         uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
-        if: always() && steps.changes.outputs.docs_only != 'true'
+        with:
+          report_paths: "test-results/**/junit.xml"
+          check_name: Test Results
+          include_passed: true
+
+  verify-main-trusted:
+    name: Verify full workspace (trusted-ci)
+    needs: classify
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.runner == 'trusted-ci')
+    runs-on:
+      group: trusted-ci
+      labels: self-hosted
+    timeout-minutes: 45
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Verify main in pinned CI image
+        run: scripts/container-environment.sh ci bash -lc 'pnpm install --frozen-lockfile && pnpm run ci'
+
+      - name: Upload JUnit artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-main-trusted
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publish JUnit report
+        if: always()
+        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
+        with:
+          report_paths: "test-results/**/junit.xml"
+          check_name: Test Results
+          include_passed: true
+
+  verify-main-hosted:
+    name: Verify full workspace (GitHub-hosted fallback)
+    needs: classify
+    if: github.event_name == 'workflow_dispatch' && inputs.runner == 'github-hosted'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Verify main in pinned CI image
+        run: scripts/container-environment.sh ci bash -lc 'pnpm install --frozen-lockfile && pnpm run ci'
+
+      - name: Upload JUnit artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-main-hosted
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publish JUnit report
+        if: always()
+        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
         with:
           report_paths: "test-results/**/junit.xml"
           check_name: Test Results
@@ -151,8 +278,8 @@ jobs:
 
   binary-smoke:
     name: Binary Smoke - ${{ matrix.os }}
-    needs: verify
-    if: github.ref == 'refs/heads/main'
+    needs: verify-main-trusted
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       fail-fast: false
       matrix:
@@ -182,14 +309,13 @@ jobs:
         run: |
           corepack enable
           corepack prepare pnpm@10.29.3 --activate
-          pnpm --version
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.5
 
-      - name: Install dependencies
+      - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Compile host binary
@@ -212,3 +338,26 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 90
+
+  required:
+    name: Required CI
+    if: always()
+    needs:
+      - classify
+      - format
+      - documentation
+      - workflow-validation
+      - image
+      - verify-pr
+      - verify-main-trusted
+      - verify-main-hosted
+      - binary-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every applicable check
+        env:
+          RESULTS: >-
+            ${{ toJSON(needs) }}
+        run: |
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$RESULTS"

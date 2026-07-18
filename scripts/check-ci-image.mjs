@@ -4,6 +4,7 @@ const read = (path) => readFileSync(path, "utf8");
 const errors = [];
 const containerfile = read("containers/ci/Containerfile");
 const dockerignore = read("containers/ci/.dockerignore");
+const ciImagePin = read("containers/ci/CI_IMAGE").trim();
 const version = read("containers/ci/VERSION").trim();
 const workflow = read(".github/workflows/ci-image.yml");
 const workflowSources = readdirSync(".github/workflows")
@@ -17,6 +18,10 @@ const requireText = (subject, text, message) => {
 
 if (!/^\d+\.\d+\.\d+$/u.test(version)) {
   errors.push("containers/ci/VERSION must contain one semantic version");
+}
+
+if (!/^ghcr\.io\/agentxm\/axm-ci:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$/u.test(ciImagePin)) {
+  errors.push("containers/ci/CI_IMAGE must pin a semantic axm-ci tag by digest");
 }
 
 if (/^\s*(?:ADD|COPY)\s/imu.test(containerfile)) {
@@ -57,6 +62,7 @@ for (const text of [
   "Promote validated image artifacts",
   "actions/attest@",
   "Verify anonymous pull and public metadata",
+  "workflow_call:",
 ]) {
   requireText(workflow, text, `CI image workflow is missing ${text}`);
 }

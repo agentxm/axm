@@ -19,6 +19,11 @@ volume_key() {
 }
 
 DEPS_VOLUME=${AXM_DEV_DEPS_VOLUME:-axm-dev-deps-$(volume_key "$ROOT")}
+CI_CACHE_SCOPE=$(
+  volume_key "axm|$(uname -m)|$CI_IMAGE|$(cksum <"$ROOT/pnpm-lock.yaml")"
+)
+CI_PNPM_CACHE_VOLUME=${AXM_CI_PNPM_CACHE_VOLUME:-axm-ci-pnpm-$CI_CACHE_SCOPE}
+CI_NX_CACHE_VOLUME=${AXM_CI_NX_CACHE_VOLUME:-axm-ci-nx-$CI_CACHE_SCOPE}
 
 usage() {
   cat <<'EOF'
@@ -33,6 +38,8 @@ Usage: scripts/container-environment.sh <command> [arguments]
 Environment:
   AXM_CI_IMAGE          Override the CI image
   AXM_LOCAL_CI_IMAGE    Override the local producer image tag
+  AXM_CI_PNPM_CACHE_VOLUME  Override the digest/architecture/lockfile-scoped CI pnpm cache volume
+  AXM_CI_NX_CACHE_VOLUME  Override the digest/architecture/lockfile-scoped CI Nx cache volume
   AXM_DEV_IMAGE         Override the development image
   AXM_DEV_HOME_VOLUME   Override the persistent development home volume
   AXM_DEV_DEPS_VOLUME   Override the persistent node_modules volume
@@ -76,6 +83,8 @@ run_ci() {
     printf -v command '%q ' "$@"
   fi
   mkdir -p "$ROOT/node_modules"
+  docker volume create "$CI_PNPM_CACHE_VOLUME" >/dev/null
+  docker volume create "$CI_NX_CACHE_VOLUME" >/dev/null
 
   docker run --rm \
     --user root \
@@ -93,6 +102,8 @@ run_ci() {
     --volume "$ROOT:$ROOT" \
     --volume "$ROOT/node_modules" \
     --volume "$GIT_COMMON_DIR:$GIT_COMMON_DIR" \
+    --volume "$CI_PNPM_CACHE_VOLUME:/tmp/axm-home/.local/share/pnpm/store" \
+    --volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx" \
     --workdir "$ROOT" \
     --pull missing \
     "$CI_IMAGE" \

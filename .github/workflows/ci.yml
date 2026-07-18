@@ -99,6 +99,9 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Create local main ref for formatting diff
+        run: git fetch --no-tags origin main:main
+
       - name: Verify formatting
         run: pnpm run format:check
 

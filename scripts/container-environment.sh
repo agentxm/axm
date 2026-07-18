@@ -4,6 +4,9 @@ set -euo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)
 GIT_COMMON_DIR=$(cd "$ROOT" && cd "$(git rev-parse --git-common-dir)" && pwd -P)
+CI_IMAGE_CONTEXT="$ROOT/containers/ci"
+CI_IMAGE_CONTAINERFILE="$CI_IMAGE_CONTEXT/Containerfile"
+LOCAL_CI_IMAGE=${AXM_LOCAL_CI_IMAGE:-local/axm-ci:dev}
 CI_IMAGE=${AXM_CI_IMAGE:-ghcr.io/agentxm/agentxm-ci:0.1.0}
 DEV_IMAGE=${AXM_DEV_IMAGE:-ghcr.io/agentxm/agentxm-local-dev:0.1.0}
 HOME_VOLUME=${AXM_DEV_HOME_VOLUME:-axm-dev-home}
@@ -18,20 +21,48 @@ DEPS_VOLUME=${AXM_DEV_DEPS_VOLUME:-axm-dev-deps-$(volume_key "$ROOT")}
 
 usage() {
   cat <<'EOF'
-Usage: scripts/container-environment.sh <ci|shell|smoke> [command...]
+Usage: scripts/container-environment.sh <command> [arguments]
 
-  ci [command...]  Run a command in the pinned Linux CI image
-  shell            Open an interactive development shell
-  smoke            Verify the CI image and mounted checkout
+  build-ci-image    Build the repository-owned CI image locally
+  smoke-ci-image    Build and verify the repository-owned CI image
+  ci [command...]   Run a command in the pinned Linux CI image
+  shell             Open an interactive development shell
+  smoke             Verify the pinned CI image and mounted checkout
 
 Environment:
   AXM_CI_IMAGE          Override the CI image
+  AXM_LOCAL_CI_IMAGE    Override the local producer image tag
   AXM_DEV_IMAGE         Override the development image
   AXM_DEV_HOME_VOLUME   Override the persistent development home volume
   AXM_DEV_DEPS_VOLUME   Override the persistent node_modules volume
   AXM_CONTAINER_NX_PARALLEL  Nx task concurrency in containers (default: 2)
   AXM_CONTAINER_VITEST_MAX_WORKERS  Vitest concurrency in containers (default: 2)
 EOF
+}
+
+build_ci_image() {
+  docker build \
+    --file "$CI_IMAGE_CONTAINERFILE" \
+    --target axm-ci \
+    --tag "$LOCAL_CI_IMAGE" \
+    --build-arg "SOURCE_REVISION=$(git rev-parse HEAD)" \
+    "$CI_IMAGE_CONTEXT"
+}
+
+smoke_ci_image() {
+  if [[ "${AXM_SKIP_IMAGE_BUILD:-0}" != "1" ]] || ! docker image inspect "$LOCAL_CI_IMAGE" >/dev/null 2>&1; then
+    build_ci_image
+  fi
+
+  docker run --rm "$LOCAL_CI_IMAGE" bash -lc '
+    set -euo pipefail
+    test "$(id -u)" != "0"
+    test "$(node --version)" = "v22.22.2"
+    test "$(pnpm --version)" = "10.29.3"
+    test "$(bun --version)" = "1.3.5"
+    actionlint -version
+    test ! -e /workspace/.git
+  '
 }
 
 run_ci() {
@@ -121,6 +152,12 @@ smoke() {
 }
 
 case "${1:-}" in
+  build-ci-image)
+    build_ci_image
+    ;;
+  smoke-ci-image)
+    smoke_ci_image
+    ;;
   ci)
     shift
     run_ci "$@"

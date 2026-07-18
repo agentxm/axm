@@ -1,9 +1,9 @@
 ---
 status: active
-last-reviewed: 2026-07-15
-version: 0.1.0
-description: Choosing and using AXM's native or shared-container development and Linux CI
-  environment.
+last-reviewed: 2026-07-18
+version: 0.2.0
+description: Choosing and using AXM's native, development-container, and repository-owned
+  Linux CI environments.
 depends-on:
   - ../../CONTRIBUTING.md
   - ../../AGENTS.md
@@ -11,19 +11,24 @@ depends-on:
 
 # Development Environment
 
-AXM supports a shared Linux image and native development. The image is
-the documented default for Linux feature work and CI reproduction. Both modes
-use `mise.toml` as the repository tool-version authority and the same `pnpm`/Nx
-commands. The image does not replace native macOS, Windows, or release-binary
-verification.
+AXM supports a repository-owned Linux CI image, a shared interactive development
+image, and native development. The development image is the documented default
+for Linux feature work; the CI image reproduces required Linux verification.
+Every mode uses `mise.toml` as the repository tool-version authority and the
+same `pnpm`/Nx commands. Images do not replace native macOS, Windows, or
+release-binary verification.
 
 > [Commands](../../AGENTS.md#commands) - repository command policy and quality gates
 
 ## Key Resources
 
 - [Contributing](../../CONTRIBUTING.md) - setup and daily contribution flow
-- [AgentXM images on GHCR](https://github.com/orgs/agentxm/packages) - private,
-  versioned CI and development images
+- [AXM CI image](../../containers/ci/README.md) - public, source-free image
+  contract, publication, and rollback policy
+- [CI image workflow](../../.github/workflows/ci-image.yml) - build, validation,
+  attestation, and publication
+- [AgentXM images on GHCR](https://github.com/orgs/agentxm/packages) - versioned
+  CI and development images
 - [GitHub Actions CI](../../.github/workflows/ci.yml) - pinned image consumer
 
 ---
@@ -54,7 +59,8 @@ intentional substrate-specific override.
 ### Environment Checklist
 
 - [ ] **Task branch** -- Start from a non-`main` branch or task worktree
-- [ ] **Image pinned** -- Required CI uses the documented semantic image tag
+- [ ] **Image pinned** -- Required CI uses a semantic image tag plus manifest
+      digest
 - [ ] **Source external** -- Repository source is mounted, never copied into an
       image layer
 - [ ] **Identity external** -- GitHub and agent credentials remain runtime state
@@ -80,9 +86,10 @@ test an intentional image upgrade. Set `AXM_DEV_DEPS_VOLUME` only when a stable,
 operator-chosen dependency-volume name is preferable to the per-worktree
 default.
 
-GitHub Actions authenticates with its repository-scoped token. For workstation
-or VM use, authenticate Docker with a personal token that can read packages
-before running a container command.
+The repository-owned CI image is public and must remain anonymously pullable.
+The shared development image is private; for workstation or VM use,
+authenticate Docker with a personal token that can read packages before running
+a development-container command.
 
 The development image may mount the Docker socket. Socket access is equivalent
 to authority over the host Docker engine; use it only on a trusted workstation
@@ -112,15 +119,27 @@ revoked.
 
 ## Image Upgrade
 
-The image is an external versioned contract. Upgrade the workflow pin and wrapper
-defaults together, run the smoke command against the new immutable version, run
-full `pnpm run ci`, and retain the previous version for rollback. Image build,
-publication, SBOM, and vulnerability-scan ownership is outside this repository.
+AXM owns `ghcr.io/agentxm/axm-ci` in `containers/ci`. Change its inputs with an
+immutable `VERSION` bump, then run `pnpm run container:smoke:ci-image` and full
+`pnpm run ci`. The image workflow builds amd64 and arm64 artifacts once,
+smoke-tests and scans those exact artifacts, publishes SBOM and provenance
+attestations, and verifies anonymous pullability before recording the manifest
+digest. Only after publication and soak should the required-CI workflow and
+wrapper defaults move together to the new `<version>@sha256:<digest>` reference.
+The previous digest remains the immediate rollback target.
+
+The interactive development image remains an external AgentXM-owned contract;
+its upgrade follows the same pin, smoke, and rollback discipline but is not
+published by this repository.
 
 ### Upgrade Checklist
 
 - [ ] **Toolchain matches** -- Node, pnpm, and Bun match `mise.toml`
-- [ ] **Wrapper defaults match** -- CI and development defaults use one release
+- [ ] **Both architectures pass** -- amd64 and arm64 build, smoke, and scan
+- [ ] **Publication verified** -- Public metadata, anonymous pull, SBOM, and
+      provenance checks pass
+- [ ] **Consumer defaults match** -- Required CI workflow and wrapper use one
+      immutable reference
 - [ ] **Workflow pin matches** -- Required Linux CI uses the tested release
 - [ ] **Full CI green** -- `pnpm run ci` completes inside the new image
 - [ ] **Rollback available** -- The prior semantic tag remains documented in

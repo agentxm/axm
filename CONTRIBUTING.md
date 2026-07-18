@@ -26,8 +26,8 @@ pnpm build               # build all packages
 pnpm test                # run tests
 ```
 
-The shared image, CI reproduction, identity storage, and native-platform
-boundaries are documented in the
+The development image, repository-owned CI image, identity storage, and
+native-platform boundaries are documented in the
 [Development Environment Guide](contributing/guides/development-environment.md).
 Automated review behavior and maintainer controls are documented in the
 [Automated Pull Request Review Guide](contributing/guides/automated-pull-request-review.md).
@@ -54,7 +54,7 @@ ranges.
 | `pnpm lint:fix`              | Lint and auto-fix                         |
 | `pnpm run ci`                | Run the full CI pipeline locally          |
 | `pnpm run ci:affected`       | Run CI pipeline for affected packages     |
-| `pnpm run container:ci`      | Run full CI in the shared Linux image     |
+| `pnpm run container:ci`      | Run full CI in the pinned Linux image     |
 | `pnpm run container:dev`     | Open the shared Linux development image   |
 | `pnpm build:affected`        | Build only packages changed since `main`  |
 | `pnpm test:affected`         | Test only packages changed since `main`   |

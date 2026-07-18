@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyCiChanges, parseAffectedProjectsOutput } from "./classify-ci-changes.js";
+import {
+  classifyCiChanges,
+  parseAffectedProjectsOutput,
+  selectNxAffectedPaths,
+} from "./classify-ci-changes.js";
 
 describe("classifyCiChanges", () => {
   it("always requires formatting", () => {
@@ -8,21 +12,25 @@ describe("classifyCiChanges", () => {
   });
 
   it("classifies documentation without code work", () => {
-    expect(classifyCiChanges(["contributing/guides/setup.md", "README.md"], [])).toMatchObject({
-      code: false,
-      documentation: true,
-      image: false,
-      workflow: false,
-    });
+    expect(classifyCiChanges(["contributing/guides/setup.md", "README.md"], ["axm"])).toMatchObject(
+      {
+        affectedProjects: [],
+        code: false,
+        documentation: true,
+        image: false,
+        workflow: false,
+      },
+    );
   });
 
   it("classifies CI image inputs independently", () => {
     expect(
       classifyCiChanges(
         ["containers/ci/Containerfile", ".github/workflows/ci-image-publish.yml"],
-        [],
+        ["axm"],
       ),
     ).toMatchObject({
+      affectedProjects: [],
       code: false,
       image: true,
       workflow: true,
@@ -30,7 +38,8 @@ describe("classifyCiChanges", () => {
   });
 
   it("classifies workflow-only changes without compiling code", () => {
-    expect(classifyCiChanges([".github/workflows/ci.yml"], [])).toMatchObject({
+    expect(classifyCiChanges([".github/workflows/ci.yml"], ["axm"])).toMatchObject({
+      affectedProjects: [],
       code: false,
       image: false,
       workflow: true,
@@ -51,6 +60,17 @@ describe("classifyCiChanges", () => {
         releaseInfrastructure: true,
       },
     );
+  });
+
+  it("selects only code candidates for Nx affected analysis", () => {
+    expect(
+      selectNxAffectedPaths([
+        "README.md",
+        ".github/workflows/ci.yml",
+        "containers/ci/Containerfile",
+        "packages/cli/src/main.ts",
+      ]),
+    ).toEqual(["packages/cli/src/main.ts"]);
   });
 
   it("parses Nx JSON project output", () => {

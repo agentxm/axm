@@ -59,6 +59,27 @@ for (const variable of ["AXM_HOST_UID", "AXM_HOST_GID", "AXM_DEPS_DIRS"]) {
   );
 }
 
+for (const cacheVolume of ["CI_PNPM_CACHE_VOLUME", "CI_NX_CACHE_VOLUME"]) {
+  requireText(
+    containerLauncher,
+    `docker volume create "$${cacheVolume}"`,
+    `container launcher must create the scoped ${cacheVolume} cache`,
+  );
+  requireText(
+    containerLauncher,
+    `--volume "$${cacheVolume}:`,
+    `container launcher must mount the scoped ${cacheVolume} cache`,
+  );
+}
+
+for (const scopeInput of ['"axm|', "$(uname -m)", "$CI_IMAGE", "pnpm-lock.yaml"]) {
+  requireText(
+    containerLauncher,
+    scopeInput,
+    `container launcher cache scope is missing ${scopeInput}`,
+  );
+}
+
 if (/--env AGENTXM_(?:HOST_UID|HOST_GID|DEPS_DIRS)=/u.test(containerLauncher)) {
   errors.push("container launcher uses obsolete AGENTXM_* image entrypoint variables");
 }

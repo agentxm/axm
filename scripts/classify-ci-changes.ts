@@ -31,6 +31,11 @@ const isReleaseInfrastructurePath = (path: string) =>
   path === "pnpm-lock.yaml" ||
   path === "project.json";
 
+export const selectNxAffectedPaths = (paths: readonly string[]) =>
+  paths.filter(
+    (path) => !isDocumentationPath(path) && !path.startsWith(".github/") && !isImagePath(path),
+  );
+
 export const classifyCiChanges = (
   paths: readonly string[],
   affectedProjects: readonly string[],
@@ -39,10 +44,12 @@ export const classifyCiChanges = (
   const image = paths.some(isImagePath);
   const workflow = paths.some((path) => path.startsWith(".github/"));
   const releaseInfrastructure = paths.some(isReleaseInfrastructurePath);
+  const nxAffectedPaths = selectNxAffectedPaths(paths);
+  const relevantAffectedProjects = nxAffectedPaths.length > 0 ? [...affectedProjects].sort() : [];
 
   return {
-    affectedProjects: [...affectedProjects].sort(),
-    code: affectedProjects.length > 0 || releaseInfrastructure,
+    affectedProjects: relevantAffectedProjects,
+    code: relevantAffectedProjects.length > 0 || releaseInfrastructure,
     documentation,
     formatRequired: true,
     image,
@@ -117,10 +124,10 @@ const writeGitHubOutputs = (classification: CiChangeClassification) => {
 const main = () => {
   const base = readArgument("--base");
   const head = readArgument("--head");
-  const classification = classifyCiChanges(
-    readChangedPaths(base, head),
-    readAffectedProjects(base, head),
-  );
+  const paths = readChangedPaths(base, head);
+  const affectedProjects =
+    selectNxAffectedPaths(paths).length > 0 ? readAffectedProjects(base, head) : [];
+  const classification = classifyCiChanges(paths, affectedProjects);
 
   writeGitHubOutputs(classification);
   console.log(JSON.stringify(classification, null, 2));

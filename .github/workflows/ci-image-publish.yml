@@ -1,0 +1,49 @@
+name: Publish CI image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - containers/ci/**
+      - scripts/check-ci-image.mjs
+      - .github/workflows/ci-image.yml
+      - .github/workflows/ci-image-publish.yml
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner substrate
+        required: true
+        default: trusted-ci
+        type: choice
+        options:
+          - trusted-ci
+          - github-hosted
+
+permissions:
+  attestations: write
+  contents: read
+  id-token: write
+  packages: write
+
+jobs:
+  publish:
+    name: Validate and publish CI image
+    uses: ./.github/workflows/ci-image.yml
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    with:
+      base_sha: ${{ github.event.before }}
+      head_sha: ${{ github.sha }}
+      publish: true
+      runner: >-
+        ${{
+          ((github.event_name == 'workflow_dispatch' && inputs.runner ==
+          'github-hosted') || vars.AXM_CI_USE_GITHUB_HOSTED == 'true') &&
+          'github-hosted' || 'trusted-ci'
+        }}
+    secrets: inherit

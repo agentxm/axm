@@ -1,36 +1,30 @@
 name: CI image
 
 on:
-  pull_request:
-    paths:
-      - containers/ci/**
-      - scripts/check-ci-image.mjs
-      - .github/workflows/ci-image.yml
-  push:
-    branches: [main]
-    paths:
-      - containers/ci/**
-      - scripts/check-ci-image.mjs
-      - .github/workflows/ci-image.yml
-  schedule:
-    - cron: "17 6 * * 1"
-  workflow_dispatch:
+  workflow_call:
     inputs:
+      base_sha:
+        description: Base revision for image input validation
+        required: false
+        type: string
+      head_sha:
+        description: Head revision for image input validation
+        required: false
+        type: string
       runner:
         description: Runner substrate
-        required: true
-        default: local
-        type: choice
-        options:
-          - local
-          - github-hosted
+        required: false
+        default: github-hosted
+        type: string
+      publish:
+        description: Publish the validated artifacts from a trusted caller
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ci-image-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-permissions:
-  contents: read
+  cancel-in-progress: ${{ !inputs.publish }}
 
 env:
   IMAGE: ghcr.io/agentxm/axm-ci
@@ -53,10 +47,10 @@ jobs:
         run: node scripts/check-ci-image.mjs
 
       - name: Require VERSION bump for image input changes
-        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        if: inputs.base_sha != '' && inputs.head_sha != ''
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          HEAD_SHA: ${{ inputs.head_sha }}
         run: |
           files=$(git diff --name-only "$BASE_SHA...$HEAD_SHA")
           if grep -Eq '^containers/ci/(Containerfile|\.dockerignore)$' <<<"$files" &&
@@ -70,10 +64,7 @@ jobs:
     needs: contract
     runs-on: >-
       ${{
-        ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) ||
-        inputs.runner == 'github-hosted' ||
-        vars.AXM_CI_USE_GITHUB_HOSTED == 'true') &&
-        'ubuntu-latest' || 'self-hosted'
+        inputs.runner == 'github-hosted' && 'ubuntu-latest' || 'trusted-ci'
       }}
     timeout-minutes: 45
     strategy:
@@ -157,22 +148,13 @@ jobs:
 
   promote:
     name: Promote validated image artifacts
-    if: >-
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      github.ref == 'refs/heads/main'
+    if: inputs.publish && github.ref == 'refs/heads/main'
     needs: build
     runs-on: >-
       ${{
-        (inputs.runner == 'github-hosted' ||
-        vars.AXM_CI_USE_GITHUB_HOSTED == 'true') &&
-        'ubuntu-latest' || 'self-hosted'
+        inputs.runner == 'github-hosted' && 'ubuntu-latest' || 'trusted-ci'
       }}
     timeout-minutes: 30
-    permissions:
-      attestations: write
-      contents: read
-      id-token: write
-      packages: write
     outputs:
       digest: ${{ steps.manifest.outputs.digest }}
       published: ${{ steps.existing.outputs.published }}
@@ -291,9 +273,7 @@ jobs:
 
   verify-publication:
     name: Verify anonymous pull and public metadata
-    if: >-
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      github.ref == 'refs/heads/main'
+    if: inputs.publish && github.ref == 'refs/heads/main'
     needs: promote
     runs-on: ubuntu-latest
     timeout-minutes: 15

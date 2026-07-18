@@ -7,7 +7,8 @@ GIT_COMMON_DIR=$(cd "$ROOT" && cd "$(git rev-parse --git-common-dir)" && pwd -P)
 CI_IMAGE_CONTEXT="$ROOT/containers/ci"
 CI_IMAGE_CONTAINERFILE="$CI_IMAGE_CONTEXT/Containerfile"
 LOCAL_CI_IMAGE=${AXM_LOCAL_CI_IMAGE:-local/axm-ci:dev}
-CI_IMAGE=${AXM_CI_IMAGE:-ghcr.io/agentxm/agentxm-ci:0.1.0}
+CI_IMAGE_PIN=$(tr -d '[:space:]' <"$CI_IMAGE_CONTEXT/CI_IMAGE")
+CI_IMAGE=${AXM_CI_IMAGE:-$CI_IMAGE_PIN}
 DEV_IMAGE=${AXM_DEV_IMAGE:-ghcr.io/agentxm/agentxm-local-dev:0.1.0}
 HOME_VOLUME=${AXM_DEV_HOME_VOLUME:-axm-dev-home}
 NX_PARALLEL=${AXM_CONTAINER_NX_PARALLEL:-2}
@@ -79,9 +80,9 @@ run_ci() {
   docker run --rm \
     --user root \
     --ulimit nofile=65536:65536 \
-    --env AGENTXM_HOST_UID="$uid" \
-    --env AGENTXM_HOST_GID="$gid" \
-    --env AGENTXM_DEPS_DIRS="$ROOT/node_modules" \
+    --env AXM_HOST_UID="$uid" \
+    --env AXM_HOST_GID="$gid" \
+    --env AXM_DEPS_DIRS="$ROOT/node_modules" \
     --env HOME=/tmp/axm-home \
     --env MISE_STATE_DIR=/tmp/axm-home/.local/state/mise \
     --env npm_config_store_dir=/tmp/axm-home/.local/share/pnpm/store \
@@ -116,9 +117,9 @@ run_shell() {
     --volume "$DEPS_VOLUME:$ROOT/node_modules"
     --volume "$GIT_COMMON_DIR:$GIT_COMMON_DIR"
     --workdir "$ROOT"
-    --env AGENTXM_HOST_UID="$uid"
-    --env AGENTXM_HOST_GID="$gid"
-    --env AGENTXM_DEPS_DIRS="$ROOT/node_modules"
+    --env AXM_HOST_UID="$uid"
+    --env AXM_HOST_GID="$gid"
+    --env AXM_DEPS_DIRS="$ROOT/node_modules"
     --env HOME=/home/agentxm
     --env MISE_STATE_DIR=/home/agentxm/.local/state/mise
     --env MISE_CACHE_DIR=/home/agentxm/.cache/mise

@@ -10,6 +10,7 @@ const workflow = read(".github/workflows/ci-image.yml");
 const workflowSources = readdirSync(".github/workflows")
   .filter((path) => path.endsWith(".yml") || path.endsWith(".yaml"))
   .map((path) => [path, read(`.github/workflows/${path}`)]);
+const containerLauncher = read("scripts/container-environment.sh");
 const mise = read("mise.toml");
 
 const requireText = (subject, text, message) => {
@@ -48,6 +49,18 @@ for (const text of [
   "ENTRYPOINT",
 ]) {
   requireText(containerfile, text, `Containerfile is missing ${text}`);
+}
+
+for (const variable of ["AXM_HOST_UID", "AXM_HOST_GID", "AXM_DEPS_DIRS"]) {
+  requireText(
+    containerLauncher,
+    `--env ${variable}=`,
+    `container launcher must pass ${variable} to the image entrypoint`,
+  );
+}
+
+if (/--env AGENTXM_(?:HOST_UID|HOST_GID|DEPS_DIRS)=/u.test(containerLauncher)) {
+  errors.push("container launcher uses obsolete AGENTXM_* image entrypoint variables");
 }
 
 if (dockerignore.trim() !== "**\n!Containerfile\n!README.md\n!VERSION") {

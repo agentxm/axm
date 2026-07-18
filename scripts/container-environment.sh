@@ -80,9 +80,9 @@ run_ci() {
   docker run --rm \
     --user root \
     --ulimit nofile=65536:65536 \
-    --env AGENTXM_HOST_UID="$uid" \
-    --env AGENTXM_HOST_GID="$gid" \
-    --env AGENTXM_DEPS_DIRS="$ROOT/node_modules" \
+    --env AXM_HOST_UID="$uid" \
+    --env AXM_HOST_GID="$gid" \
+    --env AXM_DEPS_DIRS="$ROOT/node_modules" \
     --env HOME=/tmp/axm-home \
     --env MISE_STATE_DIR=/tmp/axm-home/.local/state/mise \
     --env npm_config_store_dir=/tmp/axm-home/.local/share/pnpm/store \
@@ -117,9 +117,9 @@ run_shell() {
     --volume "$DEPS_VOLUME:$ROOT/node_modules"
     --volume "$GIT_COMMON_DIR:$GIT_COMMON_DIR"
     --workdir "$ROOT"
-    --env AGENTXM_HOST_UID="$uid"
-    --env AGENTXM_HOST_GID="$gid"
-    --env AGENTXM_DEPS_DIRS="$ROOT/node_modules"
+    --env AXM_HOST_UID="$uid"
+    --env AXM_HOST_GID="$gid"
+    --env AXM_DEPS_DIRS="$ROOT/node_modules"
     --env HOME=/home/agentxm
     --env MISE_STATE_DIR=/home/agentxm/.local/state/mise
     --env MISE_CACHE_DIR=/home/agentxm/.cache/mise

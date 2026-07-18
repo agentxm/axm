@@ -23,7 +23,9 @@ on:
           - github-hosted
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: >-
+    ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{
+    github.event_name == 'workflow_dispatch' && inputs.runner || 'default' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:

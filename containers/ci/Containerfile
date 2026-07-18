@@ -1,0 +1,140 @@
+# syntax=docker/dockerfile:1.18
+
+ARG UBUNTU_IMAGE=ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+
+FROM ${UBUNTU_IMAGE} AS axm-ci
+
+ARG TARGETARCH
+ARG SOURCE_REVISION
+ARG MISE_VERSION=2026.7.7
+ARG NODE_VERSION=22.22.2
+ARG PNPM_VERSION=10.29.3
+ARG BUN_VERSION=1.3.5
+ARG ACTIONLINT_VERSION=1.7.12
+
+LABEL org.opencontainers.image.title="axm-ci" \
+      org.opencontainers.image.description="Reproducible Linux CI environment for AXM" \
+      org.opencontainers.image.url="https://axm.sh" \
+      org.opencontainers.image.source="https://github.com/agentxm/axm" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
+      org.opencontainers.image.licenses="FSL-1.1-MIT"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    MISE_DATA_DIR=/opt/mise \
+    MISE_CONFIG_DIR=/etc/mise \
+    MISE_CACHE_DIR=/var/cache/mise \
+    MISE_STATE_DIR=/var/lib/mise \
+    PATH=/opt/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    CI=true \
+    NODE_OPTIONS=--max-old-space-size=6144 \
+    NX_TUI=false \
+    NX_DEFAULT_OUTPUT_STYLE=static \
+    NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+      bash \
+      build-essential \
+      ca-certificates \
+      curl \
+      git \
+      git-lfs \
+      gosu \
+      jq \
+      libatomic1 \
+      libsecret-1-dev \
+      openssh-client \
+      passwd \
+      pkg-config \
+      python3 \
+      python3-venv \
+      rsync \
+      tini \
+      unzip \
+      xz-utils \
+      zip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN case "${TARGETARCH}" in \
+      amd64) release_arch="x64"; actionlint_arch="amd64" ;; \
+      arm64) release_arch="arm64"; actionlint_arch="arm64" ;; \
+      *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && mise_asset="mise-v${MISE_VERSION}-linux-${release_arch}" \
+    && mise_release="https://github.com/jdx/mise/releases/download/v${MISE_VERSION}" \
+    && curl --fail --location --silent --show-error --output "/tmp/${mise_asset}" "${mise_release}/${mise_asset}" \
+    && curl --fail --location --silent --show-error --output /tmp/mise-checksums.txt "${mise_release}/SHASUMS256.txt" \
+    && cd /tmp \
+    && grep " ./${mise_asset}$" mise-checksums.txt | sha256sum --check --strict \
+    && install -m 0755 "${mise_asset}" /usr/local/bin/mise \
+    && actionlint_asset="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz" \
+    && actionlint_release="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}" \
+    && curl --fail --location --silent --show-error --output "/tmp/${actionlint_asset}" "${actionlint_release}/${actionlint_asset}" \
+    && curl --fail --location --silent --show-error --output /tmp/actionlint-checksums.txt "${actionlint_release}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" \
+    && grep " ${actionlint_asset}$" actionlint-checksums.txt | sha256sum --check --strict \
+    && tar --extract --gzip --file "${actionlint_asset}" actionlint \
+    && install -m 0755 actionlint /usr/local/bin/actionlint \
+    && rm -f "${mise_asset}" mise-checksums.txt "${actionlint_asset}" actionlint-checksums.txt actionlint
+
+RUN groupmod --new-name axm ubuntu \
+    && usermod --login axm --home /home/axm --move-home --shell /bin/bash ubuntu \
+    && install -d -o axm -g axm /etc/mise /opt/mise /var/cache/mise /var/lib/mise \
+    && mise install "node@${NODE_VERSION}" \
+    && mise install "pnpm@${PNPM_VERSION}" \
+    && mise install "bun@${BUN_VERSION}" \
+    && mise use --global "node@${NODE_VERSION}" "pnpm@${PNPM_VERSION}" "bun@${BUN_VERSION}" \
+    && mise reshim \
+    && chown -R axm:axm /etc/mise /opt/mise /var/cache/mise /var/lib/mise \
+    && chmod -R a+rX /opt/mise
+
+RUN cat > /usr/local/bin/axm-user-entrypoint <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ $(id -u) -ne 0 ]]; then
+  exec "$@"
+fi
+
+requested_uid=${AXM_HOST_UID:-$(id -u axm)}
+requested_gid=${AXM_HOST_GID:-$(id -g axm)}
+if [[ ! "$requested_uid" =~ ^[0-9]+$ ]] || ((requested_uid == 0)); then
+  printf 'AXM_HOST_UID must be a non-root numeric user ID\n' >&2
+  exit 2
+fi
+if [[ ! "$requested_gid" =~ ^[0-9]+$ ]]; then
+  printf 'AXM_HOST_GID must be a numeric group ID\n' >&2
+  exit 2
+fi
+
+if [[ $(id -g axm) != "$requested_gid" ]]; then
+  groupmod --non-unique --gid "$requested_gid" axm
+fi
+if [[ $(id -u axm) != "$requested_uid" ]]; then
+  usermod --non-unique --uid "$requested_uid" axm
+fi
+
+writable_dirs=("${HOME:-/home/axm}")
+if [[ -n "${AXM_DEPS_DIRS:-}" ]]; then
+  IFS=: read -r -a dependency_dirs <<<"$AXM_DEPS_DIRS"
+  writable_dirs+=("${dependency_dirs[@]}")
+fi
+
+for writable_dir in "${writable_dirs[@]}"; do
+  [[ -n "$writable_dir" ]] || continue
+  install -d "$writable_dir"
+  if [[ $(stat -c '%u:%g' "$writable_dir") != "$requested_uid:$requested_gid" ]]; then
+    chown -R axm:axm "$writable_dir"
+  fi
+done
+
+exec gosu axm "$@"
+EOF
+RUN chmod 0755 /usr/local/bin/axm-user-entrypoint
+
+WORKDIR /workspace
+USER axm
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/axm-user-entrypoint"]
+CMD ["bash"]

@@ -180,6 +180,9 @@
         "parallel": false,
         "commands": [
           {
+            "command": "pnpm run check:ci-image"
+          },
+          {
             "command": "pnpm run generate:check"
           },
           {
@@ -199,6 +202,9 @@
       "options": {
         "parallel": false,
         "commands": [
+          {
+            "command": "pnpm run check:ci-image"
+          },
           {
             "command": "pnpm run generate:check"
           },

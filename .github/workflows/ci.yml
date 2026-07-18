@@ -143,6 +143,9 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       needs.classify.outputs.image == 'true'
+    permissions:
+      attestations: read
+      contents: read
     uses: ./.github/workflows/ci-image.yml
     with:
       base_sha: ${{ github.event.pull_request.base.sha }}

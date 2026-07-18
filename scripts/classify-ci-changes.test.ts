@@ -18,7 +18,10 @@ describe("classifyCiChanges", () => {
 
   it("classifies CI image inputs independently", () => {
     expect(
-      classifyCiChanges(["containers/ci/Containerfile", ".github/workflows/ci-image.yml"], []),
+      classifyCiChanges(
+        ["containers/ci/Containerfile", ".github/workflows/ci-image-publish.yml"],
+        [],
+      ),
     ).toMatchObject({
       code: false,
       image: true,

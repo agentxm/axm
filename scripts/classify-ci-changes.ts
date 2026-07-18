@@ -18,7 +18,8 @@ const isDocumentationPath = (path: string) =>
 const isImagePath = (path: string) =>
   path.startsWith("containers/ci/") ||
   path === "scripts/check-ci-image.mjs" ||
-  path === ".github/workflows/ci-image.yml";
+  path === ".github/workflows/ci-image.yml" ||
+  path === ".github/workflows/ci-image-publish.yml";
 
 const isReleaseInfrastructurePath = (path: string) =>
   path.startsWith("infra/") ||

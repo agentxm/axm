@@ -362,6 +362,40 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
+  it.effect("uses Devin's catalog MCP writer dialect", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-devin-"));
+        try {
+          const outcome = yield* syncInlineMcpServerToAgent("devin", {
+            workspaceRoot,
+            serverName: "sentry",
+            scope: "project",
+            entry: {
+              source: "inline",
+              url: "https://mcp.sentry.dev/sse",
+              headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+              enabled: true,
+              env: {},
+            },
+          });
+
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: ".devin/config.json", change: "created" }],
+          });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/.devin/config.json`);
+          expect(config).toContain('"mcpServers"');
+          expect(config).toContain('"transport": "sse"');
+          expect(config).toContain('"Authorization": "Bearer ${SENTRY_TOKEN}"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("prunes stale AXM-managed MCP servers from agent config", () =>
     withNode(
       Effect.gen(function* () {

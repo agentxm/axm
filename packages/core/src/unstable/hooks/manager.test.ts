@@ -157,6 +157,32 @@ describe("HookManager", () => {
     }),
   );
 
+  it.effect("uses Devin's catalog hook writer dialect", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-devin-"));
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "devin-check");
+
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          yield* manager.materializeInstall({
+            ref: makeLocalHookRef("devin-check", packageRoot),
+          });
+        }).pipe(
+          Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["devin"] })),
+        );
+
+        const raw = readFileSync(nodePath.join(workspaceRoot, ".devin", "config.json"), "utf8");
+        expect(raw).toContain('"PreToolUse"');
+        expect(raw).toContain('"matcher": "Write|Edit"');
+        expect(raw).not.toContain('"name": "devin-check"');
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
   it.effect("degrades a hook to a managed advisory rule when an agent has no writer", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));

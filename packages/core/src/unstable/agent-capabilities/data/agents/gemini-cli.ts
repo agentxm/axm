@@ -8,9 +8,9 @@ export const geminiCliAgent = {
   family: "google",
   rootDir: ".gemini",
   lifecycle: {
-    state: "deprecated",
-    since: "2026-05-19",
-    note: "Google is transitioning individual/free/AI Pro/Ultra Gemini CLI users to Antigravity CLI on June 18, 2026; enterprise/API-key access remains available.",
+    state: "retired",
+    since: "2026-06-18",
+    note: "On 2026-06-18 Gemini CLI stopped serving requests for individual/free/AI Pro/Ultra tiers, superseded by Antigravity CLI; enterprise and paid API-key access remains available.",
     supersededBy: "antigravity",
   },
   detection: {
@@ -77,7 +77,7 @@ export const geminiCliAgent = {
         notes: null,
         docs: [],
         sources: [
-          "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md",
+          "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
         ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
@@ -155,10 +155,10 @@ export const geminiCliAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Consumer access (free, AI Pro, AI Ultra) ends 2026-06-18; Antigravity CLI succeeds Gemini CLI for those tiers. Enterprise customers on paid API keys retain access. The contextFileName setting can also point Gemini CLI at AGENTS.md.\n",
+          "Consumer access (free, AI Pro, AI Ultra) ended 2026-06-18; Antigravity CLI succeeded Gemini CLI for those tiers. Enterprise customers on paid API keys retain access. The contextFileName setting can also point Gemini CLI at AGENTS.md.\n",
         docs: [],
         sources: [
-          "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/configuration.md",
+          "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
           "https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
         ],
         scopes: ["user", "project"],
@@ -171,7 +171,7 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -388,9 +388,9 @@ export const geminiCliAgent = {
       ],
       grammar: {
         style: "prefix",
-        example: "ShellTool(axm)",
+        example: "run_shell_command(axm)",
         notes:
-          "The current configuration reference exposes coreTools/excludeTools and the policy engine; command-specific ShellTool rules are simple string matches and should not be treated as a strong security boundary.\n",
+          "The current configuration reference exposes tools.allowed / tools.core / tools.exclude (formerly coreTools/excludeTools) and the policy engine; command-specific run_shell_command rules are simple string matches and should not be treated as a strong security boundary.\n",
       },
       prerequisites: [
         {
@@ -413,7 +413,7 @@ export const geminiCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-07-22",
       writer: {
         grants: {
           shell: {

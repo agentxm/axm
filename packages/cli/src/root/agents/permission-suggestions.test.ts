@@ -15,7 +15,7 @@ describe("buildPermissionSuggestions", () => {
         url: "https://antigravity.google/docs/cli-permissions",
       },
       {
-        description: "Allow AXM in Augment by adding `^axm(\\s|$)` to `~/.augment/settings.json`",
+        description: "Allow AXM in Augment by adding `^axm(\\s|$)` to `.augment/settings.json`",
         url: "https://docs.augmentcode.com/cli/permissions",
       },
       {
@@ -24,29 +24,29 @@ describe("buildPermissionSuggestions", () => {
       },
       {
         description: "Allow AXM in CodeBuddy by adding `Bash(axm:*)` to `.codebuddy/settings.json`",
-        url: "https://staging-codebuddy.tencent.com/docs/cli/settings",
+        url: "https://www.codebuddy.ai/docs/cli/settings",
       },
       {
         description:
           'Allow AXM in Codex by adding `[permissions.agentxm.filesystem.":workspace_roots"] "." = "write"` to `~/.codex/axm.config.toml`',
-        url: "https://developers.openai.com/codex/config-reference",
+        url: "https://learn.chatgpt.com/docs/config-file/config-reference",
       },
       {
         description: "Allow AXM in Cursor by adding `axm` to `~/.cursor/permissions.json`",
         url: "https://cursor.com/docs/cli/reference/permissions.md",
       },
       {
-        description:
-          "Allow AXM in Devin for Terminal by adding `Exec(axm)` to `.devin/config.json`",
+        description: "Allow AXM in Devin CLI by adding `Exec(axm)` to `.devin/config.json`",
         url: "https://docs.devin.ai/cli/reference/permissions",
       },
       {
         description:
-          "Allow AXM in Gemini CLI by adding `ShellTool(axm)` to `.gemini/settings.json`",
+          "Allow AXM in Gemini CLI by adding `run_shell_command(axm)` to `.gemini/settings.json`",
         url: "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
       },
       {
-        description: "Allow AXM in GitHub Copilot CLI with `--allow-tool='shell(axm:*)'`",
+        description:
+          "Allow AXM in GitHub Copilot CLI by adding `--allow-tool='shell(axm:*)'` to `.github/copilot/settings.json`",
         url: "https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/allowing-tools",
       },
       {
@@ -99,6 +99,15 @@ describe("buildPermissionSuggestions", () => {
         "Allow AXM in Devin Desktop (Windsurf) by adding `axm` to `VS Code settings (Settings UI)`",
       url: "https://docs.devin.ai/desktop/terminal",
     });
+  });
+
+  it("uses Devin's catalog permission writer dialect", () => {
+    expect(buildPermissionSuggestions(["devin"])).toEqual([
+      {
+        description: "Allow AXM in Devin CLI by adding `Exec(axm)` to `.devin/config.json`",
+        url: "https://docs.devin.ai/cli/reference/permissions",
+      },
+    ]);
   });
 
   it("produces descriptions that pass SuggestedAction validation", () => {

@@ -4,7 +4,7 @@ export const zencoderAgent = {
   name: "Zencoder",
   vendor: "Zencoder",
   homepage: "https://zencoder.ai",
-  interfaces: ["ide-extension"],
+  interfaces: ["ide-extension", "cli"],
   family: null,
   rootDir: ".zencoder",
   lifecycle: { state: "active" },
@@ -23,17 +23,18 @@ export const zencoderAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Zencoder uses the cross-agent .agents/skills location; the legacy .zencoder/skills path remains readable but is deprecated.",
         docs: [],
-        sources: ["https://docs.zencoder.ai/features/agent-skills"],
+        sources: ["https://docs.zencoder.ai/features/skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
-        convention: "vendor",
-        directory: ".zencoder/skills",
+        convention: "universal",
+        directory: ".agents/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -41,7 +42,8 @@ export const zencoderAgent = {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Zencoder configures VS Code MCP servers under the zencoder.mcpServers settings key; JetBrains exposes the same entries through Settings > Tools > Zencoder > MCP Servers.",
         docs: [],
         sources: [],
       },
@@ -57,44 +59,25 @@ export const zencoderAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://docs.zencoder.ai/features/integrations-and-mcp"],
+        sources: [
+          "https://docs.zencoder.ai/zenflow/mcps",
+          "https://docs.zencoder.ai/features/mcp-deep-dive",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio"],
+        transports: ["stdio", "http"],
         mcpEnvExpansion: {
           variables: "none",
           defaults: false,
         },
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            nativeEnabled: true,
-            targets: [
-              {
-                scope: "user",
-                path: "~/.zencoder/mcp.json",
-                format: "json",
-              },
-              {
-                scope: "project",
-                path: ".zencoder/mcp.json",
-                format: "json",
-              },
-            ],
-            stdio: {
-              typeField: null,
-              command: "split",
-              envKey: "env",
-            },
-            remote: null,
-            transform: null,
-          },
-        },
+        status: "unsupported",
+        lastVerified: null,
+        writer: null,
+        reason:
+          "AXM cannot yet model the dotted zencoder.mcpServers VS Code settings key, and the previous standalone .zencoder/mcp.json target was not vendor-documented.",
       },
     },
     subagent: {

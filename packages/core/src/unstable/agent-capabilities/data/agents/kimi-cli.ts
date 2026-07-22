@@ -14,8 +14,8 @@ export const kimiCliAgent = {
   },
   docs: [
     {
-      label: "Kimi CLI repository",
-      url: "https://github.com/MoonshotAI/kimi-cli",
+      label: "Kimi CLI documentation",
+      url: "https://moonshotai.github.io/kimi-cli/en/",
     },
   ],
   capabilities: {
@@ -25,7 +25,7 @@ export const kimiCliAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://github.com/MoonshotAI/kimi-cli"],
+        sources: ["https://moonshotai.github.io/kimi-cli/en/customization/skills.html"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -33,7 +33,7 @@ export const kimiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -57,11 +57,11 @@ export const kimiCliAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://github.com/MoonshotAI/kimi-cli"],
+        sources: ["https://moonshotai.github.io/kimi-cli/en/customization/mcp.html"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio", "http"],
+        transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "none",
           defaults: false,
@@ -69,7 +69,7 @@ export const kimiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -114,9 +114,10 @@ export const kimiCliAgent = {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Kimi CLI supports built-in and YAML-configured subagents loaded through --agent-file, but it does not document a fixed discovery directory that AXM's current subagent model can represent.",
         docs: [],
-        sources: [],
+        sources: ["https://moonshotai.github.io/kimi-cli/en/customization/agents.html"],
       },
       axm: {
         status: "unsupported",
@@ -140,11 +141,18 @@ export const kimiCliAgent = {
     },
     rule: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "Kimi CLI uses AGENTS.md for project instructions.",
         docs: [],
-        sources: [],
+        sources: ["https://github.com/MoonshotAI/kimi-cli/blob/main/AGENTS.md"],
+        scopes: ["project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        kind: "agents-md",
+        files: ["AGENTS.md"],
+        nestedDiscovery: false,
+        importSyntax: null,
       },
       axm: {
         status: "unsupported",
@@ -154,11 +162,81 @@ export const kimiCliAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Kimi CLI hooks are declared in ~/.kimi/config.toml, execute commands with JSON on standard input, and can block selected events.",
         docs: [],
-        sources: [],
+        sources: ["https://moonshotai.github.io/kimi-cli/en/customization/hooks.html"],
+        scopes: ["user"],
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.kimi/config.toml",
+            format: "toml",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "PreToolUse",
+            canonical: "tool.pre",
+            matcher: { kind: "regex", example: "Bash|Read|Write", notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny", "ask"] }],
+            sources: ["https://moonshotai.github.io/kimi-cli/en/customization/hooks.html"],
+            lastVerified: "2026-07-22",
+          },
+          {
+            nativeName: "PostToolUse",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "Bash|Read|Write", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://moonshotai.github.io/kimi-cli/en/customization/hooks.html"],
+            lastVerified: "2026-07-22",
+          },
+          {
+            nativeName: "UserPromptSubmit",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://moonshotai.github.io/kimi-cli/en/customization/hooks.html"],
+            lastVerified: "2026-07-22",
+          },
+          {
+            nativeName: "Stop",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://moonshotai.github.io/kimi-cli/en/customization/hooks.html"],
+            lastVerified: "2026-07-22",
+          },
+          {
+            nativeName: "SessionStart",
+            canonical: "session.start",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://moonshotai.github.io/kimi-cli/en/customization/hooks.html"],
+            lastVerified: "2026-07-22",
+          },
+          {
+            nativeName: "SubagentStop",
+            canonical: "subagent.stop",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://moonshotai.github.io/kimi-cli/en/customization/hooks.html"],
+            lastVerified: "2026-07-22",
+          },
+          {
+            nativeName: "PreCompact",
+            canonical: "compaction.pre",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://moonshotai.github.io/kimi-cli/en/customization/hooks.html"],
+            lastVerified: "2026-07-22",
+          },
+        ],
+        tools: [],
       },
       axm: {
         status: "unsupported",
@@ -171,9 +249,10 @@ export const kimiCliAgent = {
     native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Kimi CLI exposes binary YOLO-style approval flags, but granular config-file permission rules belong to the separate kimi-code product and are not modeled here.",
       docs: [],
-      sources: [],
+      sources: ["https://moonshotai.github.io/kimi-cli/en/reference/kimi-command.html"],
     },
     axm: {
       status: "unsupported",

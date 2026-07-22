@@ -89,13 +89,13 @@ export const cursorAgent = {
         convention: "universal",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "braced",
           defaults: false,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -170,12 +170,12 @@ export const cursorAgent = {
         directory: ".cursor/rules",
         kind: "agents-md",
         files: ["AGENTS.md"],
-        nestedDiscovery: false,
+        nestedDiscovery: true,
         importSyntax: null,
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },

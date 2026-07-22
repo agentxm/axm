@@ -2,9 +2,9 @@ import type { Agent } from "../../schema.js";
 export const opencodeAgent = {
   id: "opencode",
   name: "OpenCode",
-  vendor: "SST",
+  vendor: "Anomaly",
   homepage: "https://opencode.ai",
-  interfaces: ["cli"],
+  interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".opencode",
   lifecycle: { state: "active" },

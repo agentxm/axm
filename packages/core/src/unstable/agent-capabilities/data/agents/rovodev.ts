@@ -42,11 +42,15 @@ export const rovodevAgent = {
     },
     command: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "Rovo Dev saved prompts are stored under .rovodev/prompts.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://support.atlassian.com/bitbucket-cloud/docs/rovo-dev-advanced-agentic-configuration/",
+        ],
+        scopes: ["user", "project"],
+        directory: ".rovodev/prompts",
       },
       axm: {
         status: "unsupported",
@@ -56,11 +60,19 @@ export const rovodevAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "Rovo Dev supports local and remote MCP server configuration.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://support.atlassian.com/rovo/docs/connect-to-an-mcp-server-in-rovo-dev-cli/",
+          "https://support.atlassian.com/bitbucket-cloud/docs/rovo-dev-advanced-agentic-configuration/",
+        ],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: { variables: "braced", defaults: true },
       },
       axm: {
         status: "unsupported",
@@ -76,8 +88,8 @@ export const rovodevAgent = {
         docs: [],
         sources: ["https://support.atlassian.com/rovo/docs/use-subagents-in-rovo-dev-cli/"],
         scopes: ["user", "project"],
-        directory: ".rovodev/agents",
-        layout: "directory",
+        directory: ".rovodev/subagents",
+        layout: "file",
       },
       axm: {
         status: "supported",
@@ -101,11 +113,18 @@ export const rovodevAgent = {
     },
     rule: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "Rovo Dev reads hierarchical AGENTS.md memory files.",
         docs: [],
-        sources: [],
+        sources: ["https://support.atlassian.com/rovo/docs/use-memory-in-rovo-dev-cli/"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        kind: "agents-md",
+        files: ["AGENTS.md"],
+        nestedDiscovery: true,
+        importSyntax: null,
       },
       axm: {
         status: "unsupported",
@@ -115,11 +134,16 @@ export const rovodevAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Rovo Dev exposes event hooks including tool-permission, response-finished, and error events; the public surface is recorded without an AXM serializer model.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://www.atlassian.com/blog/developer/streamline-rovo-dev-cli-with-event-hooks",
+        ],
+        scopes: ["user", "project"],
+        modeling: "native-unmodeled",
       },
       axm: {
         status: "unsupported",
@@ -130,11 +154,34 @@ export const rovodevAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes: "Rovo Dev toolPermissions rules select allow, ask, or deny behavior by tool call.",
       docs: [],
-      sources: [],
+      sources: ["https://support.atlassian.com/rovo/docs/manage-rovo-dev-cli-settings/"],
+      scopes: ["user", "project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.rovodev/config.yml",
+          format: "yaml",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".rovodev/config.yml",
+          format: "yaml",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "tool-call",
+        example: "Bash(git status)",
+        notes: "Rules choose allow, ask, or deny, with a configurable default.",
+      },
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",

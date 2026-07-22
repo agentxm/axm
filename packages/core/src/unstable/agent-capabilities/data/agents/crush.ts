@@ -69,7 +69,7 @@ export const crushAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: {
           config: {
             serversKey: "mcp",
@@ -96,7 +96,7 @@ export const crushAgent = {
                 name: "type",
                 value: {
                   "streamable-http": "http",
-                  sse: "http",
+                  sse: "sse",
                 },
               },
               urlKey: {
@@ -145,7 +145,7 @@ export const crushAgent = {
         notes: null,
         docs: [],
         sources: ["https://github.com/charmbracelet/crush"],
-        scopes: ["project"],
+        scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         kind: "agents-md",
@@ -155,7 +155,7 @@ export const crushAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },

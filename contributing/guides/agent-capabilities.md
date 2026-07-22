@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-06-03
-version: 0.2.0
+last-reviewed: 2026-07-22
+version: 0.2.1
 description: How AXM grades agent support for each extension capability using
   standards compliance, convention, availability, vendor status, and AXM support
   axes. Read before adding a new agent, adding a leaf extension capability key, or
@@ -194,6 +194,10 @@ governing instructions.
 `parity` is the narrow case: a spec-compliant tool reading the file after a
 mechanical rename would behave identically. `CLAUDE.md` ↔ `AGENTS.md` qualifies.
 A different rule grammar or different lifecycle semantics drops to `partial`.
+Use `partial` whenever conversion must infer, discard, or synthesize semantic
+content; use `parity` only when a deterministic, lossless mechanical adapter is
+enough. A vendor-specific directory alone never makes an otherwise identical
+format `parity` or `partial` because location is graded separately.
 
 ### Convention _(spec-tracked capabilities only)_
 
@@ -204,6 +208,11 @@ Format is graded by `standardsCompliance`.
 | ----------- | ------------------------------------------------------------------------------------------------------------------ |
 | `universal` | Agent uses the spec-defined or community-standard location (e.g. `.agents/skills/`, `AGENTS.md`, `mcpServers` key) |
 | `vendor`    | Agent uses a vendor-specific location (e.g. `.claude/skills/`, `CLAUDE.md`, `opencode.jsonc`)                      |
+
+An unchanged `SKILL.md` stored under a vendor directory such as
+`.claude/skills/` is `standardsCompliance: "full"` with
+`convention: "vendor"`. The identical file under the standard
+`.agents/skills/` location is `full` with `convention: "universal"`.
 
 ### Availability _(all capabilities)_
 

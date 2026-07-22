@@ -217,11 +217,11 @@ export const qwenCodeAgent = {
             matcher: { kind: "regex", example: "WriteFile|Edit|Bash", notes: null },
             decision: [
               { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "block", outcomes: ["allow", "deny", "ask"] },
               { kind: "modify", operations: ["modify-input"] },
             ],
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "PostToolUse",
@@ -310,7 +310,7 @@ export const qwenCodeAgent = {
           timeoutSerialization: "milliseconds",
           commandNameSerialization: "manifest",
         },
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
       },
     },
   },
@@ -345,16 +345,16 @@ export const qwenCodeAgent = {
       ],
       grammar: {
         style: "prefix",
-        example: 'permissions.defaultMode = "auto-edit"',
+        example: 'tools.approvalMode = "auto-edit"',
         notes:
-          "Approval modes are plan/default/auto-edit/yolo. Shell restriction rules use tools.core and tools.exclude entries such as run_shell_command(git).",
+          "Approval modes are plan/default/auto-edit/auto/yolo (Default is now surfaced as 'Ask Permissions'; value stays 'default'). Shell restriction rules use tools.core and tools.exclude entries such as run_shell_command(git).",
       },
       prerequisites: [],
       cliFlags: [],
     },
     axm: {
       status: "unsupported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-07-22",
       writer: null,
       reason: "No narrow Qwen Code permission grant writer is implemented for AXM.",
     },

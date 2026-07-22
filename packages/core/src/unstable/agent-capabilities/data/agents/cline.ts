@@ -4,7 +4,7 @@ export const clineAgent = {
   name: "Cline",
   vendor: "Cline",
   homepage: "https://cline.bot",
-  interfaces: ["ide-extension"],
+  interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".cline",
   lifecycle: { state: "active" },
@@ -39,15 +39,18 @@ export const clineAgent = {
     },
     command: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Cline Workflows are user-authored Markdown files invoked as slash commands (/name.md), stored in .clinerules/workflows (project) and ~/Documents/Cline/Workflows (user).",
         docs: [],
-        sources: [],
+        sources: ["https://docs.cline.bot/features/commands-and-shortcuts/overview"],
+        scopes: ["user", "project"],
+        directory: ".clinerules/workflows",
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
+        status: "supported",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -70,7 +73,7 @@ export const clineAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -91,7 +94,7 @@ export const clineAgent = {
               typeField: {
                 name: "type",
                 value: {
-                  "streamable-http": "http",
+                  "streamable-http": "streamableHttp",
                   sse: "sse",
                 },
               },
@@ -145,14 +148,14 @@ export const clineAgent = {
         standardsCompliance: "partial",
         convention: "vendor",
         kind: "rules-dir",
-        files: ["*.md"],
+        files: ["*.md", "*.txt"],
         nestedDiscovery: false,
         importSyntax: null,
         directory: ".clinerules",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },

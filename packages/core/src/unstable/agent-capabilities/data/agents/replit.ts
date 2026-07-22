@@ -25,15 +25,15 @@ export const replitAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://docs.replit.com/replitai/agent/skills"],
-        scopes: ["project"],
+        sources: ["https://docs.replit.com/core-concepts/agent/skills"],
+        scopes: ["project", "user"],
         standardsCompliance: "full",
         convention: "universal",
         directory: ".agents/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -55,54 +55,21 @@ export const replitAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Replit Agent MCP is UI-driven via the Integrations pane and 'Add to Replit' install-links, connecting only to remote HTTP servers (baseUrl + headers/OAuth). There is no AXM-writable MCP config file, so no writer dialect is modeled.",
         docs: [],
-        sources: ["https://docs.replit.com/replitai/agent/mcp"],
+        sources: ["https://docs.replit.com/replitai/mcp/overview"],
         scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        transports: ["stdio", "http"],
-        mcpEnvExpansion: {
-          variables: "none",
-          defaults: false,
-        },
+        standardsCompliance: "partial",
+        convention: "vendor",
+        transports: ["http"],
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            nativeEnabled: true,
-            targets: [
-              {
-                scope: "project",
-                path: ".replit/mcp.json",
-                format: "json",
-              },
-            ],
-            stdio: {
-              typeField: null,
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "http",
-                },
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
-            transform: null,
-          },
-        },
+        status: "unsupported",
+        lastVerified: null,
+        writer: null,
+        reason:
+          "Replit Agent MCP is UI-managed (Integrations pane / install-links) with no AXM-writable config file.",
       },
     },
     subagent: {

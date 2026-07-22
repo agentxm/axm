@@ -75,11 +75,14 @@ export const antigravityAgent = {
         notes:
           "Antigravity CLI stores global MCP servers in ~/.gemini/antigravity-cli/mcp_config.json and workspace MCP servers in .agents/mcp_config.json. Remote MCP definitions use serverUrl.",
         docs: [],
-        sources: ["https://antigravity.google/docs/cli-plugins"],
+        sources: [
+          "https://antigravity.google/docs/mcp",
+          "https://antigravity.google/docs/cli/plugins",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio", "sse"],
+        transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "none",
           defaults: false,
@@ -87,7 +90,7 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -156,10 +159,7 @@ export const antigravityAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: [
-          "https://antigravity.google/docs/project-context",
-          "https://antigravity.google/docs/rules-workflows",
-        ],
+        sources: ["https://antigravity.google/docs/rules-workflows"],
         scopes: ["project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -171,7 +171,7 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -184,7 +184,7 @@ export const antigravityAgent = {
         docs: [],
         sources: [
           "https://antigravity.google/docs/hooks",
-          "https://antigravity.google/docs/cli-plugins",
+          "https://antigravity.google/docs/cli/plugins",
         ],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
@@ -192,7 +192,7 @@ export const antigravityAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         reason: "AXM has not implemented an Antigravity hooks writer.",
       },
     },

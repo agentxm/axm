@@ -66,13 +66,13 @@ export const kiloAgent = {
         convention: "vendor",
         transports: ["stdio", "http"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "braced",
           defaults: false,
         },
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
         reason: "The current AXM Kilo Code service returns MCP add/remove as unsupported.",
       },

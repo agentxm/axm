@@ -57,16 +57,26 @@ export const deepagentsAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "The deepagents CLI natively supports MCP servers via 'mcp-servers add|list|tools|update|delete|connect' commands, project-level MCP config discovery/merge, per-server trust/approval, and MCP OAuth session management.\n",
         docs: [],
-        sources: [],
+        sources: [
+          "https://reference.langchain.com/python/deepagents-cli",
+          "https://pypi.org/project/deepagents-cli/",
+        ],
+        scopes: ["user", "project"],
+        standardsCompliance: "partial",
+        convention: "vendor",
+        transports: ["stdio", "http"],
       },
       axm: {
         status: "unsupported",
         lastVerified: null,
         writer: null,
+        reason:
+          "Deep Agents natively supports MCP servers, but the exact config file path, servers key, and serialization dialect are unverified; no AXM writer is defined to avoid fabricating an install path.",
       },
     },
     subagent: {

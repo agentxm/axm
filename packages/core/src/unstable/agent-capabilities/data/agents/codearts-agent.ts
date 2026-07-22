@@ -4,7 +4,7 @@ export const codeartsAgentAgent = {
   name: "CodeArts Agent",
   vendor: "Huawei Cloud",
   homepage: "https://www.huaweicloud.com/intl/en-us/product/codearts.html",
-  interfaces: ["cli"],
+  interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".codeartsdoer",
   lifecycle: { state: "active" },

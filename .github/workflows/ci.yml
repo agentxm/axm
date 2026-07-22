@@ -186,12 +186,13 @@ jobs:
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           release_preparation=false
           release_subject="release: ${HEAD_REF#release/}"
           if [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
             [[ "$HEAD_REF" =~ ^release/cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] &&
-            [[ "$(git show --no-patch --format=%s HEAD)" == "$release_subject" ]]; then
+            [[ "$(git show --no-patch --format=%s "$HEAD_SHA")" == "$release_subject" ]]; then
             release_preparation=true
           fi
           scripts/container-environment.sh ci bash -lc \

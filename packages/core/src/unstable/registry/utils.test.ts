@@ -307,4 +307,47 @@ describe("extractZip", () => {
       }),
     ),
   );
+
+  it.effect("rejects an entry that escapes the target directory (zip slip)", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const encoder = new TextEncoder();
+        // Extract into a nested dir so the traversal target stays inside the
+        // per-test sandbox (tmpDir) that afterEach cleans up.
+        const target = path.join(tmpDir, "target");
+        fs.mkdirSync(target);
+        const archive = zipSync({
+          "../escaped.txt": encoder.encode("pwned"),
+        });
+
+        const result = yield* extractZip(new Uint8Array(archive), target).pipe(Effect.flip);
+
+        expect(result.code).toBe("validation");
+        expect(result.detail).toContain("outside");
+
+        // The traversal target (target's parent) must never be written.
+        const escaped = path.join(tmpDir, "escaped.txt");
+        expect(fs.existsSync(escaped)).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("rejects an entry with an absolute path", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const encoder = new TextEncoder();
+        const target = path.join(tmpDir, "target");
+        fs.mkdirSync(target);
+        const outside = path.join(tmpDir, "abs-escaped.txt");
+        const archive = zipSync({
+          [outside]: encoder.encode("pwned"),
+        });
+
+        const result = yield* extractZip(new Uint8Array(archive), target).pipe(Effect.flip);
+
+        expect(result.code).toBe("validation");
+        expect(fs.existsSync(outside)).toBe(false);
+      }),
+    ),
+  );
 });

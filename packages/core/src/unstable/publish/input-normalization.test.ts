@@ -2,10 +2,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
+  defaultReadEntry,
   normalizePublishInput,
   type DeclaredPublishIdentity,
   type PublishArchiveInput,
 } from "./input-normalization.js";
+import { parseZipCentralDirectory } from "./archive-guardrails.js";
 import { buildZip, textContent } from "./test-zip-helpers.js";
 
 const makeDeclaredIdentity = (
@@ -167,6 +169,46 @@ describe("normalizePublishInput", () => {
 
       expect(result.type).toBe("files");
       expect(result.manifest.fileName).toBe("files.json");
+    }),
+  );
+});
+
+describe("defaultReadEntry", () => {
+  it.effect("rejects a deflate entry that inflates beyond its declared size (zip bomb)", () =>
+    Effect.gen(function* () {
+      // 1 MiB of zeros deflates to a few bytes; the central directory declares a
+      // tiny uncompressed size so guardrail checks pass, but the stream expands.
+      const big = new Uint8Array(1024 * 1024);
+      const zip = buildZip([{ fileName: "bomb.bin", content: big, compressionMethod: 8 }]);
+      const entries = yield* parseZipCentralDirectory(zip);
+      const first = entries[0];
+      expect(first).toBeDefined();
+      if (first === undefined) return;
+
+      const lyingEntry = { ...first, uncompressedSize: 16 };
+      const result = yield* defaultReadEntry(zip, lyingEntry).pipe(Effect.flip);
+
+      expect(result._tag).toBe("ArchiveGuardrailError");
+      expect(result.code).toBe("decompression_limit_exceeded");
+    }),
+  );
+
+  it.effect("maps a corrupt deflate stream to a typed error, not an uncaught defect", () =>
+    Effect.gen(function* () {
+      // Stored bytes that are not a valid deflate stream, read as if deflated.
+      const zip = buildZip([
+        { fileName: "bad.bin", content: textContent("not a deflate stream"), compressionMethod: 0 },
+      ]);
+      const entries = yield* parseZipCentralDirectory(zip);
+      const first = entries[0];
+      expect(first).toBeDefined();
+      if (first === undefined) return;
+
+      const entry = { ...first, compressionMethod: 8 };
+      const result = yield* defaultReadEntry(zip, entry).pipe(Effect.flip);
+
+      expect(result._tag).toBe("ArchiveGuardrailError");
+      expect(result.code).toBe("malformed_archive");
     }),
   );
 });

@@ -118,10 +118,13 @@ export const uninstallPack: OperationHandler<
           { concurrency: "unbounded" },
         );
 
-        if (results.some((removed) => removed)) {
-          const targets = namespaceDirs
-            .filter((nsDir) => nsDir.startsWith("@"))
-            .map((nsDir) => removedPackDirectoryTarget(nsDir, sanitized));
+        // Report only the namespaces whose pack directory was actually removed,
+        // not every "@" namespace present on disk.
+        const removedNamespaces = namespaceDirs.filter((_, index) => results[index] === true);
+        if (removedNamespaces.length > 0) {
+          const targets = removedNamespaces.map((nsDir) =>
+            removedPackDirectoryTarget(nsDir, sanitized),
+          );
           return {
             result: "success",
             message: "Removed pack directory from disk",

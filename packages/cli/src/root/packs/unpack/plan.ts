@@ -141,8 +141,7 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs) =>
       );
     };
 
-    const steps: ReadonlyArray<PlannedJobStep> = [
-      // Install ops first
+    const promotionSteps: ReadonlyArray<PlannedJobStep> = [
       ...skillOps.map((op): PlannedJobStep => {
         const alreadyConfigured = configuredSkillNames.includes(op.args.ref.skill.name);
         if (alreadyConfigured) {
@@ -185,18 +184,24 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs) =>
         }
         return { readiness: "ready", label: op.args.ref.server.name, run: makeRunClosure(op) };
       }),
-      // Uninstall-pack last
-      {
-        readiness: "ready",
-        label: uninstallPackOp.args.packName,
-        run: makeRunClosure(uninstallPackOp),
-      },
     ];
+
+    const uninstallPackStep: PlannedJobStep = {
+      readiness: "ready",
+      label: uninstallPackOp.args.packName,
+      run: makeRunClosure(uninstallPackOp),
+    };
 
     return {
       _tag: "Plan",
       name,
       description,
-      jobs: [{ steps, concurrency: 1 as const }],
+      // uninstall-pack is a separate job: inter-job blocking prevents it from
+      // running when any promotion step errored, so the pack is removed only
+      // once all its members are successfully promoted (no rollback needed).
+      jobs: [
+        { steps: promotionSteps, concurrency: 1 as const },
+        { steps: [uninstallPackStep], concurrency: 1 as const },
+      ],
     } satisfies Plan;
   });

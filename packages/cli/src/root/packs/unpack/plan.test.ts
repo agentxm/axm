@@ -155,6 +155,10 @@ const getSteps = (plan: Plan) => getJob(plan).steps;
 const getStep = (steps: ReadonlyArray<PlannedJobStep>, index: number) =>
   getItem(steps, index, "step");
 
+// uninstall-pack lives in a separate, later job so it is blocked when a
+// promotion step errors.
+const getUninstallStep = (plan: Plan) => getItem(getItem(plan.jobs, 1, "job").steps, 0, "step");
+
 /** Check if a ready step's run returns a no-op message. */
 const isNoOp = (step: PlannedJobStep) =>
   step.readiness !== "ready"
@@ -311,11 +315,11 @@ describe("buildUnpackPlan", () => {
       });
 
       const steps = getSteps(plan);
-      expect(steps).toHaveLength(4);
+      expect(steps).toHaveLength(3);
       expect(getStep(steps, 0).label).toBe("my-skill");
       expect(getStep(steps, 1).label).toBe("my-cmd");
       expect(getStep(steps, 2).label).toBe("my-server");
-      expect(getStep(steps, 3).label).toBe("my-pack");
+      expect(getUninstallStep(plan).label).toBe("my-pack");
     }),
   );
 
@@ -333,10 +337,10 @@ describe("buildUnpackPlan", () => {
         description: Option.none(),
       });
 
-      const steps = getSteps(plan);
-      expect(steps).toHaveLength(1);
-      expect(getStep(steps, 0).label).toBe("my-pack");
-      expect(getStep(steps, 0).readiness).toBe("ready");
+      expect(getSteps(plan)).toHaveLength(0);
+      const uninstallStep = getUninstallStep(plan);
+      expect(uninstallStep.label).toBe("my-pack");
+      expect(uninstallStep.readiness).toBe("ready");
     }),
   );
 
@@ -359,7 +363,7 @@ describe("buildUnpackPlan", () => {
     }),
   );
 
-  it.effect("creates a single job with serial concurrency", () =>
+  it.effect("creates two serial jobs: promotions, then uninstall-pack", () =>
     Effect.gen(function* () {
       const plan = yield* runBuild({
         skillOps: [],
@@ -373,8 +377,11 @@ describe("buildUnpackPlan", () => {
         description: Option.none(),
       });
 
-      expect(plan.jobs).toHaveLength(1);
+      // Two jobs so inter-job blocking keeps uninstall-pack from running when a
+      // promotion step errors.
+      expect(plan.jobs).toHaveLength(2);
       expect(getJob(plan).concurrency).toBe(1);
+      expect(getItem(plan.jobs, 1, "job").concurrency).toBe(1);
     }),
   );
 
@@ -393,13 +400,13 @@ describe("buildUnpackPlan", () => {
       });
 
       const steps = getSteps(plan);
-      expect(steps).toHaveLength(6);
+      expect(steps).toHaveLength(5);
       expect(yield* isNoOp(getStep(steps, 0))).toBe(true); // skill-a
       expect(yield* isNoOp(getStep(steps, 1))).toBe(false); // skill-b
       expect(yield* isNoOp(getStep(steps, 2))).toBe(false); // cmd-a
       expect(yield* isNoOp(getStep(steps, 3))).toBe(true); // cmd-b
       expect(yield* isNoOp(getStep(steps, 4))).toBe(false); // server-a
-      expect(getStep(steps, 5).label).toBe("my-pack"); // last
+      expect(getUninstallStep(plan).label).toBe("my-pack");
     }),
   );
 
@@ -420,11 +427,11 @@ describe("buildUnpackPlan", () => {
       const steps = getSteps(plan);
       // We can verify the plan built correctly; the operations are captured in closures
       // so we verify step count and readiness
-      expect(steps).toHaveLength(4);
+      expect(steps).toHaveLength(3);
       expect(getStep(steps, 0).readiness).toBe("ready");
       expect(getStep(steps, 1).readiness).toBe("ready");
       expect(getStep(steps, 2).readiness).toBe("ready");
-      expect(getStep(steps, 3).readiness).toBe("ready");
+      expect(getUninstallStep(plan).readiness).toBe("ready");
     }),
   );
 

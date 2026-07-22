@@ -46,15 +46,19 @@ The images contain tools only. Source, Git metadata, dependencies,
 credentials, and user state enter at runtime. The wrapper mounts the current
 worktree and Git common directory at their existing absolute paths. CI uses an
 ephemeral home and anonymous root `node_modules` volume; Docker removes both
-with the CI container. Development uses the `axm-dev-home` identity volume and a
-checksum-suffixed dependency volume for the current worktree. The image
-entrypoint maps its non-root user to the host UID/GID, keeping Linux bind mounts
-writable while preventing container installs from replacing native-platform
-packages in the host `node_modules`. Both modes set a 65,536 file-descriptor
-limit for parallel test reliability across Docker Desktop and Linux runners.
-They also default Nx to two concurrent project tasks; use
-`AXM_CONTAINER_NX_PARALLEL` or `AXM_CONTAINER_VITEST_MAX_WORKERS` to make an
-intentional substrate-specific override.
+with the CI container. Its pnpm and Nx stores default to scoped Docker volumes.
+An absolute `AXM_CI_PNPM_CACHE_VOLUME` or `AXM_CI_NX_CACHE_VOLUME` override is
+instead treated as a bind mount; hosted PR verification uses this to restore
+the stores independently through GitHub Actions. Development uses the
+`axm-dev-home` identity volume and a checksum-suffixed dependency volume for the
+current worktree. The image entrypoint maps its non-root user to the host
+UID/GID, keeping Linux bind mounts writable while preventing container installs
+from replacing native-platform packages in the host `node_modules`. Both modes
+set a 65,536 file-descriptor limit for parallel test reliability across Docker
+Desktop and Linux runners. They default Nx to two concurrent project tasks;
+hosted PR verification intentionally uses three. Use
+`AXM_CONTAINER_NX_PARALLEL` or `AXM_CONTAINER_VITEST_MAX_WORKERS` to make another
+substrate-specific override.
 
 ### Environment Checklist
 

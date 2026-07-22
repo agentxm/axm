@@ -6,6 +6,10 @@ const containerfile = read("containers/ci/Containerfile");
 const dockerignore = read("containers/ci/.dockerignore");
 const ciImagePin = read("containers/ci/CI_IMAGE").trim();
 const version = read("containers/ci/VERSION").trim();
+const affectedCiRunner = read("scripts/verify-affected-ci.sh");
+const ciWorkflow = read(".github/workflows/ci.yml");
+const packageManifest = JSON.parse(read("package.json"));
+const project = read("project.json");
 const workflow = read(".github/workflows/ci-image.yml");
 const workflowSources = readdirSync(".github/workflows")
   .filter((path) => path.endsWith(".yml") || path.endsWith(".yaml"))
@@ -51,7 +55,13 @@ for (const text of [
   requireText(containerfile, text, `Containerfile is missing ${text}`);
 }
 
-for (const variable of ["AXM_HOST_UID", "AXM_HOST_GID", "AXM_DEPS_DIRS"]) {
+for (const variable of [
+  "AXM_HOST_UID",
+  "AXM_HOST_GID",
+  "AXM_DEPS_DIRS",
+  "AXM_CI_PHASE_SUMMARY_FILE",
+  "AXM_RELEASE_PREPARATION",
+]) {
   requireText(
     containerLauncher,
     `--env ${variable}=`,
@@ -62,8 +72,8 @@ for (const variable of ["AXM_HOST_UID", "AXM_HOST_GID", "AXM_DEPS_DIRS"]) {
 for (const cacheVolume of ["CI_PNPM_CACHE_VOLUME", "CI_NX_CACHE_VOLUME"]) {
   requireText(
     containerLauncher,
-    `docker volume create "$${cacheVolume}"`,
-    `container launcher must create the scoped ${cacheVolume} cache`,
+    `ensure_ci_cache_source "$${cacheVolume}"`,
+    `container launcher must prepare the scoped ${cacheVolume} cache`,
   );
   requireText(
     containerLauncher,
@@ -71,6 +81,54 @@ for (const cacheVolume of ["CI_PNPM_CACHE_VOLUME", "CI_NX_CACHE_VOLUME"]) {
     `container launcher must mount the scoped ${cacheVolume} cache`,
   );
 }
+
+for (const text of [
+  "affected_projects: ${{ steps.classify.outputs.affected_projects }}",
+  "id: pnpm-cache",
+  "id: nx-cache",
+  "axm-ci-cache/pnpm-store",
+  "axm-ci-cache/nx",
+  "hashFiles('containers/ci/CI_IMAGE')",
+  'AXM_CONTAINER_NX_PARALLEL: "3"',
+  'AXM_CONTAINER_VITEST_MAX_WORKERS: "2"',
+  "scripts/verify-affected-ci.sh",
+  "if: always()",
+  '>> "$GITHUB_STEP_SUMMARY"',
+  "Exact hit",
+  "Fallback hit",
+  "Miss",
+]) {
+  requireText(ciWorkflow, text, `CI workflow is missing ${text}`);
+}
+
+for (const text of [
+  "::group::%s",
+  'run_phase "Install workspace dependencies"',
+  'run_phase "Validate release plan"',
+  "pnpm release:plan:check",
+  'run_phase "Validate CI image contract"',
+  'run_phase "Validate generated artifacts"',
+  'run_phase "Validate workspace synchronization"',
+  "nx affected -t lint typecheck build test e2e",
+  "-t scripts-lint scripts-typecheck scripts-test verify-e2e-boundaries",
+]) {
+  requireText(affectedCiRunner, text, `affected CI runner is missing ${text}`);
+}
+
+const workflowFormatChecks = ciWorkflow.match(/pnpm run format:check/gu) ?? [];
+if (workflowFormatChecks.length !== 1) {
+  errors.push("the PR workflow must have exactly one formatting owner");
+}
+
+if (packageManifest.scripts?.["generate:check"]?.includes("format:check")) {
+  errors.push("generate:check must not duplicate the PR formatting check");
+}
+
+requireText(
+  project,
+  '"command": "pnpm exec nx format:check"',
+  "local verification must retain its formatting check",
+);
 
 for (const scopeInput of ['"axm|', "$(uname -m)", "$CI_IMAGE", "pnpm-lock.yaml"]) {
   requireText(

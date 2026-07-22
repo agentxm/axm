@@ -44,6 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
+      affected_projects: ${{ steps.classify.outputs.affected_projects }}
       code: ${{ steps.classify.outputs.code }}
       documentation: ${{ steps.classify.outputs.documentation }}
       image: ${{ steps.classify.outputs.image }}
@@ -182,7 +183,29 @@ jobs:
       - name: Create local main ref for affected diff
         run: git fetch --no-tags origin main:main
 
-      - name: Verify affected changes in pinned CI image
+      - name: Restore pnpm store
+        id: pnpm-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          key: axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Restore Nx cache
+        id: nx-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/axm-ci-cache/nx
+          key: >-
+            axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-${{
+            hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-
+            axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Determine release verification mode
+        id: release-mode
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
@@ -195,13 +218,62 @@ jobs:
             [[ "$(git show --no-patch --format=%s "$HEAD_SHA")" == "$release_subject" ]]; then
             release_preparation=true
           fi
-          scripts/container-environment.sh ci bash -lc \
-            "set -euo pipefail
-            pnpm install --frozen-lockfile
-            if [[ '$release_preparation' != 'true' ]]; then
-              pnpm release:plan:check
+          echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
+
+      - name: Verify affected changes in pinned CI image
+        id: verify
+        env:
+          AXM_CI_PNPM_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          AXM_CI_NX_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/nx
+          AXM_CI_PHASE_SUMMARY_FILE: test-results/ci-verification-summary.md
+          AXM_CONTAINER_NX_PARALLEL: "3"
+          AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
+          AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
+        run: scripts/container-environment.sh ci scripts/verify-affected-ci.sh
+
+      - name: Publish verification summary
+        if: always()
+        env:
+          AFFECTED_PROJECTS: ${{ needs.classify.outputs.affected_projects }}
+          NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}
+          NX_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/nx
+          PNPM_CACHE_HIT: ${{ steps.pnpm-cache.outputs.cache-hit }}
+          PNPM_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          cache_status() {
+            case "$1" in
+              true) printf 'Exact hit' ;;
+              false) printf 'Fallback hit' ;;
+              *) printf 'Miss' ;;
+            esac
+          }
+          cache_size() {
+            if [[ -d "$1" ]]; then
+              du -sh "$1" | cut -f1
+            else
+              printf '0 B'
             fi
-            pnpm run ci:affected"
+          }
+          affected_projects=${AFFECTED_PROJECTS:-None reported}
+          verify_outcome=${VERIFY_OUTCOME:-not run}
+          {
+            echo "## Hosted PR verification"
+            echo
+            echo "| Signal | Result |"
+            echo "| --- | --- |"
+            echo "| Outcome | $verify_outcome |"
+            echo "| Affected projects | $affected_projects |"
+            echo "| pnpm cache | $(cache_status "$PNPM_CACHE_HIT") ($(cache_size "$PNPM_CACHE_PATH")) |"
+            echo "| Nx cache | $(cache_status "$NX_CACHE_HIT") ($(cache_size "$NX_CACHE_PATH")) |"
+            echo "| Concurrency | Nx 3; Vitest 2 |"
+            echo
+            if [[ -f test-results/ci-verification-summary.md ]]; then
+              cat test-results/ci-verification-summary.md
+            else
+              echo "Verification did not start, so no phase timings are available."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JUnit artifacts
         if: always()

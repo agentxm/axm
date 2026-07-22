@@ -105,21 +105,21 @@ const parseJsonObject = (
   configPath: string,
   raw: string,
 ): Effect.Effect<Readonly<Record<string, unknown>>, AppError> =>
-  Effect.sync(() => {
-    const errors: Array<ParseError> = [];
-    const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
-    if (errors.length > 0) throw errors;
-    if (!isRecord(parsed)) throw new Error("MCP config root must be an object");
-    return parsed;
-  }).pipe(
-    Effect.mapError((error) =>
+  Effect.try({
+    try: () => {
+      const errors: Array<ParseError> = [];
+      const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
+      if (errors.length > 0) throw errors;
+      if (!isRecord(parsed)) throw new Error("MCP config root must be an object");
+      return parsed;
+    },
+    catch: (error) =>
       makeAppError({
         code: "validation",
         detail: `Invalid MCP config JSON/JSONC: ${configPath}`,
         cause: error,
       }),
-    ),
-  );
+  });
 
 const readJsonEntry = (
   configPath: string,

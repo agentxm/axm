@@ -43,7 +43,7 @@ import {
   type McpConfig,
   type McpConfigTarget,
 } from "../../../agent-capabilities/index.js";
-import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
+import { ExtensionNameSchema, type ExtensionName } from "../../../extensions/common.js";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
 import { isPathSafe } from "../../../utils/index.js";
 import type { Diagnostics } from "../diagnostics.js";
@@ -104,6 +104,11 @@ const McpConfigShapeSchema = Schema.Record(Schema.String, Schema.Unknown);
 
 const decodeMcpConfigShape = Schema.decodeUnknownEffect(McpConfigShapeSchema);
 
+// MCP configs can contain arbitrary, user-authored server names. Only names that
+// are valid AXM extension names can be managed; skip the rest instead of letting
+// a non-conforming name (e.g. uppercase or underscore) crash the whole scan.
+const decodeExtensionNameOption = Schema.decodeUnknownOption(ExtensionNameSchema);
+
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -116,16 +121,11 @@ const extractServers = (
 }> =>
   !isRecord(decoded[serversKey])
     ? []
-    : Object.entries(decoded[serversKey]).flatMap(([name, config]) =>
-        isRecord(config)
-          ? [
-              {
-                name: decodeExtensionNameSync(name),
-                config,
-              },
-            ]
-          : [],
-      );
+    : Object.entries(decoded[serversKey]).flatMap(([name, config]) => {
+        if (!isRecord(config)) return [];
+        const decodedName = decodeExtensionNameOption(name);
+        return Option.isNone(decodedName) ? [] : [{ name: decodedName.value, config }];
+      });
 
 const readMcpConfig = (
   fs: FileSystem.FileSystem,

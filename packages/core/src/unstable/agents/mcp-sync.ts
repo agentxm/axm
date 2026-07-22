@@ -233,20 +233,20 @@ const decodeJsonConfig = (
   );
 
 const parseJsonObject = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
-  Effect.sync(() => {
-    const errors: Array<ParseError> = [];
-    const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
-    if (errors.length > 0) throw errors;
-    return parsed;
-  }).pipe(
-    Effect.mapError((error) =>
+  Effect.try({
+    try: () => {
+      const errors: Array<ParseError> = [];
+      const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
+      if (errors.length > 0) throw errors;
+      return parsed;
+    },
+    catch: (error) =>
       makeAppError({
         code: "validation",
         detail: `Invalid MCP config JSON/JSONC: ${configPath}`,
         cause: error,
       }),
-    ),
-  );
+  });
 
 const resolveMcpConfigTargetPath = (
   workspaceRoot: string,

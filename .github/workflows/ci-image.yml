@@ -1,0 +1,319 @@
+name: CI image
+
+on:
+  workflow_call:
+    inputs:
+      base_sha:
+        description: Base revision for image input validation
+        required: false
+        type: string
+      head_sha:
+        description: Head revision for image input validation
+        required: false
+        type: string
+      runner:
+        description: Runner substrate
+        required: false
+        default: github-hosted
+        type: string
+      publish:
+        description: Publish the validated artifacts from a trusted caller
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ci-image-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !inputs.publish }}
+
+env:
+  IMAGE: ghcr.io/agentxm/axm-ci
+  LOCAL_IMAGE: local/axm-ci
+  BUILDX_GIT_INFO: "false"
+  BUILDX_GIT_LABELS: "false"
+
+jobs:
+  contract:
+    name: Verify image contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Verify source-free image contract
+        run: node scripts/check-ci-image.mjs
+
+      - name: Require VERSION bump for image input changes
+        if: inputs.base_sha != '' && inputs.head_sha != ''
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+        run: |
+          files=$(git diff --name-only "$BASE_SHA...$HEAD_SHA")
+          if grep -Eq '^containers/ci/(Containerfile|\.dockerignore)$' <<<"$files" &&
+            ! grep -qx 'containers/ci/VERSION' <<<"$files"; then
+            echo "CI image inputs changed without a containers/ci/VERSION bump." >&2
+            exit 1
+          fi
+
+  build:
+    name: Build, smoke, and scan (${{ matrix.arch }})
+    needs: contract
+    runs-on: >-
+      ${{
+        inputs.runner == 'github-hosted' && 'ubuntu-latest' || 'trusted-ci'
+      }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: arm64
+            platform: linux/arm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        with:
+          name: agentxm-axm-ci-${{ matrix.arch }}
+          keep-state: ${{ runner.environment == 'self-hosted' }}
+          cleanup: ${{ runner.environment != 'self-hosted' }}
+
+      - name: Build exact image artifact
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: containers/ci
+          file: containers/ci/Containerfile
+          target: axm-ci
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: ${{ env.LOCAL_IMAGE }}:${{ matrix.arch }}
+          build-args: SOURCE_REVISION=${{ github.sha }}
+          cache-from: type=gha,scope=axm-ci-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=axm-ci-${{ matrix.arch }}
+          provenance: false
+          sbom: false
+
+      - name: Smoke-test exact image artifact
+        run: |
+          docker run --rm --platform "${{ matrix.platform }}" \
+            "${LOCAL_IMAGE}:${{ matrix.arch }}" bash -lc '
+              set -euo pipefail
+              test "$(id -u)" != "0"
+              test "$(node --version)" = "v22.22.2"
+              test "$(pnpm --version)" = "10.29.3"
+              test "$(bun --version)" = "1.3.5"
+              actionlint -version
+              test ! -e /workspace/.git
+            '
+
+      - name: Scan exact image artifact
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
+          image --scanners vuln --pkg-types os --exit-code 1 --ignore-unfixed
+          --severity HIGH,CRITICAL ${{ env.LOCAL_IMAGE }}:${{ matrix.arch }}
+
+      - name: Generate SBOM for exact image artifact
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.LOCAL_IMAGE }}:${{ matrix.arch }}
+          format: spdx-json
+          output-file: axm-ci-${{ matrix.arch }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Preserve validated image artifact
+        run: docker save --output "axm-ci-${{ matrix.arch }}.tar" "${LOCAL_IMAGE}:${{ matrix.arch }}"
+
+      - name: Upload validated image artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: axm-ci-${{ matrix.arch }}
+          path: |
+            axm-ci-${{ matrix.arch }}.tar
+            axm-ci-${{ matrix.arch }}.spdx.json
+          compression-level: 0
+          retention-days: 7
+
+  promote:
+    name: Promote validated image artifacts
+    if: inputs.publish && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: >-
+      ${{
+        inputs.runner == 'github-hosted' && 'ubuntu-latest' || 'trusted-ci'
+      }}
+    timeout-minutes: 30
+    outputs:
+      digest: ${{ steps.manifest.outputs.digest }}
+      published: ${{ steps.existing.outputs.published }}
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Read image version
+        id: version
+        run: echo "value=$(<containers/ci/VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Download validated image artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: axm-ci-*
+          path: image-artifacts
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Preserve immutable semantic tag
+        id: existing
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if docker buildx imagetools inspect "${IMAGE}:${VERSION}" >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "${IMAGE}:${VERSION} already exists and will not be overwritten."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push validated platform artifacts
+        if: steps.existing.outputs.published != 'true'
+        run: |
+          for arch in amd64 arm64; do
+            docker load --input "image-artifacts/axm-ci-${arch}.tar"
+            docker tag "${LOCAL_IMAGE}:${arch}" "${IMAGE}:sha-${GITHUB_SHA}-${arch}"
+            docker push "${IMAGE}:sha-${GITHUB_SHA}-${arch}"
+          done
+
+      - name: Promote validated image artifacts
+        if: steps.existing.outputs.published != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${VERSION}" \
+            --tag "${IMAGE}:sha-${GITHUB_SHA}" \
+            --tag "${IMAGE}:latest" \
+            --metadata-file manifest-metadata.json \
+            "${IMAGE}:sha-${GITHUB_SHA}-amd64" \
+            "${IMAGE}:sha-${GITHUB_SHA}-arm64"
+
+      - name: Resolve promoted manifest digest
+        id: manifest
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if [[ -f manifest-metadata.json ]]; then
+            digest=$(jq -r '."containerimage.descriptor".digest' manifest-metadata.json)
+          else
+            digest=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" \
+              --format '{{json .Manifest}}' | jq -r '.digest')
+          fi
+          test "$digest" != "null"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Publish build provenance attestation
+        if: steps.existing.outputs.published != 'true'
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          push-to-registry: true
+
+      - name: Publish amd64 SBOM attestation
+        if: steps.existing.outputs.published != 'true'
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          sbom-path: image-artifacts/axm-ci-amd64.spdx.json
+          push-to-registry: true
+
+      - name: Publish arm64 SBOM attestation
+        if: steps.existing.outputs.published != 'true'
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          sbom-path: image-artifacts/axm-ci-arm64.spdx.json
+          push-to-registry: true
+
+      - name: Record consumer pin
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          DIGEST: ${{ steps.manifest.outputs.digest }}
+        run: |
+          {
+            echo "## AXM CI image published"
+            echo
+            echo "Update required CI to:"
+            echo
+            echo "\`${IMAGE}:${VERSION}@${DIGEST}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  verify-publication:
+    name: Verify anonymous pull and public metadata
+    if: inputs.publish && github.ref == 'refs/heads/main'
+    needs: promote
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      attestations: read
+      contents: read
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Verify manifest architectures
+        env:
+          REFERENCE: ${{ env.IMAGE }}:${{ needs.promote.outputs.version }}@${{ needs.promote.outputs.digest }}
+        run: |
+          docker buildx imagetools inspect "$REFERENCE" --format '{{json .Manifest}}' > manifest.json
+          jq -e 'any(.manifests[]?; .platform.os == "linux" and .platform.architecture == "amd64")' manifest.json
+          jq -e 'any(.manifests[]?; .platform.os == "linux" and .platform.architecture == "arm64")' manifest.json
+
+      - name: Verify anonymous pull and public metadata
+        env:
+          REFERENCE: ${{ env.IMAGE }}:${{ needs.promote.outputs.version }}@${{ needs.promote.outputs.digest }}
+        run: |
+          anonymous_config=$(mktemp -d)
+          printf '{"auths":{}}\n' > "${anonymous_config}/config.json"
+          DOCKER_CONFIG="$anonymous_config" docker pull "$REFERENCE"
+          source=$(docker image inspect "$REFERENCE" \
+            --format '{{index .Config.Labels "org.opencontainers.image.source"}}')
+          revision=$(docker image inspect "$REFERENCE" \
+            --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
+          test "$source" = "https://github.com/agentxm/axm"
+          test -n "$revision"
+          if [[ "${{ needs.promote.outputs.published }}" != "true" ]]; then
+            test "$revision" = "$GITHUB_SHA"
+          fi
+
+      - name: Verify provenance and SBOM attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REFERENCE: ${{ env.IMAGE }}:${{ needs.promote.outputs.version }}@${{ needs.promote.outputs.digest }}
+        run: |
+          gh attestation verify "oci://${REFERENCE}" --repo agentxm/axm
+          gh attestation verify "oci://${REFERENCE}" --repo agentxm/axm \
+            --predicate-type https://spdx.dev/Document/v2.3

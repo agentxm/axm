@@ -4,7 +4,11 @@ set -euo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)
 GIT_COMMON_DIR=$(cd "$ROOT" && cd "$(git rev-parse --git-common-dir)" && pwd -P)
-CI_IMAGE=${AXM_CI_IMAGE:-ghcr.io/agentxm/agentxm-ci:0.1.0}
+CI_IMAGE_CONTEXT="$ROOT/containers/ci"
+CI_IMAGE_CONTAINERFILE="$CI_IMAGE_CONTEXT/Containerfile"
+LOCAL_CI_IMAGE=${AXM_LOCAL_CI_IMAGE:-local/axm-ci:dev}
+CI_IMAGE_PIN=$(tr -d '[:space:]' <"$CI_IMAGE_CONTEXT/CI_IMAGE")
+CI_IMAGE=${AXM_CI_IMAGE:-$CI_IMAGE_PIN}
 DEV_IMAGE=${AXM_DEV_IMAGE:-ghcr.io/agentxm/agentxm-local-dev:0.1.0}
 HOME_VOLUME=${AXM_DEV_HOME_VOLUME:-axm-dev-home}
 NX_PARALLEL=${AXM_CONTAINER_NX_PARALLEL:-2}
@@ -15,23 +19,58 @@ volume_key() {
 }
 
 DEPS_VOLUME=${AXM_DEV_DEPS_VOLUME:-axm-dev-deps-$(volume_key "$ROOT")}
+CI_CACHE_SCOPE=$(
+  volume_key "axm|$(uname -m)|$CI_IMAGE|$(cksum <"$ROOT/pnpm-lock.yaml")"
+)
+CI_PNPM_CACHE_VOLUME=${AXM_CI_PNPM_CACHE_VOLUME:-axm-ci-pnpm-$CI_CACHE_SCOPE}
+CI_NX_CACHE_VOLUME=${AXM_CI_NX_CACHE_VOLUME:-axm-ci-nx-$CI_CACHE_SCOPE}
 
 usage() {
   cat <<'EOF'
-Usage: scripts/container-environment.sh <ci|shell|smoke> [command...]
+Usage: scripts/container-environment.sh <command> [arguments]
 
-  ci [command...]  Run a command in the pinned Linux CI image
-  shell            Open an interactive development shell
-  smoke            Verify the CI image and mounted checkout
+  build-ci-image    Build the repository-owned CI image locally
+  smoke-ci-image    Build and verify the repository-owned CI image
+  ci [command...]   Run a command in the pinned Linux CI image
+  shell             Open an interactive development shell
+  smoke             Verify the pinned CI image and mounted checkout
 
 Environment:
   AXM_CI_IMAGE          Override the CI image
+  AXM_LOCAL_CI_IMAGE    Override the local producer image tag
+  AXM_CI_PNPM_CACHE_VOLUME  Override the digest/architecture/lockfile-scoped CI pnpm cache volume
+  AXM_CI_NX_CACHE_VOLUME  Override the digest/architecture/lockfile-scoped CI Nx cache volume
   AXM_DEV_IMAGE         Override the development image
   AXM_DEV_HOME_VOLUME   Override the persistent development home volume
   AXM_DEV_DEPS_VOLUME   Override the persistent node_modules volume
   AXM_CONTAINER_NX_PARALLEL  Nx task concurrency in containers (default: 2)
   AXM_CONTAINER_VITEST_MAX_WORKERS  Vitest concurrency in containers (default: 2)
 EOF
+}
+
+build_ci_image() {
+  docker build \
+    --file "$CI_IMAGE_CONTAINERFILE" \
+    --target axm-ci \
+    --tag "$LOCAL_CI_IMAGE" \
+    --build-arg "SOURCE_REVISION=$(git rev-parse HEAD)" \
+    "$CI_IMAGE_CONTEXT"
+}
+
+smoke_ci_image() {
+  if [[ "${AXM_SKIP_IMAGE_BUILD:-0}" != "1" ]] || ! docker image inspect "$LOCAL_CI_IMAGE" >/dev/null 2>&1; then
+    build_ci_image
+  fi
+
+  docker run --rm "$LOCAL_CI_IMAGE" bash -lc '
+    set -euo pipefail
+    test "$(id -u)" != "0"
+    test "$(node --version)" = "v22.22.2"
+    test "$(pnpm --version)" = "10.29.3"
+    test "$(bun --version)" = "1.3.5"
+    actionlint -version
+    test ! -e /workspace/.git
+  '
 }
 
 run_ci() {
@@ -44,13 +83,15 @@ run_ci() {
     printf -v command '%q ' "$@"
   fi
   mkdir -p "$ROOT/node_modules"
+  docker volume create "$CI_PNPM_CACHE_VOLUME" >/dev/null
+  docker volume create "$CI_NX_CACHE_VOLUME" >/dev/null
 
   docker run --rm \
     --user root \
     --ulimit nofile=65536:65536 \
-    --env AGENTXM_HOST_UID="$uid" \
-    --env AGENTXM_HOST_GID="$gid" \
-    --env AGENTXM_DEPS_DIRS="$ROOT/node_modules" \
+    --env AXM_HOST_UID="$uid" \
+    --env AXM_HOST_GID="$gid" \
+    --env AXM_DEPS_DIRS="$ROOT/node_modules" \
     --env HOME=/tmp/axm-home \
     --env MISE_STATE_DIR=/tmp/axm-home/.local/state/mise \
     --env npm_config_store_dir=/tmp/axm-home/.local/share/pnpm/store \
@@ -61,6 +102,8 @@ run_ci() {
     --volume "$ROOT:$ROOT" \
     --volume "$ROOT/node_modules" \
     --volume "$GIT_COMMON_DIR:$GIT_COMMON_DIR" \
+    --volume "$CI_PNPM_CACHE_VOLUME:/tmp/axm-home/.local/share/pnpm/store" \
+    --volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx" \
     --workdir "$ROOT" \
     --pull missing \
     "$CI_IMAGE" \
@@ -85,9 +128,9 @@ run_shell() {
     --volume "$DEPS_VOLUME:$ROOT/node_modules"
     --volume "$GIT_COMMON_DIR:$GIT_COMMON_DIR"
     --workdir "$ROOT"
-    --env AGENTXM_HOST_UID="$uid"
-    --env AGENTXM_HOST_GID="$gid"
-    --env AGENTXM_DEPS_DIRS="$ROOT/node_modules"
+    --env AXM_HOST_UID="$uid"
+    --env AXM_HOST_GID="$gid"
+    --env AXM_DEPS_DIRS="$ROOT/node_modules"
     --env HOME=/home/agentxm
     --env MISE_STATE_DIR=/home/agentxm/.local/state/mise
     --env MISE_CACHE_DIR=/home/agentxm/.cache/mise
@@ -121,6 +164,12 @@ smoke() {
 }
 
 case "${1:-}" in
+  build-ci-image)
+    build_ci_image
+    ;;
+  smoke-ci-image)
+    smoke_ci_image
+    ;;
   ci)
     shift
     run_ci "$@"

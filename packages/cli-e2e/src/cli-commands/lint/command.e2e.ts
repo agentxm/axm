@@ -43,9 +43,12 @@ describe("axm lint (e2e, Phase 7)", () => {
       const temp = createTempDir();
       try {
         // Init creates settings + an empty lockfile (Phase 5 expectation).
-        const init = await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-        });
+        const init = await runCli(
+          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
         expect(init.exitCode).toBe(0);
 
         // Declare a skill whose source points at a non-existent local path

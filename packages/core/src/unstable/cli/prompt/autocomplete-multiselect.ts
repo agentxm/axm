@@ -346,11 +346,11 @@ export const autocompleteMultiselect = <const A>(
           return Effect.succeed(
             nextFrame<A>(refreshState(state, options.choices, state.query.slice(0, -1))),
           );
+        // Note: no vim-style j/k navigation here — this is a text filter, so
+        // "j" and "k" must fall through to be typed into the query.
         case "up":
-        case "k":
           return moveCursor(state, -1);
         case "down":
-        case "j":
         case "tab":
           return moveCursor(state, 1);
         case "u":

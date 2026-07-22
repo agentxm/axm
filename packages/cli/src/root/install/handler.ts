@@ -220,6 +220,13 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
         const intent = yield* resolveRootInstallIntent(source);
         if (intent.type === "locator") {
           yield* runLocatorInstallIntent(intent.source, args);
+          // A locator install can install files-type extensions, which are only
+          // materialized by the workspace generator phase. Run it here too (as
+          // the registry/library paths do) so those installs are not left
+          // unmaterialized.
+          if (!args.preview) {
+            yield* runFilesWorkspaceGeneratorPhase({ dryRun: false });
+          }
           return;
         }
         const resolution =

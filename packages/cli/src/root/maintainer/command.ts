@@ -2,12 +2,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
 
 import { type AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 import {
   fqnInvalidErrorToAppError,
   parseFqn,
@@ -186,6 +187,15 @@ const handleMaintainerClear = (input: { readonly extRef: string; readonly yes: b
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const ref = yield* parseExtensionRef(input.extRef);
+    // Honor the (previously dead) --yes flag: confirm the destructive clear
+    // interactively unless --yes was passed.
+    if (!input.yes) {
+      const confirmed = yield* requireInteractive(
+        Prompt.confirm({ message: `Clear the maintainer for ${formatRef(ref)}?` }),
+        { message: "Pass --yes to clear the maintainer non-interactively." },
+      );
+      if (!confirmed) return;
+    }
     const maintainer = yield* clearExtensionMaintainer(ref);
     const extension = formatRef(ref);
     const message = `Cleared maintainer for ${extension}.`;

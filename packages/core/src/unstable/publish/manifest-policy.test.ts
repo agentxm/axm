@@ -121,6 +121,37 @@ describe("resolveManifest", () => {
     }),
   );
 
+  it.effect(
+    "reports an unrelated schema failure as manifest_schema_invalid, not companion_package_invalid",
+    () =>
+      Effect.gen(function* () {
+        // Valid companion packages, but the manifest fails schema for an unrelated
+        // reason (deprecated agents field). It must not be misreported as a
+        // companion-package error.
+        const manifest = JSON.stringify({
+          owner: "@acme",
+          type: "command",
+          name: "release-notes",
+          version: "1.0.0",
+          agents: ["claude-code"],
+          packages: [{ purl: "pkg:npm/example" }],
+        });
+
+        const error = yield* Effect.flip(
+          resolveManifest({
+            type: "command",
+            entries: [makeEntry("command.json")],
+            readEntry: makeReadEntry({ "command.json": manifest }),
+          }),
+        );
+
+        expect(error._tag).toBe("ManifestError");
+        if (error._tag === "ManifestError") {
+          expect(error.code).toBe("manifest_schema_invalid");
+        }
+      }),
+  );
+
   it.effect("rejects deprecated command manifest agentOverrides fields", () =>
     Effect.gen(function* () {
       const manifest = JSON.stringify({

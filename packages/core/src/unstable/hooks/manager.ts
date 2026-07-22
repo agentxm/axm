@@ -10,6 +10,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 import { makeAppError, type AppError } from "../app-error/index.js";
@@ -74,6 +75,17 @@ export class HookManager extends ServiceMap.Service<
 >()("@agentxm/client-core/unstable/hooks/manager/HookManager") {}
 
 const HOOK_FALLBACKS_REGION = "hook-fallbacks";
+
+// Per-package in-process mutex so concurrent re-materialization of the same hook
+// package (remove+copy) is serialized rather than racing.
+const packageMaterializeLocks = new Map<string, Semaphore.Semaphore>();
+const packageMaterializeLockFor = (key: string): Semaphore.Semaphore => {
+  const existing = packageMaterializeLocks.get(key);
+  if (existing !== undefined) return existing;
+  const created = Semaphore.makeUnsafe(1);
+  packageMaterializeLocks.set(key, created);
+  return created;
+};
 
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
@@ -572,7 +584,16 @@ export const HookManagerLive = Layer.effect(
         }),
       );
 
+    // Serialize re-materialization of the same package within a process: sync
+    // renders every agent target concurrently, and each render pass materializes
+    // the same hook packages, so without this the remove+copy steps race on one
+    // package dir.
     const materializePackage = (ref: HookExtensionRef) =>
+      packageMaterializeLockFor(`${baseDir} ${ref.hook.name}`).withPermits(1)(
+        materializePackageUnlocked(ref),
+      );
+
+    const materializePackageUnlocked = (ref: HookExtensionRef) =>
       Effect.gen(function* () {
         switch (ref.refType) {
           case "registry":

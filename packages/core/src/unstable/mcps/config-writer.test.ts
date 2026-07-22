@@ -70,6 +70,46 @@ describe("agent MCP config writer", () => {
       ),
   );
 
+  it.effect("serializes concurrent writes to the same config file (no dropped servers)", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-concurrent-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "agent.json");
+          writeFileSync(configPath, '{\n  "mcpServers": {}\n}\n');
+
+          const serverNames = ["alpha", "beta", "gamma", "delta", "epsilon"];
+          // Fire all writes concurrently against the same file. Without per-file
+          // serialization each read-modify-write reads the same empty state and
+          // clobbers the others (last-write-wins), dropping servers.
+          yield* Effect.all(
+            serverNames.map((serverName) =>
+              writeAgentMcpConfig({
+                workspaceRoot,
+                serverName,
+                serversKey: "mcpServers",
+                target: { scope: "project", path: "agent.json", format: "json" },
+                entry: { command: "npx", args: [`@acme/${serverName}`], enabled: true },
+              }),
+            ),
+            { concurrency: "unbounded" },
+          );
+
+          const parsed: unknown = JSON.parse(readFileSync(configPath, "utf8"));
+          const mcpServers =
+            typeof parsed === "object" && parsed !== null && "mcpServers" in parsed
+              ? parsed.mcpServers
+              : undefined;
+          const servers =
+            typeof mcpServers === "object" && mcpServers !== null ? Object.keys(mcpServers) : [];
+          expect(servers.sort()).toEqual([...serverNames].sort());
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("removes JSON config entries", () =>
     withNode(
       Effect.gen(function* () {

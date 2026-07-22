@@ -168,7 +168,14 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
             (entry) => {
               const src = path.join(tmpDir, entry);
               const dest = path.join(canonicalPath, entry);
-              return fs.copy(src, dest).pipe(Effect.ignore);
+              return fs.copy(src, dest).pipe(
+                Effect.mapError((e) =>
+                  errInstallFailed({
+                    message: `Failed to copy installed file: ${entry}`,
+                    cause: e,
+                  }),
+                ),
+              );
             },
             { concurrency: "unbounded" },
           );

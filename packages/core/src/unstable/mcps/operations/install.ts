@@ -282,7 +282,15 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
             (entry) => {
               const src = path.join(tmpDir, entry);
               const dest = path.join(canonicalPath, entry);
-              return fs.copy(src, dest).pipe(Effect.ignore);
+              return fs.copy(src, dest).pipe(
+                Effect.mapError((e) =>
+                  makeAppError({
+                    code: "validation",
+                    detail: `Failed to copy installed file: ${entry}`,
+                    cause: e,
+                  }),
+                ),
+              );
             },
             { concurrency: "unbounded" },
           );

@@ -9,7 +9,11 @@ import { CodingAgentRepository, makeProjectOnlyCodingAgent } from "../agents/ind
 import type { CodingAgentRepositoryService } from "../agents/index.js";
 import { WorkspaceMutations } from "./service-interface.js";
 import { makeBaseWorkspaceMock } from "./test-stubs.js";
-import { AXM_MANAGED_MARKER, cleanupManagedArtifactsForRemovedAgents } from "./index.js";
+import {
+  AXM_MANAGED_MARKER,
+  cleanupManagedArtifactsForRemovedAgents,
+  hasAxmManagedMarker,
+} from "./index.js";
 
 describe("cleanupManagedArtifactsForRemovedAgents", () => {
   it.effect(
@@ -90,4 +94,18 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         }
       }),
   );
+});
+
+describe("hasAxmManagedMarker", () => {
+  it("matches the full managed-file banner", () => {
+    expect(hasAxmManagedMarker("<!-- AXM managed file — do not edit directly -->")).toBe(true);
+    expect(hasAxmManagedMarker('{"_axm_managed": true}')).toBe(true);
+  });
+
+  it("does not match a user file that merely mentions the phrase", () => {
+    // A user-authored command/subagent file that references "AXM managed" (e.g.
+    // documentation) must not be treated as a managed artifact and deleted.
+    expect(hasAxmManagedMarker("# Notes on how AXM managed extensions work")).toBe(false);
+    expect(hasAxmManagedMarker("This skill explains AXM managed regions.")).toBe(false);
+  });
 });

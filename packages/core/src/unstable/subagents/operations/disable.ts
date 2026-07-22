@@ -144,7 +144,7 @@ export const disableSubagent: OperationHandler<
                         scope: "project",
                         subagentName: op.args.subagentName,
                         renderedFilePaths: managedPaths.map((filePath) =>
-                          decodeRenderedFilePath(filePath),
+                          decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
                         ),
                       });
                     }),

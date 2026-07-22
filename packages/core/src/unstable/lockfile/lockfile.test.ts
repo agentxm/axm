@@ -238,6 +238,44 @@ describe("lockfile", () => {
       ),
     );
 
+    it.effect("preserves the knowledge lock map across a snapshot patch", () =>
+      withContext(
+        Effect.gen(function* () {
+          const knowledgeEntry = {
+            type: "github" as const,
+            owner: "example-org",
+            repo: "knowledge-repo",
+            installedAt: new Date("2026-01-28T10:00:00.000Z"),
+            updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+          };
+          // On-disk lockfile already carries a knowledge entry.
+          const onDisk: Lockfile = {
+            lockfileVersion: 3,
+            skills: {},
+            knowledge: { "team/handbook": knowledgeEntry },
+          };
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(axmDir, "axm-lock.yaml"),
+            YAML.stringify(Schema.encodeSync(LockfileSchema)(onDisk)),
+          );
+
+          // A snapshot update that only touches skills, never knowledge.
+          const base: Lockfile = { lockfileVersion: 3, skills: {} };
+          const next: Lockfile = {
+            lockfileVersion: 3,
+            skills: { "pr-review": createTestEntry() },
+          };
+          yield* commitLockfileSnapshotUpdate(axmDir, base, next);
+
+          const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(written.knowledge).toBeDefined();
+          expect(written.knowledge["team/handbook"]).toBeDefined();
+          expect(written.skills["pr-review"]).toBeDefined();
+        }),
+      ),
+    );
+
     it("applies lockfile updates in order without writing", () => {
       const lockfile: Lockfile = {
         lockfileVersion: 2,

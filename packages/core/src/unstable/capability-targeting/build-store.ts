@@ -162,15 +162,33 @@ export const materializeCapabilityTargetedBuild = (args: {
     );
     const exists = yield* fs.exists(buildPath);
     if (!exists) {
-      yield* copyExtensionDirectory(args.canonicalSourcePath, buildPath, {
-        forAgentArtifact: true,
-      });
-      for (const file of renderedFiles) {
-        if (file.renderedText === undefined) continue;
-        const outputPath = path.join(buildPath, file.relativePath);
-        yield* fs.makeDirectory(path.dirname(outputPath), { recursive: true });
-        yield* fs.writeFileString(outputPath, file.renderedText);
-      }
+      // Build into a temp dir and atomically rename into the content-addressed
+      // slot, so a mid-build failure never leaves a partial build that later
+      // reads as complete (poisoned cache), and concurrent builders never
+      // observe an incomplete buildPath. The temp is removed on any failure.
+      const tempPath = `${buildPath}.${process.pid}.tmp`;
+      yield* Effect.gen(function* () {
+        yield* fs.remove(tempPath, { recursive: true }).pipe(Effect.ignore);
+        yield* copyExtensionDirectory(args.canonicalSourcePath, tempPath, {
+          forAgentArtifact: true,
+        });
+        for (const file of renderedFiles) {
+          if (file.renderedText === undefined) continue;
+          const outputPath = path.join(tempPath, file.relativePath);
+          yield* fs.makeDirectory(path.dirname(outputPath), { recursive: true });
+          yield* fs.writeFileString(outputPath, file.renderedText);
+        }
+        yield* fs.makeDirectory(path.dirname(buildPath), { recursive: true });
+        yield* fs.rename(tempPath, buildPath).pipe(
+          // A concurrent builder may have published the same (content-addressed)
+          // build first; that is a benign win, not a failure.
+          Effect.catch((error) =>
+            fs
+              .exists(buildPath)
+              .pipe(Effect.flatMap((published) => (published ? Effect.void : Effect.fail(error)))),
+          ),
+        );
+      }).pipe(Effect.ensuring(fs.remove(tempPath, { recursive: true }).pipe(Effect.ignore)));
     } else {
       for (const file of renderedFiles) {
         if (file.renderedText === undefined) continue;

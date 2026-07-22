@@ -412,16 +412,21 @@ export const CredentialStoreLive = Layer.effect(
           )
         : readStoredFile();
 
+    // Returns the tier actually used, so the caller only deletes the plaintext
+    // fallback file when the keychain write genuinely succeeded — never when we
+    // fell back to writing that file because the keychain was unavailable.
     const saveCredentialFile = (registryUrl: string, data: CredentialFile) =>
       storageTier === "keychain"
         ? writeKeychainCredentialFile(registryUrl, data).pipe(
+            Effect.as("keychain" as const),
             Effect.catch(() =>
               Effect.logWarning("OS keychain unavailable; using restricted credential file.").pipe(
                 Effect.flatMap(() => writeStoredFile(data)),
+                Effect.as("file" as const),
               ),
             ),
           )
-        : writeStoredFile(data);
+        : writeStoredFile(data).pipe(Effect.as("file" as const));
     const save: CredentialStoreService["save"] = Effect.fn("CredentialStore.save")(
       function* (registryUrl, handle, credentials) {
         if (!persistedCredentialsAllowed) {
@@ -460,8 +465,10 @@ export const CredentialStoreLive = Layer.effect(
           },
         };
 
-        yield* saveCredentialFile(registryUrl, updated);
-        if (storageTier === "keychain") {
+        const usedTier = yield* saveCredentialFile(registryUrl, updated);
+        // Only clear the plaintext file when credentials actually landed in the
+        // keychain; if we fell back to the file, deleting it would lose them.
+        if (usedTier === "keychain") {
           yield* deleteCredentialFile(fs, path, homeDir);
         }
       },

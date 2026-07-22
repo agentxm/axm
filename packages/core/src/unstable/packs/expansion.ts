@@ -95,8 +95,15 @@ export const expandPackUninstallTargets = (args: {
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly lockfile: Lockfile;
   readonly settings: UninstallSettingsContext;
+  /**
+   * Names of every pack being removed in this batch. Dependencies shared only
+   * among packs in the batch must not be treated as retained. Defaults to just
+   * the pack being expanded.
+   */
+  readonly removingPackNames?: ReadonlySet<string>;
 }): Effect.Effect<ReadonlyArray<ExtensionTarget>, AppError> => {
   const { pack, supportedDependencyTypes, lockfile, settings } = args;
+  const removingPackNames = args.removingPackNames ?? new Set([pack.name]);
   const packs = lockfile.packs ?? {};
   const packEntry = packs[pack.name];
 
@@ -131,7 +138,7 @@ export const expandPackUninstallTargets = (args: {
   // Collect dependencies still referenced by OTHER installed packs
   const retainedByOtherPacks = new Set<string>();
   for (const [packName, entry] of Object.entries(packs)) {
-    if (packName === pack.name) continue;
+    if (removingPackNames.has(packName)) continue;
     for (const fqn of Object.keys(entry.resolvedSkills)) {
       retainedByOtherPacks.add(fqn);
     }

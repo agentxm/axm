@@ -76,6 +76,26 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
           owner: Option.none(),
         };
 
+  // Unpack promotes pack members into direct settings entries via install
+  // operations, which currently exist only for skills, commands, and MCP
+  // servers. Refuse to unpack a pack whose other member types would otherwise
+  // be silently dropped when the pack itself is removed.
+  const unpromotableMembers = [
+    ["subagents", entry.resolvedSubagents],
+    ["files", entry.resolvedFiles],
+    ["rules", entry.resolvedRules],
+    ["hooks", entry.resolvedHooks],
+  ] as const;
+  const droppedTypes = unpromotableMembers
+    .filter(([, map]) => map !== undefined && Object.keys(map).length > 0)
+    .map(([type]) => type);
+  if (droppedTypes.length > 0) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: `Cannot unpack "${args.name}": unpack cannot promote ${droppedTypes.join(", ")} members, and unpacking would remove the pack and lose them. Keep the pack installed to retain these members.`,
+    });
+  }
+
   // Build install ops from pack's resolved maps (skipSettings: false for unpack)
   const skillOps = yield* Effect.forEach(
     Object.entries(entry.resolvedSkills),

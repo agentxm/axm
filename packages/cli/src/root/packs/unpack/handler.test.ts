@@ -379,4 +379,49 @@ describe("packs unpack.handler", () => {
       );
     });
   });
+
+  describe("unpromotable members", () => {
+    it.effect("refuses to unpack a pack with subagent members rather than dropping them", () => {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+
+      initWorkspace(axmDir, {
+        packs: { "frontend-tools": "@test/packs/frontend-tools" },
+        lockPacks: {
+          "frontend-tools": {
+            type: "registry",
+            owner: "@test",
+            name: "frontend-tools",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "local",
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            resolvedSkills: {},
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: { "@test/subagents/reviewer": "1.0.0" },
+          },
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleUnpack(defaultArgs("frontend-tools")).pipe(
+            Effect.catchTag("AppError", (e) =>
+              Effect.succeed({ error: true, message: e.detail, guidance: "" }),
+            ),
+          );
+          const errorResult = getErrorResult(result);
+          expect(errorResult.message).toContain("subagents");
+
+          // The pack must NOT be removed when unpack refuses.
+          const lockContent = YAML.parse(
+            fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"),
+          );
+          expect(Object.keys(lockContent.packs ?? {})).toContain("frontend-tools");
+        }),
+      );
+    });
+  });
 });

@@ -225,6 +225,10 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         // Expand each pack and collect all targets, deduplicating by type+name
         const allTargets = new Map<string, ExtensionTarget>();
 
+        // Every pack in this batch is being removed, so a dependency shared only
+        // among them is not retained by any surviving pack.
+        const removingPackNames = new Set(intent.packsToUninstall.map((p) => p.name));
+
         for (const pack of intent.packsToUninstall) {
           const targets = yield* expandPackUninstallTargets({
             pack,
@@ -239,6 +243,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             ],
             lockfile,
             settings,
+            removingPackNames,
           });
 
           for (const target of targets) {

@@ -268,7 +268,23 @@ const acquireFileLock = (
 
     const stale = yield* lockIsStale(lockPath);
     if (stale) {
-      yield* removeFileBestEffort(lockPath);
+      const fs = yield* FileSystem.FileSystem;
+      // Atomically claim the stale lock by renaming it: only one racer can move
+      // a given file, so two processes can't both delete the lock and re-acquire
+      // it. After winning the claim, re-verify the claimed file was actually
+      // stale — if a racer had already replaced it with a fresh lock, restore it
+      // instead of stealing a live lock.
+      const claimPath = `${lockPath}.stale.${typeof process === "object" ? process.pid : "x"}`;
+      const claim = yield* fs.rename(lockPath, claimPath).pipe(Effect.result);
+      if (claim._tag === "Success") {
+        const claimedStale = yield* lockIsStale(claimPath);
+        if (claimedStale) {
+          yield* removeFileBestEffort(claimPath);
+        } else {
+          yield* fs.rename(claimPath, lockPath).pipe(Effect.ignore);
+          yield* Effect.sleep(LOCK_RETRY_DELAY);
+        }
+      }
       return yield* acquireFileLock(lockPath);
     }
 

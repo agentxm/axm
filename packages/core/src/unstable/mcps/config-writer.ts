@@ -289,7 +289,14 @@ const removeToml = (args: {
   readonly nativeEnabled: boolean;
 }): string => {
   if (args.disableOnly && args.nativeEnabled) {
-    return args.raw.replace(/^enabled = true$/m, "enabled = false");
+    // Flip `enabled` only within the target server's managed block, not the
+    // first `enabled = true` anywhere in the file (which may be another server).
+    const start = managedTomlStart(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const end = managedTomlEnd(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const blockPattern = new RegExp(`${start}[\\s\\S]*?${end}`);
+    return args.raw.replace(blockPattern, (block) =>
+      block.replace(/^enabled = true$/m, "enabled = false"),
+    );
   }
   const stripped = stripManagedTomlBlock(args.raw, args.serverName);
   return stripped.length > 0 ? `${stripped}\n` : "";

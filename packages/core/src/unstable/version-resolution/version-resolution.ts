@@ -151,8 +151,11 @@ const fetchLatestRelease = (httpClient: HttpClient.HttpClient, repo: string) => 
 /**
  * Fetch the list of releases from `GET /repos/{repo}/releases`.
  */
-const fetchReleases = (httpClient: HttpClient.HttpClient, repo: string) => {
-  const url = `https://api.github.com/repos/${repo}/releases`;
+const RELEASES_PER_PAGE = 100;
+const MAX_RELEASE_PAGES = 10;
+
+const fetchReleases = (httpClient: HttpClient.HttpClient, repo: string, page: number) => {
+  const url = `https://api.github.com/repos/${repo}/releases?per_page=${RELEASES_PER_PAGE}&page=${page}`;
   return Effect.flatMap(fetchGitHubJson(httpClient, url), (json) =>
     decodeReleaseArray(json).pipe(mapDecodeError(url)),
   );
@@ -172,13 +175,17 @@ const resolveRemoteVersion = (httpClient: HttpClient.HttpClient, repo: string) =
     if (Option.isSome(version)) {
       return version.value;
     }
-    // Latest release is not a CLI release — fall back to listing
-    const releases = yield* fetchReleases(httpClient, repo);
-    for (const r of releases) {
-      const v = stripCliPrefix(r.tag_name);
-      if (Option.isSome(v)) {
-        return v.value;
+    // Latest release is not a CLI release — page through the release list
+    // (not just the first page) looking for the newest `cli-v` tag.
+    for (let page = 1; page <= MAX_RELEASE_PAGES; page++) {
+      const releases = yield* fetchReleases(httpClient, repo, page);
+      for (const r of releases) {
+        const v = stripCliPrefix(r.tag_name);
+        if (Option.isSome(v)) {
+          return v.value;
+        }
       }
+      if (releases.length < RELEASES_PER_PAGE) break;
     }
     return yield* makeAppError({
       code: "not_found",

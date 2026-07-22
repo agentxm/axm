@@ -125,6 +125,19 @@ const bundleEntries = (
     const files: KnowledgeBundleEntry[] = [];
     for (const entry of entries) {
       const absolute = path.join(current, entry);
+      // fs.stat follows symlinks, so detect them first (readLink succeeds only
+      // for a symlink) and record them without following. Otherwise a directory
+      // symlink would be recursed into (escaping the bundle or cycling) and the
+      // symbolic-link safety check would never fire.
+      const link = yield* fs.readLink(absolute).pipe(Effect.option);
+      if (Option.isSome(link)) {
+        files.push({
+          relativePath: path.relative(root, absolute).replace(/\\/g, "/"),
+          type: "SymbolicLink",
+          size: 0n,
+        });
+        continue;
+      }
       const stat = yield* fs.stat(absolute);
       if (stat.type === "Directory") {
         files.push(...(yield* bundleEntries(root, absolute)));

@@ -13,14 +13,14 @@ catalogs:
       specifier: ^0.87.0
       version: 0.87.0
     '@effect/openapi-generator':
-      specifier: 4.0.0-beta.98
-      version: 4.0.0-beta.98
+      specifier: 4.0.0-beta.100
+      version: 4.0.0-beta.100
     '@effect/platform-node':
-      specifier: 4.0.0-beta.98
-      version: 4.0.0-beta.98
+      specifier: 4.0.0-beta.100
+      version: 4.0.0-beta.100
     '@effect/vitest':
-      specifier: 4.0.0-beta.98
-      version: 4.0.0-beta.98
+      specifier: 4.0.0-beta.100
+      version: 4.0.0-beta.100
     '@eslint/js':
       specifier: ^10.0.0
       version: 10.0.1
@@ -52,8 +52,8 @@ catalogs:
       specifier: ^8.64.0
       version: 8.64.0
     effect:
-      specifier: 4.0.0-beta.98
-      version: 4.0.0-beta.98
+      specifier: 4.0.0-beta.100
+      version: 4.0.0-beta.100
     eslint:
       specifier: ^10.3.0
       version: 10.3.0
@@ -110,9 +110,9 @@ catalogs:
       version: 2.9.0
 
 patchedDependencies:
-  '@effect/openapi-generator@4.0.0-beta.98':
+  '@effect/openapi-generator@4.0.0-beta.100':
     hash: 3bc40fa02b7735320b54f44e6cbc1c5037c2bb154e2192fece4bee22fa5c1c83
-    path: patches/@effect__openapi-generator@4.0.0-beta.98.patch
+    path: patches/@effect__openapi-generator@4.0.0-beta.100.patch
 
 importers:
 
@@ -129,7 +129,7 @@ importers:
         version: 0.87.0
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))
+        version: 4.0.0-beta.100(effect@4.0.0-beta.100)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))
       '@eslint/js':
         specifier: 'catalog:'
         version: 10.0.1(eslint@10.3.0)
@@ -195,10 +195,10 @@ importers:
         version: link:../utils
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
+        version: 4.0.0-beta.100(effect@4.0.0-beta.100)(ioredis@5.10.1)
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.98
+        version: 4.0.0-beta.100
       gray-matter:
         specifier: 'catalog:'
         version: 4.0.3
@@ -214,7 +214,7 @@ importers:
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))
+        version: 4.0.0-beta.100(effect@4.0.0-beta.100)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
@@ -253,14 +253,14 @@ importers:
         version: link:../core
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
+        version: 4.0.0-beta.100(effect@4.0.0-beta.100)(ioredis@5.10.1)
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.98
+        version: 4.0.0-beta.100
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))
+        version: 4.0.0-beta.100(effect@4.0.0-beta.100)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
@@ -287,13 +287,13 @@ importers:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
+        version: 4.0.0-beta.100(effect@4.0.0-beta.100)(ioredis@5.10.1)
       '@napi-rs/keyring':
         specifier: ^1.3.0
         version: 1.3.0
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.98
+        version: 4.0.0-beta.100
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
@@ -330,10 +330,10 @@ importers:
         version: link:../utils
       '@effect/openapi-generator':
         specifier: 'catalog:'
-        version: 4.0.0-beta.98(patch_hash=3bc40fa02b7735320b54f44e6cbc1c5037c2bb154e2192fece4bee22fa5c1c83)(@effect/platform-node@4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1))(effect@4.0.0-beta.98)
+        version: 4.0.0-beta.100(patch_hash=3bc40fa02b7735320b54f44e6cbc1c5037c2bb154e2192fece4bee22fa5c1c83)(@effect/platform-node@4.0.0-beta.100(effect@4.0.0-beta.100)(ioredis@5.10.1))(effect@4.0.0-beta.100)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))
+        version: 4.0.0-beta.100(effect@4.0.0-beta.100)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
@@ -933,30 +933,30 @@ packages:
     resolution: {integrity: sha512-GwZtEwBaOMyKea6YAtN0T0OGBtzJ8/y0KUIfyg29u3hnMRiXKlR2BRDqJmi+SbgaODJNNB3YOd6KuRB/vsxnWw==}
     hasBin: true
 
-  '@effect/openapi-generator@4.0.0-beta.98':
-    resolution: {integrity: sha512-7bqawr/HqJWqQ8H/bHyzBlLPA3LIIm3Y+cGYlIxnC/QVK795QpiEXb7uxTnP7V7w49V0sBtTerv4/9ZjsMffLQ==}
+  '@effect/openapi-generator@4.0.0-beta.100':
+    resolution: {integrity: sha512-3CqBb4qxya2YJObncnRi8pXnxib/GpqL0hS27H4V0StjqLxHT+btHsHS23FJOLAvVC6loda2JKhl7AX735fm4g==}
     hasBin: true
     peerDependencies:
-      '@effect/platform-node': ^4.0.0-beta.98
-      effect: ^4.0.0-beta.98
+      '@effect/platform-node': ^4.0.0-beta.100
+      effect: ^4.0.0-beta.100
 
-  '@effect/platform-node-shared@4.0.0-beta.98':
-    resolution: {integrity: sha512-iySXaffnCJX1sNAIp79ghhIeui9E5qwUQyqd1VLPkB9UNO4vdpd9B5fTEXwe7S/GusL4jsk9vSvX38XJgRFG1w==}
+  '@effect/platform-node-shared@4.0.0-beta.100':
+    resolution: {integrity: sha512-PMsCXQeK2wnlmnqGCc79oqK9CX8ipZvoHxAy/CRojMF+zHIluxh61L3pzWAYEbMb19Be4Bxgqs7gK2hiV8H8Pg==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.98
+      effect: ^4.0.0-beta.100
 
-  '@effect/platform-node@4.0.0-beta.98':
-    resolution: {integrity: sha512-IQu1TiLXQEDSGkDBllyYjVadf+UqdjptryqX4mmktVTTbGDq7X4uVxe7cSgXuqZvyfG6kagTzwj2lfynxOaKQg==}
+  '@effect/platform-node@4.0.0-beta.100':
+    resolution: {integrity: sha512-nH5xgxOLfPj5Bi0/o4OaDsR98Z59lHKGty+TDqckg7zRz6jry82hGW982NRPduzX0MJloDsGp/3rfeN4Hu7Keg==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.98
+      effect: ^4.0.0-beta.100
       ioredis: ^5.7.0
 
-  '@effect/vitest@4.0.0-beta.98':
-    resolution: {integrity: sha512-uXRPuN8Y6v43/OVmQwKOd/VFDh+dipaxGKdWPr1bdnM+4bl8NZlYYRJi5omgXLFZ6ZbleduXKcmLM3NeePe69w==}
+  '@effect/vitest@4.0.0-beta.100':
+    resolution: {integrity: sha512-WoxrzPuxc+4QXb+7D1j8PwaBb9zVxHM2yw0sDz7fXij1Sx7X7T6LkYJ7m2xzWbfskIXxIdXVA+NnDSF8qAOGsw==}
     peerDependencies:
-      effect: ^4.0.0-beta.98
+      effect: ^4.0.0-beta.100
       vitest: ^3.0.0 || ^4.0.0
 
   '@emnapi/core@1.10.0':
@@ -1837,9 +1837,6 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
-  '@types/node@25.1.0':
-    resolution: {integrity: sha512-t7frlewr6+cbx+9Ohpl0NOTKXZNV9xHRmNOvql47BFJKcEG1CxtxlPEEe+gR9uhVWM4DwhnvTF110mIL4yP9RA==}
-
   '@types/node@26.1.1':
     resolution: {integrity: sha512-nxAkRSVkN1Y0JC1W8ky/fTfkGsMmcrRsbx+3XoZE+rMOX71kLYTV7fLXpqud1GpbpP5TuffXFqfX7fH2GgZREw==}
 
@@ -2273,8 +2270,8 @@ packages:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
 
-  effect@4.0.0-beta.98:
-    resolution: {integrity: sha512-oz+bsG5h+6RNrw4t5GMfQrk/xBS8ROoqkYsuvRhBr5O7mCOrpvH/hbw+QrDzvKIpX4HJClwm86F94c87W0sJxg==}
+  effect@4.0.0-beta.100:
+    resolution: {integrity: sha512-K4ed+BS3HyE+NoAZ8pJss2DpuK41mb856IO7ZlPfnwBXbq8oTtAAurrsVnwe2hzPamIuaZp/Pq4/xp9qORYv8Q==}
 
   ejs@5.0.1:
     resolution: {integrity: sha512-COqBPFMxuPTPspXl2DkVYaDS3HtrD1GpzOGkNTJ1IYkifq/r9h8SVEFrjA3D9/VJGOEoMQcrlhpntcSUrM8k6A==}
@@ -3386,9 +3383,6 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@7.16.0:
-    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
-
   undici-types@8.3.0:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
@@ -4329,27 +4323,27 @@ snapshots:
 
   '@effect/language-service@0.87.0': {}
 
-  '@effect/openapi-generator@4.0.0-beta.98(patch_hash=3bc40fa02b7735320b54f44e6cbc1c5037c2bb154e2192fece4bee22fa5c1c83)(@effect/platform-node@4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1))(effect@4.0.0-beta.98)':
+  '@effect/openapi-generator@4.0.0-beta.100(patch_hash=3bc40fa02b7735320b54f44e6cbc1c5037c2bb154e2192fece4bee22fa5c1c83)(@effect/platform-node@4.0.0-beta.100(effect@4.0.0-beta.100)(ioredis@5.10.1))(effect@4.0.0-beta.100)':
     dependencies:
-      '@effect/platform-node': 4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)
-      effect: 4.0.0-beta.98
+      '@effect/platform-node': 4.0.0-beta.100(effect@4.0.0-beta.100)(ioredis@5.10.1)
+      effect: 4.0.0-beta.100
       swagger2openapi: 7.0.8
     transitivePeerDependencies:
       - encoding
 
-  '@effect/platform-node-shared@4.0.0-beta.98(effect@4.0.0-beta.98)':
+  '@effect/platform-node-shared@4.0.0-beta.100(effect@4.0.0-beta.100)':
     dependencies:
       '@types/ws': 8.18.1
-      effect: 4.0.0-beta.98
+      effect: 4.0.0-beta.100
       ws: 8.21.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-beta.98(effect@4.0.0-beta.98)(ioredis@5.10.1)':
+  '@effect/platform-node@4.0.0-beta.100(effect@4.0.0-beta.100)(ioredis@5.10.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-beta.98(effect@4.0.0-beta.98)
-      effect: 4.0.0-beta.98
+      '@effect/platform-node-shared': 4.0.0-beta.100(effect@4.0.0-beta.100)
+      effect: 4.0.0-beta.100
       ioredis: 5.10.1
       mime: 4.1.0
       undici: 8.7.0
@@ -4357,9 +4351,9 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@effect/vitest@4.0.0-beta.98(effect@4.0.0-beta.98)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))':
+  '@effect/vitest@4.0.0-beta.100(effect@4.0.0-beta.100)(vitest@4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0)))':
     dependencies:
-      effect: 4.0.0-beta.98
+      effect: 4.0.0-beta.100
       vitest: 4.1.10(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.2)(yaml@2.9.0))
 
   '@emnapi/core@1.10.0':
@@ -5067,10 +5061,6 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
-  '@types/node@25.1.0':
-    dependencies:
-      undici-types: 7.16.0
-
   '@types/node@26.1.1':
     dependencies:
       undici-types: 8.3.0
@@ -5089,7 +5079,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 25.1.0
+      '@types/node': 26.1.1
 
   '@typescript-eslint/eslint-plugin@8.64.0(@typescript-eslint/parser@8.64.0(eslint@10.3.0)(typescript@6.0.3))(eslint@10.3.0)(typescript@6.0.3)':
     dependencies:
@@ -5562,7 +5552,7 @@ snapshots:
       es-errors: 1.3.0
       gopd: 1.2.0
 
-  effect@4.0.0-beta.98:
+  effect@4.0.0-beta.100:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 4.9.0
@@ -6806,8 +6796,6 @@ snapshots:
       - supports-color
 
   typescript@6.0.3: {}
-
-  undici-types@7.16.0: {}
 
   undici-types@8.3.0: {}
 

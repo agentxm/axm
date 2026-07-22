@@ -62,11 +62,11 @@ export const serializeArgv = (
   for (const [key, value] of Object.entries(argv)) {
     if (value == null) continue;
     const prefix = paramKinds[key] === "argument" ? "cli.arg" : "cli.flag";
-    if (Array.isArray(value)) {
-      result[`${prefix}.${key}`] = value.join(",");
-    } else {
-      result[`${prefix}.${key}`] = String(value);
-    }
+    // Record that the argument/flag was provided, but never its value: a
+    // user-supplied value can carry secrets (MCP `Authorization` headers,
+    // `--env` values, tokens embedded in install URLs) that must not leave the
+    // machine via telemetry. Boolean toggles carry no secret, so keep them.
+    result[`${prefix}.${key}`] = typeof value === "boolean" ? String(value) : "<redacted>";
   }
   return result;
 };

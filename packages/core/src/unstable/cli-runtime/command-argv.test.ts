@@ -35,7 +35,7 @@ describe("extractParamKinds", () => {
 });
 
 describe("serializeArgv", () => {
-  it("prefixes arguments with cli.arg and flags with cli.flag", () => {
+  it("records argument/flag presence with kind prefixes but redacts values", () => {
     const argv = { source: "owner/repo", scope: "project", yes: true };
     const paramKinds = {
       source: "argument" as const,
@@ -44,22 +44,22 @@ describe("serializeArgv", () => {
     };
 
     expect(serializeArgv(argv, paramKinds)).toEqual({
-      "cli.arg.source": "owner/repo",
-      "cli.flag.scope": "project",
+      "cli.arg.source": "<redacted>",
+      "cli.flag.scope": "<redacted>",
       "cli.flag.yes": "true",
     });
   });
 
-  it("joins array values with commas", () => {
+  it("redacts array values without leaking their contents", () => {
     const argv = { skill: ["foo", "bar"] };
     const paramKinds = { skill: "flag" as const };
 
     expect(serializeArgv(argv, paramKinds)).toEqual({
-      "cli.flag.skill": "foo,bar",
+      "cli.flag.skill": "<redacted>",
     });
   });
 
-  it("converts booleans to strings", () => {
+  it("keeps boolean toggle values (they carry no secret)", () => {
     const argv = { force: false, preview: true };
     const paramKinds = { force: "flag" as const, preview: "flag" as const };
 
@@ -69,12 +69,12 @@ describe("serializeArgv", () => {
     });
   });
 
-  it("converts numbers to strings", () => {
+  it("redacts numeric values", () => {
     const argv = { count: 5 };
     const paramKinds = { count: "flag" as const };
 
     expect(serializeArgv(argv, paramKinds)).toEqual({
-      "cli.flag.count": "5",
+      "cli.flag.count": "<redacted>",
     });
   });
 
@@ -87,7 +87,7 @@ describe("serializeArgv", () => {
     };
 
     expect(serializeArgv(argv, paramKinds)).toEqual({
-      "cli.arg.source": "repo",
+      "cli.arg.source": "<redacted>",
     });
   });
 
@@ -96,7 +96,34 @@ describe("serializeArgv", () => {
     const paramKinds: Record<string, "argument" | "flag"> = {};
 
     expect(serializeArgv(argv, paramKinds)).toEqual({
-      "cli.flag.unknown": "value",
+      "cli.flag.unknown": "<redacted>",
+    });
+  });
+
+  it("never emits a secret-bearing value verbatim (regression)", () => {
+    const secret = "Bearer sk-live-0xDEADBEEF-super-secret-token";
+    const argv = {
+      header: `Authorization: ${secret}`,
+      env: "OPENAI_API_KEY=sk-live-0xDEADBEEF",
+      url: "https://user:p4ssw0rd@example.com/repo.git",
+    };
+    const paramKinds = {
+      header: "flag" as const,
+      env: "flag" as const,
+      url: "argument" as const,
+    };
+
+    const serialized = serializeArgv(argv, paramKinds);
+    const emitted = JSON.stringify(serialized);
+
+    expect(emitted).not.toContain("sk-live");
+    expect(emitted).not.toContain("p4ssw0rd");
+    expect(emitted).not.toContain("Bearer");
+    // Presence + kind are still recorded for analytics.
+    expect(serialized).toEqual({
+      "cli.flag.header": "<redacted>",
+      "cli.flag.env": "<redacted>",
+      "cli.arg.url": "<redacted>",
     });
   });
 

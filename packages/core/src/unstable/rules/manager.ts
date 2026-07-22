@@ -362,9 +362,23 @@ export const RuleManagerLive = Layer.effect(
         }
 
         const rendered = yield* renderInstalledRulesRegion(args);
-        const existing = yield* fs
-          .readFileString(target.absolute)
-          .pipe(Effect.catch(() => Effect.succeed("")));
+        // Only treat an absent file as empty; a real read failure on an existing
+        // file must propagate, or we would overwrite unreadable user content
+        // with just the managed region.
+        const fileExists = yield* fs
+          .exists(target.absolute)
+          .pipe(Effect.catch(() => Effect.succeed(false)));
+        const existing = fileExists
+          ? yield* fs.readFileString(target.absolute).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to read managed instructions file: ${target.absolute}`,
+                  cause: error,
+                }),
+              ),
+            )
+          : "";
         const updated =
           rendered.length === 0
             ? stripManagedRegion(existing, { region: RULES_REGION }, style.value)

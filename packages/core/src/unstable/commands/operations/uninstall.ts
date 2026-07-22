@@ -121,8 +121,10 @@ export const uninstallCommand: (
     const externalPath = path.join(base, EXTERNAL_EXTENSIONS_DIR, "commands", op.args.commandName);
     yield* fs.remove(externalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
 
-    // Remove from settings + lockfile (swallow errors)
-    yield* ws.removeCommand(op.args.commandName).pipe(Effect.catch(() => Effect.void));
+    // Remove from settings + lockfile. This is the authoritative state: if it
+    // fails, surface the error instead of reporting a success that leaves the
+    // command present in the lockfile/settings but gone from disk.
+    yield* ws.removeCommand(op.args.commandName);
 
     return {
       result: "success",

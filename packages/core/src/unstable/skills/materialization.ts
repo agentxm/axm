@@ -301,7 +301,15 @@ export const ensureSkillAgentArtifact = (args: {
                 baseDir: args.baseDir,
               }),
             ),
-            Effect.ignore,
+            // If the copy fallback also fails, surface it — otherwise sync
+            // reports success with no materialized skill artifact.
+            Effect.mapError((error) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to materialize skill artifact at ${agentSkillPath}`,
+                cause: error,
+              }),
+            ),
           ),
         ),
       ),

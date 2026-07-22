@@ -242,7 +242,7 @@ describe("uninstallCommand", () => {
   });
 
   describe("settings removal failure", () => {
-    it.effect("swallows removeCommand failure (warning, not error)", () =>
+    it.effect("surfaces removeCommand failure instead of reporting success", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileCommands } = setupWorkspace();
         const removeCommandFn = vi.fn(() =>
@@ -255,11 +255,17 @@ describe("uninstallCommand", () => {
           ),
         );
 
-        const result = yield* uninstallCommand(makeOp()).pipe(
+        // The settings/lockfile entry is authoritative; if its removal fails the
+        // operation must fail rather than leave the command present in the
+        // lockfile but gone from disk.
+        const error = yield* uninstallCommand(makeOp()).pipe(
           Effect.provide(withServices(axmDir, lockfileCommands, { removeCommandFn })),
+          Effect.flip,
         );
 
-        expect(result.result).toBe("success");
+        expect(removeCommandFn).toHaveBeenCalled();
+        expect(error.code).toBe("internal");
+        expect(error.detail).toBe("write failed");
       }),
     );
   });

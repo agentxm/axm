@@ -168,6 +168,7 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
   const files = patchOptionalMap(fresh.files, base.files, next.files);
   const rules = patchOptionalMap(fresh.rules, base.rules, next.rules);
   const hooks = patchOptionalMap(fresh.hooks, base.hooks, next.hooks);
+  const knowledge = patchOptionalMap(fresh.knowledge, base.knowledge, next.knowledge);
   const packs = patchOptionalMap(fresh.packs, base.packs, next.packs);
   const libraries = patchOptionalMap(fresh.libraries, base.libraries, next.libraries);
 
@@ -180,6 +181,7 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
     ...(files !== undefined ? { files } : {}),
     ...(rules !== undefined ? { rules } : {}),
     ...(hooks !== undefined ? { hooks } : {}),
+    ...(knowledge !== undefined ? { knowledge } : {}),
     ...(packs !== undefined ? { packs } : {}),
     ...(libraries !== undefined ? { libraries } : {}),
   } satisfies Lockfile;

@@ -46,6 +46,27 @@ describe("settings", () => {
       ),
     );
 
+    it.effect("writes atomically, leaving no temp file behind", () =>
+      withContext(
+        Effect.gen(function* () {
+          const settings: Settings = {
+            skills: { commit: { source: "^1.0.0", enabled: true } },
+          };
+
+          yield* writeSettings(axmDir, settings);
+
+          // The atomic write goes through a temp file then rename; no temp is
+          // left behind, and the real settings file holds the written content.
+          const leftovers = fs.readdirSync(axmDir).filter((name) => name.includes(".tmp"));
+          expect(leftovers).toEqual([]);
+          const parsed = expectRecord(
+            JSON.parse(fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8")),
+          );
+          expect(parsed).toHaveProperty("skills");
+        }),
+      ),
+    );
+
     it.effect("writes settings with 2-space indentation and trailing newline", () =>
       withContext(
         Effect.gen(function* () {

@@ -243,8 +243,24 @@ export const createRemoteRegistryClient = (
   // ---------------------------------------------------------------------------
   const getExtensionIndex = (args: GetExtensionIndexArgs) =>
     client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined).pipe(
-      Effect.map((response) => Option.some(mapToExtensionIndex(response))),
-      Effect.catch((e) => mapDiscoveryErrorWithNotFound(e, "REGISTRY_REMOTE_DISCOVERY")),
+      // Resolve the HTTP outcome first (404 → absent), then decode the index in
+      // the effect so a schema-drift SchemaError is mapped through the error
+      // channel (mapDiscoveryError's isSchemaError branch) instead of throwing
+      // an uncatchable defect out of Effect.map.
+      Effect.map((response) => Option.some(response)),
+      Effect.catch((e) =>
+        isRegistryClientError("ExtensionsGet404")(e)
+          ? Effect.succeed(Option.none<ExtensionsGet200>())
+          : Effect.fail(mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY")),
+      ),
+      Effect.flatMap((response) =>
+        Option.isNone(response)
+          ? Effect.succeed(Option.none<ExtensionIndex>())
+          : Effect.try({
+              try: () => Option.some(mapToExtensionIndex(response.value)),
+              catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
+            }),
+      ),
     );
 
   // ---------------------------------------------------------------------------
@@ -257,20 +273,6 @@ export const createRemoteRegistryClient = (
       Effect.map((response) => Option.some(mapToLibraryDetail(response))),
       Effect.catch((e) => mapLibraryErrorWithNotFound(e)),
     );
-
-  /**
-   * Map discovery errors, treating 404 as Option.none().
-   */
-  const mapDiscoveryErrorWithNotFound = (
-    e: unknown,
-    prefix: string,
-  ): Effect.Effect<Option.Option<ExtensionIndex>, AppError> => {
-    // 404 → Option.none()
-    if (isRegistryClientError("ExtensionsGet404")(e)) {
-      return Effect.succeed(Option.none<ExtensionIndex>());
-    }
-    return Effect.fail(mapDiscoveryError(e, prefix));
-  };
 
   const mapLibraryErrorWithNotFound = (
     e: unknown,
@@ -505,7 +507,10 @@ export const createRemoteRegistryClient = (
         .ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined)
         .pipe(Effect.mapError((e) => mapPackageFetchError(e)));
 
-      const index = mapToExtensionIndex(indexResult);
+      const index = yield* Effect.try({
+        try: () => mapToExtensionIndex(indexResult),
+        catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
+      });
 
       // Step 2: Resolve version
       const resolvedEntry = resolveVersionEntry(index.versions, args.version);

@@ -138,7 +138,7 @@ describe("file region markers", () => {
     expect(replaced).not.toContain("old");
   });
 
-  it("rejects duplicate matching region starts", () => {
+  it("handles duplicate region starts leniently without throwing", () => {
     const style = commentStyleForTarget("README.md");
     if (Option.isNone(style)) return;
     const content = [
@@ -147,13 +147,43 @@ describe("file region markers", () => {
       "<!-- axm:end region=toc ext=@acme/files/readme -->",
     ].join("\n");
 
-    expect(() =>
-      replaceManagedRegion({
-        content,
-        marker: { region: "toc", ext: "@acme/files/readme" },
-        rendered: "new",
-        style: style.value,
-      }),
-    ).toThrow(/duplicate AXM region start/i);
+    // Malformed marker sequences in hand-edited files must not crash sync; the
+    // first start/end pair is used and the region is rewritten cleanly.
+    const replaced = replaceManagedRegion({
+      content,
+      marker: { region: "toc", ext: "@acme/files/readme" },
+      rendered: "new",
+      style: style.value,
+    });
+
+    expect(replaced).toContain("new");
+    expect(replaced.match(/axm:start region=toc/g)?.length).toBe(1);
+  });
+
+  it("resolves the // comment style for Rust/Go/Java/Kotlin sources", () => {
+    for (const target of ["main.rs", "main.go", "Main.java", "main.kt"]) {
+      const style = commentStyleForTarget(target);
+      expect(Option.isSome(style)).toBe(true);
+      if (Option.isSome(style)) {
+        expect(style.value).toEqual({ kind: "line", prefix: "//" });
+      }
+    }
+  });
+
+  it("preserves CRLF line endings outside the managed region", () => {
+    const style = commentStyleForTarget("README.md");
+    if (Option.isNone(style)) return;
+    const content = ["# Title", "", "body line", ""].join("\r\n");
+
+    const replaced = replaceManagedRegion({
+      content,
+      marker: { region: "toc", ext: "@acme/files/readme" },
+      rendered: "toc body",
+      style: style.value,
+    });
+
+    // The existing CRLF content is not rewritten to LF.
+    expect(replaced).toContain("# Title\r\n");
+    expect(replaced).not.toMatch(/[^\r]\n# Title/);
   });
 });

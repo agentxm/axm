@@ -6,7 +6,11 @@ import { CodingAgentRepository } from "../agents/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { WorkspaceMutations } from "./service-interface.js";
 
-export const AXM_MANAGED_MARKER = "AXM managed";
+// Match the full managed-file banner ("AXM managed file — do not edit
+// directly…"), not a bare "AXM managed" substring: the loose form would flag —
+// and delete — user-authored files that merely mention the phrase or carry a
+// managed region.
+export const AXM_MANAGED_MARKER = "AXM managed file";
 
 export interface RenderedFileCleanupResult {
   readonly removedPaths: ReadonlyArray<string>;

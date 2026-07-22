@@ -1,3 +1,24 @@
+## 0.22.7 (2026-07-22)
+
+### 🩹 Fixes
+
+- fix(cli-runtime): redact CLI argument/flag values from telemetry ([#25](https://github.com/agentxm/axm/pull/25))
+- fix(registry,publish): harden untrusted archive ingest against zip slip and zip bombs ([#24](https://github.com/agentxm/axm/pull/24))
+- fix(subagents): relativize rendered paths so disable does not crash on absolute paths ([#26](https://github.com/agentxm/axm/pull/26))
+- fix(core): route MCP-config and registry-index parse/decode failures through typed errors ([#27](https://github.com/agentxm/axm/pull/27))
+- fix(core): make settings/build-store/credential/lockfile writes durable ([#28](https://github.com/agentxm/axm/pull/28))
+- fix(core): surface swallowed install/uninstall/materialization/read errors ([#29](https://github.com/agentxm/axm/pull/29))
+- fix(packs): prevent unpack member loss, pack-removal rollback, and shared-dep leaks ([#31](https://github.com/agentxm/axm/pull/31))
+- fix(core): serialize concurrent MCP/hook config writes and lock stealing ([#30](https://github.com/agentxm/axm/pull/30))
+- fix(managed-files): correct comment prefixes, lenient markers, CRLF, precise cleanup ([#32](https://github.com/agentxm/axm/pull/32))
+- chore(deps): upgrade Effect to 4.0.0-beta.100 ([e376c4ff](https://github.com/agentxm/axm/commit/e376c4ff))
+
+### ❤️ Thank You
+
+- Claude Opus 4.8 (1M context)
+- Craig Smitham
+- Test @songkang666
+
 ## 0.22.6 (2026-07-16)
 
 ### 🚀 Features

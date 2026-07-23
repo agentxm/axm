@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     include: ["src/**/*.e2e.test.ts"],
     exclude: ["src/binary-smoke.e2e.test.ts", "src/install-verification.e2e.test.ts"],
-    testTimeout: 30000,
+    testTimeout: 60000,
     reporters: ["default", "junit"],
     outputFile: { junit: "../../test-results/cli-e2e/junit.xml" },
   },

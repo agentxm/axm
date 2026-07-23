@@ -91,7 +91,7 @@ for (const text of [
   "axm-ci-cache/pnpm-store",
   "axm-ci-cache/nx",
   "hashFiles('containers/ci/CI_IMAGE')",
-  'AXM_CONTAINER_NX_PARALLEL: "2"',
+  'AXM_CONTAINER_NX_PARALLEL: "3"',
   'AXM_CONTAINER_VITEST_MAX_WORKERS: "2"',
   "scripts/verify-affected-ci.sh",
   "if: always()",

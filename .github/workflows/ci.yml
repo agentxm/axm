@@ -228,7 +228,7 @@ jobs:
           AXM_CI_PNPM_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/pnpm-store
           AXM_CI_NX_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/nx
           AXM_CI_PHASE_SUMMARY_FILE: test-results/ci-verification-summary.md
-          AXM_CONTAINER_NX_PARALLEL: "2"
+          AXM_CONTAINER_NX_PARALLEL: "3"
           AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
           AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
         run: scripts/container-environment.sh ci scripts/verify-affected-ci.sh
@@ -268,7 +268,7 @@ jobs:
             echo "| Affected projects | $affected_projects |"
             echo "| pnpm cache | $(cache_status "$PNPM_CACHE_HIT") ($(cache_size "$PNPM_CACHE_PATH")) |"
             echo "| Nx cache | $(cache_status "$NX_CACHE_HIT") ($(cache_size "$NX_CACHE_PATH")) |"
-            echo "| Concurrency | Nx 2; Vitest 2 |"
+            echo "| Concurrency | Nx 3; Vitest 2 |"
             echo
             if [[ -f test-results/ci-verification-summary.md ]]; then
               cat test-results/ci-verification-summary.md

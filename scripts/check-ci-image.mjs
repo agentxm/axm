@@ -8,8 +8,10 @@ const ciImagePin = read("containers/ci/CI_IMAGE").trim();
 const version = read("containers/ci/VERSION").trim();
 const affectedCiRunner = read("scripts/verify-affected-ci.sh");
 const ciWorkflow = read(".github/workflows/ci.yml");
+const nxManifest = JSON.parse(read("nx.json"));
 const packageManifest = JSON.parse(read("package.json"));
 const project = read("project.json");
+const projectManifest = JSON.parse(project);
 const workflow = read(".github/workflows/ci-image.yml");
 const workflowSources = readdirSync(".github/workflows")
   .filter((path) => path.endsWith(".yml") || path.endsWith(".yaml"))
@@ -122,6 +124,20 @@ if (workflowFormatChecks.length !== 1) {
 
 if (packageManifest.scripts?.["generate:check"]?.includes("format:check")) {
   errors.push("generate:check must not duplicate the PR formatting check");
+}
+
+if (
+  !nxManifest.targetDefaults?.test?.outputs?.includes("{workspaceRoot}/test-results/{projectName}")
+) {
+  errors.push("cached test targets must restore their JUnit reports");
+}
+
+if (
+  !projectManifest.targets?.["scripts-test"]?.outputs?.includes(
+    "{workspaceRoot}/test-results/scripts",
+  )
+) {
+  errors.push("the cached scripts test target must restore its JUnit report");
 }
 
 requireText(

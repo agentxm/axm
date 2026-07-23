@@ -33,10 +33,12 @@ digest-pinned image, and the lockfile contents. Pull-request jobs run only on
 ephemeral GitHub-hosted runners, so untrusted changes cannot read or write the
 persistent trusted-runner caches. The PR workflow restores separate,
 branch-scoped GitHub Actions caches into host directories and bind-mounts them
-into the container. `node_modules` remains an anonymous volume and is never
-persisted across runs. Operators may set `AXM_CI_PNPM_CACHE_VOLUME` and
+into the container. Nx saves use commit-specific immutable keys and can restore
+compatible entries from an earlier commit on the same branch. `node_modules`
+remains an anonymous volume and is never persisted across runs. For recovery or
+cache rotation, operators may set `AXM_CI_PNPM_CACHE_VOLUME` and
 `AXM_CI_NX_CACHE_VOLUME` to another Docker volume name or absolute bind-mount
-path for recovery or cache rotation.
+path.
 
 Retain every semantic version used by CI and the previous known-good digest for
 rollback. Keep the newest 30 `sha-*` references; unreferenced commit references

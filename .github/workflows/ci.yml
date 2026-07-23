@@ -199,8 +199,10 @@ jobs:
           path: ${{ runner.temp }}/axm-ci-cache/nx
           key: >-
             axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-${{
-            hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}
+            hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-${{
+            github.event.pull_request.head.sha }}
           restore-keys: |
+            axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-
             axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-
             axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-
 

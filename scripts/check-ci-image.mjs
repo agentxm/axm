@@ -103,6 +103,14 @@ for (const text of [
   requireText(ciWorkflow, text, `CI workflow is missing ${text}`);
 }
 
+if (
+  !/key:\s*>-\s+axm-ci-nx-v1-[\s\S]{0,500}github\.event\.pull_request\.head\.sha\s*\}\}\s+restore-keys:/u.test(
+    ciWorkflow,
+  )
+) {
+  errors.push("the Nx cache must use a commit-specific primary key");
+}
+
 for (const text of [
   "::group::%s",
   'run_phase "Install workspace dependencies"',

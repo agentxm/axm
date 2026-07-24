@@ -381,5 +381,10 @@ describe("axm uninstall", () => {
         typedWorkspace.cleanup();
       }
     },
+    // Each case spawns ~10 CLI processes (publish, init ×2, install ×2,
+    // uninstall ×2, then an idempotent re-uninstall ×2). The default 30s
+    // timeout leaves almost no headroom (~25s in CI) and flakes under load on
+    // slower runners, so give these heavy cases a generous ceiling.
+    120_000,
   );
 });

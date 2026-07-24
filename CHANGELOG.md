@@ -1,3 +1,14 @@
+## 0.22.10 (2026-07-24)
+
+### 🩹 Fixes
+
+- Re-verify publish.yml after reverting it to Corepack (Windows install-verify fix); no functional changes. ([#46](https://github.com/agentxm/axm/pull/46), [#45](https://github.com/agentxm/axm/issues/45))
+
+### ❤️ Thank You
+
+- Claude Opus 4.8 (1M context)
+- Craig Smitham
+
 ## 0.22.9 (2026-07-24)
 
 ### 🩹 Fixes

@@ -1,0 +1,46 @@
+name: Validate toolchain composite
+
+# TEMPORARY: proves the mise.toml-sourced setup-workspace composite installs
+# Node, pnpm, and Bun on every runner OS used by binary-smoke and install-verify
+# before those release-critical jobs adopt it. Remove once validated.
+
+on:
+  pull_request:
+    paths:
+      - .github/actions/setup-workspace/**
+      - .github/workflows/validate-toolchain.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Toolchain - ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-15-intel
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+        with:
+          install: "false"
+
+      - name: Assert Node, pnpm, and Bun resolve from mise.toml
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "node: $(node --version)"
+          echo "pnpm: $(pnpm --version)"
+          echo "bun:  $(bun --version)"

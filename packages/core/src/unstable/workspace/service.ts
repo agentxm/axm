@@ -27,8 +27,6 @@ import {
   LOCKFILE_NAME,
   LOCKFILE_VERSION,
   commitLockfileSnapshotUpdate,
-  makeRegistryLibraryLockEntry,
-  type RegistryLibraryLockEntry,
   type FilesLockMap,
   type HooksLockMap,
   type KnowledgeLockMap,
@@ -61,8 +59,6 @@ import {
   type KnowledgeEntry,
   type KnowledgeMap,
   type InstructionsConfigValue,
-  type LibraryEntry,
-  type LibrariesMap,
   type McpServerEntry,
   type McpServersMap,
   type MinimumReleaseAge,
@@ -107,7 +103,6 @@ import {
   type SetRuleArgs,
   type SetHookArgs,
   type SetKnowledgeArgs,
-  type SetLibraryArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
   type SkillPathSource,
@@ -1630,92 +1625,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removePack")),
 
-      getConfiguredLibraryEntries: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): LibrariesMap => s.libraries ?? {}),
-          Effect.withSpan("WorkspaceMutations.getConfiguredLibraryEntries"),
-        ),
-
-      getLockedLibraries: () =>
-        readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.libraries ?? {})),
-
-      getLockedLibrary: (name: string) =>
-        readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromUndefinedOr((lf.libraries ?? {})[name])),
-        ),
-
-      setLibrary: (args: SetLibraryArgs) =>
-        withMutex(
-          Effect.gen(function* () {
-            const { source, name, ...lockFields } = args;
-            const lockEntry: RegistryLibraryLockEntry = makeRegistryLibraryLockEntry({
-              ...lockFields,
-              name,
-            });
-
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentLibraries: LibrariesMap = currentSettings.libraries ?? {};
-            const existing = currentLibraries[name];
-            const enabled = existing?.enabled ?? true;
-            const updatedSettings = {
-              ...currentSettings,
-              libraries: { ...currentLibraries, [name]: { source, enabled } },
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedLibraries = currentLockfile.libraries ?? {};
-            const updatedLockfile = {
-              ...currentLockfile,
-              libraries: {
-                ...currentLockedLibraries,
-                [name]: preserveLockTimestampsOnNoop(currentLockedLibraries[name], lockEntry),
-              },
-            };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setLibrary")),
-
-      setLibraryEntry: (name: string, entry: LibraryEntry) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentLibraries: LibrariesMap = currentSettings.libraries ?? {};
-            const updatedSettings = {
-              ...currentSettings,
-              libraries: { ...currentLibraries, [name]: entry },
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setLibraryEntry")),
-
-      removeLibrary: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentLibraries: LibrariesMap = currentSettings.libraries ?? {};
-            const { [name]: removedLibrary, ...remainingLibraries } = currentLibraries;
-            void removedLibrary;
-            const updatedSettings = { ...currentSettings, libraries: remainingLibraries };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedLibraries = currentLockfile.libraries ?? {};
-            const { [name]: removedLock, ...remainingLockedLibraries } = currentLockedLibraries;
-            void removedLock;
-            const updatedLockfile = { ...currentLockfile, libraries: remainingLockedLibraries };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.removeLibrary")),
-
       getPackDir: (name: string, owner: Handle) =>
         Effect.succeed(computePackPaths(path.join, baseDir, owner, name)),
 
@@ -2305,36 +2214,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingPacks } = currentLockedPacks;
             void _;
             const updatedLockfile = { ...currentLockfile, packs: remainingPacks };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ),
-
-      removeLibrarySettings: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentLibraries: LibrariesMap = currentSettings.libraries ?? {};
-            if (!(name in currentLibraries)) return;
-            const { [name]: _, ...remainingLibraries } = currentLibraries;
-            void _;
-            const updatedSettings = { ...currentSettings, libraries: remainingLibraries };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-          }),
-        ),
-
-      removeLibraryLock: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedLibraries = currentLockfile.libraries ?? {};
-            if (!(name in currentLockedLibraries)) return;
-            const { [name]: _, ...remainingLibraries } = currentLockedLibraries;
-            void _;
-            const updatedLockfile = { ...currentLockfile, libraries: remainingLibraries };
             yield* commitLockfileSnapshotUpdate(
               workspaceDir,
               currentLockfile,

@@ -25,10 +25,6 @@ import {
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
 import {
-  InstallLibraryCommandWorkflowActions,
-  type InstallLibraryHandlerArgs,
-} from "../libraries/install/command-actions.js";
-import {
   makeInstallKnowledgeCommandWorkflowActions,
   type InstallKnowledgeHandlerArgs,
 } from "../knowledge/install/command-actions.js";
@@ -117,14 +113,6 @@ const runUpdateIntent = (intent: RootUpdateIntent, args: RootUpdateFlags) =>
         const packArgs: InstallPackHandlerArgs = { source: intent.source, unattended: true };
         return yield* runInstallCommandWorkflow(packArgs, actions, args);
       }
-      case "library": {
-        const actions = yield* InstallLibraryCommandWorkflowActions;
-        const libraryArgs: InstallLibraryHandlerArgs = {
-          source: intent.source,
-          unattended: true,
-        };
-        return yield* runInstallCommandWorkflow(libraryArgs, actions, args);
-      }
     }
   });
 
@@ -143,10 +131,7 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
         const intent = yield* resolveRootUpdateIntent(source);
         const resolution = yield* runUpdateIntent(intent, args);
         let outputResolution: PlanResolution = resolution;
-        if (
-          !args.preview &&
-          (intent.type === "files" || intent.type === "pack" || intent.type === "library")
-        ) {
+        if (!args.preview && (intent.type === "files" || intent.type === "pack")) {
           const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
             dryRun: false,
           });

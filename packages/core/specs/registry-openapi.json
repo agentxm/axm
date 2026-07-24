@@ -3695,61 +3695,6 @@
         "summary": "Delete a Library"
       }
     },
-    "/v1/libraries/{owner}/{name}/resolution": {
-      "get": {
-        "tags": ["Libraries"],
-        "operationId": "Libraries.getLibraryResolution",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/Handle" },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/LibraryName" },
-            "required": true
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "The current Library membership and latest eligible versions visible to the authenticated viewer.",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/LibraryResolution" } }
-            }
-          },
-          "304": { "description": "<No Content>" },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Resolve a Library for the current viewer"
-      }
-    },
     "/v1/libraries/{owner}/{name}/members": {
       "get": {
         "tags": ["Libraries"],
@@ -6638,73 +6583,6 @@
         "required": ["library", "members", "accessibleMemberCount", "contentsMayVary"],
         "additionalProperties": false,
         "title": "Library Detail"
-      },
-      "ExtensionVersionId": {
-        "type": "string",
-        "allOf": [
-          {
-            "pattern": "^extv_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Extension Version ID",
-            "description": "Identifies a specific published version of an extension. Each publish operation creates a new version under its parent extension.",
-            "examples": ["extv_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
-      },
-      "LibraryResolutionMember": {
-        "type": "object",
-        "properties": {
-          "memberId": { "$ref": "#/components/schemas/LibraryMemberId" },
-          "extensionId": { "$ref": "#/components/schemas/ExtensionId" },
-          "extensionVersionId": { "$ref": "#/components/schemas/ExtensionVersionId" },
-          "owner": { "$ref": "#/components/schemas/Handle" },
-          "type": { "$ref": "#/components/schemas/ExtensionType" },
-          "name": { "$ref": "#/components/schemas/ExtensionName" },
-          "version": { "$ref": "#/components/schemas/Version" },
-          "addedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
-          "publishedAt": {
-            "anyOf": [{ "$ref": "#/components/schemas/IsoDateTimeString" }, { "type": "null" }]
-          }
-        },
-        "required": [
-          "memberId",
-          "extensionId",
-          "extensionVersionId",
-          "owner",
-          "type",
-          "name",
-          "version",
-          "addedAt",
-          "publishedAt"
-        ],
-        "additionalProperties": false,
-        "title": "Library Resolution Member"
-      },
-      "LibraryResolution": {
-        "type": "object",
-        "properties": {
-          "libraryId": { "$ref": "#/components/schemas/LibraryId" },
-          "reference": { "type": "string" },
-          "name": { "$ref": "#/components/schemas/LibraryName" },
-          "updatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
-          "membershipDigest": { "type": "string" },
-          "viewerRelative": { "type": "boolean", "enum": [true] },
-          "members": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/LibraryResolutionMember" }
-          }
-        },
-        "required": [
-          "libraryId",
-          "reference",
-          "name",
-          "updatedAt",
-          "membershipDigest",
-          "viewerRelative",
-          "members"
-        ],
-        "additionalProperties": false,
-        "title": "Library Resolution",
-        "description": "The current Library membership and latest eligible versions visible to the authenticated viewer."
       },
       "ListLibraryMembersResponse": {
         "type": "object",

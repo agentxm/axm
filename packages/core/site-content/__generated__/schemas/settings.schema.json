@@ -695,57 +695,6 @@
       "title": "Packs Config",
       "description": "Feature-level configuration for packs."
     },
-    "LibraryRef": {
-      "type": "string",
-      "allOf": [
-        {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/libraries\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
-          "title": "Library Ref",
-          "description": "Bare Library reference. Libraries do not accept version suffixes.",
-          "examples": ["@acme/libraries/frontend"]
-        }
-      ]
-    },
-    "LibraryEntry": {
-      "anyOf": [
-        { "type": "string" },
-        {
-          "type": "object",
-          "properties": {
-            "source": { "$ref": "#/definitions/LibraryRef" },
-            "enabled": {
-              "type": "boolean",
-              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
-              "default": true
-            }
-          },
-          "required": ["source"],
-          "additionalProperties": false,
-          "title": "Library Entry Object",
-          "description": "A Library subscription entry with source and an optional enabled flag."
-        }
-      ],
-      "title": "Library Entry",
-      "description": "A Library subscription entry: a bare Library ref, or an object with source plus optional flags.",
-      "examples": [
-        "@acme/libraries/frontend",
-        { "source": "@acme/libraries/frontend", "enabled": false }
-      ]
-    },
-    "LibrariesMap": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/definitions/LibraryEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          },
-          "title": "Libraries Map",
-          "description": "A map of Library subscription names to Library refs."
-        }
-      ]
-    },
     "McpServerEnv": {
       "anyOf": [
         { "type": "object", "additionalProperties": { "type": "string" } },
@@ -960,10 +909,6 @@
         "packsConfig": {
           "anyOf": [{ "$ref": "#/definitions/PacksConfig" }],
           "description": "Feature-level options for pack management."
-        },
-        "libraries": {
-          "anyOf": [{ "$ref": "#/definitions/LibrariesMap" }],
-          "description": "Your Library subscriptions, keyed by workspace subscription name. Prefer plain Library refs; use the object form only to set `enabled: false`. Libraries are always latest and do not accept version suffixes."
         },
         "mcpServers": {
           "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],

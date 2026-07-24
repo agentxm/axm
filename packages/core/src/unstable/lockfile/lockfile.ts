@@ -170,7 +170,6 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
   const hooks = patchOptionalMap(fresh.hooks, base.hooks, next.hooks);
   const knowledge = patchOptionalMap(fresh.knowledge, base.knowledge, next.knowledge);
   const packs = patchOptionalMap(fresh.packs, base.packs, next.packs);
-  const libraries = patchOptionalMap(fresh.libraries, base.libraries, next.libraries);
 
   return {
     lockfileVersion: LOCKFILE_VERSION,
@@ -183,7 +182,6 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
     ...(hooks !== undefined ? { hooks } : {}),
     ...(knowledge !== undefined ? { knowledge } : {}),
     ...(packs !== undefined ? { packs } : {}),
-    ...(libraries !== undefined ? { libraries } : {}),
   } satisfies Lockfile;
 };
 
@@ -223,6 +221,12 @@ const readLockfileIfPresent = (
           cause: error,
         }),
     });
+    if (typeof parsed === "object" && parsed !== null && "libraries" in parsed) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Failed to decode lockfile at ${lockfilePath}: Library workspace state is no longer supported`,
+      });
+    }
     const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed).pipe(
       Effect.mapError((error) =>
         makeAppError({

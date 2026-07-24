@@ -15,7 +15,6 @@ import {
 } from "../extensions/common.js";
 import { FileInputValueSchema } from "../files/manifest-schema.js";
 import { HandleSchema } from "../extensions/handle.js";
-import { LibraryRefSchema } from "../libraries/index.js";
 import { LintConfigSchema } from "../lint/config.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
 
@@ -381,8 +380,6 @@ type FilesEntryObject = EnabledEntryObject & {
 type FilesEntryCanonical = EnabledEntry & {
   readonly inputs: FileInputValuesMap;
 };
-
-type LibraryEntryCanonical = EnabledEntry;
 
 const compactOrVerboseEntry = <
   ObjectEntry,
@@ -1147,85 +1144,6 @@ export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema)
 export type PacksMap = Schema.Schema.Type<typeof PacksMapSchema>;
 
 // -----------------------------------------------------------------------------
-// Library Entry Schemas
-// -----------------------------------------------------------------------------
-
-/**
- * Library subscription with source and optional config flags.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const LibraryEntryObjectSchema = Schema.Struct({
-  source: LibraryRefSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "Library source is required" }),
-    Schema.annotate({
-      description: "Bare Library reference. Libraries do not accept version suffixes.",
-      examples: ["@acme/libraries/frontend"],
-    }),
-  ),
-  enabled: enabledFieldSchema,
-}).annotate({
-  title: "Library Entry Object",
-  description: "A Library subscription entry with source and an optional enabled flag.",
-});
-
-/**
- * Union of Library entry forms: plain Library ref or object with source + enabled.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const LibraryEntrySchema = compactOrVerboseEntry(
-  LibraryEntryObjectSchema,
-  Schema.Struct({
-    source: LibraryRefSchema,
-    enabled: Schema.Boolean,
-  }),
-  {
-    decode: (entry: string | EnabledEntryObject): LibraryEntryCanonical =>
-      typeof entry === "string"
-        ? { source: entry, enabled: true }
-        : {
-            source: entry.source,
-            enabled: entry.enabled ?? true,
-          },
-    encode: (entry: LibraryEntryCanonical): string | EnabledEntryObject => {
-      if (entry.enabled) return entry.source;
-      const obj: { source: string; enabled?: boolean } = {
-        source: entry.source,
-      };
-      if (!entry.enabled) obj.enabled = false;
-      return obj;
-    },
-  },
-  {
-    identifier: "LibraryEntry",
-    title: "Library Entry",
-    description:
-      "A Library subscription entry: a bare Library ref, or an object with source plus optional flags.",
-    examples: ["@acme/libraries/frontend", { source: "@acme/libraries/frontend", enabled: false }],
-  },
-);
-
-/** @experimental */
-export type LibraryEntry = Schema.Schema.Type<typeof LibraryEntrySchema>;
-
-/**
- * Libraries map - maps subscription names to Library entries.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const LibrariesMapSchema = Schema.Record(Schema.String, LibraryEntrySchema)
-  .check(Schema.isPropertyNames(ExtensionMapKeySchema))
-  .annotate({
-    identifier: "LibrariesMap",
-    title: "Libraries Map",
-    description: "A map of Library subscription names to Library refs.",
-  });
-
-/** @experimental */
-export type LibrariesMap = Schema.Schema.Type<typeof LibrariesMapSchema>;
-
-// -----------------------------------------------------------------------------
 // Feature Config Schemas
 // -----------------------------------------------------------------------------
 
@@ -1445,7 +1363,6 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "subagentsConfig",
   "packs",
   "packsConfig",
-  "libraries",
   "mcpServers",
   "mcpServersConfig",
   "lint",
@@ -1472,7 +1389,6 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
  * - packsConfig: Feature-level configuration for packs
- * - libraries: Desired Library subscriptions by name to bare Library ref
  * - mcpServers: Desired MCP servers by name to version specifier
  * - mcpServersConfig: Feature-level configuration for MCP servers
  *
@@ -1591,12 +1507,6 @@ export const SettingsSchema = Schema.Struct({
   packsConfig: Schema.optionalKey(
     Schema.Union([PacksConfigSchema]).annotate({
       description: "Feature-level options for pack management.",
-    }),
-  ),
-  libraries: Schema.optionalKey(
-    Schema.Union([LibrariesMapSchema]).annotate({
-      description:
-        "Your Library subscriptions, keyed by workspace subscription name. Prefer plain Library refs; use the object form only to set `enabled: false`. Libraries are always latest and do not accept version suffixes.",
     }),
   ),
   mcpServers: Schema.optionalKey(

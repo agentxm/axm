@@ -20,10 +20,6 @@ import {
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
 import {
-  InstallLibraryCommandWorkflowActions,
-  type InstallLibraryHandlerArgs,
-} from "../libraries/install/command-actions.js";
-import {
   InstallKnowledgeCommandWorkflowActions,
   type InstallKnowledgeHandlerArgs,
 } from "../knowledge/install/command-actions.js";
@@ -235,25 +231,6 @@ describe("root install handler", () => {
       buildPlan: () => Effect.succeed(makePlan("pack")),
     };
 
-    const libraryActions = {
-      parseArgs: (args: InstallLibraryHandlerArgs) =>
-        Effect.sync(() => {
-          calls.push({
-            type: "library",
-            source: args.source,
-            yes: false,
-            force: false,
-            preview: true,
-            ...(args.frozen === undefined ? {} : { frozen: args.frozen }),
-          });
-          return {};
-        }),
-      resolveSourceRequests: () => Effect.succeed([]),
-      discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("library")),
-    };
-
     const knowledgeActions = {
       parseArgs: (args: InstallKnowledgeHandlerArgs) =>
         Effect.sync(() => {
@@ -349,13 +326,6 @@ describe("root install handler", () => {
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
-        InstallLibraryCommandWorkflowActions,
-        libraryActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallLibraryCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
         InstallKnowledgeCommandWorkflowActions,
         knowledgeActions as unknown as ServiceMap.Service.Shape<
           typeof InstallKnowledgeCommandWorkflowActions
@@ -400,7 +370,6 @@ describe("root install handler", () => {
         "@acme/hooks/tool-audit",
         "@acme/subagents/researcher",
         "@acme/packs/frontend-tools",
-        "@acme/libraries/frontend-team",
       ] as const;
 
       yield* Effect.forEach(sources, (source) =>
@@ -416,7 +385,6 @@ describe("root install handler", () => {
         { type: "hook", source: "@acme/hooks/tool-audit", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
-        { type: "library", source: "@acme/libraries/frontend-team", ...flags },
       ]);
     }),
   );
@@ -473,38 +441,6 @@ describe("root install handler", () => {
           },
         ],
       });
-    }),
-  );
-
-  it.effect("passes --frozen to Library installs", () =>
-    Effect.gen(function* () {
-      const calls: Array<InstallCall> = [];
-      const { provide } = makeLayers(calls);
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: ["claude-code"],
-        owner: "@axm",
-      });
-
-      yield* provide(
-        handleInstall({
-          source: Option.some("@acme/libraries/frontend-team"),
-          yes: false,
-          force: false,
-          preview: true,
-          frozen: true,
-        }),
-      );
-
-      expect(calls).toEqual([
-        {
-          type: "library",
-          source: "@acme/libraries/frontend-team",
-          yes: false,
-          force: false,
-          preview: true,
-          frozen: true,
-        },
-      ]);
     }),
   );
 

@@ -17,7 +17,6 @@ import {
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,
-  LibrariesMapSchema,
   SettingsSchema,
   SkillsMapSchema,
   SourceHostConfigSchema,
@@ -66,7 +65,6 @@ describe("Settings schema", () => {
         sources: [{ name: "github", type: "github", url: "https://github.com" }],
         agents: ["claude-code", "cursor"],
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
-        libraries: { frontend: "@wayne/libraries/frontend" },
         skillsConfig: { ignore: ["legacy-*"] },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
@@ -76,12 +74,6 @@ describe("Settings schema", () => {
       expect(result.skills).toEqual({
         "grappling-hook": {
           source: "@wayne/skills/grappling-hook@^1.0.0",
-          enabled: true,
-        },
-      });
-      expect(result.libraries).toEqual({
-        frontend: {
-          source: "@wayne/libraries/frontend",
           enabled: true,
         },
       });
@@ -592,11 +584,14 @@ describe("Settings schema", () => {
       ).toThrow();
     });
 
-    it("rejects workspace locators for Libraries", () => {
+    it("rejects removed Library workspace state", () => {
       expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
-          libraries: { review: "workspace:@acme/libraries/review" },
-        }),
+        Schema.decodeUnknownSync(SettingsSchema)(
+          {
+            libraries: { review: "@acme/libraries/review" },
+          },
+          { onExcessProperty: "error" },
+        ),
       ).toThrow();
     });
 
@@ -609,7 +604,6 @@ describe("Settings schema", () => {
         { hooks: { x: { source: "@acme/hooks/x", authored: true } } },
         { subagents: { x: { source: "@acme/subagents/x", authored: true } } },
         { packs: { x: { source: "@acme/packs/x", authored: true } } },
-        { libraries: { x: { source: "@acme/libraries/x", authored: true } } },
         { mcpServers: { x: { source: "@acme/mcps/x", authored: true } } },
       ];
 
@@ -1370,29 +1364,6 @@ describe("Settings schema", () => {
         source: "local:./dev/gadgets/dev-gadget",
         enabled: true,
       });
-    });
-  });
-
-  describe("libraries", () => {
-    it("accepts compact library subscriptions", () => {
-      const result = Schema.decodeUnknownSync(LibrariesMapSchema)({
-        frontend: "@acme/libraries/frontend",
-      });
-
-      expect(result).toEqual({
-        frontend: {
-          source: "@acme/libraries/frontend",
-          enabled: true,
-        },
-      });
-    });
-
-    it("rejects versioned library subscriptions", () => {
-      expect(() =>
-        Schema.decodeUnknownSync(LibrariesMapSchema)({
-          frontend: "@acme/libraries/frontend@1.0.0",
-        }),
-      ).toThrow();
     });
   });
 });

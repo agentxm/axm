@@ -27,7 +27,6 @@ import {
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
-import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import { DiscoverPackagesResponseSchema } from "./discover-schema.js";
 import { extensionLifecycleWarnings, pluralizeType, resolveVersionEntry } from "./utils.js";
@@ -40,13 +39,11 @@ import type {
   GetExtensionPackageResponse,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
-  GetLibraryArgs,
   OwnerExistsResponse,
   PublishExtensionArgs,
   PublishExtensionResponse,
   RegistryClient,
   RegistryExtensionManifest,
-  RegistryLibraryDetail,
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
 import {
@@ -67,7 +64,6 @@ import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
   ExtensionsGet200,
   ExtensionsListByOwner200,
-  LibrariesGetLibraryResolution200,
 } from "./__generated__/registry-client.js";
 import type { ArchiveCache } from "./archive-cache.js";
 
@@ -120,26 +116,6 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
       yankNotice: v.yank_notice ?? undefined,
     })),
   });
-
-const mapToLibraryDetail = (response: LibrariesGetLibraryResolution200): RegistryLibraryDetail => ({
-  libraryId: response.libraryId,
-  reference: response.reference,
-  name: decodeExtensionNameSync(response.name),
-  updatedAt: response.updatedAt,
-  membershipDigest: response.membershipDigest,
-  viewerRelative: response.viewerRelative,
-  members: response.members.map((member) => ({
-    id: member.memberId,
-    libraryId: response.libraryId,
-    extensionId: member.extensionId,
-    extensionOwner: decodeHandleSync(member.owner),
-    extensionType: narrowExtensionType(member.type),
-    extensionName: decodeExtensionNameSync(member.name),
-    resolvedVersion: decodeVersionSync(member.version),
-    addedAt: member.addedAt,
-    publishedAt: member.publishedAt,
-  })),
-});
 
 /**
  * Convert an ExtensionIndex + version constraint to a RegistryExtensionManifest.
@@ -262,26 +238,6 @@ export const createRemoteRegistryClient = (
             }),
       ),
     );
-
-  // ---------------------------------------------------------------------------
-  // getLibrary
-  // ---------------------------------------------------------------------------
-  const getLibrary = (
-    args: GetLibraryArgs,
-  ): Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError> =>
-    client.LibrariesGetLibraryResolution(args.owner, args.name, undefined).pipe(
-      Effect.map((response) => Option.some(mapToLibraryDetail(response))),
-      Effect.catch((e) => mapLibraryErrorWithNotFound(e)),
-    );
-
-  const mapLibraryErrorWithNotFound = (
-    e: unknown,
-  ): Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError> => {
-    if (isRegistryClientError("LibrariesGetLibraryResolution404")(e)) {
-      return Effect.succeed(Option.none<RegistryLibraryDetail>());
-    }
-    return Effect.fail(mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY"));
-  };
 
   /**
    * Map all discovery/read errors to AppError.
@@ -842,7 +798,6 @@ export const createRemoteRegistryClient = (
 
   return {
     getExtensionIndex,
-    getLibrary,
     getExtensionsByScope,
     ownerExists,
     getExtensionPackage,

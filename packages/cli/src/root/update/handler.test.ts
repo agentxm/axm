@@ -20,10 +20,6 @@ import {
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
 import {
-  InstallLibraryCommandWorkflowActions,
-  type InstallLibraryHandlerArgs,
-} from "../libraries/install/command-actions.js";
-import {
   InstallKnowledgeCommandWorkflowActions,
   type InstallKnowledgeHandlerArgs,
 } from "../knowledge/install/command-actions.js";
@@ -251,24 +247,6 @@ describe("root update handler", () => {
       buildPlan: () => Effect.succeed(makePlan("pack")),
     };
 
-    const libraryActions = {
-      parseArgs: (args: InstallLibraryHandlerArgs) =>
-        Effect.sync(() => {
-          calls.push({
-            type: "library",
-            source: args.source,
-            yes: false,
-            force: false,
-            preview: true,
-          });
-          return {};
-        }),
-      resolveSourceRequests: () => Effect.succeed([]),
-      discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("library")),
-    };
-
     const knowledgeActions = {
       parseArgs: (args: InstallKnowledgeHandlerArgs) =>
         Effect.sync(() => {
@@ -347,13 +325,6 @@ describe("root update handler", () => {
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
-        InstallLibraryCommandWorkflowActions,
-        libraryActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallLibraryCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
         InstallKnowledgeCommandWorkflowActions,
         knowledgeActions as unknown as ServiceMap.Service.Shape<
           typeof InstallKnowledgeCommandWorkflowActions
@@ -391,7 +362,6 @@ describe("root update handler", () => {
         "@acme/rules/workspace-guidance",
         "@acme/hooks/tool-audit",
         "@acme/packs/frontend-tools",
-        "@acme/libraries/frontend-team",
       ] as const;
 
       yield* Effect.forEach(sources, (source) =>
@@ -407,7 +377,6 @@ describe("root update handler", () => {
         { type: "rule", source: "@acme/rules/workspace-guidance", ...flags },
         { type: "hook", source: "@acme/hooks/tool-audit", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
-        { type: "library", source: "@acme/libraries/frontend-team", ...flags },
       ]);
     }),
   );

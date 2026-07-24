@@ -646,78 +646,6 @@ export const PacksLockMapSchema = Schema.Record(Schema.String, PackLockEntrySche
 export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
 
 // =============================================================================
-// Library Lock Entry
-// =============================================================================
-
-/**
- * Registry Library lock entry.
- *
- * Libraries are live registry collections, not versioned artifacts. The lock
- * entry pins the resolved membership snapshot and exact member versions.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const RegistryLibraryLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("registry"),
-  owner: HandleSchema,
-  name: ExtensionNameSchema,
-  sourceName: Schema.String,
-  installedAt: DateFromIsoDateTimeStringSchema,
-  updatedAt: DateFromIsoDateTimeStringSchema,
-  resolvedAt: DateFromIsoDateTimeStringSchema,
-  membershipDigest: Schema.String,
-  resolvedSkills: ResolvedExtensionMapSchema,
-  resolvedCommands: ResolvedExtensionMapSchema,
-  resolvedMcpServers: ResolvedExtensionMapSchema,
-  resolvedSubagents: ResolvedExtensionMapSchema,
-  resolvedFiles: ResolvedExtensionMapSchema,
-  resolvedRules: ResolvedExtensionMapSchema,
-  resolvedHooks: ResolvedExtensionMapSchema,
-}).annotate({
-  identifier: "RegistryLibraryLockEntry",
-  title: "Registry Library Lock Entry",
-  description: "Pinned membership snapshot for a Library subscription.",
-});
-
-/** @experimental */
-export type RegistryLibraryLockEntry = Schema.Schema.Type<typeof RegistryLibraryLockEntrySchema>;
-
-/** @experimental */
-export type RegistryLibraryLockEntryArgs = Omit<RegistryLibraryLockEntry, "type">;
-
-/** @experimental */
-export const makeRegistryLibraryLockEntry = (
-  args: RegistryLibraryLockEntryArgs,
-): RegistryLibraryLockEntry => ({
-  type: "registry",
-  ...args,
-});
-
-/**
- * Lock entry for a single Library subscription.
- *
- * @experimental
- */
-export const LibraryLockEntrySchema = RegistryLibraryLockEntrySchema.annotate({
-  identifier: "LibraryLockEntry",
-  title: "Library Lock Entry",
-  description: "Pinned membership snapshot for an installed Library subscription.",
-});
-
-/** @experimental */
-export type LibraryLockEntry = Schema.Schema.Type<typeof LibraryLockEntrySchema>;
-
-/**
- * Map of Library subscription names to lock entries.
- *
- * @experimental
- */
-export const LibrariesLockMapSchema = Schema.Record(Schema.String, LibraryLockEntrySchema);
-
-/** @experimental */
-export type LibrariesLockMap = Schema.Schema.Type<typeof LibrariesLockMapSchema>;
-
-// =============================================================================
 // Lockfile
 // =============================================================================
 
@@ -754,7 +682,6 @@ export const LockfileSchema = Schema.Struct({
   hooks: Schema.optional(HooksLockMapSchema),
   knowledge: Schema.optional(KnowledgeLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
-  libraries: Schema.optional(LibrariesLockMapSchema),
 }).annotate({
   identifier: "Lockfile",
   title: "AXM Lockfile",

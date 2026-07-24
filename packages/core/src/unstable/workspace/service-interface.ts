@@ -31,9 +31,6 @@ import type {
   HooksLockMap,
   KnowledgeLockEntry,
   KnowledgeLockMap,
-  LibraryLockEntry,
-  LibrariesLockMap,
-  RegistryLibraryLockEntryArgs,
   McpServerLockEntry,
   McpServersLockMap,
   PackLockEntry,
@@ -54,8 +51,6 @@ import type {
   HooksMap,
   KnowledgeEntry,
   KnowledgeMap,
-  LibraryEntry,
-  LibrariesMap,
   InstructionsConfigValue,
   McpServerEntry,
   McpServersMap,
@@ -340,14 +335,6 @@ export type SetPackArgs = (RegistryPackLockEntry | WorkspacePackLockEntry) & {
 };
 
 /**
- * Arguments for `setLibrary` -- all `LibraryLockEntry` fields except `type` (always "registry"),
- * plus the source string used for the settings subscription.
- */
-export type SetLibraryArgs = RegistryLibraryLockEntryArgs & {
-  readonly source: string;
-};
-
-/**
  * Arguments for `setCommand` -- bundles the command name with the lock entry.
  */
 export interface SetCommandArgs {
@@ -605,20 +592,6 @@ export interface WorkspaceMutationsService {
   readonly setPackEntry: (name: string, entry: PackEntry) => Effect.Effect<void, AppError>;
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removePack: (name: string) => Effect.Effect<void, AppError>;
-  /** Read settings and return configured Library subscriptions, defaulting to `{}`. */
-  readonly getConfiguredLibraryEntries: () => Effect.Effect<LibrariesMap, AppError>;
-  /** Read lockfile and return the Library lock map. */
-  readonly getLockedLibraries: () => Effect.Effect<LibrariesLockMap, AppError>;
-  /** Read lockfile and return the entry for a specific Library, or Option.none(). */
-  readonly getLockedLibrary: (
-    name: string,
-  ) => Effect.Effect<Option.Option<LibraryLockEntry>, AppError>;
-  /** Add or update a Library subscription in both settings and lockfile. Serialized by semaphore. */
-  readonly setLibrary: (args: SetLibraryArgs) => Effect.Effect<void, AppError>;
-  /** Create or overwrite a Library entry in settings only (no lockfile). Serialized by semaphore. */
-  readonly setLibraryEntry: (name: string, entry: LibraryEntry) => Effect.Effect<void, AppError>;
-  /** Remove a Library subscription from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeLibrary: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
   readonly getPackDir: (name: string, owner: Handle) => Effect.Effect<PackDirPath, AppError>;
   /** Read lockfile and return the commands lock map. */
@@ -705,10 +678,6 @@ export interface WorkspaceMutationsService {
   readonly removePackSettings: (name: string) => Effect.Effect<void, AppError>;
   /** Remove a pack from lockfile only (keep settings entry). Serialized by semaphore. */
   readonly removePackLock: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a Library subscription from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removeLibrarySettings: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a Library subscription from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removeLibraryLock: (name: string) => Effect.Effect<void, AppError>;
   // --- Pack dependency queries ---
   /** Check if an extension target is referenced by any installed pack's dependency maps. */
   readonly isExtensionRequiredByInstalledPack: (

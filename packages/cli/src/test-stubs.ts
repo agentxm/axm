@@ -250,12 +250,6 @@ export const makeBaseWorkspaceMock = (
     setPack: () => Effect.void,
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,
-    getConfiguredLibraryEntries: () => Effect.succeed({}),
-    getLockedLibraries: () => Effect.succeed({}),
-    getLockedLibrary: () => Effect.succeed(Option.none()),
-    setLibrary: () => Effect.void,
-    setLibraryEntry: () => Effect.void,
-    removeLibrary: () => Effect.void,
     getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
     getLockedCommands: () => Effect.succeed({}),
     getLockedCommand: () => Effect.succeed(Option.none()),
@@ -290,8 +284,6 @@ export const makeBaseWorkspaceMock = (
     removeMcpServerLock: () => Effect.void,
     removePackSettings: () => Effect.void,
     removePackLock: () => Effect.void,
-    removeLibrarySettings: () => Effect.void,
-    removeLibraryLock: () => Effect.void,
     isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
     markDependencyRetainedInLockfile: () => Effect.void,
   } satisfies WorkspaceMutationsService;
@@ -334,7 +326,6 @@ export interface WriteWorkspaceFilesOptions {
   readonly hooks?: Record<string, unknown> | undefined;
   readonly mcps?: Record<string, unknown> | undefined;
   readonly packs?: Record<string, unknown> | undefined;
-  readonly libraries?: Record<string, unknown> | undefined;
   readonly sources?: ReadonlyArray<unknown> | undefined;
   readonly lockfileSkills?: Record<string, unknown> | undefined;
   readonly lockfileCommands?: Record<string, unknown> | undefined;
@@ -343,7 +334,6 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfileHooks?: Record<string, unknown> | undefined;
   readonly lockfileMcpServers?: Record<string, unknown> | undefined;
   readonly lockfilePacks?: Record<string, unknown> | undefined;
-  readonly lockfileLibraries?: Record<string, unknown> | undefined;
   readonly subagents?: Record<string, unknown> | undefined;
   readonly lockfileSubagents?: Record<string, unknown> | undefined;
 }
@@ -360,7 +350,6 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
     ...(hasEntries(opts.mcps) && { mcpServers: opts.mcps }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
-    ...(hasEntries(opts.libraries) && { libraries: opts.libraries }),
     ...(opts.sources && { sources: opts.sources }),
   };
 
@@ -374,7 +363,6 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
     ...(hasEntries(opts.lockfileMcpServers) && { mcpServers: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
-    ...(hasEntries(opts.lockfileLibraries) && { libraries: opts.lockfileLibraries }),
   };
 
   fs.mkdirSync(axmDir, { recursive: true });

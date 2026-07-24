@@ -148,6 +148,13 @@ const loadLockfile = (
       try: (): unknown => YAML.parse(bytes),
       catch: (cause): LockfileParseError => new LockfileParseError({ path, raw: bytes, cause }),
     });
+    if (typeof parsed === "object" && parsed !== null && "libraries" in parsed) {
+      return yield* new LockfileDecodeError({
+        path,
+        issues: ["libraries: Library workspace state is no longer supported"],
+        raw: parsed,
+      });
+    }
 
     const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed).pipe(
       Effect.mapError(

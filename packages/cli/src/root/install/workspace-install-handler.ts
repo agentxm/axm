@@ -26,7 +26,6 @@ export interface WorkspaceInstallFlags {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
-  readonly frozen?: boolean;
 }
 
 export const handleWorkspaceInstall = (args: {
@@ -41,7 +40,6 @@ export const handleWorkspaceInstall = (args: {
       type: args.type,
       planName: args.planName,
       planDescription: args.planDescription,
-      ...(args.flags.frozen === undefined ? {} : { frozen: args.flags.frozen }),
     });
 
     if (planResult._tag === "NoConfiguredExtensions") {
@@ -65,10 +63,7 @@ export const handleWorkspaceInstall = (args: {
 
     const resolution = yield* previewOrApplyPlan(planResult.plan, args.flags);
     let outputResolution: PlanResolution = resolution;
-    if (
-      !args.flags.preview &&
-      (Option.isNone(args.type) || args.type.value === "files" || args.type.value === "library")
-    ) {
+    if (!args.flags.preview && (Option.isNone(args.type) || args.type.value === "files")) {
       const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
         dryRun: false,
       });
@@ -96,7 +91,6 @@ export const runWorkspaceInstall = (args: {
       type: args.type,
       planName: args.planName,
       planDescription: args.planDescription,
-      ...(args.flags.frozen === undefined ? {} : { frozen: args.flags.frozen }),
     });
 
     if (planResult._tag === "NoConfiguredExtensions") {

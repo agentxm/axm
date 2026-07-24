@@ -807,15 +807,6 @@ export const LibraryMemberId = Schema.String.check(
     examples: ["lmem_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
-export type ExtensionVersionId = string;
-export const ExtensionVersionId = Schema.String.check(
-  Schema.isPattern(new RegExp("^extv_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
-    title: "Extension Version ID",
-    description:
-      "Identifies a specific published version of an extension. Each publish operation creates a new version under its parent extension.",
-    examples: ["extv_01h455vb4pexka56gq5w2r7cpc"],
-  }),
-);
 export type UpdateLibraryBody = {
   readonly title?: string | null;
   readonly description?: string | null | null;
@@ -1378,28 +1369,6 @@ export const LibraryMember = Schema.Struct({
   extensionName: ExtensionName,
   addedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
 }).annotate({ title: "Library Member" });
-export type LibraryResolutionMember = {
-  readonly memberId: LibraryMemberId;
-  readonly extensionId: ExtensionId;
-  readonly extensionVersionId: ExtensionVersionId;
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly version: Version;
-  readonly addedAt: IsoDateTimeString;
-  readonly publishedAt: IsoDateTimeString | null;
-};
-export const LibraryResolutionMember = Schema.Struct({
-  memberId: LibraryMemberId,
-  extensionId: ExtensionId,
-  extensionVersionId: ExtensionVersionId,
-  owner: Handle,
-  type: ExtensionType,
-  name: ExtensionName,
-  version: Version,
-  addedAt: IsoDateTimeString,
-  publishedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
-}).annotate({ title: "Library Resolution Member" });
 export type AuthMeResponse = {
   readonly user: AuthMeUser;
   readonly orgs: ReadonlyArray<never>;
@@ -1604,28 +1573,6 @@ export const ListLibraryMembersResponse = Schema.Struct({
   offset: Schema.Number.check(Schema.isInt()),
   viewerRelative: Schema.Literal(true),
 }).annotate({ title: "List Library Members Response" });
-export type LibraryResolution = {
-  readonly libraryId: LibraryId;
-  readonly reference: string;
-  readonly name: LibraryName;
-  readonly updatedAt: IsoDateTimeString;
-  readonly membershipDigest: string;
-  readonly viewerRelative: true;
-  readonly members: ReadonlyArray<LibraryResolutionMember>;
-};
-export const LibraryResolution = Schema.Struct({
-  libraryId: LibraryId,
-  reference: Schema.String,
-  name: LibraryName,
-  updatedAt: IsoDateTimeString,
-  membershipDigest: Schema.String,
-  viewerRelative: Schema.Literal(true),
-  members: Schema.Array(LibraryResolutionMember),
-}).annotate({
-  title: "Library Resolution",
-  description:
-    "The current Library membership and latest eligible versions visible to the authenticated viewer.",
-});
 export type LibraryDetail = {
   readonly library: Library;
   readonly members: ReadonlyArray<LibraryMember>;
@@ -2718,14 +2665,6 @@ export type LibrariesUpdateLibrary404 = ProblemDetails;
 export const LibrariesUpdateLibrary404 = ProblemDetails;
 export type LibrariesUpdateLibrary422 = ProblemDetails;
 export const LibrariesUpdateLibrary422 = ProblemDetails;
-export type LibrariesGetLibraryResolution200 = LibraryResolution;
-export const LibrariesGetLibraryResolution200 = LibraryResolution;
-export type LibrariesGetLibraryResolution400 = DecodeErrorResponse;
-export const LibrariesGetLibraryResolution400 = DecodeErrorResponse;
-export type LibrariesGetLibraryResolution404 = ProblemDetails;
-export const LibrariesGetLibraryResolution404 = ProblemDetails;
-export type LibrariesGetLibraryResolution422 = ProblemDetails;
-export const LibrariesGetLibraryResolution422 = ProblemDetails;
 export type LibrariesListLibraryMembersParams = {
   readonly limit?: string | null;
   readonly offset?: string | null;
@@ -3903,28 +3842,6 @@ export const make = (
           }),
         ),
       ),
-    LibrariesGetLibraryResolution: (owner, name, options) =>
-      HttpClientRequest.get(`/v1/libraries/${owner}/${name}/resolution`).pipe(
-        withResponse(options?.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(LibrariesGetLibraryResolution200),
-            "400": decodeError(
-              "LibrariesGetLibraryResolution400",
-              LibrariesGetLibraryResolution400,
-            ),
-            "404": decodeError(
-              "LibrariesGetLibraryResolution404",
-              LibrariesGetLibraryResolution404,
-            ),
-            "422": decodeError(
-              "LibrariesGetLibraryResolution422",
-              LibrariesGetLibraryResolution422,
-            ),
-            "304": () => Effect.void,
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
     LibrariesListLibraryMembers: (owner, name, options) =>
       HttpClientRequest.get(`/v1/libraries/${owner}/${name}/members`).pipe(
         HttpClientRequest.setUrlParams({
@@ -5073,30 +4990,6 @@ export interface RegistryClient {
     | RegistryClientError<"LibrariesUpdateLibrary403", typeof LibrariesUpdateLibrary403.Type>
     | RegistryClientError<"LibrariesUpdateLibrary404", typeof LibrariesUpdateLibrary404.Type>
     | RegistryClientError<"LibrariesUpdateLibrary422", typeof LibrariesUpdateLibrary422.Type>
-  >;
-  /**
-   * Resolve a Library for the current viewer
-   */
-  readonly LibrariesGetLibraryResolution: <Config extends OperationConfig>(
-    owner: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof LibrariesGetLibraryResolution200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "LibrariesGetLibraryResolution400",
-        typeof LibrariesGetLibraryResolution400.Type
-      >
-    | RegistryClientError<
-        "LibrariesGetLibraryResolution404",
-        typeof LibrariesGetLibraryResolution404.Type
-      >
-    | RegistryClientError<
-        "LibrariesGetLibraryResolution422",
-        typeof LibrariesGetLibraryResolution422.Type
-      >
   >;
   /**
    * List viewer-visible Library members

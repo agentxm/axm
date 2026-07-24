@@ -11,7 +11,6 @@ import {
   toInstallableExtensionType,
   type InstallableExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
-import { parseLibraryRef } from "@agentxm/client-core/unstable/libraries";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
@@ -19,7 +18,7 @@ const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSche
 export const rootInstallableTypeSegments = installableExtensionTypePluralSegments;
 export const RootInstallableTypeSegmentSchema = InstallableExtensionTypePluralSchema;
 export type RootInstallableTypeSegment = typeof RootInstallableTypeSegmentSchema.Type;
-export type RootInstallableType = InstallableExtensionType | "library";
+export type RootInstallableType = InstallableExtensionType;
 
 export interface RootInstallIntent {
   readonly source: string;
@@ -27,9 +26,7 @@ export interface RootInstallIntent {
 }
 
 const rootInstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
-const rootLibraryInstallFqnGrammar = "@<handle>/libraries/<name>";
-
-const supportedRootInstallTypes = [...rootInstallableTypeSegments, "libraries"].join(", ");
+const supportedRootInstallTypes = rootInstallableTypeSegments.join(", ");
 
 const rootInstallRegistryOnlyHowToFix = (source: string): string => {
   const parsed = parseInputPattern(source);
@@ -89,23 +86,16 @@ export const resolveRootInstallIntent = (input: string) =>
     }
 
     if (pluralType === "libraries") {
-      const libraryRef = parseLibraryRef(source);
-      if (libraryRef === undefined) {
-        return yield* makeAppError({
-          code: "validation",
-          detail: "Library install source must be a bare Library ref",
-          suggestions: [
-            {
-              description: `Use ${rootLibraryInstallFqnGrammar}. Libraries do not accept version suffixes.`,
-            },
-          ],
-        });
-      }
-
-      return {
-        source,
-        type: "library",
-      } satisfies RootInstallIntent;
+      return yield* makeAppError({
+        code: "usage",
+        detail: "Libraries are curated registry collections and cannot be installed",
+        suggestions: [
+          {
+            description:
+              "Open the Library in AgentXM, then install the individual extensions you want.",
+          },
+        ],
+      });
     }
 
     const parsed = yield* decodeRegistrySourceRef(source).pipe(

@@ -63,10 +63,7 @@ export const handleWorkspaceUpdate = (args: {
 
     const resolution = yield* previewOrApplyPlan(planResult.plan, args.flags);
     let outputResolution: PlanResolution = resolution;
-    if (
-      !args.flags.preview &&
-      (Option.isNone(args.type) || args.type.value === "files" || args.type.value === "library")
-    ) {
+    if (!args.flags.preview && (Option.isNone(args.type) || args.type.value === "files")) {
       const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
         dryRun: false,
       });

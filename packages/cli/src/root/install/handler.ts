@@ -26,10 +26,6 @@ import {
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
 import {
-  InstallLibraryCommandWorkflowActions,
-  type InstallLibraryHandlerArgs,
-} from "../libraries/install/command-actions.js";
-import {
   makeInstallKnowledgeCommandWorkflowActions,
   type InstallKnowledgeHandlerArgs,
 } from "../knowledge/install/command-actions.js";
@@ -58,7 +54,6 @@ export interface RootInstallFlags {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
-  readonly frozen?: boolean;
 }
 
 export interface RootInstallHandlerArgs extends RootInstallFlags {
@@ -66,7 +61,7 @@ export interface RootInstallHandlerArgs extends RootInstallFlags {
 }
 
 type RegistryExtensionRootInstallIntent = RootInstallIntent & {
-  readonly type: Exclude<RootInstallableType, "library">;
+  readonly type: RootInstallableType;
 };
 
 const runRegistryInstallIntent = (
@@ -222,22 +217,9 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
           yield* runLocatorInstallIntent(intent.source, args);
           return;
         }
-        const resolution =
-          intent.type === "library"
-            ? yield* Effect.gen(function* () {
-                const actions = yield* InstallLibraryCommandWorkflowActions;
-                const libraryArgs: InstallLibraryHandlerArgs = {
-                  source: intent.source,
-                  ...(args.frozen === undefined ? {} : { frozen: args.frozen }),
-                };
-                return yield* runInstallCommandWorkflow(libraryArgs, actions, args);
-              })
-            : yield* runRegistryInstallIntent(intent, args);
+        const resolution = yield* runRegistryInstallIntent(intent, args);
         let outputResolution: PlanResolution = resolution;
-        if (
-          !args.preview &&
-          (intent.type === "files" || intent.type === "pack" || intent.type === "library")
-        ) {
+        if (!args.preview && (intent.type === "files" || intent.type === "pack")) {
           const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
             dryRun: false,
           });

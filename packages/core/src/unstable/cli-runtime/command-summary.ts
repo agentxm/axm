@@ -15,7 +15,6 @@ export type SubjectType =
   | "knowledge"
   | "subagent"
   | "pack"
-  | "library"
   | "mcp-server"
   | "mixed"
   | "unknown";

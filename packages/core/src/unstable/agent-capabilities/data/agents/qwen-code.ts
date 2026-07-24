@@ -217,11 +217,11 @@ export const qwenCodeAgent = {
             matcher: { kind: "regex", example: "WriteFile|Edit|Bash", notes: null },
             decision: [
               { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny"] },
+              { kind: "block", outcomes: ["allow", "deny", "ask"] },
               { kind: "modify", operations: ["modify-input"] },
             ],
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "PostToolUse",
@@ -310,7 +310,7 @@ export const qwenCodeAgent = {
           timeoutSerialization: "milliseconds",
           commandNameSerialization: "manifest",
         },
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
       },
     },
   },
@@ -319,11 +319,11 @@ export const qwenCodeAgent = {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes:
-        "Qwen Code exposes coarse approval modes for file edits and shell commands, plus MCP trust and tool include/exclude controls. The public docs do not describe a stable narrow AXM-specific grant writer for shell and filesystem approvals.",
+        "Qwen Code grades tool access through a Claude Code-style permissions block with allow/ask/deny rule arrays. The legacy tools.allowed and tools.exclude keys are deprecated and migrate into permissions on first load; tools.approvalMode still sets the coarse default mode.",
       docs: [],
       sources: [
-        "https://qwenlm.github.io/qwen-code-docs/en/users/features/approval-mode/",
         "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/",
+        "https://qwenlm.github.io/qwen-code-docs/en/users/features/approval-mode/",
         "https://qwenlm.github.io/qwen-code-docs/en/developers/tools/shell/",
         "https://qwenlm.github.io/qwen-code-docs/en/users/features/mcp/",
       ],
@@ -344,19 +344,39 @@ export const qwenCodeAgent = {
         },
       ],
       grammar: {
-        style: "prefix",
-        example: 'permissions.defaultMode = "auto-edit"',
+        style: "tool-call",
+        example: "Bash(axm *)",
         notes:
-          "Approval modes are plan/default/auto-edit/yolo. Shell restriction rules use tools.core and tools.exclude entries such as run_shell_command(git).",
+          "Tool(pattern) rules sorted into permissions.allow, permissions.ask, and permissions.deny; deny wins over ask over allow. Approval modes are plan/default/auto-edit/auto/yolo set by tools.approvalMode (Default is surfaced as 'Ask Permissions'; the value stays 'default').\n",
       },
       prerequisites: [],
       cliFlags: [],
     },
     axm: {
-      status: "unsupported",
-      lastVerified: "2026-06-06",
-      writer: null,
-      reason: "No narrow Qwen Code permission grant writer is implemented for AXM.",
+      status: "supported",
+      lastVerified: "2026-07-24",
+      writer: {
+        grants: {
+          shell: {
+            target: "~/.qwen/settings.json",
+            patch: {
+              permissions: {
+                allow: ["Bash(${tool} *)"],
+              },
+            },
+            template: null,
+          },
+          filesystem: {
+            target: "~/.qwen/settings.json",
+            patch: {
+              permissions: {
+                allow: ["Read(${workspaceRoot}/**)", "Edit(${workspaceRoot}/**)"],
+              },
+            },
+            template: null,
+          },
+        },
+      },
     },
   },
 } as const satisfies Agent;

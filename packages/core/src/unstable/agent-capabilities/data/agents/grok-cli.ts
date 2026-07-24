@@ -1,7 +1,7 @@
 import type { Agent } from "../../schema.js";
 export const grokCliAgent = {
   id: "grok-cli",
-  name: "Grok CLI",
+  name: "Grok Build",
   vendor: "xAI",
   homepage: "https://x.ai/cli",
   interfaces: ["cli"],
@@ -40,21 +40,16 @@ export const grokCliAgent = {
     },
     command: {
       native: {
-        availability: { via: "native" },
+        availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes:
-          "Grok exposes pager-local slash commands, skills-as-commands, and user-level custom commands discovered from ~/.agents/commands.\n",
+          "Grok exposes built-in pager commands and user-invocable skills, but no separate user-authored command directory is documented.",
         docs: [],
-        sources: [
-          "https://docs.x.ai/build/features/skills-plugins-marketplaces",
-          "https://docs.x.ai/build/modes-and-commands",
-        ],
-        scopes: ["user"],
-        directory: "~/.agents/commands",
+        sources: ["https://docs.x.ai/build/features/skills-plugins-marketplaces"],
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented Grok CLI command installation.",
       },
@@ -64,13 +59,14 @@ export const grokCliAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "MCP servers are managed with `grok mcp add/remove/list` or under the mcpServers key in .grok/settings.json. The prescriptive config dialect has not been verified against xAI docs.\n",
+          "MCP servers are managed with grok mcp commands or [mcp_servers] tables in ~/.grok/config.toml and project .grok/config.toml. Grok also reads ~/.claude.json, .cursor/mcp.json, and .mcp.json compatibility files.",
         docs: [],
-        sources: ["https://docs.x.ai/build/modes-and-commands"],
+        sources: ["https://docs.x.ai/build/features/mcp-servers"],
         scopes: ["user", "project"],
         standardsCompliance: "partial",
         convention: "vendor",
         transports: ["stdio", "http", "sse"],
+        mcpEnvExpansion: { variables: "braced", defaults: true },
       },
       axm: {
         status: "unsupported",
@@ -81,11 +77,18 @@ export const grokCliAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Agent definitions are Markdown files in .grok/agents or ~/.grok/agents and may add new subagent types or shadow the built-in general-purpose, explore, and plan types. Personas are a separate TOML overlay under .grok/personas and are not modeled as subagents.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://docs.x.ai/build/features/subagents",
+          "https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/16-subagents.md",
+        ],
+        scopes: ["user", "project"],
+        directory: ".grok/agents",
+        layout: "file",
       },
       axm: {
         status: "unsupported",
@@ -112,9 +115,9 @@ export const grokCliAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "AGENTS.md files are merged from the git root down to the working directory, with AGENTS.override.md taking precedence per directory.\n",
+          "Project rules are merged by directory depth from the repository root. Grok also reads documented AGENTS.md filename variants and Markdown files in .grok/rules, with compatibility for .claude/rules and .cursor/rules; AXM writes the universal AGENTS.md surface.",
         docs: [],
-        sources: ["https://docs.x.ai/build/overview"],
+        sources: ["https://docs.x.ai/build/features/project-rules"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -125,7 +128,7 @@ export const grokCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -153,9 +156,9 @@ export const grokCliAgent = {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes:
-        "Grok exposes permission prompting mode through config.toml and the --always-approve CLI flag, but docs do not describe per-tool allow/deny grant rules.",
+        "Grok [permission] settings define allow, deny, and ask lists using Tool(pattern) rules. UI permission modes and CLI flags provide coarse approval behavior in addition to the per-tool grammar.",
       docs: [],
-      sources: ["https://docs.x.ai/build/modes-and-commands"],
+      sources: ["https://docs.x.ai/build/settings", "https://docs.x.ai/build/settings/reference"],
       scopes: ["user"],
       mechanism: ["config-file", "cli-flag"],
       configFiles: [
@@ -167,16 +170,24 @@ export const grokCliAgent = {
         },
       ],
       grammar: {
-        style: "prefix",
-        example: 'permission_mode = "always-approve"',
+        style: "tool-call",
+        example: "Bash(git *)",
         notes:
-          "The documented permission mode is a coarse approval prompt setting, not a per-tool grant grammar.",
+          "Patterns can target tools and their arguments, including Read(src/**) and MCPTool(server__*).",
       },
       prerequisites: [],
       cliFlags: [
         {
           flag: "--always-approve",
           note: "Skip permission prompts for tool calls.",
+        },
+        {
+          flag: "--permission-mode <mode>",
+          note: "Selects default, dontAsk, acceptEdits, bypassPermissions, or plan mode.",
+        },
+        {
+          flag: "--deny <rule>",
+          note: "Adds a deny rule for the session.",
         },
       ],
     },

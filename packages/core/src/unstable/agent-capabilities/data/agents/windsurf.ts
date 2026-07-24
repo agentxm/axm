@@ -28,7 +28,7 @@ export const windsurfAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Devin Desktop reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills (user) with progressive disclosure. It also discovers universal .agents/skills paths.\n",
+          "Devin Desktop reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills (user) with progressive disclosure. It also discovers universal .agents/skills paths. The built-in Cascade agent reached end-of-life 2026-07-01 and is being replaced by Devin Local; the .windsurf/* and ~/.codeium/windsurf/* config surfaces persist under Devin Local.\n",
         docs: [],
         sources: ["https://docs.devin.ai/desktop/cascade/skills"],
         scopes: ["user", "project"],
@@ -69,7 +69,7 @@ export const windsurfAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio", "http"],
+        transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "braced",
           defaults: false,
@@ -77,7 +77,7 @@ export const windsurfAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -145,7 +145,7 @@ export const windsurfAgent = {
         scopes: ["project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".windsurf/rules",
+        directory: ".devin/rules",
         kind: "agents-md",
         files: ["AGENTS.md"],
         nestedDiscovery: true,
@@ -153,7 +153,7 @@ export const windsurfAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -261,6 +261,14 @@ export const windsurfAgent = {
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-06-06",
+          },
+          {
+            nativeName: "post_cascade_response_with_transcript",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-07-22",
           },
         ],
         tools: [

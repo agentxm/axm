@@ -53,16 +53,23 @@ export const mcpjamAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "MCPJam Inspector loads MCP servers from a config file (mcpServers object) passed via `npx @mcpjam/inspector --config <path>`, supporting stdio and remote (streamable-HTTP/SSE) transports. The config path is arbitrary with no fixed writable location.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.mcpjam.com/installation"],
+        scopes: ["project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "http", "sse"],
       },
       axm: {
         status: "unsupported",
         lastVerified: null,
         writer: null,
+        reason:
+          "AXM does not manage MCPJam's inspector config file — the --config path is arbitrary with no stable writable project location.",
       },
     },
     subagent: {

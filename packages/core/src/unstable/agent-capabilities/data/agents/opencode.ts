@@ -2,9 +2,9 @@ import type { Agent } from "../../schema.js";
 export const opencodeAgent = {
   id: "opencode",
   name: "OpenCode",
-  vendor: "SST",
+  vendor: "Anomaly",
   homepage: "https://opencode.ai",
-  interfaces: ["cli"],
+  interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".opencode",
   lifecycle: { state: "active" },
@@ -181,7 +181,8 @@ export const opencodeAgent = {
         status: "unsupported",
         writer: null,
         lastVerified: "2026-06-06",
-        reason: "AXM has not implemented in-process plugin hook writers.",
+        reason:
+          "OpenCode hooks are in-process JavaScript plugin exports, not declarative config; AXM's command-stdin serializer has no way to emit them.",
       },
     },
   },

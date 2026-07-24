@@ -18,6 +18,7 @@ import {
   type CommandSyncConfig,
 } from "../command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 import { agentSkillsProjectDir, agentSubagentsProjectDir } from "../descriptor-paths.js";
 
 /** @experimental */
@@ -60,16 +61,8 @@ export const kiloCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, agentSkillsProjectDir("kilo")),
       } as const;
     }),
-  addMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: "MCP add is not supported for kilo",
-    } as const),
-  removeMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: "MCP remove is not supported for kilo",
-    } as const),
+  addMcpServer: (args) => addMcpServerFromManifest("kilo", args),
+  removeMcpServer: (args) => removeMcpServerFromManifest("kilo", args),
   resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
     Effect.gen(function* () {
       if (scope === "user") {

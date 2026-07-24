@@ -25,7 +25,7 @@ export const ibmBobAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://bob.ibm.com/docs/ide"],
+        sources: ["https://bob.ibm.com/docs/ide/features/skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -39,15 +39,18 @@ export const ibmBobAgent = {
     },
     command: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Bob custom slash commands are Markdown files in .bob/commands (project) and ~/.bob/commands (user); filenames become command names and optional frontmatter supplies description and argument-hint metadata.",
         docs: [],
-        sources: [],
+        sources: ["https://bob.ibm.com/docs/ide/features/slash-commands"],
+        scopes: ["user", "project"],
+        directory: ".bob/commands",
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
+        status: "supported",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -56,7 +59,7 @@ export const ibmBobAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Project servers live in .bob/mcp.json; user servers in ~/.bob/mcp_settings.json. Both files key entries under mcpServers. Remote entries carry a url field with no type discriminator; SSE is documented as legacy alongside streamable HTTP.\n",
+          'Project servers live in .bob/mcp.json; user servers in ~/.bob/mcp.json. Both files key entries under mcpServers. Streamable HTTP entries use "type": "streamable-http"; legacy SSE entries remain URL-only.\n',
         docs: [],
         sources: ["https://bob.ibm.com/docs/ide/configuration/mcp/mcp-in-bob"],
         scopes: ["user", "project"],
@@ -78,7 +81,7 @@ export const ibmBobAgent = {
             targets: [
               {
                 scope: "user",
-                path: "~/.bob/mcp_settings.json",
+                path: "~/.bob/mcp.json",
                 format: "json",
               },
               {
@@ -88,7 +91,12 @@ export const ibmBobAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: {
+                name: "type",
+                value: {
+                  "streamable-http": "streamable-http",
+                },
+              },
               command: "split",
               envKey: "env",
             },
@@ -110,7 +118,7 @@ export const ibmBobAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Bob custom modes are YAML entries (slug, name, roleDefinition, groups, customInstructions) in .bob/custom_modes.yaml (project) or the global custom_modes.yaml (user). Subagent-style extensions have no industry spec yet.\n",
+          "Bob custom modes are YAML entries in .bob/custom_modes.yaml (project) or ~/.bob/settings/custom_modes.yaml (user). Entries support slug, name, description, whenToUse, roleDefinition, customInstructions, and read/edit/execute/mcp/skill/workflow/todo/subtask/subagent/mode tool-access groups; edit groups can carry fileRegex restrictions. Subagent-style extensions have no industry spec yet.\n",
         docs: [],
         sources: ["https://bob.ibm.com/docs/ide/configuration/custom-modes"],
         scopes: ["user", "project"],
@@ -144,7 +152,7 @@ export const ibmBobAgent = {
         notes: "Bob automatically loads AGENTS.md from the workspace root.\n",
         docs: [],
         sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
-        scopes: ["project"],
+        scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         directory: ".bob/rules",
@@ -187,7 +195,20 @@ export const ibmBobAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "ui-only"],
-      configFiles: [],
+      configFiles: [
+        {
+          scope: "project",
+          path: ".bob/custom_modes.yaml",
+          format: "yaml",
+          gitignored: false,
+        },
+        {
+          scope: "user",
+          path: "~/.bob/settings/custom_modes.yaml",
+          format: "yaml",
+          gitignored: false,
+        },
+      ],
       grammar: null,
       prerequisites: [],
       cliFlags: [],

@@ -3,7 +3,7 @@ export const claudeCodeAgent = {
   id: "claude-code",
   name: "Claude Code",
   vendor: "Anthropic",
-  homepage: "https://claude.com/claude-code",
+  homepage: "https://claude.com/product/claude-code",
   interfaces: ["cli", "ide-extension"],
   family: "anthropic",
   rootDir: ".claude",
@@ -42,7 +42,7 @@ export const claudeCodeAgent = {
   docs: [
     {
       label: "Claude Code documentation",
-      url: "https://docs.claude.com/en/docs/claude-code",
+      url: "https://code.claude.com/docs/en/overview",
     },
   ],
   capabilities: {
@@ -227,7 +227,7 @@ export const claudeCodeAgent = {
           {
             nativeName: "PreToolUse",
             canonical: "tool.pre",
-            matcher: { kind: "regex", example: "Write|Edit|MultiEdit", notes: null },
+            matcher: { kind: "regex", example: "Write|Edit", notes: null },
             decision: [
               { kind: "observe" },
               { kind: "block", outcomes: ["allow", "deny", "ask"] },
@@ -239,7 +239,7 @@ export const claudeCodeAgent = {
           {
             nativeName: "PostToolUse",
             canonical: "tool.post",
-            matcher: { kind: "regex", example: "Write|Edit|MultiEdit", notes: null },
+            matcher: { kind: "regex", example: "Write|Edit", notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://code.claude.com/docs/en/hooks"],
             lastVerified: "2026-06-06",
@@ -309,12 +309,6 @@ export const claudeCodeAgent = {
             lastVerified: "2026-06-06",
           },
           {
-            nativeName: "MultiEdit",
-            canonical: "file.edit",
-            sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
-          },
-          {
             nativeName: "Bash",
             canonical: "shell.exec",
             sources: ["https://code.claude.com/docs/en/hooks"],
@@ -323,8 +317,8 @@ export const claudeCodeAgent = {
           {
             nativeName: "WebFetch",
             canonical: "web.fetch",
-            sources: ["https://docs.claude.com/en/docs/claude-code/hooks"],
-            lastVerified: "2026-06-06",
+            sources: ["https://code.claude.com/docs/en/hooks"],
+            lastVerified: "2026-07-22",
           },
         ],
       },
@@ -353,7 +347,7 @@ export const claudeCodeAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
       },
     },
   },

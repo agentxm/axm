@@ -362,6 +362,75 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
+  it.effect("uses Devin's catalog MCP writer dialect", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-devin-"));
+        try {
+          const outcome = yield* syncInlineMcpServerToAgent("devin", {
+            workspaceRoot,
+            serverName: "sentry",
+            scope: "project",
+            entry: {
+              source: "inline",
+              url: "https://mcp.sentry.dev/sse",
+              headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+              enabled: true,
+              env: {},
+            },
+          });
+
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: ".devin/config.json", change: "created" }],
+          });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/.devin/config.json`);
+          expect(config).toContain('"mcpServers"');
+          expect(config).toContain('"transport": "sse"');
+          expect(config).toContain('"Authorization": "Bearer ${SENTRY_TOKEN}"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("uses Kilo Code's catalog MCP writer dialect", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-kilo-"));
+        try {
+          const outcome = yield* syncInlineMcpServerToAgent("kilo", {
+            workspaceRoot,
+            serverName: "linear",
+            scope: "project",
+            entry: {
+              source: "inline",
+              command: "npx",
+              args: ["-y", "linear-mcp-server"],
+              enabled: true,
+              env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+            },
+          });
+
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: "kilo.jsonc", change: "created" }],
+          });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/kilo.jsonc`);
+          expect(config).toContain('"mcp"');
+          expect(config).toContain('"type": "local"');
+          expect(config).toContain('"command": [');
+          expect(config).toContain('"environment"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("prunes stale AXM-managed MCP servers from agent config", () =>
     withNode(
       Effect.gen(function* () {

@@ -3,8 +3,8 @@ export const codeartsAgentAgent = {
   id: "codearts-agent",
   name: "CodeArts Agent",
   vendor: "Huawei Cloud",
-  homepage: "https://www.huaweicloud.com/intl/en-us/product/codearts.html",
-  interfaces: ["cli"],
+  homepage: "https://www.huaweicloud.com/intl/en-us/product/devcloud.html",
+  interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".codeartsdoer",
   lifecycle: { state: "active" },
@@ -17,7 +17,7 @@ export const codeartsAgentAgent = {
   docs: [
     {
       label: "Huawei CodeArts",
-      url: "https://www.huaweicloud.com/intl/en-us/product/codearts.html",
+      url: "https://www.huaweicloud.com/intl/en-us/product/devcloud.html",
     },
   ],
   capabilities: {
@@ -57,7 +57,8 @@ export const codeartsAgentAgent = {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Re-checked on 2026-07-24: no Huawei Cloud documentation describes an MCP config surface for CodeArts Agent, and the third-party client catalogs list it as unverified. Left absent rather than asserting a config path AXM cannot cite.",
         docs: [],
         sources: [],
       },
@@ -99,7 +100,8 @@ export const codeartsAgentAgent = {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Re-checked on 2026-07-24: no Huawei Cloud documentation confirms AGENTS.md or another instruction-file convention for CodeArts Agent. Left absent until a vendor source names the file.",
         docs: [],
         sources: [],
       },

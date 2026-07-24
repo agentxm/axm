@@ -112,7 +112,7 @@ export const adalAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://docs.sylph.ai/features/agent-context-and-agents-md"],
+        sources: ["https://docs.sylph.ai/getting-started/workflows-and-examples"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -123,7 +123,7 @@ export const adalAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },

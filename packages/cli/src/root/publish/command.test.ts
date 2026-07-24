@@ -195,6 +195,118 @@ describe("root publish", () => {
     );
   });
 
+  it.effect("builds a publish candidate for a conformant OKF 0.2 Knowledge bundle", () => {
+    fs.writeFileSync(
+      path.join(tempDir, ".axm", "settings.json"),
+      JSON.stringify({
+        owner: "@acme",
+        agents: [],
+        knowledge: {
+          platform: { source: "workspace:@acme/knowledge/platform", enabled: true },
+        },
+      }),
+    );
+    const knowledgeDir = path.join(tempDir, ".axm", "extensions", "@acme", "knowledge", "platform");
+    fs.mkdirSync(path.join(knowledgeDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(knowledgeDir, "knowledge.json"),
+      JSON.stringify({
+        owner: "@acme",
+        type: "knowledge",
+        name: "platform",
+        version: "1.0.0",
+        format: { name: "okf", version: "0.2" },
+        bundleRoot: "src",
+      }),
+    );
+    fs.writeFileSync(
+      path.join(knowledgeDir, "src", "index.md"),
+      '---\nokf_version: "0.2"\n---\n# Platform knowledge\n\n- [Architecture](architecture.md)\n',
+    );
+    fs.writeFileSync(
+      path.join(knowledgeDir, "src", "architecture.md"),
+      [
+        "---",
+        "type: reference",
+        "description: Platform architecture",
+        "tags: [platform]",
+        "status: stable",
+        "generated: { by: reference_agent/gemini-2.5-pro, at: 2026-06-20T22:53:05Z }",
+        "verified: { by: human:ahormati, at: 2026-06-25T09:00:00Z }",
+        "sources:",
+        "  - id: adr-1",
+        "    resource: https://example.com/adr-1",
+        "---",
+        "# Architecture",
+        "",
+      ].join("\n"),
+    );
+    const { provide, rendererState } = makeContext();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootPublish(
+          args(pathToFileURL(path.join(tempDir, "registry")).href, {
+            types: ["knowledge"],
+          }),
+        );
+
+        const result = expectPublishResult(at(rendererState.results, 0).data, {
+          mode: "preview",
+          count: 1,
+        });
+        const results = property(result, "results");
+        if (!Array.isArray(results)) throw new Error("Expected publish results");
+        const item = expectRecord(at(results, 0));
+        expect(property(item, "type")).toBe("knowledge");
+        expect(property(item, "status")).toBe("pending");
+      }),
+    );
+  });
+
+  it.effect("rejects a Knowledge bundle whose manifest and root dialects disagree", () => {
+    fs.writeFileSync(
+      path.join(tempDir, ".axm", "settings.json"),
+      JSON.stringify({
+        owner: "@acme",
+        agents: [],
+        knowledge: {
+          platform: { source: "workspace:@acme/knowledge/platform", enabled: true },
+        },
+      }),
+    );
+    const knowledgeDir = path.join(tempDir, ".axm", "extensions", "@acme", "knowledge", "platform");
+    fs.mkdirSync(path.join(knowledgeDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(knowledgeDir, "knowledge.json"),
+      JSON.stringify({
+        owner: "@acme",
+        type: "knowledge",
+        name: "platform",
+        version: "1.0.0",
+        format: { name: "okf", version: "0.2" },
+        bundleRoot: "src",
+      }),
+    );
+    fs.writeFileSync(
+      path.join(knowledgeDir, "src", "index.md"),
+      "---\nokf_version: 0.1\n---\n# Platform knowledge\n",
+    );
+    const { provide } = makeContext();
+
+    return provide(
+      Effect.gen(function* () {
+        const error = getAppError(
+          yield* handleRootPublish(
+            args(pathToFileURL(path.join(tempDir, "registry")).href, { types: ["knowledge"] }),
+          ).pipe(Effect.flip),
+        );
+        expect(error.detail).toContain("okf_version 0.1");
+        expect(error.detail).toContain("format.version 0.2");
+      }),
+    );
+  });
+
   it.effect("verifies an existing immutable version and detects integrity drift", () => {
     fs.writeFileSync(
       path.join(tempDir, ".axm", "settings.json"),

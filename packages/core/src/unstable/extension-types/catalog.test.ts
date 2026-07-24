@@ -30,7 +30,7 @@ describe("extension type catalog", () => {
     expect(getStandardForExtensionType("command")).toBe(null);
     expect(getStandardForExtensionType("subagent")).toBe(null);
     expect(getStandardForExtensionType("hook")).toBe(null);
-    expect(getStandardForExtensionType("knowledge")?.id).toBe("okf-0.1-draft");
+    expect(getStandardForExtensionType("knowledge")?.id).toBe("okf-0.2");
   });
 
   it("derives spec-tracked status from catalog standard presence", () => {

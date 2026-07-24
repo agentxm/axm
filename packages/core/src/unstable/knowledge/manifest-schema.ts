@@ -19,9 +19,10 @@ export const KnowledgeManifestSchema = Schema.Struct({
   type: Schema.Literal("knowledge"),
   format: Schema.Struct({
     name: Schema.Literal("okf"),
-    version: Schema.Literal("0.1"),
+    version: Schema.Literals(["0.1", "0.2"]),
   }).annotate({
-    description: "Open Knowledge Format dialect and version used by this bundle.",
+    description:
+      "Open Knowledge Format dialect and version used by this bundle. Both 0.1 and 0.2 are accepted.",
   }),
   bundleRoot: Schema.Literal(KNOWLEDGE_SOURCE_DIR).annotate({
     description: "Package-relative directory containing the authoritative OKF bundle.",
@@ -35,7 +36,7 @@ export const KnowledgeManifestSchema = Schema.Struct({
 }).annotate({
   identifier: "KnowledgeManifest",
   title: "Knowledge Manifest",
-  description: "Manifest for an isolated Open Knowledge Format 0.1 draft bundle rooted at src/.",
+  description: "Manifest for an isolated Open Knowledge Format bundle rooted at src/.",
 });
 
 export type KnowledgeManifest = Schema.Schema.Type<typeof KnowledgeManifestSchema>;

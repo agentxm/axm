@@ -133,6 +133,249 @@ describe("Open Knowledge Format bundles", () => {
     }),
   );
 
+  it.effect("keeps published okf 0.1 bundles valid and reports them as 0.1", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      yield* fs.writeFileString(
+        path.join(root, "index.md"),
+        "---\nokf_version: 0.1\n---\n# Legacy\n\n- [Refunds](refunds.md)\n",
+      );
+      yield* fs.writeFileString(
+        path.join(root, "refunds.md"),
+        "---\ntype: policy\ndescription: Refund policy\ntags: [payments]\ntimestamp: 2026-06-20T22:53:05Z\n---\n# Refunds\n\nRefund within 30 days.\n\n# Citations\n\n[1] [Policy](https://example.com/policy)\n",
+      );
+
+      const inspected = yield* inspectKnowledgeBundle(root);
+      expect(inspected.okfVersion).toBe("0.1");
+      expect(inspected.diagnostics).toEqual([]);
+      expect(openKnowledgeConcept(inspected.concepts, "refunds")?.timestamp).toBe(
+        "2026-06-20T22:53:05Z",
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("accepts the full okf 0.2 profile without error diagnostics", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      yield* fs.writeFileString(
+        path.join(root, "index.md"),
+        '---\nokf_version: "0.2"\n---\n# Revenue\n\n- [Schema](schema.md)\n- [Revenue by year](revenue.md)\n',
+      );
+      yield* fs.writeFileString(
+        path.join(root, "schema.md"),
+        [
+          "---",
+          "type: reference",
+          "description: GA4 export schema",
+          "tags: [analytics]",
+          "status: stable",
+          "stale_after: 2026-09-23",
+          "generated: { by: reference_agent/gemini-2.5-pro, at: 2026-06-20T22:53:05Z }",
+          "verified:",
+          "  - { by: human:ahormati, at: 2026-06-25T09:00:00Z }",
+          "  - { by: process:finance-nightly, at: 2026-06-26T02:00:00Z }",
+          "sources:",
+          "  - id: ga4-schema",
+          "    resource: https://developers.google.com/analytics/bigquery/export-schema",
+          "    title: GA4 BigQuery Export schema",
+          "    author: team:ga4-docs",
+          "    usage_count: 5000",
+          "    last_modified: 2026-05-30",
+          "usage_window: { from: 2026-06-01, to: 2026-06-30 }",
+          "---",
+          "# Schema",
+          "",
+          "Events are sharded daily as `events_YYYYMMDD`.[^ga4-schema]",
+          "",
+          "[^ga4-schema]: GA4 BigQuery Export schema",
+          "",
+        ].join("\n"),
+      );
+      yield* fs.writeFileString(
+        path.join(root, "revenue.md"),
+        [
+          "---",
+          "type: Attested Computation",
+          "description: Recognized revenue by fiscal year",
+          "tags: [finance]",
+          "runtime: bigquery",
+          "parameters:",
+          "  - { name: year, type: integer, required: true }",
+          "executor:",
+          "  resource: references/skills/run-on-bq.md",
+          "  receipt: [job_id, executed_sql, result]",
+          "attester:",
+          "  resource: references/attesters/revenue.py",
+          "---",
+          "# Revenue by year",
+          "",
+          "# Computation",
+          "",
+          "    SELECT SUM(amount) AS revenue FROM finance.recognized_revenue",
+          "",
+        ].join("\n"),
+      );
+
+      const inspected = yield* inspectKnowledgeBundle(root);
+      expect(inspected.okfVersion).toBe("0.2");
+      expect(inspected.diagnostics.filter(({ severity }) => severity === "error")).toEqual([]);
+      const schema = openKnowledgeConcept(inspected.concepts, "schema");
+      expect(schema?.status).toBe("stable");
+      expect(schema?.staleAfter).toBe("2026-09-23");
+      expect(schema?.generated).toEqual({
+        by: "reference_agent/gemini-2.5-pro",
+        at: "2026-06-20T22:53:05Z",
+      });
+      expect(schema?.trust).toBe("human-reviewed");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("derives machine-confirmed and unverified trust tiers", () =>
+    Effect.gen(function* () {
+      const contents = new Map([
+        ["index.md", '---\nokf_version: "0.2"\n---\n# Trust\n\n- [Machine](machine.md)\n'],
+        [
+          "machine.md",
+          "---\ntype: reference\ndescription: Machine\ntags: [trust]\nverified: { by: process:finance-nightly, at: 2026-06-26T02:00:00Z }\n---\n# Machine\n",
+        ],
+        ["plain.md", "---\ntype: reference\ndescription: Plain\ntags: [trust]\n---\n# Plain\n"],
+      ]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+      expect(inspected.diagnostics.filter(({ severity }) => severity === "error")).toEqual([]);
+      expect(openKnowledgeConcept(inspected.concepts, "machine")?.trust).toBe("machine-confirmed");
+      expect(openKnowledgeConcept(inspected.concepts, "plain")?.trust).toBe("unverified");
+    }),
+  );
+
+  it.effect("degrades superseded 0.1 forms to deprecation warnings in 0.2 bundles", () =>
+    Effect.gen(function* () {
+      const contents = new Map([
+        ["index.md", '---\nokf_version: "0.2"\n---\n# Legacy forms\n\n- [Old](old.md)\n'],
+        [
+          "old.md",
+          "---\ntype: policy\ndescription: Old\ntags: [payments]\ntimestamp: 2026-06-20T22:53:05Z\n---\n# Old\n\n# Citations\n\n[1] [Policy](https://example.com/policy)\n",
+        ],
+      ]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+      expect(inspected.diagnostics.filter(({ severity }) => severity === "error")).toEqual([]);
+      const warnings = new Set(
+        inspected.diagnostics
+          .filter(({ severity }) => severity === "warning")
+          .map(({ code }) => code),
+      );
+      expect(warnings.has("deprecated-timestamp")).toBe(true);
+      expect(warnings.has("deprecated-citations")).toBe(true);
+    }),
+  );
+
+  it.effect("reports the 0.2 frontmatter families that fail validation", () =>
+    Effect.gen(function* () {
+      const contents = new Map([
+        ["index.md", '---\nokf_version: "0.2"\n---\n# Invalid\n\n- [Broken](broken.md)\n'],
+        [
+          "broken.md",
+          [
+            "---",
+            "type: reference",
+            "description: Broken",
+            "tags: [trust]",
+            "status: published",
+            "stale_after: soon",
+            "generated: { by: not a valid actor }",
+            "verified:",
+            "  - { by: ahormati }",
+            "sources:",
+            "  - title: Missing resource",
+            "---",
+            "# Broken",
+            "",
+          ].join("\n"),
+        ],
+        [
+          "attested.md",
+          "---\ntype: Attested Computation\ndescription: Attested\ntags: [finance]\n---\n# Attested\n",
+        ],
+      ]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+      const errorCodes = new Set(
+        inspected.diagnostics
+          .filter(({ severity }) => severity === "error")
+          .map(({ code }) => code),
+      );
+      expect(errorCodes.has("invalid-status")).toBe(true);
+      expect(errorCodes.has("invalid-stale-after")).toBe(true);
+      expect(errorCodes.has("invalid-generated")).toBe(true);
+      expect(errorCodes.has("invalid-verified")).toBe(true);
+      expect(errorCodes.has("invalid-sources")).toBe(true);
+      expect(errorCodes.has("invalid-attestation")).toBe(true);
+    }),
+  );
+
+  it.effect("leaves the 0.2 families unenforced in 0.1 bundles", () =>
+    Effect.gen(function* () {
+      const contents = new Map([
+        ["index.md", "---\nokf_version: 0.1\n---\n# Legacy\n\n- [Old](old.md)\n"],
+        [
+          "old.md",
+          "---\ntype: reference\ndescription: Old\ntags: [legacy]\nstatus: published\nstale_after: soon\n---\n# Old\n",
+        ],
+      ]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+      expect(inspected.okfVersion).toBe("0.1");
+      expect(inspected.diagnostics).toEqual([]);
+    }),
+  );
+
+  it.effect("rejects an unsupported okf version at the bundle root", () =>
+    Effect.gen(function* () {
+      const contents = new Map([["index.md", '---\nokf_version: "0.3"\n---\n# Future\n']]);
+      const inspected = yield* inspectKnowledgeEntries(
+        [...contents].map(([relativePath, content]) => ({
+          relativePath,
+          type: "File",
+          size: BigInt(content.length),
+        })),
+        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
+      );
+      const unsupported = inspected.diagnostics.find(
+        ({ code }) => code === "unsupported-okf-version",
+      );
+      expect(unsupported?.message).toContain("expected 0.1 or 0.2");
+    }),
+  );
+
   it.effect("warns for broken, escaping, unreachable, HTML, and unreferenced content", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

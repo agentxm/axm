@@ -343,11 +343,11 @@
           "type": "object",
           "properties": {
             "name": { "type": "string", "enum": ["okf"] },
-            "version": { "type": "string", "enum": ["0.1"] }
+            "version": { "type": "string", "enum": ["0.1", "0.2"] }
           },
           "required": ["name", "version"],
           "additionalProperties": false,
-          "description": "Open Knowledge Format dialect and version used by this bundle."
+          "description": "Open Knowledge Format dialect and version used by this bundle. Both 0.1 and 0.2 are accepted."
         },
         "bundleRoot": {
           "type": "string",
@@ -359,7 +359,7 @@
       "required": ["owner", "version", "type", "format", "bundleRoot", "name"],
       "additionalProperties": false,
       "title": "Knowledge Manifest",
-      "description": "Manifest for an isolated Open Knowledge Format 0.1 draft bundle rooted at src/."
+      "description": "Manifest for an isolated Open Knowledge Format bundle rooted at src/."
     }
   }
 }

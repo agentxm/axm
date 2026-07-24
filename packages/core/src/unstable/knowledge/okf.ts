@@ -1,10 +1,27 @@
-/** Open Knowledge Format 0.1 draft discovery and AgentXM-profile validation. */
+/** Open Knowledge Format discovery and AgentXM-profile validation (v0.1 and v0.2). */
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
+
+/** OKF dialect versions this inspector understands. */
+export type OkfVersion = "0.1" | "0.2";
+
+/** Actor that produced or confirmed a concept, per the OKF actor convention. */
+export interface KnowledgeActorRecord {
+  readonly by: string;
+  readonly at?: string;
+}
+
+/**
+ * Trust tier derived from `verified`, per OKF 0.2. A concept is
+ * `human-reviewed` when any verifier is a `human:<id>` actor,
+ * `machine-confirmed` when verified only by non-human actors, and
+ * `unverified` when `verified` is absent.
+ */
+export type KnowledgeTrustTier = "unverified" | "machine-confirmed" | "human-reviewed";
 
 export interface KnowledgeConcept {
   readonly id: string;
@@ -13,7 +30,13 @@ export interface KnowledgeConcept {
   readonly description?: string;
   readonly tags?: ReadonlyArray<string>;
   readonly resource?: string;
+  /** Superseded by `generated.at` in OKF 0.2; still surfaced for 0.1 bundles. */
   readonly timestamp?: string;
+  readonly status?: string;
+  readonly staleAfter?: string;
+  readonly generated?: KnowledgeActorRecord;
+  readonly verified?: ReadonlyArray<KnowledgeActorRecord>;
+  readonly trust?: KnowledgeTrustTier;
   readonly relativePath: string;
   readonly body: string;
 }
@@ -52,7 +75,15 @@ export interface KnowledgeDiagnostic {
     | "inconsistent-type"
     | "large-concept"
     | "large-index"
-    | "unreferenced-asset";
+    | "unreferenced-asset"
+    | "invalid-sources"
+    | "invalid-generated"
+    | "invalid-verified"
+    | "invalid-status"
+    | "invalid-stale-after"
+    | "invalid-attestation"
+    | "deprecated-timestamp"
+    | "deprecated-citations";
   readonly severity: "error" | "warning";
   readonly relativePath: string;
   readonly line?: number;
@@ -62,9 +93,16 @@ export interface KnowledgeDiagnostic {
 export interface KnowledgeInspection {
   readonly concepts: ReadonlyArray<KnowledgeConcept>;
   readonly diagnostics: ReadonlyArray<KnowledgeDiagnostic>;
+  /** Dialect declared by the bundle root, defaulting to 0.1 when undeclared. */
+  readonly okfVersion: OkfVersion;
 }
 
 const RESERVED_BASENAMES = new Set(["index.md", "log.md"]);
+const SUPPORTED_OKF_VERSIONS: ReadonlyArray<OkfVersion> = ["0.1", "0.2"];
+const DEFAULT_OKF_VERSION: OkfVersion = "0.1";
+const SCAFFOLD_OKF_VERSION: OkfVersion = "0.2";
+const CONCEPT_STATUSES = new Set(["draft", "stable", "deprecated"]);
+const ATTESTED_COMPUTATION_TYPE = "attested computation";
 const MAX_FILE_BYTES = 1024n * 1024n;
 const MAX_BUNDLE_BYTES = 10n * 1024n * 1024n;
 const MAX_BUNDLE_FILES = 1_000;
@@ -131,6 +169,9 @@ const markdownLinks = (body: string): ReadonlyArray<MarkdownLink> => {
   return links;
 };
 
+const isRecord = (value: unknown): value is { readonly [key: string]: unknown } =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 const metadataField = (metadata: unknown, key: string): unknown => {
   if (typeof metadata !== "object" || metadata === null) return undefined;
   return Object.entries(metadata).find(([entryKey]) => entryKey === key)?.[1];
@@ -186,6 +227,169 @@ const validResource = (value: string): boolean => {
   }
 };
 
+const validIsoDate = (value: string): boolean =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+
+/**
+ * OKF 0.2 actor convention: `<producer>/<version>` for agents and tools,
+ * `human:<id>` for people, and `process:<id>` for automated processes.
+ */
+const validActor = (value: string): boolean => {
+  if (value.length === 0 || /\s/.test(value)) return false;
+  const prefixed = /^(?:human|process):(.+)$/.exec(value);
+  if (prefixed !== null) return (prefixed[1]?.length ?? 0) > 0;
+  const segments = value.split("/");
+  return segments.length === 2 && segments.every((segment) => segment.length > 0);
+};
+
+const dateIssue = (value: unknown, label: string): string | undefined =>
+  typeof value === "string" && validIsoDate(value)
+    ? undefined
+    : `${label} must be an ISO 8601 YYYY-MM-DD date.`;
+
+/** Validate one `{ by, at }` actor record shared by `generated` and `verified`. */
+const actorRecordIssues = (value: unknown, label: string): ReadonlyArray<string> => {
+  if (!isRecord(value)) return [`${label} must be a mapping with a by field.`];
+  const issues: string[] = [];
+  const by = value["by"];
+  if (typeof by !== "string" || !validActor(by)) {
+    issues.push(
+      `${label}.by must use the OKF actor convention (<producer>/<version>, human:<id>, or process:<id>).`,
+    );
+  }
+  const at = value["at"];
+  if (at !== undefined && (typeof at !== "string" || !validIsoTimestamp(at))) {
+    issues.push(`${label}.at must be an ISO 8601 date-time with a timezone.`);
+  }
+  return issues;
+};
+
+const sourcesIssues = (value: unknown): ReadonlyArray<string> => {
+  if (!Array.isArray(value)) return ["sources must be a list of source entries."];
+  const issues: string[] = [];
+  const ids = new Map<string, number>();
+  value.forEach((entry: unknown, index) => {
+    const label = `sources[${index}]`;
+    if (!isRecord(entry)) {
+      issues.push(`${label} must be a mapping.`);
+      return;
+    }
+    const resource = entry["resource"];
+    if (typeof resource !== "string" || !validResource(resource)) {
+      issues.push(`${label}.resource is required and must be a safe absolute URI.`);
+    }
+    const id = entry["id"];
+    if (id !== undefined) {
+      if (typeof id !== "string" || id.trim().length === 0) {
+        issues.push(`${label}.id must be a non-empty string.`);
+      } else {
+        const seen = ids.get(id);
+        if (seen !== undefined) issues.push(`${label}.id duplicates sources[${seen}].id.`);
+        else ids.set(id, index);
+      }
+    }
+    const title = entry["title"];
+    if (title !== undefined && typeof title !== "string") {
+      issues.push(`${label}.title must be a string.`);
+    }
+    // `author` is a free-form credibility signal, not an actor field; the spec
+    // uses values such as `team:ga4-docs` that the actor convention rejects.
+    const author = entry["author"];
+    if (author !== undefined && (typeof author !== "string" || author.trim().length === 0)) {
+      issues.push(`${label}.author must be a non-empty string.`);
+    }
+    const usageCount = entry["usage_count"];
+    if (
+      usageCount !== undefined &&
+      (typeof usageCount !== "number" || !Number.isInteger(usageCount) || usageCount < 0)
+    ) {
+      issues.push(`${label}.usage_count must be a non-negative integer.`);
+    }
+    const lastModified = entry["last_modified"];
+    if (lastModified !== undefined) {
+      const issue = dateIssue(lastModified, `${label}.last_modified`);
+      if (issue !== undefined) issues.push(issue);
+    }
+  });
+  return issues;
+};
+
+const usageWindowIssues = (value: unknown): ReadonlyArray<string> => {
+  if (!isRecord(value)) return ["usage_window must be a mapping with from and to dates."];
+  const issues: string[] = [];
+  for (const key of ["from", "to"]) {
+    const issue = dateIssue(value[key], `usage_window.${key}`);
+    if (issue !== undefined) issues.push(issue);
+  }
+  return issues;
+};
+
+const verifiedRecords = (value: unknown): ReadonlyArray<unknown> =>
+  Array.isArray(value) ? value : [value];
+
+const attestationIssues = (metadata: unknown, body: string): ReadonlyArray<string> => {
+  const issues: string[] = [];
+  const runtime = metadataField(metadata, "runtime");
+  if (typeof runtime !== "string" || runtime.trim().length === 0) {
+    issues.push("Attested Computation concepts require a non-empty runtime.");
+  }
+  const parameters = metadataField(metadata, "parameters");
+  if (parameters !== undefined) {
+    if (!Array.isArray(parameters)) {
+      issues.push("parameters must be a list of typed parameter mappings.");
+    } else {
+      parameters.forEach((parameter: unknown, index) => {
+        const label = `parameters[${index}]`;
+        if (!isRecord(parameter)) {
+          issues.push(`${label} must be a mapping.`);
+          return;
+        }
+        const name = parameter["name"];
+        if (typeof name !== "string" || name.trim().length === 0) {
+          issues.push(`${label}.name is required and must be a non-empty string.`);
+        }
+        const type = parameter["type"];
+        if (typeof type !== "string" || type.trim().length === 0) {
+          issues.push(`${label}.type is required and must be a non-empty string.`);
+        }
+        const required = parameter["required"];
+        if (required !== undefined && typeof required !== "boolean") {
+          issues.push(`${label}.required must be a boolean.`);
+        }
+      });
+    }
+  }
+  for (const key of ["executor", "attester"]) {
+    const value = metadataField(metadata, key);
+    if (value === undefined) continue;
+    if (!isRecord(value)) {
+      issues.push(`${key} must be a mapping with a resource.`);
+      continue;
+    }
+    const resource = value["resource"];
+    if (typeof resource !== "string" || resource.trim().length === 0) {
+      issues.push(`${key}.resource is required and must be a non-empty string.`);
+    }
+    const receipt = value["receipt"];
+    if (
+      receipt !== undefined &&
+      (!Array.isArray(receipt) || !receipt.every((field: unknown) => typeof field === "string"))
+    ) {
+      issues.push(`${key}.receipt must be a list of receipt field names.`);
+    }
+  }
+  const computation = metadataField(metadata, "computation");
+  if (computation !== undefined && typeof computation !== "string") {
+    issues.push("computation must be a bundle-relative path to a computation file.");
+  }
+  if (computation === undefined && !/^#\s+Computation\s*$/im.test(body)) {
+    issues.push(
+      "Attested Computation concepts require a `# Computation` body heading or a computation field.",
+    );
+  }
+  return issues;
+};
+
 const secretPatterns: ReadonlyArray<RegExp> = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
   /\bAKIA[0-9A-Z]{16}\b/,
@@ -224,8 +428,10 @@ const resolvedMarkdownTarget = (
 };
 
 /**
- * Inspect an OKF bundle. The root index requirement is an explicit AgentXM
- * profile constraint; upstream OKF 0.1 itself permits a root without it.
+ * Inspect an OKF bundle in the dialect its root index declares. The root index
+ * requirement is an explicit AgentXM profile constraint; upstream OKF permits a
+ * root without it. The 0.2 frontmatter families are enforced only for bundles
+ * that declare `okf_version: "0.2"`, so published 0.1 bundles keep validating.
  */
 export const inspectKnowledgeEntries = <E>(
   entries: ReadonlyArray<KnowledgeBundleEntry>,
@@ -343,8 +549,30 @@ export const inspectKnowledgeEntries = <E>(
       });
     }
 
+    const rawByPath = new Map<string, string>();
     for (const relativePath of files) {
-      const raw = yield* readMarkdown(relativePath);
+      rawByPath.set(relativePath, yield* readMarkdown(relativePath));
+    }
+
+    // The dialect is declared once at the bundle root and governs which
+    // frontmatter families apply, so it is resolved before any concept is
+    // validated. Undeclared or unsupported roots fall back to 0.1 and are
+    // reported separately when index.md is inspected.
+    const declaredOkfVersion = yield* Effect.gen(function* () {
+      const rootRaw = rawByPath.get("index.md");
+      if (rootRaw === undefined) return undefined;
+      const parsed = yield* parseFrontmatterEffect(rootRaw).pipe(Effect.option);
+      if (Option.isNone(parsed)) return undefined;
+      const value = metadataField(parsed.value.frontmatter, "okf_version");
+      return value === undefined ? undefined : String(value);
+    });
+    const okfVersion: OkfVersion =
+      SUPPORTED_OKF_VERSIONS.find((supported) => supported === declaredOkfVersion) ??
+      DEFAULT_OKF_VERSION;
+    const isOkf02 = okfVersion === "0.2";
+
+    for (const relativePath of files) {
+      const raw = rawByPath.get(relativePath) ?? "";
       const links = markdownLinks(raw);
       linksByPath.set(relativePath, links);
       const foundSecretLine = secretLine(raw);
@@ -492,21 +720,21 @@ export const inspectKnowledgeEntries = <E>(
         });
       }
       if (relativePath === "index.md") {
-        const okfVersion =
-          isMetadata && "okf_version" in metadata ? metadata.okf_version : undefined;
-        if (okfVersion === undefined) {
+        const declaredVersion =
+          isMetadata && "okf_version" in metadata ? String(metadata.okf_version) : undefined;
+        if (declaredVersion === undefined) {
           diagnostics.push({
             code: "missing-okf-version",
             severity: "error",
             relativePath,
-            message: "src/index.md requires okf_version: 0.1 in YAML frontmatter.",
+            message: `src/index.md requires okf_version: ${SCAFFOLD_OKF_VERSION} in YAML frontmatter.`,
           });
-        } else if (String(okfVersion) !== "0.1") {
+        } else if (!SUPPORTED_OKF_VERSIONS.some((supported) => supported === declaredVersion)) {
           diagnostics.push({
             code: "unsupported-okf-version",
             severity: "error",
             relativePath,
-            message: `Unsupported OKF version ${String(okfVersion)}; expected 0.1.`,
+            message: `Unsupported OKF version ${declaredVersion}; expected ${SUPPORTED_OKF_VERSIONS.join(" or ")}.`,
           });
         }
       }
@@ -533,6 +761,129 @@ export const inspectKnowledgeEntries = <E>(
           relativePath,
           message: `${relativePath} timestamp must be an ISO 8601 date-time with a timezone.`,
         });
+      }
+      const statusValue = metadataField(metadata, "status");
+      const staleAfterValue = metadataField(metadata, "stale_after");
+      const generatedValue = metadataField(metadata, "generated");
+      const verifiedValue = metadataField(metadata, "verified");
+      const sourcesValue = metadataField(metadata, "sources");
+      const usageWindowValue = metadataField(metadata, "usage_window");
+      const generated =
+        isOkf02 && isRecord(generatedValue) && typeof generatedValue["by"] === "string"
+          ? {
+              by: generatedValue["by"],
+              ...(typeof generatedValue["at"] === "string" ? { at: generatedValue["at"] } : {}),
+            }
+          : undefined;
+      const verified = isOkf02
+        ? verifiedRecords(verifiedValue)
+            .filter(isRecord)
+            .flatMap((record) =>
+              typeof record["by"] === "string"
+                ? [
+                    {
+                      by: record["by"],
+                      ...(typeof record["at"] === "string" ? { at: record["at"] } : {}),
+                    },
+                  ]
+                : [],
+            )
+        : [];
+      const trust: KnowledgeTrustTier | undefined = !isOkf02
+        ? undefined
+        : verifiedValue === undefined || verified.length === 0
+          ? "unverified"
+          : verified.some((record) => record.by.startsWith("human:"))
+            ? "human-reviewed"
+            : "machine-confirmed";
+      if (isOkf02 && !RESERVED_BASENAMES.has(baseName)) {
+        // OKF 0.2 supersedes the top-level `timestamp` with `generated.at` and
+        // the `# Citations` body list with the `sources` family. Both legacy
+        // forms stay readable, so they degrade to deprecation warnings.
+        if (timestampValue !== undefined) {
+          diagnostics.push({
+            code: "deprecated-timestamp",
+            severity: "warning",
+            relativePath,
+            message: `${relativePath} uses the superseded timestamp field; OKF 0.2 records this as generated.at.`,
+          });
+        }
+        if (sourcesValue !== undefined) {
+          for (const issue of sourcesIssues(sourcesValue)) {
+            diagnostics.push({
+              code: "invalid-sources",
+              severity: "error",
+              relativePath,
+              message: `${relativePath} ${issue}`,
+            });
+          }
+        }
+        if (usageWindowValue !== undefined) {
+          for (const issue of usageWindowIssues(usageWindowValue)) {
+            diagnostics.push({
+              code: "invalid-sources",
+              severity: "error",
+              relativePath,
+              message: `${relativePath} ${issue}`,
+            });
+          }
+        }
+        if (generatedValue !== undefined) {
+          for (const issue of actorRecordIssues(generatedValue, "generated")) {
+            diagnostics.push({
+              code: "invalid-generated",
+              severity: "error",
+              relativePath,
+              message: `${relativePath} ${issue}`,
+            });
+          }
+        }
+        if (verifiedValue !== undefined) {
+          const records = verifiedRecords(verifiedValue);
+          records.forEach((record, index) => {
+            const label = Array.isArray(verifiedValue) ? `verified[${index}]` : "verified";
+            for (const issue of actorRecordIssues(record, label)) {
+              diagnostics.push({
+                code: "invalid-verified",
+                severity: "error",
+                relativePath,
+                message: `${relativePath} ${issue}`,
+              });
+            }
+          });
+        }
+        if (
+          statusValue !== undefined &&
+          (typeof statusValue !== "string" || !CONCEPT_STATUSES.has(statusValue))
+        ) {
+          diagnostics.push({
+            code: "invalid-status",
+            severity: "error",
+            relativePath,
+            message: `${relativePath} status must be one of ${[...CONCEPT_STATUSES].join(", ")}.`,
+          });
+        }
+        if (staleAfterValue !== undefined) {
+          const issue = dateIssue(staleAfterValue, "stale_after");
+          if (issue !== undefined) {
+            diagnostics.push({
+              code: "invalid-stale-after",
+              severity: "error",
+              relativePath,
+              message: `${relativePath} ${issue}`,
+            });
+          }
+        }
+        if (type !== undefined && type.toLocaleLowerCase() === ATTESTED_COMPUTATION_TYPE) {
+          for (const issue of attestationIssues(metadata, parsed.value.body)) {
+            diagnostics.push({
+              code: "invalid-attestation",
+              severity: "error",
+              relativePath,
+              message: `${relativePath} ${issue}`,
+            });
+          }
+        }
       }
       if (!RESERVED_BASENAMES.has(baseName) && type === undefined) {
         diagnostics.push({
@@ -578,6 +929,15 @@ export const inspectKnowledgeEntries = <E>(
         types.set(type.toLocaleLowerCase(), spellings);
       }
       const citationHeading = parsed.value.body.search(/^#\s+Citations\s*$/im);
+      if (citationHeading >= 0 && isOkf02 && !RESERVED_BASENAMES.has(baseName)) {
+        diagnostics.push({
+          code: "deprecated-citations",
+          severity: "warning",
+          relativePath,
+          line: parsed.value.body.slice(0, citationHeading).split(/\r?\n/).length,
+          message: `${relativePath} uses the superseded # Citations section; OKF 0.2 records provenance in the sources frontmatter.`,
+        });
+      }
       if (citationHeading >= 0) {
         const citationBody = parsed.value.body.slice(citationHeading).split(/\r?\n/).slice(1);
         const malformedIndex = citationBody.findIndex(
@@ -604,6 +964,11 @@ export const inspectKnowledgeEntries = <E>(
         ...(tags === undefined ? {} : { tags }),
         ...(resource === undefined ? {} : { resource }),
         ...(timestamp === undefined ? {} : { timestamp }),
+        ...(typeof statusValue === "string" ? { status: statusValue } : {}),
+        ...(isOkf02 && typeof staleAfterValue === "string" ? { staleAfter: staleAfterValue } : {}),
+        ...(generated === undefined ? {} : { generated }),
+        ...(verified.length === 0 ? {} : { verified }),
+        ...(trust === undefined ? {} : { trust }),
         relativePath,
         body: parsed.value.body,
       });
@@ -720,7 +1085,7 @@ export const inspectKnowledgeEntries = <E>(
         });
       }
     }
-    return { concepts, diagnostics };
+    return { concepts, diagnostics, okfVersion };
   });
 
 export const inspectKnowledgeBundle = (

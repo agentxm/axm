@@ -74,10 +74,10 @@ const knowledge = {
   id: "knowledge",
   summary: "Package portable Open Knowledge Format concept bundles.",
   description:
-    "Reference knowledge installed as isolated Markdown concept bundles using the Open Knowledge Format 0.1 draft. Knowledge is discoverable and readable without being injected into agent instructions.",
+    "Reference knowledge installed as isolated Markdown concept bundles using the Open Knowledge Format. New bundles target OKF 0.2; published 0.1 bundles remain valid. Knowledge is discoverable and readable without being injected into agent instructions.",
   standard: {
-    id: "okf-0.1-draft",
-    name: "Open Knowledge Format 0.1 draft",
+    id: "okf-0.2",
+    name: "Open Knowledge Format 0.2",
     url: "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md",
   },
   docs: [

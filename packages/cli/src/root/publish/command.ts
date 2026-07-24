@@ -562,7 +562,9 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     ),
   );
   if (selected.type === "knowledge") {
-    yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(manifestJson).pipe(
+    const knowledgeManifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(
+      manifestJson,
+    ).pipe(
       Effect.mapError((cause) =>
         makeAppError({ code: "validation", detail: `Invalid manifest: ${manifestPath}`, cause }),
       ),
@@ -585,6 +587,20 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
         detail: `Knowledge publish validation failed for ${selected.fqn}: ${blocking
           .map((diagnostic) => `${diagnostic.relativePath}: ${diagnostic.message}`)
           .join("; ")}`,
+      });
+    }
+    // The manifest dialect selects how the registry serves the bundle, while
+    // the inspector validates against the root index declaration. A mismatch
+    // would validate one dialect and publish another.
+    if (inspection.okfVersion !== knowledgeManifest.format.version) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Knowledge bundle ${selected.fqn} declares okf_version ${inspection.okfVersion} in src/index.md but format.version ${knowledgeManifest.format.version} in its manifest.`,
+        suggestions: [
+          {
+            description: `Set both to the same OKF version (${knowledgeManifest.format.version}).`,
+          },
+        ],
       });
     }
   }

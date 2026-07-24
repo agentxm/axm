@@ -1,3 +1,14 @@
+## 0.22.9 (2026-07-24)
+
+### 🩹 Fixes
+
+- Release CI/CD toolchain hardening (mise.toml composite); re-cut after a dropped GitHub Actions push event on 0.22.8. ([#43](https://github.com/agentxm/axm/pull/43))
+
+### ❤️ Thank You
+
+- Claude Opus 4.8 (1M context)
+- Craig Smitham
+
 ## 0.22.8 (2026-07-24)
 
 ### 🩹 Fixes

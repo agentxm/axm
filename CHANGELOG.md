@@ -22,6 +22,11 @@
 
 ## 0.22.8 (2026-07-24)
 
+> **Not published.** A GitHub Actions degradation dropped the push event for
+> this release commit, so CI never ran and no binaries were produced. Version
+> 0.22.8 was skipped and re-cut as 0.22.9. There is no `0.22.8` on npm or in
+> the GitHub releases; the change below shipped in 0.22.9.
+
 ### 🩹 Fixes
 
 - Harden CI/CD: source host toolchain from mise.toml via a composite action (no functional changes). ([#39](https://github.com/agentxm/axm/pull/39))

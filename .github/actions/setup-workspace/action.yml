@@ -1,0 +1,23 @@
+name: Set up workspace toolchain
+description: >-
+  Install the host toolchain (Node, pnpm, Bun) from mise.toml — the repository
+  tool-version authority — and install workspace dependencies. Single source of
+  truth for host-side toolchain setup so the versions live in mise.toml once and
+  are never copied into individual workflow jobs.
+
+inputs:
+  install:
+    description: Run `pnpm install --frozen-lockfile` after toolchain setup.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Install toolchain from mise.toml
+      uses: jdx/mise-action@f10502fc09dadecfefb962fff68ce77213930204 # v4.2.2
+
+    - name: Install workspace dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      run: pnpm install --frozen-lockfile

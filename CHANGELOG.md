@@ -1,3 +1,14 @@
+## 0.22.8 (2026-07-24)
+
+### 🩹 Fixes
+
+- Harden CI/CD: source host toolchain from mise.toml via a composite action (no functional changes). ([#39](https://github.com/agentxm/axm/pull/39))
+
+### ❤️ Thank You
+
+- Claude Opus 4.8 (1M context)
+- Craig Smitham
+
 ## 0.22.7 (2026-07-22)
 
 ### 🩹 Fixes

@@ -104,6 +104,12 @@ describe("root command help", () => {
     expect(missingExamples).toEqual([]);
     expect(invalidExamples).toEqual([]);
   });
+
+  it("does not expose the retired maintainer command", async () => {
+    const files = await Effect.runPromise(collectHelpFiles());
+
+    expect(files.has("axm maintainer")).toBe(false);
+  });
 });
 
 describe("root command parser output", () => {

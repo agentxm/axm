@@ -1,3 +1,14 @@
+## 0.22.12 (2026-07-25)
+
+### 🩹 Fixes
+
+- Remove legacy compatibility paths and require canonical lockfile, registry identity, workspace layout, and manifest contracts. ([ccbddf7a](https://github.com/agentxm/axm/commit/ccbddf7a))
+
+### ❤️ Thank You
+
+- Craig Smitham
+- Test @songkang666
+
 ## 0.22.11 (2026-07-25)
 
 ### 🩹 Fixes

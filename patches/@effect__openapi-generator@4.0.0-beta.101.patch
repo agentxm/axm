@@ -1,5 +1,5 @@
 diff --git a/dist/OpenApiGenerator.js b/dist/OpenApiGenerator.js
-index 534258ff796e1badd58379c62689dc3fedca8bf3..a24593288a30337b65ec1c6f10d22a8771f8e9cd 100644
+index 534258ff796e1badd58379c62689dc3fedca8bf3..2f4bfc120b112732e512700a91443666a7e71681 100644
 --- a/dist/OpenApiGenerator.js
 +++ b/dist/OpenApiGenerator.js
 @@ -306,21 +306,27 @@ const parseOpenApi = (spec, generator, resolveRef, format, emitWarning, multipar
@@ -95,7 +95,7 @@ index 534258ff796e1badd58379c62689dc3fedca8bf3..a24593288a30337b65ec1c6f10d22a87
    const normalized = contentType.toLowerCase();
    if (isJsonMediaType(normalized)) {
 diff --git a/dist/OpenApiTransformer.js b/dist/OpenApiTransformer.js
-index 5566cc420f3da7c08d5a004b6b21edab9b8c7cf9..c950e4c992f7bd808650248b2311b9da3110079e 100644
+index 5566cc420f3da7c08d5a004b6b21edab9b8c7cf9..4d330a4bbc8e36e726f274e9878f68abd6d74909 100644
 --- a/dist/OpenApiTransformer.js
 +++ b/dist/OpenApiTransformer.js
 @@ -31,6 +31,7 @@ export class OpenApiTransformer extends /*#__PURE__*/Context.Service()("OpenApiT
@@ -316,7 +316,7 @@ index 5566cc420f3da7c08d5a004b6b21edab9b8c7cf9..c950e4c992f7bd808650248b2311b9da
    readonly _tag: Tag
    readonly request: HttpClientRequest.HttpClientRequest
 diff --git a/dist/ParsedOperation.js b/dist/ParsedOperation.js
-index 11925d45a6312db038a1cd60a1f2047bfff48fd8..88bf6f486b42a95d5288560f0ccc3c6250ee3451 100644
+index 11925d45a6312db038a1cd60a1f2047bfff48fd8..8d1b515c7287b6a9fc7115eaa954695c79b02aa7 100644
 --- a/dist/ParsedOperation.js
 +++ b/dist/ParsedOperation.js
 @@ -40,6 +40,7 @@ export const makeDeepMutable = options => ({
@@ -328,8 +328,9 @@ index 11925d45a6312db038a1cd60a1f2047bfff48fd8..88bf6f486b42a95d5288560f0ccc3c62
 +  binarySuccessStatuses: new Set() // Effect-TS/effect#6368 / Effect-TS/effect#6404
  });
  //# sourceMappingURL=ParsedOperation.js.map
+\ No newline at end of file
 diff --git a/dist/Utils.js b/dist/Utils.js
-index c6506003ccae2a895140c51384892fa59fb5cd16..6c8f1a5ec8dec48cd4071a97df24deb6cd239b7f 100644
+index c6506003ccae2a895140c51384892fa59fb5cd16..03a69671a36a5245e2c9cd931ad5c133e595fb7c 100644
 --- a/dist/Utils.js
 +++ b/dist/Utils.js
 @@ -67,6 +67,12 @@ export const nonEmptyString = a => {

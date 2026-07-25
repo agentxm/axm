@@ -68,17 +68,12 @@ export {
 } from "./archive-cache.js";
 
 export type {
-  ExtensionMaintainer,
-  ExtensionMaintainerTarget,
   RegistryExtensionReference,
   RegistryExtensionVersionReference,
   RegistryLifecycleCallOptions,
   YankCategory,
 } from "./admin-client.js";
 export {
-  clearExtensionMaintainer,
-  getExtensionMaintainer,
-  setExtensionMaintainer,
   yankExtensionVersion,
   yankAvailableExtensionVersions,
   unyankExtensionVersion,

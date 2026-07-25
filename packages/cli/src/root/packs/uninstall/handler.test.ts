@@ -63,7 +63,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: opts?.lockfileSkills ?? {},
       ...(opts?.lockfilePacks ? { packs: opts.lockfilePacks } : {}),
     }),
@@ -78,14 +78,19 @@ const defaultArgs = (
   ...overrides,
 });
 
+type RawResolvedExtensionMap = Record<
+  string,
+  { readonly version: string; readonly publisherBindingId: string }
+>;
+
 const makePackLockEntry = (
   owner: string,
   name: string,
   overrides?: {
-    resolvedSkills?: Record<string, string>;
-    resolvedCommands?: Record<string, string>;
-    resolvedMcpServers?: Record<string, string>;
-    resolvedSubagents?: Record<string, string>;
+    resolvedSkills?: RawResolvedExtensionMap;
+    resolvedCommands?: RawResolvedExtensionMap;
+    resolvedMcpServers?: RawResolvedExtensionMap;
+    resolvedSubagents?: RawResolvedExtensionMap;
   },
 ) => ({
   type: "registry",
@@ -94,6 +99,7 @@ const makePackLockEntry = (
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
+  publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   resolvedSkills: overrides?.resolvedSkills ?? {},
@@ -244,7 +250,12 @@ describe("packs uninstall handler", () => {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack", {
-            resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+            resolvedSkills: {
+              "@acme/skills/skill-a": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
         },
       });
@@ -274,10 +285,20 @@ describe("packs uninstall handler", () => {
         },
         lockfilePacks: {
           "pack-a": makePackLockEntry("@acme", "pack-a", {
-            resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
+            resolvedSkills: {
+              "@acme/skills/shared-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
           "pack-b": makePackLockEntry("@acme", "pack-b", {
-            resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
+            resolvedSkills: {
+              "@acme/skills/shared-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
         },
       });
@@ -306,7 +327,12 @@ describe("packs uninstall handler", () => {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack", {
-            resolvedSkills: { "@acme/skills/promoted-skill": "1.0.0" },
+            resolvedSkills: {
+              "@acme/skills/promoted-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
         },
       });

@@ -78,6 +78,7 @@ interface TestIndexOverrides {
   readonly name?: string;
   readonly owner?: string;
   readonly type?: ExtensionIndex["type"];
+  readonly publisherBindingId?: string;
   readonly description?: string;
   readonly repository?: string;
   readonly license?: string;
@@ -89,6 +90,7 @@ const makeIndex = (overrides?: TestIndexOverrides): ExtensionIndex => ({
   name: extensionName(overrides?.name ?? "my-skill"),
   owner: handle(overrides?.owner ?? "@test"),
   type: "skill",
+  publisherBindingId: overrides?.publisherBindingId ?? "hbnd_test",
   versions: overrides?.versions ?? [makeVersionEntry()],
   ...(overrides?.type === undefined ? {} : { type: overrides.type }),
   ...(overrides?.description === undefined ? {} : { description: overrides.description }),

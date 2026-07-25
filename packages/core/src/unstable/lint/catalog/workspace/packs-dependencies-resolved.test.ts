@@ -8,7 +8,7 @@ const timestamp = "2026-07-10T00:00:00.000Z";
 describe("buildInstalledFqnIndex", () => {
   it("indexes workspace-sourced pack members as installed dependencies", () => {
     const lockfile = Schema.decodeUnknownSync(LockfileSchema)({
-      lockfileVersion: 2,
+      lockfileVersion: 3,
       skills: {
         review: {
           type: "workspace",

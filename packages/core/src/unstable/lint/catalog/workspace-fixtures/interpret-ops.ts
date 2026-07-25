@@ -81,6 +81,7 @@ interface RawRegistrySkillEntry {
   readonly resolvedVersion: string;
   readonly integrity: string;
   readonly sourceName: string;
+  readonly publisherBindingId: string;
   readonly agents: ReadonlyArray<string>;
   readonly installedAt: string;
   readonly updatedAt: string;
@@ -106,12 +107,25 @@ interface RawPackEntry {
   readonly resolvedVersion: string;
   readonly integrity: string;
   readonly sourceName: string;
+  readonly publisherBindingId: string;
   readonly installedAt: string;
   readonly updatedAt: string;
-  readonly resolvedSkills: Record<string, string>;
-  readonly resolvedCommands: Record<string, string>;
-  readonly resolvedMcpServers: Record<string, string>;
-  readonly resolvedSubagents: Record<string, string>;
+  readonly resolvedSkills: Record<
+    string,
+    { readonly version: string; readonly publisherBindingId: string }
+  >;
+  readonly resolvedCommands: Record<
+    string,
+    { readonly version: string; readonly publisherBindingId: string }
+  >;
+  readonly resolvedMcpServers: Record<
+    string,
+    { readonly version: string; readonly publisherBindingId: string }
+  >;
+  readonly resolvedSubagents: Record<
+    string,
+    { readonly version: string; readonly publisherBindingId: string }
+  >;
 }
 
 interface RawLockfile {
@@ -128,7 +142,7 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 
 const asLockfile = (doc: unknown): RawLockfile => {
   if (!isRecord(doc) || !("lockfileVersion" in doc)) {
-    return { lockfileVersion: 1, skills: {} };
+    return { lockfileVersion: 3, skills: {} };
   }
   const version = doc["lockfileVersion"];
   const skills = doc["skills"];
@@ -211,6 +225,7 @@ export const applyInstallSkill = (state: WorkspaceState, intent: InstallSkillInt
       resolvedVersion: parsed.versionRange ?? "0.0.0",
       integrity: "sha512-stub",
       sourceName: "default",
+      publisherBindingId: "hbnd_test",
       agents: ["universal", ...agents.map((a) => a.id)],
       installedAt: FIXED_NOW_ISO,
       updatedAt: FIXED_NOW_ISO,
@@ -355,6 +370,7 @@ export const applyInstallPack = (state: WorkspaceState, intent: InstallPackInten
       resolvedVersion: parsed.versionRange ?? "0.0.0",
       integrity: "sha512-stub",
       sourceName: "default",
+      publisherBindingId: "hbnd_test",
       installedAt: FIXED_NOW_ISO,
       updatedAt: FIXED_NOW_ISO,
       resolvedSkills: {},

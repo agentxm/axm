@@ -102,6 +102,17 @@
         }
       ]
     },
+    "ResolvedExtension": {
+      "type": "object",
+      "properties": {
+        "version": { "$ref": "#/definitions/Version" },
+        "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
+      },
+      "required": ["version", "publisherBindingId"],
+      "additionalProperties": false,
+      "title": "Resolved Extension",
+      "description": "Resolved dependency version and immutable publisher epoch."
+    },
     "RegistryPackLockEntry": {
       "type": "object",
       "properties": {
@@ -111,37 +122,35 @@
         "resolvedVersion": { "$ref": "#/definitions/Version" },
         "integrity": { "type": "string" },
         "sourceName": { "type": "string" },
-        "publisherBindingId": {
-          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
-        },
+        "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
         "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "resolvedSkills": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/Version" }
+          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
         "resolvedCommands": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/Version" }
+          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
         "resolvedMcpServers": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/Version" }
+          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
         "resolvedSubagents": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/Version" }
+          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
         "resolvedFiles": {
           "anyOf": [
             {
               "type": "object",
               "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/Version" }
+              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
             },
             { "type": "null" }
           ]
@@ -151,7 +160,7 @@
             {
               "type": "object",
               "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/Version" }
+              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
             },
             { "type": "null" }
           ]
@@ -161,7 +170,7 @@
             {
               "type": "object",
               "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/Version" }
+              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
             },
             { "type": "null" }
           ]
@@ -174,6 +183,7 @@
         "resolvedVersion",
         "integrity",
         "sourceName",
+        "publisherBindingId",
         "installedAt",
         "updatedAt",
         "resolvedSkills",
@@ -199,29 +209,29 @@
         "resolvedSkills": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/Version" }
+          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
         "resolvedCommands": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/Version" }
+          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
         "resolvedMcpServers": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/Version" }
+          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
         "resolvedSubagents": {
           "type": "object",
           "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-          "additionalProperties": { "$ref": "#/definitions/Version" }
+          "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
         },
         "resolvedFiles": {
           "anyOf": [
             {
               "type": "object",
               "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/Version" }
+              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
             },
             { "type": "null" }
           ]
@@ -231,7 +241,7 @@
             {
               "type": "object",
               "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/Version" }
+              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
             },
             { "type": "null" }
           ]
@@ -241,7 +251,7 @@
             {
               "type": "object",
               "propertyNames": { "$ref": "#/definitions/ExtensionFqn" },
-              "additionalProperties": { "$ref": "#/definitions/Version" }
+              "additionalProperties": { "$ref": "#/definitions/ResolvedExtension" }
             },
             { "type": "null" }
           ]
@@ -277,10 +287,10 @@
       "type": "object",
       "properties": {
         "lockfileVersion": {
-          "type": "integer",
-          "allOf": [
-            { "minimum": 1, "description": "Lockfile schema version (currently 3).", "default": 3 }
-          ]
+          "type": "number",
+          "enum": [3],
+          "description": "Lockfile schema version.",
+          "default": 3
         },
         "skills": {
           "type": "object",
@@ -429,12 +439,7 @@
                   "resolvedVersion": { "$ref": "#/definitions/Version" },
                   "integrity": { "type": "string" },
                   "sourceName": { "type": "string" },
-                  "publisherBindingId": {
-                    "anyOf": [
-                      { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      { "type": "null" }
-                    ]
-                  },
+                  "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -448,6 +453,7 @@
                   "resolvedVersion",
                   "integrity",
                   "sourceName",
+                  "publisherBindingId",
                   "installedAt",
                   "updatedAt"
                 ],
@@ -638,12 +644,7 @@
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
+                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -657,6 +658,7 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
+                      "publisherBindingId",
                       "installedAt",
                       "updatedAt"
                     ],
@@ -850,12 +852,7 @@
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
+                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -869,6 +866,7 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
+                      "publisherBindingId",
                       "installedAt",
                       "updatedAt"
                     ],
@@ -1058,12 +1056,7 @@
                           "resolvedVersion": { "$ref": "#/definitions/Version" },
                           "integrity": { "type": "string" },
                           "sourceName": { "type": "string" },
-                          "publisherBindingId": {
-                            "anyOf": [
-                              { "type": "string", "allOf": [{ "minLength": 1 }] },
-                              { "type": "null" }
-                            ]
-                          },
+                          "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                           "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -1076,6 +1069,7 @@
                           "resolvedVersion",
                           "integrity",
                           "sourceName",
+                          "publisherBindingId",
                           "installedAt",
                           "updatedAt"
                         ],
@@ -1304,12 +1298,7 @@
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
+                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -1328,6 +1317,7 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
+                      "publisherBindingId",
                       "installedAt",
                       "updatedAt"
                     ],
@@ -1521,12 +1511,7 @@
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
+                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -1539,6 +1524,7 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
+                      "publisherBindingId",
                       "installedAt",
                       "updatedAt"
                     ],
@@ -1726,12 +1712,7 @@
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
+                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -1744,6 +1725,7 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
+                      "publisherBindingId",
                       "installedAt",
                       "updatedAt"
                     ],
@@ -1931,12 +1913,7 @@
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
                       "integrity": { "type": "string" },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": {
-                        "anyOf": [
-                          { "type": "string", "allOf": [{ "minLength": 1 }] },
-                          { "type": "null" }
-                        ]
-                      },
+                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
@@ -1949,6 +1926,7 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
+                      "publisherBindingId",
                       "installedAt",
                       "updatedAt"
                     ],

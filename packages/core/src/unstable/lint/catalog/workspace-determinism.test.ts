@@ -135,7 +135,7 @@ const seedSkillMissingFromLockfile = (): WorkspaceState => {
     agents: ["claude-code"],
     skills: { reviewer: "@acme/skills/reviewer@1.0.0" },
   };
-  state.lockfile = { lockfileVersion: 1, skills: {} };
+  state.lockfile = { lockfileVersion: 3, skills: {} };
   return state;
 };
 
@@ -147,7 +147,7 @@ const seedSkillOrphanInLockfile = (): WorkspaceState => {
     skills: {},
   };
   state.lockfile = {
-    lockfileVersion: 1,
+    lockfileVersion: 3,
     skills: {
       stale: {
         type: "registry",
@@ -156,6 +156,8 @@ const seedSkillOrphanInLockfile = (): WorkspaceState => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-stub",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2026-04-21T00:00:00.000Z",
         updatedAt: "2026-04-21T00:00:00.000Z",
@@ -174,7 +176,7 @@ const seedSkillIntegrityMismatch = (): WorkspaceState => {
     skills: { reviewer: "@acme/skills/reviewer@1.0.0" },
   };
   state.lockfile = {
-    lockfileVersion: 1,
+    lockfileVersion: 3,
     skills: {
       reviewer: {
         type: "registry",
@@ -183,6 +185,8 @@ const seedSkillIntegrityMismatch = (): WorkspaceState => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-stub",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2026-04-21T00:00:00.000Z",
         updatedAt: "2026-04-21T00:00:00.000Z",

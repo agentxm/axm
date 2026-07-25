@@ -59,11 +59,28 @@ describe("unpackPack", () => {
               resolvedVersion: exactVersion("1.0.0"),
               integrity: "",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: new Date(),
               updatedAt: new Date(),
-              resolvedSkills: { "@acme/skills/my-skill": exactVersion("1.0.0") },
-              resolvedCommands: { "@acme/commands/my-cmd": exactVersion("2.0.0") },
-              resolvedMcpServers: { "@acme/mcps/my-server": exactVersion("3.0.0") },
+              resolvedSkills: {
+                "@acme/skills/my-skill": {
+                  version: exactVersion("1.0.0"),
+                  publisherBindingId: "hbnd_test",
+                },
+              },
+              resolvedCommands: {
+                "@acme/commands/my-cmd": {
+                  version: exactVersion("2.0.0"),
+                  publisherBindingId: "hbnd_test",
+                },
+              },
+              resolvedMcpServers: {
+                "@acme/mcps/my-server": {
+                  version: exactVersion("3.0.0"),
+                  publisherBindingId: "hbnd_test",
+                },
+              },
               resolvedSubagents: {},
             }),
           ),
@@ -97,10 +114,17 @@ describe("unpackPack", () => {
               resolvedVersion: exactVersion("1.0.0"),
               integrity: "",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: new Date(),
               updatedAt: new Date(),
               resolvedSkills: {},
-              resolvedCommands: { "@acme/commands/existing-cmd": exactVersion("1.0.0") },
+              resolvedCommands: {
+                "@acme/commands/existing-cmd": {
+                  version: exactVersion("1.0.0"),
+                  publisherBindingId: "hbnd_test",
+                },
+              },
               resolvedMcpServers: {},
               resolvedSubagents: {},
             }),

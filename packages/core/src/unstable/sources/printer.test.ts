@@ -300,6 +300,8 @@ describe("lockEntryToSourceParams", () => {
         resolvedVersion: exactVersion("1.0.0"),
         integrity: "sha512-abc",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         ...baseLockFields,
       }),
     );

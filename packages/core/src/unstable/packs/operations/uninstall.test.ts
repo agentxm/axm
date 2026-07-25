@@ -68,6 +68,8 @@ const makeLockedPack = (): PackLockEntry => ({
   resolvedVersion: exactVersion("1.0.0"),
   integrity: "sha512-test",
   sourceName: "default",
+
+  publisherBindingId: "hbnd_test",
   installedAt: new Date(),
   updatedAt: new Date(),
   resolvedSkills: {},

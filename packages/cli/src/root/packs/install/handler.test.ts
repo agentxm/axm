@@ -93,7 +93,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: opts?.lockfileSkills ?? {},
       ...(opts?.lockfilePacks ? { packs: opts.lockfilePacks } : {}),
     }),
@@ -447,6 +447,7 @@ describe("packs install handler", () => {
         name: extensionName("my-pack"),
         version: exactVersion("1.0.0"),
         integrity: Option.some("abc"),
+        publisherBindingId: "hbnd_test",
         packages: [],
       };
 
@@ -475,6 +476,7 @@ describe("packs install handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "abc",
             sourceName: "default",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {},
@@ -549,6 +551,7 @@ describe("packs install handler", () => {
         name: extensionName("frontend"),
         version: exactVersion("1.0.0"),
         integrity: Option.none(),
+        publisherBindingId: "hbnd_test",
         packages: [],
       };
 
@@ -575,6 +578,7 @@ describe("packs install handler", () => {
                 name: extensionName("react-testing"),
                 version: exactVersion("1.2.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [{ type: decodePackageType("npm"), name: "react" }],
               },
             ]);
@@ -618,6 +622,7 @@ describe("packs install handler", () => {
         name: extensionName("basic-pack"),
         version: exactVersion("1.0.0"),
         integrity: Option.none(),
+        publisherBindingId: "hbnd_test",
         packages: [],
       };
 
@@ -644,6 +649,7 @@ describe("packs install handler", () => {
                 name: extensionName("plain-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -705,6 +711,7 @@ describe("packs install handler", () => {
       name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
+      publisherBindingId: "hbnd_test",
       packages: [],
     });
 
@@ -736,6 +743,7 @@ describe("packs install handler", () => {
                 name: extensionName("code-review"),
                 version: exactVersion("1.2.3"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -843,6 +851,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -862,6 +871,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-cmd"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -880,6 +890,7 @@ describe("packs install handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "",
             sourceName: "default",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {},
@@ -1093,6 +1104,7 @@ describe("packs install handler", () => {
                 name: extensionName("code-review"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -1112,6 +1124,7 @@ describe("packs install handler", () => {
                 name: extensionName("lint"),
                 version: exactVersion("2.0.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -1131,6 +1144,7 @@ describe("packs install handler", () => {
                 name: extensionName("analytics"),
                 version: exactVersion("3.0.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -1200,6 +1214,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -1219,6 +1234,7 @@ describe("packs install handler", () => {
                 name: extensionName("existing-cmd"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -1237,7 +1253,7 @@ describe("packs install handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "",
             sourceName: "default",
-            agents: [],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -1299,6 +1315,7 @@ describe("packs install handler", () => {
                 name: extensionName("kept-skill"),
                 version: exactVersion("1.0.0"),
                 integrity: Option.none(),
+                publisherBindingId: "hbnd_test",
                 packages: [],
               },
             ]);
@@ -1317,11 +1334,18 @@ describe("packs install handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "",
             sourceName: "default",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
-              "@acme/skills/kept-skill": "1.0.0",
-              "@acme/skills/dropped-skill": "1.0.0",
+              "@acme/skills/kept-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+              "@acme/skills/dropped-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
             },
             resolvedCommands: {},
             resolvedMcpServers: {},
@@ -1368,10 +1392,14 @@ describe("packs install handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "",
             sourceName: "default",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
-              "@acme/skills/dropped-skill": "1.0.0",
+              "@acme/skills/dropped-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
             },
             resolvedCommands: {},
             resolvedMcpServers: {},

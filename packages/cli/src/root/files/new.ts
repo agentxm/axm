@@ -9,6 +9,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
+  computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
   REGISTRY_EXTENSIONS_DIR,
@@ -19,7 +20,7 @@ import {
   FILES_MANIFEST_SCHEMA_URL,
   FilesManager,
   type FilesManifest,
-  type RegistryFilesRef,
+  type WorkspaceFilesRef,
 } from "@agentxm/client-core/unstable/files";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import type {
@@ -160,15 +161,16 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
       },
     ],
   };
-  const ref: RegistryFilesRef = {
+  const ref: WorkspaceFilesRef = {
     type: "files",
-    refType: "registry",
-    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    refType: "workspace",
+    source: { type: "workspace", owner, extensionType: "files", name },
+    scope: ws.scope,
     owner,
     name,
     version,
-    integrity: Option.none(),
-    packages: [],
+    sourceHash: computeSourceHash("scaffold"),
+    location: targetDir,
     file: { name },
   };
 

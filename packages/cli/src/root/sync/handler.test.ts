@@ -235,7 +235,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code", "cursor", "codex"],
         mcps: {
-          browser: "@acme/mcps/browser",
+          browser: "workspace:@acme/mcps/browser",
         },
       });
       writeMcpServerExtension(tempDir, "browser");
@@ -379,7 +379,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],
         skills: {
-          review: "@acme/skills/review",
+          review: "workspace:@acme/skills/review",
         },
         lockfileSkills: {
           review: {
@@ -389,7 +389,7 @@ describe("root sync handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -427,7 +427,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(axmDir, {
         agents: [],
         skills: {
-          solo: "@acme/skills/solo",
+          solo: "workspace:@acme/skills/solo",
         },
       });
       writeJson(path.join(skillDir, "skill.json"), {
@@ -452,7 +452,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         commands: {
-          review: "@acme/commands/review",
+          review: "workspace:@acme/commands/review",
         },
       });
       writeCommandExtension(tempDir, "review");
@@ -652,7 +652,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         subagents: {
-          review: "@acme/subagents/review",
+          review: "workspace:@acme/subagents/review",
         },
       });
       writeSubagentExtension(tempDir, "review");
@@ -672,7 +672,7 @@ describe("root sync handler", () => {
         agents: ["claude-code"],
         subagents: {
           review: {
-            source: "@acme/subagents/review",
+            source: "workspace:@acme/subagents/review",
             enabled: false,
           },
         },

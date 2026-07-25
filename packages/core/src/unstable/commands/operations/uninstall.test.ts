@@ -34,7 +34,7 @@ const makeUninstallWorkspaceMock = (
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; commands: Record<string, unknown> } = {
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       commands: {},
     };
     for (const [k, v] of Object.entries(commands)) {
@@ -98,12 +98,14 @@ const makeRegistryLockEntryYaml = () => ({
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
+
+  publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
 
 const writeLockfileYaml = (axmDir: string, commands: Record<string, unknown>) => {
-  const lockfile = { lockfileVersion: 1, commands };
+  const lockfile = { lockfileVersion: 3, commands };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 

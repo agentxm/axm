@@ -74,7 +74,7 @@ describe("WorkspaceMutationsService", () => {
       path.join(axmDir, "settings.json"),
       JSON.stringify({ agents: ["claude-code"] }),
     );
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
   });
 
   afterEach(() => {
@@ -538,7 +538,7 @@ describe("WorkspaceMutationsService", () => {
   ) => {
     const axmDir = path.join(dir, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
-    const lockfileData: Record<string, unknown> = { lockfileVersion: 1, skills };
+    const lockfileData: Record<string, unknown> = { lockfileVersion: 3, skills };
     if (packs !== undefined) {
       lockfileData["packs"] = packs;
     }
@@ -616,7 +616,7 @@ describe("WorkspaceMutationsService", () => {
       Effect.gen(function* () {
         fs.writeFileSync(
           path.join(projectDir, ".axm", "axm-lock.yaml"),
-          "lockfileVersion: 1\nskills: []\n",
+          "lockfileVersion: 3\nskills: []\n",
         );
 
         const ws = yield* getService(defaultOptions);
@@ -838,7 +838,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -874,7 +873,6 @@ describe("WorkspaceMutationsService", () => {
           "local-review": {
             type: "local",
             path: "skills/local-review",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -912,7 +910,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -920,7 +917,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "unrelated",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-02T00:00:00.000Z",
           },
@@ -972,6 +968,8 @@ describe("WorkspaceMutationsService", () => {
           resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
+
+          publisherBindingId: "hbnd_test",
           installedAt: new Date(),
           updatedAt: new Date(),
         };
@@ -1001,6 +999,8 @@ describe("WorkspaceMutationsService", () => {
           resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
+
+          publisherBindingId: "hbnd_test",
           installedAt: new Date(),
           updatedAt: new Date(),
         };
@@ -1030,6 +1030,8 @@ describe("WorkspaceMutationsService", () => {
           resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
+
+          publisherBindingId: "hbnd_test",
           installedAt: new Date(),
           updatedAt: new Date(),
         };
@@ -1105,14 +1107,12 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
           "test-gen": {
             type: "local",
             path: "test-gen",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -1144,7 +1144,6 @@ describe("WorkspaceMutationsService", () => {
           "test-gen": {
             type: "local",
             path: "test-gen",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -1174,7 +1173,6 @@ describe("WorkspaceMutationsService", () => {
           implicit: {
             type: "local",
             path: "implicit",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -1429,7 +1427,8 @@ describe("WorkspaceMutationsService", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
-            agents: ["claude-code"],
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -1455,7 +1454,6 @@ describe("WorkspaceMutationsService", () => {
               type: "github",
               owner: "acme",
               repo: "code-review",
-              agents: ["claude-code"],
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
             },
@@ -1750,6 +1748,7 @@ describe("WorkspaceMutationsService", () => {
     resolvedSubagents: {},
     versionRange: Option.none(),
     ...overrides,
+    publisherBindingId: overrides?.publisherBindingId ?? "hbnd_test",
   });
 
   describe("getConfiguredPacks", () => {
@@ -1833,9 +1832,13 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
+              resolvedSkills: {
+                "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
+              },
               resolvedCommands: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -1849,7 +1852,7 @@ describe("WorkspaceMutationsService", () => {
         expect(Object.keys(packs)).toEqual(["starter-pack"]);
         expect(packs["starter-pack"]?.type).toBe("registry");
         expect(packs["starter-pack"]?.resolvedSkills).toEqual({
-          "@acme/skills/code-review": "1.2.0",
+          "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
         });
       }),
     );
@@ -1880,6 +1883,8 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -1977,6 +1982,8 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -1991,6 +1998,8 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "2.0.0",
               integrity: "sha512-CCCC==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -2075,7 +2084,8 @@ describe("WorkspaceMutationsService", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
-            agents: ["claude-code"],
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2103,7 +2113,8 @@ describe("WorkspaceMutationsService", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
-            agents: ["claude-code"],
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2130,7 +2141,8 @@ describe("WorkspaceMutationsService", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
-            agents: ["claude-code"],
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2141,7 +2153,8 @@ describe("WorkspaceMutationsService", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-BBBB==",
             sourceName: "default",
-            agents: ["claude-code"],
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2260,7 +2273,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "configured-cmd",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2271,7 +2283,8 @@ describe("WorkspaceMutationsService", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
-            agents: ["claude-code"],
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2308,10 +2321,14 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
-              resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
+              resolvedCommands: {
+                "@acme/commands/formatter": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+              },
               resolvedMcpServers: {},
               resolvedSubagents: {},
             },
@@ -2344,10 +2361,14 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
-              resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
+              resolvedCommands: {
+                "@acme/commands/formatter": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+              },
               resolvedMcpServers: {},
               resolvedSubagents: {},
             },
@@ -2357,7 +2378,6 @@ describe("WorkspaceMutationsService", () => {
               type: "github",
               owner: "acme",
               repo: "formatter",
-              agents: ["claude-code"],
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
             },
@@ -2388,12 +2408,14 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedCommands: {
-                "@acme/commands/formatter": "1.0.0",
-                "@acme/commands/linter": "2.0.0",
+                "@acme/commands/formatter": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+                "@acme/commands/linter": { version: "2.0.0", publisherBindingId: "hbnd_test" },
               },
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -2509,6 +2531,8 @@ describe("WorkspaceMutationsService", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
+
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2582,6 +2606,8 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -2616,6 +2642,8 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -2630,6 +2658,8 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-BBBB==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -2810,7 +2840,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2844,7 +2873,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2926,7 +2954,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -2998,14 +3025,12 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
           "other-command": {
             type: "local",
             path: "other",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3037,7 +3062,6 @@ describe("WorkspaceMutationsService", () => {
           "other-command": {
             type: "local",
             path: "other",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3067,7 +3091,6 @@ describe("WorkspaceMutationsService", () => {
           implicit: {
             type: "local",
             path: "implicit-cmd",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3402,7 +3425,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3448,7 +3470,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3495,7 +3516,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-command",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3638,6 +3658,8 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -3695,6 +3717,8 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -3751,7 +3775,6 @@ describe("WorkspaceMutationsService", () => {
               type: "github",
               owner: "acme",
               repo: "code-review",
-              agents: ["claude-code"],
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
             },
@@ -3764,9 +3787,13 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/skills/code-review": "1.0.0" },
+              resolvedSkills: {
+                "@acme/skills/code-review": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+              },
               resolvedCommands: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -3801,10 +3828,14 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
-              resolvedCommands: { "@acme/commands/my-cmd": "1.0.0" },
+              resolvedCommands: {
+                "@acme/commands/my-cmd": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+              },
               resolvedMcpServers: {},
               resolvedSubagents: {},
             },
@@ -3814,7 +3845,6 @@ describe("WorkspaceMutationsService", () => {
               type: "github",
               owner: "acme",
               repo: "my-cmd",
-              agents: ["claude-code"],
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
             },
@@ -3848,11 +3878,15 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
               resolvedCommands: {},
-              resolvedMcpServers: { "@acme/mcps/my-mcp": "1.0.0" },
+              resolvedMcpServers: {
+                "@acme/mcps/my-mcp": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+              },
               resolvedSubagents: {},
             },
           },
@@ -3895,6 +3929,8 @@ describe("WorkspaceMutationsService", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
               resolvedSkills: {},
@@ -3955,7 +3991,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "code-review",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -3976,7 +4011,6 @@ describe("WorkspaceMutationsService", () => {
             type: "github",
             owner: "acme",
             repo: "my-cmd",
-            agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },

@@ -11,39 +11,40 @@ import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { RegistrySubagentRef } from "@agentxm/client-core/unstable/subagents";
 import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { buildUpdatePlan, type UpdateOperation } from "./plan.js";
+import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeRegistryRef = (name: string, version: string): RegistrySubagentRef =>
-  ({
-    type: "subagent",
-    refType: "registry",
-    name,
-    owner: "@test",
-    version,
-    integrity: Option.none(),
-    packages: [],
-    subagent: { name, description: "" },
-    source: {
-      type: "registry",
-      location: new URL("file:///test-registry"),
-      owner: Option.some("@test"),
-      name: "test",
-    },
-    sourceName: Option.none(),
-  }) as unknown as RegistrySubagentRef;
-
-const makeRegistryLockEntry = (version: string): SubagentLockEntry =>
-  ({
+const makeRegistryRef = (name: string, version: string): RegistrySubagentRef => ({
+  type: "subagent",
+  refType: "registry",
+  name: extensionName(name),
+  owner: handle("@test"),
+  version: exactVersion(version),
+  integrity: Option.none(),
+  publisherBindingId: "hbnd_test",
+  packages: [],
+  subagent: { name: extensionName(name), description: Option.none() },
+  source: {
     type: "registry",
-    source: "@test/subagents/test@" + version,
-    owner: "@test",
-    resolvedVersion: version,
-    agents: ["claude-code"],
-    installedAt: new Date().toISOString(),
-  }) as unknown as SubagentLockEntry;
+    location: new URL("file:///test-registry"),
+    owner: Option.some(handle("@test")),
+  },
+});
+
+const makeRegistryLockEntry = (version: string): SubagentLockEntry => ({
+  type: "registry",
+  owner: handle("@test"),
+  name: extensionName("test"),
+  resolvedVersion: exactVersion(version),
+  integrity: "sha512-AAAA==",
+  sourceName: "test",
+  publisherBindingId: "hbnd_test",
+  installedAt: new Date(),
+  updatedAt: new Date(),
+});
 
 const noopRunClosure = (_op: UpdateOperation) =>
   Effect.succeed<JobStepResult>({ result: "success", message: "applied" });
@@ -60,7 +61,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan(
       ops,
-      { lockfileVersion: 1, subagents: { researcher: lockEntry } },
+      { lockfileVersion: 3, subagents: { researcher: lockEntry } },
       "Update subagents",
       Option.none(),
       noopRunClosure,
@@ -78,7 +79,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan(
       ops,
-      { lockfileVersion: 1, subagents: { researcher: lockEntry } },
+      { lockfileVersion: 3, subagents: { researcher: lockEntry } },
       "Update subagents",
       Option.none(),
       noopRunClosure,
@@ -98,7 +99,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan(
       ops,
-      { lockfileVersion: 1, subagents: { researcher: lockEntry } },
+      { lockfileVersion: 3, subagents: { researcher: lockEntry } },
       "Update subagents",
       Option.none(),
       noopRunClosure,
@@ -112,7 +113,7 @@ describe("buildUpdatePlan", () => {
   it("handles empty operations", () => {
     const plan = buildUpdatePlan(
       [],
-      { lockfileVersion: 1, subagents: {} },
+      { lockfileVersion: 3, subagents: {} },
       "Update subagents",
       Option.none(),
       noopRunClosure,

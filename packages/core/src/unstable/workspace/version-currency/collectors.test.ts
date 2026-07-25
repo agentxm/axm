@@ -300,6 +300,8 @@ describe("collectSubagentCurrency", () => {
               resolvedVersion: v("1.0.0"),
               integrity: "sha512-AAAA==",
               sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
               agents: ["claude-code"],
               installedAt: new Date("2025-01-01T00:00:00.000Z"),
               updatedAt: new Date("2025-01-01T00:00:00.000Z"),

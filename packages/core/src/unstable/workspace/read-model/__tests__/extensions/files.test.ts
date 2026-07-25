@@ -53,7 +53,7 @@ describe("makeFilesExtensionsApi", () => {
             origin: "canonical-axm",
             name: "license",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@own/files/src/license",
+            contentLocation: "/ws/.axm/extensions/@own/files/license",
           }),
         ],
       });
@@ -73,7 +73,7 @@ describe("makeFilesExtensionsApi", () => {
             origin: "canonical-axm",
             name: "wrong",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@owner/skills/src/wrong",
+            contentLocation: "/ws/.axm/extensions/@owner/skills/wrong",
           }),
         ],
       });

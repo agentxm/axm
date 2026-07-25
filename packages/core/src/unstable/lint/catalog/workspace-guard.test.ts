@@ -147,6 +147,8 @@ const makeRegistrySkillLockEntry = (name: string, resolvedVersion: string) => ({
   resolvedVersion,
   integrity: "test-integrity",
   sourceName: "registry",
+
+  publisherBindingId: "hbnd_test",
   agents: [],
   installedAt: ISO_DATE,
   updatedAt: ISO_DATE,
@@ -161,7 +163,7 @@ const makeLocalSkillLockEntry = (path: string) => ({
 });
 
 const makeLockfile = (skills: Record<string, unknown>): unknown => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills,
 });
 

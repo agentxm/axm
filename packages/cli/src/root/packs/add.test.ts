@@ -134,6 +134,7 @@ describe("packs-add.handler", () => {
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
         },
       });
@@ -198,6 +199,7 @@ describe("packs-add.handler", () => {
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
         },
       });
@@ -239,18 +241,21 @@ describe("packs-add.handler", () => {
             name: extensionName("effect-basics"),
             resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
           "effect-streams": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
             name: extensionName("effect-streams"),
             resolvedVersion: exactVersion("2.0.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
           "other-skill": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
             name: extensionName("other-skill"),
             resolvedVersion: exactVersion("3.0.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
         },
       });
@@ -288,6 +293,7 @@ describe("packs-add.handler", () => {
             name: extensionName("some-skill"),
             resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
         },
       });
@@ -364,12 +370,14 @@ describe("packs-add.handler", () => {
             name: extensionName("skill-a"),
             resolvedVersion: exactVersion("1.0.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
           "skill-b": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
             name: extensionName("skill-b"),
             resolvedVersion: exactVersion("2.0.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
         },
       });
@@ -412,6 +420,7 @@ describe("packs-add.handler", () => {
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
         },
       });
@@ -449,6 +458,7 @@ describe("packs-add.handler", () => {
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
           }),
         },
       });

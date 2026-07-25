@@ -118,7 +118,7 @@ describe("skills.prune.handler", () => {
           skills: { "my-skill": "local:/some/path" },
         }),
       );
-      fs.writeFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+      fs.writeFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
       createSkillOnDisk(tempDir, ".claude", "my-skill");
 
       return provide(
@@ -142,7 +142,7 @@ describe("skills.prune.handler", () => {
           skillsConfig: { ignore: ["internal-*"] },
         }),
       );
-      fs.writeFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+      fs.writeFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
       createSkillOnDisk(tempDir, ".claude", "internal-tool");
       createSkillOnDisk(tempDir, ".claude", "legacy-tool");
 

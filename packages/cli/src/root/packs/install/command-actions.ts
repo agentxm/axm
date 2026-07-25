@@ -55,6 +55,7 @@ import {
   toLabel,
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import type { ResolvedExtensionMap } from "@agentxm/client-core/unstable/lockfile";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import {
   parseMinimumReleaseAge,
@@ -235,13 +236,13 @@ const collectDirectlyConfiguredNames = (args: {
 
 const collectDroppedPackDependencyTargets = (args: {
   readonly lockedPack: {
-    readonly resolvedSkills: Readonly<Record<string, string>>;
-    readonly resolvedCommands: Readonly<Record<string, string>>;
-    readonly resolvedMcpServers: Readonly<Record<string, string>>;
-    readonly resolvedSubagents: Readonly<Record<string, string>>;
-    readonly resolvedFiles?: Readonly<Record<string, string>> | undefined;
-    readonly resolvedRules?: Readonly<Record<string, string>> | undefined;
-    readonly resolvedHooks?: Readonly<Record<string, string>> | undefined;
+    readonly resolvedSkills: ResolvedExtensionMap;
+    readonly resolvedCommands: ResolvedExtensionMap;
+    readonly resolvedMcpServers: ResolvedExtensionMap;
+    readonly resolvedSubagents: ResolvedExtensionMap;
+    readonly resolvedFiles?: ResolvedExtensionMap | undefined;
+    readonly resolvedRules?: ResolvedExtensionMap | undefined;
+    readonly resolvedHooks?: ResolvedExtensionMap | undefined;
   };
   readonly nextDependencies: PackDependencyNameSets;
   readonly directlyConfigured: PackDependencyNameSets;

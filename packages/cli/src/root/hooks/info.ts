@@ -13,7 +13,6 @@ import {
 import {
   HOOK_MANIFEST_FILENAME,
   HookManifestSchema,
-  type HookBinding,
   type HookManifest,
 } from "@agentxm/client-core/unstable/hooks";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -83,17 +82,9 @@ const readManifest = (
     );
   });
 
-const bindingWithManifestRequirements = (
-  binding: HookBinding,
-  manifest: HookManifest,
-): HookBinding =>
-  manifest.blocking === true && binding.requires === undefined
-    ? { ...binding, requires: { decision: { kind: "block" } } }
-    : binding;
-
 const portabilityForAgent = (agent: Agent, manifest: HookManifest): HookPortabilityItem => {
   for (const binding of manifest.bindings) {
-    const verdict = installable(agent, bindingWithManifestRequirements(binding, manifest));
+    const verdict = installable(agent, binding);
     if (!verdict.installable) {
       return {
         agent: agent.name,

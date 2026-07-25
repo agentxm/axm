@@ -58,7 +58,7 @@ const initWorkspace = (
   }
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 1,
+    lockfileVersion: 3,
     skills: {},
     subagents: lockfileSubagents,
   };
@@ -76,10 +76,9 @@ const createCanonicalSubagent = (base: string, name: string) => {
   return dir;
 };
 
-const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
+const makeLockEntry = (_agents: string[] = ["claude-code"]) => ({
   type: "local",
   path: "installed",
-  agents,
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
@@ -255,13 +254,7 @@ describe("uninstall.handler (subagents)", () => {
     it.effect("emits removed artifact targets in machine mode", () => {
       const { provide, logs, rendererState } = makeLayers({ machine: true });
       initWorkspace(path.join(tempDir, ".axm"), {
-        "my-subagent": {
-          ...makeLockEntry(),
-          sourceHash: "abc123",
-          renderedFiles: {
-            "claude-code": [{ path: ".claude/agents/my-subagent.md" }],
-          },
-        },
+        "my-subagent": makeLockEntry(),
       });
       createCanonicalSubagent(tempDir, "my-subagent");
       const renderedDir = path.join(tempDir, ".claude", "agents");

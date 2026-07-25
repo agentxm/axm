@@ -61,7 +61,7 @@ describe("root publish", () => {
     );
     fs.writeFileSync(
       path.join(tempDir, ".axm", "axm-lock.yaml"),
-      "lockfileVersion: 1\nskills: {}\n",
+      "lockfileVersion: 3\nskills: {}\n",
     );
   });
 
@@ -159,13 +159,13 @@ describe("root publish", () => {
         type: "knowledge",
         name: "platform",
         version: "1.0.0",
-        format: { name: "okf", version: "0.1" },
+        format: { name: "okf", version: "0.2" },
         bundleRoot: "src",
       }),
     );
     fs.writeFileSync(
       path.join(knowledgeDir, "src", "index.md"),
-      "---\nokf_version: 0.1\n---\n# Platform knowledge\n",
+      '---\nokf_version: "0.2"\n---\n# Platform knowledge\n',
     );
     fs.writeFileSync(
       path.join(knowledgeDir, "src", "architecture.md"),
@@ -260,49 +260,6 @@ describe("root publish", () => {
         const item = expectRecord(at(results, 0));
         expect(property(item, "type")).toBe("knowledge");
         expect(property(item, "status")).toBe("pending");
-      }),
-    );
-  });
-
-  it.effect("rejects a Knowledge bundle whose manifest and root dialects disagree", () => {
-    fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
-      JSON.stringify({
-        owner: "@acme",
-        agents: [],
-        knowledge: {
-          platform: { source: "workspace:@acme/knowledge/platform", enabled: true },
-        },
-      }),
-    );
-    const knowledgeDir = path.join(tempDir, ".axm", "extensions", "@acme", "knowledge", "platform");
-    fs.mkdirSync(path.join(knowledgeDir, "src"), { recursive: true });
-    fs.writeFileSync(
-      path.join(knowledgeDir, "knowledge.json"),
-      JSON.stringify({
-        owner: "@acme",
-        type: "knowledge",
-        name: "platform",
-        version: "1.0.0",
-        format: { name: "okf", version: "0.2" },
-        bundleRoot: "src",
-      }),
-    );
-    fs.writeFileSync(
-      path.join(knowledgeDir, "src", "index.md"),
-      "---\nokf_version: 0.1\n---\n# Platform knowledge\n",
-    );
-    const { provide } = makeContext();
-
-    return provide(
-      Effect.gen(function* () {
-        const error = getAppError(
-          yield* handleRootPublish(
-            args(pathToFileURL(path.join(tempDir, "registry")).href, { types: ["knowledge"] }),
-          ).pipe(Effect.flip),
-        );
-        expect(error.detail).toContain("okf_version 0.1");
-        expect(error.detail).toContain("format.version 0.2");
       }),
     );
   });

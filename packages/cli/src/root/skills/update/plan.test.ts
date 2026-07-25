@@ -167,6 +167,7 @@ const makeOp = (
         name: extensionName(name),
         version: overrides?.version ?? exactVersion("0.0.0"),
         integrity: Option.some("sha512-AAAA=="),
+        publisherBindingId: "hbnd_test",
         packages: [],
       };
       break;
@@ -196,7 +197,7 @@ const makeOp = (
 };
 
 const emptyLockfile: Lockfile = {
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {},
 };
 
@@ -273,6 +274,7 @@ const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
         resolvedVersion: registryOverrides?.resolvedVersion ?? exactVersion("0.0.0"),
         integrity: registryOverrides?.integrity ?? "sha512-AAAA==",
         sourceName: registryOverrides?.sourceName ?? "default",
+        publisherBindingId: "hbnd_test",
         ...makeCommonLockFields(registryOverrides),
       };
     }
@@ -289,7 +291,7 @@ const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
 };
 
 const lockfileWith = (entries: Record<string, SkillLockEntry>): Lockfile => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: entries,
 });
 
@@ -519,6 +521,7 @@ describe("buildUpdatePlan", () => {
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
+          publisherBindingId: "hbnd_test",
         }),
       });
 
@@ -542,6 +545,7 @@ describe("buildUpdatePlan", () => {
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
+          publisherBindingId: "hbnd_test",
         }),
       });
 
@@ -609,6 +613,7 @@ describe("buildUpdatePlan", () => {
           resolvedVersion: exactVersion("1.0.0"),
           integrity: "sha512-AAAA==",
           sourceName: "default",
+          publisherBindingId: "hbnd_test",
         }),
       });
 

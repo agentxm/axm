@@ -35,7 +35,7 @@ const makeInstallWorkspaceMock = (
 ) => {
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
-    if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, commands: {} };
+    if (!fs.existsSync(lfPath)) return { lockfileVersion: 3, commands: {} };
     return YAML.parse(fs.readFileSync(lfPath, "utf-8"));
   };
   const writeLf = (data: unknown) => {
@@ -134,6 +134,8 @@ const makeRegistryRef = (
   return {
     type: "command",
     refType: "registry",
+
+    publisherBindingId: "hbnd_test",
     source: {
       type: "registry",
       location: new URL(overrides.location ?? "file:///tmp/reg"),
@@ -162,6 +164,8 @@ const makeUnsafeRegistryRef = (
   return {
     type: "command",
     refType: "registry",
+
+    publisherBindingId: "hbnd_test",
     source: {
       type: "registry",
       location: new URL(overrides.location ?? "file:///tmp/reg"),

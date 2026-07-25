@@ -67,7 +67,7 @@ const registryLockEntry = (ref: RegistryKnowledgeRef): KnowledgeLockEntry => ({
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
-  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
+  publisherBindingId: ref.publisherBindingId,
   ...commonLockFields(new Date()),
 });
 

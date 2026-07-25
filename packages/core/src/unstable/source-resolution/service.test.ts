@@ -45,6 +45,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
   type: "skill",
   versions: [makeVersionEntry()],
   ...overrides,
+  publisherBindingId: overrides?.publisherBindingId ?? "hbnd_test",
 });
 
 const defaultFindOptions: FindOptions = {

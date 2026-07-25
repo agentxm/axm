@@ -6,15 +6,17 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
+  computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
+  REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import type {
   InstallableSkillTarget,
   NewSkillOperation,
-  RegistrySkillRef,
+  WorkspaceSkillRef,
 } from "@agentxm/client-core/unstable/skills";
 import {
   artifactAgentIdsFromTargets,
@@ -111,15 +113,16 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   // 7. Build plan with inline run closure
   const fqn = `${owner}/skills/${args.name}`;
   const version = decodeVersionSync("0.0.1");
-  const ref: RegistrySkillRef = {
+  const ref: WorkspaceSkillRef = {
     type: "skill",
-    refType: "registry",
-    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    refType: "workspace",
+    source: { type: "workspace", owner, extensionType: "skill", name: args.name },
+    scope: ws.scope,
     owner,
     name: args.name,
     version,
-    integrity: Option.none(),
-    packages: [],
+    sourceHash: computeSourceHash("scaffold"),
+    location: path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, "skills", args.name),
     skill: {
       name: args.name,
       description: Option.none(),

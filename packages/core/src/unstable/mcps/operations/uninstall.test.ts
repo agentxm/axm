@@ -41,7 +41,7 @@ const makeWorkspaceMock = (
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; mcpServers: Record<string, unknown> } = {
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       mcpServers: {},
     };
     for (const [k, v] of Object.entries(mcpServers)) {
@@ -134,12 +134,14 @@ const makeRegistryLockEntryYaml = (name = "my-server") => ({
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
+
+  publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
 
 const writeLockfileYaml = (axmDir: string, mcpServers: Record<string, unknown>) => {
-  const lockfile = { lockfileVersion: 1, mcpServers };
+  const lockfile = { lockfileVersion: 3, mcpServers };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 

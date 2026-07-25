@@ -111,7 +111,10 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
                   type: "skill",
                   name: decodeExtensionNameSync(op.args.ref.name),
                 }),
-                op.args.ref.version,
+                {
+                  version: op.args.ref.version,
+                  publisherBindingId: op.args.ref.publisherBindingId,
+                },
               ],
             ]
           : [],
@@ -128,7 +131,10 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
                   type: "command",
                   name: decodeExtensionNameSync(op.args.ref.name),
                 }),
-                op.args.ref.version,
+                {
+                  version: op.args.ref.version,
+                  publisherBindingId: op.args.ref.publisherBindingId,
+                },
               ],
             ]
           : [],
@@ -145,7 +151,10 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
                   type: "mcp-server",
                   name: decodeExtensionNameSync(op.args.ref.name),
                 }),
-                op.args.ref.version,
+                {
+                  version: op.args.ref.version,
+                  publisherBindingId: op.args.ref.publisherBindingId,
+                },
               ],
             ]
           : [],
@@ -165,9 +174,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs) =>
         resolvedVersion: ref.version,
         integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: "default",
-        ...(ref.publisherBindingId === undefined
-          ? {}
-          : { publisherBindingId: ref.publisherBindingId }),
+        publisherBindingId: ref.publisherBindingId,
         resolvedSkills,
         resolvedCommands,
         resolvedMcpServers,

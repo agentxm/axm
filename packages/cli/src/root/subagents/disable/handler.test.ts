@@ -200,6 +200,7 @@ describe("subagents disable.handler", () => {
           resolvedVersion: "1.0.0",
           integrity: "",
           sourceName: "default",
+          publisherBindingId: "hbnd_test",
         },
       },
     });

@@ -67,7 +67,7 @@ const makeWorkspaceMock = (
 ): WorkspaceMutationsService => {
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
-    if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, skills: {} };
+    if (!fs.existsSync(lfPath)) return { lockfileVersion: 3, skills: {} };
     return YAML.parse(fs.readFileSync(lfPath, "utf-8"));
   };
   const writeLf = (data: unknown) => {
@@ -284,6 +284,7 @@ const makeOp = (
           refType: "registry" as const,
           source,
           owner: handle(overrides.owner ?? "@community"),
+          publisherBindingId: "hbnd_test",
           name: skill.name,
           version: exactVersion(Option.getOrElse(version, () => "1.0.0")),
           integrity: Option.none(),
@@ -768,7 +769,7 @@ describe("installSkill", () => {
         const { axmDir } = setupBase();
 
         // Create an empty lockfile
-        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 
         const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
           Effect.provide(withServices(axmDir)),
@@ -945,7 +946,7 @@ describe("installSkill", () => {
         setupRegistryCanonical(base, "@community");
 
         // Create an empty lockfile
-        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 
         const result = yield* installSkill(
           makeOp({

@@ -51,7 +51,7 @@ const initWorkspace = (
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {} }),
+    YAML.stringify({ lockfileVersion: 3, skills: {} }),
   );
 };
 
@@ -72,6 +72,7 @@ const createRegistrySkill = ({
       name,
       owner,
       type: "skill",
+      publisherBindingId: "hbnd_test",
       versions: [
         {
           version: "1.0.0",

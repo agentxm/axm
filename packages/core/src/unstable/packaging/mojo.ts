@@ -1,7 +1,7 @@
 /**
  * Mojo package detector and reader for package-compatibility discovery.
  *
- * Parses `pixi.toml` and `mojoproject.toml` for dependencies and reads
+ * Parses `pixi.toml` for dependencies and reads
  * axm metadata from pixi environment cache at `.pixi/envs/`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -59,8 +59,7 @@ const parseTomlDependencies = (
 /**
  * Mojo package detector.
  *
- * Scans `pixi.toml` (preferred) and `mojoproject.toml` (deprecated fallback)
- * in the project directory. Mojo-specific packages produce `pkg:mojo`
+ * Scans `pixi.toml` in the project directory. Mojo-specific packages produce `pkg:mojo`
  * purls, while conda packages produce `pkg:conda` purls.
  *
  * @experimental This API is unstable and may change without notice.
@@ -71,17 +70,8 @@ export const mojoDetector: PackageDetector = {
     function* (projectDir: string) {
       const path = yield* Path.Path;
 
-      // pixi.toml takes precedence over mojoproject.toml
       const pixiPath = path.join(projectDir, "pixi.toml");
-      const mojoPath = path.join(projectDir, "mojoproject.toml");
-
-      let content = yield* readFileOptional(pixiPath);
-      let source = pixiPath;
-
-      if (Option.isNone(content)) {
-        content = yield* readFileOptional(mojoPath);
-        source = mojoPath;
-      }
+      const content = yield* readFileOptional(pixiPath);
 
       if (Option.isNone(content)) return [];
 
@@ -105,11 +95,11 @@ export const mojoDetector: PackageDetector = {
         if (isMojoSpecific) {
           const purl = new PackageURL("mojo", null, dep.name, version ?? null, null, null);
           const purlParts = decodePurl(purl.toString());
-          results.push({ purl: purlParts, type: mojoType, source });
+          results.push({ purl: purlParts, type: mojoType, source: pixiPath });
         } else {
           const purl = new PackageURL("conda", null, dep.name, version ?? null, null, null);
           const purlParts = decodePurl(purl.toString());
-          results.push({ purl: purlParts, type: condaType, source });
+          results.push({ purl: purlParts, type: condaType, source: pixiPath });
         }
       }
 

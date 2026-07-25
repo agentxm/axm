@@ -60,10 +60,7 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
     if (plan._tag === "ExecutedPlan") {
       const allSteps = plan.jobs.flatMap((job) => [...job.steps]);
       const hasFailures = allSteps.some((step) => step.result.result === "error");
-      const hasLegacySuccessDetail = allSteps.some(
-        (step) => step.result.result === "success" && step.result.artifact === undefined,
-      );
-      if (!hasFailures && !hasLegacySuccessDetail) {
+      if (!hasFailures) {
         yield* renderExecutedOutcome(plan, allSteps, renderer, verbosity);
         if (!verbosity.verbose) {
           return;
@@ -72,11 +69,6 @@ export const displayPlan = (plan: Plan | ExecutedPlan) =>
 
       if (hasFailures) {
         yield* renderer.error(`${countFailedSteps(allSteps)} failed in ${plan.name}`);
-      } else if (hasLegacySuccessDetail) {
-        yield* renderLegacyExecutedOutcome(allSteps, renderer);
-        if (!verbosity.verbose) {
-          return;
-        }
       }
 
       if (verbosity.verbose) {
@@ -114,15 +106,6 @@ const countFailedSteps = (allSteps: ReadonlyArray<CompletedJobStep>): string => 
   return count(failCount, "step");
 };
 
-const legacySuccessMessages = (allSteps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<string> =>
-  allSteps.flatMap((step) =>
-    step.result.result === "success" &&
-    step.result.artifact === undefined &&
-    step.result.message.length > 0
-      ? [step.result.message]
-      : [],
-  );
-
 const successMessages = (allSteps: ReadonlyArray<CompletedJobStep>): ReadonlyArray<string> =>
   allSteps.flatMap((step) =>
     step.result.result === "success" && step.result.message.length > 0 ? [step.result.message] : [],
@@ -139,30 +122,6 @@ const joinSummary = (...parts: ReadonlyArray<string | undefined>): string | unde
   const present = parts.filter((part): part is string => part !== undefined && part.length > 0);
   return present.length === 0 ? undefined : present.join("\n");
 };
-
-const renderLegacyExecutedOutcome = (
-  allSteps: ReadonlyArray<CompletedJobStep>,
-  renderer: ServiceMap.Service.Shape<typeof CliRenderer>,
-) =>
-  Effect.gen(function* () {
-    const messages = legacySuccessMessages(allSteps);
-    if (messages.length === 0) {
-      yield* renderer.success(`Applied ${count(allSteps.length, "step")}`);
-      return;
-    }
-
-    if (messages.length <= 2) {
-      yield* renderer.success(messages.join("; "));
-      return;
-    }
-
-    const skipMessages = messages.filter((message) => message.startsWith("Skipping "));
-    yield* renderer.success(
-      skipMessages.length === 0
-        ? `Applied ${count(messages.length, "change")}`
-        : `Applied ${count(messages.length, "change")}; ${skipMessages.join("; ")}`,
-    );
-  });
 
 const renderSection = (
   section: PlanSection,

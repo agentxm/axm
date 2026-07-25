@@ -27,7 +27,7 @@ const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = 
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents: ["claude-code"] }));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {}, packs: lockfilePacks }),
+    YAML.stringify({ lockfileVersion: 3, skills: {}, packs: lockfilePacks }),
   );
 };
 
@@ -38,6 +38,7 @@ const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => 
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
+  publisherBindingId: "hbnd_test",
   installedAt: "2025-01-01T00:00:00.000Z",
   updatedAt: "2025-01-01T00:00:00.000Z",
   resolvedSkills: {},
@@ -97,6 +98,7 @@ describe("packs list.handler", () => {
         owner: "@team",
         resolvedVersion: "2.3.1",
         sourceName: "company",
+        publisherBindingId: "hbnd_test",
       }),
     });
 

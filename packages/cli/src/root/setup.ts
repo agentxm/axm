@@ -26,6 +26,7 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import {
   decodeExtensionNameSync,
+  computeSourceHash,
   normalizeHandle,
   sanitizeName,
 } from "@agentxm/client-core/unstable/extensions";
@@ -234,12 +235,12 @@ const installBundledAxmSkill = Effect.gen(function* () {
 
   const now = new Date();
   const lockEntry: SkillLockEntry = {
-    type: "registry",
+    type: "workspace",
     owner: normalizeHandle("@agentxm"),
+    extensionType: "skill",
     name: decodeExtensionNameSync(sanitizedName),
-    resolvedVersion: decodeVersionSync(AXM_SKILL_VERSION),
-    integrity: "",
-    sourceName: "default",
+    version: decodeVersionSync(AXM_SKILL_VERSION),
+    sourceHash: computeSourceHash(`${AXM_SKILL_JSON}\0${AXM_SKILL_MD}`),
     installedAt: now,
     updatedAt: now,
   };

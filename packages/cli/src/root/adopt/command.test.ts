@@ -26,7 +26,7 @@ describe("adopt command", () => {
     );
     fs.writeFileSync(
       path.join(tempDir, ".axm", "axm-lock.yaml"),
-      "lockfileVersion: 1\nskills: {}\n",
+      "lockfileVersion: 3\nskills: {}\n",
     );
     const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
     fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });

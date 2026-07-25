@@ -125,6 +125,7 @@ const makeManifest = (overrides?: {
   owner: handle(overrides?.owner ?? "@test"),
   type: overrides?.type ?? "skill",
   name: extensionName(overrides?.name ?? "my-skill"),
+  publisherBindingId: "hbnd_test",
   description: overrides?.description ?? Option.none(),
   repository: overrides?.repository ?? Option.none(),
   bugs: overrides?.bugs ?? Option.none(),
@@ -610,6 +611,8 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("my-skill"),
         description: Option.some("test"),
@@ -658,6 +661,8 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("my-skill"),
         description: Option.some("test"),
@@ -703,6 +708,8 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const ref: ExtensionRef = {
       type: "mcp-server",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       server: { name: extensionName("my-server") },
       source: testSource,
       owner: handle("@test"),
@@ -820,6 +827,8 @@ describe("RemoteRegistrySourceHostProvider", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("my-skill"),
         description: Option.some("test"),

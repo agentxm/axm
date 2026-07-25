@@ -76,9 +76,6 @@ const HelpTopicResultSchema = Schema.Struct({
   content: Schema.String,
 });
 
-const resolveHelpTopicAlias = (topic: string): string =>
-  topic === "instructions" ? "rules" : topic;
-
 interface HelpTopicRow {
   readonly topic: HelpTopicName;
   readonly description: string;
@@ -142,7 +139,7 @@ export const handleHelpTopic = (topic: Option.Option<string>) =>
   Option.match(topic, {
     onNone: () => writeHelpTopicIndex(),
     onSome: (rawName) => {
-      const name = resolveHelpTopicAlias(rawName);
+      const name = rawName;
       if (isHelpTopicName(name)) {
         return writeHelpTopic(name);
       }

@@ -118,9 +118,7 @@ const manifestFromIndex = (
     owner: index.owner,
     type: index.type,
     name: index.name,
-    ...(index.publisherBindingId === undefined
-      ? {}
-      : { publisherBindingId: index.publisherBindingId }),
+    publisherBindingId: index.publisherBindingId,
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
     bugs: Option.fromUndefinedOr(index.bugs),
@@ -247,9 +245,7 @@ const toExtensionRef = (
 
   const details = {
     owner: entry.owner,
-    ...(entry.publisherBindingId === undefined
-      ? {}
-      : { publisherBindingId: entry.publisherBindingId }),
+    publisherBindingId: entry.publisherBindingId,
     name: entry.name,
     version: entry.version,
     integrity: Option.fromUndefinedOr(entry.integrity || undefined),

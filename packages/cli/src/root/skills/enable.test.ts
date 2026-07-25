@@ -41,10 +41,9 @@ const initWorkspace = (
   });
 };
 
-const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
+const makeLockEntry = (_agents: string[] = ["claude-code"]) => ({
   type: "local",
   path: "installed",
-  agents,
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
@@ -172,7 +171,7 @@ describe("enable.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -221,9 +220,15 @@ describe("enable.handler", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+              publisherBindingId: "hbnd_test",
               installedAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-              resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
+              resolvedSkills: {
+                "@acme/skills/code-review": {
+                  version: "1.2.0",
+                  publisherBindingId: "hbnd_test",
+                },
+              },
               resolvedCommands: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},

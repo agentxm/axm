@@ -27,7 +27,6 @@ export type {
   RegistryHookRef,
   WorkspaceHookRef,
 } from "./refs.js";
-export { buildRegistryHookRef } from "./registry-ref-builder.js";
 export {
   hookPackagesInDir,
   type DiscoveredHookPackage,

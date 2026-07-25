@@ -107,6 +107,7 @@ describe("extensionLifecycleWarnings", () => {
           owner: handle("@acme"),
           type: "mcp-server",
           name: extensionName("github"),
+          publisherBindingId: "hbnd_test",
           versions: [version],
         },
         version,

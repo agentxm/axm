@@ -63,7 +63,6 @@ export type {
 } from "./refs.js";
 
 // Registry ref builder
-export { buildRegistrySubagentRef } from "./registry-ref-builder.js";
 
 // Lock entry builder
 export { buildSubagentLockEntry } from "./lock-entry-builder.js";

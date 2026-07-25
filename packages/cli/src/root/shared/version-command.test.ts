@@ -27,7 +27,7 @@ const initWorkspace = (root: string) => {
   );
   fs.writeFileSync(
     path.join(root, ".axm", "axm-lock.yaml"),
-    "lockfileVersion: 1\nskills: {}\ncommands: {}\n",
+    "lockfileVersion: 3\nskills: {}\ncommands: {}\n",
   );
 };
 

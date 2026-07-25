@@ -68,7 +68,7 @@ const makeWorkspaceMock = (
 ): WorkspaceMutationsService => {
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
-    if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, mcpServers: {} };
+    if (!fs.existsSync(lfPath)) return { lockfileVersion: 3, mcpServers: {} };
     return YAML.parse(fs.readFileSync(lfPath, "utf-8"));
   };
   const writeLf = (data: unknown) => {
@@ -194,6 +194,8 @@ const makeRegistryRef = (
   return {
     type: "mcp-server",
     refType: "registry",
+
+    publisherBindingId: "hbnd_test",
     source: {
       type: "registry",
       location: new URL(overrides.location ?? "file:///tmp/reg"),
@@ -222,6 +224,8 @@ const makeUnsafeRegistryRef = (
   return {
     type: "mcp-server",
     refType: "registry",
+
+    publisherBindingId: "hbnd_test",
     source: {
       type: "registry",
       location: new URL(overrides.location ?? "file:///tmp/reg"),

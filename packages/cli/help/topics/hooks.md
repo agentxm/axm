@@ -48,9 +48,8 @@ Required fields:
 - `bindings` — canonical AXM hook events and optional canonical tool matchers
   that AXM maps through the agent capability catalog into agent-native settings.
 
-`timeoutMs`, `requires`, `blocking`, and `capabilities` are optional. Run
-`axm help hook-schema` to print the raw JSON Schema. `blocking: true` is a
-legacy alias for `requires.decision.kind = "block"`.
+`timeoutMs`, `requires`, and `capabilities` are optional. Run
+`axm help hook-schema` to print the raw JSON Schema.
 
 ## `src/`
 

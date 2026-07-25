@@ -41,7 +41,7 @@ import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
+import { LOCKFILE_VERSION, type Lockfile } from "@agentxm/client-core/unstable/lockfile";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 
 // -----------------------------------------------------------------------------
@@ -201,7 +201,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           files: lockedFiles,
           hooks: lockedHooks,
           packs: lockedPacks,
-        };
+        } satisfies Lockfile;
 
         // Build settings context for orphan check (just need the keys)
         const configuredSkills = yield* ws.records.getConfiguredSkills();

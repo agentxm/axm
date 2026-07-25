@@ -593,10 +593,11 @@ describe("axm packs install", () => {
       const resolvedKeys = Object.keys(packEntry.resolvedSkills);
       expect(resolvedKeys.length).toBeGreaterThan(0);
       expect(resolvedKeys.some((k: string) => k.includes("dep-skill"))).toBe(true);
-      const resolvedSkillVersion = packEntry.resolvedSkills["@test/skills/dep-skill"];
-      expect(resolvedSkillVersion).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
-      expect(resolvedSkillVersion.startsWith("^")).toBe(false);
-      expect(resolvedSkillVersion.startsWith("~")).toBe(false);
+      const resolvedSkill = packEntry.resolvedSkills["@test/skills/dep-skill"];
+      expect(resolvedSkill.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
+      expect(resolvedSkill.version.startsWith("^")).toBe(false);
+      expect(resolvedSkill.version.startsWith("~")).toBe(false);
+      expect(resolvedSkill.publisherBindingId).toMatch(/^hbnd_/);
 
       // Verify pack in settings
       const settings = readSettings();
@@ -677,7 +678,10 @@ describe("axm packs install", () => {
       const lock = readLock();
       const packEntry = lock.packs["subagent-pack"];
       expect(packEntry.resolvedSubagents).toEqual({
-        "@test/subagents/dep-subagent": "1.0.0",
+        "@test/subagents/dep-subagent": {
+          version: "1.0.0",
+          publisherBindingId: expect.stringMatching(/^hbnd_/),
+        },
       });
       expect(lock.subagents["dep-subagent"]).toBeDefined();
 

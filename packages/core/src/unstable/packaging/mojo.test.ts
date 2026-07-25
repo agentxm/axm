@@ -16,17 +16,14 @@ const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
 const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
 
-/** Create a temp dir, write pixi.toml and/or mojoproject.toml, run detector, clean up. */
-const detectInTempDir = (files?: { pixi?: string; mojoproject?: string }) =>
+/** Create a temp dir, write pixi.toml, run detector, clean up. */
+const detectInTempDir = (files?: { pixi?: string }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const tmpDir = yield* fs.makeTempDirectoryScoped();
     if (files?.pixi !== undefined) {
       yield* fs.writeFileString(path.join(tmpDir, "pixi.toml"), files.pixi);
-    }
-    if (files?.mojoproject !== undefined) {
-      yield* fs.writeFileString(path.join(tmpDir, "mojoproject.toml"), files.mojoproject);
     }
     return yield* mojoDetector.detect(tmpDir);
   }).pipe(Effect.scoped);
@@ -59,43 +56,6 @@ numpy = ">=1.26"
           const numpyDep = result.find((r) => r.purl.name === "numpy");
           expect(numpyDep).toBeDefined();
           expect(numpyDep?.purl).toEqual(makePurl({ type: "conda", name: "numpy" }));
-        }),
-      ),
-    );
-  });
-
-  describe("mojoproject.toml fallback", () => {
-    it.effect("uses mojoproject.toml when pixi.toml is absent", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const mojoproject = `[project]
-name = "my-mojo-project"
-
-[dependencies]
-max = ">=24.6"
-`;
-          const result = yield* detectInTempDir({ mojoproject });
-          expect(result).toHaveLength(1);
-          expect(result[0]?.purl.name).toBe("max");
-        }),
-      ),
-    );
-  });
-
-  describe("pixi.toml takes precedence", () => {
-    it.effect("uses pixi.toml when both files exist", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const pixi = `[dependencies]
-max = ">=24.6"
-`;
-          const mojoproject = `[dependencies]
-numpy = ">=1.26"
-`;
-          const result = yield* detectInTempDir({ pixi, mojoproject });
-          expect(result).toHaveLength(1);
-          // Should use pixi.toml (max), not mojoproject.toml (numpy)
-          expect(result[0]?.purl.name).toBe("max");
         }),
       ),
     );

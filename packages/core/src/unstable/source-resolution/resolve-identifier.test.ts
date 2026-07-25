@@ -52,6 +52,7 @@ const writeRegistrySkill = (registryDir: string, ownerValue: string, nameValue: 
     nodePath.join(dir, "index.json"),
     JSON.stringify({
       owner: ownerValue,
+      publisherBindingId: "hbnd_test",
       type: "skill",
       name: nameValue,
       versions: [

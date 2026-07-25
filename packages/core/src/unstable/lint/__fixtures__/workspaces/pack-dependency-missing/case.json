@@ -10,7 +10,7 @@
       }
     },
     "lockfile": {
-      "lockfileVersion": 1,
+      "lockfileVersion": 3,
       "skills": {},
       "packs": {
         "toolbox": {
@@ -20,10 +20,12 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
+
+          "publisherBindingId": "hbnd_test",
           "installedAt": "2026-04-21T00:00:00.000Z",
           "updatedAt": "2026-04-21T00:00:00.000Z",
           "resolvedSkills": {
-            "@acme/skills/helper": "1.0.0"
+            "@acme/skills/helper": { "version": "1.0.0", "publisherBindingId": "hbnd_test" }
           },
           "resolvedCommands": {},
           "resolvedMcpServers": {},

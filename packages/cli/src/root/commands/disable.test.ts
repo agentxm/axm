@@ -269,6 +269,7 @@ describe("commands disable.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             agents: [],

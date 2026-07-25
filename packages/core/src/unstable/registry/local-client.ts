@@ -155,9 +155,7 @@ const indexToManifest = (
     owner: index.owner,
     type: index.type,
     name: index.name,
-    ...(index.publisherBindingId === undefined
-      ? {}
-      : { publisherBindingId: index.publisherBindingId }),
+    publisherBindingId: index.publisherBindingId,
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
     bugs: Option.fromUndefinedOr(index.bugs),
@@ -552,6 +550,7 @@ export const createLocalRegistryClient = (
                 name: args.name,
                 owner,
                 type: args.type,
+                publisherBindingId: `hbnd_local_${globalThis.crypto.randomUUID()}`,
                 visibility: args.initialVisibility ?? "public",
                 versions: [args.metadata],
               } satisfies ExtensionIndex);

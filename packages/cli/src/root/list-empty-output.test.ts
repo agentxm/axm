@@ -70,6 +70,7 @@ describe("list command empty output", () => {
           resolvedVersion: "1.0.0",
           integrity: "sha512-AAAA==",
           sourceName: "default",
+          publisherBindingId: "hbnd_test",
           installedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -114,6 +115,7 @@ describe("list command empty output", () => {
           resolvedVersion: "1.0.0",
           integrity: "sha512-AAAA==",
           sourceName: "default",
+          publisherBindingId: "hbnd_test",
           installedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -151,7 +153,7 @@ describe("list command empty output", () => {
     fs.writeFileSync(
       path.join(tempDir, ".axm", "axm-lock.yaml"),
       YAML.stringify({
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {},
         mcpServers: {
           context: {
@@ -161,6 +163,7 @@ describe("list command empty output", () => {
             resolvedVersion: "2.3.4",
             integrity: "sha512-AAAA==",
             sourceName: "default",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },

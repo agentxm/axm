@@ -163,7 +163,6 @@ export {
 } from "./configured-entry.js";
 
 // Reconciliation utilities
-export { readAndDecodeManifest } from "./reconciliation-utils.js";
 
 // Extension operations
 export {

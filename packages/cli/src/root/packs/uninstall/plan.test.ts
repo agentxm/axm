@@ -52,6 +52,7 @@ const makePackLockEntry = (
   resolvedVersion: exactVersion("1.0.0"),
   integrity: "sha512-AAAA==",
   sourceName: "local",
+  publisherBindingId: "hbnd_test",
   installedAt: new Date(),
   updatedAt: new Date(),
   resolvedSkills: overrides?.resolvedSkills ?? {},
@@ -63,12 +64,12 @@ const makePackLockEntry = (
 const resolved = resolvedExtensionMap;
 
 const emptyLockfile: Lockfile = {
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {},
 };
 
 const lockfileWithPacks = (...entries: [string, PackLockEntry][]): Lockfile => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {},
   packs: Object.fromEntries(entries),
 });

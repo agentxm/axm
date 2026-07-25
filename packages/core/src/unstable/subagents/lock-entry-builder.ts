@@ -61,9 +61,7 @@ export const buildSubagentLockEntry = (
         resolvedVersion: ref.version,
         integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: "default",
-        ...(ref.publisherBindingId === undefined
-          ? {}
-          : { publisherBindingId: ref.publisherBindingId }),
+        publisherBindingId: ref.publisherBindingId,
         ...common,
       };
     case "workspace":

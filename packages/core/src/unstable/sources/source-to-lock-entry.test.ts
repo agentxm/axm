@@ -272,6 +272,8 @@ describe("sourceToLockEntry", () => {
     const ref: RegistrySkillRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("test-skill"),
         description: Option.some("A test skill"),
@@ -303,6 +305,8 @@ describe("sourceToLockEntry", () => {
       resolvedVersion: exactVersion("2.1.0"),
       integrity: "sha512-AAAA==",
       sourceName: "local",
+
+      publisherBindingId: "hbnd_test",
       installedAt: now,
       updatedAt: now,
     } satisfies SkillLockEntry);
@@ -312,6 +316,8 @@ describe("sourceToLockEntry", () => {
     const ref: RegistrySkillRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("test-skill"),
         description: Option.some("A test skill"),

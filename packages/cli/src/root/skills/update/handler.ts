@@ -42,7 +42,7 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
+import { LOCKFILE_VERSION, type Lockfile } from "@agentxm/client-core/unstable/lockfile";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -460,19 +460,18 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     const publisherEpochChanged =
       existing?.type === "registry" &&
       item.ref.refType === "registry" &&
-      lockedEpoch !== resolvedEpoch &&
-      (lockedEpoch !== undefined || resolvedEpoch !== undefined);
+      lockedEpoch !== resolvedEpoch;
     if (publisherEpochChanged && args.yes) {
       return yield* makeAppError({
         code: "validation",
-        detail: `Unattended update refused for ${item.ref.owner}/skills/${item.ref.name}: publisher epoch changed from ${lockedEpoch ?? "legacy-lock"} to ${resolvedEpoch ?? "missing"}`,
+        detail: `Unattended update refused for ${item.ref.owner}/skills/${item.ref.name}: publisher epoch changed from ${lockedEpoch} to ${resolvedEpoch}`,
         recover: "Run the update interactively, verify the publisher change, and confirm the plan.",
       });
     }
 
     const warnings = publisherEpochChanged
       ? [
-          `Publisher identity changed (${lockedEpoch ?? "legacy lock"} → ${resolvedEpoch ?? "missing epoch"}); confirm only if you trust the current publisher`,
+          `Publisher identity changed (${lockedEpoch} → ${resolvedEpoch}); confirm only if you trust the current publisher`,
           ...item.warnings,
         ]
       : item.warnings;
@@ -526,7 +525,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     );
 
   // Step 10: Build plan
-  const lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: lockedSkills };
+  const lockfile: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: lockedSkills };
   const rawPlan = buildUpdatePlan(
     ops,
     lockfile,

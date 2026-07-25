@@ -281,7 +281,6 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       scope,
       diagnostics,
       agentRegistry: AGENTS,
-      rootResolverState,
     }),
   );
   const agentSettingsScanner = yield* Effect.cached(

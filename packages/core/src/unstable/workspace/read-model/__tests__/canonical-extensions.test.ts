@@ -1,6 +1,6 @@
 /**
  * Canonical-extensions scanner: covers canonical AXM
- * (`.axm/extensions/<owner>/<type-plural>/src/<name>/`) and external AXM
+ * (`.axm/extensions/<owner>/<type-plural>/<name>/src/`) and external AXM
  * (`.axm/extensions/external/<type-plural>/<name>/`) materializations across
  * all extension types.
  *
@@ -59,15 +59,15 @@ describe("canonical-extensions scanner", () => {
     }).pipe(Effect.provide(Path.layer)),
   );
 
-  it.effect("emits one canonical-axm occurrence per <owner>/<type>/src/<name>", () =>
+  it.effect("emits one canonical-axm occurrence per <owner>/<type>/<name>/src", () =>
     Effect.gen(function* () {
       const { occurrences } = yield* runScanner({
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/src/some-skill/SKILL.md": "# canonical\n",
-            "@owner/commands/src/some-command/some-command.md": "# command\n",
+            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+            "@owner/commands/some-command/src/some-command.md": "# command\n",
           },
         },
       });
@@ -83,7 +83,7 @@ describe("canonical-extensions scanner", () => {
         origin: "canonical-axm",
         name: "some-command",
         owner: "@owner",
-        contentLocation: "/ws/.axm/extensions/@owner/commands/src/some-command",
+        contentLocation: "/ws/.axm/extensions/@owner/commands/some-command/src",
       });
       expect(sorted[1]).toMatchObject({
         _tag: "canonical-extension",
@@ -92,7 +92,7 @@ describe("canonical-extensions scanner", () => {
         origin: "canonical-axm",
         name: "some-skill",
         owner: "@owner",
-        contentLocation: "/ws/.axm/extensions/@owner/skills/src/some-skill",
+        contentLocation: "/ws/.axm/extensions/@owner/skills/some-skill/src",
       });
     }).pipe(Effect.provide(Path.layer)),
   );
@@ -126,7 +126,7 @@ describe("canonical-extensions scanner", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/src/some-skill/SKILL.md": "# canonical\n",
+            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
             "external/skills/some-skill/SKILL.md": "# external\n",
           },
         },
@@ -146,7 +146,7 @@ describe("canonical-extensions scanner", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/src/some-skill/SKILL.md": "# ok\n",
+            "@owner/skills/some-skill/src/SKILL.md": "# ok\n",
             // "stuff" is not a local extension type directory; the scanner should skip it.
             "@owner/stuff/src/junk/file.txt": "junk",
           },
@@ -162,7 +162,10 @@ describe("canonical-extensions scanner", () => {
       const types = ["skills", "commands", "mcps", "subagents", "files", "rules", "packs"] as const;
       const project: FixtureSpec["project"] = {
         axmExtensions: Object.fromEntries(
-          types.map((t) => [`@owner/${t}/src/sample/marker`, "ok\n"]),
+          types.map((type) => [
+            type === "packs" ? `@owner/${type}/sample/marker` : `@owner/${type}/sample/src/marker`,
+            "ok\n",
+          ]),
         ),
       };
       const { occurrences } = yield* runScanner({
@@ -190,7 +193,7 @@ describe("canonical-extensions scanner", () => {
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
-          axmExtensions: { "@x/skills/src/y/SKILL.md": "ok\n" },
+          axmExtensions: { "@x/skills/y/src/SKILL.md": "ok\n" },
         },
       });
       // Build the scanner effect with deps, then run it WITHOUT providing fs/path layers.
@@ -213,7 +216,7 @@ describe("canonical-extensions scanner", () => {
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
-          axmExtensions: { "@owner/skills/src/sample/SKILL.md": "ok\n" },
+          axmExtensions: { "@owner/skills/sample/src/SKILL.md": "ok\n" },
         },
       });
       const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);

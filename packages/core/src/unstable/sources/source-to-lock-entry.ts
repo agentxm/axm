@@ -76,9 +76,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         resolvedVersion: ref.version,
         integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: Option.getOrElse(input.sourceName, () => "default"),
-        ...(ref.publisherBindingId === undefined
-          ? {}
-          : { publisherBindingId: ref.publisherBindingId }),
+        publisherBindingId: ref.publisherBindingId,
         ...common,
       };
     case "workspace":

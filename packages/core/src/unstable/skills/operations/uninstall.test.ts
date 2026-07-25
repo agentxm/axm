@@ -61,7 +61,7 @@ const makeWorkspaceMock = (
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; skills: Record<string, unknown> } = {
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: {},
     };
     for (const [k, v] of Object.entries(skills)) {
@@ -167,7 +167,7 @@ const makeOp = (
 /** Writes a lockfile YAML to disk. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
 const writeLockfileYaml = (axmDir: string, skills: Record<string, any>) => {
-  const lockfile = { lockfileVersion: 1, skills };
+  const lockfile = { lockfileVersion: 3, skills };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
@@ -201,6 +201,8 @@ const makeRegistryLockEntry = (agents: string[]) =>
     owner: handle("@community"),
     name: "my-skill",
     sourceName: "local",
+
+    publisherBindingId: "hbnd_test",
     agents,
   });
 
@@ -212,6 +214,8 @@ const makeRegistryLockEntryYaml = (agents: string[]) => ({
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "local",
+
+  publisherBindingId: "hbnd_test",
   agents,
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
@@ -716,8 +720,13 @@ describe("uninstallSkill", () => {
         owner: handle("@acme"),
         name: "starter-pack",
         sourceName: "local",
+
+        publisherBindingId: "hbnd_test",
         resolvedSkills: Object.fromEntries(
-          Object.entries(resolvedSkills).map(([name, version]) => [name, exactVersion(version)]),
+          Object.entries(resolvedSkills).map(([name, version]) => [
+            name,
+            { version: exactVersion(version), publisherBindingId: "hbnd_test" },
+          ]),
         ),
       });
 
@@ -764,6 +773,8 @@ describe("uninstallSkill", () => {
               owner: handle("@acme"),
               name: "my-skill",
               sourceName: "local",
+
+              publisherBindingId: "hbnd_test",
               agents: ["claude-code"],
             }),
           },
@@ -815,6 +826,8 @@ describe("uninstallSkill", () => {
               owner: handle("@acme"),
               name: "my-skill",
               sourceName: "local",
+
+              publisherBindingId: "hbnd_test",
               agents: ["claude-code"],
             }),
           },
@@ -871,6 +884,8 @@ describe("uninstallSkill", () => {
               owner: handle("@community"),
               name: "my-skill",
               sourceName: "local",
+
+              publisherBindingId: "hbnd_test",
               agents: ["claude-code"],
             }),
           },

@@ -58,7 +58,7 @@ const initWorkspace = (
     settings["skills"] = settingsSkills;
   }
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  const lockfile: Record<string, unknown> = { lockfileVersion: 1, skills: lockfileSkills };
+  const lockfile: Record<string, unknown> = { lockfileVersion: 3, skills: lockfileSkills };
   if (Object.keys(lockfilePacks).length > 0) {
     lockfile["packs"] = lockfilePacks;
   }
@@ -81,10 +81,9 @@ const createAgentSymlink = (base: string, agentDir: string, name: string) => {
   fs.symlinkSync(canonical, path.join(agentSkillDir, name));
 };
 
-const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
+const makeLockEntry = (_agents: string[] = ["claude-code"]) => ({
   type: "local",
   path: "installed",
-  agents,
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
@@ -92,7 +91,7 @@ const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
 const makeRegistryLockEntry = (
   owner: string,
   name: string,
-  agents: string[] = ["claude-code"],
+  _agents: string[] = ["claude-code"],
 ) => ({
   type: "registry",
   owner,
@@ -100,7 +99,7 @@ const makeRegistryLockEntry = (
   resolvedVersion: "1.0.0",
   integrity: "sha256-abc",
   sourceName: "default",
-  agents,
+  publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
@@ -116,9 +115,15 @@ const makePackLockEntry = (
   resolvedVersion: "1.0.0",
   integrity: "sha256-abc",
   sourceName: "default",
+  publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  resolvedSkills,
+  resolvedSkills: Object.fromEntries(
+    Object.entries(resolvedSkills).map(([skill, version]) => [
+      skill,
+      { version, publisherBindingId: "hbnd_test" },
+    ]),
+  ),
   resolvedCommands: {},
   resolvedMcpServers: {},
   resolvedSubagents: {},
@@ -581,7 +586,7 @@ describe("uninstall.handler", () => {
       };
       fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
       const lockfile = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "effect-basics": makeLockEntry(),
           "effect-stream": makeRegistryLockEntry("@acme", "effect-stream"),

@@ -171,7 +171,6 @@ describe("axm skills update", () => {
         });
 
         expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toMatch(/[Ss]kipping.*my-skill.*disabled/);
 
         expect(fs.readFileSync(lockPath, "utf-8")).toBe(lockBefore);
         expect(installedSkillContent(temp.path, "my-skill")).not.toContain(

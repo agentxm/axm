@@ -70,7 +70,7 @@ const settings = {
 };
 
 const lockfile = {
-  lockfileVersion: 2,
+  lockfileVersion: 3,
   skills: {
     "bad-skill": {
       type: "registry",
@@ -79,6 +79,8 @@ const lockfile = {
       resolvedVersion: "1.0.0",
       integrity: "sha256-test",
       sourceName: "default",
+
+      publisherBindingId: "hbnd_test",
       installedAt,
       updatedAt: installedAt,
       agents: [],
@@ -92,6 +94,8 @@ const lockfile = {
       resolvedVersion: "1.0.0",
       integrity: "sha256-test",
       sourceName: "default",
+
+      publisherBindingId: "hbnd_test",
       installedAt,
       updatedAt: installedAt,
     },

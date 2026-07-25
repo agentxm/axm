@@ -16,6 +16,8 @@ import type { RegistrySkillRef } from "./refs.js";
 const registryRef = (name: string): RegistrySkillRef => ({
   type: "skill",
   refType: "registry",
+
+  publisherBindingId: "hbnd_test",
   source: {
     type: "registry",
     location: new URL("http://localhost:4300"),

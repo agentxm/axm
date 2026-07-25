@@ -64,7 +64,7 @@ const initWorkspace = (
   );
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {}, commands: lockfileCommands }),
+    YAML.stringify({ lockfileVersion: 3, skills: {}, commands: lockfileCommands }),
   );
 };
 
@@ -105,6 +105,7 @@ const writeRegistryCommandIndex = (registryRoot: string, name: string, version: 
       owner: "@test",
       type: "command",
       name,
+      publisherBindingId: "hbnd_test",
       versions: [
         {
           version,

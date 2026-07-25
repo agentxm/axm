@@ -15,17 +15,12 @@
  *
  * Cross-platform behavior:
  *
- * - POSIX `/ws/.axm/extensions/@o/skills/src/x` →
- *   `pathSegments = ["", "ws", ".axm", "extensions", "@o", "skills", "src", "x"]`.
- *   `pathSegments[0]` is `""`; the separator is `contentLocation.charAt(0) = "/"`.
- *   Joining `pathSegments.slice(0, -2)` with `/` yields
- *   `/ws/.axm/extensions/@o/skills`.
  * - POSIX `/ws/.axm/extensions/@o/skills/x/src` →
  *   `pathSegments = ["", "ws", ".axm", "extensions", "@o", "skills", "x", "src"]`.
  *   Dropping the trailing `src` segment yields the package root
  *   `/ws/.axm/extensions/@o/skills/x`.
- * - Windows `C:\\ws\\.axm\\extensions\\@o\\skills\\src\\x` →
- *   `pathSegments = ["C:", "ws", ".axm", "extensions", "@o", "skills", "src", "x"]`.
+ * - Windows `C:\\ws\\.axm\\extensions\\@o\\skills\\x\\src` →
+ *   `pathSegments = ["C:", "ws", ".axm", "extensions", "@o", "skills", "x", "src"]`.
  *   `pathSegments[0]` is `"C:"` (length 2); the separator is
  *   `contentLocation.charAt(2) = "\\"`. Joining yields
  *   `C:\\ws\\.axm\\extensions\\@o\\skills`.
@@ -56,12 +51,8 @@ export const canonicalAxmPackageRoot = (occ: {
   }
 
   const last = occ.pathSegments.at(-1);
-  const parent = occ.pathSegments.at(-2);
   if (last === "src") {
     return stripTrailingSegments(occ.pathSegments, occ.contentLocation, 1);
-  }
-  if (parent === "src") {
-    return stripTrailingSegments(occ.pathSegments, occ.contentLocation, 2);
   }
   return occ.contentLocation;
 };

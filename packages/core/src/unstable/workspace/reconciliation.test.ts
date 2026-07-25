@@ -121,7 +121,7 @@ describe("reconciliation", () => {
     ]);
   });
 
-  it.effect("reconstructs compatible skill declaration from disk", () =>
+  it.effect("does not reconstruct registry identity from a disk manifest", () =>
     withContext(
       Effect.gen(function* () {
         const canonical = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "tool");
@@ -145,13 +145,15 @@ describe("reconciliation", () => {
           settings,
         });
 
-        expect(Object.keys(snapshot.lockfile.skills)).toEqual(["tool"]);
-        expect(snapshot.unresolved).toEqual([]);
+        expect(snapshot.lockfile.skills).toEqual({});
+        expect(snapshot.unresolved).toEqual([
+          expect.objectContaining({ reason: "missing-registry-metadata" }),
+        ]);
       }),
     ),
   );
 
-  it.effect("reconstructs workspace packs with dependency versions from canonical packages", () =>
+  it.effect("requires registry metadata to reconstruct workspace pack dependencies", () =>
     withContext(
       Effect.gen(function* () {
         const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "tool");
@@ -189,11 +191,54 @@ describe("reconciliation", () => {
           settings,
         });
 
-        expect(snapshot.unresolved).toEqual([]);
-        expect(snapshot.lockfile.packs?.["toolkit"]?.type).toBe("workspace");
-        expect(snapshot.lockfile.packs?.["toolkit"]?.resolvedSkills).toEqual({
-          "@acme/skills/tool": "1.2.3",
+        expect(snapshot.unresolved).toEqual([
+          expect.objectContaining({ reason: "missing-registry-metadata" }),
+        ]);
+        expect(snapshot.lockfile.packs).toEqual({});
+      }),
+    ),
+  );
+
+  it.effect("reconstructs an empty workspace pack without registry metadata", () =>
+    withContext(
+      Effect.gen(function* () {
+        const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "toolkit");
+        fs.mkdirSync(packDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(packDir, "pack.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: "pack",
+            name: "toolkit",
+            version: "2.0.0",
+            dependencies: {},
+          }),
+        );
+
+        const snapshot = yield* buildReconciliationSnapshot({
+          baseDir: tempDir,
+          scope: "project",
+          now: new Date("2026-07-10T10:00:00.000Z"),
+          configuredOwner: Option.some(handle("@acme")),
+          agents: ["claude-code"],
+          settings: {
+            packs: { toolkit: { source: "workspace:@acme/packs/toolkit" } },
+          },
         });
+
+        expect(snapshot.unresolved).toEqual([]);
+        expect(snapshot.lockfile.packs?.["toolkit"]).toEqual(
+          expect.objectContaining({
+            type: "workspace",
+            owner: "@acme",
+            name: "toolkit",
+            version: "2.0.0",
+            resolvedSkills: {},
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: {},
+          }),
+        );
       }),
     ),
   );
@@ -205,18 +250,7 @@ describe("reconciliation", () => {
         fs.mkdirSync(axmDir, { recursive: true });
         fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "invalid: [");
 
-        const canonical = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "tool");
-        fs.mkdirSync(canonical, { recursive: true });
-        fs.writeFileSync(
-          path.join(canonical, "skill.json"),
-          JSON.stringify({ owner: "@acme", type: "skill", name: "tool", version: "1.2.3" }),
-        );
-
-        const settings: Settings = {
-          skills: {
-            tool: { source: "@acme/skills/tool@^1", enabled: true },
-          },
-        };
+        const settings: Settings = { skills: {} };
 
         const result = yield* runReconcileMaterializeOperation(
           {
@@ -237,7 +271,7 @@ describe("reconciliation", () => {
         expect(files.every((file) => !file.startsWith("axm-lock.yaml.bak."))).toBe(true);
 
         const parsed = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
-        expect(parsed.skills.tool).toBeDefined();
+        expect(parsed.skills).toEqual({});
       }),
     ),
   );
@@ -270,40 +304,6 @@ describe("reconciliation", () => {
         if (result.result === "error") {
           expect(result.error.code).toBe("network");
         }
-      }),
-    ),
-  );
-
-  it.effect("allows missing declarations when configured for install flows", () =>
-    withContext(
-      Effect.gen(function* () {
-        const axmDir = path.join(tempDir, ".axm");
-        fs.mkdirSync(axmDir, { recursive: true });
-
-        const settings: Settings = {
-          skills: {
-            tool: { source: "@acme/skills/tool@^1", enabled: true },
-          },
-        };
-
-        const result = yield* runReconcileMaterializeOperation(
-          {
-            baseDir: tempDir,
-            now: new Date("2026-02-25T10:00:00.000Z"),
-            configuredOwner: Option.some(handle("@community")),
-            agents: ["claude-code"],
-            settings,
-          },
-          axmDir,
-          "missing",
-          { allowMissingDeclarations: true },
-        );
-
-        expect(result.result).toBe("success");
-        expect(result.message).toContain("deferred to install");
-
-        const lockfilePath = path.join(axmDir, "axm-lock.yaml");
-        expect(fs.existsSync(lockfilePath)).toBe(true);
       }),
     ),
   );

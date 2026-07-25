@@ -34,6 +34,7 @@ const makePackRef = () => ({
     owner: Option.none(),
   },
   owner: handle("@acme"),
+  publisherBindingId: "hbnd_test",
   name: extensionName("frontend-pack"),
   version: exactVersion("1.0.0"),
   integrity: Option.none(),
@@ -48,6 +49,8 @@ const makeOp = (): InstallPackOperation => ({
     resolvedVersion: exactVersion("1.0.0"),
     integrity: "sha512-test",
     sourceName: "default",
+
+    publisherBindingId: "hbnd_test",
     resolvedSkills: {},
     resolvedCommands: {},
     resolvedMcpServers: {},
@@ -173,7 +176,10 @@ describe("installPack", () => {
       args: {
         ...makeOp().args,
         resolvedSkills: {
-          "@acme/skills/code-review": exactVersion("1.0.0"),
+          "@acme/skills/code-review": {
+            version: exactVersion("1.0.0"),
+            publisherBindingId: "hbnd_test",
+          },
         },
       },
     };

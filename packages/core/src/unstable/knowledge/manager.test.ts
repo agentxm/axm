@@ -25,7 +25,7 @@ const writeKnowledgePackage = (root: string, name: string, includeType: boolean)
         type: "knowledge",
         name,
         version: "1.0.0",
-        format: { name: "okf", version: "0.1" },
+        format: { name: "okf", version: "0.2" },
         bundleRoot: "src",
       },
       null,
@@ -34,7 +34,7 @@ const writeKnowledgePackage = (root: string, name: string, includeType: boolean)
   );
   writeFileSync(
     nodePath.join(root, "src", "index.md"),
-    "---\nokf_version: 0.1\n---\n# Knowledge\n",
+    '---\nokf_version: "0.2"\n---\n# Knowledge\n',
   );
   writeFileSync(
     nodePath.join(root, "src", "concept.md"),

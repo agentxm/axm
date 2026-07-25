@@ -98,7 +98,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
     // Integrity unknown for individual extensions unpacked from a pack
     yield* Effect.forEach(
       Object.entries(entry.resolvedSkills),
-      ([skillFqn, version]) =>
+      ([skillFqn, resolved]) =>
         Effect.gen(function* () {
           const parsed = parseFqnOrThrow(skillFqn);
           if (parsed.name in currentSkills) return; // preserve existing direct entry
@@ -108,7 +108,8 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
               type: "registry",
               owner: parsed.owner,
               name: parsed.name,
-              resolvedVersion: version,
+              resolvedVersion: resolved.version,
+              publisherBindingId: resolved.publisherBindingId,
               integrity: "",
               sourceName: entry.sourceName,
               installedAt: now,
@@ -123,7 +124,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
     // Add resolved commands as direct entries
     yield* Effect.forEach(
       Object.entries(entry.resolvedCommands),
-      ([commandFqn, version]) =>
+      ([commandFqn, resolved]) =>
         Effect.gen(function* () {
           const parsed = parseFqnOrThrow(commandFqn);
           if (parsed.name in currentCommands) return;
@@ -133,7 +134,8 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
               type: "registry",
               owner: parsed.owner,
               name: parsed.name,
-              resolvedVersion: version,
+              resolvedVersion: resolved.version,
+              publisherBindingId: resolved.publisherBindingId,
               // Integrity unknown for individual extensions unpacked from a pack
               integrity: "",
               sourceName: entry.sourceName,
@@ -148,7 +150,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
     // Add resolved MCP servers as direct entries
     yield* Effect.forEach(
       Object.entries(entry.resolvedMcpServers),
-      ([mcpServerFqn, version]) =>
+      ([mcpServerFqn, resolved]) =>
         Effect.gen(function* () {
           const parsed = parseFqnOrThrow(mcpServerFqn);
           if (parsed.name in currentMcpServers) return;
@@ -158,7 +160,8 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
               type: "registry",
               owner: parsed.owner,
               name: parsed.name,
-              resolvedVersion: version,
+              resolvedVersion: resolved.version,
+              publisherBindingId: resolved.publisherBindingId,
               // Integrity unknown for individual extensions unpacked from a pack
               integrity: "",
               sourceName: entry.sourceName,
@@ -173,7 +176,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
     // Add resolved subagents as direct entries
     yield* Effect.forEach(
       Object.entries(entry.resolvedSubagents),
-      ([subagentFqn, version]) =>
+      ([subagentFqn, resolved]) =>
         Effect.gen(function* () {
           const parsed = parseFqnOrThrow(subagentFqn);
           if (parsed.name in currentSubagents) return;
@@ -183,7 +186,8 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
               type: "registry",
               owner: parsed.owner,
               name: parsed.name,
-              resolvedVersion: version,
+              resolvedVersion: resolved.version,
+              publisherBindingId: resolved.publisherBindingId,
               integrity: "",
               sourceName: entry.sourceName,
               installedAt: now,

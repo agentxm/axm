@@ -70,7 +70,7 @@ const registryRuleLockEntry = (ref: RegistryRuleRef, now: Date): RuleLockEntry =
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
-  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
+  publisherBindingId: ref.publisherBindingId,
   ...commonLockFields(now),
 });
 

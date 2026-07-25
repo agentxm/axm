@@ -343,11 +343,11 @@
           "type": "object",
           "properties": {
             "name": { "type": "string", "enum": ["okf"] },
-            "version": { "type": "string", "enum": ["0.1", "0.2"] }
+            "version": { "type": "string", "enum": ["0.2"] }
           },
           "required": ["name", "version"],
           "additionalProperties": false,
-          "description": "Open Knowledge Format dialect and version used by this bundle. Both 0.1 and 0.2 are accepted."
+          "description": "Open Knowledge Format dialect and version used by this bundle."
         },
         "bundleRoot": {
           "type": "string",

@@ -14,7 +14,11 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
-import type { Lockfile, PackLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type {
+  Lockfile,
+  PackLockEntry,
+  ResolvedExtensionMap,
+} from "@agentxm/client-core/unstable/lockfile";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { Plan, PlannedJobStep, JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { uninstallSkill, type UninstallSkillOperation } from "@agentxm/client-core/unstable/skills";
@@ -55,7 +59,7 @@ const computeOrphanedFqns = (
   lockedPacks: Record<string, PackLockEntry>,
   removingNames: ReadonlySet<string>,
   configured: ReadonlyArray<string>,
-  getResolvedFqns: (entry: PackLockEntry) => Record<string, string>,
+  getResolvedFqns: (entry: PackLockEntry) => ResolvedExtensionMap,
 ): {
   readonly removable: ReadonlyArray<string>;
   readonly preservedConfigured: ReadonlyArray<string>;

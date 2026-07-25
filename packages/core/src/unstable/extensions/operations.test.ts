@@ -102,6 +102,8 @@ describe("buildInstallOperation", () => {
     const ref: RegistrySkillRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       source: {
         type: "registry",
         location: new URL("https://registry.agentxm.ai"),
@@ -145,6 +147,8 @@ describe("buildInstallOperation", () => {
     const ref: RegistrySkillRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       source: {
         type: "registry",
         location: new URL("https://registry.agentxm.ai"),

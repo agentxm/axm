@@ -40,6 +40,7 @@ const makeRegistrySkillRef = (
   name: extensionName(name),
   version: exactVersion("1.0.0"),
   integrity: Option.some("sha512-deadbeef"),
+  publisherBindingId: "hbnd_test",
   packages,
 });
 

@@ -229,19 +229,18 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     const changed =
       existing?.type === "registry" &&
       item.ref.refType === "registry" &&
-      lockedEpoch !== resolvedEpoch &&
-      (lockedEpoch !== undefined || resolvedEpoch !== undefined);
+      lockedEpoch !== resolvedEpoch;
     if (changed && args.yes) {
       return yield* makeAppError({
         code: "validation",
-        detail: `Unattended update refused for ${item.ref.owner}/subagents/${item.ref.name}: publisher epoch changed from ${lockedEpoch ?? "legacy-lock"} to ${resolvedEpoch ?? "missing"}`,
+        detail: `Unattended update refused for ${item.ref.owner}/subagents/${item.ref.name}: publisher epoch changed from ${lockedEpoch} to ${resolvedEpoch}`,
         recover: "Run the update interactively, verify the publisher change, and confirm the plan.",
       });
     }
     if (changed) {
       warningsBySubagent.set(
         item.ref.subagent.name,
-        `Publisher identity changed (${lockedEpoch ?? "legacy lock"} → ${resolvedEpoch ?? "missing epoch"}); confirm only if you trust the current publisher`,
+        `Publisher identity changed (${lockedEpoch} → ${resolvedEpoch}); confirm only if you trust the current publisher`,
       );
     }
   }

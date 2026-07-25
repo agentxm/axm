@@ -26,5 +26,4 @@ export type {
   RuleExtensionRef,
   WorkspaceRuleRef,
 } from "./refs.js";
-export { buildRegistryRuleRef } from "./registry-ref-builder.js";
 export { RuleManager, RuleManagerLive } from "./manager.js";

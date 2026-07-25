@@ -31,7 +31,6 @@ import { isWorkspaceSourceLocator } from "../sources/index.js";
 import { parseFqn } from "../extensions/index.js";
 import * as Result from "effect/Result";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
-import { resolveWorkspacePackMembers } from "../packs/manager.js";
 
 export class ReconciliationAdapters extends ServiceMap.Service<
   ReconciliationAdapters,
@@ -288,20 +287,30 @@ const reconstructWorkspaceDeclaration = (
             },
           });
         case "pack":
-          return resolveWorkspacePackMembers(ref, env.fs, env.path, context.baseDir).pipe(
-            Effect.map((resolved) => ({
-              _tag: "Compatible",
-              reconstructed: {
-                type: "packs",
-                name: ref.name,
-                entry: {
-                  ...base,
-                  extensionType: "pack",
-                  ...resolved,
+          return Object.keys(ref.pack.dependencies).length === 0
+            ? Effect.succeed({
+                _tag: "Compatible",
+                reconstructed: {
+                  type: "packs",
+                  name: ref.name,
+                  entry: {
+                    ...base,
+                    extensionType: "pack",
+                    resolvedSkills: {},
+                    resolvedCommands: {},
+                    resolvedMcpServers: {},
+                    resolvedSubagents: {},
+                    resolvedFiles: {},
+                    resolvedRules: {},
+                    resolvedHooks: {},
+                  },
                 },
-              },
-            })),
-          );
+              })
+            : Effect.succeed({
+                _tag: "Unresolved",
+                declaration,
+                reason: "missing-registry-metadata",
+              });
       }
     }),
   );
@@ -399,7 +408,7 @@ export const buildReconciliationSnapshot = (
             }),
           );
         }
-        return adapter.checkDiskCompatibility(declaration, context, { fs, path });
+        return adapter.resolveDeclaration(declaration, context, { fs, path });
       },
       { concurrency: "unbounded" },
     );

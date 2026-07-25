@@ -3,17 +3,19 @@ import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { buildRegistrySkillRef } from "@agentxm/client-core/unstable/skills";
-import {
-  buildRegistryCommandRef,
-  type InstallCommandOperation,
-} from "@agentxm/client-core/unstable/commands";
-import {
-  buildRegistryMcpServerRef,
-  type InstallMcpServerOperation,
-} from "@agentxm/client-core/unstable/mcps";
+import type { InstallCommandOperation } from "@agentxm/client-core/unstable/commands";
+import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcps";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
-import { parseFqnOrThrow } from "@agentxm/client-core/unstable/extensions";
+import {
+  parseFqnOrThrow,
+  type ExtensionRef,
+  type ExtensionType,
+} from "@agentxm/client-core/unstable/extensions";
+import type { ResolvedExtensionMap } from "@agentxm/client-core/unstable/lockfile";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "@agentxm/client-core/unstable/source-resolution";
 import { buildUnpackPlan } from "./plan.js";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../../json-output.js";
@@ -26,11 +28,57 @@ export interface UnpackHandlerArgs {
   readonly preview: boolean;
 }
 
+const resolveRegistryMember = <T extends ExtensionType>(args: {
+  readonly sources: SourceHostProvidersService;
+  readonly source: RegistrySource;
+  readonly fqn: string;
+  readonly expectedType: T;
+  readonly resolved: ResolvedExtensionMap[string];
+}) =>
+  Effect.gen(function* () {
+    const parsed = parseFqnOrThrow(args.fqn);
+    const matches = yield* Effect.scoped(
+      args.sources.find(
+        { ...args.source, owner: Option.some(parsed.owner) },
+        {
+          names: [parsed.name],
+          type: args.expectedType,
+          owner: Option.some(parsed.owner),
+          versionRange: Option.some(args.resolved.version),
+        },
+      ),
+    );
+    const ref = matches.find(
+      (
+        candidate,
+      ): candidate is Extract<ExtensionRef, { readonly refType: "registry"; readonly type: T }> =>
+        candidate.refType === "registry" &&
+        candidate.type === args.expectedType &&
+        candidate.owner === parsed.owner &&
+        candidate.name === parsed.name &&
+        candidate.version === args.resolved.version,
+    );
+    if (ref === undefined) {
+      return yield* makeAppError({
+        code: "not_found",
+        detail: `Cannot unpack ${args.fqn}: registry version ${args.resolved.version} is unavailable`,
+      });
+    }
+    if (ref.publisherBindingId !== args.resolved.publisherBindingId) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Cannot unpack ${args.fqn}: its publisher ownership has changed`,
+      });
+    }
+    return ref;
+  });
+
 /**
  * Handles the `axm packs unpack` command.
  */
 export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const ws = yield* WorkspaceMutations;
+  const sources = yield* SourceHostProviders;
 
   // Validate pack exists in lockfile
   const entry = yield* Effect.gen(function* () {
@@ -63,18 +111,18 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
 
   // Look up the registry source used for this pack
   const sourceOpt = yield* ws.getConfiguredSourceByName(entry.sourceName);
-  const source: RegistrySource =
-    Option.isSome(sourceOpt) && sourceOpt.value.type === "registry"
-      ? {
-          type: "registry",
-          location: sourceOpt.value.location,
-          owner: Option.none(),
-        }
-      : {
-          type: "registry",
-          location: new URL("file:///unknown"),
-          owner: Option.none(),
-        };
+  if (Option.isNone(sourceOpt) || sourceOpt.value.type !== "registry") {
+    return yield* makeAppError({
+      code: "not_found",
+      detail: `Cannot unpack "${args.name}": registry source "${entry.sourceName}" is not configured`,
+      suggestions: [{ description: "List configured sources", cmd: "axm sources list" }],
+    });
+  }
+  const source: RegistrySource = {
+    type: "registry",
+    location: sourceOpt.value.location,
+    owner: Option.none(),
+  };
 
   // Unpack promotes pack members into direct settings entries via install
   // operations, which currently exist only for skills, commands, and MCP
@@ -99,56 +147,77 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
   // Build install ops from pack's resolved maps (skipSettings: false for unpack)
   const skillOps = yield* Effect.forEach(
     Object.entries(entry.resolvedSkills),
-    ([fqn, version]) => {
-      const parsed = parseFqnOrThrow(fqn);
-      return Effect.succeed({
-        name: "install-skill" as const,
-        args: {
-          ref: buildRegistrySkillRef(parsed.owner, parsed.name, version, source, []),
-          force: false,
-          versionRange: Option.none<string>(),
-          skipSettings: Option.none<boolean>(),
-          strictUnknownAgents: Option.none<boolean>(),
-          existingInstalledAt: Option.none<Date>(),
-          sourceName: Option.none<string>(),
-        },
-      });
-    },
+    ([fqn, resolved]) =>
+      Effect.gen(function* () {
+        const ref = yield* resolveRegistryMember({
+          sources,
+          source,
+          fqn,
+          expectedType: "skill",
+          resolved,
+        });
+        return {
+          name: "install-skill" as const,
+          args: {
+            ref,
+            force: false,
+            versionRange: Option.none<string>(),
+            skipSettings: Option.none<boolean>(),
+            strictUnknownAgents: Option.none<boolean>(),
+            existingInstalledAt: Option.none<Date>(),
+            sourceName: Option.none<string>(),
+          },
+        };
+      }),
     { concurrency: "unbounded" },
   );
 
   const commandOps: ReadonlyArray<InstallCommandOperation> = yield* Effect.forEach(
     Object.entries(entry.resolvedCommands),
-    ([fqn, version]) => {
-      const parsed = parseFqnOrThrow(fqn);
-      return Effect.succeed({
-        name: "install-command" as const,
-        args: {
-          ref: buildRegistryCommandRef(parsed.owner, parsed.name, version, source, []),
-          force: false,
-          versionRange: Option.none<string>(),
-          skipSettings: Option.none<boolean>(),
-        },
-      });
-    },
+    ([fqn, resolved]) =>
+      Effect.gen(function* () {
+        const ref = yield* resolveRegistryMember({
+          sources,
+          source,
+          fqn,
+          expectedType: "command",
+          resolved,
+        });
+        return {
+          name: "install-command" as const,
+          args: {
+            ref,
+            force: false,
+            versionRange: Option.none<string>(),
+            skipSettings: Option.none<boolean>(),
+          },
+        };
+      }),
     { concurrency: "unbounded" },
   );
 
   const mcpServerOps: ReadonlyArray<InstallMcpServerOperation> = yield* Effect.forEach(
     Object.entries(entry.resolvedMcpServers),
-    ([fqn, version]) => {
-      const parsed = parseFqnOrThrow(fqn);
-      return Effect.succeed({
-        name: "install-mcp-server" as const,
-        args: {
-          ref: buildRegistryMcpServerRef(parsed.owner, parsed.name, version, source, []),
-          force: false,
-          versionRange: Option.none<string>(),
-          skipSettings: Option.none<boolean>(),
-          strictAgentSync: args.strictAgentSync,
-        },
-      });
-    },
+    ([fqn, resolved]) =>
+      Effect.gen(function* () {
+        const ref = yield* resolveRegistryMember({
+          sources,
+          source,
+          fqn,
+          expectedType: "mcp-server",
+          resolved,
+        });
+        return {
+          name: "install-mcp-server" as const,
+          args: {
+            ref,
+            force: false,
+            versionRange: Option.none<string>(),
+            skipSettings: Option.none<boolean>(),
+            strictAgentSync: args.strictAgentSync,
+          },
+        };
+      }),
     { concurrency: "unbounded" },
   );
 

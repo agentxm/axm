@@ -105,7 +105,7 @@ export const ExtensionIndexSchema = Schema.Struct({
   name: ExtensionNameSchema,
   owner: HandleSchema,
   type: ExtensionTypeSchema,
-  publisherBindingId: Schema.optional(Schema.NonEmptyString),
+  publisherBindingId: Schema.NonEmptyString,
   description: Schema.optional(Schema.String),
   repository: Schema.optional(RepositorySchema),
   bugs: Schema.optional(BugsSchema),

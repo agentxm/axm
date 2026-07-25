@@ -10,16 +10,7 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import type { PackRef } from "./refs.js";
 import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
 import type { ReleaseAgePolicy } from "../registry/index.js";
-import { buildRegistrySkillRef } from "../skills/registry-ref-builder.js";
-import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
-import { buildRegistryMcpServerRef } from "../mcps/registry-ref-builder.js";
-import { buildRegistrySubagentRef } from "../subagents/registry-ref-builder.js";
-import { buildRegistryHookRef } from "../hooks/registry-ref-builder.js";
-import { buildRegistryRuleRef } from "../rules/registry-ref-builder.js";
-import {
-  decodeVersionSync,
-  type VersionRange,
-} from "../version-constraints/version-constraints.js";
+import type { VersionRange } from "../version-constraints/version-constraints.js";
 
 type ResolvedDependency<T extends ExtensionType = ExtensionType> = {
   readonly owner: Handle;
@@ -46,8 +37,10 @@ type SupportedPackDependencyType =
 const registrySourceForDependency = (
   pack: PackRef,
   owner: Handle,
+  sourceOverride?: RegistrySource,
 ): Effect.Effect<RegistrySource, AppError> => {
-  if (pack.source.type !== "registry") {
+  const source = sourceOverride ?? (pack.source.type === "registry" ? pack.source : undefined);
+  if (source === undefined) {
     return Effect.fail(
       makeAppError({
         code: "usage",
@@ -57,7 +50,7 @@ const registrySourceForDependency = (
   }
 
   return Effect.succeed({
-    ...pack.source,
+    ...source,
     owner: Option.some(owner),
   });
 };
@@ -69,6 +62,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
   constraint: VersionRange,
   sources: SourceHostProvidersService,
   releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
+  sourceOverride?: RegistrySource,
 ): Effect.Effect<ResolvedDependency<T>, AppError> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
@@ -79,7 +73,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
       });
     }
 
-    const source = yield* registrySourceForDependency(pack, parsed.owner);
+    const source = yield* registrySourceForDependency(pack, parsed.owner, sourceOverride);
     const matches = yield* Effect.scoped(
       sources.find(source, {
         names: [parsed.name],
@@ -122,7 +116,10 @@ const toResolvedMap = <T extends ExtensionType>(
   Object.fromEntries(
     dependencies.map((dependency) => [
       formatFqn(dependency),
-      decodeVersionSync(dependency.ref.version),
+      {
+        version: dependency.ref.version,
+        publisherBindingId: dependency.ref.publisherBindingId,
+      },
     ]),
   );
 
@@ -132,11 +129,20 @@ const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
   expectedType: T,
   sources: SourceHostProvidersService,
   releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
+  sourceOverride?: RegistrySource,
 ): Effect.Effect<ReadonlyArray<ResolvedDependency<T>>, AppError> =>
   Effect.forEach(
     dependencies,
     ([fqn, constraint]) =>
-      resolveDependencyRef(pack, expectedType, fqn, constraint, sources, releaseAgePolicy),
+      resolveDependencyRef(
+        pack,
+        expectedType,
+        fqn,
+        constraint,
+        sources,
+        releaseAgePolicy,
+        sourceOverride,
+      ),
     { concurrency: "unbounded" },
   );
 
@@ -187,6 +193,7 @@ export const resolvePackDependencies = (
   pack: PackRef,
   sources: SourceHostProvidersService,
   releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
+  sourceOverride?: RegistrySource,
 ): Effect.Effect<ResolvedPackDependencies, AppError> =>
   Effect.gen(function* () {
     const dependencies = partitionDependencies(pack.pack.dependencies);
@@ -203,6 +210,7 @@ export const resolvePackDependencies = (
       "skill",
       sources,
       releaseAgePolicy,
+      sourceOverride,
     );
     const resolvedCommands = yield* resolveDependencyGroup(
       pack,
@@ -210,6 +218,7 @@ export const resolvePackDependencies = (
       "command",
       sources,
       releaseAgePolicy,
+      sourceOverride,
     );
     const resolvedMcpServers = yield* resolveDependencyGroup(
       pack,
@@ -217,6 +226,7 @@ export const resolvePackDependencies = (
       "mcp-server",
       sources,
       releaseAgePolicy,
+      sourceOverride,
     );
     const resolvedSubagents = yield* resolveDependencyGroup(
       pack,
@@ -224,6 +234,7 @@ export const resolvePackDependencies = (
       "subagent",
       sources,
       releaseAgePolicy,
+      sourceOverride,
     );
     const resolvedFiles = yield* resolveDependencyGroup(
       pack,
@@ -231,6 +242,7 @@ export const resolvePackDependencies = (
       "files",
       sources,
       releaseAgePolicy,
+      sourceOverride,
     );
     const resolvedRules = yield* resolveDependencyGroup(
       pack,
@@ -238,6 +250,7 @@ export const resolvePackDependencies = (
       "rule",
       sources,
       releaseAgePolicy,
+      sourceOverride,
     );
     const resolvedHooks = yield* resolveDependencyGroup(
       pack,
@@ -245,6 +258,7 @@ export const resolvePackDependencies = (
       "hook",
       sources,
       releaseAgePolicy,
+      sourceOverride,
     );
 
     return {
@@ -256,61 +270,13 @@ export const resolvePackDependencies = (
       resolvedRules: toResolvedMap(resolvedRules),
       resolvedHooks: toResolvedMap(resolvedHooks),
       dependencyRefs: [
-        ...resolvedSkills.map((dependency) =>
-          buildRegistrySkillRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedCommands.map((dependency) =>
-          buildRegistryCommandRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedMcpServers.map((dependency) =>
-          buildRegistryMcpServerRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedSubagents.map((dependency) =>
-          buildRegistrySubagentRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedFiles.map((dependency) => dependency.ref),
-        ...resolvedRules.map((dependency) =>
-          buildRegistryRuleRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedHooks.map((dependency) =>
-          buildRegistryHookRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-      ],
+        ...resolvedSkills,
+        ...resolvedCommands,
+        ...resolvedMcpServers,
+        ...resolvedSubagents,
+        ...resolvedFiles,
+        ...resolvedRules,
+        ...resolvedHooks,
+      ].map((dependency) => dependency.ref),
     };
   });

@@ -46,8 +46,6 @@ export { McpServerManager, McpServerManagerLive } from "./manager.js";
 
 export { mcpServerReconciliationAdapter } from "./reconciliation-adapter.js";
 
-export { buildRegistryMcpServerRef } from "./registry-ref-builder.js";
-
 export type {
   PublishMcpServerOperationArgs,
   PublishMcpServerOperation,

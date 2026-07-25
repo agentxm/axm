@@ -60,7 +60,7 @@ const initWorkspace = (
   );
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {} }),
+    YAML.stringify({ lockfileVersion: 3, skills: {} }),
   );
 };
 

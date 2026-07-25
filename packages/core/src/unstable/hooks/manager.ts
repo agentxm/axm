@@ -97,7 +97,7 @@ const registryHookLockEntry = (ref: RegistryHookRef, now: Date): HookLockEntry =
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
-  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
+  publisherBindingId: ref.publisherBindingId,
   ...commonLockFields(now),
 });
 
@@ -396,14 +396,6 @@ const serializeBindingMatcher = (
   return Effect.succeed(serializeMatcher(writer, nativeNames.map(escapeRegexLiteral).join("|")));
 };
 
-const bindingWithManifestRequirements = (
-  binding: HookBinding,
-  manifest: HookManifest,
-): HookBinding =>
-  manifest.blocking === true && binding.requires === undefined
-    ? { ...binding, requires: { decision: { kind: "block" } } }
-    : binding;
-
 const serializeTimeout = (
   writer: HooksWriter,
   timeoutMs: number | undefined,
@@ -422,14 +414,12 @@ const appendCommandHookBinding = (
   agent: CapabilityAgent,
   writer: HooksWriter,
   binding: HookBinding,
-  manifest: HookManifest,
   hookName: string,
   command: string,
   timeoutMs: number | undefined,
 ): Effect.Effect<void, AppError> =>
   Effect.gen(function* () {
-    const resolvedBinding = bindingWithManifestRequirements(binding, manifest);
-    const verdict = installable(agent, resolvedBinding);
+    const verdict = installable(agent, binding);
     if (!verdict.installable) {
       return yield* makeAppError({
         code: "validation",
@@ -437,11 +427,11 @@ const appendCommandHookBinding = (
       });
     }
 
-    const nativeEventName = targetNativeEventName(agent, resolvedBinding.on);
+    const nativeEventName = targetNativeEventName(agent, binding.on);
     if (nativeEventName === undefined) {
       return yield* makeAppError({
         code: "validation",
-        detail: `${agent.name} does not support ${resolvedBinding.on}.`,
+        detail: `${agent.name} does not support ${binding.on}.`,
       });
     }
 
@@ -462,7 +452,7 @@ const appendCommandHookBinding = (
     const group: Record<string, unknown> = {
       hooks: [commandEntry],
     };
-    const matcher = yield* serializeBindingMatcher(agent, writer, resolvedBinding);
+    const matcher = yield* serializeBindingMatcher(agent, writer, binding);
     if (matcher !== undefined) {
       group["matcher"] = matcher;
     }
@@ -727,7 +717,6 @@ export const HookManagerLive = Layer.effect(
               target.agent,
               target.writer,
               binding,
-              rendered.manifest,
               rendered.manifest.name,
               rendered.command,
               rendered.manifest.timeoutMs,

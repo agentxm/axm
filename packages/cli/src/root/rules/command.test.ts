@@ -29,7 +29,7 @@ const initWorkspace = (
       2,
     ),
   );
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 };
 
 describe("rules handler", () => {

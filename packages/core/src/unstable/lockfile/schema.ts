@@ -142,7 +142,7 @@ const makeSourceLockUnion = <
       resolvedVersion: VersionSchema,
       integrity: Schema.String,
       sourceName: Schema.String,
-      publisherBindingId: Schema.optional(Schema.NonEmptyString),
+      publisherBindingId: Schema.NonEmptyString,
       ...extraFields,
     }),
     Schema.Struct({
@@ -517,7 +517,19 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
  * Resolved extension map: FQN keys to exact version strings.
  * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
  */
-export const ResolvedExtensionMapSchema = Schema.Record(ExtensionFqnSchema, VersionSchema);
+export const ResolvedExtensionSchema = Schema.Struct({
+  version: VersionSchema,
+  publisherBindingId: Schema.NonEmptyString,
+}).annotate({
+  identifier: "ResolvedExtension",
+  title: "Resolved Extension",
+  description: "Resolved dependency version and immutable publisher epoch.",
+});
+
+export const ResolvedExtensionMapSchema = Schema.Record(
+  ExtensionFqnSchema,
+  ResolvedExtensionSchema,
+);
 
 /**
  * Inferred type for resolved extension maps.
@@ -538,7 +550,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedVersion: VersionSchema,
   integrity: Schema.String,
   sourceName: Schema.String,
-  publisherBindingId: Schema.optional(Schema.NonEmptyString),
+  publisherBindingId: Schema.NonEmptyString,
   installedAt: DateFromIsoDateTimeStringSchema,
   updatedAt: DateFromIsoDateTimeStringSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
@@ -663,10 +675,9 @@ export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
  * @experimental This API is unstable and may change without notice.
  */
 export const LockfileSchema = Schema.Struct({
-  lockfileVersion: Schema.Int.pipe(
-    Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+  lockfileVersion: Schema.Literal(LOCKFILE_VERSION).pipe(
     Schema.annotate({
-      description: "Lockfile schema version (currently 3).",
+      description: "Lockfile schema version.",
       default: LOCKFILE_VERSION,
     }),
     Schema.annotateKey({ messageMissingKey: "lockfileVersion is required" }),

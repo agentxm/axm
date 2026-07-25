@@ -70,11 +70,12 @@ const makePackRef = (
   name: extensionName(name),
   version: opts?.version ?? exactVersion("1.0.0"),
   integrity: Option.some("sha512-AAAA=="),
+  publisherBindingId: "hbnd_test",
   packages: [],
 });
 
 const emptyLockfile: Lockfile = {
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {},
 };
 
@@ -102,7 +103,7 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
 });
 
 const lockfileWithPacks = (...names: string[]): Lockfile => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {},
   packs: Object.fromEntries(
     names.map((name) => [
@@ -111,6 +112,7 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
         owner: ACME,
         name: extensionName(name),
         sourceName: "local",
+        publisherBindingId: "hbnd_test",
       }),
     ]),
   ),
@@ -132,6 +134,7 @@ const makeCommandOp = (name: string): InstallCommandOperation => ({
       name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
+      publisherBindingId: "hbnd_test",
       packages: [],
     },
     force: false,
@@ -156,6 +159,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
       name: extensionName(name),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
+      publisherBindingId: "hbnd_test",
       packages: [],
     },
     force: false,
@@ -165,7 +169,7 @@ const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
 });
 
 const lockfileWithCommands = (...names: string[]): Lockfile => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {},
   commands: Object.fromEntries(
     names.map((name) => [
@@ -177,6 +181,7 @@ const lockfileWithCommands = (...names: string[]): Lockfile => ({
         resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
         sourceName: "default",
+        publisherBindingId: "hbnd_test",
         agents: [] as ReadonlyArray<string>,
         installedAt: new Date(),
         updatedAt: new Date(),
@@ -186,7 +191,7 @@ const lockfileWithCommands = (...names: string[]): Lockfile => ({
 });
 
 const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {},
   mcpServers: Object.fromEntries(
     names.map((name) => [
@@ -198,6 +203,7 @@ const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
         resolvedVersion: exactVersion("1.0.0"),
         integrity: "",
         sourceName: "default",
+        publisherBindingId: "hbnd_test",
         installedAt: new Date(),
         updatedAt: new Date(),
       },
@@ -206,7 +212,7 @@ const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
 });
 
 const lockfileWithSkills = (...names: string[]): Lockfile => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: Object.fromEntries(
     names.map((name) => [
       name,
@@ -395,7 +401,7 @@ describe("buildInstallPlan", () => {
   it.effect("treats lockfile without packs field as empty", () =>
     Effect.gen(function* () {
       const lockfileNoPacks: Lockfile = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {},
       };
       const plan = yield* runBuild({
@@ -703,6 +709,7 @@ describe("buildInstallPlan", () => {
             resolvedVersion: exactVersion("1.0.0"),
             integrity: "",
             sourceName: "default",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date(),
             updatedAt: new Date(),
           },

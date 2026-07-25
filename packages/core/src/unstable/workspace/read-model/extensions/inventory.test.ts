@@ -43,7 +43,7 @@ describe("projectExtensionInventory", () => {
           reason: "declared-ignored",
           agents: ["claude-code"],
           origins: ["canonical-axm-skill"],
-          paths: ["/workspace/.axm/extensions/@acme/skills/src/old-skill"],
+          paths: ["/workspace/.axm/extensions/@acme/skills/old-skill"],
         },
       ],
       ignoredPatterns: new Set(["*-skill", "old-*", "unrelated"]),
@@ -65,7 +65,7 @@ describe("projectExtensionInventory", () => {
         origins: ["agent-skill-dir", "canonical-axm-skill"],
         paths: [
           "/home/.codex/skills/old-skill",
-          "/workspace/.axm/extensions/@acme/skills/src/old-skill",
+          "/workspace/.axm/extensions/@acme/skills/old-skill",
         ],
       },
     ]);

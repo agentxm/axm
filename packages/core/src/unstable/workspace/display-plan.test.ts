@@ -378,66 +378,6 @@ describe("displayPlan", () => {
     ),
   );
 
-  it.effect("shows legacy successful applied plan outcome-first by default", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "commit",
-                    result: { result: "success", message: "Applied commit" },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success).toEqual(["Applied commit"]);
-        expect(logsByTag(state).info.some((m) => m.includes("Install skills"))).toBe(false);
-        expect(logsByTag(state).message.some((m) => m.includes("1 applied"))).toBe(false);
-        expect(logsByTag(state).success.some((m) => m.includes("\u2713"))).toBe(false);
-      }),
-    ),
-  );
-
-  it.effect("joins two legacy successful step messages into an outcome headline", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Add MCP server",
-            description: Option.some("Configure demo and sync agent MCP configs"),
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "Configure demo",
-                    result: { result: "success", message: "Configured demo" },
-                  },
-                  {
-                    label: "Sync demo to configured agents",
-                    result: { result: "success", message: "Synced demo to 1 agent" },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success[0]).toBe("Configured demo; Synced demo to 1 agent");
-        expect(logsByTag(state).info.some((message) => message.includes("Add MCP server"))).toBe(
-          false,
-        );
-      }),
-    ),
-  );
-
   it.effect("keeps MCP add artifact plans outcome-specific with summaries and undo", () =>
     withOutput((state) =>
       Effect.gen(function* () {
@@ -663,7 +603,7 @@ describe("displayPlan", () => {
           }),
         );
 
-        expect(logsByTag(state).success).toEqual(["Applied commit"]);
+        expect(logsByTag(state).success).toEqual(["Installed 1 skill"]);
         expect(logsByTag(state).message).not.toContain("1 applied");
       }),
     ),
@@ -689,7 +629,7 @@ describe("displayPlan", () => {
           }),
         );
 
-        expect(logsByTag(state).success).toEqual(["done"]);
+        expect(logsByTag(state).success).toEqual(["Installed 1 skill"]);
         expect(logsByTag(state).success.some((m) => m.includes("+"))).toBe(false);
       }),
     ),

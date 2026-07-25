@@ -137,6 +137,8 @@ const makeRegistryLockEntry = (_agents: string[]): SkillLockEntry =>
     owner: handle("@community"),
     name: "my-skill",
     sourceName: "local",
+
+    publisherBindingId: "hbnd_test",
   });
 
 // -----------------------------------------------------------------------------

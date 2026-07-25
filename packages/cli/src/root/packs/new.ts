@@ -6,6 +6,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
+  computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
@@ -17,7 +18,7 @@ import {
   packManifestArtifact,
   packManifestPath,
 } from "@agentxm/client-core/unstable/packs";
-import type { NewPackOperation, RegistryPackRef } from "@agentxm/client-core/unstable/packs";
+import type { NewPackOperation, WorkspacePackRef } from "@agentxm/client-core/unstable/packs";
 import { newPack, PackManager } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -88,15 +89,16 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     args: { name: args.name, owner },
   } satisfies NewPackOperation;
   const version = decodeVersionSync("0.0.1");
-  const ref: RegistryPackRef = {
+  const ref: WorkspacePackRef = {
     type: "pack",
-    refType: "registry",
-    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    refType: "workspace",
+    source: { type: "workspace", owner, extensionType: "pack", name: args.name },
+    scope: ws.scope,
     owner,
     name: args.name,
     version,
-    integrity: Option.none(),
-    packages: [],
+    sourceHash: computeSourceHash("scaffold"),
+    location: packDir.canonicalPath,
     pack: { name: args.name, dependencies: {} },
   };
 

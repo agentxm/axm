@@ -310,7 +310,15 @@ export const versionRange = (value: string): VersionRange => decodeVersionRangeS
 
 export const resolvedExtensionMap = (
   entries: Readonly<Record<string, string>>,
-): ResolvedExtensionMap => decodeResolvedExtensionMapSync(entries);
+): ResolvedExtensionMap =>
+  decodeResolvedExtensionMapSync(
+    Object.fromEntries(
+      Object.entries(entries).map(([name, version]) => [
+        name,
+        { version, publisherBindingId: "hbnd_test" },
+      ]),
+    ),
+  );
 
 export const dependencyConstraintMap = (
   entries: Readonly<Record<string, string>>,
@@ -354,7 +362,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 1,
+    lockfileVersion: 3,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileCommands) && { commands: opts.lockfileCommands }),
     ...(hasEntries(opts.lockfileFiles) && { files: opts.lockfileFiles }),
@@ -394,6 +402,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
+  readonly publisherBindingId?: string;
   readonly agents?: ReadonlyArray<string>;
   readonly installedAt?: Date;
   readonly updatedAt?: Date;
@@ -404,6 +413,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
+  publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
   installedAt: opts.installedAt ?? TEST_DATE,
   updatedAt: opts.updatedAt ?? TEST_DATE,
 });
@@ -414,6 +424,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
+  readonly publisherBindingId?: string;
   readonly resolvedSkills?: ResolvedExtensionMap;
   readonly resolvedCommands?: ResolvedExtensionMap;
   readonly resolvedMcpServers?: ResolvedExtensionMap;
@@ -427,6 +438,7 @@ export const makeRegistryPackLockEntry = (opts: {
     resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",
     sourceName: opts.sourceName ?? "default",
+    publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
     installedAt: opts.installedAt ?? TEST_DATE,
     updatedAt: opts.updatedAt ?? TEST_DATE,
     resolvedSkills: opts.resolvedSkills ?? {},

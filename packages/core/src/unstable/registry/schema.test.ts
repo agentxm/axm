@@ -131,6 +131,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
         versions: [
           {
@@ -157,6 +159,8 @@ describe("registry schema", () => {
       const input = {
         name: "code-review",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "mcp-server",
         description: "Automated code review tool",
         repository: "https://github.com/acme/code-review",
@@ -204,6 +208,8 @@ describe("registry schema", () => {
     it("rejects missing name", () => {
       const input = {
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
         versions: [
           {
@@ -237,6 +243,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         versions: [
           {
             version: "1.0.0",
@@ -253,6 +261,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
       };
 
@@ -263,6 +273,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "invalid-type",
         versions: [],
       };
@@ -274,6 +286,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
         versions: [],
       };
@@ -287,6 +301,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-server",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "mcp-server",
         versions: [],
       };
@@ -300,6 +316,8 @@ describe("registry schema", () => {
       const input = {
         name: "frontend-pack",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "pack",
         versions: [],
       };
@@ -313,6 +331,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
         authors: [{ name: "Alice" }],
         versions: [],

@@ -37,8 +37,6 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/skills-lockfile-aligned", severity: "error" },
   // Integrity intact (configured + implicit).
   { id: "workspace/skills-integrity-valid", severity: "error" },
-  // Deprecated compatibility alias retained through the current major.
-  { id: "workspace/skills-universal-artifact-present", severity: "error" },
   // Artifacts correct (configured + implicit).
   { id: "workspace/skills-artifacts-correct", severity: "error" },
   // Managed — unmanaged class must be empty.
@@ -77,7 +75,6 @@ describe("workspaceRules", () => {
       "workspace/mcp-server-agent-orphaned",
       "workspace/skills-lockfile-aligned",
       "workspace/skills-integrity-valid",
-      "workspace/skills-universal-artifact-present",
       "workspace/skills-artifacts-correct",
     ]);
   });

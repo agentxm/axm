@@ -64,7 +64,7 @@ const initWorkspace = (
   );
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {}, subagents: lockfileSubagents }),
+    YAML.stringify({ lockfileVersion: 3, skills: {}, subagents: lockfileSubagents }),
   );
 };
 
@@ -677,6 +677,7 @@ describe("subagents-publish.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha384-test",
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
             agents: ["claude-code"],
             installedAt: now,
             updatedAt: now,
@@ -688,6 +689,7 @@ describe("subagents-publish.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha384-test",
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
             agents: ["claude-code"],
             installedAt: now,
             updatedAt: now,
@@ -699,6 +701,7 @@ describe("subagents-publish.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha384-test",
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
             agents: ["claude-code"],
             installedAt: now,
             updatedAt: now,
@@ -772,6 +775,7 @@ describe("subagents-publish.handler", () => {
           resolvedVersion: "1.0.0",
           integrity: "sha384-test",
           sourceName: "local",
+          publisherBindingId: "hbnd_test",
           agents: ["claude-code"],
           installedAt: now,
           updatedAt: now,
@@ -801,6 +805,7 @@ describe("subagents-publish.handler", () => {
           resolvedVersion: "1.0.0",
           integrity: "sha384-test",
           sourceName: "local",
+          publisherBindingId: "hbnd_test",
           agents: ["claude-code"],
           installedAt: now,
           updatedAt: now,

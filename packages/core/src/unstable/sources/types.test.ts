@@ -315,6 +315,7 @@ describe("ref detail interfaces", () => {
   it("RegistryRefDetails has owner, name, version, and integrity", () => {
     const details: RegistryRefDetails = {
       owner: handle("@acme"),
+      publisherBindingId: "hbnd_test",
       name: extensionName("my-skill"),
       version: exactVersion("1.2.3"),
       integrity: Option.some("sha512-abc=="),
@@ -370,6 +371,8 @@ describe("SkillExtensionRef", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: { name: extensionName("test"), description: Option.none(), metadata: Option.none() },
       source: {
         type: "registry",
@@ -461,6 +464,8 @@ describe("McpServerExtensionRef", () => {
     const ref: McpServerExtensionRef = {
       type: "mcp-server",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       server: { name: extensionName("my-server") },
       source: {
         type: "registry",
@@ -489,6 +494,8 @@ describe("PackRef", () => {
     const ref: PackRef = {
       type: "pack",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       pack: {
         name: extensionName("my-pack"),
         dependencies: {},
@@ -550,6 +557,8 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "pack",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       owner: handle("@axm"),
       pack: { name: extensionName("p"), dependencies: {} },
       source: { type: "registry", location: new URL("file:///reg"), owner: Option.none() },
@@ -567,6 +576,8 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: { name: extensionName("s"), description: Option.none(), metadata: Option.none() },
       source: { type: "registry", location: new URL("file:///reg"), owner: Option.none() },
       owner: handle("@acme"),

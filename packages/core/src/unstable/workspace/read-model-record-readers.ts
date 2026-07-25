@@ -32,7 +32,7 @@ import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-type
 type WorkspaceManagedExtensionType = InstallableExtensionType;
 
 const createInventoryEmptyLockfile = (): Lockfile => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {},
 });
 

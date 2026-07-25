@@ -7,6 +7,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   buildNewExtensionStep,
+  computeSourceHash,
   decodeExtensionNameSync,
   REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
@@ -15,7 +16,7 @@ import type {
   HookEvent,
   HookRuntime,
   NewHookOperation,
-  RegistryHookRef,
+  WorkspaceHookRef,
 } from "@agentxm/client-core/unstable/hooks";
 import { HOOK_EXTENSION_DIR, HookManager, newHook } from "@agentxm/client-core/unstable/hooks";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -206,15 +207,16 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
     HOOK_EXTENSION_DIR,
     args.name,
   );
-  const ref: RegistryHookRef = {
+  const ref: WorkspaceHookRef = {
     type: "hook",
-    refType: "registry",
-    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    refType: "workspace",
+    source: { type: "workspace", owner, extensionType: "hook", name: args.name },
+    scope: ws.scope,
     owner,
     name: args.name,
     version: decodeVersionSync("0.1.0"),
-    integrity: Option.none(),
-    packages: [],
+    sourceHash: computeSourceHash("scaffold"),
+    location: targetDir,
     hook: { name: args.name },
   };
 

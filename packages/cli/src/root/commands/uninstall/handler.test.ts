@@ -38,13 +38,11 @@ const initWorkspace = (
   });
 };
 
-const makeLockEntry = (overrides: Record<string, unknown> = {}) => ({
+const makeLockEntry = () => ({
   type: "local",
   path: "installed",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  agents: [],
-  ...overrides,
 });
 
 const defaultArgs = (
@@ -107,13 +105,7 @@ describe("commands uninstall.handler", () => {
         path.join(tempDir, ".axm"),
         { "my-cmd": "@acme/commands/my-cmd" },
         {
-          "my-cmd": makeLockEntry({
-            agents: ["claude-code", "cursor"],
-            renderedFiles: {
-              "claude-code": [{ path: ".claude/commands/my-cmd.md" }],
-              cursor: [{ path: ".cursor/commands/my-cmd.md" }],
-            },
-          }),
+          "my-cmd": makeLockEntry(),
         },
         ["claude-code", "cursor"],
       );
@@ -153,7 +145,7 @@ describe("commands uninstall.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("apply", () => {
-    it.effect("removes rendered command files recorded in the lockfile", () => {
+    it.effect("removes rendered command files for configured agents", () => {
       const { provide, logs } = makeLayers();
       const renderedPath = path.join(tempDir, ".claude", "commands", "my-cmd.md");
       fs.mkdirSync(path.dirname(renderedPath), { recursive: true });
@@ -162,12 +154,7 @@ describe("commands uninstall.handler", () => {
         path.join(tempDir, ".axm"),
         { "my-cmd": "@acme/commands/my-cmd" },
         {
-          "my-cmd": makeLockEntry({
-            agents: ["claude-code"],
-            renderedFiles: {
-              "claude-code": [{ path: ".claude/commands/my-cmd.md" }],
-            },
-          }),
+          "my-cmd": makeLockEntry(),
         },
       );
 
@@ -193,9 +180,7 @@ describe("commands uninstall.handler", () => {
         path.join(tempDir, ".axm"),
         { "my-cmd": "@acme/commands/my-cmd" },
         {
-          "my-cmd": makeLockEntry({
-            agents: ["claude-code", "cursor"],
-          }),
+          "my-cmd": makeLockEntry(),
         },
       );
 

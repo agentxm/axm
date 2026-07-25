@@ -13,17 +13,8 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import {
-  EXTERNAL_EXTENSIONS_DIR,
-  ExtensionNameSchema,
-  ExtensionTypeSchema,
-  HandleSchema,
-  REGISTRY_EXTENSIONS_DIR,
-  extensionTypeToPlural,
-  parseFqnOrThrow,
-} from "../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { PackRef, RegistryPackRef, WorkspacePackRef } from "./refs.js";
 import {
@@ -39,12 +30,8 @@ import { removeIfExists } from "../utils/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import type { AppError } from "../app-error/index.js";
 import { resolvePackDependencies } from "./dependency-resolution.js";
-import {
-  decodeVersionSync,
-  VersionSchema,
-  versionSatisfiesRange,
-  type Version,
-} from "../version-constraints/version-constraints.js";
+import { decodeVersionSync } from "../version-constraints/version-constraints.js";
+import type { RegistrySource } from "../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -70,9 +57,7 @@ const buildSetPackArgs = (
       resolvedVersion: decodeVersionSync(ref.version),
       integrity: Option.getOrElse(ref.integrity, () => ""),
       sourceName: "default",
-      ...(ref.publisherBindingId === undefined
-        ? {}
-        : { publisherBindingId: ref.publisherBindingId }),
+      publisherBindingId: ref.publisherBindingId,
       installedAt: new Date(),
       updatedAt: new Date(),
       resolvedSkills: resolved.resolvedSkills,
@@ -86,128 +71,14 @@ const buildSetPackArgs = (
     } satisfies SetPackArgs;
   });
 
-const DependencyManifestSchema = Schema.Struct({
-  owner: HandleSchema,
-  type: ExtensionTypeSchema,
-  name: ExtensionNameSchema,
-  version: VersionSchema,
-});
-
-const dependencyManifestFilename = {
-  skill: "skill.json",
-  command: "command.json",
-  "mcp-server": "mcp.json",
-  subagent: "subagent.json",
-  files: "files.json",
-  rule: "rule.json",
-  hook: "hook.json",
-  knowledge: "knowledge.json",
-  pack: "pack.json",
-} as const;
-
-export const resolveWorkspacePackMembers = (
-  ref: WorkspacePackRef,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  baseDir: string,
-) =>
-  Effect.gen(function* () {
-    const resolvedSkills: Record<string, Version> = {};
-    const resolvedCommands: Record<string, Version> = {};
-    const resolvedMcpServers: Record<string, Version> = {};
-    const resolvedSubagents: Record<string, Version> = {};
-    const resolvedFiles: Record<string, Version> = {};
-    const resolvedRules: Record<string, Version> = {};
-    const resolvedHooks: Record<string, Version> = {};
-
-    for (const [fqn, constraint] of Object.entries(ref.pack.dependencies)) {
-      const dependency = parseFqnOrThrow(fqn);
-      if (dependency.type === "pack") {
-        return yield* makeAppError({
-          code: "usage",
-          detail: `Pack dependency ${fqn} uses the unsupported pack dependency type`,
-        });
-      }
-      const plural = extensionTypeToPlural[dependency.type];
-      const candidateDirs = [
-        path.join(baseDir, REGISTRY_EXTENSIONS_DIR, dependency.owner, plural, dependency.name),
-        path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, plural, dependency.name),
-      ];
-      let manifest: Schema.Schema.Type<typeof DependencyManifestSchema> | undefined;
-      for (const candidateDir of candidateDirs) {
-        const raw = yield* fs
-          .readFileString(path.join(candidateDir, dependencyManifestFilename[dependency.type]))
-          .pipe(Effect.option);
-        if (Option.isNone(raw)) continue;
-        const decoded = yield* Schema.decodeUnknownEffect(
-          Schema.fromJsonString(DependencyManifestSchema),
-        )(raw.value).pipe(Effect.option);
-        if (Option.isSome(decoded)) {
-          manifest = decoded.value;
-          break;
-        }
-      }
-      if (
-        manifest === undefined ||
-        manifest.owner !== dependency.owner ||
-        manifest.type !== dependency.type ||
-        manifest.name !== dependency.name
-      ) {
-        return yield* makeAppError({
-          code: "not_found",
-          detail: `Unable to resolve installed pack dependency ${fqn}`,
-        });
-      }
-      if (!versionSatisfiesRange(manifest.version, constraint)) {
-        return yield* makeAppError({
-          code: "conflict",
-          detail: `Installed ${fqn}@${manifest.version} does not satisfy ${constraint}`,
-        });
-      }
-      switch (dependency.type) {
-        case "skill":
-          resolvedSkills[fqn] = manifest.version;
-          break;
-        case "command":
-          resolvedCommands[fqn] = manifest.version;
-          break;
-        case "mcp-server":
-          resolvedMcpServers[fqn] = manifest.version;
-          break;
-        case "subagent":
-          resolvedSubagents[fqn] = manifest.version;
-          break;
-        case "files":
-          resolvedFiles[fqn] = manifest.version;
-          break;
-        case "rule":
-          resolvedRules[fqn] = manifest.version;
-          break;
-        case "hook":
-          resolvedHooks[fqn] = manifest.version;
-          break;
-      }
-    }
-    return {
-      resolvedSkills,
-      resolvedCommands,
-      resolvedMcpServers,
-      resolvedSubagents,
-      resolvedFiles,
-      resolvedRules,
-      resolvedHooks,
-    };
-  });
-
 const buildWorkspaceSetPackArgs = (
   ref: WorkspacePackRef,
   versionRange: Option.Option<string>,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  baseDir: string,
+  sources: SourceHostProvidersService,
+  registrySource: RegistrySource,
 ) =>
   Effect.gen(function* () {
-    const resolved = yield* resolveWorkspacePackMembers(ref, fs, path, baseDir);
+    const resolved = yield* resolvePackDependencies(ref, sources, undefined, registrySource);
     return {
       type: "workspace",
       owner: ref.owner,
@@ -375,20 +246,53 @@ export const PackManagerLive = Layer.effect(
       }),
       materializeUninstall,
 
-      upsertSettingsEntry: ({
+      upsertSettingsEntry: Effect.fn("PackManager.upsertSettingsEntry")(function* ({
         ref,
         versionRange,
       }: {
         readonly ref: PackRef;
         readonly versionRange: Option.Option<string>;
-      }) =>
-        (ref.refType === "workspace"
-          ? buildWorkspaceSetPackArgs(ref, versionRange, fs, path, baseDir)
-          : buildSetPackArgs(ref, versionRange, sources)
-        ).pipe(
-          Effect.flatMap((args) => ws.setPack(args)),
-          Effect.withSpan("PackManager.upsertSettingsEntry"),
-        ),
+      }) {
+        if (ref.refType !== "workspace") {
+          const args = yield* buildSetPackArgs(ref, versionRange, sources);
+          return yield* ws.setPack(args);
+        }
+
+        if (Object.keys(ref.pack.dependencies).length === 0) {
+          return yield* ws.setPack({
+            type: "workspace",
+            owner: ref.owner,
+            extensionType: "pack",
+            name: ref.name,
+            version: ref.version,
+            sourceHash: ref.sourceHash,
+            installedAt: new Date(),
+            updatedAt: new Date(),
+            resolvedSkills: {},
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: {},
+            resolvedFiles: {},
+            resolvedRules: {},
+            resolvedHooks: {},
+            versionRange,
+          });
+        }
+
+        const configured = yield* ws.getConfiguredSourceByName("default");
+        if (Option.isNone(configured) || configured.value.type !== "registry") {
+          return yield* makeAppError({
+            code: "not_found",
+            detail: 'Workspace pack dependencies require the "default" registry source',
+          });
+        }
+        const args = yield* buildWorkspaceSetPackArgs(ref, versionRange, sources, {
+          type: "registry",
+          location: configured.value.location,
+          owner: Option.none(),
+        });
+        return yield* ws.setPack(args);
+      }),
 
       removeSettingsEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
         ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),

@@ -27,7 +27,6 @@ const writeHookPackage = (
   options?: {
     readonly timeoutMs?: number;
     readonly bindings?: ReadonlyArray<Record<string, unknown>>;
-    readonly blocking?: boolean;
     readonly fallback?: "auto" | "none";
   },
 ) => {
@@ -44,7 +43,6 @@ const writeHookPackage = (
         entrypoint: "src/hook.sh",
         bindings: options?.bindings ?? [{ on: "tool.pre", matcherRaw: "Write|Edit" }],
         ...(options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-        ...(options?.blocking === undefined ? {} : { blocking: options.blocking }),
         ...(options?.fallback === undefined ? {} : { fallback: options.fallback }),
       },
       null,

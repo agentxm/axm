@@ -227,7 +227,9 @@ const readLockfileIfPresent = (
         detail: `Failed to decode lockfile at ${lockfilePath}: Library workspace state is no longer supported`,
       });
     }
-    const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed).pipe(
+    const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed, {
+      onExcessProperty: "error",
+    }).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "validation",
@@ -236,13 +238,7 @@ const readLockfileIfPresent = (
         }),
       ),
     );
-    // v2 remains read-compatible. The v3 schema drops its agent-local and
-    // render-derived fields during decoding, then a subsequent write performs
-    // the one-time shared-only migration.
-    return {
-      ...decoded,
-      lockfileVersion: LOCKFILE_VERSION,
-    } satisfies Lockfile;
+    return decoded;
   });
 
 const lockIsStale = (lockPath: string) =>

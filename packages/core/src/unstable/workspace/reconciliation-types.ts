@@ -23,7 +23,8 @@ export type ReconcileExtensionType = Extract<
   "skills" | "commands" | "mcps" | "subagents" | "files" | "rules" | "hooks" | "knowledge" | "packs"
 >;
 
-export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
+export type UnresolvedReason =
+  "missing" | "invalid" | "declaration-mismatch" | "missing-registry-metadata";
 
 export interface ReconciliationDeclaration {
   readonly type: ReconcileExtensionType;
@@ -130,7 +131,7 @@ export interface ReconciliationAdapter {
     context: ReconciliationContext,
     env: AdapterEnvironment,
   ) => import("effect/Effect").Effect<DeclarationScanResult, AppError>;
-  readonly checkDiskCompatibility: (
+  readonly resolveDeclaration: (
     declaration: ReconciliationDeclaration,
     context: ReconciliationContext,
     env: AdapterEnvironment,

@@ -57,7 +57,7 @@ const initWorkspace = (
   if (opts?.sources) settings["sources"] = opts.sources;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 1,
+    lockfileVersion: 3,
     skills: opts?.skillLocks ?? {},
   };
   if (opts?.packLocks) {
@@ -97,7 +97,7 @@ const makeRegistryLockEntry = (
   owner: string,
   name: string,
   resolvedVersion: string,
-  agents: string[] = ["claude-code"],
+  _agents: string[] = ["claude-code"],
   publisherBindingId?: string,
 ) => ({
   type: "registry",
@@ -106,8 +106,7 @@ const makeRegistryLockEntry = (
   resolvedVersion,
   integrity: `sha512-${resolvedVersion}`,
   sourceName: "local-reg",
-  agents,
-  ...(publisherBindingId === undefined ? {} : { publisherBindingId }),
+  publisherBindingId: publisherBindingId ?? "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
@@ -119,6 +118,7 @@ const makePackLockEntry = (owner: string, name: string) => ({
   resolvedVersion: "1.0.0",
   integrity: "sha512-pack",
   sourceName: "local-reg",
+  publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   resolvedSkills: {},
@@ -164,7 +164,7 @@ const writeRegistrySkill = ({
         type: "skill",
         name,
         description: "Registry test skill",
-        ...(publisherBindingId === undefined ? {} : { publisherBindingId }),
+        publisherBindingId: publisherBindingId ?? "hbnd_test",
         versions: versionEntries,
       },
       null,
@@ -306,7 +306,7 @@ describe("update.handler — error recovery", () => {
   });
 
   it.effect("surfaces disabled skills as structured skip context during mixed updates", () => {
-    const { provide, logs } = makeLayers();
+    const { provide, logs, rendererState } = makeLayers({ machine: true });
     const registryRoot = path.join(tempDir, "registry");
     writeRegistrySkill({
       registryRoot,
@@ -341,9 +341,18 @@ describe("update.handler — error recovery", () => {
         yield* handleUpdate(defaultArgs());
 
         expect(logs.warn).toEqual([]);
-        expect(
-          logs.success.some((message) => message.includes("Skipping my-skill: disabled")),
-        ).toBe(true);
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Update skills",
+          totalSteps: 2,
+        });
+        expect(planResultSteps(result)).toEqual([
+          expect.objectContaining({ label: "code-review", status: "applied" }),
+          expect.objectContaining({
+            label: "Skip my-skill",
+            status: "applied",
+            message: "Skipping my-skill: disabled",
+          }),
+        ]);
       }),
     );
   });
@@ -361,7 +370,6 @@ describe("update.handler — error recovery", () => {
         "broken-skill": {
           type: "local",
           path: "nonexistent-source-dir-that-does-not-exist",
-          agents: ["claude-code"],
           installedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },

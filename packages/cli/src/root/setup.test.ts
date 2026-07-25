@@ -391,12 +391,11 @@ describe("setup.handler", () => {
 
           const lockfile = readLockfile(path.join(axmDir, "axm-lock.yaml"));
           const axmLockEntry = expectDefined(lockfile.skills["axm"]);
-          expect(axmLockEntry.type).toBe("registry");
-          if (axmLockEntry.type !== "registry") return;
+          expect(axmLockEntry.type).toBe("workspace");
+          if (axmLockEntry.type !== "workspace") return;
           expect(axmLockEntry.owner).toBe("@agentxm");
           expect(axmLockEntry.name).toBe("axm");
-          expect(axmLockEntry.resolvedVersion).toBe(AXM_SKILL_VERSION);
-          expect(axmLockEntry.sourceName).toBe("default");
+          expect(axmLockEntry.version).toBe(AXM_SKILL_VERSION);
           expect(axmLockEntry).not.toHaveProperty("agents");
         }),
       );
@@ -419,7 +418,7 @@ describe("setup.handler", () => {
               owner: normalizeHandle("@myorg"),
             }),
           );
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 
           yield* handleSetup({ scope: "project" });
 
@@ -807,7 +806,7 @@ describe("setup.handler", () => {
           const axmDir = path.join(tempDir, ".axm");
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json {{{");
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 
           const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");

@@ -31,6 +31,11 @@ import {
   SCENARIO_WORKSPACE_ROOT,
 } from "./_harness.js";
 
+type RawResolvedExtensionMap = Record<
+  string,
+  { readonly version: string; readonly publisherBindingId: string }
+>;
+
 // ---------------------------------------------------------------------------
 // Spec helpers
 // ---------------------------------------------------------------------------
@@ -80,13 +85,13 @@ const settingsJson = (params: {
  */
 const lockfileWithPack = (params: {
   readonly packName: string;
-  readonly resolvedSkills?: Record<string, string>;
-  readonly resolvedSubagents?: Record<string, string>;
-  readonly resolvedCommands?: Record<string, string>;
-  readonly resolvedMcpServers?: Record<string, string>;
+  readonly resolvedSkills?: RawResolvedExtensionMap;
+  readonly resolvedSubagents?: RawResolvedExtensionMap;
+  readonly resolvedCommands?: RawResolvedExtensionMap;
+  readonly resolvedMcpServers?: RawResolvedExtensionMap;
   readonly extraSkillEntries?: Record<string, unknown>;
 }): object => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: params.extraSkillEntries ?? {},
   packs: {
     [params.packName]: {
@@ -96,6 +101,8 @@ const lockfileWithPack = (params: {
       resolvedVersion: "1.0.0",
       integrity: "sha256-deadbeef",
       sourceName: "registry",
+
+      publisherBindingId: "hbnd_test",
       installedAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
       resolvedSkills: params.resolvedSkills ?? {},
@@ -107,7 +114,7 @@ const lockfileWithPack = (params: {
 });
 
 const lockfileWithSkill = (skillName: string): object => ({
-  lockfileVersion: 1,
+  lockfileVersion: 3,
   skills: {
     [skillName]: {
       type: "github",
@@ -193,7 +200,9 @@ describe("projection: pack-provided skill is implicit installed inventory", () =
             _tag: "valid",
             contents: lockfileWithPack({
               packName: "team-pack",
-              resolvedSkills: { "@team/skills/review-tool": "1.0.0" },
+              resolvedSkills: {
+                "@team/skills/review-tool": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+              },
             }),
           },
         }),
@@ -225,7 +234,9 @@ describe("projection: direct skill declaration wins over pack membership", () =>
           _tag: "valid",
           contents: lockfileWithPack({
             packName: "team-pack",
-            resolvedSkills: { "@team/skills/review-tool": "1.0.0" },
+            resolvedSkills: {
+              "@team/skills/review-tool": { version: "1.0.0", publisherBindingId: "hbnd_test" },
+            },
           }),
         },
       }),
@@ -247,7 +258,7 @@ describe("projection: actual-only pack does not install member skills", () => {
     runScenario(
       projectSpec({
         axmExtensions: {
-          "@team/packs/src/team-pack/package.json": "{}",
+          "@team/packs/team-pack/src/package.json": "{}",
         },
         agentDirs: {
           "claude-code": {
@@ -283,7 +294,12 @@ describe("projection: pack-provided subagent is implicit installed inventory", (
           _tag: "valid",
           contents: lockfileWithPack({
             packName: "team-pack",
-            resolvedSubagents: { "@team/subagents/code-reviewer": "1.0.0" },
+            resolvedSubagents: {
+              "@team/subagents/code-reviewer": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
         },
       }),
@@ -331,7 +347,10 @@ describe("projection: direct subagent declaration wins (disabled) over pack memb
               // rows coexist; this still exercises the implicit-vs-direct
               // pathways through the live projection.
               resolvedSubagents: {
-                "@team/subagents/other-reviewer": "1.0.0",
+                "@team/subagents/other-reviewer": {
+                  version: "1.0.0",
+                  publisherBindingId: "hbnd_test",
+                },
               },
             }),
           },
@@ -527,7 +546,7 @@ describe("projection: packs are not installed as pack members", () => {
           lockfile: {
             _tag: "valid",
             contents: {
-              lockfileVersion: 1,
+              lockfileVersion: 3,
               skills: {},
               packs: {
                 "platform-pack": {
@@ -537,6 +556,8 @@ describe("projection: packs are not installed as pack members", () => {
                   resolvedVersion: "1.0.0",
                   integrity: "sha256-platform",
                   sourceName: "registry",
+
+                  publisherBindingId: "hbnd_test",
                   installedAt: "2026-01-01T00:00:00.000Z",
                   updatedAt: "2026-01-01T00:00:00.000Z",
                   resolvedSkills: {},
@@ -553,6 +574,8 @@ describe("projection: packs are not installed as pack members", () => {
                   resolvedVersion: "1.0.0",
                   integrity: "sha256-nested",
                   sourceName: "registry",
+
+                  publisherBindingId: "hbnd_test",
                   installedAt: "2026-01-01T00:00:00.000Z",
                   updatedAt: "2026-01-01T00:00:00.000Z",
                   resolvedSkills: {},

@@ -18,7 +18,7 @@ describe("Open Knowledge Format bundles", () => {
       const root = yield* fs.makeTempDirectoryScoped();
       yield* fs.writeFileString(
         path.join(root, "index.md"),
-        "---\nokf_version: 0.1\n---\n# Payments knowledge\n\n- [Refunds](payments/refunds.md)\n",
+        '---\nokf_version: "0.2"\n---\n# Payments knowledge\n\n- [Refunds](payments/refunds.md)\n',
       );
       yield* fs.makeDirectory(path.join(root, "payments"), { recursive: true });
       yield* fs.writeFileString(
@@ -62,7 +62,7 @@ describe("Open Knowledge Format bundles", () => {
       const root = yield* fs.makeTempDirectoryScoped();
       yield* fs.writeFileString(
         path.join(root, "index.md"),
-        "---\nokf_version: 0.1\n---\n# Security knowledge\n\n- [Unsafe prose](unsafe.md)\n",
+        '---\nokf_version: "0.2"\n---\n# Security knowledge\n\n- [Unsafe prose](unsafe.md)\n',
       );
       yield* fs.writeFileString(
         path.join(root, "unsafe.md"),
@@ -86,7 +86,7 @@ describe("Open Knowledge Format bundles", () => {
       const root = yield* fs.makeTempDirectoryScoped();
       yield* fs.writeFileString(
         path.join(root, "index.md"),
-        "---\nokf_version: 0.1\n---\n# Security\n\n- [One](one.md)\n- [Two](TWO.md)\n",
+        '---\nokf_version: "0.2"\n---\n# Security\n\n- [One](one.md)\n- [Two](TWO.md)\n',
       );
       yield* fs.writeFileString(
         path.join(root, "one.md"),
@@ -103,7 +103,7 @@ describe("Open Knowledge Format bundles", () => {
       expect(codes.has("dangerous-uri")).toBe(true);
       expect(codes.has("detected-secret")).toBe(true);
       expect(codes.has("invalid-resource")).toBe(true);
-      expect(codes.has("invalid-timestamp")).toBe(true);
+      expect(codes.has("invalid-frontmatter")).toBe(true);
       expect(codes.has("invalid-log")).toBe(true);
       expect(codes.has("inconsistent-type")).toBe(true);
       expect(
@@ -117,7 +117,7 @@ describe("Open Knowledge Format bundles", () => {
   it.effect("rejects cross-platform path collisions from virtual archive entries", () =>
     Effect.gen(function* () {
       const contents = new Map([
-        ["index.md", "---\nokf_version: 0.1\n---\n# Index\n"],
+        ["index.md", '---\nokf_version: "0.2"\n---\n# Index\n'],
         ["Concept.md", "---\ntype: reference\n---\n# One\n"],
         ["concept.md", "---\ntype: reference\n---\n# Two\n"],
       ]);
@@ -131,29 +131,6 @@ describe("Open Knowledge Format bundles", () => {
       );
       expect(inspected.diagnostics.some(({ code }) => code === "case-collision")).toBe(true);
     }),
-  );
-
-  it.effect("keeps published okf 0.1 bundles valid and reports them as 0.1", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      yield* fs.writeFileString(
-        path.join(root, "index.md"),
-        "---\nokf_version: 0.1\n---\n# Legacy\n\n- [Refunds](refunds.md)\n",
-      );
-      yield* fs.writeFileString(
-        path.join(root, "refunds.md"),
-        "---\ntype: policy\ndescription: Refund policy\ntags: [payments]\ntimestamp: 2026-06-20T22:53:05Z\n---\n# Refunds\n\nRefund within 30 days.\n\n# Citations\n\n[1] [Policy](https://example.com/policy)\n",
-      );
-
-      const inspected = yield* inspectKnowledgeBundle(root);
-      expect(inspected.okfVersion).toBe("0.1");
-      expect(inspected.diagnostics).toEqual([]);
-      expect(openKnowledgeConcept(inspected.concepts, "refunds")?.timestamp).toBe(
-        "2026-06-20T22:53:05Z",
-      );
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("accepts the full okf 0.2 profile without error diagnostics", () =>
@@ -258,10 +235,10 @@ describe("Open Knowledge Format bundles", () => {
     }),
   );
 
-  it.effect("degrades superseded 0.1 forms to deprecation warnings in 0.2 bundles", () =>
+  it.effect("rejects fields and sections outside the 0.2 contract", () =>
     Effect.gen(function* () {
       const contents = new Map([
-        ["index.md", '---\nokf_version: "0.2"\n---\n# Legacy forms\n\n- [Old](old.md)\n'],
+        ["index.md", '---\nokf_version: "0.2"\n---\n# Removed forms\n\n- [Old](old.md)\n'],
         [
           "old.md",
           "---\ntype: policy\ndescription: Old\ntags: [payments]\ntimestamp: 2026-06-20T22:53:05Z\n---\n# Old\n\n# Citations\n\n[1] [Policy](https://example.com/policy)\n",
@@ -275,14 +252,12 @@ describe("Open Knowledge Format bundles", () => {
         })),
         (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
       );
-      expect(inspected.diagnostics.filter(({ severity }) => severity === "error")).toEqual([]);
-      const warnings = new Set(
+      const errors = new Set(
         inspected.diagnostics
-          .filter(({ severity }) => severity === "warning")
+          .filter(({ severity }) => severity === "error")
           .map(({ code }) => code),
       );
-      expect(warnings.has("deprecated-timestamp")).toBe(true);
-      expect(warnings.has("deprecated-citations")).toBe(true);
+      expect(errors.has("invalid-frontmatter")).toBe(true);
     }),
   );
 
@@ -336,28 +311,6 @@ describe("Open Knowledge Format bundles", () => {
     }),
   );
 
-  it.effect("leaves the 0.2 families unenforced in 0.1 bundles", () =>
-    Effect.gen(function* () {
-      const contents = new Map([
-        ["index.md", "---\nokf_version: 0.1\n---\n# Legacy\n\n- [Old](old.md)\n"],
-        [
-          "old.md",
-          "---\ntype: reference\ndescription: Old\ntags: [legacy]\nstatus: published\nstale_after: soon\n---\n# Old\n",
-        ],
-      ]);
-      const inspected = yield* inspectKnowledgeEntries(
-        [...contents].map(([relativePath, content]) => ({
-          relativePath,
-          type: "File",
-          size: BigInt(content.length),
-        })),
-        (relativePath) => Effect.succeed(contents.get(relativePath) ?? ""),
-      );
-      expect(inspected.okfVersion).toBe("0.1");
-      expect(inspected.diagnostics).toEqual([]);
-    }),
-  );
-
   it.effect("rejects an unsupported okf version at the bundle root", () =>
     Effect.gen(function* () {
       const contents = new Map([["index.md", '---\nokf_version: "0.3"\n---\n# Future\n']]);
@@ -372,7 +325,7 @@ describe("Open Knowledge Format bundles", () => {
       const unsupported = inspected.diagnostics.find(
         ({ code }) => code === "unsupported-okf-version",
       );
-      expect(unsupported?.message).toContain("expected 0.1 or 0.2");
+      expect(unsupported?.message).toContain("expected 0.2");
     }),
   );
 
@@ -383,7 +336,7 @@ describe("Open Knowledge Format bundles", () => {
       const root = yield* fs.makeTempDirectoryScoped();
       yield* fs.writeFileString(
         path.join(root, "index.md"),
-        "---\nokf_version: 0.1\n---\n# Discovery\n\n- [Missing](missing.md)\n",
+        '---\nokf_version: "0.2"\n---\n# Discovery\n\n- [Missing](missing.md)\n',
       );
       yield* fs.writeFileString(
         path.join(root, "orphan.md"),

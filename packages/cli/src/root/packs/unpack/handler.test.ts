@@ -15,7 +15,8 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import type { RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -28,6 +29,7 @@ import {
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -63,7 +65,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: options.lockSkills ?? {},
       ...(options.lockCommands ? { commands: options.lockCommands } : {}),
       ...(options.lockMcpServers ? { mcpServers: options.lockMcpServers } : {}),
@@ -144,10 +146,34 @@ describe("packs unpack.handler", () => {
       },
       wsOptions: wsOverrides,
     });
-    const SPLayer = Layer.provide(
-      SourceHostProvidersLive,
-      Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer),
-    );
+    const SPLayer = Layer.succeed(SourceHostProviders, {
+      find: (source, request) =>
+        Effect.succeed(
+          source.type === "registry" && request.type === "skill"
+            ? request.names.map((name): RegistrySkillRef => ({
+                type: "skill",
+                refType: "registry",
+                source,
+                skill: {
+                  name: extensionName(name),
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                owner: handle("@test"),
+                name: extensionName(name),
+                version: exactVersion(
+                  Option.getOrElse(request.versionRange, () => exactVersion("1.0.0")),
+                ),
+                publisherBindingId: "hbnd_test",
+                integrity: Option.none(),
+                packages: [],
+              }))
+            : [],
+        ),
+      fetch: () => Effect.die("unused"),
+      cloneUrl: () => Option.none(),
+      origin: () => "test",
+    });
     const FullLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
@@ -178,7 +204,7 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -189,7 +215,7 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "2.0.0",
             integrity: "",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -202,11 +228,18 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
-              "@test/skills/code-review": "1.0.0",
-              "@test/skills/test-writer": "2.0.0",
+              "@test/skills/code-review": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+              "@test/skills/test-writer": {
+                version: "2.0.0",
+                publisherBindingId: "hbnd_test",
+              },
             },
             resolvedCommands: {},
             resolvedMcpServers: {},
@@ -285,7 +318,7 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "0.9.0",
             integrity: "",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -296,7 +329,7 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -309,11 +342,18 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
-              "@test/skills/code-review": "1.0.0",
-              "@test/skills/new-skill": "1.0.0",
+              "@test/skills/code-review": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+              "@test/skills/new-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
             },
             resolvedCommands: {},
             resolvedMcpServers: {},
@@ -395,12 +435,18 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {},
             resolvedCommands: {},
             resolvedMcpServers: {},
-            resolvedSubagents: { "@test/subagents/reviewer": "1.0.0" },
+            resolvedSubagents: {
+              "@test/subagents/reviewer": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           },
         },
       });

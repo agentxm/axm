@@ -20,7 +20,7 @@ describe("SubagentLockEntry schema", () => {
   const decode = Schema.decodeUnknownSync(SubagentLockEntrySchema);
   const encode = Schema.encodeUnknownSync(SubagentLockEntrySchema);
 
-  it("drops legacy agents from a valid local subagent lock entry", () => {
+  it("rejects removed agent state", () => {
     const input = {
       type: "local",
       path: "./subagents/planner",
@@ -28,12 +28,10 @@ describe("SubagentLockEntry schema", () => {
       installedAt: "2025-01-15T10:30:00Z",
       updatedAt: "2025-01-15T10:30:00Z",
     };
-    const result = decode(input);
-    expect(result.type).toBe("local");
-    expect(result).not.toHaveProperty("agents");
+    expect(() => decode(input, { onExcessProperty: "error" })).toThrow();
   });
 
-  it("preserves sourceHash and drops legacy renderedFiles", () => {
+  it("rejects removed render state", () => {
     const input = {
       type: "local",
       path: "./subagents/planner",
@@ -45,9 +43,7 @@ describe("SubagentLockEntry schema", () => {
         "claude-code": [{ path: ".claude/agents/planner.md" }],
       },
     };
-    const result = decode(input);
-    expect(result.sourceHash).toBe("abc123def456");
-    expect(result).not.toHaveProperty("renderedFiles");
+    expect(() => decode(input, { onExcessProperty: "error" })).toThrow();
   });
 
   it("accepts subagent lock entry without optional sourceHash and renderedFiles", () => {
@@ -124,6 +120,8 @@ describe("SubagentLockEntry schema", () => {
       resolvedVersion: "1.0.0",
       integrity: "sha512-abc123",
       sourceName: "default",
+
+      publisherBindingId: "hbnd_test",
       agents: ["claude-code"],
       installedAt: "2025-01-15T10:30:00Z",
       updatedAt: "2025-01-15T10:30:00Z",
@@ -144,6 +142,8 @@ describe("SubagentLockEntry schema", () => {
       resolvedVersion: "^1.0.0",
       integrity: "sha512-abc123",
       sourceName: "default",
+
+      publisherBindingId: "hbnd_test",
       agents: ["claude-code"],
       installedAt: "2025-01-15T10:30:00Z",
       updatedAt: "2025-01-15T10:30:00Z",
@@ -155,7 +155,7 @@ describe("SubagentLockEntry schema", () => {
 describe("Lockfile with subagents", () => {
   it("accepts lockfile with subagents section", () => {
     const input = {
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: {},
       subagents: {
         planner: {
@@ -184,7 +184,7 @@ describe("Lockfile with subagents", () => {
 
   it("accepts lockfile without subagents section", () => {
     const input = {
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: {},
     };
 
@@ -195,7 +195,7 @@ describe("Lockfile with subagents", () => {
 
   it("accepts lockfile with multiple subagents", () => {
     const input = {
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: {},
       subagents: {
         planner: {
@@ -242,7 +242,7 @@ describe("lockfile subagent round-trip", () => {
     withContext(
       Effect.gen(function* () {
         const lockfile: Lockfile = {
-          lockfileVersion: 1,
+          lockfileVersion: 3,
           skills: {},
           subagents: {
             planner: {
@@ -281,7 +281,7 @@ describe("lockfile subagent round-trip", () => {
   it("decodes lockfile with subagents from YAML", () => {
     fs.mkdirSync(axmDir, { recursive: true });
     const lockfileContent = YAML.stringify({
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: {},
       subagents: {
         planner: {

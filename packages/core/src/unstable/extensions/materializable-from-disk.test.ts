@@ -30,7 +30,7 @@ describe("configured extensions to disk refs", () => {
     nodeFs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("enumerates direct settings refs from on-disk manifests", () =>
+  it.effect("does not reconstruct registry refs without canonical registry metadata", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -97,10 +97,10 @@ describe("configured extensions to disk refs", () => {
         }),
       ]);
 
-      expect(skills.map((ref) => ref.skill.name)).toEqual(["review"]);
-      expect(commands.map((ref) => ref.command.name)).toEqual(["deploy"]);
-      expect(mcpServers.map((ref) => ref.server.name)).toEqual(["browser"]);
-      expect(subagents.map((ref) => ref.subagent.name)).toEqual(["planner"]);
+      expect(skills).toEqual([]);
+      expect(commands).toEqual([]);
+      expect(mcpServers).toEqual([]);
+      expect(subagents).toEqual([]);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

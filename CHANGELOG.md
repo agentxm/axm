@@ -1,3 +1,13 @@
+## 0.22.11 (2026-07-25)
+
+### 🩹 Fixes
+
+- Upgrade Effect to 4.0.0-beta.101 and refresh the OpenAPI generator patch. ([f955d4fc](https://github.com/agentxm/axm/commit/f955d4fc))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.22.10 (2026-07-24)
 
 ### 🩹 Fixes

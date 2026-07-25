@@ -1,3 +1,13 @@
+## 0.22.13 (2026-07-25)
+
+### 🩹 Fixes
+
+- Align AXM with the registry public OpenAPI contract and remove the retired maintainer command. ([9e4af470](https://github.com/agentxm/axm/commit/9e4af470))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.22.12 (2026-07-25)
 
 ### 🩹 Fixes

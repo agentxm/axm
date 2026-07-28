@@ -81,6 +81,15 @@ When `axm lint` reports `workspace/skills-managed`, choose one resolution per sk
 
 Prefer ignore for tool-managed skills. Fork only when you deliberately take ownership away from that tool. See `axm help settings` for `skillsConfig.ignore`.
 
+## Lockfile and integrity
+
+`.axm/axm-lock.yaml` records two different hashes for registry-installed skills:
+
+- **`integrity`** — the SRI sha512 of the published archive. AXM verifies it against the downloaded bytes before extracting, every time it fetches. This is the supply-chain guarantee: a tampered or corrupted download fails the install.
+- **`sourceHash`** — an advisory SHA-256 marker of the installed source, captured at install time. AXM uses it to report installs as created, updated, or unchanged. It is not a tamper check.
+
+After install, the files under `.axm/extensions/` are owned by your workspace. Repo tooling that preserves content — Prettier, line-ending normalization, editorconfig fixers — may rewrite them freely: AXM never requires formatter opt-outs, never flags formatting as an error, and a no-op `axm install` will not revert those changes. To restore a skill to its published bytes, run `axm skills install <source> --force`, or `axm lint --fix` when the installed directory is missing.
+
 ## Recommended packs
 
 Name the pack(s) your skill is designed to ship with in `skill.json` `recommendedPacks`. Use the bare pack reference — do not include a version range:

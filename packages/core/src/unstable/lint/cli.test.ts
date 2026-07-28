@@ -503,8 +503,7 @@ describe("toLintHumanBlocks", () => {
             ruleId: "workspace/skills-integrity-valid",
             severity: "error",
             message:
-              "Pack-provided skill 'alpha' is listed in the lockfile, but its installed source files do not match the lockfile entry. " +
-              "Detail: the installed source directory is missing. " +
+              "Pack-provided skill 'alpha' is listed in the lockfile, but its installed source directory is missing. " +
               "Run `axm install` to reinstall it from the owning pack declarations.",
             location: { file: ".axm/axm-lock.yaml" },
           },
@@ -513,8 +512,7 @@ describe("toLintHumanBlocks", () => {
             ruleId: "workspace/skills-integrity-valid",
             severity: "error",
             message:
-              "Pack-provided skill 'beta' is listed in the lockfile, but its installed source files do not match the lockfile entry. " +
-              "Detail: the installed source directory is missing. " +
+              "Pack-provided skill 'beta' is listed in the lockfile, but its installed source directory is missing. " +
               "Run `axm install` to reinstall it from the owning pack declarations.",
             location: { file: ".axm/axm-lock.yaml" },
           },
@@ -534,11 +532,8 @@ describe("toLintHumanBlocks", () => {
       diagnostic: {
         severity: "error",
         ruleId: "workspace/skills-integrity-valid",
-        title: "Installed skill sources do not match their lockfile entries.",
-        details: [
-          "alpha: the installed source directory is missing.",
-          "beta: the installed source directory is missing.",
-        ],
+        title: "Skills listed in the lockfile are missing their installed sources.",
+        details: ["alpha", "beta"],
         helps: ["Run `axm install` to reinstall it from the owning pack declarations."],
         fixable: false,
         paths: ["./.axm/axm-lock.yaml"],

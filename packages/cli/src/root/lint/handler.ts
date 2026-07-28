@@ -459,6 +459,7 @@ const adaptIntent = (
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
+          force: op.args.force,
         });
         return { kind: "step", step };
       }
@@ -482,6 +483,7 @@ const adaptIntent = (
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
+          force: op.args.force,
         });
         return { kind: "step", step };
       }
@@ -518,6 +520,7 @@ const adaptIntent = (
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
+          force: op.args.force,
         });
         return { kind: "step", step };
       }
@@ -541,6 +544,7 @@ const adaptIntent = (
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
+          force: op.args.force,
         });
         return { kind: "step", step };
       }

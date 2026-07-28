@@ -248,6 +248,7 @@ const makeOp = (
     owner?: string;
     location?: string;
     version?: Option.Option<string>;
+    integrity?: Option.Option<string>;
     versionRange?: Option.Option<string>;
     gitTreeSha?: Option.Option<string>;
     refSourcePath?: string;
@@ -287,7 +288,7 @@ const makeOp = (
           publisherBindingId: "hbnd_test",
           name: skill.name,
           version: exactVersion(Option.getOrElse(version, () => "1.0.0")),
-          integrity: Option.none(),
+          integrity: overrides.integrity ?? Option.none(),
           packages: [],
         } satisfies RegistrySkillRef;
       case "local":
@@ -979,6 +980,105 @@ describe("installSkill", () => {
     // Range versions (e.g. "^1.0.0") are now statically prevented by the
     // Version branded type on RegistrySkillRef.version.
     // Schema-level rejection is tested in version-constraints.test.ts.
+  });
+
+  describe("canonical reuse — installed content is workspace-owned", () => {
+    const writeRegistryLock = (axmDir: string, resolvedVersion: string) => {
+      fs.writeFileSync(
+        path.join(axmDir, "axm-lock.yaml"),
+        YAML.stringify({
+          lockfileVersion: 3,
+          skills: {
+            "my-skill": {
+              type: "registry",
+              owner: "@community",
+              name: "my-skill",
+              resolvedVersion,
+              integrity: "sha512-abc",
+              sourceName: "default",
+              publisherBindingId: "hbnd_test",
+              installedAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          },
+        }),
+      );
+    };
+
+    const registryOp = (overrides: { force?: boolean; version?: string } = {}) =>
+      makeOp({
+        source: {
+          type: "registry",
+          location: new URL("file:///tmp/reg"),
+          owner: Option.none(),
+        },
+        owner: "@community",
+        integrity: Option.some("sha512-abc"),
+        version: Option.some(overrides.version ?? "1.0.0"),
+        ...(overrides.force === undefined ? {} : { force: overrides.force }),
+      });
+
+    it.effect(
+      "reuses the existing canonical tree when the lockfile pins the requested version",
+      () =>
+        Effect.gen(function* () {
+          const { axmDir, base } = setupBase();
+          setupRegistryCanonical(base, "@community");
+          writeRegistryLock(axmDir, "1.0.0");
+
+          // Workspace-owned rewrite of installed content (e.g. a formatter run).
+          const canonical = path.join(
+            base,
+            ".axm",
+            "extensions",
+            "@community",
+            "skills",
+            "my-skill",
+          );
+          fs.writeFileSync(path.join(canonical, "src", "SKILL.md"), "# my-skill\n\nreformatted\n");
+
+          const result = yield* installSkill(registryOp()).pipe(
+            Effect.provide(withServices(axmDir)),
+          );
+
+          expect(result.result).toBe("success");
+          expect(fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf-8")).toContain(
+            "reformatted",
+          );
+        }),
+    );
+
+    it.effect("force re-materializes instead of reusing the canonical tree", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+        writeRegistryLock(axmDir, "1.0.0");
+
+        // No registry is reachable at file:///tmp/reg, so a forced install must
+        // fail by attempting the download rather than silently reusing.
+        const result = yield* installSkill(registryOp({ force: true })).pipe(
+          Effect.provide(withServices(axmDir)),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
+        );
+
+        expect(result.result).toBe("error");
+      }),
+    );
+
+    it.effect("re-materializes when the requested version differs from the locked version", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+        writeRegistryLock(axmDir, "0.9.0");
+
+        const result = yield* installSkill(registryOp({ version: "1.0.0" })).pipe(
+          Effect.provide(withServices(axmDir)),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
+        );
+
+        expect(result.result).toBe("error");
+      }),
+    );
   });
 
   describe("pre-clean from all locations", () => {

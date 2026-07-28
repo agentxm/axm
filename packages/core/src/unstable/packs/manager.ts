@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { PackRef, RegistryPackRef, WorkspacePackRef } from "./refs.js";
 import {
@@ -165,7 +165,7 @@ export const PackManagerLive = Layer.effect(
     ): Effect.Effect<A, E, never> => Effect.provide(effect, fsPathLayer);
     const materializeInstall: ExtensionManager<PackRef>["materializeInstall"] = Effect.fn(
       "PackManager.materializeInstall",
-    )(function* ({ ref }: { readonly ref: PackRef }) {
+    )(function* ({ ref, force }: { readonly ref: PackRef; readonly force?: boolean }) {
       if (ref.refType === "registry") {
         yield* validateExactResolvedVersion(`packs.${ref.pack.name}.resolvedVersion`, ref.version);
       }
@@ -187,7 +187,24 @@ export const PackManagerLive = Layer.effect(
         }
         return;
       }
-      if (Option.isNone(ref.integrity) && canonicalExists) return;
+      const lockedEntry = yield* ws
+        .getLockedPack(ref.pack.name)
+        .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+      const lockedVersion = Option.match(lockedEntry, {
+        onNone: () => undefined,
+        onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+      });
+      if (
+        shouldReuseCanonicalInstall({
+          canonicalExists,
+          force: force === true,
+          hasIntegrity: Option.isSome(ref.integrity),
+          refVersion: ref.refType === "registry" ? ref.version : undefined,
+          lockedVersion,
+        })
+      ) {
+        return;
+      }
 
       yield* Effect.scoped(
         Effect.gen(function* () {

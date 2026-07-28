@@ -20,7 +20,7 @@ import type { McpServerExtensionRef, RegistryMcpServerRef } from "./refs.js";
 import type { McpServerLockEntry } from "../lockfile/index.js";
 import type { ExtensionManager, McpServerExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../extensions/index.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
@@ -100,7 +100,7 @@ export const McpServerManagerLive = Layer.effect(
       Effect.provide(effect, fsPathLayer);
 
     const materializeInstall: ExtensionManager<McpServerExtensionRef>["materializeInstall"] =
-      Effect.fn("McpServerManager.materializeInstall")(function* ({ ref }) {
+      Effect.fn("McpServerManager.materializeInstall")(function* ({ ref, force }) {
         if (ref.refType !== "registry") {
           return yield* makeAppError({
             code: "internal",
@@ -133,7 +133,20 @@ export const McpServerManagerLive = Layer.effect(
             }),
           ),
         );
-        const useExisting = Option.isNone(registryRef.integrity) && canonicalExists;
+        const lockedEntry = yield* ws
+          .getLockedMcpServer(registryRef.name)
+          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+        const lockedVersion = Option.match(lockedEntry, {
+          onNone: () => undefined,
+          onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+        });
+        const useExisting = shouldReuseCanonicalInstall({
+          canonicalExists,
+          force: force === true,
+          hasIntegrity: Option.isSome(registryRef.integrity),
+          refVersion: registryRef.version,
+          lockedVersion,
+        });
 
         if (!useExisting) {
           const locationStr =

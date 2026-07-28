@@ -56,3 +56,4 @@ See the individual help topics for each extension type for more details.
 ## Where to go next
 
 - `axm packs --help` — full pack subcommand surface
+- `axm help skills` — the "Lockfile and integrity" section explains the lockfile's `integrity` and `sourceHash` fields; the same model applies to packs and their members

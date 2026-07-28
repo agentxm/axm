@@ -142,39 +142,50 @@ export const RuleManagerLive = Layer.effect(
       }
     >();
 
-    const materializeFromRegistry = (ref: RegistryRuleRef) =>
-      provide(
-        materializeRegistryPackage({
-          baseDir,
-          canonicalPath: path.join(
+    const materializeFromRegistry = (ref: RegistryRuleRef, force: boolean) =>
+      Effect.gen(function* () {
+        const lockedEntry = yield* ws
+          .getLockedRuleEntry(ref.name)
+          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+        const lockedVersion = Option.match(lockedEntry, {
+          onNone: () => undefined,
+          onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+        });
+        return yield* provide(
+          materializeRegistryPackage({
             baseDir,
-            REGISTRY_EXTENSIONS_DIR,
-            ref.owner,
-            RULE_EXTENSION_DIR,
-            ref.name,
-          ),
-          sourceLocation: ref.source.location,
-          owner: ref.owner,
-          type: "rule",
-          name: ref.name,
-          version: ref.version,
-          integrity: ref.integrity,
-          messages: {
-            existsFailureDetail: (canonicalPath) =>
-              `Failed to check if canonical rule package path exists: ${canonicalPath}`,
-            integrityMismatchCode: "network",
-            integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
-            tempDirectoryFailureDetail:
-              "Temporary directory for registry rule install could not be created",
-            createDirectoryFailureDetail: (canonicalPath) =>
-              `Failed to create registry rule directory: ${canonicalPath}`,
-            inspectExtractedFailureDetail: "Failed to inspect extracted registry rule package",
-            copyEntryFailureCode: "internal",
-            copyEntryFailureDetail: (entry) =>
-              `Failed to copy registry rule package entry: ${entry}`,
-          },
-        }),
-      );
+            canonicalPath: path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              RULE_EXTENSION_DIR,
+              ref.name,
+            ),
+            sourceLocation: ref.source.location,
+            owner: ref.owner,
+            type: "rule",
+            name: ref.name,
+            version: ref.version,
+            integrity: ref.integrity,
+            force,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            messages: {
+              existsFailureDetail: (canonicalPath) =>
+                `Failed to check if canonical rule package path exists: ${canonicalPath}`,
+              integrityMismatchCode: "network",
+              integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
+              tempDirectoryFailureDetail:
+                "Temporary directory for registry rule install could not be created",
+              createDirectoryFailureDetail: (canonicalPath) =>
+                `Failed to create registry rule directory: ${canonicalPath}`,
+              inspectExtractedFailureDetail: "Failed to inspect extracted registry rule package",
+              copyEntryFailureCode: "internal",
+              copyEntryFailureDetail: (entry) =>
+                `Failed to copy registry rule package entry: ${entry}`,
+            },
+          }),
+        );
+      });
 
     const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef) =>
       provide(
@@ -193,11 +204,11 @@ export const RuleManagerLive = Layer.effect(
         }),
       );
 
-    const materializePackage = (ref: RuleExtensionRef) =>
+    const materializePackage = (ref: RuleExtensionRef, force = false) =>
       Effect.gen(function* () {
         switch (ref.refType) {
           case "registry":
-            return yield* materializeFromRegistry(ref);
+            return yield* materializeFromRegistry(ref, force);
           case "git-hosted":
           case "local":
             return yield* materializeFromExternal(ref);
@@ -417,8 +428,8 @@ export const RuleManagerLive = Layer.effect(
 
     const materializeInstall: ExtensionManager<RuleExtensionRef>["materializeInstall"] = Effect.fn(
       "RuleManager.materializeInstall",
-    )(function* ({ ref }) {
-      const packageRoot = yield* materializePackage(ref);
+    )(function* ({ ref, force }) {
+      const packageRoot = yield* materializePackage(ref, force === true);
       yield* readManifest(packageRoot);
 
       const workspaceRelativeLocalSourcePath =

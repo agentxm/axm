@@ -818,7 +818,7 @@ const coalesceFullDiagnostic = (
       return {
         severity: first.severity,
         ruleId: first.ruleId,
-        title: "Installed skill sources do not match their lockfile entries.",
+        title: "Skills listed in the lockfile are missing their installed sources.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
         fixable: findings.some((finding) => finding.fixable),
@@ -953,7 +953,7 @@ const coalesceGroupedDiagnostic = (
       return {
         severity: first.severity,
         ruleId: first.ruleId,
-        title: "Installed skill sources do not match their lockfile entries.",
+        title: "Skills listed in the lockfile are missing their installed sources.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
         fixable: findings.some((finding) => finding.fixable),

@@ -24,7 +24,7 @@ import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../../extensions/index.js";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
@@ -188,7 +188,10 @@ const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySet<strin
 // Registry install
 // -----------------------------------------------------------------------------
 
-const installFromRegistry = (ref: RegistryMcpServerRef) =>
+const installFromRegistry = (
+  ref: RegistryMcpServerRef,
+  reuse: { readonly force: boolean; readonly lockedVersion: string | undefined },
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -219,7 +222,13 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
         }),
       ),
     );
-    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+    const useExisting = shouldReuseCanonicalInstall({
+      canonicalExists,
+      force: reuse.force,
+      hasIntegrity: Option.isSome(ref.integrity),
+      refVersion: ref.version,
+      lockedVersion: reuse.lockedVersion,
+    });
 
     if (!useExisting) {
       const locationStr =
@@ -578,9 +587,16 @@ export const installMcpServer: (
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
+    const lockedMcpEntry = yield* ws
+      .getLockedMcpServer(ref.name)
+      .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+    const lockedVersion = Option.match(lockedMcpEntry, {
+      onNone: () => undefined,
+      onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+    });
     const canonicalPath =
       ref.refType === "registry"
-        ? yield* installFromRegistry(ref)
+        ? yield* installFromRegistry(ref, { force: op.args.force, lockedVersion })
         : yield* Effect.gen(function* () {
             const fs = yield* FileSystem.FileSystem;
             const path = yield* Path.Path;

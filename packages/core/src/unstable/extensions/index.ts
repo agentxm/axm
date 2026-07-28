@@ -224,6 +224,8 @@ export {
   type RegistryPackageMaterializationMessages,
 } from "./package-materialization.js";
 
+export { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
+
 export { markerFqnForRef, type MarkerFqnRef } from "./marker-fqn.js";
 
 export {

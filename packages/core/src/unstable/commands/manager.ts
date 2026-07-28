@@ -171,39 +171,50 @@ export const CommandManagerLive = Layer.effect(
       }
     >();
 
-    const materializeFromRegistry = (ref: RegistryCommandRef) =>
-      provide(
-        materializeRegistryPackage({
-          baseDir,
-          canonicalPath: path.join(
+    const materializeFromRegistry = (ref: RegistryCommandRef, force: boolean) =>
+      Effect.gen(function* () {
+        const lockedEntry = yield* ws
+          .getLockedCommand(ref.name)
+          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+        const lockedVersion = Option.match(lockedEntry, {
+          onNone: () => undefined,
+          onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+        });
+        return yield* provide(
+          materializeRegistryPackage({
             baseDir,
-            REGISTRY_EXTENSIONS_DIR,
-            ref.owner,
-            "commands",
-            ref.name,
-          ),
-          sourceLocation: ref.source.location,
-          owner: ref.owner,
-          type: "command",
-          name: ref.name,
-          version: ref.version,
-          integrity: ref.integrity,
-          messages: {
-            existsFailureDetail: (canonicalPath) =>
-              `Failed to check if canonical path exists: ${canonicalPath}`,
-            integrityMismatchCode: "internal",
-            integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-            tempDirectoryFailureDetail:
-              "Temporary directory for registry install could not be created",
-            createDirectoryFailureDetail: (canonicalPath) =>
-              `Failed to create canonical directory: ${canonicalPath}`,
-            inspectExtractedFailureDetail: "Extracted directory could not be read",
-            copyEntryFailureCode: "validation",
-            copyEntryFailureDetail: (entry) =>
-              `Failed to copy registry command package entry: ${entry}`,
-          },
-        }),
-      );
+            canonicalPath: path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              "commands",
+              ref.name,
+            ),
+            sourceLocation: ref.source.location,
+            owner: ref.owner,
+            type: "command",
+            name: ref.name,
+            version: ref.version,
+            integrity: ref.integrity,
+            force,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            messages: {
+              existsFailureDetail: (canonicalPath) =>
+                `Failed to check if canonical path exists: ${canonicalPath}`,
+              integrityMismatchCode: "internal",
+              integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+              tempDirectoryFailureDetail:
+                "Temporary directory for registry install could not be created",
+              createDirectoryFailureDetail: (canonicalPath) =>
+                `Failed to create canonical directory: ${canonicalPath}`,
+              inspectExtractedFailureDetail: "Extracted directory could not be read",
+              copyEntryFailureCode: "validation",
+              copyEntryFailureDetail: (entry) =>
+                `Failed to copy registry command package entry: ${entry}`,
+            },
+          }),
+        );
+      });
 
     const materializeFromExternal = (ref: GitHostedCommandRef | LocalCommandRef) =>
       provide(
@@ -217,11 +228,11 @@ export const CommandManagerLive = Layer.effect(
       );
 
     const materializeInstall: ExtensionManager<CommandExtensionRef>["materializeInstall"] =
-      Effect.fn("CommandManager.materializeInstall")(function* ({ ref }) {
+      Effect.fn("CommandManager.materializeInstall")(function* ({ ref, force }) {
         const canonicalPath = yield* Effect.gen(function* () {
           switch (ref.refType) {
             case "registry":
-              return yield* materializeFromRegistry(ref);
+              return yield* materializeFromRegistry(ref, force === true);
             case "git-hosted":
             case "local":
               return yield* materializeFromExternal(ref);

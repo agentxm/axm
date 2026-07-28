@@ -71,6 +71,8 @@ export interface InstallSkillSourceHandlerArgs {
   readonly source: string;
   readonly skills: readonly string[];
   readonly all: boolean;
+  /** Re-materialize even when the canonical tree already matches the lockfile. */
+  readonly force?: boolean;
 }
 
 /**
@@ -83,6 +85,7 @@ export interface ParsedSkillInstallArgs {
   readonly requestedOwner: Option.Option<Handle>;
   readonly resolutionProbes: ReadonlyArray<RegistryLookupProbe>;
   readonly all: boolean;
+  readonly force: boolean;
 }
 
 /**
@@ -517,6 +520,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             requestedOwner,
             resolutionProbes,
             all: args.all,
+            force: args.force === true,
           } satisfies ParsedSkillInstallArgs;
         }),
       );
@@ -622,6 +626,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 ref.refType === "registry" ? parsed.versionRange : Option.none<VersionRange>(),
             })),
             ...(diagnosticLines !== undefined ? { diagnosticLines } : {}),
+            force: parsed.force,
           } satisfies InstallSkillCommandIntent;
         }),
       );
@@ -753,6 +758,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 buildInstallOperation(skillMgr, {
                   ref,
                   versionRange: entry.versionRange,
+                  force: intent.force === true,
                   installedBefore: Effect.succeed(installedBefore),
                   buildArtifact,
                 }),

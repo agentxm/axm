@@ -140,7 +140,12 @@ const makeSourceLockUnion = <
       owner: HandleSchema,
       name: ExtensionNameSchema,
       resolvedVersion: VersionSchema,
-      integrity: Schema.String,
+      integrity: Schema.String.annotate({
+        description:
+          "SRI sha512 of the published archive, verified against downloaded bytes before " +
+          "extraction. The supply-chain guarantee for registry installs; never compared " +
+          "against installed files on disk.",
+      }),
       sourceName: Schema.String,
       publisherBindingId: Schema.NonEmptyString,
       ...extraFields,
@@ -182,7 +187,11 @@ const InlineMcpServerLockEntrySchema = Schema.Struct({
  * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
  * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
  * - gitTreeHash: Git tree SHA of source folder (git sources, optional)
- * - sourceHash: SHA-256 hash of canonical skill source (copy-mode only, optional)
+ * - sourceHash: advisory SHA-256 change marker of the canonical skill source
+ *   captured at install time (shallow: top-level `src/` files only; optional).
+ *   Used for created/updated/unchanged reporting, never as a tamper check —
+ *   installed content is workspace-owned and may be rewritten by
+ *   content-preserving tools after install
  *
  * Source-specific fields are at the top level based on source type.
  *
@@ -240,7 +249,7 @@ const CommandCommonFields = {
  * Lock entry for a single installed command.
  * Discriminated union by the `type` field.
  *
- * Includes `sourceHash` for tracking the shared source content.
+ * Includes an advisory `sourceHash` change marker for the shared source content.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -299,7 +308,7 @@ const SubagentWorkspaceFields = {
  * Lock entry for a single installed subagent.
  * Discriminated union by the `type` field.
  *
- * Includes `sourceHash` for tracking the shared source content.
+ * Includes an advisory `sourceHash` change marker for the shared source content.
  *
  * @experimental This API is unstable and may change without notice.
  */

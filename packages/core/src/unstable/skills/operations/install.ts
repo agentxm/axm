@@ -40,7 +40,7 @@ import {
   removeFromAllCanonicalLocations,
   stripFileProtocol,
 } from "../../utils/index.js";
-import { validatePathSafety } from "../../extensions/index.js";
+import { shouldReuseCanonicalInstall, validatePathSafety } from "../../extensions/index.js";
 import { errInstallFailed, makeAppError } from "../../app-error/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
@@ -471,6 +471,7 @@ const installFromRegistry = (
   ref: RegistrySkillRef,
   sanitizedName: string,
   versionRange: Option.Option<string>,
+  reuse: CanonicalReuseContext,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -482,7 +483,6 @@ const installFromRegistry = (
     });
     yield* validatePathSafety(ws.baseDir, canonicalPath);
 
-    // Synthetic refs from publish may have no integrity — use existing canonical
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -492,7 +492,13 @@ const installFromRegistry = (
         }),
       ),
     );
-    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+    const useExisting = shouldReuseCanonicalInstall({
+      canonicalExists,
+      force: reuse.force,
+      hasIntegrity: Option.isSome(ref.integrity),
+      refVersion: ref.version,
+      lockedVersion: reuse.lockedVersion,
+    });
 
     if (!useExisting) {
       const locationStr =
@@ -649,16 +655,23 @@ const installForDirectory = (opts: {
 // Dispatch helper
 // -----------------------------------------------------------------------------
 
+/** Reuse inputs sourced from the install operation and current lockfile. */
+type CanonicalReuseContext = {
+  readonly force: boolean;
+  readonly lockedVersion: string | undefined;
+};
+
 const materializeSkill = (
   ref: SkillExtensionRef,
   sanitizedName: string,
   versionRange: Option.Option<string>,
+  reuse: CanonicalReuseContext,
 ) => {
   switch (ref.refType) {
     case "git-hosted":
       return installFromGitHosted(ref, sanitizedName);
     case "registry":
-      return installFromRegistry(ref, sanitizedName, versionRange);
+      return installFromRegistry(ref, sanitizedName, versionRange, reuse);
     case "local":
       return installFromLocal(ref, sanitizedName);
     case "workspace":
@@ -708,7 +721,10 @@ export const installSkill: OperationHandler<
     const sourceHashBeforeInstall = lockSourceHash ?? (yield* existingSourceHash(ref));
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
-    const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionRange);
+    const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionRange, {
+      force: op.args.force,
+      lockedVersion: previousVersion,
+    });
 
     // ── Shared: resolve agent targets + install once per distinct dir ────────
     const configuredAgents = yield* agentRepo

@@ -117,7 +117,7 @@ export const KnowledgeManagerLive = Layer.effect(
       }
     >();
 
-    const materializePackage = (ref: KnowledgeExtensionRef) => {
+    const materializePackage = (ref: KnowledgeExtensionRef, force = false) => {
       const canonicalPath =
         ref.refType === "registry" || ref.refType === "workspace"
           ? path.join(
@@ -135,30 +135,41 @@ export const KnowledgeManagerLive = Layer.effect(
             );
       switch (ref.refType) {
         case "registry":
-          return provide(
-            materializeRegistryPackage({
-              baseDir,
-              canonicalPath,
-              sourceLocation: ref.source.location,
-              owner: ref.owner,
-              type: "knowledge",
-              name: ref.name,
-              version: ref.version,
-              integrity: ref.integrity,
-              messages: {
-                existsFailureDetail: (target) => `Failed to inspect knowledge path: ${target}`,
-                integrityMismatchCode: "network",
-                integrityMismatchDetail: `Integrity mismatch for knowledge:${ref.name}@${ref.version}`,
-                tempDirectoryFailureDetail: "Temporary knowledge directory could not be created",
-                createDirectoryFailureDetail: (target) =>
-                  `Failed to create knowledge directory: ${target}`,
-                inspectExtractedFailureDetail: "Failed to inspect extracted knowledge package",
-                copyEntryFailureCode: "internal",
-                copyEntryFailureDetail: (entry) =>
-                  `Failed to copy knowledge package entry: ${entry}`,
-              },
-            }),
-          );
+          return Effect.gen(function* () {
+            const lockedEntry = yield* ws
+              .getLockedKnowledgeEntry(ref.name)
+              .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+            const lockedVersion = Option.match(lockedEntry, {
+              onNone: () => undefined,
+              onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+            });
+            return yield* provide(
+              materializeRegistryPackage({
+                baseDir,
+                canonicalPath,
+                sourceLocation: ref.source.location,
+                owner: ref.owner,
+                type: "knowledge",
+                name: ref.name,
+                version: ref.version,
+                integrity: ref.integrity,
+                force,
+                ...(lockedVersion === undefined ? {} : { lockedVersion }),
+                messages: {
+                  existsFailureDetail: (target) => `Failed to inspect knowledge path: ${target}`,
+                  integrityMismatchCode: "network",
+                  integrityMismatchDetail: `Integrity mismatch for knowledge:${ref.name}@${ref.version}`,
+                  tempDirectoryFailureDetail: "Temporary knowledge directory could not be created",
+                  createDirectoryFailureDetail: (target) =>
+                    `Failed to create knowledge directory: ${target}`,
+                  inspectExtractedFailureDetail: "Failed to inspect extracted knowledge package",
+                  copyEntryFailureCode: "internal",
+                  copyEntryFailureDetail: (entry) =>
+                    `Failed to copy knowledge package entry: ${entry}`,
+                },
+              }),
+            );
+          });
         case "git-hosted":
         case "local":
           return provide(
@@ -364,8 +375,11 @@ export const KnowledgeManagerLive = Layer.effect(
       refreshCatalog: () => writeIndex().pipe(Effect.asVoid),
       isInstalled: ({ target }: { readonly target: KnowledgeExtensionTarget }) =>
         ws.getLockedKnowledgeEntry(target.name).pipe(Effect.map(Option.isSome)),
-      materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(function* ({ ref }) {
-        const root = yield* materializePackage(ref);
+      materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(function* ({
+        ref,
+        force,
+      }) {
+        const root = yield* materializePackage(ref, force === true);
         yield* inspectPackage(root).pipe(
           Effect.catch((error) =>
             ref.refType === "workspace"

@@ -93,8 +93,16 @@ export const SkillManagerLive = Layer.effect(
 
     const materializeInstall: ExtensionManager<SkillExtensionRef>["materializeInstall"] = Effect.fn(
       "SkillManager.materializeInstall",
-    )(function* ({ ref }) {
+    )(function* ({ ref, force }) {
       const sanitized = sanitizeName(ref.skill.name);
+
+      const lockedEntry = yield* ws
+        .getLockedSkill(ref.skill.name)
+        .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+      const lockedVersion = Option.match(lockedEntry, {
+        onNone: () => undefined,
+        onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+      });
 
       const skillSrcPath = yield* materializeSkillCanonical({
         ref,
@@ -104,6 +112,7 @@ export const SkillManagerLive = Layer.effect(
         baseDir,
         sources,
         provide,
+        reuse: { force: force === true, lockedVersion },
       });
 
       const configuredAgents = yield* agentRepo

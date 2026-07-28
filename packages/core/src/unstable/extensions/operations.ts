@@ -121,6 +121,8 @@ export interface UninstallRetentionPolicy {
 export interface InstallOperationArgs<TRef extends ExtensionRef> {
   readonly ref: TRef;
   readonly versionRange: Option.Option<string>;
+  /** When true, re-materialize unconditionally (repair path for forced reinstalls). */
+  readonly force?: boolean;
   /** When true, skip writing to settings (e.g. pack dependency installs). */
   readonly skipSettings?: boolean;
   /** When true, mark the lock entry as retained by an installed pack. */
@@ -174,7 +176,10 @@ const runInstallOperation = <TRef extends ExtensionRef>(
     }
     const installedBefore =
       args.installedBefore === undefined ? false : yield* args.installedBefore;
-    yield* manager.materializeInstall({ ref: args.ref });
+    yield* manager.materializeInstall({
+      ref: args.ref,
+      ...(args.force === undefined ? {} : { force: args.force }),
+    });
     yield* manager.upsertLockfileEntry({
       ref: args.ref,
       ...(args.retainedByPack === undefined ? {} : { retainedByPack: args.retainedByPack }),

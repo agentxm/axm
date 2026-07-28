@@ -234,6 +234,7 @@ describe("skills install handler — error propagation", () => {
           requestedOwner: Option.none(),
           resolutionProbes: [],
           all: false,
+          force: false,
         }),
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),

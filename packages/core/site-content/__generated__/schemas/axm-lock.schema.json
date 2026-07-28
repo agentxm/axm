@@ -203,7 +203,10 @@
         "extensionType": { "type": "string", "enum": ["pack"] },
         "name": { "$ref": "#/definitions/ExtensionName" },
         "version": { "$ref": "#/definitions/Version" },
-        "sourceHash": { "type": "string" },
+        "sourceHash": {
+          "type": "string",
+          "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+        },
         "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "resolvedSkills": {
@@ -315,7 +318,15 @@
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      },
+                      { "type": "null" }
+                    ]
+                  }
                 },
                 "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -339,7 +350,15 @@
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      },
+                      { "type": "null" }
+                    ]
+                  }
                 },
                 "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -363,7 +382,15 @@
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      },
+                      { "type": "null" }
+                    ]
+                  }
                 },
                 "required": ["type", "owner", "repo", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -388,7 +415,15 @@
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      },
+                      { "type": "null" }
+                    ]
+                  }
                 },
                 "required": ["type", "organization", "project", "repo", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -411,7 +446,15 @@
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      },
+                      { "type": "null" }
+                    ]
+                  }
                 },
                 "required": ["type", "url", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -425,7 +468,15 @@
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      },
+                      { "type": "null" }
+                    ]
+                  }
                 },
                 "required": ["type", "path", "installedAt", "updatedAt"],
                 "additionalProperties": false
@@ -437,14 +488,25 @@
                   "owner": { "$ref": "#/definitions/Handle" },
                   "name": { "$ref": "#/definitions/ExtensionName" },
                   "resolvedVersion": { "$ref": "#/definitions/Version" },
-                  "integrity": { "type": "string" },
+                  "integrity": {
+                    "type": "string",
+                    "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                  },
                   "sourceName": { "type": "string" },
                   "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                   "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                  "sourceHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  "sourceHash": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      },
+                      { "type": "null" }
+                    ]
+                  }
                 },
                 "required": [
                   "type",
@@ -471,7 +533,10 @@
                   "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                   "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                  "sourceHash": { "type": "string" }
+                  "sourceHash": {
+                    "type": "string",
+                    "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                  }
                 },
                 "required": [
                   "type",
@@ -642,7 +707,10 @@
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
-                      "integrity": { "type": "string" },
+                      "integrity": {
+                        "type": "string",
+                        "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                      },
                       "sourceName": { "type": "string" },
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -676,7 +744,10 @@
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "type": "string" }
+                      "sourceHash": {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      }
                     },
                     "required": [
                       "type",
@@ -850,7 +921,10 @@
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
-                      "integrity": { "type": "string" },
+                      "integrity": {
+                        "type": "string",
+                        "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                      },
                       "sourceName": { "type": "string" },
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -884,7 +958,10 @@
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "type": "string" }
+                      "sourceHash": {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      }
                     },
                     "required": [
                       "type",
@@ -1054,7 +1131,10 @@
                           "owner": { "$ref": "#/definitions/Handle" },
                           "name": { "$ref": "#/definitions/ExtensionName" },
                           "resolvedVersion": { "$ref": "#/definitions/Version" },
-                          "integrity": { "type": "string" },
+                          "integrity": {
+                            "type": "string",
+                            "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                          },
                           "sourceName": { "type": "string" },
                           "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                           "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1089,7 +1169,10 @@
                           "retainedByPack": {
                             "anyOf": [{ "type": "boolean" }, { "type": "null" }]
                           },
-                          "sourceHash": { "type": "string" }
+                          "sourceHash": {
+                            "type": "string",
+                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                          }
                         },
                         "required": [
                           "type",
@@ -1296,7 +1379,10 @@
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
-                      "integrity": { "type": "string" },
+                      "integrity": {
+                        "type": "string",
+                        "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                      },
                       "sourceName": { "type": "string" },
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1341,7 +1427,10 @@
                           { "type": "null" }
                         ]
                       },
-                      "sourceHash": { "type": "string" }
+                      "sourceHash": {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      }
                     },
                     "required": [
                       "type",
@@ -1509,7 +1598,10 @@
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
-                      "integrity": { "type": "string" },
+                      "integrity": {
+                        "type": "string",
+                        "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                      },
                       "sourceName": { "type": "string" },
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1542,7 +1634,10 @@
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "type": "string" }
+                      "sourceHash": {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      }
                     },
                     "required": [
                       "type",
@@ -1710,7 +1805,10 @@
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
-                      "integrity": { "type": "string" },
+                      "integrity": {
+                        "type": "string",
+                        "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                      },
                       "sourceName": { "type": "string" },
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1743,7 +1841,10 @@
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "type": "string" }
+                      "sourceHash": {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      }
                     },
                     "required": [
                       "type",
@@ -1911,7 +2012,10 @@
                       "owner": { "$ref": "#/definitions/Handle" },
                       "name": { "$ref": "#/definitions/ExtensionName" },
                       "resolvedVersion": { "$ref": "#/definitions/Version" },
-                      "integrity": { "type": "string" },
+                      "integrity": {
+                        "type": "string",
+                        "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                      },
                       "sourceName": { "type": "string" },
                       "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
                       "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
@@ -1944,7 +2048,10 @@
                       "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
                       "gitTreeHash": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                       "retainedByPack": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-                      "sourceHash": { "type": "string" }
+                      "sourceHash": {
+                        "type": "string",
+                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      }
                     },
                     "required": [
                       "type",

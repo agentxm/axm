@@ -209,6 +209,8 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   }) => Effect.Effect<boolean, AppError, never>;
   readonly materializeInstall: (args: {
     readonly ref: TRef;
+    /** When true, re-materialize unconditionally instead of reusing an existing canonical tree. */
+    readonly force?: boolean;
   }) => Effect.Effect<void, AppError, never>;
   readonly getLastMaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;

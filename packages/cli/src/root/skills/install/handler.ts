@@ -86,7 +86,7 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
 
     const actions = yield* InstallSkillCommandWorkflowActions;
     const resolution = yield* runInstallCommandWorkflow(
-      { source: args.source.value, skills: args.skills, all: args.all },
+      { source: args.source.value, skills: args.skills, all: args.all, force: flags.force },
       actions,
       { ...flags, displayApplied: false },
     );

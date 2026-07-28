@@ -44,6 +44,7 @@ import {
   computeSourceHash,
   insertManagedFileBanner,
   RenderedFilePathSchema,
+  shouldReuseCanonicalInstall,
   type SourceHash,
 } from "../extensions/index.js";
 import { MANIFEST_FILENAME, SubagentManifestSchema } from "./manifest-schema.js";
@@ -216,7 +217,11 @@ export const SubagentManagerLive = Layer.effect(
       });
 
     // Materialize from registry
-    const materializeFromRegistry = (ref: RegistrySubagentRef, canonicalPath: string) =>
+    const materializeFromRegistry = (
+      ref: RegistrySubagentRef,
+      canonicalPath: string,
+      force: boolean,
+    ) =>
       Effect.gen(function* () {
         const canonicalExists = yield* fs.exists(canonicalPath).pipe(
           Effect.mapError((e) =>
@@ -227,7 +232,20 @@ export const SubagentManagerLive = Layer.effect(
             }),
           ),
         );
-        const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+        const lockedEntry = yield* ws
+          .getLockedSubagent(ref.name)
+          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+        const lockedVersion = Option.match(lockedEntry, {
+          onNone: () => undefined,
+          onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+        });
+        const useExisting = shouldReuseCanonicalInstall({
+          canonicalExists,
+          force,
+          hasIntegrity: Option.isSome(ref.integrity),
+          refVersion: ref.version,
+          lockedVersion,
+        });
 
         if (!useExisting) {
           const locationStr =
@@ -288,6 +306,7 @@ export const SubagentManagerLive = Layer.effect(
       sanitized: string,
       canonicalPath: string,
       subagentSrcPath: string,
+      force = false,
     ) =>
       Effect.gen(function* () {
         switch (ref.refType) {
@@ -310,7 +329,7 @@ export const SubagentManagerLive = Layer.effect(
             break;
           }
           case "registry": {
-            yield* materializeFromRegistry(ref, canonicalPath);
+            yield* materializeFromRegistry(ref, canonicalPath, force);
             break;
           }
           case "workspace": {
@@ -344,12 +363,12 @@ export const SubagentManagerLive = Layer.effect(
       });
 
     const materializeInstall: ExtensionManager<SubagentExtensionRef>["materializeInstall"] =
-      Effect.fn("SubagentManager.materializeInstall")(function* ({ ref }) {
+      Effect.fn("SubagentManager.materializeInstall")(function* ({ ref, force }) {
         const { sanitized, paths } = getCanonicalPaths(ref);
         const { canonicalPath, subagentSrcPath } = paths;
 
         // --- Materialize canonical source ---
-        yield* materializeCanonical(ref, sanitized, canonicalPath, subagentSrcPath);
+        yield* materializeCanonical(ref, sanitized, canonicalPath, subagentSrcPath, force === true);
         const manifestRaw = yield* fs
           .readFileString(path.join(canonicalPath, MANIFEST_FILENAME))
           .pipe(Effect.option);

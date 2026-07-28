@@ -29,6 +29,7 @@ import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   computeSourceHash,
+  shouldReuseCanonicalInstall,
 } from "../../extensions/index.js";
 import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
 import { copyExtensionDirectory, validatePathSafety } from "../../extensions/utils.js";
@@ -77,7 +78,10 @@ export type InstallCommandOperation = Operation<"install-command", InstallComman
 // Registry install
 // -----------------------------------------------------------------------------
 
-const installFromRegistry = (ref: RegistryCommandRef) =>
+const installFromRegistry = (
+  ref: RegistryCommandRef,
+  reuse: { readonly force: boolean; readonly lockedVersion: string | undefined },
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -98,7 +102,6 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
       });
     }
 
-    // Empty integrity with existing canonical → skip fetch (synthetic refs from publish)
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -108,7 +111,13 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
         }),
       ),
     );
-    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+    const useExisting = shouldReuseCanonicalInstall({
+      canonicalExists,
+      force: reuse.force,
+      hasIntegrity: Option.isSome(ref.integrity),
+      refVersion: ref.version,
+      lockedVersion: reuse.lockedVersion,
+    });
 
     if (!useExisting) {
       const locationStr =
@@ -287,10 +296,13 @@ const installFromWorkspace = (ref: WorkspaceCommandRef) =>
   });
 
 // --- Materialization dispatcher ---
-const materializeCommand = (ref: CommandExtensionRef) => {
+const materializeCommand = (
+  ref: CommandExtensionRef,
+  reuse: { readonly force: boolean; readonly lockedVersion: string | undefined },
+) => {
   switch (ref.refType) {
     case "registry":
-      return installFromRegistry(ref);
+      return installFromRegistry(ref, reuse);
     case "git-hosted":
       return installFromGitHosted(ref);
     case "local":
@@ -325,9 +337,16 @@ export const installCommand: (
     const path = yield* Path.Path;
     const { ref } = op.args;
     const previousLockEntry = yield* ws.getLockedCommand(ref.command.name);
+    const lockedVersion = Option.match(previousLockEntry, {
+      onNone: () => undefined,
+      onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+    });
 
     // --- Materialize ---
-    const canonicalPath = yield* materializeCommand(ref);
+    const canonicalPath = yield* materializeCommand(ref, {
+      force: op.args.force,
+      lockedVersion,
+    });
 
     // --- Read command content ---
     const { frontmatter, agentOverrides, body, manifest, contentPath } = yield* readCommandContent(

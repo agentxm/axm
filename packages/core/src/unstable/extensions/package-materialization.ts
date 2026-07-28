@@ -15,6 +15,7 @@ import { createRegistryClient, extractZip } from "../registry/index.js";
 import { computeIntegrity, stripFileProtocol } from "../utils/index.js";
 import type { ExtensionName, ExtensionType } from "./common.js";
 import type { Handle } from "./handle.js";
+import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
 import { copyExtensionDirectory, validatePathSafety } from "./utils.js";
 
 const registryLocationForClient = (location: URL): string =>
@@ -41,6 +42,10 @@ export interface MaterializeRegistryPackageArgs {
   readonly version: Version | VersionRange;
   readonly integrity: Option.Option<string>;
   readonly messages: RegistryPackageMaterializationMessages;
+  /** When true, re-materialize unconditionally instead of reusing an existing canonical tree. */
+  readonly force?: boolean;
+  /** Resolved version recorded in the current lockfile entry, when any. */
+  readonly lockedVersion?: string;
 }
 
 export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs) =>
@@ -59,7 +64,13 @@ export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs)
         }),
       ),
     );
-    const useExisting = Option.isNone(args.integrity) && canonicalExists;
+    const useExisting = shouldReuseCanonicalInstall({
+      canonicalExists,
+      force: args.force === true,
+      hasIntegrity: Option.isSome(args.integrity),
+      refVersion: args.version,
+      lockedVersion: args.lockedVersion,
+    });
     if (useExisting) return args.canonicalPath;
 
     const client = yield* createRegistryClient(registryLocationForClient(args.sourceLocation));

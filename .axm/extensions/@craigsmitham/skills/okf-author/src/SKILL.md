@@ -108,19 +108,19 @@ on their merits — several are advisory by design (broken links are explicitly 
 
 `type` is the only always-required key. A concept carrying just `type` is fully conformant.
 
-| Field | Req | Form | Notes |
-|---|---|---|---|
-| `type` | **yes** | string | Kind of concept. Uncontrolled vocabulary — see [Type discipline](#type-discipline). |
-| `title` | rec | string | Display name. Consumers may fall back to the filename. |
-| `description` | rec | string | One sentence. Feeds `index.md` entries and search snippets. |
-| `resource` | rec | URI/path | Canonical URI of the underlying asset. Omit for abstract concepts. |
-| `tags` | rec | list | Short strings, cross-cutting. |
-| `sources` | opt | list | Provenance. Each entry needs `resource`; `id`, `title`, `author`, `usage_count`, `last_modified` optional. |
-| `usage_window` | opt | `{from, to}` | Sibling of `sources`; frames every `usage_count`. Dates are `YYYY-MM-DD`. |
-| `generated` | opt | `{by, at}` | `by` required within it; an actor. `at` = last meaningful content change, ISO 8601 datetime. |
-| `verified` | opt | list of `{by, at}` | Verification events. A bare mapping is a one-element list. |
-| `status` | opt | enum | `draft` \| `stable` \| `deprecated`. Absent means `stable`. |
-| `stale_after` | opt | `YYYY-MM-DD` | Absolute date, not a TTL. Stale when `today >= stale_after`. |
+| Field          | Req     | Form               | Notes                                                                                                      |
+| -------------- | ------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `type`         | **yes** | string             | Kind of concept. Uncontrolled vocabulary — see [Type discipline](#type-discipline).                        |
+| `title`        | rec     | string             | Display name. Consumers may fall back to the filename.                                                     |
+| `description`  | rec     | string             | One sentence. Feeds `index.md` entries and search snippets.                                                |
+| `resource`     | rec     | URI/path           | Canonical URI of the underlying asset. Omit for abstract concepts.                                         |
+| `tags`         | rec     | list               | Short strings, cross-cutting.                                                                              |
+| `sources`      | opt     | list               | Provenance. Each entry needs `resource`; `id`, `title`, `author`, `usage_count`, `last_modified` optional. |
+| `usage_window` | opt     | `{from, to}`       | Sibling of `sources`; frames every `usage_count`. Dates are `YYYY-MM-DD`.                                  |
+| `generated`    | opt     | `{by, at}`         | `by` required within it; an actor. `at` = last meaningful content change, ISO 8601 datetime.               |
+| `verified`     | opt     | list of `{by, at}` | Verification events. A bare mapping is a one-element list.                                                 |
+| `status`       | opt     | enum               | `draft` \| `stable` \| `deprecated`. Absent means `stable`.                                                |
+| `stale_after`  | opt     | `YYYY-MM-DD`       | Absolute date, not a TTL. Stale when `today >= stale_after`.                                               |
 
 Producers may add any other keys; consumers must preserve them. Use that freedom sparingly — a
 custom key no consumer reads is dead weight.
@@ -182,8 +182,8 @@ entries; descriptions should match the linked concept's `description`.
 ```markdown
 # Section Heading
 
-* [Title](relative-url) - short description
-* [Subdirectory](subdir/) - short description
+- [Title](relative-url) - short description
+- [Subdirectory](subdir/) - short description
 ```
 
 **`log.md`** — optional at any level, newest first. `##` headings **must** be ISO `YYYY-MM-DD`. The
@@ -193,8 +193,9 @@ leading bold word is convention, not requirement.
 # Directory Update Log
 
 ## 2026-05-22
-* **Update**: Added a BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
-* **Creation**: Established the [Dataplex Playbook](/playbooks/dataplex.md).
+
+- **Update**: Added a BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
+- **Creation**: Established the [Dataplex Playbook](/playbooks/dataplex.md).
 ```
 
 ## Attested Computation
@@ -205,12 +206,12 @@ the blessed thing ran rather than agent-improvised SQL. Start from
 subtleties this summary omits.
 
 Essentials: `runtime` is **required** for this type (`bigquery`, `postgres`, `dbt`, `python`,
-`Looker`, …) and defines what `parameters` mean. Supply the computation *either* inline as one fenced
-block under `# Computation` *or* via a `computation:` path — never both. `executor.resource` names
+`Looker`, …) and defines what `parameters` mean. Supply the computation _either_ inline as one fenced
+block under `# Computation` _or_ via a `computation:` path — never both. `executor.resource` names
 run instructions and `executor.receipt` lists the fields a run must return; `attester.resource`
 names deterministic, no-LLM verification code.
 
-One rule matters above the rest: **an agent may only supply parameter *values*. It must never
+One rule matters above the rest: **an agent may only supply parameter _values_. It must never
 author or edit the computation.** That parameter-only surface is what makes attestation a mechanical
 comparison instead of a judgement call. If a computation looks wrong, say so — do not rewrite it.
 

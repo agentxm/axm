@@ -169,39 +169,50 @@ export const FilesManagerLive = Layer.effect(
       }
     >();
 
-    const materializeFromRegistry = (ref: RegistryFilesRef) =>
-      provide(
-        materializeRegistryPackage({
-          baseDir,
-          canonicalPath: path.join(
+    const materializeFromRegistry = (ref: RegistryFilesRef, force: boolean) =>
+      Effect.gen(function* () {
+        const lockedEntry = yield* ws
+          .getLockedFilesEntry(ref.name)
+          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+        const lockedVersion = Option.match(lockedEntry, {
+          onNone: () => undefined,
+          onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
+        });
+        return yield* provide(
+          materializeRegistryPackage({
             baseDir,
-            REGISTRY_EXTENSIONS_DIR,
-            ref.owner,
-            FILES_EXTENSION_DIR,
-            ref.name,
-          ),
-          sourceLocation: ref.source.location,
-          owner: ref.owner,
-          type: "files",
-          name: ref.name,
-          version: ref.version,
-          integrity: ref.integrity,
-          messages: {
-            existsFailureDetail: (canonicalPath) =>
-              `Failed to check if canonical files package path exists: ${canonicalPath}`,
-            integrityMismatchCode: "network",
-            integrityMismatchDetail: `Integrity mismatch for file:${ref.name}@${ref.version}`,
-            tempDirectoryFailureDetail:
-              "Temporary directory for registry file install could not be created",
-            createDirectoryFailureDetail: (canonicalPath) =>
-              `Failed to create canonical files package directory: ${canonicalPath}`,
-            inspectExtractedFailureDetail: "Extracted files package directory could not be read",
-            copyEntryFailureCode: "validation",
-            copyEntryFailureDetail: (entry) =>
-              `Failed to copy registry files package entry: ${entry}`,
-          },
-        }),
-      );
+            canonicalPath: path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              FILES_EXTENSION_DIR,
+              ref.name,
+            ),
+            sourceLocation: ref.source.location,
+            owner: ref.owner,
+            type: "files",
+            name: ref.name,
+            version: ref.version,
+            integrity: ref.integrity,
+            force,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            messages: {
+              existsFailureDetail: (canonicalPath) =>
+                `Failed to check if canonical files package path exists: ${canonicalPath}`,
+              integrityMismatchCode: "network",
+              integrityMismatchDetail: `Integrity mismatch for file:${ref.name}@${ref.version}`,
+              tempDirectoryFailureDetail:
+                "Temporary directory for registry file install could not be created",
+              createDirectoryFailureDetail: (canonicalPath) =>
+                `Failed to create canonical files package directory: ${canonicalPath}`,
+              inspectExtractedFailureDetail: "Extracted files package directory could not be read",
+              copyEntryFailureCode: "validation",
+              copyEntryFailureDetail: (entry) =>
+                `Failed to copy registry files package entry: ${entry}`,
+            },
+          }),
+        );
+      });
 
     const materializeFromExternal = (ref: GitHostedFilesRef | LocalFilesRef) =>
       provide(
@@ -220,11 +231,11 @@ export const FilesManagerLive = Layer.effect(
         }),
       );
 
-    const materializePackage = (ref: FilesExtensionRef) =>
+    const materializePackage = (ref: FilesExtensionRef, force = false) =>
       Effect.gen(function* () {
         switch (ref.refType) {
           case "registry":
-            return yield* materializeFromRegistry(ref);
+            return yield* materializeFromRegistry(ref, force);
           case "git-hosted":
           case "local":
             return yield* materializeFromExternal(ref);
@@ -370,8 +381,8 @@ export const FilesManagerLive = Layer.effect(
 
     const materializeInstall: ExtensionManager<FilesExtensionRef>["materializeInstall"] = Effect.fn(
       "FilesManager.materializeInstall",
-    )(function* ({ ref }) {
-      const packageRoot = yield* materializePackage(ref);
+    )(function* ({ ref, force }) {
+      const packageRoot = yield* materializePackage(ref, force === true);
       const manifest = yield* readManifest(packageRoot);
       const entries = yield* ws.getConfiguredFilesEntries();
       const entry = entries[ref.file.name];

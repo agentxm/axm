@@ -3,7 +3,11 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { insertManagedFileBanner, validatePathSafety } from "../extensions/index.js";
+import {
+  insertManagedFileBanner,
+  shouldReuseCanonicalInstall,
+  validatePathSafety,
+} from "../extensions/index.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { SkillExtensionRef, WorkspaceSkillRef } from "./refs.js";
@@ -114,6 +118,7 @@ const materializeRegistry = (
   pathService: Path.Path,
   baseDir: string,
   provide: ProvideFs,
+  reuse: CanonicalReuseContext,
 ) =>
   Effect.gen(function* () {
     const source: SkillPathSource = { refType: "registry", owner: ref.owner };
@@ -134,7 +139,13 @@ const materializeRegistry = (
         }),
       ),
     );
-    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+    const useExisting = shouldReuseCanonicalInstall({
+      canonicalExists,
+      force: reuse.force,
+      hasIntegrity: Option.isSome(ref.integrity),
+      refVersion: ref.version,
+      lockedVersion: reuse.lockedVersion,
+    });
 
     if (!useExisting) {
       const locationStr =
@@ -198,6 +209,12 @@ const materializeWorkspace = (
     return pathService.join(ref.location, "src");
   });
 
+/** Reuse inputs sourced from the caller's operation context and lockfile. */
+export type CanonicalReuseContext = {
+  readonly force: boolean;
+  readonly lockedVersion: string | undefined;
+};
+
 export const materializeSkillCanonical = (args: {
   readonly ref: SkillExtensionRef;
   readonly sanitizedName: string;
@@ -206,6 +223,7 @@ export const materializeSkillCanonical = (args: {
   readonly baseDir: string;
   readonly sources: SourceHostProvidersService;
   readonly provide: ProvideFs;
+  readonly reuse?: CanonicalReuseContext;
 }): Effect.Effect<string, AppError, never> => {
   switch (args.ref.refType) {
     case "git-hosted":
@@ -234,6 +252,7 @@ export const materializeSkillCanonical = (args: {
         args.pathService,
         args.baseDir,
         args.provide,
+        args.reuse ?? { force: false, lockedVersion: undefined },
       );
     case "workspace":
       return materializeWorkspace(args.ref, args.pathService, args.baseDir);

@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -58,7 +59,7 @@ const makeLayers = (opts?: {
                 [ALICE]: {
                   access_token: "axm_ses_existing",
                   refresh_token: "axm_ref_existing",
-                  expires_at: "2099-01-01T00:00:00Z",
+                  expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
                   active: true,
                 },
               },
@@ -92,7 +93,7 @@ const makeLayers = (opts?: {
       Effect.succeed({
         access_token: "axm_ses_new",
         refresh_token: "axm_ref_new",
-        expires_at: "2099-06-01T00:00:00Z",
+        expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
       }),
     getMe: opts?.getMeFails
       ? () =>
@@ -463,7 +464,7 @@ describe("auth login handler", () => {
         Effect.succeed({
           access_token: "axm_ses_new",
           refresh_token: "axm_ref_new",
-          expires_at: "2099-06-01T00:00:00Z",
+          expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
         }),
       getMe: () =>
         Effect.fail(

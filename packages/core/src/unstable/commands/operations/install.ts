@@ -9,6 +9,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -414,7 +415,7 @@ export const installCommand: (
     }
 
     // --- Build lock entry with agents, sourceHash, renderedFiles ---
-    const now = new Date();
+    const now = yield* DateTime.now;
     const workspaceRelativeLocalSourcePath =
       ref.refType === "local"
         ? makeWorkspaceRelativeSourcePath(path, ws.baseDir, ref.source.path)

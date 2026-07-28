@@ -1103,7 +1103,7 @@
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "visibility": { "type": "string" },
-                    "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" },
+                    "updatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
                     "links": { "$ref": "#/components/schemas/ExtensionLinks" }
                   },
                   "required": ["id", "owner", "type", "name", "visibility", "updatedAt", "links"],
@@ -1694,9 +1694,19 @@
                       "type": "string",
                       "enum": ["pending", "dispatching", "completed", "failed"]
                     },
-                    "requestedAt": { "type": "string" },
-                    "completedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "nameReclaimableAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "requestedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+                    "completedAt": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
+                        { "type": "null" }
+                      ]
+                    },
+                    "nameReclaimableAt": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
+                        { "type": "null" }
+                      ]
+                    },
                     "failureCode": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                     "failureDetail": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                   },
@@ -1898,7 +1908,7 @@
                     "name": { "$ref": "#/components/schemas/ExtensionName" },
                     "deprecatedAt": {
                       "anyOf": [
-                        { "type": "string", "readOnly": true, "format": "date-time" },
+                        { "$ref": "#/components/schemas/IsoDateTimeString" },
                         { "type": "null" }
                       ]
                     },
@@ -3153,6 +3163,12 @@
         "title": "Problem Details",
         "description": "RFC 9457 Problem Details payload for AgentXM Registry errors."
       },
+      "IsoDateTimeString": {
+        "type": "string",
+        "title": "ISO Date-Time String",
+        "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+        "format": "date-time"
+      },
       "SessionTokenResponse": {
         "type": "object",
         "properties": {
@@ -3171,11 +3187,7 @@
             "type": "integer",
             "allOf": [{ "description": "Access token lifetime remaining in seconds." }]
           },
-          "expires_at": {
-            "type": "string",
-            "description": "ISO 8601 timestamp when the access token expires.",
-            "format": "date-time"
-          },
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
           "scope": {
             "anyOf": [
               { "type": "string", "description": "Space-delimited list of granted scopes." },
@@ -3318,11 +3330,7 @@
             "description": "Scopes granted to this token."
           },
           "resource_restrictions": { "$ref": "#/components/schemas/ResourceRestrictions" },
-          "expires_at": {
-            "type": "string",
-            "description": "When this token expires.",
-            "format": "date-time"
-          }
+          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
         },
         "required": [
           "id",
@@ -3369,10 +3377,7 @@
                 "type": "string",
                 "description": "Opaque step-up proof for the original request."
               },
-              "expires_at": {
-                "type": "string",
-                "description": "ISO timestamp when this proof expires."
-              }
+              "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" }
             },
             "required": ["status", "step_up", "expires_at"],
             "additionalProperties": false
@@ -3441,7 +3446,6 @@
           }
         ]
       },
-      "IsoDateTimeString": { "type": "string", "allOf": [{ "minLength": 1 }] },
       "TokenId": {
         "type": "string",
         "allOf": [
@@ -4202,8 +4206,8 @@
           "title": { "type": "string" },
           "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
           "visibility": { "$ref": "#/components/schemas/LibraryVisibility" },
-          "createdAt": { "type": "string", "readOnly": true, "format": "date-time" },
-          "updatedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+          "createdAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+          "updatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" }
         },
         "required": [
           "id",
@@ -4238,7 +4242,7 @@
           "extensionOwner": { "$ref": "#/components/schemas/Handle" },
           "extensionType": { "$ref": "#/components/schemas/ExtensionType" },
           "extensionName": { "$ref": "#/components/schemas/ExtensionName" },
-          "addedAt": { "type": "string", "readOnly": true, "format": "date-time" }
+          "addedAt": { "$ref": "#/components/schemas/IsoDateTimeString" }
         },
         "required": [
           "id",

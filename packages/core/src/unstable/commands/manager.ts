@@ -9,6 +9,7 @@
  */
 
 import * as ServiceMap from "effect/Context";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -59,7 +60,7 @@ export class CommandManager extends ServiceMap.Service<
 >()("@agentxm/client-core/unstable/commands/manager/CommandManager") {}
 
 // Build lock entry from registry ref
-const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockEntry => ({
+const buildCommandLockEntry = (ref: RegistryCommandRef, now: DateTime.Utc): CommandLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -72,7 +73,10 @@ const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockE
 });
 
 // Build lock entry for git-hosted refs
-const buildGitHostedCommandLockEntry = (ref: GitHostedCommandRef, now: Date): CommandLockEntry => {
+const buildGitHostedCommandLockEntry = (
+  ref: GitHostedCommandRef,
+  now: DateTime.Utc,
+): CommandLockEntry => {
   const source = ref.source;
   return {
     ...gitSourceLockFields(source, ref.gitTreeSha),
@@ -90,7 +94,7 @@ const localSourceLockPath = (
 
 const buildLocalCommandLockEntry = (
   ref: LocalCommandRef,
-  now: Date,
+  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath?: Option.Option<string>,
 ): CommandLockEntry => ({
   type: "local",
@@ -99,7 +103,10 @@ const buildLocalCommandLockEntry = (
   updatedAt: now,
 });
 
-const buildWorkspaceCommandLockEntry = (ref: WorkspaceCommandRef, now: Date): CommandLockEntry => ({
+const buildWorkspaceCommandLockEntry = (
+  ref: WorkspaceCommandRef,
+  now: DateTime.Utc,
+): CommandLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "command",
@@ -115,7 +122,7 @@ const buildWorkspaceCommandLockEntry = (ref: WorkspaceCommandRef, now: Date): Co
  */
 export const buildLockEntryFromRef = (
   ref: CommandExtensionRef,
-  now: Date,
+  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath?: Option.Option<string>,
 ): CommandLockEntry => {
   switch (ref.refType) {
@@ -395,7 +402,7 @@ export const CommandManagerLive = Layer.effect(
         readonly ref: CommandExtensionRef;
         readonly versionRange: Option.Option<string>;
       }) {
-        const now = new Date();
+        const now = yield* DateTime.now;
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
             ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
@@ -437,7 +444,7 @@ export const CommandManagerLive = Layer.effect(
       }: {
         readonly ref: CommandExtensionRef;
       }) {
-        const now = new Date();
+        const now = yield* DateTime.now;
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
             ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)

@@ -1,3 +1,4 @@
+import type * as DateTime from "effect/DateTime";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Option from "effect/Option";
 import type * as Path from "effect/Path";
@@ -39,7 +40,7 @@ export interface ReconciliationDeclaration {
 export interface ReconciliationContext {
   readonly baseDir: string;
   readonly scope?: WorkspaceScope;
-  readonly now: Date;
+  readonly now: DateTime.Utc;
   /**
    * Configured workspace owner used as the fallback for declarations whose
    * source does not parse as a registry FQN. `Option.none` when no owner is

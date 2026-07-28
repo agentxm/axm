@@ -9,7 +9,7 @@ import type { RegistrySource } from "../sources/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { PackRef } from "./refs.js";
 import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
-import type { ReleaseAgePolicy } from "../registry/index.js";
+import type * as Duration from "effect/Duration";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
 
 type ResolvedDependency<T extends ExtensionType = ExtensionType> = {
@@ -61,7 +61,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
   fqn: string,
   constraint: VersionRange,
   sources: SourceHostProvidersService,
-  releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
+  minimumReleaseAge?: Option.Option<Duration.Duration>,
   sourceOverride?: RegistrySource,
 ): Effect.Effect<ResolvedDependency<T>, AppError> =>
   Effect.gen(function* () {
@@ -80,7 +80,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
         type: expectedType,
         owner: Option.some(parsed.owner),
         versionRange: Option.some<string>(constraint),
-        ...(releaseAgePolicy === undefined ? {} : { releaseAgePolicy }),
+        ...(minimumReleaseAge === undefined ? {} : { minimumReleaseAge }),
       }),
     );
 
@@ -128,7 +128,7 @@ const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
   dependencies: ReadonlyArray<readonly [string, VersionRange]>,
   expectedType: T,
   sources: SourceHostProvidersService,
-  releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
+  minimumReleaseAge?: Option.Option<Duration.Duration>,
   sourceOverride?: RegistrySource,
 ): Effect.Effect<ReadonlyArray<ResolvedDependency<T>>, AppError> =>
   Effect.forEach(
@@ -140,7 +140,7 @@ const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
         fqn,
         constraint,
         sources,
-        releaseAgePolicy,
+        minimumReleaseAge,
         sourceOverride,
       ),
     { concurrency: "unbounded" },
@@ -192,7 +192,7 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
 export const resolvePackDependencies = (
   pack: PackRef,
   sources: SourceHostProvidersService,
-  releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
+  minimumReleaseAge?: Option.Option<Duration.Duration>,
   sourceOverride?: RegistrySource,
 ): Effect.Effect<ResolvedPackDependencies, AppError> =>
   Effect.gen(function* () {
@@ -209,7 +209,7 @@ export const resolvePackDependencies = (
       dependencies.skills,
       "skill",
       sources,
-      releaseAgePolicy,
+      minimumReleaseAge,
       sourceOverride,
     );
     const resolvedCommands = yield* resolveDependencyGroup(
@@ -217,7 +217,7 @@ export const resolvePackDependencies = (
       dependencies.commands,
       "command",
       sources,
-      releaseAgePolicy,
+      minimumReleaseAge,
       sourceOverride,
     );
     const resolvedMcpServers = yield* resolveDependencyGroup(
@@ -225,7 +225,7 @@ export const resolvePackDependencies = (
       dependencies.mcpServers,
       "mcp-server",
       sources,
-      releaseAgePolicy,
+      minimumReleaseAge,
       sourceOverride,
     );
     const resolvedSubagents = yield* resolveDependencyGroup(
@@ -233,7 +233,7 @@ export const resolvePackDependencies = (
       dependencies.subagents,
       "subagent",
       sources,
-      releaseAgePolicy,
+      minimumReleaseAge,
       sourceOverride,
     );
     const resolvedFiles = yield* resolveDependencyGroup(
@@ -241,7 +241,7 @@ export const resolvePackDependencies = (
       dependencies.files,
       "files",
       sources,
-      releaseAgePolicy,
+      minimumReleaseAge,
       sourceOverride,
     );
     const resolvedRules = yield* resolveDependencyGroup(
@@ -249,7 +249,7 @@ export const resolvePackDependencies = (
       dependencies.rules,
       "rule",
       sources,
-      releaseAgePolicy,
+      minimumReleaseAge,
       sourceOverride,
     );
     const resolvedHooks = yield* resolveDependencyGroup(
@@ -257,7 +257,7 @@ export const resolvePackDependencies = (
       dependencies.hooks,
       "hook",
       sources,
-      releaseAgePolicy,
+      minimumReleaseAge,
       sourceOverride,
     );
 

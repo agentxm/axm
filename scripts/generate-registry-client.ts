@@ -41,7 +41,37 @@ const header = `/**
 
 `;
 
-fs.writeFileSync(OUTPUT_PATH, header + result.stdout);
+/**
+ * openapigen has no format-aware mapping, so the spec's ISO date-time
+ * component is emitted as a plain string schema. Swap the generated
+ * declaration for the shared kernel timestamp schema so client responses
+ * decode timestamps to DateTime.Utc (wire format unchanged).
+ */
+const swapDateTimeSchema = (source: string): string => {
+  const typeAnchorPattern = /^export type IsoDateTimeString = string;?$/m;
+  const constAnchorPattern = /^export const IsoDateTimeString = .*$/m;
+  const importAnchorPattern = /^import \* as Stream from "effect\/Stream";?$/m;
+  if (
+    !typeAnchorPattern.test(source) ||
+    !constAnchorPattern.test(source) ||
+    !importAnchorPattern.test(source)
+  ) {
+    console.error(
+      "generate-registry-client: IsoDateTimeString anchors not found in generated output; " +
+        "update swapDateTimeSchema for the new generated shape.",
+    );
+    process.exit(1);
+  }
+  return source
+    .replace(
+      importAnchorPattern,
+      (line) => `${line}\nimport { DateTimeUtcSchema } from "../../date-time.js"`,
+    )
+    .replace(typeAnchorPattern, "export type IsoDateTimeString = typeof DateTimeUtcSchema.Type")
+    .replace(constAnchorPattern, "export const IsoDateTimeString = DateTimeUtcSchema");
+};
+
+fs.writeFileSync(OUTPUT_PATH, header + swapDateTimeSchema(result.stdout));
 
 const formatResult = childProcess.spawnSync("pnpm", ["exec", "prettier", "--write", OUTPUT_PATH], {
   cwd: CORE_ROOT,

@@ -10,6 +10,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -577,8 +578,8 @@ describe("WorkspaceMutationsService", () => {
     type: "github" as const,
     owner: "acme",
     repo: "code-review",
-    installedAt: new Date("2025-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
   });
 
   const makeSampleSubagentLockEntry = (): SubagentLockEntry => ({
@@ -586,8 +587,8 @@ describe("WorkspaceMutationsService", () => {
     owner: "acme",
     repo: "planner",
     sourceHash: "abc123",
-    installedAt: new Date("2025-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
   });
 
   describe("getLockfileState", () => {
@@ -882,21 +883,25 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
 
-        const before = new Date();
+        const before = yield* DateTime.now;
         const ws = yield* getService(defaultOptions);
         yield* ws.setSkill({
           name: "code-review",
           lockEntry: makeSampleLockEntry(),
           versionRange: Option.none(),
         });
-        const after = new Date();
+        const after = yield* DateTime.now;
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const updatedAt = new Date(
+        const updatedAt = DateTime.makeUnsafe(
           stringProperty(recordEntry(lockfile.skills, "code-review"), "updatedAt"),
         );
-        expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-        expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+        expect(DateTime.toEpochMillis(updatedAt)).toBeGreaterThanOrEqual(
+          DateTime.toEpochMillis(before),
+        );
+        expect(DateTime.toEpochMillis(updatedAt)).toBeLessThanOrEqual(
+          DateTime.toEpochMillis(after),
+        );
       }),
     );
 
@@ -925,8 +930,8 @@ describe("WorkspaceMutationsService", () => {
           name: "code-review",
           lockEntry: {
             ...makeSampleLockEntry(),
-            installedAt: new Date("2026-02-03T04:05:06.000Z"),
-            updatedAt: new Date("2026-02-03T04:05:06.000Z"),
+            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
           },
           versionRange: Option.none(),
         });
@@ -960,8 +965,8 @@ describe("WorkspaceMutationsService", () => {
           lockEntry: {
             type: "local",
             path: "skills/local-review",
-            installedAt: new Date("2026-02-03T04:05:06.000Z"),
-            updatedAt: new Date("2026-02-03T04:05:06.000Z"),
+            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
           },
           versionRange: Option.none(),
         });
@@ -1000,8 +1005,8 @@ describe("WorkspaceMutationsService", () => {
           type: "github",
           owner: "acme",
           repo: "code-review-v2",
-          installedAt: new Date("2025-01-01T00:00:00.000Z"),
-          updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+          installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+          updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
         };
         yield* ws.setSkill({
           name: "code-review",
@@ -1018,10 +1023,12 @@ describe("WorkspaceMutationsService", () => {
         const lockfile = readLockfileFromDisk(projectDir);
         expect(recordEntry(lockfile.skills, "code-review")).not.toHaveProperty("agents");
         expect(
-          new Date(
-            stringProperty(recordEntry(lockfile.skills, "code-review"), "updatedAt"),
-          ).getTime(),
-        ).toBeGreaterThan(new Date("2025-01-01T00:00:00.000Z").getTime());
+          DateTime.toEpochMillis(
+            DateTime.makeUnsafe(
+              stringProperty(recordEntry(lockfile.skills, "code-review"), "updatedAt"),
+            ),
+          ),
+        ).toBeGreaterThan(DateTime.toEpochMillis(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z")));
         expect(stringProperty(recordEntry(lockfile.skills, "unrelated"), "updatedAt")).toBe(
           "2025-01-02T00:00:00.000Z",
         );
@@ -1043,8 +1050,8 @@ describe("WorkspaceMutationsService", () => {
           sourceName: "default",
 
           publisherBindingId: "hbnd_test",
-          installedAt: new Date(),
-          updatedAt: new Date(),
+          installedAt: yield* DateTime.now,
+          updatedAt: yield* DateTime.now,
         };
 
         yield* ws.setSkill({
@@ -1074,8 +1081,8 @@ describe("WorkspaceMutationsService", () => {
           sourceName: "default",
 
           publisherBindingId: "hbnd_test",
-          installedAt: new Date(),
-          updatedAt: new Date(),
+          installedAt: yield* DateTime.now,
+          updatedAt: yield* DateTime.now,
         };
 
         yield* ws.setSkill({
@@ -1105,8 +1112,8 @@ describe("WorkspaceMutationsService", () => {
           sourceName: "default",
 
           publisherBindingId: "hbnd_test",
-          installedAt: new Date(),
-          updatedAt: new Date(),
+          installedAt: yield* DateTime.now,
+          updatedAt: yield* DateTime.now,
         };
 
         yield* ws.setSkill({
@@ -1154,8 +1161,8 @@ describe("WorkspaceMutationsService", () => {
           name: "planner",
           lockEntry: {
             ...makeSampleSubagentLockEntry(),
-            installedAt: new Date("2026-02-03T04:05:06.000Z"),
-            updatedAt: new Date("2026-02-03T04:05:06.000Z"),
+            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
           },
         });
 
@@ -1813,8 +1820,8 @@ describe("WorkspaceMutationsService", () => {
     resolvedVersion: exactVersion("1.0.0"),
     integrity: "sha512-AAAA==",
     sourceName: "default",
-    installedAt: new Date("2025-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
     resolvedSkills: {},
     resolvedCommands: {},
     resolvedMcpServers: {},
@@ -2019,17 +2026,21 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
 
-        const before = new Date();
+        const before = yield* DateTime.now;
         const ws = yield* getService(defaultOptions);
         yield* ws.setPack(makeSampleSetPackArgs());
-        const after = new Date();
+        const after = yield* DateTime.now;
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const updatedAt = new Date(
+        const updatedAt = DateTime.makeUnsafe(
           stringProperty(recordEntry(expectDefined(lockfile.packs), "starter-pack"), "updatedAt"),
         );
-        expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-        expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+        expect(DateTime.toEpochMillis(updatedAt)).toBeGreaterThanOrEqual(
+          DateTime.toEpochMillis(before),
+        );
+        expect(DateTime.toEpochMillis(updatedAt)).toBeLessThanOrEqual(
+          DateTime.toEpochMillis(after),
+        );
       }),
     );
   });
@@ -2795,8 +2806,8 @@ describe("WorkspaceMutationsService", () => {
             type: "github" as const,
             owner: "acme",
             repo: "my-mcp",
-            installedAt: new Date("2025-01-01T00:00:00.000Z"),
-            updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+            installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
           },
         });
 
@@ -2894,8 +2905,8 @@ describe("WorkspaceMutationsService", () => {
     type: "github" as const,
     owner: "acme",
     repo: "my-command",
-    installedAt: new Date("2025-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
   });
 
   /** Create sample SetCommandArgs for testing. */
@@ -3002,17 +3013,21 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
 
-        const before = new Date();
+        const before = yield* DateTime.now;
         const ws = yield* getService(defaultOptions);
         yield* ws.setCommand(makeSampleSetCommandArgs());
-        const after = new Date();
+        const after = yield* DateTime.now;
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const updatedAt = new Date(
+        const updatedAt = DateTime.makeUnsafe(
           stringProperty(recordEntry(expectDefined(lockfile.commands), "my-command"), "updatedAt"),
         );
-        expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-        expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+        expect(DateTime.toEpochMillis(updatedAt)).toBeGreaterThanOrEqual(
+          DateTime.toEpochMillis(before),
+        );
+        expect(DateTime.toEpochMillis(updatedAt)).toBeLessThanOrEqual(
+          DateTime.toEpochMillis(after),
+        );
       }),
     );
 
@@ -3037,8 +3052,8 @@ describe("WorkspaceMutationsService", () => {
           type: "github",
           owner: "acme",
           repo: "my-command-v2",
-          installedAt: new Date("2025-01-01T00:00:00.000Z"),
-          updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+          installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+          updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
         };
         yield* ws.setCommand({
           name: "my-command",
@@ -3191,8 +3206,8 @@ describe("WorkspaceMutationsService", () => {
     type: "github" as const,
     owner: "acme",
     repo: "my-mcp-server",
-    installedAt: new Date("2025-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
   });
 
   /** Create sample SetMcpServerArgs for testing. */
@@ -3299,20 +3314,24 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(projectDir, {});
 
-        const before = new Date();
+        const before = yield* DateTime.now;
         const ws = yield* getService(defaultOptions);
         yield* ws.setMcpServer(makeSampleSetMcpServerArgs());
-        const after = new Date();
+        const after = yield* DateTime.now;
 
         const lockfile = readLockfileFromDisk(projectDir);
-        const updatedAt = new Date(
+        const updatedAt = DateTime.makeUnsafe(
           stringProperty(
             recordEntry(expectDefined(lockfile.mcpServers), "my-mcp-server"),
             "updatedAt",
           ),
         );
-        expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-        expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+        expect(DateTime.toEpochMillis(updatedAt)).toBeGreaterThanOrEqual(
+          DateTime.toEpochMillis(before),
+        );
+        expect(DateTime.toEpochMillis(updatedAt)).toBeLessThanOrEqual(
+          DateTime.toEpochMillis(after),
+        );
       }),
     );
 
@@ -3337,8 +3356,8 @@ describe("WorkspaceMutationsService", () => {
           type: "github",
           owner: "acme",
           repo: "my-mcp-server-v2",
-          installedAt: new Date("2025-01-01T00:00:00.000Z"),
-          updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+          installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+          updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
         };
         yield* ws.setMcpServer({
           name: "my-mcp-server",

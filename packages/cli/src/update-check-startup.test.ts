@@ -10,6 +10,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -111,7 +112,10 @@ const makeTrackingUpdateCheck = (opts: {
     writeCache: 0,
     isUpdateAvailable: 0,
   };
-  const freshCache = { latestVersion: REMOTE_VERSION, checkedAt: freshTimestamp() };
+  const freshCache = {
+    latestVersion: REMOTE_VERSION,
+    checkedAt: DateTime.makeUnsafe(freshTimestamp()),
+  };
 
   const service: typeof UpdateCheck.Service = {
     readCache: () =>

@@ -1,3 +1,5 @@
+import * as DateTime from "effect/DateTime";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -744,7 +746,8 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     // Step 4: Download
     const downloadUrl = makeDownloadUrl(repo, targetVersion, binaryInfo.binaryName);
     const targetDir = pathService.dirname(method.execPath);
-    const tempPath = pathService.join(targetDir, `.axm-upgrade-${Date.now()}.tmp`);
+    const nowMillis = yield* Clock.currentTimeMillis;
+    const tempPath = pathService.join(targetDir, `.axm-upgrade-${nowMillis}.tmp`);
 
     const fs = yield* FileSystem.FileSystem;
 
@@ -771,7 +774,7 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     // Step 8: Update install metadata
     yield* installMeta.write({
       method: "script",
-      installedAt: new Date().toISOString(),
+      installedAt: DateTime.formatIso(yield* DateTime.now),
     });
 
     // Step 9: Clean up .old file on Windows

@@ -8,6 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -236,7 +237,7 @@ export const enableCommand: OperationHandler<
 
     // Persist only shared source state. Agent and render state is derived from
     // settings and the workspace filesystem.
-    const now = new Date();
+    const now = yield* DateTime.now;
     const sourceHash = computeSourceHash(body);
     const renderedFiles = decodeRenderedFilesMap(rawRenderedFiles);
     const updatedLockEntry = {

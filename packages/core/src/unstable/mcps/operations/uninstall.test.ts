@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -47,8 +48,8 @@ const makeWorkspaceMock = (
     for (const [k, v] of Object.entries(mcpServers)) {
       lockfile.mcpServers[k] = {
         ...v,
-        installedAt: v.installedAt.toISOString(),
-        updatedAt: v.updatedAt.toISOString(),
+        installedAt: DateTime.formatIso(v.installedAt),
+        updatedAt: DateTime.formatIso(v.updatedAt),
       };
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));

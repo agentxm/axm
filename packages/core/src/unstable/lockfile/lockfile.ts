@@ -10,6 +10,9 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Clock from "effect/Clock";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
@@ -32,7 +35,7 @@ export const LOCKFILE_NAME = "axm-lock.yaml";
 
 const LOCKFILE_LOCK_NAME = `${LOCKFILE_NAME}.lock`;
 const TEMP_PREFIX = `${LOCKFILE_NAME}.tmp.`;
-const STALE_LOCK_TIMEOUT_MILLIS = 30_000;
+const STALE_LOCK_TIMEOUT = Duration.seconds(30);
 const LOCK_RETRY_DELAY = "25 millis";
 
 const lockSemaphores = new Map<string, Semaphore.Semaphore>();
@@ -55,10 +58,14 @@ const lockfilePathFor = (path: Path.Path, axmDir: string): string =>
 const lockfileLockPathFor = (path: Path.Path, axmDir: string): string =>
   path.join(axmDir, LOCKFILE_LOCK_NAME);
 
-const makeTempPath = (path: Path.Path, axmDir: string): string =>
-  path.join(
-    axmDir,
-    `${TEMP_PREFIX}${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 8)}`,
+const makeTempPath = (path: Path.Path, axmDir: string): Effect.Effect<string> =>
+  Clock.currentTimeMillis.pipe(
+    Effect.map((nowMillis) =>
+      path.join(
+        axmDir,
+        `${TEMP_PREFIX}${nowMillis.toString(36)}.${Math.random().toString(36).slice(2, 8)}`,
+      ),
+    ),
   );
 
 const inProcessSemaphoreFor = (key: string): Semaphore.Semaphore => {
@@ -246,13 +253,15 @@ const lockIsStale = (lockPath: string) =>
     const fs = yield* FileSystem.FileSystem;
     const info = yield* fs.stat(lockPath).pipe(Effect.option);
     if (info._tag === "None" || info.value.mtime._tag === "None") return false;
-    return Date.now() - info.value.mtime.value.getTime() > STALE_LOCK_TIMEOUT_MILLIS;
+    const writtenAt = DateTime.makeUnsafe(info.value.mtime.value);
+    return yield* DateTime.isPast(DateTime.addDuration(writtenAt, STALE_LOCK_TIMEOUT));
   });
 
 const createLockFile = (lockPath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const content = `pid=${typeof process === "object" ? process.pid : "unknown"}\ncreatedAt=${new Date().toISOString()}\n`;
+    const createdAt = DateTime.formatIso(yield* DateTime.now);
+    const content = `pid=${typeof process === "object" ? process.pid : "unknown"}\ncreatedAt=${createdAt}\n`;
     yield* fs.writeFileString(lockPath, content, { flag: "wx" });
   });
 
@@ -328,7 +337,7 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const lockfilePath = lockfilePathFor(path, axmDir);
-    const tempPath = makeTempPath(path, axmDir);
+    const tempPath = yield* makeTempPath(path, axmDir);
 
     const yamlContent = yield* encodeLockfileYaml(lockfile);
     const exists = yield* fs.exists(lockfilePath).pipe(

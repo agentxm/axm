@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
@@ -202,8 +203,8 @@ const emptyLockfile: Lockfile = {
 };
 
 const makeCommonLockFields = (overrides?: Partial<SkillLockEntry>) => ({
-  installedAt: overrides?.installedAt ?? new Date(),
-  updatedAt: overrides?.updatedAt ?? new Date(),
+  installedAt: overrides?.installedAt ?? DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+  updatedAt: overrides?.updatedAt ?? DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
   ...(overrides?.gitTreeHash !== undefined && { gitTreeHash: overrides.gitTreeHash }),
   ...(overrides?.retainedByPack !== undefined && { retainedByPack: overrides.retainedByPack }),
 });

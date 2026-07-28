@@ -10,6 +10,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -223,7 +224,7 @@ export const publishSubagent: OperationHandler<
     // Build version entry metadata
     const versionEntry: VersionEntry = {
       version: manifest.version,
-      published: new Date().toISOString(),
+      published: yield* DateTime.now,
       integrity,
       ...(manifest.packages !== undefined && {
         packages: manifest.packages,

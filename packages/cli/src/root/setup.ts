@@ -34,6 +34,7 @@ import { computeSkillPaths, ensureSkillAgentArtifact } from "@agentxm/client-cor
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/unstable/plan";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -233,7 +234,7 @@ const installBundledAxmSkill = Effect.gen(function* () {
     { concurrency: "unbounded" },
   );
 
-  const now = new Date();
+  const now = yield* DateTime.now;
   const lockEntry: SkillLockEntry = {
     type: "workspace",
     owner: normalizeHandle("@agentxm"),

@@ -10,6 +10,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -605,7 +606,8 @@ export const SubagentManagerLive = Layer.effect(
             detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const lockEntry = buildSubagentLockEntry(ref, new Date(), workspaceRelativeLocalSourcePath);
+        const now = yield* DateTime.now;
+        const lockEntry = buildSubagentLockEntry(ref, now, workspaceRelativeLocalSourcePath);
         const state = lastInstallState.get(ref.subagent.name);
         const sharedLockEntry =
           state === undefined
@@ -646,7 +648,8 @@ export const SubagentManagerLive = Layer.effect(
             detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const lockEntry = buildSubagentLockEntry(ref, new Date(), workspaceRelativeLocalSourcePath);
+        const now = yield* DateTime.now;
+        const lockEntry = buildSubagentLockEntry(ref, now, workspaceRelativeLocalSourcePath);
         const state = lastInstallState.get(ref.subagent.name);
         const sharedLockEntry =
           state === undefined

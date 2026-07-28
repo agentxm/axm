@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 
 import type { SkillLockEntry } from "../lockfile/schema.js";
@@ -11,8 +12,8 @@ const makeSourceParams = (source: SourceParams): SourceParams => source;
 
 const baseLockFields = {
   agents: Array<string>(),
-  installedAt: new Date("2025-01-01T00:00:00.000Z"),
-  updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+  installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
 };
 
 const makeLockEntry = (entry: SkillLockEntry): SkillLockEntry => entry;

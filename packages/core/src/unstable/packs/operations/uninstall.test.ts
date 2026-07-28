@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -70,8 +71,8 @@ const makeLockedPack = (): PackLockEntry => ({
   sourceName: "default",
 
   publisherBindingId: "hbnd_test",
-  installedAt: new Date(),
-  updatedAt: new Date(),
+  installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
   resolvedSkills: {},
   resolvedCommands: {},
   resolvedMcpServers: {},

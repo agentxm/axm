@@ -81,6 +81,7 @@ import { makeAbsolutePath } from "../utils/path-types.js";
 
 import { withStrictLockfileReads } from "./lockfile-read-tolerance.js";
 import { getAxmDir } from "./paths.js";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
@@ -130,7 +131,7 @@ const createEmptyLockfile = (): Lockfile => ({
 });
 
 const normalizeForStableCompare = (value: unknown): unknown => {
-  if (value instanceof Date) return value.toISOString();
+  if (DateTime.isDateTime(value)) return DateTime.formatIso(value);
   if (Array.isArray(value)) return value.map(normalizeForStableCompare);
   if (typeof value === "object" && value !== null) {
     const normalized: Record<string, unknown> = {};
@@ -149,8 +150,8 @@ const stableCompare = (left: unknown, right: unknown): boolean =>
   JSON.stringify(normalizeForStableCompare(right));
 
 type TimestampedLockEntry = {
-  readonly installedAt: Date;
-  readonly updatedAt: Date;
+  readonly installedAt: DateTime.Utc;
+  readonly updatedAt: DateTime.Utc;
 };
 
 const withoutLockTimestamps = (entry: TimestampedLockEntry): unknown => {
@@ -170,26 +171,32 @@ const skillLockEntrySemanticallyEqual = (
   next: SkillLockEntry,
 ): boolean => lockEntrySemanticallyEqual(current, next);
 
-const nextUpdatedAt = (current: TimestampedLockEntry | undefined): Date => {
-  const now = new Date();
-  if (current === undefined) return now;
-  const currentTime = current.updatedAt.getTime();
-  return now.getTime() > currentTime ? now : new Date(currentTime + 1);
-};
+const nextUpdatedAt = (current: TimestampedLockEntry | undefined): Effect.Effect<DateTime.Utc> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now;
+    if (current === undefined) return now;
+    // Keep updatedAt strictly increasing even when the clock has not advanced
+    // between two writes within the same millisecond.
+    const currentMillis = DateTime.toEpochMillis(current.updatedAt);
+    return DateTime.toEpochMillis(now) > currentMillis
+      ? now
+      : DateTime.makeUnsafe(currentMillis + 1);
+  });
 
 const preserveLockTimestampsOnNoop = <TEntry extends TimestampedLockEntry>(
   current: TEntry | undefined,
   next: TEntry,
-): TEntry => {
-  const candidate = {
-    ...next,
-    installedAt: current?.installedAt ?? next.installedAt,
-    updatedAt: nextUpdatedAt(current),
-  };
-  return lockEntrySemanticallyEqual(current, candidate) && current !== undefined
-    ? current
-    : candidate;
-};
+): Effect.Effect<TEntry> =>
+  Effect.gen(function* () {
+    const candidate = {
+      ...next,
+      installedAt: current?.installedAt ?? next.installedAt,
+      updatedAt: yield* nextUpdatedAt(current),
+    };
+    return lockEntrySemanticallyEqual(current, candidate) && current !== undefined
+      ? current
+      : candidate;
+  });
 
 const subagentLockEntrySemanticallyEqual = (
   current: SubagentLockEntry | undefined,
@@ -658,7 +665,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               files: {
                 ...currentLockedContext,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -679,7 +686,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               files: {
                 ...currentLockedContext,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -829,7 +836,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -850,7 +857,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1000,7 +1007,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1021,7 +1028,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1169,7 +1176,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               knowledge: {
                 ...currentLocked,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             }).pipe(Effect.provide(fsLayer));
           }),
@@ -1185,7 +1192,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               knowledge: {
                 ...currentLocked,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             }).pipe(Effect.provide(fsLayer));
           }),
@@ -1362,7 +1369,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ...currentLockfile.skills,
                 [name]: {
                   ...lockEntry,
-                  updatedAt: nextUpdatedAt(currentLockEntry),
+                  updatedAt: yield* nextUpdatedAt(currentLockEntry),
                 },
               },
             };
@@ -1388,7 +1395,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ...currentLockfile.skills,
                 [name]: {
                   ...lockEntry,
-                  updatedAt: nextUpdatedAt(currentLockfile.skills[name]),
+                  updatedAt: yield* nextUpdatedAt(currentLockfile.skills[name]),
                 },
               },
             };
@@ -1585,7 +1592,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               packs: {
                 ...currentLockedPacks,
-                [name]: preserveLockTimestampsOnNoop(currentLockedPacks[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockedPacks[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1680,7 +1687,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               commands: {
                 ...currentLockedCommands,
-                [name]: preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1701,7 +1708,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               commands: {
                 ...currentLockedCommands,
-                [name]: preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1835,7 +1842,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               subagents: {
                 ...currentLockedSubagents,
-                [name]: preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1859,7 +1866,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               subagents: {
                 ...currentLockedSubagents,
-                [name]: preserveLockTimestampsOnNoop(currentLockedSubagents[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(
+                  currentLockedSubagents[name],
+                  lockEntry,
+                ),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -2023,7 +2033,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: preserveLockTimestampsOnNoop(currentLockedMcpServers[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(
+                  currentLockedMcpServers[name],
+                  lockEntry,
+                ),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -2044,7 +2057,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: preserveLockTimestampsOnNoop(currentLockedMcpServers[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(
+                  currentLockedMcpServers[name],
+                  lockEntry,
+                ),
               },
             };
             yield* commitLockfileSnapshotUpdate(

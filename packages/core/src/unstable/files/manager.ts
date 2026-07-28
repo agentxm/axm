@@ -7,6 +7,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -69,7 +70,7 @@ const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTarget
 
 const registryFilesLockEntry = (
   ref: RegistryFilesRef,
-  now: Date,
+  now: DateTime.Utc,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
 ): FilesLockEntry => ({
   type: "registry",
@@ -85,7 +86,7 @@ const registryFilesLockEntry = (
 
 const gitFilesLockEntry = (
   ref: GitHostedFilesRef,
-  now: Date,
+  now: DateTime.Utc,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
 ): FilesLockEntry => {
   const common = {
@@ -101,7 +102,7 @@ const gitFilesLockEntry = (
 
 const localFilesLockEntry = (
   ref: LocalFilesRef,
-  now: Date,
+  now: DateTime.Utc,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ): FilesLockEntry => ({
@@ -113,7 +114,7 @@ const localFilesLockEntry = (
 
 const workspaceFilesLockEntry = (
   ref: WorkspaceFilesRef,
-  now: Date,
+  now: DateTime.Utc,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
 ): FilesLockEntry => ({
   type: "workspace",
@@ -432,28 +433,27 @@ export const FilesManagerLive = Layer.effect(
       });
     }, Effect.asVoid);
 
-    const buildLockEntry = (ref: FilesExtensionRef): Effect.Effect<FilesLockEntry, never> => {
-      const state = lastInstallState.get(ref.file.name);
-      const resolvedInputs = state?.resolvedInputs ?? {};
-      const now = new Date();
-      switch (ref.refType) {
-        case "registry":
-          return Effect.succeed(registryFilesLockEntry(ref, now, resolvedInputs));
-        case "git-hosted":
-          return Effect.succeed(gitFilesLockEntry(ref, now, resolvedInputs));
-        case "local":
-          return Effect.succeed(
-            localFilesLockEntry(
+    const buildLockEntry = (ref: FilesExtensionRef): Effect.Effect<FilesLockEntry, never> =>
+      Effect.gen(function* () {
+        const state = lastInstallState.get(ref.file.name);
+        const resolvedInputs = state?.resolvedInputs ?? {};
+        const now = yield* DateTime.now;
+        switch (ref.refType) {
+          case "registry":
+            return registryFilesLockEntry(ref, now, resolvedInputs);
+          case "git-hosted":
+            return gitFilesLockEntry(ref, now, resolvedInputs);
+          case "local":
+            return localFilesLockEntry(
               ref,
               now,
               resolvedInputs,
               state?.workspaceRelativeLocalSourcePath ?? Option.none(),
-            ),
-          );
-        case "workspace":
-          return Effect.succeed(workspaceFilesLockEntry(ref, now, resolvedInputs));
-      }
-    };
+            );
+          case "workspace":
+            return workspaceFilesLockEntry(ref, now, resolvedInputs);
+        }
+      });
 
     const materializeUninstall: ExtensionManager<FilesExtensionRef>["materializeUninstall"] =
       Effect.fn("FilesManager.materializeUninstall")(function* ({ target, preserveSource }) {

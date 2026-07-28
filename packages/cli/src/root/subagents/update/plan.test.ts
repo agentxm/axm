@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
@@ -42,8 +43,8 @@ const makeRegistryLockEntry = (version: string): SubagentLockEntry => ({
   integrity: "sha512-AAAA==",
   sourceName: "test",
   publisherBindingId: "hbnd_test",
-  installedAt: new Date(),
-  updatedAt: new Date(),
+  installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
 });
 
 const noopRunClosure = (_op: UpdateOperation) =>

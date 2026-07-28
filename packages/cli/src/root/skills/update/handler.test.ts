@@ -11,8 +11,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as TestClock from "effect/testing/TestClock";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
@@ -238,7 +240,16 @@ describe("update.handler — error recovery", () => {
       SPLayer,
       CodingAgentRepositoryLive,
     );
-    const provide = makeEffectProvide(FullLayer);
+    const baseProvide = makeEffectProvide(FullLayer);
+    // Registry fixtures are published at 2026-01-01; advance the virtual clock
+    // past publish + minimumReleaseAge so release-age filtering sees them as mature.
+    const provide: typeof baseProvide = (effect) =>
+      baseProvide(
+        Effect.andThen(
+          TestClock.setTime(DateTime.toEpochMillis(DateTime.makeUnsafe("2026-06-01T00:00:00Z"))),
+          () => effect,
+        ),
+      );
 
     return {
       provide,
@@ -725,7 +736,16 @@ describe("update.handler — preview flag", () => {
       SPLayer,
       CodingAgentRepositoryLive,
     );
-    const provide = makeEffectProvide(FullLayer);
+    const baseProvide = makeEffectProvide(FullLayer);
+    // Registry fixtures are published at 2026-01-01; advance the virtual clock
+    // past publish + minimumReleaseAge so release-age filtering sees them as mature.
+    const provide: typeof baseProvide = (effect) =>
+      baseProvide(
+        Effect.andThen(
+          TestClock.setTime(DateTime.toEpochMillis(DateTime.makeUnsafe("2026-06-01T00:00:00Z"))),
+          () => effect,
+        ),
+      );
 
     return {
       provide,

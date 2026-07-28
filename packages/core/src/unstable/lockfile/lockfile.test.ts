@@ -3,6 +3,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
@@ -46,8 +48,8 @@ describe("lockfile", () => {
     type: "github",
     owner: "example-org",
     repo: "agent-skills",
-    installedAt: new Date("2026-01-28T10:00:00.000Z"),
-    updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+    installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
     ...overrides,
   });
 
@@ -221,8 +223,8 @@ describe("lockfile", () => {
             type: "github" as const,
             owner: "example-org",
             repo: "knowledge-repo",
-            installedAt: new Date("2026-01-28T10:00:00.000Z"),
-            updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+            installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
           };
           // On-disk lockfile already carries a knowledge entry.
           const onDisk: Lockfile = {
@@ -267,8 +269,8 @@ describe("lockfile", () => {
             baseline: {
               type: "local",
               path: "./files/baseline",
-              installedAt: new Date("2026-01-28T10:00:00.000Z"),
-              updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+              installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+              updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
               resolvedInputs: {},
             },
           },
@@ -310,8 +312,8 @@ describe("lockfile", () => {
                 baseline: {
                   type: "local",
                   path: "./files/baseline",
-                  installedAt: new Date("2026-01-28T10:00:00.000Z"),
-                  updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+                  installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+                  updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
                   resolvedInputs: { projectName: "AgentXM" },
                 },
               },
@@ -404,7 +406,11 @@ describe("lockfile", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           const lockPath = path.join(axmDir, "axm-lock.yaml.lock");
           fs.writeFileSync(lockPath, "stale");
-          fs.utimesSync(lockPath, new Date(Date.now() - 60_000), new Date(Date.now() - 60_000));
+          // Age the lock relative to the effect clock, which drives staleness.
+          const staleAt = DateTime.toDateUtc(
+            DateTime.subtractDuration(yield* DateTime.now, Duration.seconds(60)),
+          );
+          fs.utimesSync(lockPath, staleAt, staleAt);
 
           const lockfile: Lockfile = {
             lockfileVersion: 3,
@@ -463,8 +469,8 @@ describe("lockfile", () => {
             ref: "main",
             path: "skills/pr-review",
             gitTreeHash: "abc123def456789012345678901234567890",
-            installedAt: new Date("2026-01-28T10:00:00.000Z"),
-            updatedAt: new Date("2026-01-28T12:30:00.000Z"),
+            installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-01-28T12:30:00.000Z"),
           };
           const lockfile: Lockfile = {
             lockfileVersion: 3,
@@ -486,8 +492,8 @@ describe("lockfile", () => {
             expect(prReview?.path).toBe(entry.path);
           }
           expect(prReview?.gitTreeHash).toBe(entry.gitTreeHash);
-          expect(prReview?.installedAt).toBe(entry.installedAt.toISOString());
-          expect(prReview?.updatedAt).toBe(entry.updatedAt.toISOString());
+          expect(prReview?.installedAt).toBe(DateTime.formatIso(entry.installedAt));
+          expect(prReview?.updatedAt).toBe(DateTime.formatIso(entry.updatedAt));
         }),
       ),
     );

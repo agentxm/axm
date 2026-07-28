@@ -10,6 +10,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -49,6 +50,7 @@ const buildSetPackArgs = (
 ): Effect.Effect<SetPackArgs, AppError> =>
   Effect.gen(function* () {
     const resolved = yield* resolvePackDependencies(ref, sources);
+    const now = yield* DateTime.now;
 
     return {
       type: "registry",
@@ -58,8 +60,8 @@ const buildSetPackArgs = (
       integrity: Option.getOrElse(ref.integrity, () => ""),
       sourceName: "default",
       publisherBindingId: ref.publisherBindingId,
-      installedAt: new Date(),
-      updatedAt: new Date(),
+      installedAt: now,
+      updatedAt: now,
       resolvedSkills: resolved.resolvedSkills,
       resolvedCommands: resolved.resolvedCommands,
       resolvedMcpServers: resolved.resolvedMcpServers,
@@ -79,6 +81,7 @@ const buildWorkspaceSetPackArgs = (
 ) =>
   Effect.gen(function* () {
     const resolved = yield* resolvePackDependencies(ref, sources, undefined, registrySource);
+    const now = yield* DateTime.now;
     return {
       type: "workspace",
       owner: ref.owner,
@@ -86,8 +89,8 @@ const buildWorkspaceSetPackArgs = (
       name: ref.name,
       version: ref.version,
       sourceHash: ref.sourceHash,
-      installedAt: new Date(),
-      updatedAt: new Date(),
+      installedAt: now,
+      updatedAt: now,
       resolvedSkills: resolved.resolvedSkills,
       resolvedCommands: resolved.resolvedCommands,
       resolvedMcpServers: resolved.resolvedMcpServers,
@@ -276,6 +279,7 @@ export const PackManagerLive = Layer.effect(
         }
 
         if (Object.keys(ref.pack.dependencies).length === 0) {
+          const now = yield* DateTime.now;
           return yield* ws.setPack({
             type: "workspace",
             owner: ref.owner,
@@ -283,8 +287,8 @@ export const PackManagerLive = Layer.effect(
             name: ref.name,
             version: ref.version,
             sourceHash: ref.sourceHash,
-            installedAt: new Date(),
-            updatedAt: new Date(),
+            installedAt: now,
+            updatedAt: now,
             resolvedSkills: {},
             resolvedCommands: {},
             resolvedMcpServers: {},

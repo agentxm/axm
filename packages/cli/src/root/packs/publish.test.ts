@@ -8,6 +8,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -198,7 +199,7 @@ describe("packs publish.handler", () => {
                     [TESTUSER]: {
                       access_token: "axm_ses_test",
                       refresh_token: "axm_ref_test",
-                      expires_at: "2099-01-01T00:00:00Z",
+                      expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
                       active: true,
                     },
                   },

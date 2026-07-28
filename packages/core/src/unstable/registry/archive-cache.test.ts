@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -139,18 +140,23 @@ describe("ArchiveCache", () => {
         const entries = (yield* fs.readDirectory(cacheRoot))
           .filter((name) => name.endsWith(".zip"))
           .sort();
-        const now = Date.now();
+        // Age the entries against the effect clock, which `prune` now reads.
+        const now = yield* Clock.currentTimeMillis;
         const expired = entries[0];
         const older = entries[1];
         const newest = entries[2];
         if (expired === undefined || older === undefined || newest === undefined) {
           return yield* Effect.die("Expected three cache entries");
         }
-        utimesSync(nodePath.join(cacheRoot, expired), new Date(now - 2_000), new Date(now - 2_000));
-        utimesSync(nodePath.join(cacheRoot, older), new Date(now - 500), new Date(now - 500));
-        utimesSync(nodePath.join(cacheRoot, newest), new Date(now), new Date(now));
+        const ageEntry = (name: string, elapsedMillis: number) => {
+          const mtime = new Date(now - elapsedMillis);
+          utimesSync(nodePath.join(cacheRoot, name), mtime, mtime);
+        };
+        ageEntry(expired, 2_000);
+        ageEntry(older, 500);
+        ageEntry(newest, 0);
 
-        const result = yield* cache.prune(now);
+        const result = yield* cache.prune();
 
         expect(result).toEqual({ removed: 2, bytesFreed: 6, remaining: 1, remainingBytes: 3 });
         expect(readFileSync(nodePath.join(cacheRoot, newest))).toHaveLength(3);

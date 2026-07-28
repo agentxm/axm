@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -54,7 +55,7 @@ const makeLayers = (opts?: {
                 [ALICE]: {
                   access_token: "axm_ses_mytoken",
                   refresh_token: "axm_ref_mytoken",
-                  expires_at: "2099-01-01T00:00:00Z",
+                  expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
                   active: true,
                 },
               },
@@ -207,8 +208,8 @@ describe("auth token handler", () => {
             name: params.name,
             scopes: ["extensions:read", "extensions:publish:new"],
             permissions: { kind: "gat" },
-            createdAt: "2026-05-15T00:00:00.000Z",
-            expiresAt: "2026-06-14T00:00:00.000Z",
+            createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
+            expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
           });
         },
       },
@@ -263,8 +264,8 @@ describe("auth token handler", () => {
             name: params.name,
             scopes: ["extensions:read"],
             permissions: { kind: "gat" },
-            createdAt: "2026-05-15T00:00:00.000Z",
-            expiresAt: "2026-06-14T00:00:00.000Z",
+            createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
+            expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
           }),
       },
     });
@@ -329,8 +330,8 @@ describe("auth token handler", () => {
                 type: "pat",
                 scopes: ["extensions:read"],
                 permissions: null,
-                createdAt: "2026-05-15T00:00:00.000Z",
-                expiresAt: "2026-06-15T00:00:00.000Z",
+                createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
+                expiresAt: DateTime.makeUnsafe("2026-06-15T00:00:00.000Z"),
                 lastUsedAt: null,
               },
             ],
@@ -368,8 +369,8 @@ describe("auth token handler", () => {
                 type: "pat",
                 scopes: ["extensions:read"],
                 permissions: null,
-                createdAt: "2026-05-15T00:00:00.000Z",
-                expiresAt: "2026-06-15T00:00:00.000Z",
+                createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
+                expiresAt: DateTime.makeUnsafe("2026-06-15T00:00:00.000Z"),
                 lastUsedAt: null,
               },
             ],

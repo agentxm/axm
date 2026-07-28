@@ -12,6 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as ServiceMap from "effect/Context";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -59,10 +60,11 @@ export class SkillManager extends ServiceMap.Service<
 const buildSkillLockEntry = (
   ref: SkillExtensionRef,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
+  now: DateTime.Utc,
 ) =>
   sourceToLockEntry({
     ref,
-    now: new Date(),
+    now,
     sourceName: Option.none(),
     existingInstalledAt: Option.none(),
     workspaceRelativeLocalSourcePath,
@@ -292,7 +294,8 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const lockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath);
+        const now = yield* DateTime.now;
+        const lockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, now);
         if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `skills.${ref.skill.name}.resolvedVersion`,
@@ -324,7 +327,8 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        const baseLockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath);
+        const now = yield* DateTime.now;
+        const baseLockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, now);
         const lockEntry =
           retainedByPack === true ? { ...baseLockEntry, retainedByPack: true } : baseLockEntry;
         if (lockEntry.type === "registry") {

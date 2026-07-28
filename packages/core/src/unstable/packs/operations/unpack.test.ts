@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { vi } from "vitest";
@@ -61,8 +62,8 @@ describe("unpackPack", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: new Date(),
-              updatedAt: new Date(),
+              installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+              updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
               resolvedSkills: {
                 "@acme/skills/my-skill": {
                   version: exactVersion("1.0.0"),
@@ -116,8 +117,8 @@ describe("unpackPack", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
-              installedAt: new Date(),
-              updatedAt: new Date(),
+              installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+              updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
               resolvedSkills: {},
               resolvedCommands: {
                 "@acme/commands/existing-cmd": {

@@ -9,16 +9,23 @@ import * as path from "node:path";
 import { zipSync } from "fflate";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import * as TestClock from "effect/testing/TestClock";
 import { afterEach, beforeEach } from "vitest";
 
 import type { VersionEntry } from "./schema.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { computeIntegrity } from "../utils/index.js";
-import { filterMatureVersions, parseMinimumReleaseAge } from "./release-age-policy.js";
+import {
+  filterMatureVersions,
+  isVersionEntryMature,
+  parseMinimumReleaseAge,
+} from "./release-age-policy.js";
 import {
   extensionDir,
   extensionLifecycleWarnings,
@@ -35,7 +42,7 @@ import {
 
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
   version: exactVersion("1.0.0"),
-  published: "2025-01-01T00:00:00Z",
+  published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
   integrity: "sha512-AAAA==",
   ...overrides,
 });
@@ -64,7 +71,7 @@ describe("selectVersion", () => {
     const result = selectVersion([
       makeVersionEntry({
         version: exactVersion("2.0.0"),
-        yankedAt: "2025-02-01T00:00:00Z",
+        yankedAt: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
       }),
       makeVersionEntry({ version: exactVersion("1.0.0") }),
     ]);
@@ -77,7 +84,7 @@ describe("resolveVersionEntry", () => {
   const versions = [
     makeVersionEntry({
       version: exactVersion("1.2.0"),
-      yankedAt: "2025-02-01T00:00:00Z",
+      yankedAt: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
     }),
     makeVersionEntry({ version: exactVersion("1.1.0") }),
   ];
@@ -98,7 +105,7 @@ describe("resolveVersionEntry", () => {
 describe("extensionLifecycleWarnings", () => {
   it("uses canonical plural paths for MCP servers", () => {
     const version = makeVersionEntry({
-      yankedAt: "2025-02-01T00:00:00Z",
+      yankedAt: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
     });
 
     expect(
@@ -117,46 +124,71 @@ describe("extensionLifecycleWarnings", () => {
 });
 
 describe("minimum release age", () => {
+  const oneDay = Duration.hours(24);
+  const now = DateTime.makeUnsafe("2025-01-03T00:00:00Z");
+  const mixedMaturityVersions = [
+    makeVersionEntry({
+      version: exactVersion("1.3.0"),
+      published: DateTime.makeUnsafe("2025-01-02T23:00:00Z"),
+    }),
+    makeVersionEntry({
+      version: exactVersion("1.2.0"),
+      published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
+    }),
+  ];
+
   it("parses duration strings", () => {
-    expect(Option.getOrThrow(parseMinimumReleaseAge("24h"))).toBe(86_400_000);
-    expect(Option.getOrThrow(parseMinimumReleaseAge("1440m"))).toBe(86_400_000);
-    expect(Option.getOrThrow(parseMinimumReleaseAge("0s"))).toBe(0);
+    expect(Duration.toMillis(Option.getOrThrow(parseMinimumReleaseAge("24h")))).toBe(86_400_000);
+    expect(Duration.toMillis(Option.getOrThrow(parseMinimumReleaseAge("1440m")))).toBe(86_400_000);
+    expect(Duration.toMillis(Option.getOrThrow(parseMinimumReleaseAge("0s")))).toBe(0);
     expect(Option.isNone(parseMinimumReleaseAge("tomorrow"))).toBe(true);
   });
 
-  it("filters versions newer than the configured age", () => {
-    const policy = { minimumAgeMs: 24 * 60 * 60 * 1000, now: new Date("2025-01-03T00:00:00Z") };
-    const versions = [
-      makeVersionEntry({
-        version: exactVersion("1.3.0"),
-        published: "2025-01-02T23:00:00Z",
-      }),
-      makeVersionEntry({
-        version: exactVersion("1.2.0"),
-        published: "2025-01-01T00:00:00Z",
-      }),
-    ];
+  it.effect("filters versions newer than the configured age", () =>
+    Effect.gen(function* () {
+      yield* TestClock.setTime(DateTime.toEpochMillis(now));
 
-    expect(filterMatureVersions(versions, policy).map((entry) => entry.version)).toEqual(["1.2.0"]);
-  });
+      const mature = yield* filterMatureVersions(mixedMaturityVersions, oneDay);
 
-  it("resolves the newest mature version when release age is enforced", () => {
-    const policy = { minimumAgeMs: 24 * 60 * 60 * 1000, now: new Date("2025-01-03T00:00:00Z") };
-    const versions = [
-      makeVersionEntry({
-        version: exactVersion("1.3.0"),
-        published: "2025-01-02T23:00:00Z",
-      }),
-      makeVersionEntry({
-        version: exactVersion("1.2.0"),
-        published: "2025-01-01T00:00:00Z",
-      }),
-    ];
+      expect(mature.map((entry) => entry.version)).toEqual(["1.2.0"]);
+    }),
+  );
 
-    const result = resolveVersionEntryWithReleaseAge(versions, Option.none(), Option.some(policy));
+  it.effect("treats a version published exactly minimumAge ago as mature", () =>
+    Effect.gen(function* () {
+      yield* TestClock.setTime(DateTime.toEpochMillis(now));
+      const entry = makeVersionEntry({
+        version: exactVersion("1.4.0"),
+        published: DateTime.makeUnsafe("2025-01-02T00:00:00Z"),
+      });
 
-    expect(Option.getOrThrow(result).version).toBe("1.2.0");
-  });
+      expect(yield* isVersionEntryMature(entry, oneDay)).toBe(true);
+    }),
+  );
+
+  it.effect("treats every version as mature when minimumAge is zero", () =>
+    Effect.gen(function* () {
+      yield* TestClock.setTime(DateTime.toEpochMillis(now));
+
+      const mature = yield* filterMatureVersions(mixedMaturityVersions, Duration.zero);
+
+      expect(mature.map((entry) => entry.version)).toEqual(["1.3.0", "1.2.0"]);
+    }),
+  );
+
+  it.effect("resolves the newest mature version when release age is enforced", () =>
+    Effect.gen(function* () {
+      yield* TestClock.setTime(DateTime.toEpochMillis(now));
+
+      const result = yield* resolveVersionEntryWithReleaseAge(
+        mixedMaturityVersions,
+        Option.none(),
+        Option.some(oneDay),
+      );
+
+      expect(Option.getOrThrow(result).version).toBe("1.2.0");
+    }),
+  );
 });
 
 // -----------------------------------------------------------------------------

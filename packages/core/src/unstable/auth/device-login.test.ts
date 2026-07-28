@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -43,7 +44,7 @@ const makeLayers = (opts?: {
       Effect.succeed({
         access_token: "axm_ses_new",
         refresh_token: "axm_ref_new",
-        expires_at: "2099-06-01T00:00:00Z",
+        expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
       }),
     getMe: (_accessToken: string) =>
       opts?.getMeFails
@@ -189,7 +190,7 @@ describe("runDeviceLogin", () => {
         Effect.succeed({
           access_token: "axm_ses_new",
           refresh_token: "axm_ref_new",
-          expires_at: "2099-06-01T00:00:00Z",
+          expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
         }),
       getMe: (_accessToken: string) =>
         Effect.succeed({

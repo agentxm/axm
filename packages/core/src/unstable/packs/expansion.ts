@@ -26,7 +26,7 @@ import type {
 } from "../workspace/service-interface.js";
 import type { Lockfile } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
-import type { ReleaseAgePolicy } from "../registry/index.js";
+import type * as Duration from "effect/Duration";
 import { resolvePackDependencies } from "./dependency-resolution.js";
 
 // -----------------------------------------------------------------------------
@@ -51,11 +51,11 @@ export const expandPackInstallRefs = (args: {
   readonly pack: PackRef;
   readonly supportedDependencyTypes: ReadonlyArray<ExtensionType>;
   readonly sources: SourceHostProvidersService;
-  readonly releaseAgePolicy?: Option.Option<ReleaseAgePolicy>;
+  readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
 }): Effect.Effect<ReadonlyArray<ExtensionRef>, AppError> =>
   Effect.gen(function* () {
-    const { pack, supportedDependencyTypes, sources, releaseAgePolicy } = args;
-    const resolved = yield* resolvePackDependencies(pack, sources, releaseAgePolicy);
+    const { pack, supportedDependencyTypes, sources, minimumReleaseAge } = args;
+    const resolved = yield* resolvePackDependencies(pack, sources, minimumReleaseAge);
 
     const deps = resolved.dependencyRefs.filter((ref) =>
       supportedDependencyTypes.includes(ref.type),

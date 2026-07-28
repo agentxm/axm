@@ -2,6 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { withAuthGuard } from "@agentxm/client-core/unstable/auth";
@@ -232,7 +233,7 @@ const publishFiles = (args: {
     const client = yield* createRegistryClient(args.registry.url);
     const metadata: VersionEntry = {
       version: args.subject.manifest.version,
-      published: new Date().toISOString(),
+      published: yield* DateTime.now,
       integrity,
       ...(args.subject.manifest.packages !== undefined
         ? { packages: args.subject.manifest.packages }

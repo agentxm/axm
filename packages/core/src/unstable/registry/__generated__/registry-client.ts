@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import type { SchemaError } from "effect/Schema";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
+import { DateTimeUtcSchema } from "../../date-time.js";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
@@ -127,53 +128,8 @@ export const PublishDetails = Schema.Struct({
   title: "Publish Details",
   description: "Extended error details for publish-related and retryable error responses.",
 });
-export type SessionTokenResponse = {
-  readonly access_token: string;
-  readonly refresh_token?: string | null;
-  readonly token_type: "Bearer";
-  readonly expires_in: number;
-  readonly expires_at: string;
-  readonly scope?: string | null;
-  readonly publish_request_id?: string | null;
-};
-export const SessionTokenResponse = Schema.Struct({
-  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
-  refresh_token: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description:
-          "OAuth 2.0 refresh token for obtaining new token pairs. Omitted for exact publish capabilities.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Number.annotate({
-    description: "Access token lifetime remaining in seconds.",
-  }).check(Schema.isInt()),
-  expires_at: Schema.String.annotate({
-    description: "ISO 8601 timestamp when the access token expires.",
-    format: "date-time",
-  }),
-  scope: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
-      Schema.Null,
-    ]),
-  ),
-  publish_request_id: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description:
-          "Publish authorization request that produced a non-refreshable exact capability.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-}).annotate({
-  title: "Session Token Response",
-  description: "OAuth 2.0 token response containing an access/refresh token pair.",
-});
+export type IsoDateTimeString = typeof DateTimeUtcSchema.Type;
+export const IsoDateTimeString = DateTimeUtcSchema;
 export type TokenOAuthError = {
   readonly kind: "TokenOAuthError";
   readonly error:
@@ -235,19 +191,6 @@ export const ResourceRestrictions = Schema.Struct({
   title: "Resource Restrictions",
   description: "What this token is allowed to access.",
 });
-export type StepUpChallengeResponse =
-  | { readonly status: "pending" }
-  | { readonly status: "completed"; readonly step_up: string; readonly expires_at: string };
-export const StepUpChallengeResponse = Schema.Union([
-  Schema.Struct({ status: Schema.Literal("pending") }),
-  Schema.Struct({
-    status: Schema.Literal("completed"),
-    step_up: Schema.String.annotate({
-      description: "Opaque step-up proof for the original request.",
-    }),
-    expires_at: Schema.String.annotate({ description: "ISO timestamp when this proof expires." }),
-  }),
-]).annotate({ title: "Step-up Challenge Response" });
 export type Handle = string;
 export const Handle = Schema.String.check(
   Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$"), {
@@ -311,8 +254,6 @@ export const PublishAuthorizationRequestId = Schema.String.check(
     examples: ["pubreq_01h455vb4pexka56gq5w2r7cpc"],
   }),
 );
-export type IsoDateTimeString = string;
-export const IsoDateTimeString = Schema.String.check(Schema.isMinLength(1));
 export type TokenId = string;
 export const TokenId = Schema.String.check(
   Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$"), {
@@ -751,6 +692,67 @@ export const ProblemDetails = Schema.Struct({
   title: "Problem Details",
   description: "RFC 9457 Problem Details payload for AgentXM Registry errors.",
 });
+export type SessionTokenResponse = {
+  readonly access_token: string;
+  readonly refresh_token?: string | null;
+  readonly token_type: "Bearer";
+  readonly expires_in: number;
+  readonly expires_at: IsoDateTimeString;
+  readonly scope?: string | null;
+  readonly publish_request_id?: string | null;
+};
+export const SessionTokenResponse = Schema.Struct({
+  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
+  refresh_token: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "OAuth 2.0 refresh token for obtaining new token pairs. Omitted for exact publish capabilities.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  token_type: Schema.Literal("Bearer"),
+  expires_in: Schema.Number.annotate({
+    description: "Access token lifetime remaining in seconds.",
+  }).check(Schema.isInt()),
+  expires_at: IsoDateTimeString,
+  scope: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
+      Schema.Null,
+    ]),
+  ),
+  publish_request_id: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "Publish authorization request that produced a non-refreshable exact capability.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({
+  title: "Session Token Response",
+  description: "OAuth 2.0 token response containing an access/refresh token pair.",
+});
+export type StepUpChallengeResponse =
+  | { readonly status: "pending" }
+  | {
+      readonly status: "completed";
+      readonly step_up: string;
+      readonly expires_at: IsoDateTimeString;
+    };
+export const StepUpChallengeResponse = Schema.Union([
+  Schema.Struct({ status: Schema.Literal("pending") }),
+  Schema.Struct({
+    status: Schema.Literal("completed"),
+    step_up: Schema.String.annotate({
+      description: "Opaque step-up proof for the original request.",
+    }),
+    expires_at: IsoDateTimeString,
+  }),
+]).annotate({ title: "Step-up Challenge Response" });
 export type AuthMeUser = {
   readonly id: UserId;
   readonly handle: string;
@@ -777,7 +779,7 @@ export type AuthMeToken = {
   readonly permissions: Schema.Json | null;
   readonly scopes: ReadonlyArray<string>;
   readonly resource_restrictions: ResourceRestrictions;
-  readonly expires_at: string;
+  readonly expires_at: IsoDateTimeString;
 };
 export const AuthMeToken = Schema.Struct({
   id: Schema.String.annotate({
@@ -796,10 +798,7 @@ export const AuthMeToken = Schema.Struct({
   }),
   scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
   resource_restrictions: ResourceRestrictions,
-  expires_at: Schema.String.annotate({
-    description: "When this token expires.",
-    format: "date-time",
-  }),
+  expires_at: IsoDateTimeString,
 }).annotate({
   title: "Token Info",
   description: "Details about the token you used to authenticate.",
@@ -1052,8 +1051,8 @@ export type Library = {
   readonly title: string;
   readonly description: string | null;
   readonly visibility: LibraryVisibility;
-  readonly createdAt: string;
-  readonly updatedAt: string;
+  readonly createdAt: IsoDateTimeString;
+  readonly updatedAt: IsoDateTimeString;
 };
 export const Library = Schema.Struct({
   id: LibraryId,
@@ -1062,8 +1061,8 @@ export const Library = Schema.Struct({
   title: Schema.String,
   description: Schema.Union([Schema.String, Schema.Null]),
   visibility: LibraryVisibility,
-  createdAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
-  updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  createdAt: IsoDateTimeString,
+  updatedAt: IsoDateTimeString,
 }).annotate({ title: "Library" });
 export type LibraryMember = {
   readonly id: LibraryMemberId;
@@ -1072,7 +1071,7 @@ export type LibraryMember = {
   readonly extensionOwner: Handle;
   readonly extensionType: ExtensionType;
   readonly extensionName: ExtensionName;
-  readonly addedAt: string;
+  readonly addedAt: IsoDateTimeString;
 };
 export const LibraryMember = Schema.Struct({
   id: LibraryMemberId,
@@ -1081,7 +1080,7 @@ export const LibraryMember = Schema.Struct({
   extensionOwner: Handle,
   extensionType: ExtensionType,
   extensionName: ExtensionName,
-  addedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  addedAt: IsoDateTimeString,
 }).annotate({ title: "Library Member" });
 export type AuthMeResponse = {
   readonly user: AuthMeUser;
@@ -1692,7 +1691,7 @@ export type ExtensionsUpdateVisibility200 = {
   readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly visibility: string;
-  readonly updatedAt: string;
+  readonly updatedAt: IsoDateTimeString;
   readonly links: ExtensionLinks;
 };
 export const ExtensionsUpdateVisibility200 = Schema.Struct({
@@ -1701,7 +1700,7 @@ export const ExtensionsUpdateVisibility200 = Schema.Struct({
   type: ExtensionType,
   name: ExtensionName,
   visibility: Schema.String,
-  updatedAt: Schema.String.annotate({ readOnly: true, format: "date-time" }),
+  updatedAt: IsoDateTimeString,
   links: ExtensionLinks,
 });
 export type ExtensionsUpdateVisibility400 = ProblemDetails | DecodeErrorResponse;
@@ -1819,9 +1818,9 @@ export type ExtensionsGetDeletionOperation200 = {
   readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly state: "pending" | "dispatching" | "completed" | "failed";
-  readonly requestedAt: string;
-  readonly completedAt: string | null;
-  readonly nameReclaimableAt: string | null;
+  readonly requestedAt: IsoDateTimeString;
+  readonly completedAt: IsoDateTimeString | null;
+  readonly nameReclaimableAt: IsoDateTimeString | null;
   readonly failureCode: string | null;
   readonly failureDetail: string | null;
 };
@@ -1831,9 +1830,9 @@ export const ExtensionsGetDeletionOperation200 = Schema.Struct({
   type: ExtensionType,
   name: ExtensionName,
   state: Schema.Literals(["pending", "dispatching", "completed", "failed"]),
-  requestedAt: Schema.String,
-  completedAt: Schema.Union([Schema.String, Schema.Null]),
-  nameReclaimableAt: Schema.Union([Schema.String, Schema.Null]),
+  requestedAt: IsoDateTimeString,
+  completedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
+  nameReclaimableAt: Schema.Union([IsoDateTimeString, Schema.Null]),
   failureCode: Schema.Union([Schema.String, Schema.Null]),
   failureDetail: Schema.Union([Schema.String, Schema.Null]),
 });
@@ -1857,17 +1856,14 @@ export type ExtensionsDeprecate200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly deprecatedAt: string | null;
+  readonly deprecatedAt: IsoDateTimeString | null;
   readonly deprecationNotice: string | null;
 };
 export const ExtensionsDeprecate200 = Schema.Struct({
   owner: Handle,
   type: ExtensionType,
   name: ExtensionName,
-  deprecatedAt: Schema.Union([
-    Schema.String.annotate({ readOnly: true, format: "date-time" }),
-    Schema.Null,
-  ]),
+  deprecatedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
   deprecationNotice: Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
 });
 export type ExtensionsDeprecate400 = DecodeErrorResponse;

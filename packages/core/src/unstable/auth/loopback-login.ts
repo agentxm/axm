@@ -5,6 +5,8 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -25,7 +27,7 @@ import type { NormalizedTokenResponse } from "./oauth-contract.js";
 const UNKNOWN_HANDLE = normalizeHandle("@unknown");
 // Human approval window for the browser/login round trip. The issued
 // authorization code remains shorter-lived on the registry side.
-const LOOPBACK_TIMEOUT_MS = 5 * 60_000;
+const LOOPBACK_TIMEOUT = Duration.minutes(5);
 
 export interface RunLoopbackLoginOptions {
   readonly scopes?: ReadonlyArray<string>;
@@ -77,7 +79,7 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
     const server = yield* startLoopbackServer();
     const authorizeUrl = authClient.buildAuthorizeUrl({
       challenge,
-      expiresAt: new Date(Date.now() + LOOPBACK_TIMEOUT_MS),
+      expiresAt: DateTime.addDuration(yield* DateTime.now, LOOPBACK_TIMEOUT),
       state,
       redirectUri: server.redirectUri,
       ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
@@ -94,7 +96,7 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
 
     yield* renderer.step("Opening browser to sign in...");
 
-    const callback = yield* server.awaitCallback(state, LOOPBACK_TIMEOUT_MS);
+    const callback = yield* server.awaitCallback(state, Duration.toMillis(LOOPBACK_TIMEOUT));
     const expectedIssuer = authClient.getAuthorizationIssuer();
     if (callback.iss !== expectedIssuer) {
       return yield* new LoopbackCallbackRejected({

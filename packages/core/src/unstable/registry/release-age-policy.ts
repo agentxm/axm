@@ -1,18 +1,16 @@
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { VersionEntry } from "./schema.js";
 
 export const DEFAULT_MINIMUM_RELEASE_AGE = "24h";
-export const DEFAULT_MINIMUM_RELEASE_AGE_MS = 24 * 60 * 60 * 1000;
-
-export interface ReleaseAgePolicy {
-  readonly minimumAgeMs: number;
-  readonly now: Date;
-}
+export const DEFAULT_MINIMUM_RELEASE_AGE_DURATION = Duration.hours(24);
 
 const durationPattern = /^(\d+)(ms|s|m|h|d)$/;
 
-export const parseMinimumReleaseAge = (value: string): Option.Option<number> => {
+export const parseMinimumReleaseAge = (value: string): Option.Option<Duration.Duration> => {
   const trimmed = value.trim();
   const match = durationPattern.exec(trimmed);
   if (match === null) return Option.none();
@@ -26,31 +24,39 @@ export const parseMinimumReleaseAge = (value: string): Option.Option<number> => 
 
   switch (unit) {
     case "ms":
-      return Option.some(amount);
+      return Option.some(Duration.millis(amount));
     case "s":
-      return Option.some(amount * 1000);
+      return Option.some(Duration.seconds(amount));
     case "m":
-      return Option.some(amount * 60 * 1000);
+      return Option.some(Duration.minutes(amount));
     case "h":
-      return Option.some(amount * 60 * 60 * 1000);
+      return Option.some(Duration.hours(amount));
     case "d":
-      return Option.some(amount * 24 * 60 * 60 * 1000);
+      return Option.some(Duration.days(amount));
   }
 
   return Option.none();
 };
 
-export const isVersionEntryMature = (entry: VersionEntry, policy: ReleaseAgePolicy): boolean => {
-  if (policy.minimumAgeMs <= 0) return true;
-  const publishedAt = Date.parse(entry.published);
-  if (!Number.isFinite(publishedAt)) return false;
-  return policy.now.getTime() - publishedAt >= policy.minimumAgeMs;
-};
+export const isVersionEntryMature = (
+  entry: VersionEntry,
+  minimumAge: Duration.Duration,
+): Effect.Effect<boolean> =>
+  Duration.isLessThanOrEqualTo(minimumAge, Duration.zero)
+    ? Effect.succeed(true)
+    : DateTime.now.pipe(
+        Effect.map((now) =>
+          // Inclusive at the boundary: a release published exactly `minimumAge`
+          // ago is mature, matching the original `now - published >= minimumAge`.
+          DateTime.isLessThanOrEqualTo(DateTime.addDuration(entry.published, minimumAge), now),
+        ),
+      );
 
 export const filterMatureVersions = (
   versions: ReadonlyArray<VersionEntry>,
-  policy: ReleaseAgePolicy,
-): ReadonlyArray<VersionEntry> => versions.filter((entry) => isVersionEntryMature(entry, policy));
+  minimumAge: Duration.Duration,
+): Effect.Effect<ReadonlyArray<VersionEntry>> =>
+  Effect.filter(versions, (entry) => isVersionEntryMature(entry, minimumAge));
 
 export const releaseAgeHoldbackWarning = (args: {
   readonly fqn: string;

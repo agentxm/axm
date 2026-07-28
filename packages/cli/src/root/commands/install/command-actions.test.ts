@@ -9,6 +9,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -105,8 +106,8 @@ const makeRegistryRef = (name = "my-cmd"): RegistryCommandRef => ({
 const makeCommandLockEntry = (): CommandLockEntry => ({
   type: "local",
   path: "fixtures/my-cmd",
-  installedAt: new Date("2025-01-01T00:00:00.000Z"),
-  updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+  installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
 });
 
 const expectReadyStep = (

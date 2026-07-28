@@ -6,6 +6,7 @@
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import {
@@ -53,8 +54,8 @@ const makePackLockEntry = (
   integrity: "sha512-AAAA==",
   sourceName: "local",
   publisherBindingId: "hbnd_test",
-  installedAt: new Date(),
-  updatedAt: new Date(),
+  installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
   resolvedSkills: overrides?.resolvedSkills ?? {},
   resolvedCommands: overrides?.resolvedCommands ?? {},
   resolvedMcpServers: overrides?.resolvedMcpServers ?? {},

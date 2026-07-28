@@ -10,6 +10,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -36,7 +37,10 @@ export class McpServerManager extends ServiceMap.Service<
 >()("@agentxm/client-core/unstable/mcps/manager/McpServerManager") {}
 
 // Build lock entry from registry ref
-const buildMcpServerLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntry => ({
+const buildMcpServerLockEntry = (
+  ref: RegistryMcpServerRef,
+  now: DateTime.Utc,
+): McpServerLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -303,8 +307,9 @@ export const McpServerManagerLive = Layer.effect(
           `mcpServers.${ref.server.name}.resolvedVersion`,
           registryRef.version,
         ).pipe(
-          Effect.flatMap(() => {
-            const lockEntry = buildMcpServerLockEntry(registryRef, new Date());
+          Effect.flatMap(() => DateTime.now),
+          Effect.flatMap((now) => {
+            const lockEntry = buildMcpServerLockEntry(registryRef, now);
             return ws.setMcpServer({ name: ref.server.name, lockEntry });
           }),
           Effect.withSpan("McpServerManager.upsertSettingsEntry"),
@@ -324,8 +329,9 @@ export const McpServerManagerLive = Layer.effect(
           `mcpServers.${ref.server.name}.resolvedVersion`,
           registryRef.version,
         ).pipe(
-          Effect.flatMap(() => {
-            const lockEntry = buildMcpServerLockEntry(registryRef, new Date());
+          Effect.flatMap(() => DateTime.now),
+          Effect.flatMap((now) => {
+            const lockEntry = buildMcpServerLockEntry(registryRef, now);
             return ws.setMcpServerLock({ name: ref.server.name, lockEntry });
           }),
           Effect.withSpan("McpServerManager.upsertLockfileEntry"),

@@ -9,6 +9,7 @@
  */
 
 import * as ServiceMap from "effect/Context";
+import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -57,10 +58,7 @@ import {
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { ResolvedExtensionMap } from "@agentxm/client-core/unstable/lockfile";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import {
-  parseMinimumReleaseAge,
-  type ReleaseAgePolicy,
-} from "@agentxm/client-core/unstable/registry";
+import { parseMinimumReleaseAge } from "@agentxm/client-core/unstable/registry";
 import type {
   CommandExtensionTarget,
   FilesExtensionTarget,
@@ -381,16 +379,16 @@ const registrySourceArtifact = (args: {
   };
 };
 
-const resolveReleaseAgePolicy = (
+const resolveMinimumReleaseAge = (
   ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
   unattended: boolean,
-): Effect.Effect<Option.Option<ReleaseAgePolicy>, AppError> =>
+): Effect.Effect<Option.Option<Duration.Duration>, AppError> =>
   Effect.gen(function* () {
-    if (!unattended) return Option.none<ReleaseAgePolicy>();
+    if (!unattended) return Option.none<Duration.Duration>();
 
     const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
-    const minimumAgeMs = parseMinimumReleaseAge(minimumReleaseAge);
-    if (Option.isNone(minimumAgeMs)) {
+    const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);
+    if (Option.isNone(minimumAge)) {
       return yield* makeAppError({
         code: "validation",
         detail: `Invalid minimumReleaseAge "${minimumReleaseAge}"`,
@@ -398,7 +396,7 @@ const resolveReleaseAgePolicy = (
       });
     }
 
-    return Option.some({ minimumAgeMs: minimumAgeMs.value, now: new Date() });
+    return minimumAge;
   });
 
 // -----------------------------------------------------------------------------
@@ -780,7 +778,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
 
     const buildPlan = (intent: InstallPackCommandIntent) =>
       Effect.gen(function* () {
-        const releaseAgePolicy = yield* resolveReleaseAgePolicy(ws, intent.unattended ?? false);
+        const minimumReleaseAge = yield* resolveMinimumReleaseAge(ws, intent.unattended ?? false);
         const refs = yield* expandPackInstallRefs({
           pack: intent.packToInstall,
           supportedDependencyTypes: [
@@ -793,7 +791,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             "hook",
           ],
           sources,
-          releaseAgePolicy,
+          minimumReleaseAge,
         });
         const lockedPack = yield* ws.getLockedPack(intent.packToInstall.pack.name);
         const [

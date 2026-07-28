@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
-import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
+import { DateTimeUtcSchema } from "../date-time.js";
 import {
   LOCKFILE_VERSION,
   CommandLockEntrySchema,
@@ -14,33 +15,29 @@ import {
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 
 describe("lockfile schema", () => {
-  describe("DateFromIsoDateTimeStringSchema", () => {
+  describe("DateTimeUtcSchema", () => {
     it("accepts valid ISO 8601 date string", () => {
-      const result = Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)(
-        "2025-01-15T10:30:00Z",
-      );
-      expect(result).toBeInstanceOf(Date);
-      expect(result.toISOString()).toBe("2025-01-15T10:30:00.000Z");
+      const result = Schema.decodeUnknownSync(DateTimeUtcSchema)("2025-01-15T10:30:00Z");
+      expect(DateTime.isDateTime(result)).toBe(true);
+      expect(DateTime.formatIso(result)).toBe("2025-01-15T10:30:00.000Z");
     });
 
     it("rejects invalid date string", () => {
-      expect(() => Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)("garbage")).toThrow();
+      expect(() => Schema.decodeUnknownSync(DateTimeUtcSchema)("garbage")).toThrow();
     });
 
     it("rejects empty string", () => {
-      expect(() => Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)("")).toThrow();
+      expect(() => Schema.decodeUnknownSync(DateTimeUtcSchema)("")).toThrow();
     });
 
     it("rejects string that produces Invalid Date", () => {
-      expect(() =>
-        Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)("not-a-date"),
-      ).toThrow();
+      expect(() => Schema.decodeUnknownSync(DateTimeUtcSchema)("not-a-date")).toThrow();
     });
 
     it("round-trips valid date string", () => {
       const input = "2025-01-15T10:30:00.000Z";
-      const decoded = Schema.decodeUnknownSync(DateFromIsoDateTimeStringSchema)(input);
-      const encoded = Schema.encodeSync(DateFromIsoDateTimeStringSchema)(decoded);
+      const decoded = Schema.decodeUnknownSync(DateTimeUtcSchema)(input);
+      const encoded = Schema.encodeSync(DateTimeUtcSchema)(decoded);
       expect(encoded).toBe(input);
     });
   });
@@ -254,9 +251,9 @@ describe("lockfile schema", () => {
       }
       expect(skill?.gitTreeHash).toBe("abc123def456");
       expect(skill).not.toHaveProperty("agents");
-      // Dates are decoded to Date objects
-      expect(skill?.installedAt).toBeInstanceOf(Date);
-      expect(skill?.updatedAt).toBeInstanceOf(Date);
+      // Timestamps are decoded to DateTime.Utc values
+      expect(DateTime.isDateTime(skill?.installedAt)).toBe(true);
+      expect(DateTime.isDateTime(skill?.updatedAt)).toBe(true);
     });
 
     it("accepts valid skill lock entry with Local source", () => {
@@ -439,8 +436,8 @@ describe("lockfile schema", () => {
         expect(result.repo).toBe("skills");
       }
       expect(result).not.toHaveProperty("agents");
-      expect(result.installedAt).toBeInstanceOf(Date);
-      expect(result.updatedAt).toBeInstanceOf(Date);
+      expect(DateTime.isDateTime(result.installedAt)).toBe(true);
+      expect(DateTime.isDateTime(result.updatedAt)).toBe(true);
     });
 
     it("accepts valid GitHub lock entry with optional gitTreeHash", () => {
@@ -1047,8 +1044,8 @@ describe("lockfile schema", () => {
         expect(result.integrity).toBe("sha512-abc123def456");
         expect(result.sourceName).toBe("default");
       }
-      expect(result.installedAt).toBeInstanceOf(Date);
-      expect(result.updatedAt).toBeInstanceOf(Date);
+      expect(DateTime.isDateTime(result.installedAt)).toBe(true);
+      expect(DateTime.isDateTime(result.updatedAt)).toBe(true);
       expect(result.resolvedSkills).toEqual({
         "@acme/skills/code-review": { version: "1.2.0", publisherBindingId: "hbnd_test" },
       });

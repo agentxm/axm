@@ -5,6 +5,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -132,7 +133,7 @@ export const publishHook: (
     const client = yield* createRegistryClient(registrySource.value.location.href);
     const metadata: VersionEntry = {
       version: manifest.version,
-      published: new Date().toISOString(),
+      published: yield* DateTime.now,
       integrity,
       ...(manifest.packages !== undefined ? { packages: manifest.packages } : {}),
     };

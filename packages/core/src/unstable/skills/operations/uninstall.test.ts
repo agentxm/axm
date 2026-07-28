@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -67,8 +68,8 @@ const makeWorkspaceMock = (
     for (const [k, v] of Object.entries(skills)) {
       lockfile.skills[k] = {
         ...v,
-        installedAt: v.installedAt.toISOString(),
-        updatedAt: v.updatedAt.toISOString(),
+        installedAt: DateTime.formatIso(v.installedAt),
+        updatedAt: DateTime.formatIso(v.updatedAt),
       };
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
@@ -93,7 +94,7 @@ const makeWorkspaceMock = (
                 ...skills,
                 [name]: {
                   ...lockEntry,
-                  updatedAt: new Date(),
+                  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
                 },
               };
               writeToDisk();
@@ -104,7 +105,7 @@ const makeWorkspaceMock = (
           ...skills,
           [name]: {
             ...lockEntry,
-            updatedAt: new Date(),
+            updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
           },
         };
         writeToDisk();
@@ -177,13 +178,13 @@ const readLockfileYaml = (axmDir: string) => {
   return YAML.parse(content);
 };
 
-/** Creates a local source lock entry for the in-memory mock (Date objects). */
+/** Creates a local source lock entry for the in-memory mock (DateTime.Utc values). */
 const makeLocalLockEntry = (agents: string[]) => ({
   type: "local" as const,
   path: decodeRelativePathSync("tmp/source"),
   agents,
-  installedAt: new Date(),
-  updatedAt: new Date(),
+  installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
 });
 
 /** Creates a local source lock entry for on-disk YAML (ISO strings). */
@@ -195,7 +196,7 @@ const makeLocalLockEntryYaml = (agents: string[]) => ({
   updatedAt: new Date().toISOString(),
 });
 
-/** Creates a registry source lock entry for the in-memory mock (Date objects). */
+/** Creates a registry source lock entry for the in-memory mock (DateTime.Utc values). */
 const makeRegistryLockEntry = (agents: string[]) =>
   makeRegistrySkillLockEntry({
     owner: handle("@community"),
@@ -249,7 +250,7 @@ describe("uninstallSkill", () => {
       agents?: string[];
       createCanonical?: boolean;
       createSymlinks?: boolean;
-      /** In-memory mock lockfile skills (Date objects). Passed to withServices. */
+      /** In-memory mock lockfile skills (DateTime.Utc values). Passed to withServices. */
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
       lockfileSkills?: Record<string, any>;
       /** On-disk YAML lockfile skills (ISO strings). Written to axm-lock.yaml. */
@@ -290,7 +291,7 @@ describe("uninstallSkill", () => {
       }
     }
 
-    // In-memory mock (Date objects) for withServices
+    // In-memory mock (DateTime.Utc values) for withServices
     const lockfileSkills = opts.lockfileSkills ?? { [skillName]: makeLocalLockEntry(agents) };
     // On-disk YAML (ISO strings) for lockfile read/write operations
     const lockfileSkillsYaml = opts.lockfileSkillsYaml ?? {

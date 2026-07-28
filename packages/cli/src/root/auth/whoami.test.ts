@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -41,7 +42,7 @@ const makeLayers = (opts?: {
                 [ALICE]: {
                   access_token: "axm_ses_tok",
                   refresh_token: "axm_ref_tok",
-                  expires_at: "2099-01-01T00:00:00Z",
+                  expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
                   active: true,
                 },
               },

@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -115,7 +116,10 @@ describe("view handler", () => {
           expect.objectContaining({
             data: expect.objectContaining({
               handle: "@test/skills/code-review",
-              latest: { version: "1.2.3", published: "2026-01-01T00:00:00.000Z" },
+              latest: {
+                version: "1.2.3",
+                published: DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
+              },
             }),
           }),
         );
@@ -145,7 +149,10 @@ describe("view handler", () => {
           expect.objectContaining({
             data: expect.objectContaining({
               handle: "@test/skills/code-review",
-              latest: { version: "1.2.3", published: "2026-01-01T00:00:00.000Z" },
+              latest: {
+                version: "1.2.3",
+                published: DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
+              },
             }),
           }),
         );

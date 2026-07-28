@@ -10,6 +10,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -90,14 +91,14 @@ const extensionIndexResponse = {
   versions: [
     {
       version: "1.0.0",
-      published: "2025-01-01T00:00:00Z",
+      published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
       integrity: "sha512-abc123",
       dependencies: {},
       packages: [{ purl: "pkg:npm/react" }],
     },
     {
       version: "0.9.0",
-      published: "2024-12-01T00:00:00Z",
+      published: DateTime.makeUnsafe("2024-12-01T00:00:00Z"),
       integrity: "sha512-def456",
     },
   ],
@@ -740,7 +741,7 @@ const publishArgs = {
   archive: new Uint8Array([0x50, 0x4b, 0x03, 0x04]),
   metadata: {
     version: exactVersion("1.0.0"),
-    published: "2025-01-01T00:00:00Z",
+    published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
     integrity: "sha512-abc123",
   },
 };

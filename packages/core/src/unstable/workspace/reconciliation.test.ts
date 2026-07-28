@@ -5,6 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -139,7 +140,7 @@ describe("reconciliation", () => {
 
         const snapshot = yield* buildReconciliationSnapshot({
           baseDir: tempDir,
-          now: new Date("2026-02-25T10:00:00.000Z"),
+          now: DateTime.makeUnsafe("2026-02-25T10:00:00.000Z"),
           configuredOwner: Option.some(handle("@community")),
           agents: ["claude-code"],
           settings,
@@ -185,7 +186,7 @@ describe("reconciliation", () => {
         const snapshot = yield* buildReconciliationSnapshot({
           baseDir: tempDir,
           scope: "project",
-          now: new Date("2026-07-10T10:00:00.000Z"),
+          now: DateTime.makeUnsafe("2026-07-10T10:00:00.000Z"),
           configuredOwner: Option.some(handle("@acme")),
           agents: ["claude-code"],
           settings,
@@ -218,7 +219,7 @@ describe("reconciliation", () => {
         const snapshot = yield* buildReconciliationSnapshot({
           baseDir: tempDir,
           scope: "project",
-          now: new Date("2026-07-10T10:00:00.000Z"),
+          now: DateTime.makeUnsafe("2026-07-10T10:00:00.000Z"),
           configuredOwner: Option.some(handle("@acme")),
           agents: ["claude-code"],
           settings: {
@@ -255,7 +256,7 @@ describe("reconciliation", () => {
         const result = yield* runReconcileMaterializeOperation(
           {
             baseDir: tempDir,
-            now: new Date("2026-02-25T10:00:00.000Z"),
+            now: DateTime.makeUnsafe("2026-02-25T10:00:00.000Z"),
             configuredOwner: Option.some(handle("@community")),
             agents: ["claude-code"],
             settings,
@@ -300,7 +301,7 @@ describe("reconciliation", () => {
         const snapshot = yield* buildReconciliationSnapshot({
           baseDir: tempDir,
           scope: "project",
-          now: new Date("2026-07-10T10:00:00.000Z"),
+          now: DateTime.makeUnsafe("2026-07-10T10:00:00.000Z"),
           configuredOwner: Option.some(handle("@acme")),
           agents: ["claude-code"],
           settings: {
@@ -336,7 +337,7 @@ describe("reconciliation", () => {
         const result = yield* runReconcileMaterializeOperation(
           {
             baseDir: tempDir,
-            now: new Date("2026-02-25T10:00:00.000Z"),
+            now: DateTime.makeUnsafe("2026-02-25T10:00:00.000Z"),
             configuredOwner: Option.some(handle("@community")),
             agents: ["claude-code"],
             settings,
@@ -375,7 +376,7 @@ describe("reconciliation", () => {
         const result = yield* runReconcileMaterializeOperation(
           {
             baseDir: tempDir,
-            now: new Date("2026-02-25T10:00:00.000Z"),
+            now: DateTime.makeUnsafe("2026-02-25T10:00:00.000Z"),
             configuredOwner: Option.some(handle("@community")),
             agents: ["claude-code"],
             settings,
@@ -411,7 +412,7 @@ describe("reconciliation", () => {
         const result = yield* runReconcileMaterializeOperation(
           {
             baseDir: tempDir,
-            now: new Date("2026-02-25T10:00:00.000Z"),
+            now: DateTime.makeUnsafe("2026-02-25T10:00:00.000Z"),
             configuredOwner: Option.some(handle("@community")),
             agents: ["claude-code"],
             settings,

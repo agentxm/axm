@@ -10,6 +10,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/index.js";
@@ -83,7 +84,7 @@ export type InstallSkillOperationArgs = {
   /** When true, fail on unknown configured agents instead of warning+skip. */
   readonly strictUnknownAgents: Option.Option<boolean>;
   /** When updating, preserve the original install timestamp instead of using now. */
-  readonly existingInstalledAt: Option.Option<Date>;
+  readonly existingInstalledAt: Option.Option<DateTime.Utc>;
   /** Named registry source that provided the ref (written to lockfile for registry skills). */
   readonly sourceName: Option.Option<string>;
 };
@@ -884,7 +885,7 @@ export const installSkill: OperationHandler<
     }
     const baseLockEntry = sourceToLockEntry({
       ref,
-      now: new Date(),
+      now: yield* DateTime.now,
       sourceName: op.args.sourceName,
       existingInstalledAt: op.args.existingInstalledAt,
       workspaceRelativeLocalSourcePath,

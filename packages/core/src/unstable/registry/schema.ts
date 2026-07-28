@@ -9,7 +9,7 @@
 
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
-import { IsoDateTimeStringSchema } from "../date-time.js";
+import { DateTimeUtcSchema } from "../date-time.js";
 import {
   AuthorSchema,
   BugsSchema,
@@ -40,11 +40,11 @@ import { VersionSchema } from "../version-constraints/version-constraints.js";
  */
 export const VersionEntrySchema = Schema.Struct({
   version: VersionSchema,
-  published: IsoDateTimeStringSchema,
+  published: DateTimeUtcSchema,
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
   packages: Schema.optional(Schema.Array(CompanionPackageSchema)),
   integrity: Schema.String,
-  yankedAt: Schema.optional(IsoDateTimeStringSchema),
+  yankedAt: Schema.optional(DateTimeUtcSchema),
   yankCategory: Schema.optional(Schema.String),
   yankNotice: Schema.optional(Schema.String),
 }).annotate({
@@ -112,7 +112,7 @@ export const ExtensionIndexSchema = Schema.Struct({
   license: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
   visibility: Schema.optional(Schema.Literals(["public", "private"] as const)),
-  deprecatedAt: Schema.optional(IsoDateTimeStringSchema),
+  deprecatedAt: Schema.optional(DateTimeUtcSchema),
   deprecationNotice: Schema.optional(Schema.String),
   versions: Schema.Array(VersionEntrySchema),
 }).annotate({

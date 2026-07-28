@@ -11,6 +11,7 @@
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -103,15 +104,21 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
             url: a.url ?? undefined,
           })),
     visibility: response.visibility ?? undefined,
-    deprecatedAt: response.deprecated_at ?? undefined,
+    deprecatedAt:
+      response.deprecated_at === null || response.deprecated_at === undefined
+        ? undefined
+        : DateTime.formatIso(response.deprecated_at),
     deprecationNotice: response.deprecation_notice ?? undefined,
     versions: response.versions.map((v) => ({
       version: v.version,
-      published: v.published,
+      published: DateTime.formatIso(v.published),
       integrity: v.integrity,
       dependencies: v.dependencies === null ? undefined : v.dependencies,
       packages: v.packages === null || v.packages === undefined ? undefined : v.packages,
-      yankedAt: v.yanked_at ?? undefined,
+      yankedAt:
+        v.yanked_at === null || v.yanked_at === undefined
+          ? undefined
+          : DateTime.formatIso(v.yanked_at),
       yankCategory: v.yank_category ?? undefined,
       yankNotice: v.yank_notice ?? undefined,
     })),

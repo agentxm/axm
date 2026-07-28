@@ -2,6 +2,7 @@
  * Unit tests for auth schema validation.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { handle } from "../test-helpers.js";
@@ -19,14 +20,17 @@ describe("Auth schema", () => {
     const validEntry = {
       access_token: "axm_ses_abc123",
       refresh_token: "axm_ref_def456",
-      expires_at: "2026-03-12T10:30:00Z",
+      expires_at: "2026-03-12T10:30:00.000Z",
       active: true,
     };
 
     it("decodes a valid credential entry", () => {
       const result = Schema.decodeUnknownSync(CredentialEntrySchema)(validEntry);
 
-      expect(result).toEqual(validEntry);
+      expect(result.access_token).toBe("axm_ses_abc123");
+      expect(result.refresh_token).toBe("axm_ref_def456");
+      expect(DateTime.formatIso(result.expires_at)).toBe("2026-03-12T10:30:00.000Z");
+      expect(result.active).toBe(true);
     });
 
     it("encodes back to the same shape", () => {
@@ -34,6 +38,17 @@ describe("Auth schema", () => {
       const encoded = Schema.encodeSync(CredentialEntrySchema)(decoded);
 
       expect(encoded).toEqual(validEntry);
+    });
+
+    it("normalizes a zone-less-millisecond timestamp when encoding", () => {
+      const decoded = Schema.decodeUnknownSync(CredentialEntrySchema)({
+        ...validEntry,
+        expires_at: "2026-03-12T10:30:00Z",
+      });
+
+      expect(Schema.encodeSync(CredentialEntrySchema)(decoded).expires_at).toBe(
+        "2026-03-12T10:30:00.000Z",
+      );
     });
 
     it("rejects missing access_token", () => {
@@ -112,7 +127,7 @@ describe("Auth schema", () => {
           "@alice": {
             access_token: "a1",
             refresh_token: "r1",
-            expires_at: "2026-01-01T00:00:00Z",
+            expires_at: "2026-01-01T00:00:00.000Z",
             active: true,
           },
         },
@@ -133,7 +148,7 @@ describe("Auth schema", () => {
             "@alice": {
               access_token: "axm_ses_abc",
               refresh_token: "axm_ref_def",
-              expires_at: "2026-03-12T10:30:00Z",
+              expires_at: "2026-03-12T10:30:00.000Z",
               active: true,
             },
           },
@@ -231,7 +246,7 @@ describe("Auth schema", () => {
       const source = new CredentialStoreTokenSource({
         token: "axm_ses_abc",
         refresh_token: "axm_ref_def",
-        expires_at: "2026-03-12T10:30:00Z",
+        expires_at: DateTime.makeUnsafe("2026-03-12T10:30:00Z"),
         registryUrl: "https://registry.agentxm.ai",
       });
 
@@ -247,7 +262,7 @@ describe("Auth schema", () => {
       const store = new CredentialStoreTokenSource({
         token: "t3",
         refresh_token: "r3",
-        expires_at: "2026-01-01T00:00:00Z",
+        expires_at: DateTime.makeUnsafe("2026-01-01T00:00:00Z"),
         registryUrl: "https://example.com",
       });
 

@@ -8,6 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
@@ -19,11 +20,11 @@ import type { SkillExtensionRef } from "../skills/refs.js";
 
 export interface SourceToLockEntryInput {
   readonly ref: SkillExtensionRef;
-  readonly now: Date;
+  readonly now: DateTime.Utc;
   /** Required for registry sources — which named registry config was used. */
   readonly sourceName: Option.Option<string>;
   /** When updating, preserve the original install timestamp instead of using `now`. */
-  readonly existingInstalledAt: Option.Option<Date>;
+  readonly existingInstalledAt: Option.Option<DateTime.Utc>;
   /** Workspace-root-relative local source path for lockfile persistence. */
   readonly workspaceRelativeLocalSourcePath?: Option.Option<string>;
 }

@@ -10,6 +10,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -76,7 +77,7 @@ export type InstallMcpServerOperation = Operation<
 // Lock entry builder
 // -----------------------------------------------------------------------------
 
-const buildLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntry => ({
+const buildLockEntry = (ref: RegistryMcpServerRef, now: DateTime.Utc): McpServerLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -88,7 +89,10 @@ const buildLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntr
   updatedAt: now,
 });
 
-const buildWorkspaceLockEntry = (ref: WorkspaceMcpServerRef, now: Date): McpServerLockEntry => ({
+const buildWorkspaceLockEntry = (
+  ref: WorkspaceMcpServerRef,
+  now: DateTime.Utc,
+): McpServerLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "mcp-server",
@@ -646,10 +650,9 @@ export const installMcpServer: (
     );
 
     // Build lock entry and persist
+    const now = yield* DateTime.now;
     const lockEntry =
-      ref.refType === "registry"
-        ? buildLockEntry(ref, new Date())
-        : buildWorkspaceLockEntry(ref, new Date());
+      ref.refType === "registry" ? buildLockEntry(ref, now) : buildWorkspaceLockEntry(ref, now);
     const currentMcpServers = yield* ws.getConfiguredMcpServerEntries();
     const currentEntry = currentMcpServers[ref.server.name];
     const storedSecrets = yield* loadStoredMcpSecrets(ref.server.name, secretNames);

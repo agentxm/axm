@@ -14,6 +14,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -56,7 +57,7 @@ const companionPackage = (purl: string): CompanionPackage => decodeCompanionPack
 
 interface TestVersionEntryOverrides {
   readonly version?: string;
-  readonly published?: string;
+  readonly published?: DateTime.Utc;
   readonly integrity?: string;
   readonly dependencies?: Record<string, string>;
   readonly packages?: ReadonlyArray<CompanionPackage>;
@@ -64,7 +65,7 @@ interface TestVersionEntryOverrides {
 
 const makeVersionEntry = (overrides?: TestVersionEntryOverrides): VersionEntry => ({
   version: exactVersion(overrides?.version ?? "1.0.0"),
-  published: "2025-01-01T00:00:00Z",
+  published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
   integrity: "sha512-AAAA==",
   ...(overrides?.published === undefined ? {} : { published: overrides.published }),
   ...(overrides?.integrity === undefined ? {} : { integrity: overrides.integrity }),
@@ -1420,7 +1421,7 @@ describe("RemoteRegistryClient", () => {
               versions: [
                 {
                   version: "1.0.0",
-                  published: "2025-01-01T00:00:00Z",
+                  published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
                   integrity: "sha512-AAAA==",
                 },
               ],
@@ -1609,7 +1610,11 @@ describe("createRegistryClient", () => {
       yield* client.publishExtension(
         makePublishArgs(
           archive,
-          makeVersionEntry({ version: "1.0.0", published: "2025-01-01T00:00:00Z", integrity }),
+          makeVersionEntry({
+            version: "1.0.0",
+            published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
+            integrity,
+          }),
         ),
       );
 

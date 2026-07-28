@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -16,6 +17,7 @@ import {
   type AppError,
 } from "@agentxm/client-core/unstable/app-error";
 import { jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { DateTimeUtcSchema } from "@agentxm/client-core/unstable/date-time";
 import {
   CliRenderer,
   type DetailView,
@@ -41,15 +43,15 @@ const CreatedTokenDataSchema = Schema.Struct({
   token: Schema.String,
   name: Schema.String,
   scopes: Schema.Array(Schema.String),
-  createdAt: Schema.String,
-  expiresAt: Schema.String,
+  createdAt: DateTimeUtcSchema,
+  expiresAt: DateTimeUtcSchema,
 });
 const CreatedTokenResultSchema = Schema.Struct({
   ...OperationPlanFields,
   status: Schema.Literal("created"),
   tokenId: Schema.String,
   name: Schema.String,
-  expiresAt: Schema.String,
+  expiresAt: DateTimeUtcSchema,
 });
 const CreatedTokenDocumentFields = {
   result: CreatedTokenResultSchema,
@@ -61,9 +63,9 @@ const TokenListItemSchema = Schema.Struct({
   name: Schema.NullOr(Schema.String),
   type: Schema.String,
   scopes: Schema.Array(Schema.String),
-  createdAt: Schema.String,
-  expiresAt: Schema.String,
-  lastUsedAt: Schema.NullOr(Schema.String),
+  createdAt: DateTimeUtcSchema,
+  expiresAt: DateTimeUtcSchema,
+  lastUsedAt: Schema.NullOr(DateTimeUtcSchema),
 });
 const TokenListDocumentFields = {
   data: Schema.Struct({
@@ -141,7 +143,7 @@ export interface CreateTokenHandlerArgs {
 const MAX_EXPIRES_IN_SECONDS = 31_536_000;
 const MIN_EXPIRES_IN_SECONDS = 3_600;
 
-export const parseExpiresInSeconds = (raw: string, now: Date = new Date()) => {
+export const parseExpiresInSeconds = (raw: string): Effect.Effect<number, AppError> => {
   const trimmed = raw.trim();
   const relative = /^(\d+)([hdy])$/.exec(trimmed);
   if (relative) {
@@ -151,17 +153,19 @@ export const parseExpiresInSeconds = (raw: string, now: Date = new Date()) => {
     return Effect.succeed(amount * multiplier);
   }
 
-  const absolute = Date.parse(trimmed);
-  if (Number.isNaN(absolute)) {
-    return Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: "Invalid --expires value. Use 7d, 30d, 1y, or an ISO timestamp.",
-      }),
-    );
-  }
-
-  return Effect.succeed(Math.floor((absolute - now.getTime()) / 1000));
+  return Option.match(DateTime.make(trimmed), {
+    onNone: () =>
+      Effect.fail(
+        makeAppError({
+          code: "validation",
+          detail: "Invalid --expires value. Use 7d, 30d, 1y, or an ISO timestamp.",
+        }),
+      ),
+    onSome: (expiry) =>
+      Effect.map(DateTime.now, (now) =>
+        Math.floor((DateTime.toEpochMillis(expiry) - DateTime.toEpochMillis(now)) / 1000),
+      ),
+  });
 };
 
 const validateExpiresInSeconds = (expiresIn: number) =>
@@ -290,7 +294,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
       id: created.id,
       name: created.name,
       token: created.token,
-      expiresAt: created.expiresAt,
+      expiresAt: DateTime.formatIso(created.expiresAt),
     },
     CreatedTokenDetail,
     "Created token",
@@ -346,8 +350,8 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
       id: item.id,
       name: item.name ?? "",
       type: item.type,
-      expiresAt: item.expiresAt,
-      lastUsedAt: item.lastUsedAt ?? "never",
+      expiresAt: DateTime.formatIso(item.expiresAt),
+      lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
     })),
     TokenListTable,
     "Tokens",

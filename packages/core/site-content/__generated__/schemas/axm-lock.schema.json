@@ -5,7 +5,12 @@
     "SourceNamespace": { "type": "string", "allOf": [{ "minLength": 1 }] },
     "SourceSegment": { "type": "string", "allOf": [{ "minLength": 1 }] },
     "SourceSubPath": { "type": "string", "allOf": [{ "minLength": 1 }] },
-    "IsoDateTimeString": { "type": "string", "allOf": [{ "minLength": 1 }] },
+    "IsoDateTimeString": {
+      "type": "string",
+      "title": "ISO Date-Time String",
+      "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+      "format": "date-time"
+    },
     "Handle": {
       "type": "string",
       "allOf": [

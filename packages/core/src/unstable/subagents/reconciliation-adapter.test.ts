@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -33,7 +34,7 @@ describe("subagent reconciliation adapter", () => {
   const snapshotFor = (settings: Settings) =>
     buildReconciliationSnapshot({
       baseDir: tempDir,
-      now: new Date("2026-02-25T10:00:00.000Z"),
+      now: DateTime.makeUnsafe("2026-02-25T10:00:00.000Z"),
       configuredOwner: Option.some(handle("@community")),
       agents: ["claude-code"],
       settings,

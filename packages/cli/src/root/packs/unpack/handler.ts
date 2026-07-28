@@ -1,3 +1,4 @@
+import type * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
@@ -164,7 +165,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
             versionRange: Option.none<string>(),
             skipSettings: Option.none<boolean>(),
             strictUnknownAgents: Option.none<boolean>(),
-            existingInstalledAt: Option.none<Date>(),
+            existingInstalledAt: Option.none<DateTime.Utc>(),
             sourceName: Option.none<string>(),
           },
         };

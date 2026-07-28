@@ -1,4 +1,7 @@
 import type * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import {
@@ -84,12 +87,14 @@ const parseRetryAfterHeader = (value: string | undefined): number | undefined =>
     return Math.ceil(seconds);
   }
 
-  const retryAt = Date.parse(value);
-  if (Number.isFinite(retryAt)) {
-    return Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
-  }
+  // HTTP-date form. This runs inside the synchronous error-mapping callbacks
+  // that must produce an AppError without suspending, so the clock is read
+  // directly instead of through `Clock.currentTimeMillis`.
+  const retryAt = DateTime.make(value);
+  if (Option.isNone(retryAt)) return undefined;
 
-  return undefined;
+  const remaining = DateTime.distance(DateTime.nowUnsafe(), retryAt.value);
+  return Math.max(0, Math.ceil(Duration.toMillis(remaining) / 1000));
 };
 
 const retryAfterFromBody = (status: number, body: unknown): number | undefined => {

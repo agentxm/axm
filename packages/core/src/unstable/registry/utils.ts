@@ -11,6 +11,7 @@
 import { unzipSync } from "fflate";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as semver from "semver";
@@ -21,7 +22,7 @@ import type { Handle } from "../extensions/handle.js";
 import { resolveVersionInRange } from "../version-constraints/version-constraints.js";
 import { toExtensionTypePlural, type ExtensionType } from "../extensions/index.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
-import { filterMatureVersions, type ReleaseAgePolicy } from "./release-age-policy.js";
+import { filterMatureVersions } from "./release-age-policy.js";
 
 // -----------------------------------------------------------------------------
 // Version Selection
@@ -93,13 +94,15 @@ export const extensionLifecycleWarnings = (
 export const resolveVersionEntryWithReleaseAge = (
   versions: ReadonlyArray<VersionEntry>,
   versionRange: Option.Option<string>,
-  releaseAgePolicy: Option.Option<ReleaseAgePolicy>,
-): Option.Option<VersionEntry> => {
-  if (Option.isNone(releaseAgePolicy)) {
-    return resolveVersionEntry(versions, versionRange);
+  minimumReleaseAge: Option.Option<Duration.Duration>,
+): Effect.Effect<Option.Option<VersionEntry>> => {
+  if (Option.isNone(minimumReleaseAge)) {
+    return Effect.succeed(resolveVersionEntry(versions, versionRange));
   }
 
-  return resolveVersionEntry(filterMatureVersions(versions, releaseAgePolicy.value), versionRange);
+  return filterMatureVersions(versions, minimumReleaseAge.value).pipe(
+    Effect.map((mature) => resolveVersionEntry(mature, versionRange)),
+  );
 };
 
 // -----------------------------------------------------------------------------

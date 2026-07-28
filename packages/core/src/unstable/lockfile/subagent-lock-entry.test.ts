@@ -9,6 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
@@ -251,8 +252,8 @@ describe("lockfile subagent round-trip", () => {
               repo: "subagents",
               ref: "main",
               path: "subagents/planner",
-              installedAt: new Date("2025-01-15T10:30:00.000Z"),
-              updatedAt: new Date("2025-01-15T10:30:00.000Z"),
+              installedAt: DateTime.makeUnsafe("2025-01-15T10:30:00.000Z"),
+              updatedAt: DateTime.makeUnsafe("2025-01-15T10:30:00.000Z"),
               sourceHash: "abc123",
             },
           },

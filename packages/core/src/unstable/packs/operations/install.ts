@@ -9,6 +9,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
@@ -225,6 +226,7 @@ export const installPack: OperationHandler<
     );
 
     // Write lockfile + settings
+    const now = yield* DateTime.now;
     const metadataWarning = yield* ws
       .setPack({
         type: "registry",
@@ -234,8 +236,8 @@ export const installPack: OperationHandler<
         integrity: op.args.integrity,
         sourceName: op.args.sourceName,
         publisherBindingId: op.args.publisherBindingId,
-        installedAt: new Date(),
-        updatedAt: new Date(),
+        installedAt: now,
+        updatedAt: now,
         resolvedSkills: op.args.resolvedSkills,
         resolvedCommands: op.args.resolvedCommands,
         resolvedMcpServers: op.args.resolvedMcpServers,

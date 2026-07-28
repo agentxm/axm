@@ -4,6 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -90,7 +91,7 @@ const packageMaterializeLockFor = (key: string): Semaphore.Semaphore => {
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryHookLockEntry = (ref: RegistryHookRef, now: Date): HookLockEntry => ({
+const registryHookLockEntry = (ref: RegistryHookRef, now: DateTime.Utc): HookLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -101,7 +102,7 @@ const registryHookLockEntry = (ref: RegistryHookRef, now: Date): HookLockEntry =
   ...commonLockFields(now),
 });
 
-const gitHookLockEntry = (ref: GitHostedHookRef, now: Date): HookLockEntry => {
+const gitHookLockEntry = (ref: GitHostedHookRef, now: DateTime.Utc): HookLockEntry => {
   const common = {
     ...commonLockFields(now),
   };
@@ -114,7 +115,7 @@ const gitHookLockEntry = (ref: GitHostedHookRef, now: Date): HookLockEntry => {
 
 const localHookLockEntry = (
   ref: LocalHookRef,
-  now: Date,
+  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
 ): HookLockEntry => ({
   type: "local",
@@ -122,7 +123,7 @@ const localHookLockEntry = (
   ...commonLockFields(now),
 });
 
-const workspaceHookLockEntry = (ref: WorkspaceHookRef, now: Date): HookLockEntry => ({
+const workspaceHookLockEntry = (ref: WorkspaceHookRef, now: DateTime.Utc): HookLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "hook",
@@ -938,22 +939,25 @@ export const HookManagerLive = Layer.effect(
       });
     }, Effect.asVoid);
 
-    const buildLockEntry = (ref: HookExtensionRef): Effect.Effect<HookLockEntry, never> => {
-      const state = lastInstallState.get(ref.hook.name);
-      const now = new Date();
-      switch (ref.refType) {
-        case "registry":
-          return Effect.succeed(registryHookLockEntry(ref, now));
-        case "git-hosted":
-          return Effect.succeed(gitHookLockEntry(ref, now));
-        case "local":
-          return Effect.succeed(
-            localHookLockEntry(ref, now, state?.workspaceRelativeLocalSourcePath ?? Option.none()),
-          );
-        case "workspace":
-          return Effect.succeed(workspaceHookLockEntry(ref, now));
-      }
-    };
+    const buildLockEntry = (ref: HookExtensionRef): Effect.Effect<HookLockEntry, never> =>
+      Effect.gen(function* () {
+        const state = lastInstallState.get(ref.hook.name);
+        const now = yield* DateTime.now;
+        switch (ref.refType) {
+          case "registry":
+            return registryHookLockEntry(ref, now);
+          case "git-hosted":
+            return gitHookLockEntry(ref, now);
+          case "local":
+            return localHookLockEntry(
+              ref,
+              now,
+              state?.workspaceRelativeLocalSourcePath ?? Option.none(),
+            );
+          case "workspace":
+            return workspaceHookLockEntry(ref, now);
+        }
+      });
 
     const materializeUninstall: ExtensionManager<HookExtensionRef>["materializeUninstall"] =
       Effect.fn("HookManager.materializeUninstall")(function* ({ target, preserveSource }) {

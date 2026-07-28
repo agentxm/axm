@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -725,7 +726,7 @@ const publishCandidate = (
         : undefined;
     const metadata: VersionEntry = {
       version: candidate.version,
-      published: new Date().toISOString(),
+      published: yield* DateTime.now,
       integrity: candidate.integrity,
       ...(candidate.packages === undefined ? {} : { packages: candidate.packages }),
       ...(candidate.dependencies === undefined ? {} : { dependencies: candidate.dependencies }),

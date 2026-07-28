@@ -106,10 +106,9 @@ export {
 
 export {
   DEFAULT_MINIMUM_RELEASE_AGE,
-  DEFAULT_MINIMUM_RELEASE_AGE_MS,
+  DEFAULT_MINIMUM_RELEASE_AGE_DURATION,
   filterMatureVersions,
   isVersionEntryMature,
   parseMinimumReleaseAge,
   releaseAgeHoldbackWarning,
 } from "./release-age-policy.js";
-export type { ReleaseAgePolicy } from "./release-age-policy.js";

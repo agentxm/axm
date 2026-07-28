@@ -6,6 +6,7 @@
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import {
@@ -183,8 +184,8 @@ const lockfileWithCommands = (...names: string[]): Lockfile => ({
         sourceName: "default",
         publisherBindingId: "hbnd_test",
         agents: [] as ReadonlyArray<string>,
-        installedAt: new Date(),
-        updatedAt: new Date(),
+        installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+        updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
       },
     ]),
   ),
@@ -204,8 +205,8 @@ const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
         integrity: "",
         sourceName: "default",
         publisherBindingId: "hbnd_test",
-        installedAt: new Date(),
-        updatedAt: new Date(),
+        installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+        updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
       },
     ]),
   ),
@@ -220,8 +221,8 @@ const lockfileWithSkills = (...names: string[]): Lockfile => ({
         type: "local" as const,
         path: decodeRelativePathSync(`tmp/skills/${name}`),
         agents: [],
-        installedAt: new Date(),
-        updatedAt: new Date(),
+        installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+        updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
       },
     ]),
   ),
@@ -533,8 +534,8 @@ describe("buildInstallPlan", () => {
           "skill-a": {
             type: "local" as const,
             path: decodeRelativePathSync("tmp/skills/skill-a"),
-            installedAt: new Date(),
-            updatedAt: new Date(),
+            installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
           },
         },
       };
@@ -697,8 +698,8 @@ describe("buildInstallPlan", () => {
           "skill-a": {
             type: "local" as const,
             path: decodeRelativePathSync("tmp/skills/skill-a"),
-            installedAt: new Date(),
-            updatedAt: new Date(),
+            installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
           },
         },
         commands: {
@@ -710,8 +711,8 @@ describe("buildInstallPlan", () => {
             integrity: "",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
-            installedAt: new Date(),
-            updatedAt: new Date(),
+            installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
           },
         },
       };

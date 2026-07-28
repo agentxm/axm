@@ -11,6 +11,7 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -54,7 +55,7 @@ const encodeExtensionIndexToJsonString = Schema.encodeSync(
 );
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 const PUBLISH_LOCK_RETRY_DELAY = Duration.millis(25);
-const PUBLISH_LOCK_STALE_MILLIS = Duration.toMillis(Duration.minutes(5));
+const PUBLISH_LOCK_STALE_TIMEOUT = Duration.minutes(5);
 const publishLockSemaphores = new Map<string, Semaphore.Semaphore>();
 
 // -----------------------------------------------------------------------------
@@ -102,8 +103,9 @@ const acquirePublishLock = (
   lockPath: string,
 ): Effect.Effect<void, AppError> =>
   Effect.gen(function* () {
+    const acquiredAt = DateTime.formatIso(yield* DateTime.now);
     const result = yield* fs
-      .writeFileString(lockPath, `${new Date().toISOString()}\n`, { flag: "wx" })
+      .writeFileString(lockPath, `${acquiredAt}\n`, { flag: "wx" })
       .pipe(Effect.result);
     if (result._tag === "Success") return;
     if (result.failure.reason._tag !== "AlreadyExists") {
@@ -115,11 +117,16 @@ const acquirePublishLock = (
     }
 
     const info = yield* fs.stat(lockPath).pipe(Effect.option);
-    if (
-      Option.isSome(info) &&
-      Option.isSome(info.value.mtime) &&
-      Date.now() - info.value.mtime.value.getTime() > PUBLISH_LOCK_STALE_MILLIS
-    ) {
+    const staleLock =
+      Option.isSome(info) && Option.isSome(info.value.mtime)
+        ? yield* DateTime.isPast(
+            DateTime.addDuration(
+              DateTime.makeUnsafe(info.value.mtime.value),
+              PUBLISH_LOCK_STALE_TIMEOUT,
+            ),
+          )
+        : false;
+    if (staleLock) {
       yield* removeBestEffort(fs, lockPath);
     } else {
       yield* Effect.sleep(PUBLISH_LOCK_RETRY_DELAY);

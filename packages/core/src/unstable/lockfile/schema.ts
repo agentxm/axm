@@ -17,7 +17,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
+import { DateTimeUtcSchema } from "../date-time.js";
 import {
   ExtensionFqnSchema,
   type ExtensionType,
@@ -45,8 +45,8 @@ export const LOCKFILE_VERSION = 3;
  * Common fields shared by all lock entries (without agents).
  */
 const BaseCommonFields = {
-  installedAt: DateFromIsoDateTimeStringSchema,
-  updatedAt: DateFromIsoDateTimeStringSchema,
+  installedAt: DateTimeUtcSchema,
+  updatedAt: DateTimeUtcSchema,
   gitTreeHash: Schema.optional(Schema.String),
   retainedByPack: Schema.optional(Schema.Boolean),
 };
@@ -184,8 +184,8 @@ const InlineMcpServerLockEntrySchema = Schema.Struct({
  *
  * Fields common to all entries:
  * - type: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry")
- * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
- * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
+ * - installedAt: ISO 8601 timestamp of initial installation (DateTime.Utc in TS)
+ * - updatedAt: ISO 8601 timestamp of last update (DateTime.Utc in TS)
  * - gitTreeHash: Git tree SHA of source folder (git sources, optional)
  * - sourceHash: advisory SHA-256 change marker of the canonical skill source
  *   captured at install time (shallow: top-level `src/` files only; optional).
@@ -560,8 +560,8 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   integrity: Schema.String,
   sourceName: Schema.String,
   publisherBindingId: Schema.NonEmptyString,
-  installedAt: DateFromIsoDateTimeStringSchema,
-  updatedAt: DateFromIsoDateTimeStringSchema,
+  installedAt: DateTimeUtcSchema,
+  updatedAt: DateTimeUtcSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
@@ -590,8 +590,8 @@ export const WorkspacePackLockEntrySchema = Schema.Struct({
   name: ExtensionNameSchema,
   version: VersionSchema,
   sourceHash: SourceHashSchema,
-  installedAt: DateFromIsoDateTimeStringSchema,
-  updatedAt: DateFromIsoDateTimeStringSchema,
+  installedAt: DateTimeUtcSchema,
+  updatedAt: DateTimeUtcSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,

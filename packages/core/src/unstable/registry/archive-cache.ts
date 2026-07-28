@@ -5,7 +5,9 @@
  */
 
 import * as os from "node:os";
+import * as Clock from "effect/Clock";
 import * as Config from "effect/Config";
+import * as DateTime from "effect/DateTime";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -50,7 +52,7 @@ export interface ArchiveCache {
   ) => Effect.Effect<void, AppError>;
   readonly status: () => Effect.Effect<ArchiveCacheStatus, AppError>;
   readonly verify: () => Effect.Effect<ArchiveCacheVerifyResult, AppError>;
-  readonly prune: (now?: number) => Effect.Effect<ArchiveCachePruneResult, AppError>;
+  readonly prune: () => Effect.Effect<ArchiveCachePruneResult, AppError>;
 }
 
 interface CacheEntry {
@@ -183,8 +185,9 @@ export const makeArchiveCache = (
         Effect.mapError((cause) => cacheError(`Failed to remove cache entry: ${entryPath}`, cause)),
       );
 
-  const prune = (now = Date.now()): Effect.Effect<ArchiveCachePruneResult, AppError> =>
+  const prune = (): Effect.Effect<ArchiveCachePruneResult, AppError> =>
     Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
       const entries = [...(yield* listEntries())].sort((a, b) => a.accessedAt - b.accessedAt);
       const expired = entries.filter((entry) => now - entry.accessedAt > maxAgeMillis);
       yield* Effect.forEach(expired, (entry) => removeEntry(entry.path), { concurrency: 8 });
@@ -224,7 +227,7 @@ export const makeArchiveCache = (
         yield* removeEntry(entryPath);
         return Option.none();
       }
-      const now = new Date();
+      const now = DateTime.toDateUtc(yield* DateTime.now);
       yield* fs.utimes(entryPath, now, now).pipe(Effect.ignore);
       return Option.some(archive);
     });

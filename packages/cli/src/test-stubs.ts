@@ -5,6 +5,7 @@
  * @internal Test-only. Not exported from the barrel.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -290,7 +291,7 @@ export const makeBaseWorkspaceMock = (
   return { ...base, ...serviceOverrides };
 };
 
-const TEST_DATE = new Date("2025-01-01T00:00:00.000Z");
+const TEST_DATE = DateTime.makeUnsafe("2025-01-01T00:00:00.000Z");
 const decodeResolvedExtensionMapSync = Schema.decodeUnknownSync(ResolvedExtensionMapSchema);
 const decodeExtensionDependencyConstraintMapSync = Schema.decodeUnknownSync(
   ExtensionDependencyConstraintMapSchema,
@@ -387,8 +388,8 @@ export const ensureWorkspaceFiles = (axmDir: string): void => {
 export const makeLocalSkillLockEntry = (opts?: {
   readonly path?: string;
   readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: Date;
-  readonly updatedAt?: Date;
+  readonly installedAt?: DateTime.Utc;
+  readonly updatedAt?: DateTime.Utc;
 }): SkillLockEntry => ({
   type: "local",
   path: decodeRelativePathSync(opts?.path ?? "installed"),
@@ -404,8 +405,8 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly sourceName?: string;
   readonly publisherBindingId?: string;
   readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: Date;
-  readonly updatedAt?: Date;
+  readonly installedAt?: DateTime.Utc;
+  readonly updatedAt?: DateTime.Utc;
 }): SkillLockEntry => ({
   type: "registry",
   owner: normalizeHandle(opts.owner),
@@ -429,8 +430,8 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly resolvedCommands?: ResolvedExtensionMap;
   readonly resolvedMcpServers?: ResolvedExtensionMap;
   readonly resolvedSubagents?: ResolvedExtensionMap;
-  readonly installedAt?: Date;
-  readonly updatedAt?: Date;
+  readonly installedAt?: DateTime.Utc;
+  readonly updatedAt?: DateTime.Utc;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
     owner: normalizeHandle(opts.owner),

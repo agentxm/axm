@@ -8,6 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
@@ -84,7 +85,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
       });
     }
 
-    const now = new Date();
+    const now = yield* DateTime.now;
 
     // Read current configured extensions to preserve existing direct entries
     const currentSkills = yield* ws.records.getConfiguredSkills();

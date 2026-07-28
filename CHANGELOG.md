@@ -1,3 +1,19 @@
+## 0.22.14 (2026-07-28)
+
+### 🚀 Features
+
+- Adopt Effect DateTime.Utc as the canonical in-memory timestamp: DateTimeUtcSchema replaces IsoDateTimeStringSchema and DateFromIsoDateTimeStringSchema (wire format unchanged), DateTimeUtcFromDateSchema covers legacy Date edges, and auth, lockfile, registry, and workspace surfaces now expose DateTime.Utc values. ([33c3b85d](https://github.com/agentxm/axm/commit/33c3b85d))
+
+### 🩹 Fixes
+
+- Make a corrupt or missing lockfile recoverable: reconciliation defers unresolved declarations instead of failing, lockfile reads degrade ahead of recovery, `axm sync` reconciles, and read-only commands report declared state. ([#58](https://github.com/agentxm/axm/pull/58))
+
+### ❤️ Thank You
+
+- Claude Fable 5
+- Craig Smitham
+- Test @songkang666
+
 ## 0.22.13 (2026-07-25)
 
 ### 🩹 Fixes

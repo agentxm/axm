@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/client-core/unstable/auth";
+import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -22,6 +23,8 @@ import {
   aggregatePublishFailure,
   handleRootPublish,
   type RootPublishHandlerArgs,
+  PUBLISHABLE_TYPES,
+  isPublishableType,
 } from "./command.js";
 
 const args = (
@@ -749,5 +752,14 @@ describe("aggregatePublishFailure", () => {
     ]);
 
     expect(error.code).toBe("internal");
+  });
+});
+
+describe("publish type policy", () => {
+  it("covers every extension type and only excludes rule", () => {
+    expect(Object.keys(PUBLISHABLE_TYPES).sort()).toEqual([...extensionTypes].sort());
+    for (const type of extensionTypes) {
+      expect(isPublishableType(type)).toBe(type !== "rule");
+    }
   });
 });

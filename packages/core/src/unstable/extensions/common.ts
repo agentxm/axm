@@ -160,16 +160,37 @@ export const LicenseSchema = Schema.String.annotate({
   ),
 );
 
+/** How an extension type is distributed. All current types are registry-distributed. */
+export type ExtensionDistribution = "registry";
+
 /**
- * Naming row for one extension type. Columns verified against the retired
- * hand-written maps.
+ * Where an extension type's installed artifacts live: in per-agent locations
+ * AXM can collide with, in workspace-owned locations, or nowhere of its own
+ * (container types like pack).
  */
-interface ExtensionTypeNamingRow {
+export type ExtensionPlacement = "per-agent" | "workspace" | "container";
+
+/** What a governing standard covers for a type, when one exists. */
+export type StandardGoverns = "package-body" | "runtime-protocol" | "host-file";
+
+/** Workspace-level capability a type participates in. */
+export type WorkspaceCapabilityKey = "instructions";
+
+/**
+ * One extension type's naming and capability-axis row. Every CONDITIONAL
+ * parity obligation is a predicate over the five axis columns.
+ */
+interface ExtensionTypeRow {
   readonly plural: string;
   readonly label: string;
   readonly pluralLabel: string;
   readonly sentenceLabel: string;
   readonly pluralSentenceLabel: string;
+  readonly distribution: ExtensionDistribution;
+  readonly placement: ExtensionPlacement;
+  readonly governs: StandardGoverns | null;
+  readonly installInputs: boolean;
+  readonly workspaceCapability: WorkspaceCapabilityKey | null;
 }
 
 /**
@@ -189,6 +210,11 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Skills",
     sentenceLabel: "skill",
     pluralSentenceLabel: "skills",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: "package-body",
+    installInputs: false,
+    workspaceCapability: null,
   },
   command: {
     plural: "commands",
@@ -196,6 +222,11 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Commands",
     sentenceLabel: "command",
     pluralSentenceLabel: "commands",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: null,
+    installInputs: false,
+    workspaceCapability: null,
   },
   "mcp-server": {
     plural: "mcps",
@@ -203,6 +234,11 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "MCP Servers",
     sentenceLabel: "MCP server",
     pluralSentenceLabel: "MCP servers",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: "runtime-protocol",
+    installInputs: true,
+    workspaceCapability: null,
   },
   subagent: {
     plural: "subagents",
@@ -210,6 +246,11 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Subagents",
     sentenceLabel: "subagent",
     pluralSentenceLabel: "subagents",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: null,
+    installInputs: false,
+    workspaceCapability: null,
   },
   files: {
     plural: "files",
@@ -217,6 +258,11 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Context Files",
     sentenceLabel: "context files",
     pluralSentenceLabel: "context files",
+    distribution: "registry",
+    placement: "workspace",
+    governs: null,
+    installInputs: true,
+    workspaceCapability: null,
   },
   rule: {
     plural: "rules",
@@ -224,6 +270,11 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Rules",
     sentenceLabel: "rule",
     pluralSentenceLabel: "rules",
+    distribution: "registry",
+    placement: "workspace",
+    governs: "host-file",
+    installInputs: false,
+    workspaceCapability: "instructions",
   },
   hook: {
     plural: "hooks",
@@ -231,6 +282,11 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Hooks",
     sentenceLabel: "hook",
     pluralSentenceLabel: "hooks",
+    distribution: "registry",
+    placement: "per-agent",
+    governs: null,
+    installInputs: false,
+    workspaceCapability: null,
   },
   knowledge: {
     plural: "knowledge",
@@ -238,6 +294,11 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Knowledge",
     sentenceLabel: "knowledge bundle",
     pluralSentenceLabel: "knowledge bundles",
+    distribution: "registry",
+    placement: "workspace",
+    governs: "package-body",
+    installInputs: false,
+    workspaceCapability: null,
   },
   pack: {
     plural: "packs",
@@ -245,8 +306,13 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Packs",
     sentenceLabel: "pack",
     pluralSentenceLabel: "packs",
+    distribution: "registry",
+    placement: "container",
+    governs: null,
+    installInputs: false,
+    workspaceCapability: null,
   },
-} as const satisfies { readonly [key: string]: ExtensionTypeNamingRow };
+} as const satisfies { readonly [key: string]: ExtensionTypeRow };
 
 export type ExtensionType = keyof typeof EXTENSION_TYPE_TABLE;
 
@@ -325,6 +391,57 @@ export const nonPackExtensionTypePluralSegments: ReadonlyArray<NonPackExtensionT
   );
 
 const NON_PACK_EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = nonPackExtensionTypePluralSegments.join("|");
+
+// ---------------------------------------------------------------------------
+// Axis-derived type unions and arrays
+// ---------------------------------------------------------------------------
+
+type ExtensionTypeRows = typeof EXTENSION_TYPE_TABLE;
+
+/**
+ * Extension types whose table row matches an axis value. Derived, never
+ * hand-written: an axis change on a row updates every union below, and the
+ * exact-membership pins in extension-type-table.type-test.ts fail compile in
+ * both directions if a union gains or loses a member.
+ */
+type TypesWhere<Axis extends keyof ExtensionTypeRow, Value> = {
+  [Key in ExtensionType]: ExtensionTypeRows[Key][Axis] extends Value ? Key : never;
+}[ExtensionType];
+
+/** Extension types materialized into agent-owned locations. */
+export type PerAgentType = TypesWhere<"placement", "per-agent">;
+
+/** Extension types materialized into workspace-owned locations. */
+export type WorkspaceType = TypesWhere<"placement", "workspace">;
+
+/** Registry-distributed non-container extension types. */
+export type RegistryType = PerAgentType | WorkspaceType;
+
+/** Extension types whose installs accept user-provided inputs. */
+export type InputType = TypesWhere<"installInputs", true>;
+
+/** Extension types whose governing standard covers the package body. */
+export type BodyGovernedType = TypesWhere<"governs", "package-body">;
+
+export const PER_AGENT_EXTENSION_TYPES: ReadonlyArray<PerAgentType> = extensionTypes.filter(
+  (type): type is PerAgentType => EXTENSION_TYPE_TABLE[type].placement === "per-agent",
+);
+
+export const WORKSPACE_EXTENSION_TYPES: ReadonlyArray<WorkspaceType> = extensionTypes.filter(
+  (type): type is WorkspaceType => EXTENSION_TYPE_TABLE[type].placement === "workspace",
+);
+
+export const REGISTRY_EXTENSION_TYPES: ReadonlyArray<RegistryType> = extensionTypes.filter(
+  (type): type is RegistryType => EXTENSION_TYPE_TABLE[type].placement !== "container",
+);
+
+export const INPUT_EXTENSION_TYPES: ReadonlyArray<InputType> = extensionTypes.filter(
+  (type): type is InputType => EXTENSION_TYPE_TABLE[type].installInputs,
+);
+
+export const BODY_GOVERNED_EXTENSION_TYPES: ReadonlyArray<BodyGovernedType> = extensionTypes.filter(
+  (type): type is BodyGovernedType => EXTENSION_TYPE_TABLE[type].governs === "package-body",
+);
 const EXTENSION_NAME_MAX_LENGTH = 64;
 const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";
 const EXTENSION_NAME_BRAND = "ExtensionName" as const;

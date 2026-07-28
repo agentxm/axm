@@ -22,6 +22,29 @@ import { HOOK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/hooks";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { VersionSchema, type Version } from "@agentxm/client-core/unstable/version-constraints";
 
+/**
+ * Version-bump policy, total over every extension type: a new type cannot be
+ * added without deciding whether `axm version` can bump it. The `false` rows
+ * are capability gaps the parity program closes deliberately, not catalog
+ * data.
+ */
+export const VERSIONABLE_TYPES = {
+  skill: true,
+  command: true,
+  "mcp-server": true,
+  subagent: true,
+  files: false,
+  rule: false,
+  hook: true,
+  knowledge: false,
+  pack: true,
+} as const satisfies Record<ExtensionType, boolean>;
+
+type TruthyKeys<T> = { [K in keyof T]: T[K] extends true ? K : never }[keyof T];
+
+export type VersionableExtensionType = TruthyKeys<typeof VERSIONABLE_TYPES>;
+
+// Explicit order is user-visible in `axm version` help and error suggestions.
 export const versionableTypes = [
   "command",
   "skill",
@@ -29,9 +52,7 @@ export const versionableTypes = [
   "mcp-server",
   "hook",
   "pack",
-] as const satisfies ReadonlyArray<ExtensionType>;
-
-export type VersionableExtensionType = (typeof versionableTypes)[number];
+] as const satisfies ReadonlyArray<VersionableExtensionType>;
 export type VersionBump = "patch" | "minor" | "major" | "prerelease";
 
 export interface ManifestVersionInfo {
@@ -47,10 +68,8 @@ export interface BumpManifestVersionResult extends ManifestVersionInfo {
   readonly written: boolean;
 }
 
-const versionableTypeSet: ReadonlySet<ExtensionType> = new Set(versionableTypes);
-
 export const isVersionableType = (type: ExtensionType): type is VersionableExtensionType =>
-  versionableTypeSet.has(type);
+  VERSIONABLE_TYPES[type];
 
 const manifestFilenameByType: Record<VersionableExtensionType, string> = {
   command: COMMAND_MANIFEST_FILENAME,

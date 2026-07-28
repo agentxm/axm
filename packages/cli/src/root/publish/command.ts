@@ -38,6 +38,7 @@ import {
   parseFqn,
   parseRegistrySourcePatternParts,
   type ExtensionName,
+  type ExtensionType,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import type { JobStepResult, Plan } from "@agentxm/client-core/unstable/plan";
@@ -90,7 +91,32 @@ import {
 } from "../shared/publish-preflight.js";
 import { recoverPublishConflictAsSkipExisting } from "../shared/publish-skip-existing.js";
 
-const publishableTypes = [
+/**
+ * Publish policy, total over every extension type: a new type cannot be added
+ * without deciding whether it publishes. `rule: false` is a capability gap the
+ * parity program closes deliberately, not catalog data.
+ */
+export const PUBLISHABLE_TYPES = {
+  skill: true,
+  command: true,
+  "mcp-server": true,
+  subagent: true,
+  files: true,
+  rule: false,
+  hook: true,
+  knowledge: true,
+  pack: true,
+} as const satisfies Record<ExtensionType, boolean>;
+
+type TruthyKeys<T> = { [K in keyof T]: T[K] extends true ? K : never }[keyof T];
+
+export type PublishableType = TruthyKeys<typeof PUBLISHABLE_TYPES>;
+
+export const isPublishableType = (type: ExtensionType): type is PublishableType =>
+  PUBLISHABLE_TYPES[type];
+
+// Explicit order (rule last) is user-visible in the --type flag's help output.
+const selectableTypes = [
   "skill",
   "command",
   "mcp-server",
@@ -99,10 +125,8 @@ const publishableTypes = [
   "hook",
   "knowledge",
   "pack",
-] as const;
-
-const selectableTypes = [...publishableTypes, "rule"] as const;
-type PublishableType = (typeof publishableTypes)[number];
+  "rule",
+] as const satisfies ReadonlyArray<ExtensionType>;
 type SelectableType = (typeof selectableTypes)[number];
 type SelectionMode = "authored" | "all" | "explicit" | "filtered-explicit";
 type ExistingVersionPolicy = OnExistingPolicy;
@@ -556,7 +580,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   overrides: PublishOverrides,
 ) {
   if (selected.skipReason !== undefined) return undefined;
-  if (selected.type === "rule") return undefined;
+  if (!isPublishableType(selected.type)) return undefined;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -862,7 +886,7 @@ const selectedResult = (
       message:
         reason === "not_authored"
           ? "Dependency is not workspace-sourced; include it explicitly to publish"
-          : entry.type === "rule"
+          : !isPublishableType(entry.type)
             ? "Rule publishing is not supported yet"
             : "Dependency is not a managed publish candidate",
     };

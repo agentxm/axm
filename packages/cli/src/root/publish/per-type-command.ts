@@ -9,8 +9,8 @@ import {
   extensionTypeToPlural,
   fqnInvalidErrorToAppError,
   parseFqn,
-  type ExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
+import type { PublishableType } from "./command.js";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
@@ -22,7 +22,7 @@ import {
 } from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
-type PerTypePublishType = Exclude<ExtensionType, "rule">;
+type PerTypePublishType = PublishableType;
 
 const normalizeSelector = (type: PerTypePublishType, selector: string) =>
   Effect.gen(function* () {

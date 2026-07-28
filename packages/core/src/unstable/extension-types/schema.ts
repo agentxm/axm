@@ -116,12 +116,25 @@ export const ExtensionTypeDefinitionSchema = Schema.Struct({
   summary: Schema.NonEmptyString,
   description: Schema.NonEmptyString,
   standard: Schema.NullOr(StandardSchema),
-  docs: Schema.Array(DocLinkSchema),
-}).annotate({
-  identifier: "ExtensionTypeDefinition",
-  title: "Extension Type Definition",
-  description: "Agent-agnostic catalog entry describing one leaf extension type's capability.",
-});
+  docs: Schema.Array(DocLinkSchema).check(
+    Schema.makeFilter((docs) =>
+      docs.length > 0 ? true : "Every catalog entry needs at least one doc link",
+    ),
+  ),
+})
+  .annotate({
+    identifier: "ExtensionTypeDefinition",
+    title: "Extension Type Definition",
+    description: "Agent-agnostic catalog entry describing one leaf extension type's capability.",
+  })
+  .check(
+    Schema.makeFilter((definition) =>
+      definition.standard === null ||
+      definition.docs.every((doc) => doc.url !== definition.standard?.url)
+        ? true
+        : "Doc links must be distinct from the governing standard's url",
+    ),
+  );
 
 /** @experimental This API is unstable and may change without notice. */
 export type ExtensionTypeDefinition = Schema.Schema.Type<typeof ExtensionTypeDefinitionSchema>;

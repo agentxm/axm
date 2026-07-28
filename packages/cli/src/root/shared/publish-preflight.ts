@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as semver from "semver";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   extensionTypeToPlural,
   fqnInvalidErrorToAppError,
@@ -19,6 +19,24 @@ import type { Version } from "@agentxm/client-core/unstable/version-constraints"
 import { resolveManifestVersionInfo, type VersionableExtensionType } from "./extension-version.js";
 
 export const VERSION_ALREADY_PUBLISHED_REASON = "version_already_published" as const;
+
+export const alreadyPublishedVersionConflict = (args: {
+  readonly fqn: string;
+  readonly version: Version;
+}): AppError =>
+  makeAppError({
+    code: "conflict",
+    detail: `Cannot publish: version ${args.version} is already published for ${args.fqn}. Published versions are immutable.`,
+    suggestions: [
+      {
+        description: "Bump the manifest version.",
+        cmd: `axm version ${args.fqn} patch`,
+      },
+      {
+        description: "Re-run with --on-existing skip to skip already-published versions.",
+      },
+    ],
+  });
 
 export interface PublishIdentity {
   readonly owner: Handle;
@@ -121,16 +139,7 @@ export const checkPublishVersionPreflight = (args: {
         } satisfies PublishPreflightDecision;
       }
 
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Cannot publish: version ${local.version} is already published for ${local.fqn}. Published versions are immutable.`,
-        suggestions: [
-          {
-            description: "Bump the manifest version.",
-            cmd: `axm version ${local.fqn} patch`,
-          },
-        ],
-      });
+      return yield* alreadyPublishedVersionConflict({ fqn: local.fqn, version: local.version });
     }
 
     const latest = indexOption.value.versions[0]?.version;

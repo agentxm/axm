@@ -2,8 +2,16 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { CodingAgentRepository } from "../agents/index.js";
+import {
+  CodingAgentRepository,
+  pruneManagedMcpServersForAgent,
+  type CodingAgent,
+} from "../agents/index.js";
+import { AGENTS as CAPABILITY_AGENTS } from "../agent-capabilities/index.js";
+import { LEAF_EXTENSION_TYPES, type LeafExtensionType } from "../extension-types/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { stripManagedHooksFromJson } from "../hooks/managed-groups.js";
+import type { WorkspaceScope } from "./scope.js";
 import { WorkspaceMutations } from "./service-interface.js";
 
 // Match the full managed-file banner ("AXM managed file — do not edit
@@ -155,10 +163,148 @@ export const findManagedSubagentFiles = (subagentsDir: string) =>
     return managedPaths;
   });
 
+interface RemovedAgentCleanupContext {
+  readonly fs: FileSystem.FileSystem;
+  readonly path: Path.Path;
+  readonly agent: CodingAgent;
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+}
+
+type RemovedAgentCleanup = (
+  context: RemovedAgentCleanupContext,
+) => Effect.Effect<ReadonlyArray<string>, AppError, FileSystem.FileSystem | Path.Path>;
+
+const NO_PATHS: ReadonlyArray<string> = [];
+
+const cleanupAgentSkills: RemovedAgentCleanup = (context) =>
+  Effect.gen(function* () {
+    const skillsDir = yield* context.agent.resolveEffectiveSkillsDir({
+      workspaceRoot: context.workspaceRoot,
+    });
+    if (skillsDir._tag !== "supported") return NO_PATHS;
+    return yield* cleanupSkillArtifactsInDir({
+      fs: context.fs,
+      path: context.path,
+      baseDir: context.workspaceRoot,
+      skillsDir: skillsDir.dir,
+    });
+  });
+
+const cleanupAgentCommands: RemovedAgentCleanup = (context) =>
+  Effect.gen(function* () {
+    const commandsDir = yield* context.agent.resolveEffectiveCommandsDir({
+      workspaceRoot: context.workspaceRoot,
+      scope: context.scope,
+    });
+    if (commandsDir._tag !== "supported") return NO_PATHS;
+    return yield* cleanupCommandArtifactsInDir({
+      fs: context.fs,
+      path: context.path,
+      commandsDir: commandsDir.dir,
+    });
+  });
+
+const cleanupAgentSubagents: RemovedAgentCleanup = (context) =>
+  Effect.gen(function* () {
+    const subagentsDir = yield* context.agent.resolveEffectiveSubagentsDir({
+      workspaceRoot: context.workspaceRoot,
+      scope: context.scope,
+    });
+    if (subagentsDir._tag !== "supported") return NO_PATHS;
+    return yield* cleanupSubagentArtifactsInDir({
+      fs: context.fs,
+      path: context.path,
+      subagentsDir: subagentsDir.dir,
+    });
+  });
+
 /**
- * Remove AXM-managed skill, command, and subagent artifacts from agents that
- * are no longer configured for a workspace. This only removes
- * symlinks/copies/files with AXM-managed signals and leaves user-authored files
+ * Drop every `x-axm`-tagged server from the agent's MCP config. An empty
+ * declared set means "nothing should remain", so only managed entries go and
+ * user-authored servers stay.
+ */
+const cleanupAgentMcpServers: RemovedAgentCleanup = (context) =>
+  Effect.gen(function* () {
+    const outcome = yield* pruneManagedMcpServersForAgent(context.agent.id, {
+      workspaceRoot: context.workspaceRoot,
+      declaredServerNames: new Set<string>(),
+      scope: context.scope,
+    });
+    if (outcome._tag !== "success") return NO_PATHS;
+    return (outcome.targets ?? []).map((target) => target.path);
+  });
+
+/**
+ * Strip AXM-rendered hook groups from the agent's settings files. Edits go
+ * through jsonc-parser so user-authored groups, comments, and formatting in
+ * these user-owned files survive.
+ */
+const cleanupAgentHooks: RemovedAgentCleanup = (context) =>
+  Effect.gen(function* () {
+    const capabilityAgent = CAPABILITY_AGENTS.find(
+      (candidate) => candidate.id === context.agent.id,
+    );
+    const writer = capabilityAgent?.capabilities.hook.axm.writer;
+    if (writer === undefined || writer === null) return NO_PATHS;
+
+    const removedPaths: Array<string> = [];
+    const configFiles = writer.configFiles.filter(
+      (file) => file.scope === "project" && file.format === "json",
+    );
+    for (const file of configFiles) {
+      const configPath = context.path.resolve(context.workspaceRoot, file.path);
+      const exists = yield* context.fs
+        .exists(configPath)
+        .pipe(Effect.catch(() => Effect.succeed(false)));
+      if (!exists) continue;
+
+      const raw = yield* safeReadFileString(context.fs, configPath);
+      const next = yield* stripManagedHooksFromJson(configPath, writer.settingsKey, raw);
+      if (next === raw) continue;
+
+      yield* context.fs.writeFileString(configPath, next).pipe(
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to strip managed hooks from: ${configPath}`,
+            cause: error,
+          }),
+        ),
+      );
+      removedPaths.push(configPath);
+    }
+    return removedPaths;
+  });
+
+/**
+ * `files` extensions render to workspace paths rather than per-agent
+ * directories, and `rule` extensions live in shared instruction files as
+ * managed regions that other configured agents still read. Neither is keyed to
+ * a single agent, so removing one agent must not delete them.
+ */
+const noAgentScopedArtifacts: RemovedAgentCleanup = () => Effect.succeed(NO_PATHS);
+
+/**
+ * Cleanup keyed by leaf extension type: adding a per-agent type to
+ * `LEAF_EXTENSION_TYPES` fails to compile here until its removal behavior is
+ * decided.
+ */
+const cleanupByExtensionType = {
+  skill: cleanupAgentSkills,
+  command: cleanupAgentCommands,
+  subagent: cleanupAgentSubagents,
+  "mcp-server": cleanupAgentMcpServers,
+  hook: cleanupAgentHooks,
+  files: noAgentScopedArtifacts,
+  rule: noAgentScopedArtifacts,
+} as const satisfies Record<LeafExtensionType, RemovedAgentCleanup>;
+
+/**
+ * Remove AXM-managed artifacts for agents that are no longer configured for a
+ * workspace: rendered skill, command, and subagent files, plus the agent's
+ * managed MCP server entries and hook groups. Only content carrying an
+ * AXM-managed signal is removed; user-authored files and entries are left
  * untouched.
  */
 export const cleanupManagedArtifactsForRemovedAgents = (args: {
@@ -179,41 +325,15 @@ export const cleanupManagedArtifactsForRemovedAgents = (args: {
     for (const agent of agents) {
       if (!args.removedAgentIds.has(agent.id)) continue;
 
-      const skillsDir = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir });
-      if (skillsDir._tag === "supported") {
-        const skillPaths = yield* cleanupSkillArtifactsInDir({
-          fs,
-          path,
-          baseDir: ws.baseDir,
-          skillsDir: skillsDir.dir,
-        });
-        removedPaths.push(...skillPaths);
-      }
-
-      const commandsDir = yield* agent.resolveEffectiveCommandsDir({
+      const context: RemovedAgentCleanupContext = {
+        fs,
+        path,
+        agent,
         workspaceRoot: ws.baseDir,
         scope: ws.scope,
-      });
-      if (commandsDir._tag === "supported") {
-        const commandPaths = yield* cleanupCommandArtifactsInDir({
-          fs,
-          path,
-          commandsDir: commandsDir.dir,
-        });
-        removedPaths.push(...commandPaths);
-      }
-
-      const subagentsDir = yield* agent.resolveEffectiveSubagentsDir({
-        workspaceRoot: ws.baseDir,
-        scope: ws.scope,
-      });
-      if (subagentsDir._tag === "supported") {
-        const subagentPaths = yield* cleanupSubagentArtifactsInDir({
-          fs,
-          path,
-          subagentsDir: subagentsDir.dir,
-        });
-        removedPaths.push(...subagentPaths);
+      };
+      for (const type of LEAF_EXTENSION_TYPES) {
+        removedPaths.push(...(yield* cleanupByExtensionType[type](context)));
       }
     }
 

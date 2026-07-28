@@ -38,6 +38,8 @@ const args = (
   registryUrl: Option.some(registryUrl),
   onExisting: Option.none(),
   skipExisting: false,
+  allowOlder: false,
+  allowUnsafeArchive: false,
   yes: true,
   force: false,
   preview: true,
@@ -478,6 +480,253 @@ describe("root publish", () => {
           expect(property(itemNamed(rerunItems, "deploy"), "action")).toBe("skip");
         }),
       );
+    });
+  });
+
+  describe("publish safety gates", () => {
+    const skillDir = () => path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+
+    const writeReviewSkill = (version: string) => {
+      fs.mkdirSync(path.join(skillDir(), "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(skillDir(), "skill.json"),
+        JSON.stringify({ owner: "@acme", type: "skill", name: "review", version }),
+      );
+      fs.writeFileSync(
+        path.join(skillDir(), "src", "SKILL.md"),
+        "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
+      );
+      fs.writeFileSync(
+        path.join(tempDir, ".axm", "settings.json"),
+        JSON.stringify({
+          owner: "@acme",
+          agents: [],
+          skills: { review: "workspace:@acme/skills/review" },
+        }),
+      );
+    };
+
+    const reviewItem = (data: unknown) => {
+      const result = expectPublishResult(data, { mode: "apply", count: 1 });
+      const results = property(result, "results");
+      if (!Array.isArray(results)) throw new Error("Expected publish results");
+      return expectRecord(at(results, 0));
+    };
+
+    const explicit = (registryUrl: string, overrides?: Partial<RootPublishHandlerArgs>) =>
+      args(registryUrl, {
+        selectors: ["@acme/skills/review"],
+        preview: false,
+        ...overrides,
+      });
+
+    describe("version monotonicity", () => {
+      it.effect("rejects a version below the highest published version", () => {
+        const { provide } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.1.0");
+            yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+            writeReviewSkill("1.0.5");
+            const error = getAppError(
+              yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.flip),
+            );
+
+            expect(error.code).toBe("conflict");
+            expect(error.detail).toContain("lower than the highest published version 1.1.0");
+            const suggestions = error.suggestions ?? [];
+            expect(
+              suggestions.some(
+                (suggestion) => suggestion.cmd === "axm version @acme/skills/review patch",
+              ),
+            ).toBe(true);
+            expect(
+              suggestions.some((suggestion) => suggestion.description.includes("--allow-older")),
+            ).toBe(true);
+          }),
+        );
+      });
+
+      it.effect("--allow-older publishes the older version", () => {
+        const { provide, rendererState } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.1.0");
+            yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+            writeReviewSkill("1.0.5");
+            yield* handleRootPublish(explicit(registryUrl, { allowOlder: true }));
+
+            const item = reviewItem(at(rendererState.results, 1).data);
+            expect(property(item, "action")).toBe("publish");
+            expect(property(item, "status")).toBe("success");
+            expect(property(item, "version")).toBe("1.0.5");
+          }),
+        );
+      });
+
+      it.effect("--force does not bypass the monotonicity gate", () => {
+        const { provide } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.1.0");
+            yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+            writeReviewSkill("1.0.5");
+            const error = getAppError(
+              yield* handleRootPublish(explicit(registryUrl, { force: true })).pipe(Effect.flip),
+            );
+
+            expect(error.code).toBe("conflict");
+            expect(error.detail).toContain("lower than the highest published version 1.1.0");
+          }),
+        );
+      });
+
+      it.effect("compares by semver rather than registry index order", () => {
+        const { provide } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.0.0");
+            yield* handleRootPublish(args(registryUrl, { preview: false }));
+            writeReviewSkill("2.0.0");
+            yield* handleRootPublish(args(registryUrl, { preview: false }));
+            // Publishing out of order leaves 1.5.0 first in the index, so an
+            // index-order "latest" would wrongly accept anything above it.
+            writeReviewSkill("1.5.0");
+            yield* handleRootPublish(explicit(registryUrl, { allowOlder: true }));
+
+            writeReviewSkill("1.9.0");
+            const error = getAppError(
+              yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.flip),
+            );
+
+            expect(error.code).toBe("conflict");
+            expect(error.detail).toContain("lower than the highest published version 2.0.0");
+          }),
+        );
+      });
+
+      it.effect("leaves the first publish and equal-version policy untouched", () => {
+        const { provide, rendererState } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.1.0");
+            yield* handleRootPublish(explicit(registryUrl));
+            expect(property(reviewItem(at(rendererState.results, 0).data), "status")).toBe(
+              "success",
+            );
+
+            const error = getAppError(
+              yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.flip),
+            );
+            expect(error.code).toBe("conflict");
+            expect(error.detail).toContain("already published");
+          }),
+        );
+      });
+    });
+
+    describe("archive guardrails", () => {
+      it.effect("refuses an archive containing node_modules", () => {
+        const { provide } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.0.0");
+            fs.mkdirSync(path.join(skillDir(), "node_modules"), { recursive: true });
+            fs.writeFileSync(
+              path.join(skillDir(), "node_modules", "leftover.js"),
+              "module.exports = {}\n",
+            );
+
+            const error = getAppError(
+              yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.flip),
+            );
+
+            expect(error.code).toBe("validation");
+            expect(error.detail).toContain("node_modules/leftover.js");
+            expect(
+              (error.suggestions ?? []).some((suggestion) =>
+                suggestion.description.includes("--allow-unsafe-archive"),
+              ),
+            ).toBe(true);
+          }),
+        );
+      });
+
+      it.effect("refuses an archive containing a .env file", () => {
+        const { provide } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.0.0");
+            fs.writeFileSync(path.join(skillDir(), ".env"), "TOKEN=secret\n");
+
+            const error = getAppError(
+              yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.flip),
+            );
+
+            expect(error.code).toBe("validation");
+            expect(error.detail).toContain(".env");
+          }),
+        );
+      });
+
+      it.effect("--allow-unsafe-archive publishes the archive anyway", () => {
+        const { provide, rendererState } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.0.0");
+            fs.mkdirSync(path.join(skillDir(), "node_modules"), { recursive: true });
+            fs.writeFileSync(
+              path.join(skillDir(), "node_modules", "leftover.js"),
+              "module.exports = {}\n",
+            );
+
+            yield* handleRootPublish(explicit(registryUrl, { allowUnsafeArchive: true }));
+
+            const item = reviewItem(at(rendererState.results, 0).data);
+            expect(property(item, "action")).toBe("publish");
+            expect(property(item, "status")).toBe("success");
+          }),
+        );
+      });
+
+      it.effect("leaves a clean archive byte-identical", () => {
+        const { provide, rendererState } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.0.0");
+            yield* handleRootPublish(explicit(registryUrl));
+            // `verify` recomputes the archive and compares integrity with the
+            // published version: it only passes if the guardrails left the
+            // bytes alone.
+            yield* handleRootPublish(explicit(registryUrl, { onExisting: Option.some("verify") }));
+
+            const item = reviewItem(at(rendererState.results, 1).data);
+            expect(property(item, "action")).toBe("skip");
+            expect(property(item, "reason")).toBe("version_already_published");
+          }),
+        );
+      });
     });
   });
 });

@@ -19,20 +19,18 @@ const installConfig = {
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be installed without making changes"),
   ),
-  env: Flag.optional(Flag.string("env")).pipe(
+  env: Flag.string("env").pipe(
     Flag.withAlias("e"),
-    Flag.withDescription("Provide an MCP input value as KEY=VALUE"),
-  ),
-  nonInteractive: Flag.boolean("non-interactive").pipe(
-    Flag.withDescription("Use defaults and placeholders instead of prompting for MCP inputs"),
+    Flag.withDescription("Provide an MCP input value as KEY=VALUE; repeatable"),
+    Flag.atLeast(0),
   ),
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview, env, nonInteractive }) =>
-    handleInstallMcpServer({ source, env, nonInteractive }, { yes, force, preview }).pipe(
+  ({ source, scope, yes, force, preview, env }) =>
+    handleInstallMcpServer({ source, env }, { yes, force, preview }).pipe(
       withWorkspace(scope),
       withRuntime("mcps install"),
     ),
@@ -57,6 +55,10 @@ export const installCommand = Command.make(
     {
       command: "axm mcps install @acme/mcps/my-server --preview",
       description: "See what would be installed first",
+    },
+    {
+      command: "axm mcps install @acme/mcps/my-server --env API_KEY=abc --env REGION=us",
+      description: "Supply multiple MCP input values",
     },
   ]),
 );

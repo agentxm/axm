@@ -99,6 +99,21 @@ const containsRemovedAuthoredProperty = (value: unknown): boolean => {
   return Object.values(value).some(containsRemovedAuthoredProperty);
 };
 
+const REMOVED_SETTINGS_KEY_ISSUES: ReadonlyArray<{
+  readonly key: string;
+  readonly issue: string;
+}> = [
+  {
+    key: "libraries",
+    issue: "libraries: Library workspace state is no longer supported",
+  },
+  {
+    key: "ignored",
+    issue:
+      "ignored: The top-level ignored block was removed. Use per-type config such as skillsConfig.ignore instead.",
+  },
+];
+
 /** Decode settings from cached raw bytes. Source-independent (Decision 2). */
 const loadSettings = (
   rawCell: Effect.Effect<Option.Option<RawSourceBytes>, SettingsIoError>,
@@ -112,6 +127,16 @@ const loadSettings = (
       try: (): unknown => JSON.parse(bytes),
       catch: (cause): SettingsParseError => new SettingsParseError({ path, raw: bytes, cause }),
     });
+    // Removed legacy keys fail loudly with targeted guidance; SettingsSchema
+    // itself tolerates unknown top-level keys so newer-AXM data is preserved.
+    if (typeof parsed === "object" && parsed !== null) {
+      const removedKeyIssues = REMOVED_SETTINGS_KEY_ISSUES.filter(({ key }) => key in parsed).map(
+        ({ issue }) => issue,
+      );
+      if (removedKeyIssues.length > 0) {
+        return yield* new SettingsDecodeError({ path, issues: removedKeyIssues, raw: parsed });
+      }
+    }
 
     const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed, {
       onExcessProperty: "error",

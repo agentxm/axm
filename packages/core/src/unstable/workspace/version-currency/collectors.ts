@@ -385,6 +385,55 @@ export const collectPackCurrency = (
     return yield* collectCurrency("pack", ws.records.getConfiguredPacks, ws.getLockedPacks, client);
   });
 
+/**
+ * Collect currency entries for all enabled, registry-sourced Context Files packages.
+ */
+export const collectFilesCurrency = (
+  client: RegistryClient,
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    return yield* collectCurrency("files", ws.getConfiguredFilesEntries, ws.getLockedFiles, client);
+  });
+
+/**
+ * Collect currency entries for all enabled, registry-sourced rules.
+ */
+export const collectRuleCurrency = (
+  client: RegistryClient,
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    return yield* collectCurrency("rule", ws.getConfiguredRuleEntries, ws.getLockedRules, client);
+  });
+
+/**
+ * Collect currency entries for all enabled, registry-sourced hooks.
+ */
+export const collectHookCurrency = (
+  client: RegistryClient,
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    return yield* collectCurrency("hook", ws.getConfiguredHookEntries, ws.getLockedHooks, client);
+  });
+
+/**
+ * Collect currency entries for all enabled, registry-sourced knowledge bundles.
+ */
+export const collectKnowledgeCurrency = (
+  client: RegistryClient,
+): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    return yield* collectCurrency(
+      "knowledge",
+      ws.getConfiguredKnowledgeEntries,
+      ws.getLockedKnowledge,
+      client,
+    );
+  });
+
 // ---------------------------------------------------------------------------
 // Aggregator
 // ---------------------------------------------------------------------------
@@ -396,18 +445,33 @@ export const collectAllCurrencyEntries = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const [skills, commands, mcpServers, subagents, packs] = yield* Effect.all(
-      [
-        collectSkillCurrency(client),
-        collectCommandCurrency(client),
-        collectMcpServerCurrency(client),
-        collectSubagentCurrency(client),
-        collectPackCurrency(client),
-      ],
-      { concurrency: "unbounded" },
-    );
+    const [skills, commands, mcpServers, subagents, packs, files, rules, hooks, knowledge] =
+      yield* Effect.all(
+        [
+          collectSkillCurrency(client),
+          collectCommandCurrency(client),
+          collectMcpServerCurrency(client),
+          collectSubagentCurrency(client),
+          collectPackCurrency(client),
+          collectFilesCurrency(client),
+          collectRuleCurrency(client),
+          collectHookCurrency(client),
+          collectKnowledgeCurrency(client),
+        ],
+        { concurrency: "unbounded" },
+      );
 
-    return [...skills, ...commands, ...mcpServers, ...subagents, ...packs];
+    return [
+      ...skills,
+      ...commands,
+      ...mcpServers,
+      ...subagents,
+      ...packs,
+      ...files,
+      ...rules,
+      ...hooks,
+      ...knowledge,
+    ];
   });
 
 export const collectAllUpdateEntries = (

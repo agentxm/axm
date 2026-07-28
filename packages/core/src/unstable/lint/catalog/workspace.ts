@@ -10,6 +10,7 @@
  * | --------------------------------------- | -------- | ----------- |
  * | `workspace/initialized`                 | error    | —           |
  * | `workspace/settings-schema-valid`       | error    | —           |
+ | `workspace/settings-keys-recognized`    | error    | —           |
  * | `workspace/lockfile-valid`              | error    | autofixing  |
  * | `workspace/agents-recognized`           | error    | —           |
  * | `workspace/agents-detected-declared`    | warning  | —           |
@@ -41,6 +42,7 @@ import type { LintRule } from "../rule.js";
 import type { WorkspaceRuleContext } from "../context.js";
 import { initializedRule } from "./workspace/initialized.js";
 import { settingsSchemaValidRule } from "./workspace/settings-schema-valid.js";
+import { settingsKeysRecognizedRule } from "./workspace/settings-keys-recognized.js";
 import { lockfileValidRule } from "./workspace/lockfile-valid.js";
 import { agentsRecognizedRule } from "./workspace/agents-recognized.js";
 import { agentsDetectedDeclaredRule } from "./workspace/agents-detected-declared.js";
@@ -78,6 +80,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   // Foundation (classification-independent workspace well-formedness).
   initializedRule,
   settingsSchemaValidRule,
+  settingsKeysRecognizedRule,
   lockfileValidRule,
   agentsRecognizedRule,
   agentsDetectedDeclaredRule,

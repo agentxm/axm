@@ -124,6 +124,7 @@ the summary here, follow the guide.
 | [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Before designing or translating Effect errors, read for AppError and service patterns     |
 | [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Before building or wiring layers, read for composition and provision rules                |
 | [Workspace Read Model Guide](contributing/guides/workspace-read-model.md)   | Before migrating workspace reads or using context test fixtures                           |
+| [Workspace Schema Evolution Guide](contributing/guides/workspace-schema-evolution.md) | Before changing settings/lockfile schemas or decode strictness on workspace paths |
 | [Logging Guide](contributing/guides/logging.md)                             | Before adding structured logs, read for logging conventions                               |
 | [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Before writing or revising TypeScript, read for narrowing and immutability rules          |
 | [Agent Capability Model](contributing/guides/agent-capabilities.md)         | Before adding an agent or changing a capability claim, read for the standard/bridged rule |

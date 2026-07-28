@@ -11,7 +11,8 @@ export class ArchiveGuardrailError extends Data.TaggedError("ArchiveGuardrailErr
     | "malformed_archive"
     | "decompression_limit_exceeded"
     | "compression_ratio_exceeded"
-    | "entry_count_exceeded";
+    | "entry_count_exceeded"
+    | "forbidden_entry";
   readonly message: string;
   readonly entry?: string;
 }> {}
@@ -306,6 +307,42 @@ const checkCompressionRatio = (
         new ArchiveGuardrailError({
           code: "compression_ratio_exceeded",
           message: `Archive entry "${entry.fileName}" exceeds maximum compression ratio ${limits.maxCompressionRatio}.`,
+          entry: entry.fileName,
+        }),
+      );
+    }
+  }
+
+  return Effect.void;
+};
+
+const FORBIDDEN_SEGMENTS = new Set(["node_modules", ".git"]);
+
+/**
+ * Reject archives carrying build or secret leftovers: any `node_modules` or
+ * `.git` path segment, and `.env` / `.env.*` files. Kept out of
+ * {@link validateArchive} on purpose — that function is the registry ingest
+ * contract, and archives accepted by earlier clients must keep ingesting.
+ *
+ * `.env*` matches the basename exactly (`.env`) or by dotted prefix
+ * (`.env.local`, `.env.production`, and also `.env.example`), so sibling names
+ * like `.envrc` and `environment.md` are unaffected.
+ */
+export const checkForbiddenSourceEntries = (
+  entries: readonly ZipEntry[],
+): Effect.Effect<void, ArchiveGuardrailError> => {
+  for (const entry of entries) {
+    const segments = entry.fileName.replace(/\\/g, "/").split("/");
+    const basename = segments[segments.length - 1] ?? "";
+    if (
+      segments.some((segment) => FORBIDDEN_SEGMENTS.has(segment)) ||
+      basename === ".env" ||
+      basename.startsWith(".env.")
+    ) {
+      return Effect.fail(
+        new ArchiveGuardrailError({
+          code: "forbidden_entry",
+          message: `Archive contains a forbidden entry: "${entry.fileName}".`,
           entry: entry.fileName,
         }),
       );

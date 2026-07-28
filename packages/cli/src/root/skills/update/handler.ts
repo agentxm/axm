@@ -55,7 +55,11 @@ import {
   allUpdateTargetResolutionsFailed,
   resolveUpdateTargets,
 } from "../../shared/update-targets.js";
-import { LIST_INSTALLED_SKILLS, SKILL_NAME_RULES } from "../../suggested-actions.js";
+import {
+  LIST_INSTALLED_SKILLS,
+  REVIEW_REGISTRY_SOURCES,
+  SKILL_NAME_RULES,
+} from "../../suggested-actions.js";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
@@ -440,15 +444,15 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   ) {
     return yield* allUpdateTargetResolutionsFailed({
       resourceLabelPlural: "skill",
-      recover: "List configured sources",
-      cmd: "axm sources list",
+      recover: REVIEW_REGISTRY_SOURCES.description,
+      cmd: REVIEW_REGISTRY_SOURCES.cmd,
     });
   }
   if (resolved.length === 0 && skipped.length === 0) {
     return yield* allUpdateTargetResolutionsFailed({
       resourceLabelPlural: "skill",
-      recover: "List configured sources",
-      cmd: "axm sources list",
+      recover: REVIEW_REGISTRY_SOURCES.description,
+      cmd: REVIEW_REGISTRY_SOURCES.cmd,
     });
   }
 

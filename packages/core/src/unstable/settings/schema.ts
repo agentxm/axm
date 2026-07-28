@@ -1394,7 +1394,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SettingsSchema = Schema.Struct({
+const SettingsBaseSchema = Schema.Struct({
   $schema: Schema.optionalKey(
     Schema.String.annotate({
       description:
@@ -1525,7 +1525,19 @@ export const SettingsSchema = Schema.Struct({
       description: "Lint configuration for `axm lint` in this workspace.",
     }),
   ),
-}).annotate({
+});
+
+// Unknown top-level keys are carried by the rest record so a settings file
+// written by a newer AXM survives a read-modify-write cycle instead of being
+// silently rewritten without them. Nested strictness is unchanged: unknown
+// keys inside entry objects still fail decode, and the removed legacy
+// `libraries` key is rejected by an explicit pre-decode guard on the settings
+// read path. The
+// `workspace/settings-keys-recognized` lint rule reports unknown top-level
+// keys at error severity.
+export const SettingsSchema = Schema.StructWithRest(SettingsBaseSchema, [
+  Schema.Record(Schema.String, Schema.Unknown),
+]).annotate({
   identifier: "AxmSettings",
   title: "AXM Settings",
   description:
@@ -1573,3 +1585,12 @@ export const SettingsSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export type Settings = Schema.Schema.Type<typeof SettingsSchema>;
+
+/**
+ * The recognized top-level settings keys, derived from the schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SETTINGS_KNOWN_KEYS: ReadonlySet<string> = new Set(
+  Object.keys(SettingsBaseSchema.fields),
+);

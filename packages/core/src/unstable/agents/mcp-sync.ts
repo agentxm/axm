@@ -616,6 +616,7 @@ export const pruneManagedMcpServersForAgent = (
 
     const config = capability.axm.writer.config;
     const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
+    const prunedTargets: Array<McpServerSyncTarget> = [];
     yield* Effect.forEach(
       targets,
       (target) =>
@@ -646,6 +647,7 @@ export const pruneManagedMcpServersForAgent = (
                 );
             }
           });
+          if (staleNames.length === 0) return;
           yield* Effect.forEach(
             staleNames,
             (serverName) =>
@@ -659,10 +661,14 @@ export const pruneManagedMcpServersForAgent = (
               }),
             { concurrency: "unbounded" },
           );
+          prunedTargets.push({ path: configPath, change: "updated" });
         }),
       { concurrency: "unbounded" },
     );
-    return { _tag: "success" } as const;
+    return {
+      _tag: "success",
+      ...(prunedTargets.length > 0 ? { targets: prunedTargets } : {}),
+    } satisfies McpServerSyncOutcome;
   });
 
 const isCapabilityAgentId = (id: string): id is CapabilityAgentId => id in AGENTS_BY_ID;

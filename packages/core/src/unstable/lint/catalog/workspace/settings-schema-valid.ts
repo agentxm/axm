@@ -14,9 +14,9 @@
  *    findings via `schemaDecodeFindings`.
  *
  * Reports the read-failure finding when arm 2 fails; otherwise reports the
- * schema issues produced by arm 3/4. The design doc notes the unknown-key
- * companion (`workspace/settings-keys-recognized`) defers to v1.5+ — this
- * rule keeps schema validity as a single error-severity invariant.
+ * schema issues produced by arm 3/4. The unknown-key companion
+ * (`workspace/settings-keys-recognized`) reports unrecognized top-level keys,
+ * which `SettingsSchema` now tolerates and preserves rather than rejecting.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

@@ -24,6 +24,7 @@ import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolu
 import {
   InstallMcpServerCommandWorkflowActions,
   InstallMcpServerCommandWorkflowActionsLive,
+  parseEnvFlag,
 } from "./command-actions.js";
 
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
@@ -149,6 +150,63 @@ describe("parseMcpServerInstallArgs", () => {
         });
       }).pipe(Effect.provide(forceActionsLayer));
       expect(result.force).toBe(false);
+    }),
+  );
+
+  it.effect("collects repeated --env flags into the parsed env record", () =>
+    Effect.gen(function* () {
+      const result = yield* runWithActions((actions) =>
+        actions.parseArgs({
+          source: "@acme/mcps/my-server",
+          env: ["API_KEY=abc", "REGION=us-east-1"],
+        }),
+      );
+      expect(result.env).toEqual({ API_KEY: "abc", REGION: "us-east-1" });
+    }),
+  );
+});
+
+describe("parseEnvFlag", () => {
+  it.effect("returns an empty record when --env is not supplied", () =>
+    Effect.gen(function* () {
+      expect(yield* parseEnvFlag([])).toEqual({});
+    }),
+  );
+
+  it.effect("merges repeated KEY=VALUE flags", () =>
+    Effect.gen(function* () {
+      expect(yield* parseEnvFlag(["API_KEY=abc", "REGION=us-east-1"])).toEqual({
+        API_KEY: "abc",
+        REGION: "us-east-1",
+      });
+    }),
+  );
+
+  it.effect("lets a later occurrence of a key win", () =>
+    Effect.gen(function* () {
+      expect(yield* parseEnvFlag(["API_KEY=first", "API_KEY=second"])).toEqual({
+        API_KEY: "second",
+      });
+    }),
+  );
+
+  it.effect("keeps '=' characters inside the value", () =>
+    Effect.gen(function* () {
+      expect(yield* parseEnvFlag(["TOKEN=a=b=c"])).toEqual({ TOKEN: "a=b=c" });
+    }),
+  );
+
+  it.effect("rejects a bare key with a usage error", () =>
+    Effect.gen(function* () {
+      const error = yield* parseEnvFlag(["API_KEY"]).pipe(Effect.flip);
+      expect(error.code).toBe("usage");
+    }),
+  );
+
+  it.effect("rejects a leading '=' with a usage error", () =>
+    Effect.gen(function* () {
+      const error = yield* parseEnvFlag(["=value"]).pipe(Effect.flip);
+      expect(error.code).toBe("usage");
     }),
   );
 });

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { parseZipCentralDirectory, validateArchive } from "./archive-guardrails.js";
+import {
+  checkForbiddenSourceEntries,
+  parseZipCentralDirectory,
+  validateArchive,
+} from "./archive-guardrails.js";
 import {
   buildDecompressionBombZip,
   buildMalformedZip,
@@ -79,4 +83,57 @@ describe("validateArchive", () => {
       expect(["decompression_limit_exceeded", "compression_ratio_exceeded"]).toContain(error.code);
     }),
   );
+
+  it.effect("still accepts build and secret leftovers, keeping registry ingest unchanged", () =>
+    Effect.gen(function* () {
+      const zip = buildZip([
+        { fileName: "skill.json", content: textContent('{"name":"test"}') },
+        { fileName: "node_modules/pkg/index.js", content: textContent("module.exports = {}") },
+        { fileName: ".env", content: textContent("TOKEN=secret") },
+      ]);
+
+      const entries = yield* validateArchive(zip);
+      expect(entries).toHaveLength(3);
+    }),
+  );
+});
+
+describe("checkForbiddenSourceEntries", () => {
+  const entriesFor = (fileNames: readonly string[]) =>
+    parseZipCentralDirectory(
+      buildZip(fileNames.map((fileName) => ({ fileName, content: textContent("content") }))),
+    );
+
+  it.effect("accepts a clean extension archive", () =>
+    Effect.gen(function* () {
+      const entries = yield* entriesFor(["skill.json", "src/SKILL.md"]);
+      yield* checkForbiddenSourceEntries(entries);
+    }),
+  );
+
+  it.effect("accepts names that only resemble the deny list", () =>
+    Effect.gen(function* () {
+      const entries = yield* entriesFor([".envrc", "environment.md", "docs/node_modules.md"]);
+      yield* checkForbiddenSourceEntries(entries);
+    }),
+  );
+
+  for (const fileName of [
+    "node_modules/pkg/index.js",
+    "src/node_modules/x.js",
+    ".git/config",
+    ".env",
+    ".env.local",
+    "conf/.env.production",
+  ]) {
+    it.effect(`rejects "${fileName}"`, () =>
+      Effect.gen(function* () {
+        const entries = yield* entriesFor(["skill.json", fileName]);
+        const error = yield* Effect.flip(checkForbiddenSourceEntries(entries));
+
+        expect(error.code).toBe("forbidden_entry");
+        expect(error.entry).toBe(fileName);
+      }),
+    );
+  }
 });

@@ -14,7 +14,12 @@ import {
 
 import { scopeFlag } from "../../cli-flags.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
-import { onExistingFlag, skipExistingFlag } from "../shared/publish-flags.js";
+import {
+  allowOlderFlag,
+  allowUnsafeArchiveFlag,
+  onExistingFlag,
+  skipExistingFlag,
+} from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
 type PerTypePublishType = Exclude<ExtensionType, "rule">;
@@ -61,6 +66,8 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     ),
     onExisting: onExistingFlag,
     skipExisting: skipExistingFlag,
+    allowOlder: allowOlderFlag,
+    allowUnsafeArchive: allowUnsafeArchiveFlag,
     visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
       Flag.withDescription("Initial visibility for one explicit publish"),
       Flag.optional,
@@ -74,7 +81,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     ),
     yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
     force: forceFlag.pipe(
-      Flag.withDescription("Allow an older unpublished version; never overwrite a version"),
+      Flag.withDescription("Proceed past blocked plan steps; never overwrites a published version"),
     ),
     preview: previewFlag.pipe(Flag.withDescription("Preflight without uploading")),
   } as const;
@@ -104,6 +111,8 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         registryUrl: parsed.registryUrl,
         onExisting: parsed.onExisting,
         skipExisting: parsed.skipExisting,
+        allowOlder: parsed.allowOlder,
+        allowUnsafeArchive: parsed.allowUnsafeArchive,
         yes: parsed.yes,
         force: parsed.force,
         preview: parsed.preview,

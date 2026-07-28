@@ -48,6 +48,7 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "hook/recommended-packs-valid",
   "workspace/initialized",
   "workspace/settings-schema-valid",
+  "workspace/settings-keys-recognized",
   "workspace/lockfile-valid",
   "workspace/agents-recognized",
   "workspace/agents-detected-declared",

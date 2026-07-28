@@ -1,17 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
-import { CliOutput, Command } from "effect/unstable/cli";
-import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
 import { ExitCode } from "@agentxm/client-core/unstable/app-error";
 
-import { rootCommand, run } from "./app.js";
+import { run } from "./app.js";
+import { captureHelpDoc, collectHelpFiles } from "./command-tree-test-helpers.js";
 import { LearnMore } from "./formatter.js";
-import { baseLayer } from "./runtime.js";
-
-const TEST_VERSION = "0.0.0-test";
-type HelpFiles = Map<string, HelpDoc>;
 
 class ExitCalled extends Error {
   readonly code: number;
@@ -21,57 +16,6 @@ class ExitCalled extends Error {
     this.code = code;
   }
 }
-
-const formatCommandPath = (path: ReadonlyArray<string>): string =>
-  path.length === 0 ? "axm" : `axm ${path.join(" ")}`;
-
-const captureHelpDoc = (path: ReadonlyArray<string>): Effect.Effect<HelpDoc, unknown, never> =>
-  Effect.gen(function* () {
-    const files: Array<HelpDoc> = [];
-    const formatter: CliOutput.Formatter = {
-      ...CliOutput.defaultFormatter({ colors: false }),
-      formatHelpDoc: (doc) => {
-        files.push(doc);
-        return "";
-      },
-    };
-
-    yield* Command.runWith(rootCommand, { version: TEST_VERSION })([...path, "--help"]).pipe(
-      Effect.provide(baseLayer),
-      Effect.provideService(CliOutput.Formatter, formatter),
-    );
-
-    const doc = files[0];
-    if (doc === undefined) {
-      return yield* Effect.die(
-        new Error(`Expected help output for ${formatCommandPath(path)} --help`),
-      );
-    }
-
-    return doc;
-  });
-
-const collectHelpFiles = (
-  path: ReadonlyArray<string> = [],
-): Effect.Effect<HelpFiles, unknown, never> =>
-  Effect.gen(function* () {
-    const doc = yield* captureHelpDoc(path);
-    const childPaths = (doc.subcommands ?? []).flatMap((group) =>
-      group.commands.map((subcommand) => [...path, subcommand.name]),
-    );
-    const childEntries: ReadonlyArray<HelpFiles> = yield* Effect.forEach(
-      childPaths,
-      collectHelpFiles,
-      {
-        concurrency: "unbounded",
-      },
-    );
-
-    return new Map([
-      [formatCommandPath(path), doc] as const,
-      ...childEntries.flatMap((entries) => Array.from(entries)),
-    ]);
-  });
 
 describe("root command help", () => {
   it("attaches a LEARN MORE footer pointing at entry-point help topics", async () => {

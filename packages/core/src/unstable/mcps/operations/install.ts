@@ -59,8 +59,6 @@ export type InstallMcpServerOperationArgs = {
   readonly strictAgentSync?: Option.Option<boolean>;
   /** Resolved MCP input values from `--env KEY=VALUE` flags. */
   readonly env?: Option.Option<Readonly<Record<string, string>>>;
-  /** When true, do not prompt for missing input values. */
-  readonly nonInteractive?: Option.Option<boolean>;
 };
 
 /**

@@ -6,6 +6,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as semver from "semver";
 
 import {
   makeAppError,
@@ -47,7 +48,12 @@ import {
   KnowledgeManifestSchema,
   inspectKnowledgeBundle,
 } from "@agentxm/client-core/unstable/knowledge";
-import { runPublishLintGate } from "@agentxm/client-core/unstable/publish";
+import {
+  checkForbiddenSourceEntries,
+  enforceArchiveSizeLimit,
+  runPublishLintGate,
+  validateArchive,
+} from "@agentxm/client-core/unstable/publish";
 import {
   createRegistryClient,
   type ExtensionVisibility,
@@ -71,12 +77,17 @@ import { scopeFlag } from "../../cli-flags.js";
 import { emitPublishResult, type PublishResultItem } from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
 import {
+  allowOlderFlag,
+  allowUnsafeArchiveFlag,
   onExistingFlag,
   resolveExistingVersionPolicy,
   skipExistingFlag,
   type OnExistingPolicy,
 } from "../shared/publish-flags.js";
-import { alreadyPublishedVersionConflict } from "../shared/publish-preflight.js";
+import {
+  alreadyPublishedVersionConflict,
+  nonMonotonicVersionConflict,
+} from "../shared/publish-preflight.js";
 import { recoverPublishConflictAsSkipExisting } from "../shared/publish-skip-existing.js";
 
 const publishableTypes = [
@@ -171,6 +182,12 @@ interface TargetRegistry {
   readonly url: string;
 }
 
+/** Explicit opt-outs from the publish safety gates, each behind its own flag. */
+interface PublishOverrides {
+  readonly allowOlder: boolean;
+  readonly allowUnsafeArchive: boolean;
+}
+
 export interface RootPublishHandlerArgs {
   readonly selectors: ReadonlyArray<string>;
   readonly authored: boolean;
@@ -182,6 +199,8 @@ export interface RootPublishHandlerArgs {
   readonly registryUrl: Option.Option<string>;
   readonly onExisting: Option.Option<ExistingVersionPolicy>;
   readonly skipExisting: boolean;
+  readonly allowOlder: boolean;
+  readonly allowUnsafeArchive: boolean;
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
@@ -534,6 +553,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   policy: ExistingVersionPolicy,
   registry: TargetRegistry,
   visibility: Option.Option<ExtensionVisibility>,
+  overrides: PublishOverrides,
 ) {
   if (selected.skipReason !== undefined) return undefined;
   if (selected.type === "rule") return undefined;
@@ -631,6 +651,44 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     });
   }
   const archive = yield* buildZipArchive(extensionDir);
+  // Guardrails run on the built bytes and only ever reject: rewriting the
+  // archive here would change its integrity digest and break republishing an
+  // already-published version under `--on-existing verify`.
+  const archiveEntries = yield* validateArchive(archive).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Archive validation failed for ${selected.fqn}: ${cause.message}`,
+        cause,
+      }),
+    ),
+  );
+  if (!overrides.allowUnsafeArchive) {
+    yield* checkForbiddenSourceEntries(archiveEntries).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "validation",
+          detail: `Refusing to publish ${selected.fqn}: ${cause.message}`,
+          suggestions: [
+            {
+              description:
+                "Remove the entry from the extension directory, or re-run with --allow-unsafe-archive to publish it anyway.",
+            },
+          ],
+          cause,
+        }),
+      ),
+    );
+  }
+  yield* Effect.fromResult(enforceArchiveSizeLimit(archive.length)).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Cannot publish ${selected.fqn}: ${cause.detail}`,
+        cause,
+      }),
+    ),
+  );
   const integrity = yield* computeIntegrity(archive);
   const client = yield* createRegistryClient(registry.url);
   const index = yield* client.getExtensionIndex({
@@ -668,6 +726,22 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       });
     }
     action = "skip";
+  } else if (Option.isSome(index) && !overrides.allowOlder) {
+    // The registry index is ordered by publish time, not by semver, so the
+    // highest published version has to be reduced over every entry. Yanked
+    // versions count: their version numbers stay burned.
+    const highestPublished = index.value.versions.reduce<Version | undefined>(
+      (highest, entry) =>
+        highest === undefined || semver.gt(entry.version, highest) ? entry.version : highest,
+      undefined,
+    );
+    if (highestPublished !== undefined && semver.lt(manifest.version, highestPublished)) {
+      return yield* nonMonotonicVersionConflict({
+        fqn: selected.fqn,
+        version: manifest.version,
+        highestPublished,
+      });
+    }
   }
   return {
     ...selected,
@@ -839,7 +913,13 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const selected = selection.entries;
   const decoded = yield* Effect.forEach(
     selected,
-    (entry) => Effect.result(decodeCandidate(entry, effectivePolicy, registry, args.visibility)),
+    (entry) =>
+      Effect.result(
+        decodeCandidate(entry, effectivePolicy, registry, args.visibility, {
+          allowOlder: args.allowOlder,
+          allowUnsafeArchive: args.allowUnsafeArchive,
+        }),
+      ),
     { concurrency: 4 },
   );
   const candidates = decoded.flatMap((result) =>
@@ -1016,13 +1096,15 @@ const publishConfig = {
   ),
   onExisting: onExistingFlag,
   skipExisting: skipExistingFlag,
+  allowOlder: allowOlderFlag,
+  allowUnsafeArchive: allowUnsafeArchiveFlag,
   visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
     Flag.withDescription("Initial visibility for one explicit publish"),
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
   force: forceFlag.pipe(
-    Flag.withDescription("Allow an older unpublished version; never overwrite a version"),
+    Flag.withDescription("Proceed past blocked plan steps; never overwrites a published version"),
   ),
   preview: previewFlag.pipe(Flag.withDescription("Preflight without uploading")),
 } as const;
@@ -1039,6 +1121,8 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     registryUrl: parsed.registryUrl,
     onExisting: parsed.onExisting,
     skipExisting: parsed.skipExisting,
+    allowOlder: parsed.allowOlder,
+    allowUnsafeArchive: parsed.allowUnsafeArchive,
     yes: parsed.yes,
     force: parsed.force,
     preview: parsed.preview,

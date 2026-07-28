@@ -2084,7 +2084,6 @@
         }
       },
       "required": ["lockfileVersion", "skills"],
-      "additionalProperties": false,
       "title": "AXM Lockfile",
       "description": "Records the exact versions of all installed extensions so installs are reproducible."
     }

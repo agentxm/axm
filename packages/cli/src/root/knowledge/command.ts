@@ -5,10 +5,10 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { effectCliExit, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -22,6 +22,7 @@ import {
   type KnowledgeDiagnostic,
 } from "@agentxm/client-core/unstable/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
@@ -38,14 +39,17 @@ import { handleWorkspaceInstall } from "../install/workspace-install-handler.js"
 import { newCommand } from "./new.js";
 import { knowledgePublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import {
   deleteSourceFlag,
   keepSourceFlag,
   resolveSourceDisposition,
 } from "../shared/source-disposition-flags.js";
 import { handleWorkspaceUpdate } from "../update/workspace-update-handler.js";
-import { makeInstallKnowledgeCommandWorkflowActions } from "./install/command-actions.js";
+import { InstallKnowledgeCommandWorkflowActions } from "./install/command-actions.js";
 import { makeUninstallKnowledgeCommandWorkflowActions } from "./uninstall/command-actions.js";
+
+const KNOWLEDGE_SETTINGS_PATH = ".axm/settings.json";
 
 const ConceptSchema = Schema.Struct({
   bundle: Schema.String,
@@ -338,17 +342,22 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
         if (diagnostic.severity === "error") yield* renderer.error(message);
         else yield* renderer.warn(message);
       }
+      if (errors.length > 0) {
+        yield* renderer.error(
+          `${errors.length} knowledge validation error${errors.length === 1 ? "" : "s"}`,
+        );
+      }
     }
   }
+  // Exit non-zero without a second stdout document: the findings above are the
+  // command's only output, so signal failure with an exit code rather than an
+  // AppError envelope (mirrors `axm lint`).
   if (errors.length > 0) {
-    return yield* makeAppError({
-      code: "validation",
-      detail: `${errors.length} knowledge validation error${errors.length === 1 ? "" : "s"}`,
-    });
+    return yield* Effect.die(effectCliExit(ExitCode.Issues));
   }
 });
 
-const setKnowledgeEnabled = Effect.fn("Knowledge.setEnabled")(function* (
+export const setKnowledgeEnabled = Effect.fn("Knowledge.setEnabled")(function* (
   name: string,
   enabled: boolean,
 ) {
@@ -360,11 +369,42 @@ const setKnowledgeEnabled = Effect.fn("Knowledge.setEnabled")(function* (
       detail: `Knowledge bundle "${name}" is not configured`,
     });
   }
-  yield* ws.updateKnowledgeEntry(name, (entry) => ({ ...entry, enabled }));
   const manager = yield* KnowledgeManager;
-  yield* manager.refreshCatalog();
-  const renderer = yield* CliRenderer;
-  yield* renderer.success(`${enabled ? "Enabled" : "Disabled"} knowledge bundle ${name}`);
+  const verb = enabled ? "Enable" : "Disable";
+  const step: PlannedJobStep = {
+    label: name,
+    readiness: "ready",
+    run: ws
+      .updateKnowledgeEntry(name, (entry) => ({ ...entry, enabled }))
+      .pipe(
+        Effect.andThen(manager.refreshCatalog()),
+        Effect.as({
+          result: "success",
+          message: `${verb}d knowledge bundle ${name}`,
+          artifact: {
+            path: KNOWLEDGE_SETTINGS_PATH,
+            scope: ws.scope,
+            change: "updated",
+            targets: [{ path: KNOWLEDGE_SETTINGS_PATH, change: "updated" }],
+          },
+        } satisfies JobStepResult),
+      ),
+  };
+  const resolution = yield* previewOrApplyLocalPlan(
+    {
+      _tag: "Plan",
+      name: `${verb} knowledge bundle`,
+      description: Option.some(`${verb} ${name}`),
+      jobs: [{ concurrency: 1, steps: [step] }],
+    },
+    { preview: false, displayApplied: false },
+  );
+  yield* emitAppliedPlanOutcome({
+    command: enabled ? "knowledge.enable" : "knowledge.disable",
+    headline: `${verb}d knowledge bundle ${name}`,
+    resolution,
+    suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
+  });
 });
 
 const scopeConfig = {
@@ -401,7 +441,7 @@ const installCommand = Command.make(
         }),
       onSome: (value) =>
         Effect.gen(function* () {
-          const actions = yield* makeInstallKnowledgeCommandWorkflowActions;
+          const actions = yield* InstallKnowledgeCommandWorkflowActions;
           const resolution = yield* runInstallCommandWorkflow({ source: value }, actions, {
             yes,
             force,

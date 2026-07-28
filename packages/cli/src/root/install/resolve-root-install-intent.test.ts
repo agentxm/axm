@@ -47,9 +47,17 @@ describe("resolveRootInstallIntent", () => {
 
       expect(appError.code).toBe("usage");
       expect(appError.detail).toContain("registry FQN or source locator");
-      expect(
-        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("axm skills install code-review");
+
+      const guidance = (appError.suggestions ?? [])
+        .map((suggestion) => suggestion.description)
+        .join("\n");
+
+      expect(guidance).toContain("axm skills install code-review");
+      // `rules` is the one type without a per-type install subcommand.
+      expect(guidance).toContain(
+        "skills, commands, mcps, subagents, files, hooks, knowledge, packs",
+      );
+      expect(guidance).not.toContain("axm rules install");
     }),
   );
 

@@ -20,7 +20,7 @@ import type { PlatformError } from "effect/PlatformError";
 import YAML from "yaml";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
+import { LOCKFILE_VERSION, type Lockfile, LockfileSchema, lockfileRestEntries } from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -178,7 +178,10 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
   const knowledge = patchOptionalMap(fresh.knowledge, base.knowledge, next.knowledge);
   const packs = patchOptionalMap(fresh.packs, base.packs, next.packs);
 
+  // Unknown top-level keys follow the on-disk state: a concurrent writer's
+  // extras win, and a base→next patch can neither modify nor delete them.
   return {
+    ...lockfileRestEntries(fresh),
     lockfileVersion: LOCKFILE_VERSION,
     skills: patchRequiredMap(fresh.skills, base.skills, next.skills),
     ...(commands !== undefined ? { commands } : {}),

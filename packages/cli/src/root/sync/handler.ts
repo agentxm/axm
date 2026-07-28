@@ -52,6 +52,10 @@ import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import { FilesManager, renderWorkspaceGeneratorRegions } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
+import {
+  KnowledgeManager,
+  type KnowledgeExtensionRef,
+} from "@agentxm/client-core/unstable/knowledge";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
@@ -75,6 +79,7 @@ import {
   WorkspaceMutations,
   resolveConfiguredFiles,
   resolveConfiguredHook,
+  resolveConfiguredKnowledge,
   resolveConfiguredRule,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
@@ -372,6 +377,16 @@ const configuredHooksToRefs = (
     { concurrency: "unbounded" },
   );
 
+const configuredKnowledgeToRefs = (
+  entries: Readonly<Record<string, { readonly source: string; readonly enabled: boolean }>>,
+) =>
+  Effect.forEach(
+    enabledConfiguredEntries(entries),
+    ([name, entry]) =>
+      resolveConfiguredKnowledge(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
+    { concurrency: "unbounded" },
+  );
+
 export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* (args?: {
   readonly force: boolean;
 }) {
@@ -382,6 +397,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const fileManager = yield* FilesManager;
   const ruleManager = yield* RuleManager;
   const hookManager = yield* HookManager;
+  const knowledgeManager = yield* KnowledgeManager;
   const packManager = yield* PackManager;
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
@@ -400,6 +416,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     fileRefs,
     ruleRefs,
     hookRefs,
+    knowledgeRefs,
     packRefs,
   ] = yield* Effect.all(
     [
@@ -410,6 +427,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       fileManager.listMaterializable(),
       ruleManager.listMaterializable(),
       hookManager.listMaterializable(),
+      knowledgeManager.listMaterializable(),
       packManager.listMaterializable(),
     ],
     { concurrency: "unbounded" },
@@ -423,6 +441,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     packFileRefs,
     packRuleRefs,
     packHookRefs,
+    packKnowledgeRefs,
   ] = yield* Effect.all(
     [
       configuredSkillsToDiskRefs(
@@ -471,6 +490,12 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "hooks")),
         ),
       ),
+      configuredKnowledgeToRefs(
+        Object.assign(
+          {},
+          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "knowledge")),
+        ),
+      ),
     ],
     { concurrency: "unbounded" },
   );
@@ -482,6 +507,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const directFilesNames = new Set(fileRefs.map((ref) => ref.file.name));
   const directRuleNames = new Set(ruleRefs.map((ref) => ref.rule.name));
   const directHookNames = new Set(hookRefs.map((ref) => ref.hook.name));
+  const directKnowledgeNames = new Set(knowledgeRefs.map((ref) => ref.knowledge.name));
 
   const materializedSubagentRefs = [
     ...subagentRefs,
@@ -508,6 +534,11 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       ref,
       message: `Synced subagent ${ref.subagent.name}`,
       buildArtifact: () => subagentSyncArtifact({ ref, ws }),
+    });
+  const knowledgeMaterializeStep = (ref: KnowledgeExtensionRef) =>
+    buildMaterializeOperation(knowledgeManager, {
+      ref,
+      message: `Synced knowledge ${ref.knowledge.name}`,
     });
 
   return {
@@ -564,6 +595,10 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       ...packHookRefs
         .filter((ref) => !directHookNames.has(ref.hook.name))
         .map((ref) => buildMaterializeOperation(hookManager, { ref })),
+      ...knowledgeRefs.map(knowledgeMaterializeStep),
+      ...packKnowledgeRefs
+        .filter((ref) => !directKnowledgeNames.has(ref.knowledge.name))
+        .map(knowledgeMaterializeStep),
     ] satisfies ReadonlyArray<PlannedJobStep>,
   };
 });

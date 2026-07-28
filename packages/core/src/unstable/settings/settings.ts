@@ -10,7 +10,12 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
+import {
+  SETTINGS_KEY_ORDER,
+  SETTINGS_KNOWN_KEYS,
+  type Settings,
+  SettingsSchema,
+} from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -70,13 +75,22 @@ const isEmptySettingsConfig = (key: string, value: unknown): boolean => {
 
 const orderSettingsRecord = (
   settings: Readonly<Record<string, unknown>>,
-): Record<string, unknown> =>
-  SETTINGS_KEY_ORDER.reduce<Record<string, unknown>>((ordered, key) => {
+): Record<string, unknown> => {
+  const ordered = SETTINGS_KEY_ORDER.reduce<Record<string, unknown>>((accumulated, key) => {
     const value = settings[key];
     return value === undefined || isEmptySettingsConfig(key, value)
-      ? ordered
-      : { ...ordered, [key]: value };
+      ? accumulated
+      : { ...accumulated, [key]: value };
   }, {});
+  // Unknown top-level keys are preserved after the canonical keys, in their
+  // original relative order, so a write never discards data it did not create.
+  for (const [key, value] of Object.entries(settings)) {
+    if (!SETTINGS_KNOWN_KEYS.has(key) && value !== undefined) {
+      ordered[key] = value;
+    }
+  }
+  return ordered;
+};
 
 export const orderSettingsKeys = (settings: Settings): Settings =>
   decodeSettingsSync(orderSettingsRecord(encodeSettingsSync(settings)));

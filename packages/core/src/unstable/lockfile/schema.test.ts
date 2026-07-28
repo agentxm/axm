@@ -167,38 +167,20 @@ describe("lockfile schema", () => {
       ).toThrow();
     });
 
-    it("rejects removed Library workspace state", () => {
+    it("tolerates and retains unknown top-level keys under onExcessProperty error", () => {
+      // The removed legacy `libraries` state is rejected by explicit pre-decode
+      // guards on the lockfile read paths, not by the schema; the schema now
+      // carries unknown top-level keys so writes never discard them.
       const input = {
         lockfileVersion: LOCKFILE_VERSION,
         skills: {},
-        libraries: {
-          frontend: {
-            type: "registry",
-            owner: "@acme",
-            name: "frontend",
-            sourceName: "default",
-
-            publisherBindingId: "hbnd_test",
-            membershipDigest: "sha256-members",
-            resolvedAt: "2025-01-15T10:30:00Z",
-            installedAt: "2025-01-15T10:30:00Z",
-            updatedAt: "2025-01-15T10:30:00Z",
-            resolvedSkills: {
-              "@acme/skills/reviewer": { version: "1.2.3", publisherBindingId: "hbnd_test" },
-            },
-            resolvedCommands: {},
-            resolvedMcpServers: {},
-            resolvedSubagents: {},
-            resolvedFiles: {},
-            resolvedRules: {},
-            resolvedHooks: {},
-          },
-        },
+        futureFeature: { alpha: 1 },
       };
 
-      expect(() =>
-        Schema.decodeUnknownSync(LockfileSchema)(input, { onExcessProperty: "error" }),
-      ).toThrow();
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input, {
+        onExcessProperty: "error",
+      });
+      expect(result["futureFeature"]).toEqual({ alpha: 1 });
     });
 
     it("rejects removed file target state", () => {

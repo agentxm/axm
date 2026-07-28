@@ -1,5 +1,6 @@
 export {
   ArchiveGuardrailError,
+  checkForbiddenSourceEntries,
   validateArchive,
   type ArchiveGuardrailLimits,
   type ZipEntry,

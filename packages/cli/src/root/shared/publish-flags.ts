@@ -10,6 +10,16 @@ export const skipExistingFlag = Flag.boolean("skip-existing").pipe(
   ),
 );
 
+export const allowOlderFlag = Flag.boolean("allow-older").pipe(
+  Flag.withDescription(
+    "Allow publishing a version lower than the highest version already published",
+  ),
+);
+
+export const allowUnsafeArchiveFlag = Flag.boolean("allow-unsafe-archive").pipe(
+  Flag.withDescription("Publish even if the archive contains node_modules, .git, or .env* entries"),
+);
+
 export const onExistingPolicies = ["error", "skip", "verify"] as const;
 
 export type OnExistingPolicy = (typeof onExistingPolicies)[number];

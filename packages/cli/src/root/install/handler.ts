@@ -26,7 +26,7 @@ import {
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
 import {
-  makeInstallKnowledgeCommandWorkflowActions,
+  InstallKnowledgeCommandWorkflowActions,
   type InstallKnowledgeHandlerArgs,
 } from "../knowledge/install/command-actions.js";
 import {
@@ -108,7 +108,7 @@ const runRegistryInstallIntent = (
         return yield* runInstallCommandWorkflow(hookArgs, actions, args);
       }
       case "knowledge": {
-        const actions = yield* makeInstallKnowledgeCommandWorkflowActions;
+        const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(knowledgeArgs, actions, args);
       }
@@ -155,7 +155,7 @@ const runLocatorInstallIntent = (source: string, args: RootInstallFlags) =>
     const fileActions = yield* InstallFilesCommandWorkflowActions;
     const ruleActions = yield* InstallRuleCommandWorkflowActions;
     const hookActions = yield* InstallHookCommandWorkflowActions;
-    const knowledgeActions = yield* makeInstallKnowledgeCommandWorkflowActions;
+    const knowledgeActions = yield* InstallKnowledgeCommandWorkflowActions;
     const subagentActions = yield* InstallSubagentCommandWorkflowActions;
 
     const attempts = [

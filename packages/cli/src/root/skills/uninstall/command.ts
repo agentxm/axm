@@ -3,7 +3,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { handleUninstall } from "./handler.js";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+import { scopeFlag } from "../../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import * as Effect from "effect/Effect";
 import {
@@ -14,6 +14,9 @@ import {
 
 const uninstallConfig = {
   skill: Argument.string("skill").pipe(Argument.withDescription("Name of the skill to uninstall")),
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Uninstall from project (default) or user-level configuration"),
+  ),
   yes: yesFlag.pipe(Flag.withDescription("Skip the 'are you sure?' confirmation")),
   force: forceFlag.pipe(
     Flag.withDescription("Remove even if other extensions depend on this skill"),
@@ -28,14 +31,14 @@ const uninstallConfig = {
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ skill, yes, force, preview, keepSource, deleteSource }) =>
+  ({ skill, scope, yes, force, preview, keepSource, deleteSource }) =>
     Effect.gen(function* () {
       const sourceDisposition = yield* resolveSourceDisposition(keepSource, deleteSource);
       yield* handleUninstall(
         { skill },
         { yes, force, preview, ...(sourceDisposition === undefined ? {} : { sourceDisposition }) },
       );
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("skills uninstall")),
+    }).pipe(withWorkspace(scope), withRuntime("skills uninstall")),
 ).pipe(
   withArgvTracking(uninstallConfig),
   Command.withDescription("Uninstall a skill from agents"),

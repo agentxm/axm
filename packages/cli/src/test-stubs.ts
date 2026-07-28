@@ -333,6 +333,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly files?: Record<string, unknown> | undefined;
   readonly rules?: Record<string, unknown> | undefined;
   readonly hooks?: Record<string, unknown> | undefined;
+  readonly knowledge?: Record<string, unknown> | undefined;
   readonly mcps?: Record<string, unknown> | undefined;
   readonly packs?: Record<string, unknown> | undefined;
   readonly sources?: ReadonlyArray<unknown> | undefined;
@@ -341,6 +342,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfileFiles?: Record<string, unknown> | undefined;
   readonly lockfileRules?: Record<string, unknown> | undefined;
   readonly lockfileHooks?: Record<string, unknown> | undefined;
+  readonly lockfileKnowledge?: Record<string, unknown> | undefined;
   readonly lockfileMcpServers?: Record<string, unknown> | undefined;
   readonly lockfilePacks?: Record<string, unknown> | undefined;
   readonly subagents?: Record<string, unknown> | undefined;
@@ -356,6 +358,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.files) && { files: opts.files }),
     ...(hasEntries(opts.rules) && { rules: opts.rules }),
     ...(hasEntries(opts.hooks) && { hooks: opts.hooks }),
+    ...(hasEntries(opts.knowledge) && { knowledge: opts.knowledge }),
     ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
     ...(hasEntries(opts.mcps) && { mcpServers: opts.mcps }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
@@ -369,6 +372,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.lockfileFiles) && { files: opts.lockfileFiles }),
     ...(hasEntries(opts.lockfileRules) && { rules: opts.lockfileRules }),
     ...(hasEntries(opts.lockfileHooks) && { hooks: opts.lockfileHooks }),
+    ...(hasEntries(opts.lockfileKnowledge) && { knowledge: opts.lockfileKnowledge }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
     ...(hasEntries(opts.lockfileMcpServers) && { mcpServers: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
@@ -377,6 +381,30 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+};
+
+/**
+ * Write a workspace-sourced OKF knowledge package under `<axmDir>/extensions`,
+ * resolvable as `workspace:@acme/knowledge/<name>`.
+ */
+export const writeKnowledgeExtension = (axmDir: string, name: string): void => {
+  const root = path.join(axmDir, "extensions", "@acme", "knowledge", name);
+  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "knowledge.json"),
+    JSON.stringify({
+      owner: "@acme",
+      type: "knowledge",
+      name,
+      version: "1.0.0",
+      format: { name: "okf", version: "0.2" },
+      bundleRoot: "src",
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "index.md"),
+    '---\nokf_version: "0.2"\n---\n# Knowledge\n',
+  );
 };
 
 export const ensureWorkspaceFiles = (axmDir: string): void => {

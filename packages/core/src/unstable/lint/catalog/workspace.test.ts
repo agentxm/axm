@@ -17,6 +17,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   // Foundation (classification-independent).
   { id: "workspace/initialized", severity: "error" },
   { id: "workspace/settings-schema-valid", severity: "error" },
+  { id: "workspace/settings-keys-recognized", severity: "error" },
   { id: "workspace/lockfile-valid", severity: "error" },
   { id: "workspace/agents-recognized", severity: "error" },
   { id: "workspace/agents-detected-declared", severity: "warning" },

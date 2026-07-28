@@ -15,6 +15,7 @@ import {
   resolveConfiguredCommand,
   resolveConfiguredFiles,
   resolveConfiguredHook,
+  resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
   resolveConfiguredRule,
@@ -25,6 +26,7 @@ import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolu
 import {
   enabledConfiguredEntries,
   extensionTypePluralSentenceLabels,
+  installableExtensionTypes,
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
@@ -35,6 +37,8 @@ import { InstallFilesCommandWorkflowActions } from "../files/install/command-act
 import type { InstallFilesCommandIntent } from "../files/install/intent.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
+import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
+import type { InstallKnowledgeCommandIntent } from "../knowledge/install/intent.js";
 import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
@@ -71,6 +75,7 @@ type WorkspaceInstallCollectorContext =
   | InstallCommandCommandWorkflowActions
   | InstallFilesCommandWorkflowActions
   | InstallHookCommandWorkflowActions
+  | InstallKnowledgeCommandWorkflowActions
   | InstallRuleCommandWorkflowActions
   | InstallSubagentCommandWorkflowActions
   | InstallMcpServerCommandWorkflowActions
@@ -240,6 +245,16 @@ const resolveHookIntent = (name: string, source: string) =>
     ),
   );
 
+const resolveKnowledgeIntent = (name: string, source: string) =>
+  resolveConfiguredKnowledge(name, source).pipe(
+    Effect.map(
+      ({ ref, versionRange }) =>
+        ({
+          refs: [{ ref, versionRange }],
+        }) satisfies InstallKnowledgeCommandIntent,
+    ),
+  );
+
 const resolveMcpServerIntent = (name: string, source: string) =>
   resolveConfiguredMcpServer(name, source).pipe(
     Effect.map(
@@ -359,6 +374,25 @@ const collectHookPlans = () =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
+const collectKnowledgePlans = () =>
+  Effect.gen(function* () {
+    const ws = yield* WorkspaceMutations;
+    const actions = yield* InstallKnowledgeCommandWorkflowActions;
+    const configured = yield* ws.getConfiguredKnowledgeEntries();
+    const entries = enabledConfiguredEntries(configured);
+
+    const plans = yield* Effect.forEach(
+      entries,
+      ([name, entry]) =>
+        resolveKnowledgeIntent(name, entry.source).pipe(
+          Effect.flatMap((intent) => actions.buildPlan(intent)),
+        ),
+      { concurrency: "unbounded" },
+    );
+
+    return toCollectedWorkspaceInstallPlans({ plans });
+  });
+
 const collectSubagentPlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -419,16 +453,25 @@ const collectPackPlans = () =>
     });
   });
 
-const workspaceInstallCollectors: ReadonlyArray<WorkspaceInstallCollector> = [
-  { type: "skill" as const, collect: collectSkillPlans },
-  { type: "command" as const, collect: collectCommandPlans },
-  { type: "files" as const, collect: collectFilePlans },
-  { type: "rule" as const, collect: collectRulePlans },
-  { type: "hook" as const, collect: collectHookPlans },
-  { type: "subagent" as const, collect: collectSubagentPlans },
-  { type: "mcp-server" as const, collect: collectMcpServerPlans },
-  { type: "pack" as const, collect: collectPackPlans },
-];
+// Total over InstallableExtensionType: a missing key is a compile error, so a
+// type can never again be silently dropped from workspace install.
+const workspaceInstallCollectorsByType = {
+  skill: collectSkillPlans,
+  command: collectCommandPlans,
+  files: collectFilePlans,
+  rule: collectRulePlans,
+  hook: collectHookPlans,
+  knowledge: collectKnowledgePlans,
+  subagent: collectSubagentPlans,
+  "mcp-server": collectMcpServerPlans,
+  pack: collectPackPlans,
+} satisfies Record<InstallableExtensionType, WorkspaceInstallCollector["collect"]>;
+
+const workspaceInstallCollectors: ReadonlyArray<WorkspaceInstallCollector> =
+  installableExtensionTypes.map((type) => ({
+    type,
+    collect: workspaceInstallCollectorsByType[type],
+  }));
 
 const makePlan = (
   name: string,

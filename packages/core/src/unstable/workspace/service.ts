@@ -209,6 +209,27 @@ const contextReadErrorToAppError = (
   source: "settings" | "lockfile" | "workspace",
   error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
 ): AppError => {
+  // A hand-edited settings file the user can correct is a validation failure,
+  // not an internal error; name the offending keys so the fix is obvious.
+  if (error._tag === "SettingsDecodeError") {
+    return makeAppError({
+      code: "validation",
+      detail: `Invalid workspace settings at ${error.path}: ${error.issues.join("; ")}`,
+      cause: error,
+      suggestions: [
+        { description: "Edit the settings file to fix the invalid value, then re-run." },
+      ],
+    });
+  }
+  if (error._tag === "SettingsParseError") {
+    return makeAppError({
+      code: "validation",
+      detail: `Workspace settings at ${error.path} are not valid JSON`,
+      cause: error,
+      suggestions: [{ description: "Fix the JSON syntax in the settings file, then re-run." }],
+    });
+  }
+
   const isUnreadableLockfile =
     error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError";
   return makeAppError({

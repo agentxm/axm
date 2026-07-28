@@ -11,6 +11,7 @@ import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents"
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
@@ -115,6 +116,19 @@ const emptySubagentManager = {
   removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof SubagentManager>;
 
+const emptyKnowledgeManager = {
+  type: "knowledge",
+  refreshCatalog: () => Effect.void,
+  isInstalled: () => Effect.succeed(false),
+  materializeInstall: () => Effect.void,
+  listMaterializable: () => Effect.succeed([]),
+  materializeUninstall: () => Effect.void,
+  upsertSettingsEntry: () => Effect.void,
+  removeSettingsEntry: () => Effect.void,
+  upsertLockfileEntry: () => Effect.void,
+  removeLockfileEntry: () => Effect.void,
+} satisfies ServiceMap.Service.Shape<typeof KnowledgeManager>;
+
 const emptyPackManager = {
   type: "pack",
   isInstalled: () => Effect.succeed(false),
@@ -135,6 +149,7 @@ const emptyManagersLayer = Layer.mergeAll(
   Layer.succeed(HookManager, emptyHookManager),
   Layer.succeed(RuleManager, emptyRuleManager),
   Layer.succeed(SubagentManager, emptySubagentManager),
+  Layer.succeed(KnowledgeManager, emptyKnowledgeManager),
   Layer.succeed(PackManager, emptyPackManager),
 );
 

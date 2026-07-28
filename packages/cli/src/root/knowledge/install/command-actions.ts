@@ -13,7 +13,6 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import {
   KnowledgeManager,
-  KnowledgeManagerLive,
   type KnowledgeExtensionRef,
 } from "@agentxm/client-core/unstable/knowledge";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
@@ -51,7 +50,7 @@ export class InstallKnowledgeCommandWorkflowActions extends ServiceMap.Service<
   KnowledgeInstallActions
 >()("axm.sh/root/knowledge/install/command-actions/InstallKnowledgeCommandWorkflowActions") {}
 
-export const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
+const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
   const manager = yield* KnowledgeManager;
   const ws = yield* WorkspaceMutations;
@@ -152,7 +151,7 @@ export const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* (
         ],
       } satisfies Plan),
   } satisfies KnowledgeInstallActions;
-}).pipe(Effect.provide(KnowledgeManagerLive));
+});
 
 export const InstallKnowledgeCommandWorkflowActionsLive = Layer.effect(
   InstallKnowledgeCommandWorkflowActions,

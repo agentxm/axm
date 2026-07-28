@@ -20,6 +20,7 @@ import {
 import { buildUnpackPlan } from "./plan.js";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { emitPlanResolutionResult } from "../../../json-output.js";
+import { REVIEW_REGISTRY_SOURCES } from "../../suggested-actions.js";
 
 export interface UnpackHandlerArgs {
   readonly name: string;
@@ -116,7 +117,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     return yield* makeAppError({
       code: "not_found",
       detail: `Cannot unpack "${args.name}": registry source "${entry.sourceName}" is not configured`,
-      suggestions: [{ description: "List configured sources", cmd: "axm sources list" }],
+      suggestions: [REVIEW_REGISTRY_SOURCES],
     });
   }
   const source: RegistrySource = {

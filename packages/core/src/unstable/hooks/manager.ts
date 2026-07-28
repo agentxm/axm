@@ -13,7 +13,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
-import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { resolveInstructionsConfig } from "../agents/instructions.js";
 import {
@@ -69,6 +68,7 @@ import {
   type RegistryHookRef,
   type WorkspaceHookRef,
 } from "./index.js";
+import { updateHooksJson } from "./managed-groups.js";
 
 export class HookManager extends ServiceMap.Service<
   HookManager,
@@ -132,9 +132,6 @@ const workspaceHookLockEntry = (ref: WorkspaceHookRef, now: DateTime.Utc): HookL
   sourceHash: ref.sourceHash,
   ...commonLockFields(now),
 });
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 interface HookWriterTarget {
   readonly agent: CapabilityAgent;
@@ -210,49 +207,6 @@ const hookNativeToolNames = (
   return native.tools.filter((tool) => tool.canonical === canonical).map((tool) => tool.nativeName);
 };
 
-const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
-  Effect.sync(() => {
-    const errors: Array<ParseError> = [];
-    const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
-    if (errors.length > 0) {
-      throw errors;
-    }
-    return parsed;
-  }).pipe(
-    Effect.mapError((error) =>
-      makeAppError({
-        code: "validation",
-        detail: `Invalid Claude Code hooks config JSON/JSONC: ${configPath}`,
-        cause: error,
-      }),
-    ),
-  );
-
-const validateHooksShape = (
-  configPath: string,
-  settingsKey: string,
-  parsed: unknown,
-): Effect.Effect<void, AppError> => {
-  if (!isRecord(parsed)) {
-    return Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: `Invalid hooks config format: ${configPath}`,
-      }),
-    );
-  }
-  const hooks = parsed[settingsKey];
-  if (hooks !== undefined && !isRecord(hooks)) {
-    return Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: `Invalid hooks config format: ${configPath} (${settingsKey} must be an object)`,
-      }),
-    );
-  }
-  return Effect.void;
-};
-
 const readExisting = (configPath: string): Effect.Effect<string, AppError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -303,46 +257,6 @@ const writeIfChanged = (
       ),
     });
   });
-
-const isManagedHookCommand = (value: unknown): boolean =>
-  isRecord(value) &&
-  value["type"] === "command" &&
-  typeof value["command"] === "string" &&
-  value["command"].includes(".axm/extensions/");
-
-const stripManagedHookGroups = (hooks: Record<string, unknown>): Record<string, unknown> => {
-  const next: Record<string, unknown> = {};
-  for (const [event, groups] of Object.entries(hooks)) {
-    if (!Array.isArray(groups)) {
-      next[event] = groups;
-      continue;
-    }
-
-    const retainedGroups: unknown[] = [];
-    for (const group of groups) {
-      if (!isRecord(group)) {
-        retainedGroups.push(group);
-        continue;
-      }
-
-      const groupHooks = group["hooks"];
-      if (!Array.isArray(groupHooks)) {
-        retainedGroups.push(group);
-        continue;
-      }
-
-      const retainedHooks = groupHooks.filter((entry) => !isManagedHookCommand(entry));
-      if (retainedHooks.length > 0) {
-        retainedGroups.push({ ...group, hooks: retainedHooks });
-      }
-    }
-
-    if (retainedGroups.length > 0) {
-      next[event] = retainedGroups;
-    }
-  }
-  return next;
-};
 
 const interpreterForRuntime = (runtime: HookManifest["runtime"]): string => {
   switch (runtime) {
@@ -459,40 +373,6 @@ const appendCommandHookBinding = (
     }
     groups.push(group);
     hooks[nativeEventName] = groups;
-  });
-
-const updateHooksJson = (
-  configPath: string,
-  settingsKey: string,
-  raw: string,
-  renderedHooks: Record<string, unknown>,
-): Effect.Effect<string, AppError> =>
-  Effect.gen(function* () {
-    const initial = raw.trim().length === 0 ? "{}\n" : raw;
-    const parsed = yield* parseJsonConfig(configPath, initial);
-    yield* validateHooksShape(configPath, settingsKey, parsed);
-    const existingHooks =
-      isRecord(parsed) && isRecord(parsed[settingsKey])
-        ? stripManagedHookGroups(parsed[settingsKey])
-        : {};
-
-    for (const [event, groups] of Object.entries(renderedHooks)) {
-      const existingGroups = existingHooks[event];
-      existingHooks[event] = Array.isArray(existingGroups)
-        ? [...existingGroups, groups].flat()
-        : groups;
-    }
-
-    const hooksKeys = Object.keys(existingHooks);
-    const edits = modify(
-      initial,
-      [settingsKey],
-      hooksKeys.length === 0 ? undefined : existingHooks,
-      {
-        formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
-      },
-    );
-    return applyEdits(initial, edits);
   });
 
 export const HookManagerLive = Layer.effect(

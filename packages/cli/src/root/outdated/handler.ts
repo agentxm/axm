@@ -20,8 +20,12 @@ import type { Version } from "@agentxm/client-core/unstable/version-constraints"
 import {
   collectAllUpdateEntries,
   collectCommandCurrency,
+  collectFilesCurrency,
+  collectHookCurrency,
+  collectKnowledgeCurrency,
   collectMcpServerCurrency,
   collectPackCurrency,
+  collectRuleCurrency,
   collectSkillCurrency,
   collectSkillSourceFreshness,
   collectSubagentCurrency,
@@ -237,10 +241,14 @@ const collectByType = (type: ExtensionType, client: Parameters<typeof collectSki
       return collectSubagentCurrency(client);
     case "pack":
       return collectPackCurrency(client);
-    default: {
-      const empty: ReadonlyArray<ExtensionUpdateEntry> = [];
-      return Effect.succeed(empty);
-    }
+    case "files":
+      return collectFilesCurrency(client);
+    case "rule":
+      return collectRuleCurrency(client);
+    case "hook":
+      return collectHookCurrency(client);
+    case "knowledge":
+      return collectKnowledgeCurrency(client);
   }
 };
 

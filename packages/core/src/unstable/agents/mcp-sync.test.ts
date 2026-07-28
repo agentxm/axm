@@ -466,7 +466,10 @@ describe("mcp-sync helpers", () => {
             declaredServerNames: new Set(["linear"]),
           });
 
-          expect(outcome).toEqual({ _tag: "success" });
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: `${workspaceRoot}/.mcp.json`, change: "updated" }],
+          });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
           expect(config).toContain('"linear"');
@@ -582,7 +585,10 @@ describe("mcp-sync helpers", () => {
                 scope: "user",
                 declaredServerNames: new Set(["context"]),
               });
-              expect(pruneOutcome).toEqual({ _tag: "success" });
+              expect(pruneOutcome).toEqual({
+                _tag: "success",
+                targets: [{ path: configPath, change: "updated" }],
+              });
               raw = yield* fs.readFileString(configPath);
               expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
                 enabled: false,

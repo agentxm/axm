@@ -10,6 +10,7 @@ import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
+  expectPreviewedPlanResult,
   makeWorkspaceHandlerTestContext,
 } from "../../test-helpers.js";
 import { handleFilesPrune } from "./prune.js";
@@ -50,7 +51,7 @@ describe("files prune output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleFilesPrune();
+        yield* handleFilesPrune({ yes: false });
 
         expect(logs.success).toEqual(["No files lock entries pruned."]);
       }),
@@ -63,7 +64,7 @@ describe("files prune output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleFilesPrune();
+        yield* handleFilesPrune({ yes: false });
 
         expect(logs.success).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
@@ -74,7 +75,7 @@ describe("files prune output", () => {
     );
   });
 
-  it.effect("emits an applied plan result for pruned files lock entries", () => {
+  it.effect("previews stale files lock entries without removing them by default", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, {
@@ -85,7 +86,30 @@ describe("files prune output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleFilesPrune();
+        yield* handleFilesPrune({ yes: false });
+
+        const lockfile = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+        expect(lockfile.files).toEqual({ "workspace-baseline": lockEntry });
+        expectPreviewedPlanResult(rendererState.results[0]?.data, {
+          planName: "Prune files lock entries",
+          totalSteps: 1,
+        });
+      }),
+    );
+  });
+
+  it.effect("emits an applied plan result for pruned files lock entries with --yes", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    writeWorkspaceFiles(axmDir, {
+      lockfileFiles: {
+        "workspace-baseline": lockEntry,
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleFilesPrune({ yes: true });
 
         const lockfile = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
         expect(lockfile.files).toEqual({});

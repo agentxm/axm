@@ -25,7 +25,7 @@ import {
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
 import {
-  makeInstallKnowledgeCommandWorkflowActions,
+  InstallKnowledgeCommandWorkflowActions,
   type InstallKnowledgeHandlerArgs,
 } from "../knowledge/install/command-actions.js";
 import {
@@ -96,7 +96,7 @@ const runUpdateIntent = (intent: RootUpdateIntent, args: RootUpdateFlags) =>
         return yield* runInstallCommandWorkflow(hookArgs, actions, args);
       }
       case "knowledge": {
-        const actions = yield* makeInstallKnowledgeCommandWorkflowActions;
+        const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(knowledgeArgs, actions, args);
       }

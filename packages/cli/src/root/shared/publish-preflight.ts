@@ -38,6 +38,26 @@ export const alreadyPublishedVersionConflict = (args: {
     ],
   });
 
+export const nonMonotonicVersionConflict = (args: {
+  readonly fqn: string;
+  readonly version: Version;
+  readonly highestPublished: Version;
+}): AppError =>
+  makeAppError({
+    code: "conflict",
+    detail: `Cannot publish: version ${args.version} is lower than the highest published version ${args.highestPublished} for ${args.fqn}.`,
+    suggestions: [
+      {
+        description: "Bump the manifest version.",
+        cmd: `axm version ${args.fqn} patch`,
+      },
+      {
+        description:
+          "Re-run with --allow-older only if publishing an older unpublished version is intentional.",
+      },
+    ],
+  });
+
 export interface PublishIdentity {
   readonly owner: Handle;
   readonly type: ExtensionType;

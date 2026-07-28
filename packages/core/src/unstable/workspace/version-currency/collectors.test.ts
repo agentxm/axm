@@ -4,7 +4,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
+import { decodeVersionSync, type Version } from "../../version-constraints/version-constraints.js";
 import { decodeExtensionNameSync } from "../../extensions/index.js";
 import { normalizeHandle } from "../../extensions/handle.js";
 import {
@@ -26,12 +26,35 @@ import {
   collectMcpServerCurrency,
   collectSubagentCurrency,
   collectPackCurrency,
+  collectFilesCurrency,
+  collectRuleCurrency,
+  collectHookCurrency,
+  collectKnowledgeCurrency,
   collectAllCurrencyEntries,
 } from "./collectors.js";
 import { makeExtensionIndex, makeStubRegistryClient } from "./test-stubs.js";
 
 const v = decodeVersionSync;
 const owner = normalizeHandle("@acme");
+
+/**
+ * Registry lock fields shared verbatim by the files/rule/hook/knowledge lock unions,
+ * none of which has a dedicated factory in workspace/test-stubs.ts.
+ */
+const makeRegistryLockFields = (opts: {
+  readonly name: string;
+  readonly resolvedVersion?: Version;
+}) => ({
+  type: "registry" as const,
+  owner,
+  name: decodeExtensionNameSync(opts.name),
+  resolvedVersion: opts.resolvedVersion ?? v("1.0.0"),
+  integrity: "sha512-AAAA==",
+  sourceName: "default",
+  publisherBindingId: "hbnd_test",
+  installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+});
 
 describe("collectSkillCurrency", () => {
   it.effect("returns currency entries for registry-sourced enabled skills", () =>
@@ -360,6 +383,183 @@ describe("collectPackCurrency", () => {
   );
 });
 
+describe("collectFilesCurrency", () => {
+  it.effect("returns currency entries for registry-sourced Context Files packages", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredFilesEntries: () =>
+          Effect.succeed({
+            baseline: {
+              source: "@acme/files/baseline@^1.0.0",
+              enabled: true,
+              inputs: {},
+            },
+          }),
+        getLockedFiles: () =>
+          Effect.succeed({
+            baseline: makeRegistryLockFields({ name: "baseline", resolvedVersion: v("1.0.0") }),
+          }),
+      });
+
+      const index = makeExtensionIndex("baseline", "files", ["1.2.0", "1.0.0"]);
+      const client = makeStubRegistryClient([index]);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
+
+      const entries = yield* collectFilesCurrency(client).pipe(Effect.provide(layer));
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.ref).toBe("@acme/files/baseline");
+      expect(entries[0]?.type).toBe("files");
+      expect(entries[0]?.installedVersion).toBe("1.0.0");
+      expect(entries[0]?.currency.status).toBe("update-available");
+      expect(Option.getOrThrow(entries[0]?.constraint ?? Option.none())).toBe("^1.0.0");
+    }),
+  );
+});
+
+describe("collectRuleCurrency", () => {
+  it.effect("returns currency entries for registry-sourced enabled rules", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredRuleEntries: () =>
+          Effect.succeed({
+            "api-conventions": {
+              source: "@acme/rules/api-conventions@^1.0.0",
+              enabled: true,
+            },
+          }),
+        getLockedRules: () =>
+          Effect.succeed({
+            "api-conventions": makeRegistryLockFields({
+              name: "api-conventions",
+              resolvedVersion: v("1.0.0"),
+            }),
+          }),
+      });
+
+      const index = makeExtensionIndex("api-conventions", "rule", ["1.3.0", "1.0.0"]);
+      const client = makeStubRegistryClient([index]);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
+
+      const entries = yield* collectRuleCurrency(client).pipe(Effect.provide(layer));
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.ref).toBe("@acme/rules/api-conventions");
+      expect(entries[0]?.type).toBe("rule");
+      expect(entries[0]?.currency.status).toBe("update-available");
+      expect(Option.getOrThrow(entries[0]?.constraint ?? Option.none())).toBe("^1.0.0");
+    }),
+  );
+
+  it.effect("skips disabled rules", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredRuleEntries: () =>
+          Effect.succeed({
+            "api-conventions": { source: "@acme/rules/api-conventions", enabled: false },
+          }),
+        getLockedRules: () =>
+          Effect.succeed({
+            "api-conventions": makeRegistryLockFields({ name: "api-conventions" }),
+          }),
+      });
+
+      const index = makeExtensionIndex("api-conventions", "rule", ["1.3.0", "1.0.0"]);
+      const client = makeStubRegistryClient([index]);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
+
+      const entries = yield* collectRuleCurrency(client).pipe(Effect.provide(layer));
+      expect(entries).toHaveLength(0);
+    }),
+  );
+
+  it.effect("skips non-registry-sourced rules", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredRuleEntries: () =>
+          Effect.succeed({
+            "local-rule": { source: "github:user/repo", enabled: true },
+          }),
+        getLockedRules: () =>
+          Effect.succeed({
+            "local-rule": {
+              type: "github" as const,
+              owner: "user",
+              repo: "repo",
+              installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+              updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+            },
+          }),
+      });
+
+      const client = makeStubRegistryClient([]);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
+
+      const entries = yield* collectRuleCurrency(client).pipe(Effect.provide(layer));
+      expect(entries).toHaveLength(0);
+    }),
+  );
+});
+
+describe("collectHookCurrency", () => {
+  it.effect("returns currency entries for registry-sourced enabled hooks", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredHookEntries: () =>
+          Effect.succeed({
+            "block-secrets": { source: "@acme/hooks/block-secrets@^1.0.0", enabled: true },
+          }),
+        getLockedHooks: () =>
+          Effect.succeed({
+            "block-secrets": makeRegistryLockFields({
+              name: "block-secrets",
+              resolvedVersion: v("1.0.0"),
+            }),
+          }),
+      });
+
+      const index = makeExtensionIndex("block-secrets", "hook", ["2.0.0", "1.0.0"]);
+      const client = makeStubRegistryClient([index]);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
+
+      const entries = yield* collectHookCurrency(client).pipe(Effect.provide(layer));
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.ref).toBe("@acme/hooks/block-secrets");
+      expect(entries[0]?.type).toBe("hook");
+      expect(entries[0]?.currency.status).toBe("major-update-available");
+    }),
+  );
+});
+
+describe("collectKnowledgeCurrency", () => {
+  it.effect("returns currency entries for registry-sourced enabled knowledge bundles", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredKnowledgeEntries: () =>
+          Effect.succeed({
+            payments: { source: "@acme/knowledge/payments@^1.0.0", enabled: true },
+          }),
+        getLockedKnowledge: () =>
+          Effect.succeed({
+            payments: makeRegistryLockFields({ name: "payments", resolvedVersion: v("1.0.0") }),
+          }),
+      });
+
+      const index = makeExtensionIndex("payments", "knowledge", ["1.0.0"]);
+      const client = makeStubRegistryClient([index]);
+      const layer = Layer.succeed(WorkspaceMutations, ws);
+
+      const entries = yield* collectKnowledgeCurrency(client).pipe(Effect.provide(layer));
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.ref).toBe("@acme/knowledge/payments");
+      expect(entries[0]?.type).toBe("knowledge");
+      expect(entries[0]?.currency.status).toBe("current");
+    }),
+  );
+});
+
 describe("collectAllCurrencyEntries", () => {
   it.effect("aggregates entries from all extension types", () =>
     Effect.gen(function* () {
@@ -396,20 +596,34 @@ describe("collectAllCurrencyEntries", () => {
               resolvedVersion: v("2.0.0"),
             }),
           }),
+        getConfiguredRuleEntries: () =>
+          Effect.succeed({
+            "api-conventions": { source: "@acme/rules/api-conventions", enabled: true },
+          }),
+        getLockedRules: () =>
+          Effect.succeed({
+            "api-conventions": makeRegistryLockFields({
+              name: "api-conventions",
+              resolvedVersion: v("1.0.0"),
+            }),
+          }),
       });
 
       const skillIndex = makeExtensionIndex("code-review", "skill", ["1.1.0", "1.0.0"]);
       const cmdIndex = makeExtensionIndex("formatter", "command", ["2.0.0"]);
-      const client = makeStubRegistryClient([skillIndex, cmdIndex]);
+      const ruleIndex = makeExtensionIndex("api-conventions", "rule", ["1.4.0", "1.0.0"]);
+      const client = makeStubRegistryClient([skillIndex, cmdIndex, ruleIndex]);
       const layer = Layer.succeed(WorkspaceMutations, ws);
 
       const entries = yield* collectAllCurrencyEntries(client).pipe(Effect.provide(layer));
 
-      expect(entries).toHaveLength(2);
+      expect(entries).toHaveLength(3);
       const skill = entries.find((e) => e.type === "skill");
       const command = entries.find((e) => e.type === "command");
+      const rule = entries.find((e) => e.type === "rule");
       expect(skill?.currency.status).toBe("update-available");
       expect(command?.currency.status).toBe("current");
+      expect(rule?.currency.status).toBe("update-available");
     }),
   );
 });

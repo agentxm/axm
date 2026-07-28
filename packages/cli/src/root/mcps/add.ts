@@ -312,10 +312,7 @@ const makePlan = (name: string, steps: ReadonlyArray<PlannedJobStep>): Plan => (
 
 export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
   if (Option.isNone(args.command) && Option.isNone(args.url)) {
-    return yield* handleInstallMcpServer(
-      { source: Option.some(args.name), env: Option.none(), nonInteractive: true },
-      args,
-    );
+    return yield* handleInstallMcpServer({ source: Option.some(args.name), env: [] }, args);
   }
   if (Option.isSome(args.command) && Option.isSome(args.url)) {
     return yield* makeAppError({

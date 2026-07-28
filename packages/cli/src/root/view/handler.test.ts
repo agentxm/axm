@@ -62,6 +62,28 @@ const writeIndex = (registryRoot: string) => {
   );
 };
 
+const writeRuleIndex = (registryRoot: string) => {
+  const dir = path.join(registryRoot, "extensions", "@test", "rules", "house-style");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "index.json"),
+    JSON.stringify({
+      owner: "@test",
+      type: "rule",
+      name: "house-style",
+      publisherBindingId: "hbnd_test",
+      description: "House style rules",
+      versions: [
+        {
+          version: "1.0.0",
+          published: "2026-01-01T00:00:00.000Z",
+          integrity: "sha512-rule",
+        },
+      ],
+    }),
+  );
+};
+
 describe("view handler", () => {
   let tempDir: string;
   let registryRoot: string;
@@ -124,6 +146,56 @@ describe("view handler", () => {
           }),
         );
         expectNoPlanEnvelope(rendererState.results[0]?.data);
+      }),
+    );
+  });
+
+  it.effect("suggests the per-type install command for a type that registers one", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    initWorkspace(tempDir, registryRoot);
+    writeIndex(registryRoot);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleView({
+          handle: "@test/skills/code-review",
+          field: Option.none(),
+          registry: Option.some("local"),
+        });
+
+        expect(rendererState.results[0]?.data).toEqual(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              install: "axm skills install @test/skills/code-review",
+            }),
+          }),
+        );
+      }),
+    );
+  });
+
+  // `axm rules` only toggles instruction-file management, so rule extensions
+  // must be pointed at the root installer rather than `axm rules install`.
+  it.effect("suggests the root install command for rule extensions", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    initWorkspace(tempDir, registryRoot);
+    writeRuleIndex(registryRoot);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleView({
+          handle: "@test/rules/house-style",
+          field: Option.none(),
+          registry: Option.some("local"),
+        });
+
+        expect(rendererState.results[0]?.data).toEqual(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              install: "axm install @test/rules/house-style",
+            }),
+          }),
+        );
       }),
     );
   });

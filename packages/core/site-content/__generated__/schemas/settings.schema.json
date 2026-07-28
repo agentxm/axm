@@ -923,7 +923,6 @@
           "description": "Lint configuration for `axm lint` in this workspace."
         }
       },
-      "additionalProperties": false,
       "title": "AXM Settings",
       "description": "Your workspace configuration — owner, sources, installed extensions, feature config, and lint config.",
       "examples": [

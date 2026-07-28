@@ -216,6 +216,60 @@ describe("lockfile", () => {
   });
 
   describe("batched updates", () => {
+    it.effect("preserves unknown top-level lockfile keys across a snapshot patch", () =>
+      withContext(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(axmDir, "axm-lock.yaml"),
+            YAML.stringify({
+              lockfileVersion: 3,
+              skills: {},
+              futureFeature: { alpha: 1, beta: ["x", "y"] },
+            }),
+          );
+
+          const base: Lockfile = { lockfileVersion: 3, skills: {} };
+          const next: Lockfile = {
+            lockfileVersion: 3,
+            skills: { "pr-review": createTestEntry() },
+          };
+          yield* commitLockfileSnapshotUpdate(axmDir, base, next);
+
+          const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(written.futureFeature).toEqual({ alpha: 1, beta: ["x", "y"] });
+          expect(written.skills["pr-review"]).toBeDefined();
+        }),
+      ),
+    );
+
+    it.effect("preserves unknown top-level lockfile keys across batched updates", () =>
+      withContext(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(axmDir, "axm-lock.yaml"),
+            YAML.stringify({
+              lockfileVersion: 3,
+              skills: {},
+              futureFeature: { alpha: 1 },
+            }),
+          );
+
+          yield* commitLockfileUpdates(axmDir, { lockfileVersion: 3, skills: {} }, [
+            (current) => ({
+              ...current,
+              skills: { ...current.skills, "pr-review": createTestEntry() },
+            }),
+          ]);
+
+          const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(written.futureFeature).toEqual({ alpha: 1 });
+          expect(written.skills["pr-review"]).toBeDefined();
+        }),
+      ),
+    );
+
     it.effect("preserves the knowledge lock map across a snapshot patch", () =>
       withContext(
         Effect.gen(function* () {

@@ -9,6 +9,7 @@ import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents"
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
@@ -30,7 +31,7 @@ import {
   planResultSteps,
   property,
 } from "../../test-helpers.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleSync } from "./handler.js";
 
 const writeJson = (filePath: string, value: unknown) => {
@@ -141,6 +142,7 @@ describe("root sync handler", () => {
         CommandManagerLive,
         FilesManagerLive,
         HookManagerLive,
+        KnowledgeManagerLive,
         McpServerManagerLive,
         RuleManagerLive,
         SkillManagerLive,
@@ -522,6 +524,26 @@ describe("root sync handler", () => {
       const renderedCommand = path.join(tempDir, ".claude", "commands", "review.md");
       expect(fs.existsSync(renderedCommand)).toBe(true);
       expect(fs.readFileSync(renderedCommand, "utf-8")).toContain("# review");
+    }),
+  );
+
+  it.effect("materializes settings-owned knowledge bundles", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: [],
+        knowledge: {
+          handbook: "workspace:@acme/knowledge/handbook",
+        },
+      });
+      writeKnowledgeExtension(axmDir, "handbook");
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      const index = path.join(axmDir, "knowledge", "index.md");
+      expect(fs.existsSync(index)).toBe(true);
+      expect(fs.readFileSync(index, "utf-8")).toContain("[handbook]");
     }),
   );
 

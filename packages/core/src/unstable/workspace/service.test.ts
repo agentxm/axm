@@ -157,8 +157,28 @@ describe("WorkspaceMutationsService", () => {
           .pipe(Effect.flip);
 
         const appError = getAppError(error);
-        expect(appError.detail).toBe("Failed to read workspace settings");
+        expect(appError.code).toBe("validation");
+        expect(appError.detail).toContain("not valid JSON");
         expect(appError.cause).toMatchObject({ _tag: "SettingsParseError" });
+      }),
+    );
+
+    it.effect("rejects removed Library workspace state in settings", () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(
+          path.join(projectDir, ".axm", "settings.json"),
+          JSON.stringify({ libraries: { review: "@acme/libraries/review" } }),
+        );
+
+        const ws = yield* getService({ scope: "project", allowUninitialized: true });
+        const error = yield* ws.records
+          .getExtensionInventory("skill", { includeIgnored: false })
+          .pipe(Effect.flip);
+
+        const appError = getAppError(error);
+        expect(appError.code).toBe("validation");
+        expect(appError.detail).toContain("Library workspace state is no longer supported");
+        expect(appError.cause).toMatchObject({ _tag: "SettingsDecodeError" });
       }),
     );
 
@@ -194,7 +214,9 @@ describe("WorkspaceMutationsService", () => {
           .pipe(Effect.flip);
 
         const appError = getAppError(error);
-        expect(appError.detail).toBe("Failed to read workspace settings");
+        expect(appError.code).toBe("validation");
+        expect(appError.detail).toContain("Invalid workspace settings");
+        expect(appError.detail).toContain("skillsConfig");
         expect(appError.cause).toMatchObject({ _tag: "SettingsDecodeError" });
       }),
     );
@@ -474,7 +496,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const error = getAppError(yield* getService(defaultOptions).pipe(Effect.flip));
-        expect(error.code).toBe("internal");
+        expect(error.code).toBe("validation");
       }),
     );
   });
@@ -695,7 +717,9 @@ describe("WorkspaceMutationsService", () => {
             .getExtensionInventory("skill", { includeIgnored: false })
             .pipe(Effect.flip);
 
-          expect(getAppError(error).detail).toBe("Failed to read workspace settings");
+          const appError = getAppError(error);
+          expect(appError.code).toBe("validation");
+          expect(appError.detail).toContain("not valid JSON");
         }),
       ),
     );

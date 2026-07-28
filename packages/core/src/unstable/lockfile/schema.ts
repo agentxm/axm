@@ -683,7 +683,7 @@ export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const LockfileSchema = Schema.Struct({
+const LockfileBaseSchema = Schema.Struct({
   lockfileVersion: Schema.Literal(LOCKFILE_VERSION).pipe(
     Schema.annotate({
       description: "Lockfile schema version.",
@@ -702,7 +702,16 @@ export const LockfileSchema = Schema.Struct({
   hooks: Schema.optional(HooksLockMapSchema),
   knowledge: Schema.optional(KnowledgeLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
-}).annotate({
+});
+
+// Unknown top-level keys are carried by the rest record so a lockfile written
+// by a newer AXM survives a read-modify-write cycle here. Nested strictness is
+// unchanged: unknown keys inside lock entries still fail decode. The removed
+// legacy `libraries` key is rejected by explicit pre-decode guards on the
+// lockfile read paths, not by this schema.
+export const LockfileSchema = Schema.StructWithRest(LockfileBaseSchema, [
+  Schema.Record(Schema.String, Schema.Unknown),
+]).annotate({
   identifier: "Lockfile",
   title: "AXM Lockfile",
   description:
@@ -715,3 +724,13 @@ export const LockfileSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export type Lockfile = Schema.Schema.Type<typeof LockfileSchema>;
+
+const LOCKFILE_KNOWN_KEYS: ReadonlySet<string> = new Set(Object.keys(LockfileBaseSchema.fields));
+
+/**
+ * The unknown top-level entries carried on a decoded lockfile.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const lockfileRestEntries = (lockfile: Lockfile): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(lockfile).filter(([key]) => !LOCKFILE_KNOWN_KEYS.has(key)));

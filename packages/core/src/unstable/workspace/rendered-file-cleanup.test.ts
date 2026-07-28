@@ -96,6 +96,177 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
   );
 });
 
+describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () => {
+  const managedHookCommand = ".axm/extensions/@acme/hooks/guard/src/guard.sh";
+
+  const makeClaudeCodeLayer = (tempDir: string) => {
+    const claudeCode = makeProjectOnlyCodingAgent({
+      agentId: "claude-code",
+      displayName: "Claude Code",
+      skillsProjectDir: ".claude/skills",
+      commandsProjectDir: ".claude/commands",
+      subagentsProjectDir: ".claude/agents",
+    });
+    const agentRepo: CodingAgentRepositoryService = {
+      get: () => Effect.succeed(claudeCode),
+      all: Effect.succeed([claudeCode]),
+      getConfiguredAgents: () => Effect.succeed([]),
+      getMaterializationAgents: () => Effect.succeed([]),
+      getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+    };
+    return Layer.mergeAll(
+      NodeServices.layer,
+      Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(path.join(tempDir, ".axm"))),
+      Layer.succeed(CodingAgentRepository, agentRepo),
+    );
+  };
+
+  it.effect("removes AXM-managed MCP entries and keeps user-authored servers", () =>
+    Effect.gen(function* () {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-mcp-cleanup-"));
+      try {
+        const mcpConfig = path.join(tempDir, ".mcp.json");
+        fs.writeFileSync(
+          mcpConfig,
+          `${JSON.stringify(
+            {
+              mcpServers: {
+                "acme-managed": {
+                  command: "npx",
+                  args: ["-y", "acme-mcp"],
+                  "x-axm": { managed: true, source: "inline" },
+                },
+                "user-server": { command: "npx", args: ["-y", "user-mcp"] },
+              },
+            },
+            null,
+            2,
+          )}\n`,
+        );
+
+        const result = yield* cleanupManagedArtifactsForRemovedAgents({
+          removedAgentIds: new Set(["claude-code"]),
+        }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
+
+        const parsed: unknown = JSON.parse(fs.readFileSync(mcpConfig, "utf8"));
+        expect(parsed).toEqual({
+          mcpServers: { "user-server": { command: "npx", args: ["-y", "user-mcp"] } },
+        });
+        expect(result.removedPaths).toEqual(expect.arrayContaining([mcpConfig]));
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("strips AXM-managed hook groups and keeps user-authored groups", () =>
+    Effect.gen(function* () {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-hook-cleanup-"));
+      try {
+        const settingsPath = path.join(tempDir, ".claude", "settings.json");
+        fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+        const userGroup = {
+          matcher: "Write",
+          hooks: [{ type: "command", command: "./scripts/user-hook.sh" }],
+        };
+        fs.writeFileSync(
+          settingsPath,
+          `${JSON.stringify(
+            {
+              permissions: { allow: ["Bash"] },
+              hooks: {
+                PreToolUse: [
+                  { matcher: "Bash", hooks: [{ type: "command", command: managedHookCommand }] },
+                  userGroup,
+                ],
+              },
+            },
+            null,
+            2,
+          )}\n`,
+        );
+
+        const result = yield* cleanupManagedArtifactsForRemovedAgents({
+          removedAgentIds: new Set(["claude-code"]),
+        }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
+
+        const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        expect(parsed).toEqual({
+          permissions: { allow: ["Bash"] },
+          hooks: { PreToolUse: [userGroup] },
+        });
+        expect(result.removedPaths).toEqual(expect.arrayContaining([settingsPath]));
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("drops the hooks key entirely when only managed groups existed", () =>
+    Effect.gen(function* () {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-hook-only-"));
+      try {
+        const settingsPath = path.join(tempDir, ".claude", "settings.json");
+        fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+        fs.writeFileSync(
+          settingsPath,
+          `${JSON.stringify(
+            {
+              hooks: {
+                PreToolUse: [
+                  { matcher: "Bash", hooks: [{ type: "command", command: managedHookCommand }] },
+                ],
+              },
+            },
+            null,
+            2,
+          )}\n`,
+        );
+
+        yield* cleanupManagedArtifactsForRemovedAgents({
+          removedAgentIds: new Set(["claude-code"]),
+        }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
+
+        const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        expect(parsed).toEqual({});
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("leaves an agent that was not removed untouched", () =>
+    Effect.gen(function* () {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-kept-"));
+      try {
+        const mcpConfig = path.join(tempDir, ".mcp.json");
+        const original = `${JSON.stringify(
+          {
+            mcpServers: {
+              "acme-managed": {
+                command: "npx",
+                "x-axm": { managed: true, source: "inline" },
+              },
+            },
+          },
+          null,
+          2,
+        )}\n`;
+        fs.writeFileSync(mcpConfig, original);
+
+        const result = yield* cleanupManagedArtifactsForRemovedAgents({
+          removedAgentIds: new Set(["codex"]),
+        }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
+
+        expect(fs.readFileSync(mcpConfig, "utf8")).toEqual(original);
+        expect(result.removedPaths).toEqual([]);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }),
+  );
+});
+
 describe("hasAxmManagedMarker", () => {
   it("matches the full managed-file banner", () => {
     expect(hasAxmManagedMarker("<!-- AXM managed file — do not edit directly -->")).toBe(true);

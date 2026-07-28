@@ -19,6 +19,8 @@ import {
 import { createRegistryClient, type ExtensionIndex } from "@agentxm/client-core/unstable/registry";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
+import { installCommandFor } from "../shared/per-type-install.js";
+
 export interface ViewHandlerArgs {
   readonly handle: string;
   readonly field: Option.Option<string>;
@@ -231,7 +233,7 @@ const toDocumentData = (index: ExtensionIndex): ViewDocumentData => {
       version: entry.version,
       published: entry.published,
     })),
-    install: `axm ${extensionTypeToPlural[index.type]} install ${handle}`,
+    install: installCommandFor(index.type, handle),
   };
 };
 

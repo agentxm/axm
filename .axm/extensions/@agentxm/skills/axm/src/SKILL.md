@@ -24,21 +24,21 @@ invocable: true
    - `subagent/*` → `axm help subagents`
    - `command/*` → `axm help commands`
    - `mcp-server/*` → `axm help mcp-schema`
-   - `context/*` → `axm help context`
+   - `files/*` → `axm help files`
    - `hook/*` → `axm help hook-schema`
    - `pack/*` → `axm help packs`
    - workspace/config findings → `axm help settings`
-4. **Do not auto-resolve unmanaged extensions**: For `workspace/<plural-type>-managed` findings (e.g., `workspace/skills-managed`), group related unmanaged items, then present adopt/fork/ignore/prune choices with a recommended option using the signals in the topic help.
+4. **Do not auto-resolve unmanaged extensions**: For `workspace/<plural-type>-managed` findings (e.g., `workspace/skills-managed`), group related unmanaged items, then present adopt/copy/ignore/prune choices with a recommended option using the signals in the topic help.
 
 ### CLI Introspection
 
-Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guidance (skills, subagents, commands, mcp-schema, context, packs, settings, exit-codes, etc.).
+Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guidance (skills, subagents, commands, mcp-schema, files, packs, settings, exit-codes, etc.).
 
 ## Quick Reference
 
 `--json` for machine-readable output. `--scope user` targets `$HOME/.axm` instead of the project workspace. Install/uninstall/update accept a registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
 
-`<type>` ∈ {`skills`, `subagents`, `commands`, `mcps`, `context`, `rules`, `hooks`, `packs`}.
+`<type>` ∈ {`skills`, `subagents`, `commands`, `mcps`, `files`, `hooks`, `knowledge`, `packs`}. Rules are not a per-type group — use `axm rules [enable|disable]`.
 
 ### Workspace setup & discovery
 
@@ -69,15 +69,15 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 ### Managing installed extensions
 
-| Task                                   | Command                                                |
-| -------------------------------------- | ------------------------------------------------------ |
-| List installed extensions of a type    | `axm <type> list`                                      |
-| Disable / enable an extension          | `axm <type> <disable\|enable> <name>`                  |
-| Install (omit FQN to reinstall all)    | `axm install [<fqn>]`                                  |
-| Uninstall                              | `axm uninstall <fqn> [--keep-source\|--delete-source]` |
-| Update (omit FQN to update all)        | `axm update [<fqn>]`                                   |
-| Show extensions with available updates | `axm outdated`                                         |
-| View published extension metadata      | `axm view <fqn> [version\|versions]`                   |
+| Task                                        | Command                                                |
+| ------------------------------------------- | ------------------------------------------------------ |
+| List installed extensions of a type         | `axm <type> list`                                      |
+| Disable / enable an extension (not `packs`) | `axm <type> <disable\|enable> <name>`                  |
+| Install (omit FQN to reinstall all)         | `axm install [<fqn>]`                                  |
+| Uninstall                                   | `axm uninstall <fqn> [--keep-source\|--delete-source]` |
+| Update (omit FQN to update all)             | `axm update [<fqn>]`                                   |
+| Show extensions with available updates      | `axm outdated`                                         |
+| View published extension metadata           | `axm view <fqn> [version\|versions]`                   |
 
 ### Workspace state
 

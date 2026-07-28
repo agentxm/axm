@@ -30,6 +30,7 @@ const isHelpTopicName = (topic: string): topic is HelpTopicName =>
 const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "getting-started",
   "basic-usage",
+  "authoring",
   "skills",
   "skill-schema",
   "subagents",

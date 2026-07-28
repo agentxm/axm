@@ -114,6 +114,20 @@
         "cwd": "."
       }
     },
+    "verify-source-hygiene": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/scripts/**/*",
+        "sharedGlobals",
+        "{workspaceRoot}/packages/*/src/**/*"
+      ],
+      "options": {
+        "command": "pnpm verify-source-hygiene",
+        "cwd": "."
+      }
+    },
     "verify-e2e-boundaries": {
       "executor": "nx:run-commands",
       "cache": true,
@@ -170,6 +184,9 @@
           },
           {
             "command": "pnpm exec nx run axm:verify-e2e-boundaries --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:verify-source-hygiene --outputStyle=static"
           }
         ]
       }
@@ -228,6 +245,9 @@
           },
           {
             "command": "pnpm exec nx run axm:verify-e2e-boundaries --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:verify-source-hygiene --outputStyle=static"
           }
         ]
       }

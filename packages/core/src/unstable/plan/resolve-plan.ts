@@ -21,6 +21,10 @@ import { applyPlan } from "./apply-plan.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
 import { ReconciliationAdapters } from "../workspace/reconciliation.js";
+import type {
+  ReconcileExtensionType,
+  ReconciliationAdapter,
+} from "../workspace/reconciliation-types.js";
 import type { ExecutedPlan, Plan, PlannedJobStep, PreviewedPlan } from "./plan.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { getAxmDir } from "../workspace/paths.js";
@@ -31,19 +35,31 @@ import {
 } from "../workspace/read-model/service.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
+import { filesReconciliationAdapter } from "../files/reconciliation-adapter.js";
+import { hookReconciliationAdapter } from "../hooks/reconciliation-adapter.js";
+import { knowledgeReconciliationAdapter } from "../knowledge/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcps/reconciliation-adapter.js";
 import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
+import { ruleReconciliationAdapter } from "../rules/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 
-const reconciliationAdapters = [
-  skillReconciliationAdapter,
-  commandReconciliationAdapter,
-  subagentReconciliationAdapter,
-  mcpServerReconciliationAdapter,
-  packReconciliationAdapter,
-];
+// Total over ReconcileExtensionType: a missing key is a compile error, so a
+// type can never again be silently dropped from lockfile reconciliation.
+const reconciliationAdaptersByType = {
+  skills: skillReconciliationAdapter,
+  commands: commandReconciliationAdapter,
+  mcps: mcpServerReconciliationAdapter,
+  subagents: subagentReconciliationAdapter,
+  files: filesReconciliationAdapter,
+  rules: ruleReconciliationAdapter,
+  hooks: hookReconciliationAdapter,
+  knowledge: knowledgeReconciliationAdapter,
+  packs: packReconciliationAdapter,
+} satisfies Record<ReconcileExtensionType, ReconciliationAdapter>;
+
+const reconciliationAdapters = Object.values(reconciliationAdaptersByType);
 
 /**
  * Preview or apply (display, confirm, and execute) a plan using the workspace read model.

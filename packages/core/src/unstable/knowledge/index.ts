@@ -24,3 +24,4 @@ export type {
   WorkspaceKnowledgeRef,
 } from "./refs.js";
 export { KnowledgeManager, KnowledgeManagerLive, type KnowledgeManagerService } from "./manager.js";
+export { knowledgeReconciliationAdapter } from "./reconciliation-adapter.js";

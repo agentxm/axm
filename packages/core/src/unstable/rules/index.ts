@@ -27,3 +27,4 @@ export type {
   WorkspaceRuleRef,
 } from "./refs.js";
 export { RuleManager, RuleManagerLive } from "./manager.js";
+export { ruleReconciliationAdapter } from "./reconciliation-adapter.js";

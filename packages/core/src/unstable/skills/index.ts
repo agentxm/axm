@@ -39,7 +39,7 @@ export {
 } from "./utils.js";
 
 // Reconciliation
-export { skillReconciliationAdapter, assertSkillAdapterLoaded } from "./reconciliation-adapter.js";
+export { skillReconciliationAdapter } from "./reconciliation-adapter.js";
 
 // Registry ref builder
 

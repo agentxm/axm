@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { extensionTypes, type ExtensionType } from "../extensions/common.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { ArchiveGuardrailError, type ZipEntry } from "./archive-guardrails.js";
 import {
@@ -40,14 +41,21 @@ const makeReadEntry =
   };
 
 describe("manifestFilenameForType", () => {
-  it("maps supported extension types to manifest files", () => {
-    expect(manifestFilenameForType("skill")).toBe("skill.json");
-    expect(manifestFilenameForType("command")).toBe("command.json");
-    expect(manifestFilenameForType("mcp-server")).toBe("mcp.json");
-    expect(manifestFilenameForType("subagent")).toBe("subagent.json");
-    expect(manifestFilenameForType("pack")).toBe("pack.json");
-    expect(manifestFilenameForType("files")).toBe("files.json");
-    expect(manifestFilenameForType("hook")).toBe("hook.json");
+  it("maps every extension type to a manifest file", () => {
+    const filenameByType: Record<ExtensionType, string> = {
+      skill: "skill.json",
+      command: "command.json",
+      "mcp-server": "mcp.json",
+      subagent: "subagent.json",
+      pack: "pack.json",
+      files: "files.json",
+      rule: "rule.json",
+      hook: "hook.json",
+      knowledge: "knowledge.json",
+    };
+    for (const type of extensionTypes) {
+      expect(manifestFilenameForType(type)).toBe(filenameByType[type]);
+    }
   });
 });
 
@@ -193,6 +201,73 @@ describe("resolveManifest", () => {
 
       expect(resolved.identity.name).toBe("baseline-files");
       expect(resolved.identity.type).toBe("files");
+    }),
+  );
+
+  it.effect("resolves a valid rule manifest", () =>
+    Effect.gen(function* () {
+      const manifest = JSON.stringify({
+        owner: "@acme",
+        type: "rule",
+        name: "commit-style",
+        version: "1.0.0",
+        description: "Commit message conventions",
+      });
+
+      const resolved = yield* resolveManifest({
+        type: "rule",
+        entries: [makeEntry("rule.json"), makeEntry("src/RULE.md")],
+        readEntry: makeReadEntry({ "rule.json": manifest }),
+      });
+
+      expect(resolved.identity.name).toBe("commit-style");
+      expect(resolved.identity.type).toBe("rule");
+    }),
+  );
+
+  it.effect("resolves a valid knowledge manifest", () =>
+    Effect.gen(function* () {
+      const manifest = JSON.stringify({
+        owner: "@acme",
+        type: "knowledge",
+        name: "platform-handbook",
+        version: "1.0.0",
+        format: { name: "okf", version: "0.2" },
+        bundleRoot: "src",
+      });
+
+      const resolved = yield* resolveManifest({
+        type: "knowledge",
+        entries: [makeEntry("knowledge.json"), makeEntry("src/index.md")],
+        readEntry: makeReadEntry({ "knowledge.json": manifest }),
+      });
+
+      expect(resolved.identity.name).toBe("platform-handbook");
+      expect(resolved.identity.type).toBe("knowledge");
+    }),
+  );
+
+  it.effect("rejects a knowledge manifest that fails the knowledge schema", () =>
+    Effect.gen(function* () {
+      const manifest = JSON.stringify({
+        owner: "@acme",
+        type: "knowledge",
+        name: "platform-handbook",
+        version: "1.0.0",
+      });
+
+      const error = yield* Effect.flip(
+        resolveManifest({
+          type: "knowledge",
+          entries: [makeEntry("knowledge.json")],
+          readEntry: makeReadEntry({ "knowledge.json": manifest }),
+        }),
+      );
+
+      expect(error._tag).toBe("ManifestError");
+      if (error._tag === "ManifestError") {
+        expect(error.code).toBe("manifest_schema_invalid");
+      }
     }),
   );
 

@@ -30,6 +30,8 @@ import {
   type FilesLockMap,
   type HooksLockMap,
   type KnowledgeLockMap,
+  type PackLockEntry,
+  type ResolvedExtensionMap,
   type RulesLockMap,
   type SkillLockEntry,
   type SubagentLockEntry,
@@ -279,6 +281,130 @@ const requireInitializedWorkspace = (
       }),
     ),
   );
+
+/**
+ * The pack-membership map a dependency target must be looked up in.
+ *
+ * A returning switch with no `default`: under `noImplicitReturns`, a missing
+ * arm is a compile error rather than a silent fall-through into the wrong map.
+ */
+const packResolvedMapForTarget = (
+  packEntry: PackLockEntry,
+  targetType: Exclude<ExtensionTarget["type"], "pack">,
+): ResolvedExtensionMap => {
+  switch (targetType) {
+    case "skill":
+      return packEntry.resolvedSkills;
+    case "command":
+      return packEntry.resolvedCommands;
+    case "mcp-server":
+      return packEntry.resolvedMcpServers;
+    case "subagent":
+      return packEntry.resolvedSubagents;
+    case "files":
+      return packEntry.resolvedFiles ?? {};
+    case "rule":
+      return packEntry.resolvedRules ?? {};
+    case "hook":
+      return packEntry.resolvedHooks ?? {};
+    case "knowledge":
+      // PackLockEntry has no resolvedKnowledge map yet; knowledge members
+      // cannot be pack-required until the lockfile records them.
+      return {};
+  }
+};
+
+/**
+ * The lockfile with `retainedByPack: true` written onto the target's entry, or
+ * `undefined` when there is nothing to mark.
+ *
+ * A returning switch with no `default`: under `noImplicitReturns`, a missing
+ * arm is a compile error instead of a silently unmarked retention.
+ */
+const lockfileWithRetainedDependency = (
+  currentLockfile: Lockfile,
+  target: ExtensionTarget,
+): Lockfile | undefined => {
+  switch (target.type) {
+    case "skill": {
+      const entry = currentLockfile.skills[target.name];
+      if (entry === undefined) return undefined;
+      return {
+        ...currentLockfile,
+        skills: {
+          ...currentLockfile.skills,
+          [target.name]: { ...entry, retainedByPack: true },
+        },
+      };
+    }
+    case "command": {
+      const commands = currentLockfile.commands ?? {};
+      const entry = commands[target.name];
+      if (entry === undefined) return undefined;
+      return {
+        ...currentLockfile,
+        commands: { ...commands, [target.name]: { ...entry, retainedByPack: true } },
+      };
+    }
+    case "mcp-server": {
+      const mcpServers = currentLockfile.mcpServers ?? {};
+      const entry = mcpServers[target.name];
+      if (entry === undefined) return undefined;
+      return {
+        ...currentLockfile,
+        mcpServers: { ...mcpServers, [target.name]: { ...entry, retainedByPack: true } },
+      };
+    }
+    case "subagent": {
+      const subagents = currentLockfile.subagents ?? {};
+      const entry = subagents[target.name];
+      if (entry === undefined) return undefined;
+      return {
+        ...currentLockfile,
+        subagents: { ...subagents, [target.name]: { ...entry, retainedByPack: true } },
+      };
+    }
+    case "files": {
+      const files = currentLockfile.files ?? {};
+      const entry = files[target.name];
+      if (entry === undefined) return undefined;
+      return {
+        ...currentLockfile,
+        files: { ...files, [target.name]: { ...entry, retainedByPack: true } },
+      };
+    }
+    case "rule": {
+      const rules = currentLockfile.rules ?? {};
+      const entry = rules[target.name];
+      if (entry === undefined) return undefined;
+      return {
+        ...currentLockfile,
+        rules: { ...rules, [target.name]: { ...entry, retainedByPack: true } },
+      };
+    }
+    case "hook": {
+      const hooks = currentLockfile.hooks ?? {};
+      const entry = hooks[target.name];
+      if (entry === undefined) return undefined;
+      return {
+        ...currentLockfile,
+        hooks: { ...hooks, [target.name]: { ...entry, retainedByPack: true } },
+      };
+    }
+    case "knowledge": {
+      const knowledge = currentLockfile.knowledge ?? {};
+      const entry = knowledge[target.name];
+      if (entry === undefined) return undefined;
+      return {
+        ...currentLockfile,
+        knowledge: { ...knowledge, [target.name]: { ...entry, retainedByPack: true } },
+      };
+    }
+    case "pack":
+      // No retention marking for packs — packs are not dependencies of other packs
+      return undefined;
+  }
+};
 
 export const loadWorkspace = (options: WorkspaceLayerOptions) =>
   Effect.gen(function* () {
@@ -2264,18 +2390,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           const packs = lockfile.packs ?? {};
 
           for (const packEntry of Object.values(packs)) {
-            const resolvedMap =
-              target.type === "skill"
-                ? packEntry.resolvedSkills
-                : target.type === "command"
-                  ? packEntry.resolvedCommands
-                  : target.type === "mcp-server"
-                    ? packEntry.resolvedMcpServers
-                    : target.type === "files"
-                      ? (packEntry.resolvedFiles ?? {})
-                      : target.type === "rule"
-                        ? (packEntry.resolvedRules ?? {})
-                        : (packEntry.resolvedHooks ?? {});
+            const resolvedMap = packResolvedMapForTarget(packEntry, target.type);
 
             // Check if any FQN key in the resolved map ends with the target name
             for (const fqn of Object.keys(resolvedMap)) {
@@ -2291,119 +2406,13 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         withMutex(
           Effect.gen(function* () {
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
-
-            switch (target.type) {
-              case "skill": {
-                const entry = currentLockfile.skills[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  skills: {
-                    ...currentLockfile.skills,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "command": {
-                const commands = currentLockfile.commands ?? {};
-                const entry = commands[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  commands: {
-                    ...commands,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "mcp-server": {
-                const mcpServers = currentLockfile.mcpServers ?? {};
-                const entry = mcpServers[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  mcpServers: {
-                    ...mcpServers,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "files": {
-                const files = currentLockfile.files ?? {};
-                const entry = files[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  files: {
-                    ...files,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "rule": {
-                const rules = currentLockfile.rules ?? {};
-                const entry = rules[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  rules: {
-                    ...rules,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "hook": {
-                const hooks = currentLockfile.hooks ?? {};
-                const entry = hooks[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  hooks: {
-                    ...hooks,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "pack":
-                // No retention marking for packs — packs are not dependencies of other packs
-                break;
-            }
+            const updatedLockfile = lockfileWithRetainedDependency(currentLockfile, target);
+            if (updatedLockfile === undefined) return;
+            yield* commitLockfileSnapshotUpdate(
+              workspaceDir,
+              currentLockfile,
+              updatedLockfile,
+            ).pipe(Effect.provide(fsLayer));
           }),
         ),
     };

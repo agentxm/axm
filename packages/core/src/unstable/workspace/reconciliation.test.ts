@@ -14,8 +14,12 @@ import type { Settings } from "../settings/index.js";
 import { extensionName, handle } from "../test-helpers.js";
 import { skillReconciliationAdapter } from "../skills/reconciliation-adapter.js";
 import { commandReconciliationAdapter } from "../commands/reconciliation-adapter.js";
+import { filesReconciliationAdapter } from "../files/reconciliation-adapter.js";
+import { hookReconciliationAdapter } from "../hooks/reconciliation-adapter.js";
+import { knowledgeReconciliationAdapter } from "../knowledge/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../mcps/reconciliation-adapter.js";
 import { packReconciliationAdapter } from "../packs/reconciliation-adapter.js";
+import { ruleReconciliationAdapter } from "../rules/reconciliation-adapter.js";
 import { subagentReconciliationAdapter } from "../subagents/reconciliation-adapter.js";
 import {
   buildReconciliationSnapshot,
@@ -30,6 +34,10 @@ const reconciliationAdaptersLayer = Layer.succeed(ReconciliationAdapters, [
   subagentReconciliationAdapter,
   mcpServerReconciliationAdapter,
   packReconciliationAdapter,
+  filesReconciliationAdapter,
+  ruleReconciliationAdapter,
+  hookReconciliationAdapter,
+  knowledgeReconciliationAdapter,
 ]);
 const testLayer = Layer.mergeAll(NodeServices.layer, reconciliationAdaptersLayer);
 
@@ -355,6 +363,57 @@ describe("reconciliation", () => {
         expect(parsed.skills).toEqual({});
       }),
     ),
+  );
+
+  it.effect(
+    "defers registry files, rule, hook, and knowledge declarations instead of dropping them",
+    () =>
+      withContext(
+        Effect.gen(function* () {
+          const axmDir = path.join(tempDir, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(axmDir, "axm-lock.yaml"),
+            "lockfileVersion: 12345\nskills:\n  tool:\n    installedAt: not-a-date\n",
+          );
+
+          const settings: Settings = {
+            skills: {},
+            files: {
+              baseline: { source: "@acme/files/baseline@^1", enabled: true, inputs: {} },
+            },
+            rules: {
+              "commit-style": { source: "@acme/rules/commit-style@^1", enabled: true },
+            },
+            hooks: {
+              guard: { source: "@acme/hooks/guard@^1", enabled: true },
+            },
+            knowledge: {
+              handbook: { source: "@acme/knowledge/handbook@^1", enabled: true },
+            },
+          };
+
+          const result = yield* runReconcileMaterializeOperation(
+            {
+              baseDir: tempDir,
+              now: DateTime.makeUnsafe("2026-02-25T10:00:00.000Z"),
+              configuredOwner: Option.some(handle("@community")),
+              agents: ["claude-code"],
+              settings,
+            },
+            axmDir,
+            "invalid",
+            { allowMissingDeclarations: true },
+          );
+
+          expect(result.result).toBe("success");
+          expect(result.message).toContain("deferred to install");
+          expect(result.message).toContain("files/baseline");
+          expect(result.message).toContain("rules/commit-style");
+          expect(result.message).toContain("hooks/guard");
+          expect(result.message).toContain("knowledge/handbook");
+        }),
+      ),
   );
 
   it.effect("backs up and regenerates an invalid lockfile when a registry skill is declared", () =>

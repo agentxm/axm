@@ -580,7 +580,7 @@ export const HookManagerLive = Layer.effect(
     // the same hook packages, so without this the remove+copy steps race on one
     // package dir.
     const materializePackage = (ref: HookExtensionRef) =>
-      packageMaterializeLockFor(`${baseDir} ${ref.hook.name}`).withPermits(1)(
+      packageMaterializeLockFor(`${baseDir}\u0000${ref.hook.name}`).withPermits(1)(
         materializePackageUnlocked(ref),
       );
 

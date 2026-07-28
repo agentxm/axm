@@ -60,24 +60,36 @@ describe("axm skills list", () => {
     }
   });
 
-  it.each([
-    ["settings", "settings.json", "{ not-json"],
-    ["lockfile", "axm-lock.yaml", "lockfileVersion: invalid\n"],
-  ])("reports an existing malformed %s source", async (_source, filename, contents) => {
+  it("reports an existing malformed settings source", async () => {
     const temp = createTempDir();
     try {
       fs.mkdirSync(path.join(temp.path, ".axm"), { recursive: true });
-      if (filename === "axm-lock.yaml") {
-        fs.writeFileSync(
-          path.join(temp.path, ".axm", "settings.json"),
-          `${JSON.stringify({ agents: [] }, null, 2)}\n`,
-        );
-      }
-      fs.writeFileSync(path.join(temp.path, ".axm", filename), contents);
+      fs.writeFileSync(path.join(temp.path, ".axm", "settings.json"), "{ not-json");
 
       const result = await runCli(["skills", "list", "--json"], { cwd: temp.path });
 
       expect(result.exitCode).not.toBe(0);
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it("degrades to declared state when the lockfile is malformed", async () => {
+    const temp = createTempDir();
+    try {
+      fs.mkdirSync(path.join(temp.path, ".axm"), { recursive: true });
+      fs.writeFileSync(
+        path.join(temp.path, ".axm", "settings.json"),
+        `${JSON.stringify({ agents: [] }, null, 2)}\n`,
+      );
+      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "lockfileVersion: invalid\n");
+
+      const result = await runCli(["skills", "list", "--json"], { cwd: temp.path });
+
+      // A user whose lockfile is corrupt still needs to see what their
+      // workspace declares in order to understand what broke.
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toContain("workspace lockfile could not be read");
     } finally {
       temp.cleanup();
     }

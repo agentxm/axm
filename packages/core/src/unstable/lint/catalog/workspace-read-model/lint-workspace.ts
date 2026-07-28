@@ -55,6 +55,7 @@ import type {
 import type {
   CommandRuleContext,
   FilesRuleContext,
+  InstalledExtensionManifest,
   McpServerRuleContext,
   SubagentRuleContext,
   WorkspaceInstructionAccessor,
@@ -165,6 +166,12 @@ export const buildLintWorkspace = (
       args.scope === "user"
         ? args.platform.path.join(args.userHome, AXM_DIR_NAME)
         : args.platform.path.join(args.workspaceRoot, AXM_DIR_NAME);
+    const projection = yield* buildLintWorkspaceView({
+      platform: args.platform,
+      workspaceRoot: args.workspaceRoot,
+      readModel,
+      scope: args.scope,
+    });
     const rule: WorkspaceRuleContext = {
       subject: { root: args.workspaceRoot, scope: args.scope },
       workspace: readModel,
@@ -174,15 +181,12 @@ export const buildLintWorkspace = (
         workspaceRoot: args.workspaceRoot,
         readModel,
       }),
+      // The projection already read every installed manifest; hand the same
+      // values to workspace rules rather than re-reading them per rule.
+      installedExtensions: { manifests: Effect.succeed(projection.installedManifests) },
       displayRoot: args.displayRoot ?? "",
     };
-    const view = yield* buildLintWorkspaceView({
-      platform: args.platform,
-      workspaceRoot: args.workspaceRoot,
-      readModel,
-      scope: args.scope,
-    });
-    return { rule, view };
+    return { rule, view: projection.view };
   }).pipe(Effect.provide(env));
 };
 
@@ -258,9 +262,36 @@ interface BuildLintWorkspaceViewArgs {
   readonly scope: "project" | "user";
 }
 
+/**
+ * A per-extension rule context paired with the identity the workspace-level
+ * accessor needs: the extension's workspace name and the path of the manifest
+ * the projection read. The `LintWorkspaceView` keeps only the contexts; the
+ * `installedExtensions` accessor keeps only the manifests.
+ */
+interface NamedContext<C> {
+  readonly name: string;
+  readonly manifestPath: string;
+  readonly context: C;
+}
+
+interface NamedSkill {
+  readonly name: string;
+  readonly manifestPath: string;
+  readonly info: InstalledSkillInfo;
+}
+
+/** Combined output of the workspace projection. */
+interface LintWorkspaceProjection {
+  readonly view: LintWorkspaceView;
+  readonly installedManifests: ReadonlyArray<InstalledExtensionManifest>;
+}
+
+const joinManifestPath = (root: string, filename: string): string =>
+  root === "" || root === "." ? filename : `${root}/${filename}`;
+
 const buildLintWorkspaceView = (
   args: BuildLintWorkspaceViewArgs,
-): Effect.Effect<LintWorkspaceView> =>
+): Effect.Effect<LintWorkspaceProjection> =>
   Effect.gen(function* () {
     const [skills, packs, commands, subagents, mcpServers, filesPackages] = yield* Effect.all(
       [
@@ -273,71 +304,180 @@ const buildLintWorkspaceView = (
       ],
       { concurrency: "unbounded" },
     );
-    const installedSkills = skills
+    const namedSkills = skills
       .filter((skill) => skill.actual.length > 0 || Option.isSome(skill.resolved))
-      .map((skill) => installedSkillToInfo(args, skill));
+      .map((skill): NamedSkill => {
+        const built = installedSkillToInfo(args, skill);
+        return {
+          name: skill.key.name,
+          manifestPath: joinManifestPath(built.packageDisplayRoot, SKILL_MANIFEST_FILENAME),
+          info: built.info,
+        };
+      });
     const installedPacks = packs.flatMap((pack) => {
       const info = installedPackToInfo(args, pack);
       return info === undefined ? [] : [info];
     });
-    const commandContexts = commands.flatMap((command) => {
+    const namedCommands = commands.flatMap((command) => {
       const context = installedCommandToContext(args, command);
-      return context === undefined ? [] : [context];
+      return context === undefined
+        ? []
+        : [namedContext(command.key.name, context, COMMAND_MANIFEST_FILENAME)];
     });
-    const subagentContexts = subagents.flatMap((subagent) => {
+    const namedSubagents = subagents.flatMap((subagent) => {
       const context = installedSubagentToContext(args, subagent);
-      return context === undefined ? [] : [context];
+      return context === undefined
+        ? []
+        : [namedContext(subagent.key.name, context, SUBAGENT_MANIFEST_FILENAME)];
     });
-    const mcpServerContexts = mcpServers.flatMap((mcpServer) => {
+    const namedMcpServers = mcpServers.flatMap((mcpServer) => {
       const context = installedMcpServerToContext(args, mcpServer);
-      return context === undefined ? [] : [context];
+      return context === undefined
+        ? []
+        : [namedContext(mcpServer.key.name, context, MCP_SERVER_MANIFEST_FILENAME)];
     });
-    const fileContexts = filesPackages.flatMap((filesPackage) => {
+    const namedFiles = filesPackages.flatMap((filesPackage) => {
       const context = installedFilesPackageToContext(args, filesPackage);
-      return context === undefined ? [] : [context];
+      return context === undefined
+        ? []
+        : [namedContext(filesPackage.key.name, context, FILES_MANIFEST_FILENAME)];
     });
 
     const [
-      installedSkillsWithJson,
+      skillsWithJson,
       installedPacksWithJson,
-      commandContextsWithJson,
-      subagentContextsWithJson,
-      mcpServerContextsWithJson,
-      fileContextsWithJson,
+      commandsWithJson,
+      subagentsWithJson,
+      mcpServersWithJson,
+      filesWithJson,
     ] = yield* Effect.all(
       [
-        populateSkillManifestJson(installedSkills),
+        populateSkillManifestJson(namedSkills),
         populatePackManifestJson(installedPacks),
-        populateCommandManifestJson(commandContexts),
-        populateSubagentManifestJson(subagentContexts),
-        populateMcpServerManifestJson(mcpServerContexts),
-        populateFilesManifestJson(fileContexts),
+        populateCommandManifestJson(namedCommands),
+        populateSubagentManifestJson(namedSubagents),
+        populateMcpServerManifestJson(namedMcpServers),
+        populateFilesManifestJson(namedFiles),
       ],
       { concurrency: "unbounded" },
     );
 
     return {
-      installedSkills: installedSkillsWithJson,
-      installedPacks: installedPacksWithJson,
-      commandContexts: commandContextsWithJson,
-      subagentContexts: subagentContextsWithJson,
-      mcpServerContexts: mcpServerContextsWithJson,
-      fileContexts: fileContextsWithJson,
+      view: {
+        installedSkills: skillsWithJson.map((entry) => entry.info),
+        installedPacks: installedPacksWithJson,
+        commandContexts: commandsWithJson.map((entry) => entry.context),
+        subagentContexts: subagentsWithJson.map((entry) => entry.context),
+        mcpServerContexts: mcpServersWithJson.map((entry) => entry.context),
+        fileContexts: filesWithJson.map((entry) => entry.context),
+      },
+      installedManifests: [
+        ...skillsWithJson.map((entry): InstalledExtensionManifest => ({
+          extensionType: "skill",
+          name: entry.name,
+          manifestPath: entry.manifestPath,
+          manifestJson: entry.info.skillJson,
+        })),
+        ...toManifests("command", commandsWithJson, (c) => c.subject.commandJson),
+        ...toManifests("subagent", subagentsWithJson, (c) => c.subject.subagentJson),
+        ...toManifests("mcp-server", mcpServersWithJson, (c) => c.subject.mcpServerJson),
+        ...toManifests("files", filesWithJson, (c) => c.subject.filesJson),
+      ],
     };
   });
 
+const namedContext = <C extends { readonly displayRoot: string }>(
+  name: string,
+  context: C,
+  manifestFilename: string,
+): NamedContext<C> => ({
+  name,
+  manifestPath: joinManifestPath(context.displayRoot, manifestFilename),
+  context,
+});
+
+const toManifests = <C>(
+  extensionType: InstalledExtensionManifest["extensionType"],
+  entries: ReadonlyArray<NamedContext<C>>,
+  manifestJson: (context: C) => unknown,
+): ReadonlyArray<InstalledExtensionManifest> =>
+  entries.map((entry) => ({
+    extensionType,
+    name: entry.name,
+    manifestPath: entry.manifestPath,
+    manifestJson: manifestJson(entry.context),
+  }));
+
 const populateSkillManifestJson = (
-  installedSkills: ReadonlyArray<InstalledSkillInfo>,
-): Effect.Effect<ReadonlyArray<InstalledSkillInfo>> =>
+  namedSkills: ReadonlyArray<NamedSkill>,
+): Effect.Effect<ReadonlyArray<NamedSkill>> =>
   Effect.forEach(
-    installedSkills,
-    (info) =>
+    namedSkills,
+    (entry) =>
       Effect.gen(function* () {
-        if (!info.isNative) {
-          return info;
+        if (!entry.info.isNative) {
+          return entry;
         }
-        const skillJson = yield* readManifestJson(info.packageFiles, SKILL_MANIFEST_FILENAME);
-        return { ...info, skillJson };
+        const skillJson = yield* readManifestJson(entry.info.packageFiles, SKILL_MANIFEST_FILENAME);
+        return { ...entry, info: { ...entry.info, skillJson } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateCommandManifestJson = (
+  entries: ReadonlyArray<NamedContext<CommandRuleContext>>,
+): Effect.Effect<ReadonlyArray<NamedContext<CommandRuleContext>>> =>
+  Effect.forEach(
+    entries,
+    (entry) =>
+      Effect.gen(function* () {
+        const commandJson = yield* readManifestJson(entry.context.files, COMMAND_MANIFEST_FILENAME);
+        return { ...entry, context: { ...entry.context, subject: { commandJson } } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateSubagentManifestJson = (
+  entries: ReadonlyArray<NamedContext<SubagentRuleContext>>,
+): Effect.Effect<ReadonlyArray<NamedContext<SubagentRuleContext>>> =>
+  Effect.forEach(
+    entries,
+    (entry) =>
+      Effect.gen(function* () {
+        const subagentJson = yield* readManifestJson(
+          entry.context.files,
+          SUBAGENT_MANIFEST_FILENAME,
+        );
+        return { ...entry, context: { ...entry.context, subject: { subagentJson } } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateMcpServerManifestJson = (
+  entries: ReadonlyArray<NamedContext<McpServerRuleContext>>,
+): Effect.Effect<ReadonlyArray<NamedContext<McpServerRuleContext>>> =>
+  Effect.forEach(
+    entries,
+    (entry) =>
+      Effect.gen(function* () {
+        const mcpServerJson = yield* readManifestJson(
+          entry.context.files,
+          MCP_SERVER_MANIFEST_FILENAME,
+        );
+        return { ...entry, context: { ...entry.context, subject: { mcpServerJson } } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateFilesManifestJson = (
+  entries: ReadonlyArray<NamedContext<FilesRuleContext>>,
+): Effect.Effect<ReadonlyArray<NamedContext<FilesRuleContext>>> =>
+  Effect.forEach(
+    entries,
+    (entry) =>
+      Effect.gen(function* () {
+        const filesJson = yield* readManifestJson(entry.context.files, FILES_MANIFEST_FILENAME);
+        return { ...entry, context: { ...entry.context, subject: { filesJson } } };
       }),
     { concurrency: "unbounded" },
   );
@@ -355,105 +495,73 @@ const populatePackManifestJson = (
     { concurrency: "unbounded" },
   );
 
-const populateCommandManifestJson = (
-  commandContexts: ReadonlyArray<CommandRuleContext>,
-): Effect.Effect<ReadonlyArray<CommandRuleContext>> =>
-  Effect.forEach(
-    commandContexts,
-    (context) =>
-      Effect.gen(function* () {
-        const commandJson = yield* readManifestJson(context.files, COMMAND_MANIFEST_FILENAME);
-        return { ...context, subject: { commandJson } };
-      }),
-    { concurrency: "unbounded" },
-  );
-
-const populateSubagentManifestJson = (
-  subagentContexts: ReadonlyArray<SubagentRuleContext>,
-): Effect.Effect<ReadonlyArray<SubagentRuleContext>> =>
-  Effect.forEach(
-    subagentContexts,
-    (context) =>
-      Effect.gen(function* () {
-        const subagentJson = yield* readManifestJson(context.files, SUBAGENT_MANIFEST_FILENAME);
-        return { ...context, subject: { subagentJson } };
-      }),
-    { concurrency: "unbounded" },
-  );
-
-const populateMcpServerManifestJson = (
-  mcpServerContexts: ReadonlyArray<McpServerRuleContext>,
-): Effect.Effect<ReadonlyArray<McpServerRuleContext>> =>
-  Effect.forEach(
-    mcpServerContexts,
-    (context) =>
-      Effect.gen(function* () {
-        const mcpServerJson = yield* readManifestJson(context.files, MCP_SERVER_MANIFEST_FILENAME);
-        return { ...context, subject: { mcpServerJson } };
-      }),
-    { concurrency: "unbounded" },
-  );
-
-const populateFilesManifestJson = (
-  fileContexts: ReadonlyArray<FilesRuleContext>,
-): Effect.Effect<ReadonlyArray<FilesRuleContext>> =>
-  Effect.forEach(
-    fileContexts,
-    (context) =>
-      Effect.gen(function* () {
-        const filesJson = yield* readManifestJson(context.files, FILES_MANIFEST_FILENAME);
-        return { ...context, subject: { filesJson } };
-      }),
-    { concurrency: "unbounded" },
-  );
+/**
+ * `InstalledSkillInfo` plus the workspace-relative root of the skill's
+ * *package* (the directory holding `skill.json`). `InstalledSkillInfo.displayRoot`
+ * points at the *content* root, which for native skills is the `src/`
+ * sub-directory — so it cannot locate the manifest on its own.
+ */
+interface BuiltSkillInfo {
+  readonly info: InstalledSkillInfo;
+  readonly packageDisplayRoot: string;
+}
 
 const installedSkillToInfo = (
   args: BuildLintWorkspaceViewArgs,
   skill: InstalledSkill,
-): InstalledSkillInfo => {
+): BuiltSkillInfo => {
   const actual = chooseSkillActual(skill.actual);
   if (actual !== undefined) {
     const files = makePlatformSkillFileAccessor(args.platform, actual.contentRoot);
     const packageRoot = actual.packageRoot ?? actual.contentRoot;
     return {
-      isNative: isNativeSkill(skill, actual),
-      skillJson: undefined,
-      displayRoot: relativeDisplayRoot(args, actual.contentRoot),
-      files,
-      packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
+      info: {
+        isNative: isNativeSkill(skill, actual),
+        skillJson: undefined,
+        displayRoot: relativeDisplayRoot(args, actual.contentRoot),
+        files,
+        packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
+      },
+      packageDisplayRoot: relativeDisplayRoot(args, packageRoot),
     };
   }
 
   const resolved = skill.resolved;
   if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
-    return buildNativeInstalledSkillInfo({
-      platform: args.platform,
-      workspaceRoot: args.workspaceRoot,
-      owner: resolved.value.lockEntry.owner,
-      name: skill.key.name,
-      skillJson: undefined,
-    });
+    return nativeSkillInfo(args, resolved.value.lockEntry.owner, skill.key.name);
   }
 
   if (skill.installationOrigin._tag === "direct") {
     const parsed = parseRegistrySourceRef(skill.installationOrigin.declared.entry.source);
     if (parsed !== undefined && parsed.type === "skills") {
-      return buildNativeInstalledSkillInfo({
-        platform: args.platform,
-        workspaceRoot: args.workspaceRoot,
-        owner: parsed.owner,
-        name: skill.key.name,
-        skillJson: undefined,
-      });
+      return nativeSkillInfo(args, parsed.owner, skill.key.name);
     }
   }
 
-  return buildExternalInstalledSkillInfo({
+  return {
+    info: buildExternalInstalledSkillInfo({
+      platform: args.platform,
+      workspaceRoot: args.workspaceRoot,
+      name: skill.key.name,
+    }),
+    packageDisplayRoot: externalSkillDisplayRoot(skill.key.name),
+  };
+};
+
+const nativeSkillInfo = (
+  args: BuildLintWorkspaceViewArgs,
+  owner: string,
+  name: string,
+): BuiltSkillInfo => ({
+  info: buildNativeInstalledSkillInfo({
     platform: args.platform,
     workspaceRoot: args.workspaceRoot,
-    name: skill.key.name,
-  });
-};
+    owner,
+    name,
+    skillJson: undefined,
+  }),
+  packageDisplayRoot: `.axm/extensions/${owner}/skills/${name}`,
+});
 
 const installedPackToInfo = (
   args: BuildLintWorkspaceViewArgs,

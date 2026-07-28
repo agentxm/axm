@@ -51,7 +51,7 @@ See the individual help topics for each extension type for more details.
 
 ## Standalone extensions
 
-`standalone` defaults to `false`. Set it to `true` only when the extension is meaningless outside its recommended packs. Otherwise leave the field undefined.
+`standalone` defaults to `true`. Set it to `false` only when the extension is meaningless outside its recommended packs — and then list at least one pack in `recommendedPacks`. Otherwise leave the field undefined.
 
 ## Where to go next
 

@@ -45,6 +45,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/packs-dependencies-resolved", severity: "error" },
   // Implicit retained by pack.
   { id: "workspace/packs-members-retained", severity: "warning" },
+  { id: "workspace/recommended-packs-retained", severity: "warning" },
 ];
 
 describe("workspaceRules", () => {

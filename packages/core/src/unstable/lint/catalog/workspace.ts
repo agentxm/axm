@@ -21,6 +21,7 @@
  * | `workspace/skills-managed`              | error    | —           |
  * | `workspace/packs-dependencies-resolved` | error    | —           |
  * | `workspace/packs-members-retained`      | warning  | —           |
+ * | `workspace/recommended-packs-retained`  | warning  | —           |
  *
  * Autofix rides per-extension Operations only (§6). No `editFile`,
  * `writeFile`, or `syncWorkspace()` reference — arms whose remediation can't
@@ -55,6 +56,7 @@ import { skillsManagedRule } from "./workspace/skills-managed.js";
 import { packsDeclarationsValidRule } from "./workspace/packs-declarations-valid.js";
 import { packsDependenciesResolvedRule } from "./workspace/packs-dependencies-resolved.js";
 import { packsMembersRetainedRule } from "./workspace/packs-members-retained.js";
+import { recommendedPacksRetainedRule } from "./workspace/recommended-packs-retained.js";
 import { configuredButNotInstalledRule } from "./workspace/configured-but-not-installed.js";
 import { mcpServerNoSecretLiteralRule } from "./workspace/mcp-server-no-secret-literal.js";
 import { mcpServerTransportExclusivityRule } from "./workspace/mcp-server-transport-exclusivity.js";
@@ -103,6 +105,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   packsDependenciesResolvedRule,
   // Implicit retained by pack.
   packsMembersRetainedRule,
+  recommendedPacksRetainedRule,
 ];
 
 // Register ids into the `LintConfig.rules` allowlist. Module-load side effect:

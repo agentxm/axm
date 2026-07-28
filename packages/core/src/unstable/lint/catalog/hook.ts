@@ -6,6 +6,8 @@ import { manifestKeysRecognizedRule } from "./hook/manifest-keys-recognized.js";
 import { manifestPresentRule } from "./hook/manifest-present.js";
 import { manifestSchemaValidRule } from "./hook/manifest-schema-valid.js";
 import { matcherRawPortabilityRule } from "./hook/matcher-raw-portability.js";
+import { recommendedPacksValidRule } from "./hook/recommended-packs-valid.js";
+import { standaloneDeclarationValidRule } from "./hook/standalone-declaration-valid.js";
 
 export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
   manifestPresentRule,
@@ -13,6 +15,8 @@ export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
   manifestKeysRecognizedRule,
   matcherRawPortabilityRule,
   entrypointExistsRule,
+  standaloneDeclarationValidRule,
+  recommendedPacksValidRule,
 ];
 
 registerLintRuleIds(hookRules.map((r) => r.id));

@@ -16,6 +16,14 @@
  *
  * The snapshot is a plain JSON array so diffs are readable and merge conflicts
  * between parallel Phase 3b / 3c work land at single-line granularity.
+ *
+ * **Migration notes.** No id has been renamed or removed, so no deprecation
+ * alias is in play. Additions only:
+ *
+ * - AXM-1136 appended `<type>/standalone-declaration-valid` and
+ *   `<type>/recommended-packs-valid` to each of the six non-pack catalogs, and
+ *   `workspace/recommended-packs-retained` to the workspace catalog. All ship
+ *   at `warning` per the authoring guide's "new rules start soft" clause.
  */
 
 import { describe, expect, it } from "vitest";

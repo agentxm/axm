@@ -296,12 +296,51 @@ export interface WorkspaceRuleContext {
   readonly workspace: WorkspaceReadModel;
   readonly axmDirExists: Effect.Effect<boolean>;
   readonly instructions?: WorkspaceInstructionAccessor;
+  /**
+   * Installed non-pack extension manifests, keyed by nothing — rules walk the
+   * list. Landed for `workspace/recommended-packs-retained`, which needs the
+   * `standalone` / `recommendedPacks` pair that the lockfile does not carry.
+   *
+   * Optional so callers that build a context by hand (tests, and any caller
+   * predating the accessor) stay valid; rules that need it early-return `[]`
+   * when it is absent.
+   */
+  readonly installedExtensions?: WorkspaceInstalledExtensionAccessor;
   readonly displayRoot: string;
 }
 
 export interface WorkspaceInstructionAccessor {
   readonly status: Effect.Effect<Option.Option<InstructionsStatus>>;
   readonly gitignore: Effect.Effect<Option.Option<InstructionsGitignoreStatus>>;
+}
+
+/**
+ * Narrow accessor over the manifests of every installed non-pack extension.
+ *
+ * Packs are excluded — they carry neither `standalone` nor `recommendedPacks`.
+ * Hooks are excluded too: the workspace read model has no hook family yet, so
+ * there is nothing to project.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface WorkspaceInstalledExtensionAccessor {
+  readonly manifests: Effect.Effect<ReadonlyArray<InstalledExtensionManifest>>;
+}
+
+/**
+ * One installed extension's raw manifest, as read during workspace projection.
+ *
+ * `manifestJson` is loose parsed JSON, not a decoded manifest — consumers
+ * narrow what they need. `undefined` when the manifest file is absent.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface InstalledExtensionManifest {
+  readonly extensionType: "skill" | "command" | "subagent" | "mcp-server" | "files";
+  readonly name: string;
+  /** Workspace-root-relative posix path of the manifest file. */
+  readonly manifestPath: string;
+  readonly manifestJson: unknown;
 }
 
 /**

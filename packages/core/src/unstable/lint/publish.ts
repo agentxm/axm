@@ -39,6 +39,18 @@ import { manifestPresentRule as skillManifestPresentRule } from "./catalog/skill
 import { manifestSchemaValidRule as skillManifestSchemaValidRule } from "./catalog/skill/manifest-schema-valid.js";
 import { skillMdPresentRule } from "./catalog/skill/skill-md-present.js";
 import { capabilityTargetingMetadataRule as skillCapabilityTargetingMetadataRule } from "./catalog/skill/capability-targeting-metadata.js";
+import { recommendedPacksValidRule as commandRecommendedPacksValidRule } from "./catalog/command/recommended-packs-valid.js";
+import { standaloneDeclarationValidRule as commandStandaloneDeclarationValidRule } from "./catalog/command/standalone-declaration-valid.js";
+import { recommendedPacksValidRule as filesRecommendedPacksValidRule } from "./catalog/files/recommended-packs-valid.js";
+import { standaloneDeclarationValidRule as filesStandaloneDeclarationValidRule } from "./catalog/files/standalone-declaration-valid.js";
+import { recommendedPacksValidRule as hookRecommendedPacksValidRule } from "./catalog/hook/recommended-packs-valid.js";
+import { standaloneDeclarationValidRule as hookStandaloneDeclarationValidRule } from "./catalog/hook/standalone-declaration-valid.js";
+import { recommendedPacksValidRule as mcpServerRecommendedPacksValidRule } from "./catalog/mcp-server/recommended-packs-valid.js";
+import { standaloneDeclarationValidRule as mcpServerStandaloneDeclarationValidRule } from "./catalog/mcp-server/standalone-declaration-valid.js";
+import { recommendedPacksValidRule as skillRecommendedPacksValidRule } from "./catalog/skill/recommended-packs-valid.js";
+import { standaloneDeclarationValidRule as skillStandaloneDeclarationValidRule } from "./catalog/skill/standalone-declaration-valid.js";
+import { recommendedPacksValidRule as subagentRecommendedPacksValidRule } from "./catalog/subagent/recommended-packs-valid.js";
+import { standaloneDeclarationValidRule as subagentStandaloneDeclarationValidRule } from "./catalog/subagent/standalone-declaration-valid.js";
 import { makeCapabilityTargetingStructuralRule } from "./catalog/skill/capability-targeting-structural.js";
 import type {
   CommandRuleContext,
@@ -111,24 +123,32 @@ export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
   skillManifestKeysRecognizedRule,
   makeCapabilityTargetingStructuralRule("error"),
   skillCapabilityTargetingMetadataRule,
+  skillStandaloneDeclarationValidRule,
+  skillRecommendedPacksValidRule,
 ];
 
 export const commandRules: ReadonlyArray<LintRule<CommandRuleContext>> = [
   commandManifestPresentRule,
   commandManifestSchemaValidRule,
   commandManifestKeysRecognizedRule,
+  commandStandaloneDeclarationValidRule,
+  commandRecommendedPacksValidRule,
 ];
 
 export const subagentRules: ReadonlyArray<LintRule<SubagentRuleContext>> = [
   subagentManifestPresentRule,
   subagentManifestSchemaValidRule,
   subagentManifestKeysRecognizedRule,
+  subagentStandaloneDeclarationValidRule,
+  subagentRecommendedPacksValidRule,
 ];
 
 export const mcpServerRules: ReadonlyArray<LintRule<McpServerRuleContext>> = [
   mcpServerManifestPresentRule,
   mcpServerManifestSchemaValidRule,
   mcpServerManifestKeysRecognizedRule,
+  mcpServerStandaloneDeclarationValidRule,
+  mcpServerRecommendedPacksValidRule,
 ];
 
 export const filesRules: ReadonlyArray<LintRule<FilesRuleContext>> = [
@@ -140,6 +160,8 @@ export const filesRules: ReadonlyArray<LintRule<FilesRuleContext>> = [
   filesTemplateValidRule,
   filesGeneratorValidRule,
   filesMarkerValidRule,
+  filesStandaloneDeclarationValidRule,
+  filesRecommendedPacksValidRule,
 ];
 
 export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
@@ -147,4 +169,6 @@ export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
   hookManifestSchemaValidRule,
   hookManifestKeysRecognizedRule,
   hookEntrypointExistsRule,
+  hookStandaloneDeclarationValidRule,
+  hookRecommendedPacksValidRule,
 ];

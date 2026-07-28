@@ -1,18 +1,24 @@
 /**
- * `skill/*` rule catalog — the v1 five-rule set.
+ * `skill/*` rule catalog.
  *
  * Per `docs/design/lint-engine.md §10.skill`, registry publish and `axm lint`
  * run exactly these rules against each skill context:
  *
- * | ID                               | Severity | Autofix |
- * | -------------------------------- | -------- | ------- |
- * | `skill/skill-md-present`         | error    | —       |
- * | `skill/manifest-present`         | error    | —       |
- * | `skill/frontmatter-parseable`    | error    | —       |
- * | `skill/manifest-schema-valid`    | error    | —       |
- * | `skill/manifest-keys-recognized` | error    | —       |
+ * | ID                                     | Severity | Autofix |
+ * | -------------------------------------- | -------- | ------- |
+ * | `skill/skill-md-present`               | error    | —       |
+ * | `skill/manifest-present`               | error    | —       |
+ * | `skill/frontmatter-parseable`          | error    | —       |
+ * | `skill/manifest-schema-valid`          | error    | —       |
+ * | `skill/manifest-keys-recognized`       | error    | —       |
+ * | `skill/capability-targeting-*`         | warning  | —       |
+ * | `skill/standalone-declaration-valid`   | warning  | —       |
+ * | `skill/recommended-packs-valid`        | warning  | —       |
  *
- * All five ship `kind: "advisory"`. Native-vs-non-native applicability is
+ * The last two come from `catalog/shared/recommended-packs-rules.ts`; every
+ * non-pack catalog registers the same pair against its own manifest.
+ *
+ * All ship `kind: "advisory"`. Native-vs-non-native applicability is
  * expressed via `check` early-return (no separate `applies` predicate); see
  * each rule's module for the guard.
  *
@@ -36,6 +42,8 @@ import { manifestSchemaValidRule } from "./skill/manifest-schema-valid.js";
 import { manifestKeysRecognizedRule } from "./skill/manifest-keys-recognized.js";
 import { capabilityTargetingMetadataRule } from "./skill/capability-targeting-metadata.js";
 import { capabilityTargetingStructuralRule } from "./skill/capability-targeting-structural.js";
+import { recommendedPacksValidRule } from "./skill/recommended-packs-valid.js";
+import { standaloneDeclarationValidRule } from "./skill/standalone-declaration-valid.js";
 
 /**
  * Ordered v1 `skill/*` rule catalog. Declaration order is the evaluation
@@ -52,6 +60,8 @@ export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
   manifestKeysRecognizedRule,
   capabilityTargetingStructuralRule,
   capabilityTargetingMetadataRule,
+  standaloneDeclarationValidRule,
+  recommendedPacksValidRule,
 ];
 
 // Register ids into the `LintConfig.rules` allowlist. Module-load side effect:

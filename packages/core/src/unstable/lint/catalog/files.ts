@@ -9,6 +9,8 @@ import { markerValidRule } from "./files/marker-valid.js";
 import { packageValidRule } from "./files/package-valid.js";
 import { targetValidRule } from "./files/target-valid.js";
 import { templateValidRule } from "./files/template-valid.js";
+import { recommendedPacksValidRule } from "./files/recommended-packs-valid.js";
+import { standaloneDeclarationValidRule } from "./files/standalone-declaration-valid.js";
 
 export const filesRules: ReadonlyArray<LintRule<FilesRuleContext>> = [
   manifestPresentRule,
@@ -19,6 +21,8 @@ export const filesRules: ReadonlyArray<LintRule<FilesRuleContext>> = [
   templateValidRule,
   generatorValidRule,
   markerValidRule,
+  standaloneDeclarationValidRule,
+  recommendedPacksValidRule,
 ];
 
 registerLintRuleIds(filesRules.map((r) => r.id));

@@ -632,12 +632,12 @@ const collectWorkspaceGeneratorStep = Effect.fn("Sync.collectWorkspaceGeneratorS
     Effect.provideService(Path.Path, path),
   );
 
-  return Option.some({
+  return Option.some<PlannedJobStep>({
     key: "workspace-generator-regions",
     label: "workspace generator regions",
     readiness: "ready",
     run,
-  } satisfies PlannedJobStep);
+  });
 });
 
 interface SyncInstructionTargetIntentArgs {

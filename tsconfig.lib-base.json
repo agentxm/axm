@@ -4,6 +4,7 @@
     "plugins": [
       {
         "name": "@effect/language-service",
+        "includeSuggestionsInTsc": false,
         "diagnosticSeverity": {
           "preferSchemaOverJson": "off",
           "unnecessaryFailYieldableError": "warning",

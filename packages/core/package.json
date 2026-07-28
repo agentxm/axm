@@ -271,6 +271,7 @@
     "@types/proper-lockfile": "^4.1.4",
     "@types/semver": "catalog:",
     "@types/spdx-expression-parse": "4.0.0",
+    "@typescript/native": "catalog:",
     "swagger2openapi": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

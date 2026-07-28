@@ -85,6 +85,7 @@
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

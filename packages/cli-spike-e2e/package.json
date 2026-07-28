@@ -9,6 +9,7 @@
   },
   "devDependencies": {
     "@agentxm/client-e2e-utils": "workspace:*",
+    "@typescript/native": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

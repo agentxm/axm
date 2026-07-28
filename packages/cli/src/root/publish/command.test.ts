@@ -36,7 +36,7 @@ const args = (
   excludes: [],
   registry: Option.none(),
   registryUrl: Option.some(registryUrl),
-  onExisting: "error",
+  onExisting: Option.none(),
   skipExisting: false,
   yes: true,
   force: false,
@@ -287,16 +287,198 @@ describe("root publish", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleRootPublish(args(registryUrl, { preview: false }));
-        yield* handleRootPublish(args(registryUrl, { onExisting: "verify" }));
+        yield* handleRootPublish(args(registryUrl, { onExisting: Option.some("verify") }));
 
         fs.appendFileSync(skillBody, "\nChanged after publish.\n");
         const error = getAppError(
-          yield* handleRootPublish(args(registryUrl, { onExisting: "verify" })).pipe(Effect.flip),
+          yield* handleRootPublish(args(registryUrl, { onExisting: Option.some("verify") })).pipe(
+            Effect.flip,
+          ),
         );
         expect(error.code).toBe("conflict");
         expect(error.detail).toContain("integrity drift");
       }),
     );
+  });
+  describe("existing version policy", () => {
+    const writeSkill = (name: string, version: string) => {
+      const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", name);
+      fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(skillDir, "skill.json"),
+        JSON.stringify({ owner: "@acme", type: "skill", name, version }),
+      );
+      fs.writeFileSync(
+        path.join(skillDir, "src", "SKILL.md"),
+        `---\nname: ${name}\ndescription: Review code\n---\n\n# ${name}\n`,
+      );
+    };
+
+    const writeTwoSkillSettings = () => {
+      fs.writeFileSync(
+        path.join(tempDir, ".axm", "settings.json"),
+        JSON.stringify({
+          owner: "@acme",
+          agents: [],
+          skills: {
+            review: "workspace:@acme/skills/review",
+            deploy: "workspace:@acme/skills/deploy",
+          },
+        }),
+      );
+      writeSkill("review", "1.0.0");
+      writeSkill("deploy", "1.0.0");
+    };
+
+    const resultItems = (data: unknown, mode: "preview" | "apply", count: number) => {
+      const result = expectPublishResult(data, { mode, count });
+      const results = property(result, "results");
+      if (!Array.isArray(results)) throw new Error("Expected publish results");
+      return results.map((item) => expectRecord(item));
+    };
+
+    const itemNamed = (items: ReadonlyArray<Record<string, unknown>>, name: string) => {
+      const item = items.find((candidate) => property(candidate, "name") === name);
+      if (item === undefined) throw new Error(`Expected publish result for ${name}`);
+      return item;
+    };
+
+    it.effect("bulk publish skips already-published versions by default", () => {
+      writeTwoSkillSettings();
+      const { provide, rendererState } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          writeSkill("deploy", "1.1.0");
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+          const items = resultItems(at(rendererState.results, 1).data, "apply", 2);
+          const review = itemNamed(items, "review");
+          expect(property(review, "action")).toBe("skip");
+          expect(property(review, "reason")).toBe("version_already_published");
+          const deploy = itemNamed(items, "deploy");
+          expect(property(deploy, "action")).toBe("publish");
+          expect(property(deploy, "status")).toBe("success");
+        }),
+      );
+    });
+
+    it.effect("a single explicit selector still errors on an existing version", () => {
+      writeTwoSkillSettings();
+      const { provide } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          const error = getAppError(
+            yield* handleRootPublish(
+              args(registryUrl, { selectors: ["@acme/skills/review"], preview: false }),
+            ).pipe(Effect.flip),
+          );
+
+          expect(error.code).toBe("conflict");
+          expect(error.detail).toContain("already published");
+          const suggestions = error.suggestions ?? [];
+          expect(
+            suggestions.some(
+              (suggestion) => suggestion.cmd === "axm version @acme/skills/review patch",
+            ),
+          ).toBe(true);
+          expect(
+            suggestions.some((suggestion) => suggestion.description.includes("--on-existing skip")),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("--skip-existing behaves as --on-existing skip for an explicit selector", () => {
+      writeTwoSkillSettings();
+      const { provide, rendererState } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          yield* handleRootPublish(
+            args(registryUrl, {
+              selectors: ["@acme/skills/review"],
+              preview: false,
+              skipExisting: true,
+            }),
+          );
+          yield* handleRootPublish(
+            args(registryUrl, {
+              selectors: ["@acme/skills/review"],
+              preview: false,
+              onExisting: Option.some("skip"),
+            }),
+          );
+
+          const viaAlias = itemNamed(
+            resultItems(at(rendererState.results, 1).data, "apply", 1),
+            "review",
+          );
+          const viaPolicy = itemNamed(
+            resultItems(at(rendererState.results, 2).data, "apply", 1),
+            "review",
+          );
+          for (const item of [viaAlias, viaPolicy]) {
+            expect(property(item, "action")).toBe("skip");
+            expect(property(item, "reason")).toBe("version_already_published");
+          }
+        }),
+      );
+    });
+
+    it.effect("rejects --skip-existing combined with a contradictory --on-existing", () => {
+      const { provide } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          const error = getAppError(
+            yield* handleRootPublish(
+              args(registryUrl, { skipExisting: true, onExisting: Option.some("error") }),
+            ).pipe(Effect.flip),
+          );
+          expect(error.code).toBe("usage");
+          expect(error.detail).toContain("--skip-existing");
+        }),
+      );
+    });
+
+    it.effect("publishes remaining candidates when one conflicts under the error policy", () => {
+      writeTwoSkillSettings();
+      const { provide, rendererState } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          writeSkill("deploy", "1.1.0");
+          const error = getAppError(
+            yield* handleRootPublish(
+              args(registryUrl, { preview: false, onExisting: Option.some("error") }),
+            ).pipe(Effect.flip),
+          );
+          expect(error.code).toBe("conflict");
+
+          const items = resultItems(at(rendererState.results, 1).data, "apply", 2);
+          const review = itemNamed(items, "review");
+          expect(property(review, "action")).toBe("error");
+          expect(property(review, "status")).toBe("failed");
+          const deploy = itemNamed(items, "deploy");
+          expect(property(deploy, "status")).toBe("success");
+
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          const rerunItems = resultItems(at(rendererState.results, 2).data, "apply", 2);
+          expect(property(itemNamed(rerunItems, "deploy"), "action")).toBe("skip");
+        }),
+      );
+    });
   });
 });
 

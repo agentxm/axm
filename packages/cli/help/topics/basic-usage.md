@@ -44,7 +44,9 @@ agent artifacts.
 ### Publishing extensions
 
 Use `axm publish` to publish all extensions authored in the selected workspace,
-or pass explicit selectors. Use `--on-existing verify` for an idempotent publish
+or pass explicit selectors. Bulk selections skip already-published versions and
+report them; a single explicit selector errors instead unless you pass
+`--on-existing skip`. Use `--on-existing verify` for an idempotent publish
 that rejects immutable-version content drift. `axm version` only changes
 workspace-sourced manifests.
 

@@ -14,7 +14,7 @@ import {
 
 import { scopeFlag } from "../../cli-flags.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
-import { skipExistingFlag } from "../shared/publish-flags.js";
+import { onExistingFlag, skipExistingFlag } from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
 type PerTypePublishType = Exclude<ExtensionType, "rule">;
@@ -59,10 +59,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       Flag.withDescription("Override the target registry URL for automation"),
       Flag.optional,
     ),
-    onExisting: Flag.choice("on-existing", ["error", "skip", "verify"] as const).pipe(
-      Flag.withDescription("Policy when a version already exists"),
-      Flag.withDefault("error"),
-    ),
+    onExisting: onExistingFlag,
     skipExisting: skipExistingFlag,
     visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
       Flag.withDescription("Initial visibility for one explicit publish"),

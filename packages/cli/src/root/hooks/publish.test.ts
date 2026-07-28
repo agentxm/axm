@@ -151,6 +151,9 @@ describe("hooks publish.handler", () => {
             description: "Bump the manifest version.",
             cmd: "axm version @test/hooks/duplicate-hook patch",
           },
+          {
+            description: "Re-run with --on-existing skip to skip already-published versions.",
+          },
         ]);
       }),
     );

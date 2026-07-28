@@ -69,7 +69,14 @@ import { WorkspaceMutations, type WorkspaceScope } from "@agentxm/client-core/un
 import { scopeFlag } from "../../cli-flags.js";
 import { emitPublishResult, type PublishResultItem } from "../../json-output.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
-import { skipExistingFlag } from "../shared/publish-flags.js";
+import {
+  onExistingFlag,
+  resolveExistingVersionPolicy,
+  skipExistingFlag,
+  type OnExistingPolicy,
+} from "../shared/publish-flags.js";
+import { alreadyPublishedVersionConflict } from "../shared/publish-preflight.js";
+import { recoverPublishConflictAsSkipExisting } from "../shared/publish-skip-existing.js";
 
 const publishableTypes = [
   "skill",
@@ -86,7 +93,7 @@ const selectableTypes = [...publishableTypes, "rule"] as const;
 type PublishableType = (typeof publishableTypes)[number];
 type SelectableType = (typeof selectableTypes)[number];
 type SelectionMode = "authored" | "all" | "explicit" | "filtered-explicit";
-type ExistingVersionPolicy = "error" | "skip" | "verify";
+type ExistingVersionPolicy = OnExistingPolicy;
 
 export const aggregatePublishFailure = (
   failedCount: number,
@@ -172,7 +179,7 @@ export interface RootPublishHandlerArgs {
   readonly excludes: ReadonlyArray<string>;
   readonly registry: Option.Option<string>;
   readonly registryUrl: Option.Option<string>;
-  readonly onExisting: ExistingVersionPolicy;
+  readonly onExisting: Option.Option<ExistingVersionPolicy>;
   readonly skipExisting: boolean;
   readonly yes: boolean;
   readonly force: boolean;
@@ -642,15 +649,21 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   let action: "publish" | "skip" = "publish";
   if (existing !== undefined) {
     if (policy === "error") {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Version ${manifest.version} is already published for ${selected.fqn}`,
+      return yield* alreadyPublishedVersionConflict({
+        fqn: selected.fqn,
+        version: manifest.version,
       });
     }
     if (policy === "verify" && existing.integrity !== integrity) {
       return yield* makeAppError({
         code: "conflict",
         detail: `Immutable-version integrity drift for ${selected.fqn}@${manifest.version}`,
+        suggestions: [
+          {
+            description: "Bump the manifest version.",
+            cmd: `axm version ${selected.fqn} patch`,
+          },
+        ],
       });
     }
     action = "skip";
@@ -791,6 +804,18 @@ const selectedResult = (
   };
 };
 
+const failedSelectedResult = (entry: SelectedEntry, error: AppError): PublishResultItem => ({
+  owner: entry.owner,
+  type: entry.type,
+  name: decodeExtensionNameSync(entry.name),
+  version: decodeVersionSync("0.0.0"),
+  sourceType: entry.sourceType,
+  authored: entry.authored,
+  action: "error",
+  status: "failed",
+  message: error.detail,
+});
+
 const runPublish = Effect.fn("Publish.run")(function* (
   args: RootPublishHandlerArgs,
   registry: TargetRegistry,
@@ -803,15 +828,25 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const deviceLoginInteraction = yield* DeviceLoginInteraction;
   const registryUrl = yield* RegistryUrl;
   const renderer = yield* CliRenderer;
+  const bulkSelection = args.selectors.length !== 1 || args.selectors.some(isGlobPattern);
+  const effectivePolicy = yield* resolveExistingVersionPolicy({
+    onExisting: args.onExisting,
+    skipExisting: args.skipExisting,
+    bulkSelection,
+  });
   const selection = yield* selectEntries(catalog, args);
   const selected = selection.entries;
-  const effectivePolicy: ExistingVersionPolicy = args.skipExisting ? "skip" : args.onExisting;
   const decoded = yield* Effect.forEach(
     selected,
-    (entry) => decodeCandidate(entry, effectivePolicy, registry, args.visibility),
+    (entry) => Effect.result(decodeCandidate(entry, effectivePolicy, registry, args.visibility)),
     { concurrency: 4 },
   );
-  const candidates = decoded.filter((candidate) => candidate !== undefined);
+  const candidates = decoded.flatMap((result) =>
+    Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
+  );
+  const preflightErrors = decoded.flatMap((result) =>
+    Result.isFailure(result) ? [result.failure] : [],
+  );
   const isRemoteRegistry =
     registry.url.startsWith("https://") || registry.url.startsWith("http://");
   const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
@@ -841,10 +876,8 @@ const runPublish = Effect.fn("Publish.run")(function* (
     jobs: [
       {
         concurrency: publishConcurrency,
-        steps: candidates.map((candidate) => ({
-          readiness: "ready",
-          label: `${candidate.action === "skip" ? "Skip" : "Publish"} ${candidate.fqn}`,
-          run: publishCandidate(candidate, registry, args.visibility).pipe(
+        steps: candidates.map((candidate) => {
+          const run = publishCandidate(candidate, registry, args.visibility).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
             Effect.provideService(AuthClient, authClient),
@@ -852,8 +885,35 @@ const runPublish = Effect.fn("Publish.run")(function* (
             Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
             Effect.provideService(RegistryUrl, registryUrl),
             Effect.provideService(CliRenderer, renderer),
-          ),
-        })),
+          );
+          return {
+            readiness: "ready" as const,
+            label: `${candidate.action === "skip" ? "Skip" : "Publish"} ${candidate.fqn}`,
+            run:
+              effectivePolicy === "error"
+                ? run
+                : run.pipe(
+                    Effect.catch(
+                      recoverPublishConflictAsSkipExisting({
+                        registryUrl: registry.url,
+                        target: {
+                          fqn: candidate.fqn,
+                          identity: {
+                            owner: candidate.owner,
+                            type: candidate.type,
+                            name: candidate.name,
+                            version: candidate.version,
+                          },
+                        },
+                        scope: args.scope,
+                        ...(effectivePolicy === "verify"
+                          ? { expectedIntegrity: candidate.integrity }
+                          : {}),
+                      }),
+                    ),
+                  ),
+          };
+        }),
       },
     ],
   };
@@ -869,14 +929,19 @@ const runPublish = Effect.fn("Publish.run")(function* (
           .flatMap((job) => job.steps)
           .flatMap((step) => (step.result.result === "error" ? [step.result.error] : []))
       : [];
-  const baseResults = selected.map((entry, index) => selectedResult(entry, decoded[index]));
+  const baseResults = selected.map((entry, index) => {
+    const decodedResult = decoded[index];
+    if (decodedResult === undefined) return selectedResult(entry, undefined);
+    if (Result.isFailure(decodedResult)) return failedSelectedResult(entry, decodedResult.failure);
+    return selectedResult(entry, decodedResult.success);
+  });
   let results: ReadonlyArray<PublishResultItem>;
   if (resolution._tag === "ExecutedPlan") {
     const byLabel = new Map(
       resolution.jobs.flatMap((job) => job.steps).map((step) => [step.label, step]),
     );
     results = baseResults.map((result) => {
-      if (result.action === "skip") return result;
+      if (result.action !== "publish") return result;
       const fqn = formatFqn({ owner: result.owner, type: result.type, name: result.name });
       const step = byLabel.get(`Publish ${fqn}`);
       if (step === undefined) return result;
@@ -899,7 +964,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
       };
     });
   } else {
-    results = baseResults.map((result) => ({ ...result, status: "pending" }));
+    results = baseResults.map((result) =>
+      result.action === "error" ? result : { ...result, status: "pending" },
+    );
   }
   yield* emitPublishResult("publish", {
     mode: args.preview ? "preview" : "apply",
@@ -908,7 +975,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   });
   const failed = results.filter((result) => result.status === "failed");
   if (failed.length > 0) {
-    return yield* aggregatePublishFailure(failed.length, failedStepErrors);
+    return yield* aggregatePublishFailure(failed.length, [...preflightErrors, ...failedStepErrors]);
   }
 });
 
@@ -946,10 +1013,7 @@ const publishConfig = {
     Flag.withDescription("Override the target registry URL for automation"),
     Flag.optional,
   ),
-  onExisting: Flag.choice("on-existing", ["error", "skip", "verify"] as const).pipe(
-    Flag.withDescription("Policy when a version already exists"),
-    Flag.withDefault("error"),
-  ),
+  onExisting: onExistingFlag,
   skipExisting: skipExistingFlag,
   visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
     Flag.withDescription("Initial visibility for one explicit publish"),

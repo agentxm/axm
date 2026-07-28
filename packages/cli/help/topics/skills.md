@@ -14,6 +14,34 @@ The `src/` directory holds `SKILL.md` and any other files described by the [agen
 
 `SKILL.md` is Markdown with YAML frontmatter. Only `name` is required, and it must match both the manifest's `name` and the skill directory name. Everything else in the frontmatter passes through verbatim to the rendered agent file.
 
+## Writing the `description` for model invocation
+
+The `SKILL.md` frontmatter `description` is the single biggest lever on whether
+a skill actually fires. When a skill is model-invocable, the agent matches this
+text against the current task to decide whether to load it. Write it for the
+model, not for a human catalog — this is a different job from the registry-facing
+manifest `description` (see `axm help authoring`).
+
+- **Write in the third person and lead with what it does**, then add a `Use
+when…` clause naming concrete triggers: the task verbs, file types, tools, or
+  keywords a matching request will contain.
+- **Include the literal terms** a user would actually type. The model matches on
+  overlap, so name the technology and the action.
+- **State when _not_ to use it** if the skill could over-fire on adjacent tasks.
+
+```yaml
+---
+name: review-typescript
+description: Reviews TypeScript diffs for Effect idioms and common bugs. Use when the user asks to review, audit, or check `.ts`/`.tsx` changes. Not for runtime debugging or test authoring.
+---
+```
+
+Weaker: `description: Helps with code.` — no triggers, so the model rarely
+knows when to load it.
+
+This applies only to model invocation. A `user-invocable`-only skill is run
+explicitly by name and does not rely on description matching.
+
 ## Invocation modes
 
 A skill can be invoked by the **model** (loaded automatically when its `description` matches the task) or by the **user** (run explicitly, e.g. `/skill-name`). By default it's **both**. Two optional frontmatter booleans narrow this:
@@ -72,4 +100,5 @@ See `axm help packs` for pack authoring and `standalone` semantics.
 ## Where to go next
 
 - `axm skills --help` — full skill subcommand surface
+- `axm help authoring` — writing the registry `description`, keywords, and README
 - `axm help packs` — bundling skill extensions with extension packs

@@ -10,6 +10,7 @@ import type { HelpTopicName } from "../../__generated__/help-topics.js";
 export const HELP_TOPIC_DESCRIPTIONS = {
   "getting-started": "Set up AXM in a new workspace and install your first extension.",
   "basic-usage": "Everyday commands for installing, updating, and removing extensions.",
+  authoring: "How to write registry-facing extension descriptions, keywords, and READMEs.",
   skills: "How skill extensions work and how AXM installs and manages them.",
   "skill-schema": "JSON Schema for a skill extension manifest.",
   subagents: "How subagent extensions work and how AXM installs and manages them.",

@@ -4,6 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as EffectRecord from "effect/Record";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -159,67 +160,130 @@ export const LicenseSchema = Schema.String.annotate({
   ),
 );
 
-export const extensionTypes = [
-  "skill",
-  "command",
-  "mcp-server",
-  "subagent",
-  "files",
-  "rule",
-  "hook",
-  "knowledge",
-  "pack",
-] as const;
+/**
+ * Naming row for one extension type. Columns verified against the retired
+ * hand-written maps.
+ */
+interface ExtensionTypeNamingRow {
+  readonly plural: string;
+  readonly label: string;
+  readonly pluralLabel: string;
+  readonly sentenceLabel: string;
+  readonly pluralSentenceLabel: string;
+}
 
-export type ExtensionType = (typeof extensionTypes)[number];
+/**
+ * Single source of truth for extension type naming. Row order is the canonical
+ * display order. Every other type-naming export in this module derives from
+ * this table, so a new extension type is exactly one row here: a missing
+ * column is TS2741, an excess column is TS2353, and every downstream
+ * `satisfies Record<ExtensionType, _>` table fails until the new type is
+ * decided everywhere.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const EXTENSION_TYPE_TABLE = {
+  skill: {
+    plural: "skills",
+    label: "Skill",
+    pluralLabel: "Skills",
+    sentenceLabel: "skill",
+    pluralSentenceLabel: "skills",
+  },
+  command: {
+    plural: "commands",
+    label: "Command",
+    pluralLabel: "Commands",
+    sentenceLabel: "command",
+    pluralSentenceLabel: "commands",
+  },
+  "mcp-server": {
+    plural: "mcps",
+    label: "MCP Server",
+    pluralLabel: "MCP Servers",
+    sentenceLabel: "MCP server",
+    pluralSentenceLabel: "MCP servers",
+  },
+  subagent: {
+    plural: "subagents",
+    label: "Subagent",
+    pluralLabel: "Subagents",
+    sentenceLabel: "subagent",
+    pluralSentenceLabel: "subagents",
+  },
+  files: {
+    plural: "files",
+    label: "Context Files",
+    pluralLabel: "Context Files",
+    sentenceLabel: "context files",
+    pluralSentenceLabel: "context files",
+  },
+  rule: {
+    plural: "rules",
+    label: "Rule",
+    pluralLabel: "Rules",
+    sentenceLabel: "rule",
+    pluralSentenceLabel: "rules",
+  },
+  hook: {
+    plural: "hooks",
+    label: "Hook",
+    pluralLabel: "Hooks",
+    sentenceLabel: "hook",
+    pluralSentenceLabel: "hooks",
+  },
+  knowledge: {
+    plural: "knowledge",
+    label: "Knowledge",
+    pluralLabel: "Knowledge",
+    sentenceLabel: "knowledge bundle",
+    pluralSentenceLabel: "knowledge bundles",
+  },
+  pack: {
+    plural: "packs",
+    label: "Pack",
+    pluralLabel: "Packs",
+    sentenceLabel: "pack",
+    pluralSentenceLabel: "packs",
+  },
+} as const satisfies { readonly [key: string]: ExtensionTypeNamingRow };
+
+export type ExtensionType = keyof typeof EXTENSION_TYPE_TABLE;
+
+export type ExtensionTypePlural = (typeof EXTENSION_TYPE_TABLE)[ExtensionType]["plural"];
+
+export const extensionTypes: ReadonlyArray<ExtensionType> = EffectRecord.keys(EXTENSION_TYPE_TABLE);
+
+// Row union carrying its own key, so the plural-keyed view can map back to the
+// singular type id.
+const tableRowsWithType = EffectRecord.map(EXTENSION_TYPE_TABLE, (row, type) => ({
+  ...row,
+  type,
+}));
+const tableByPlural = EffectRecord.mapKeys(tableRowsWithType, (_type, row) => row.plural);
+
+export const extensionTypePluralSegments: ReadonlyArray<ExtensionTypePlural> =
+  EffectRecord.keys(tableByPlural);
 
 const extensionTypeSet = new Set<string>(extensionTypes);
 
 export const isExtensionType = (value: string | undefined): value is ExtensionType =>
   value !== undefined && extensionTypeSet.has(value);
 
-export const extensionTypePluralSegments = [
-  "skills",
-  "commands",
-  "mcps",
-  "subagents",
-  "files",
-  "rules",
-  "hooks",
-  "knowledge",
-  "packs",
-] as const;
-
-export type ExtensionTypePlural = (typeof extensionTypePluralSegments)[number];
-
 const extensionTypePluralSet = new Set<string>(extensionTypePluralSegments);
 
 export const isExtensionTypePlural = (value: string | undefined): value is ExtensionTypePlural =>
   value !== undefined && extensionTypePluralSet.has(value);
 
-export const extensionTypeFromPlural: Record<ExtensionTypePlural, ExtensionType> = {
-  skills: "skill",
-  commands: "command",
-  mcps: "mcp-server",
-  subagents: "subagent",
-  files: "files",
-  rules: "rule",
-  hooks: "hook",
-  knowledge: "knowledge",
-  packs: "pack",
-};
+export const extensionTypeFromPlural: Record<ExtensionTypePlural, ExtensionType> = EffectRecord.map(
+  tableByPlural,
+  (row) => row.type,
+);
 
-export const extensionTypeToPlural: Record<ExtensionType, ExtensionTypePlural> = {
-  skill: "skills",
-  command: "commands",
-  "mcp-server": "mcps",
-  subagent: "subagents",
-  files: "files",
-  rule: "rules",
-  hook: "hooks",
-  knowledge: "knowledge",
-  pack: "packs",
-};
+export const extensionTypeToPlural: Record<ExtensionType, ExtensionTypePlural> = EffectRecord.map(
+  EXTENSION_TYPE_TABLE,
+  (row) => row.plural,
+);
 
 export const toExtensionType = (segment: ExtensionTypePlural): ExtensionType =>
   extensionTypeFromPlural[segment];
@@ -227,53 +291,23 @@ export const toExtensionType = (segment: ExtensionTypePlural): ExtensionType =>
 export const toExtensionTypePlural = (type: ExtensionType): ExtensionTypePlural =>
   extensionTypeToPlural[type];
 
-export const extensionTypeLabels: Record<ExtensionType, string> = {
-  skill: "Skill",
-  command: "Command",
-  "mcp-server": "MCP Server",
-  subagent: "Subagent",
-  files: "Context Files",
-  rule: "Rule",
-  hook: "Hook",
-  knowledge: "Knowledge",
-  pack: "Pack",
-};
+export const extensionTypeLabels: Record<ExtensionType, string> = EffectRecord.map(
+  EXTENSION_TYPE_TABLE,
+  (row) => row.label,
+);
 
-export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = {
-  skills: "Skills",
-  commands: "Commands",
-  mcps: "MCP Servers",
-  subagents: "Subagents",
-  files: "Context Files",
-  rules: "Rules",
-  hooks: "Hooks",
-  knowledge: "Knowledge",
-  packs: "Packs",
-};
+export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = EffectRecord.map(
+  tableByPlural,
+  (row) => row.pluralLabel,
+);
 
-export const extensionTypeSentenceLabels: Record<ExtensionType, string> = {
-  skill: "skill",
-  command: "command",
-  "mcp-server": "MCP server",
-  subagent: "subagent",
-  files: "context files",
-  rule: "rule",
-  hook: "hook",
-  knowledge: "knowledge bundle",
-  pack: "pack",
-};
+export const extensionTypeSentenceLabels: Record<ExtensionType, string> = EffectRecord.map(
+  EXTENSION_TYPE_TABLE,
+  (row) => row.sentenceLabel,
+);
 
-export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, string> = {
-  skills: "skills",
-  commands: "commands",
-  mcps: "MCP servers",
-  subagents: "subagents",
-  files: "context files",
-  rules: "rules",
-  hooks: "hooks",
-  knowledge: "knowledge bundles",
-  packs: "packs",
-};
+export const extensionTypePluralSentenceLabels: Record<ExtensionTypePlural, string> =
+  EffectRecord.map(tableByPlural, (row) => row.pluralSentenceLabel);
 
 const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|");
 
@@ -283,18 +317,12 @@ const EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = extensionTypePluralSegments.join("|
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const nonPackExtensionTypePluralSegments = [
-  "skills",
-  "commands",
-  "mcps",
-  "subagents",
-  "files",
-  "rules",
-  "hooks",
-  "knowledge",
-] as const satisfies ReadonlyArray<Exclude<ExtensionTypePlural, "packs">>;
+export type NonPackExtensionTypePlural = Exclude<ExtensionTypePlural, "packs">;
 
-export type NonPackExtensionTypePlural = (typeof nonPackExtensionTypePluralSegments)[number];
+export const nonPackExtensionTypePluralSegments: ReadonlyArray<NonPackExtensionTypePlural> =
+  extensionTypePluralSegments.filter(
+    (segment): segment is NonPackExtensionTypePlural => segment !== "packs",
+  );
 
 const NON_PACK_EXTENSION_TYPE_PLURAL_PATTERN_SOURCE = nonPackExtensionTypePluralSegments.join("|");
 const EXTENSION_NAME_MAX_LENGTH = 64;

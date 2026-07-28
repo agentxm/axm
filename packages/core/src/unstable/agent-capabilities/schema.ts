@@ -32,7 +32,6 @@
  */
 
 import * as Schema from "effect/Schema";
-import { ExtensionTypeSchema } from "../extensions/common.js";
 import {
   DocLinkSchema,
   LeafExtensionTypeSchema,
@@ -1574,6 +1573,3 @@ export const AgentSchema = AgentStruct.pipe(
 
 /** @experimental This API is unstable and may change without notice. */
 export type Agent = Schema.Schema.Type<typeof AgentSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const CatalogExtensionTypeSchema = ExtensionTypeSchema;

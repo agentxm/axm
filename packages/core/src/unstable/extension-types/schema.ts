@@ -5,7 +5,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { type ExtensionType } from "../extensions/common.js";
+import type { ExtensionType } from "../extensions/common.js";
 
 const isUrl = (value: string): boolean => {
   try {
@@ -25,10 +25,18 @@ export const LEAF_EXTENSION_TYPES = [
   "files",
   "rule",
   "hook",
-] as const satisfies ReadonlyArray<ExtensionType>;
+] as const satisfies ReadonlyArray<Exclude<ExtensionType, "pack" | "knowledge">>;
 
 /** @experimental This API is unstable and may change without notice. */
 export type LeafExtensionType = (typeof LEAF_EXTENSION_TYPES)[number];
+
+// Coverage witness: the array satisfies-check above only rejects foreign
+// members; this fails compile when a non-pack, non-knowledge extension type is
+// missing from LEAF_EXTENSION_TYPES.
+type _LeafCoversInstallableTypes =
+  Exclude<ExtensionType, "pack" | "knowledge" | LeafExtensionType> extends never ? true : false;
+const _leafCoversInstallableTypes = true as const satisfies _LeafCoversInstallableTypes;
+export type _LeafExtensionTypeCoverage = typeof _leafCoversInstallableTypes;
 
 /** @experimental This API is unstable and may change without notice. */
 export const LeafExtensionTypeSchema = Schema.Literals(LEAF_EXTENSION_TYPES).annotate({
@@ -38,10 +46,20 @@ export const LeafExtensionTypeSchema = Schema.Literals(LEAF_EXTENSION_TYPES).ann
 });
 
 /** Registry/package extension types, including workspace-only knowledge bundles. */
-export const CATALOG_EXTENSION_TYPES = [...LEAF_EXTENSION_TYPES, "knowledge"] as const;
+export const CATALOG_EXTENSION_TYPES = [
+  ...LEAF_EXTENSION_TYPES,
+  "knowledge",
+] as const satisfies ReadonlyArray<Exclude<ExtensionType, "pack">>;
 
 /** @experimental This API is unstable and may change without notice. */
 export type CatalogExtensionType = (typeof CATALOG_EXTENSION_TYPES)[number];
+
+// Coverage witness: fails compile when a non-pack extension type is missing
+// from CATALOG_EXTENSION_TYPES.
+type _CatalogCoversNonPackTypes =
+  Exclude<ExtensionType, "pack" | CatalogExtensionType> extends never ? true : false;
+const _catalogCoversNonPackTypes = true as const satisfies _CatalogCoversNonPackTypes;
+export type _CatalogExtensionTypeCoverage = typeof _catalogCoversNonPackTypes;
 
 /** @experimental This API is unstable and may change without notice. */
 export const CatalogExtensionTypeSchema = Schema.Literals(CATALOG_EXTENSION_TYPES).annotate({

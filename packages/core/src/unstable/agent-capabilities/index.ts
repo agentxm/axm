@@ -16,7 +16,6 @@ export {
   CANONICAL_HOOK_EVENTS,
   CANONICAL_HOOK_EVENT_IDS,
   CANONICAL_HOOK_TOOL_IDS,
-  CatalogExtensionTypeSchema,
   CapabilityTargetingEntrySchema,
   CapabilityTargetingSchema,
   CanonicalHookEventIdSchema,

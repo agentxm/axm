@@ -20,16 +20,15 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
+  previewOrApplyPlan,
 } from "@agentxm/client-core/unstable/plan";
 import {
-  isMalformedWorkspaceLockfileRead,
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
@@ -189,25 +188,6 @@ const attachMaterializationArtifact = (
   };
 };
 
-const skipInstalledExtensionMaterializationStep = (
-  ws: WorkspaceMutationsService,
-  detail: string,
-): PlannedJobStep => ({
-  key: "installed-extension-materialization:skipped",
-  label: "Materialize installed extensions",
-  readiness: "ready",
-  run: Effect.succeed({
-    result: "success",
-    message: `Skipped installed extension materialization: ${detail}. Run \`axm sync\` after fixing the workspace lockfile.`,
-    artifact: {
-      path: ".axm/axm-lock.yaml",
-      scope: ws.scope,
-      change: "unchanged",
-      targets: [{ path: ".axm/axm-lock.yaml", change: "unchanged" }],
-    },
-  } satisfies JobStepResult),
-});
-
 const makePlan = (agentIds: ReadonlyArray<string>, steps: ReadonlyArray<PlannedJobStep>): Plan => ({
   _tag: "Plan",
   name: "Add coding agents",
@@ -288,14 +268,7 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
     return;
   }
 
-  const materialize = yield* collectMaterializeSteps().pipe(
-    Effect.catchIf(isMalformedWorkspaceLockfileRead, (error) =>
-      Effect.succeed({
-        expectedSubagentNames: new Set<string>(),
-        steps: [skipInstalledExtensionMaterializationStep(ws, error.detail)],
-      }),
-    ),
-  );
+  const materialize = yield* collectMaterializeSteps();
   const materializeSteps = materialize.steps.map((step) =>
     attachMaterializationArtifact(ws, fs, path, agentIds, step),
   );
@@ -304,7 +277,11 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
     ...materializeSteps,
   ]);
 
-  const resolution = yield* previewOrApplyLocalPlan(plan, {
+  // Goes through the reconciling resolver rather than the local one: adding an
+  // agent materializes installed extensions, which needs a readable lockfile.
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
+    force: args.force,
     preview: args.preview,
     displayApplied: false,
   });

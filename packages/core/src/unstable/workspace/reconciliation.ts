@@ -9,6 +9,7 @@ import type {
   CommandLockEntry,
   FilesLockEntry,
   HookLockEntry,
+  KnowledgeLockEntry,
   Lockfile,
   McpServerLockEntry,
   PackLockEntry,
@@ -63,7 +64,8 @@ const countReconstructedLockfileEntries = (lockfile: Lockfile): number =>
   Object.keys(lockfile.packs ?? {}).length +
   Object.keys(lockfile.files ?? {}).length +
   Object.keys(lockfile.rules ?? {}).length +
-  Object.keys(lockfile.hooks ?? {}).length;
+  Object.keys(lockfile.hooks ?? {}).length +
+  Object.keys(lockfile.knowledge ?? {}).length;
 
 export interface ReconciliationSnapshot {
   readonly lockfile: Lockfile;
@@ -83,6 +85,7 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
   const files: Record<string, FilesLockEntry> = {};
   const rules: Record<string, RuleLockEntry> = {};
   const hooks: Record<string, HookLockEntry> = {};
+  const knowledge: Record<string, KnowledgeLockEntry> = {};
 
   for (const result of results) {
     if (result._tag !== "Compatible") {
@@ -116,6 +119,9 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
       case "hooks":
         hooks[reconstructed.name] = reconstructed.entry;
         break;
+      case "knowledge":
+        knowledge[reconstructed.name] = reconstructed.entry;
+        break;
     }
   }
 
@@ -129,6 +135,7 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
     files,
     rules,
     hooks,
+    knowledge,
   } satisfies Lockfile;
 };
 
@@ -147,6 +154,7 @@ const scanWorkspaceDeclarations = (context: ReconciliationContext) => {
     ["files", context.settings.files],
     ["rules", context.settings.rules],
     ["hooks", context.settings.hooks],
+    ["knowledge", context.settings.knowledge],
     ["packs", context.settings.packs],
   ] as const;
   const declarations: ReconciliationDeclaration[] = [];
@@ -425,6 +433,27 @@ export const buildReconciliationSnapshot = (
     };
   });
 
+/**
+ * Name the declarations reconciliation could not reconstruct, so a regenerated
+ * lockfile never quietly looks complete.
+ *
+ * Registry-sourced entries always land here: a registry lock entry carries a
+ * resolved version, integrity digest, source name, and publisher binding, none
+ * of which survive a corrupt lockfile or exist in a fresh clone. They are
+ * deferred to the next install rather than guessed at.
+ */
+const MAX_DEFERRED_NAMES_SHOWN = 5;
+
+const describeDeferred = (snapshot: ReconciliationSnapshot): string => {
+  const names = snapshot.unresolved.map(
+    (entry) => `${entry.declaration.type}/${entry.declaration.name}`,
+  );
+  const shown = names.slice(0, MAX_DEFERRED_NAMES_SHOWN);
+  const remainder = names.length - shown.length;
+  const overflow = remainder > 0 ? `, +${remainder} more` : "";
+  return `${shown.join(", ")}${overflow}`;
+};
+
 export const runReadRecoverOperation = (
   context: ReconciliationContext,
 ): Effect.Effect<
@@ -437,7 +466,10 @@ export const runReadRecoverOperation = (
     const unresolvedCount = snapshot.unresolved.length;
     const reconstructedCount = countReconstructedLockfileEntries(snapshot.lockfile);
 
-    const suffix = unresolvedCount > 0 ? `, ${count(unresolvedCount, "unresolved entry")}` : "";
+    const suffix =
+      unresolvedCount > 0
+        ? `, ${count(unresolvedCount, "unresolved entry")} (${describeDeferred(snapshot)})`
+        : "";
     return {
       result: "success",
       message: `Recovered ${count(reconstructedCount, "declaration")}${suffix}`,
@@ -505,9 +537,13 @@ export const runReconcileMaterializeOperation = (
     const snapshot = yield* buildReconciliationSnapshot(context);
     const allowMissingDeclarations = options?.allowMissingDeclarations ?? false;
     const hasUnresolved = snapshot.unresolved.length > 0;
-    const hasNonMissingUnresolved = snapshot.unresolved.some((entry) => entry.reason !== "missing");
 
-    if (hasUnresolved && (!allowMissingDeclarations || hasNonMissingUnresolved)) {
+    // Deferral, not failure: an unresolved declaration is one whose lock entry
+    // cannot be rebuilt without registry metadata. Refusing to write the
+    // lockfile at all would leave a corrupt or absent one in place — the very
+    // state recovery exists to fix — so the entry is deferred to install and
+    // named in the step message instead.
+    if (hasUnresolved && !allowMissingDeclarations) {
       return {
         result: "error",
         message: "Reconciliation requires unresolved source resolution",
@@ -540,15 +576,29 @@ export const runReconcileMaterializeOperation = (
     const backupNote =
       backupPath === undefined ? "" : ` (backed up invalid lockfile to ${backupPath})`;
 
+    // Surfaced as step warnings, not only in the message, so the backup location
+    // and anything dropped from the regenerated lockfile stay visible at default
+    // verbosity instead of only under `--verbose`.
+    const warnings = [
+      ...(backupPath === undefined ? [] : [`Backed up the unreadable lockfile to ${backupPath}`]),
+      ...(hasUnresolved
+        ? [
+            `${count(snapshot.unresolved.length, "declaration")} could not be pinned and is deferred to install: ${describeDeferred(snapshot)}`,
+          ]
+        : []),
+    ];
+
     if (hasUnresolved) {
       return {
         result: "success",
-        message: `Reconciled lockfile with ${count(snapshot.unresolved.length, "missing declaration")} deferred to install${backupNote}`,
+        message: `Reconciled lockfile; ${count(snapshot.unresolved.length, "declaration")} deferred to install (${describeDeferred(snapshot)})${backupNote}`,
+        warnings,
       } satisfies JobStepResult;
     }
 
     return {
       result: "success",
       message: `Reconciled and materialized lockfile${backupNote}`,
+      warnings,
     } satisfies JobStepResult;
   });

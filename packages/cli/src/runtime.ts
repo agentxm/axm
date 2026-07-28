@@ -67,8 +67,11 @@ import type {
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionLive,
+  withDegradedLockfileReads,
   WorkspaceInitializationInteractionLive,
+  WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
 import { loadVersion } from "./version.js";
 
@@ -283,6 +286,26 @@ const resolveRuntimeConfig = () =>
     } as const;
   });
 
+/**
+ * Tell the user their lockfile is unreadable before the command's own output.
+ *
+ * Every command runs with degraded lockfile reads (see `withWorkspace`), so a
+ * corrupt `axm-lock.yaml` no longer aborts anything — read-only commands fall
+ * back to what `settings.json` declares, and mutating commands recover through
+ * reconciliation. This notice is what keeps that from being silent.
+ *
+ * A *missing* lockfile is ordinary (fresh clone, first install) and is not
+ * flagged.
+ */
+const flagUnreadableLockfile = Effect.gen(function* () {
+  const ws = yield* WorkspaceMutations;
+  if ((yield* ws.getLockfileState()) !== "invalid") return;
+  const renderer = yield* CliRenderer;
+  yield* renderer.warn(
+    "The workspace lockfile could not be read; reporting declared state from settings.json.",
+  );
+}).pipe(Effect.catchCause(() => Effect.void));
+
 export const withWorkspace =
   (options: WorkspaceScope | Omit<WorkspaceMutationsOptions, "builtInSources">) =>
   <A, E, R>(program: Effect.Effect<A, E, R>) =>
@@ -290,7 +313,10 @@ export const withWorkspace =
       const envConfig = yield* readRuntimeEnvConfig;
       const resolved = typeof options === "string" ? { scope: options } : options;
       const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
-      return yield* Effect.provide(program, wsLayer);
+      return yield* Effect.provide(
+        flagUnreadableLockfile.pipe(Effect.andThen(program)),
+        wsLayer,
+      ).pipe(withDegradedLockfileReads);
     });
 
 export const withAuthRuntime =

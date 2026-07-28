@@ -391,9 +391,7 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
           (entry) =>
             Effect.gen(function* () {
               const ref = entry.ref;
-              const previousLockEntry = yield* ws
-                .getLockedSubagent(ref.subagent.name)
-                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+              const previousLockEntry = yield* ws.getLockedSubagent(ref.subagent.name);
               const previousVersion = Option.match(previousLockEntry, {
                 onNone: () => undefined,
                 onSome: previousResolvedVersion,

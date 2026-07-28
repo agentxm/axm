@@ -9,6 +9,7 @@ import YAML from "yaml";
 import { LockfileSchema, type Lockfile } from "../../lockfile/schema.js";
 import { formatSchemaIssuesToLines } from "../../schema/format-issues.js";
 import { SettingsSchema, type Settings } from "../../settings/schema.js";
+import { LockfileReadToleranceRef } from "../lockfile-read-tolerance.js";
 import {
   LockfileDecodeError,
   LockfileIoError,
@@ -169,6 +170,16 @@ const loadLockfile = (
     return Option.some(decoded);
   }).pipe(Effect.withSpan("workspace.read-model.state.lockfile"));
 
+/**
+ * A lockfile that exists but cannot be understood — bad YAML or a payload the
+ * schema rejects. Distinct from {@link LockfileIoError}, which means the file
+ * could not be read at all and is never degraded away.
+ */
+const isLockfileContentError = (
+  error: LockfileReadError,
+): error is LockfileParseError | LockfileDecodeError =>
+  error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError";
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -180,6 +191,7 @@ export const makeScopedStateApi = (
 ): Effect.Effect<ScopedStateLoaders> =>
   Effect.gen(function* () {
     const { fs, settingsPath, lockfilePath } = deps;
+    const tolerance = yield* LockfileReadToleranceRef;
 
     const settingsRaw = yield* Effect.cached(loadRawSettingsBytes({ fs, settingsPath }));
     const settings = yield* Effect.cached(loadSettings(settingsRaw));
@@ -188,10 +200,21 @@ export const makeScopedStateApi = (
       lockfilePath === null
         ? Effect.succeed(Option.none<RawSourceBytes>())
         : yield* Effect.cached(loadRawLockfileBytes({ fs, lockfilePath }));
+    // Under "degrade", an unreadable lockfile reads as absent so pre-reconcile
+    // callers keep working; reconciliation still sees the real state through
+    // `getLockfileState`, which pins itself strict.
+    const decodedLockfile =
+      tolerance === "degrade"
+        ? loadLockfile(lockfileRaw).pipe(
+            Effect.catchIf(isLockfileContentError, () =>
+              Effect.succeed(Option.none<DecodedLockfile>()),
+            ),
+          )
+        : loadLockfile(lockfileRaw);
     const lockfile: ScopedStateLoaders["lockfile"] =
       lockfilePath === null
         ? Effect.succeed(Option.none<DecodedLockfile>())
-        : yield* Effect.cached(loadLockfile(lockfileRaw));
+        : yield* Effect.cached(decodedLockfile);
 
     return { settings, lockfile, settingsRaw, lockfileRaw } satisfies ScopedStateLoaders;
   });

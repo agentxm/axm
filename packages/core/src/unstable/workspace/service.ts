@@ -47,7 +47,7 @@ import {
   parseExtensionFqnParts,
   parseRegistrySourcePatternParts,
 } from "../extensions/index.js";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { type AppError, BC, makeAppError } from "../app-error/index.js";
 import {
   type CommandEntry,
   type CommandsMap,
@@ -79,6 +79,7 @@ import { DEFAULT_MINIMUM_RELEASE_AGE } from "../registry/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 
+import { withStrictLockfileReads } from "./lockfile-read-tolerance.js";
 import { getAxmDir } from "./paths.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -198,15 +199,24 @@ const subagentLockEntrySemanticallyEqual = (
 const contextReadErrorToAppError = (
   source: "settings" | "lockfile" | "workspace",
   error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
-): AppError =>
-  makeAppError({
-    code:
-      error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError"
-        ? "validation"
-        : "internal",
+): AppError => {
+  const isUnreadableLockfile =
+    error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError";
+  return makeAppError({
+    code: isUnreadableLockfile ? "validation" : "internal",
     detail: `Failed to read workspace ${source}`,
     cause: error,
+    // Where an unreadable lockfile is still terminal, point at the command that
+    // backs the bad file up and regenerates it.
+    ...(isUnreadableLockfile
+      ? {
+          suggestions: [
+            BC.run("axm sync", "Back up the unreadable lockfile and regenerate it from settings."),
+          ],
+        }
+      : {}),
   });
+};
 
 const contextCellErrorToAppError = (
   error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
@@ -369,7 +379,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           return "missing";
         }
 
-        return yield* readLockfileSafe(workspaceDir).pipe(
+        // Pinned strict: this probe is what tells reconciliation the difference
+        // between "invalid" and "ok", so it must never inherit an ambient
+        // degrade policy that would report an unreadable lockfile as absent.
+        return yield* withStrictLockfileReads(readLockfileSafe(workspaceDir)).pipe(
           Effect.as("ok" as const),
           Effect.catch((error) => {
             if (error.code === "validation") {

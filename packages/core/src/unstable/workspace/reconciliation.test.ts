@@ -276,6 +276,126 @@ describe("reconciliation", () => {
     ),
   );
 
+  it.effect("reconstructs a workspace-sourced knowledge bundle", () =>
+    withContext(
+      Effect.gen(function* () {
+        const knowledgeDir = path.join(tempDir, ".axm", "extensions", "@acme", "knowledge", "okf");
+        fs.mkdirSync(path.join(knowledgeDir, "src"), { recursive: true });
+        fs.writeFileSync(
+          path.join(knowledgeDir, "knowledge.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: "knowledge",
+            name: "okf",
+            version: "1.0.0",
+            format: { name: "okf", version: "0.2" },
+            bundleRoot: "src",
+          }),
+        );
+        fs.writeFileSync(
+          path.join(knowledgeDir, "src", "index.md"),
+          '---\nokf_version: "0.2"\n---\n# Knowledge\n',
+        );
+
+        const snapshot = yield* buildReconciliationSnapshot({
+          baseDir: tempDir,
+          scope: "project",
+          now: new Date("2026-07-10T10:00:00.000Z"),
+          configuredOwner: Option.some(handle("@acme")),
+          agents: ["claude-code"],
+          settings: {
+            knowledge: { okf: { source: "workspace:@acme/knowledge/okf", enabled: true } },
+          },
+        });
+
+        expect(snapshot.unresolved).toEqual([]);
+        expect(snapshot.lockfile.knowledge?.["okf"]).toEqual(
+          expect.objectContaining({
+            type: "workspace",
+            owner: "@acme",
+            name: "okf",
+            version: "1.0.0",
+          }),
+        );
+      }),
+    ),
+  );
+
+  it.effect("reconciles a missing lockfile when a registry skill is declared", () =>
+    withContext(
+      Effect.gen(function* () {
+        const axmDir = path.join(tempDir, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        const settings: Settings = {
+          skills: {
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
+          },
+        };
+
+        const result = yield* runReconcileMaterializeOperation(
+          {
+            baseDir: tempDir,
+            now: new Date("2026-02-25T10:00:00.000Z"),
+            configuredOwner: Option.some(handle("@community")),
+            agents: ["claude-code"],
+            settings,
+          },
+          axmDir,
+          "missing",
+          { allowMissingDeclarations: true },
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("deferred to install");
+        expect(result.message).toContain("skills/tool");
+
+        const parsed = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+        expect(parsed.skills).toEqual({});
+      }),
+    ),
+  );
+
+  it.effect("backs up and regenerates an invalid lockfile when a registry skill is declared", () =>
+    withContext(
+      Effect.gen(function* () {
+        const axmDir = path.join(tempDir, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(axmDir, "axm-lock.yaml"),
+          "lockfileVersion: 12345\nskills:\n  tool:\n    installedAt: not-a-date\n",
+        );
+
+        const settings: Settings = {
+          skills: {
+            tool: { source: "@acme/skills/tool@^1", enabled: true },
+          },
+        };
+
+        const result = yield* runReconcileMaterializeOperation(
+          {
+            baseDir: tempDir,
+            now: new Date("2026-02-25T10:00:00.000Z"),
+            configuredOwner: Option.some(handle("@community")),
+            agents: ["claude-code"],
+            settings,
+          },
+          axmDir,
+          "invalid",
+          { allowMissingDeclarations: true },
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("deferred to install");
+        expect(result.message).toMatch(/backed up invalid lockfile to .+axm-lock\.yaml/);
+
+        const parsed = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+        expect(parsed.lockfileVersion).toBe(3);
+        expect(parsed.skills).toEqual({});
+      }),
+    ),
+  );
+
   it.effect("returns unreachable-source error when unresolved declarations remain", () =>
     withContext(
       Effect.gen(function* () {

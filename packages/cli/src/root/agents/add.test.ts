@@ -6,8 +6,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
+import YAML from "yaml";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
@@ -16,6 +16,7 @@ import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+import { withDegradedLockfileReads } from "@agentxm/client-core/unstable/workspace";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -137,17 +138,6 @@ const emptyManagersLayer = Layer.mergeAll(
   Layer.succeed(PackManager, emptyPackManager),
 );
 
-const malformedLockfileSkillManager = {
-  ...emptySkillManager,
-  listMaterializable: () =>
-    Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: "Failed to read workspace lockfile",
-      }),
-    ),
-} satisfies ServiceMap.Service.Shape<typeof SkillManager>;
-
 describe("agents add.handler", () => {
   let tempDir: string;
   let homeDir: string;
@@ -174,29 +164,16 @@ describe("agents add.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: {
-    readonly machine?: boolean;
-    readonly quiet?: boolean;
-    readonly malformedLockfile?: boolean;
-  }) => {
+  const makeLayers = (opts?: { readonly machine?: boolean; readonly quiet?: boolean }) => {
     const context = makeWorkspaceHandlerTestContext({
       machine: opts?.machine,
       ...(opts?.quiet === undefined ? {} : { flags: { quiet: opts.quiet } }),
     });
-    const managersLayer =
-      opts?.malformedLockfile === true
-        ? Layer.mergeAll(
-            Layer.succeed(SkillManager, malformedLockfileSkillManager),
-            Layer.succeed(CommandManager, emptyCommandManager),
-            Layer.succeed(McpServerManager, emptyMcpServerManager),
-            Layer.succeed(FilesManager, emptyFilesManager),
-            Layer.succeed(HookManager, emptyHookManager),
-            Layer.succeed(RuleManager, emptyRuleManager),
-            Layer.succeed(SubagentManager, emptySubagentManager),
-            Layer.succeed(PackManager, emptyPackManager),
-          )
-        : emptyManagersLayer;
-    const fullLayer = Layer.mergeAll(context.fullLayer, managersLayer, CodingAgentRepositoryLive);
+    const fullLayer = Layer.mergeAll(
+      context.fullLayer,
+      emptyManagersLayer,
+      CodingAgentRepositoryLive,
+    );
 
     return {
       provide: makeEffectProvide(fullLayer),
@@ -286,56 +263,42 @@ describe("agents add.handler", () => {
     );
   });
 
-  it.effect("reports skipped materialization in machine-mode plan output", () => {
-    const { provide, logs, rendererState } = makeLayers({
-      machine: true,
-      malformedLockfile: true,
-    });
-    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+  it.effect("recovers an unreadable lockfile instead of skipping materialization", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    writeWorkspaceFiles(axmDir, { agents: [] });
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: []\n");
 
+    // Mirrors the CLI's `withWorkspace` boundary, which degrades lockfile reads
+    // so a corrupt file cannot abort the command before recovery runs.
     return provide(
-      Effect.gen(function* () {
-        yield* handleAgentsAdd({
-          ids: ["cursor"],
-          detected: false,
-          yes: false,
-          force: false,
-          preview: false,
-        });
+      withDegradedLockfileReads(
+        Effect.gen(function* () {
+          yield* handleAgentsAdd({
+            ids: ["cursor"],
+            detected: false,
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
-        expect(logs.warn).toEqual([]);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Add coding agents",
-          totalSteps: 2,
-          appliedCount: 1,
-        });
-        expect(result).toMatchObject({
-          steps: [
-            {
-              label: "Add cursor",
-              status: "applied",
-              message: "Configured cursor",
-              artifact: {
-                path: ".axm/settings.json",
-                scope: "project",
-                agents: ["cursor"],
-                change: "updated",
-                fileCount: 1,
-              },
-            },
-            {
-              label: "Materialize installed extensions",
-              status: "unchanged",
-              message:
-                "Skipped installed extension materialization: Failed to read workspace lockfile. Run `axm sync` after fixing the workspace lockfile.",
-              artifact: {
-                scope: "project",
-                change: "unchanged",
-              },
-            },
-          ],
-        });
-      }),
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Add coding agents",
+            totalSteps: 3,
+            warningCount: 2,
+          });
+          expect(result).toMatchObject({
+            steps: [
+              { label: "Recover lockfile (invalid)", status: "applied" },
+              { label: "Reconcile lockfile (invalid)", status: "applied" },
+              { label: "Add cursor", status: "applied", message: "Configured cursor" },
+            ],
+          });
+
+          const rewritten = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+          expect(rewritten.lockfileVersion).toBe(3);
+        }),
+      ),
     );
   });
 

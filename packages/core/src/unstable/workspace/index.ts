@@ -224,11 +224,13 @@ export {
 // Plan display
 export { displayPlan } from "./display-plan.js";
 
-// Lockfile update policy
+// Lockfile read tolerance
 export {
-  ignoreMalformedWorkspaceLockfileRead,
-  isMalformedWorkspaceLockfileRead,
-} from "./lockfile-update-policy.js";
+  type LockfileReadTolerance,
+  LockfileReadToleranceRef,
+  withDegradedLockfileReads,
+  withStrictLockfileReads,
+} from "./lockfile-read-tolerance.js";
 
 // Version currency
 export {

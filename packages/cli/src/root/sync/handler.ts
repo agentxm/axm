@@ -57,12 +57,12 @@ import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import {
   applyPlan,
+  previewOrApplyPlan,
   resolvePlan,
   type JobStepArtifact,
   type JobStepResult,
   type Operation,
   type Plan,
-  type PlanResolution,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
@@ -588,13 +588,6 @@ const makeSyncPlan = ({
   ],
 });
 
-const previewPlan = (plan: Plan): PlanResolution => ({
-  _tag: "PreviewedPlan",
-  name: plan.name,
-  description: plan.description,
-  jobs: plan.jobs,
-});
-
 const regionLabel = (count: number): string => (count === 1 ? "region" : "regions");
 
 const fileLabel = (count: number): string => (count === 1 ? "file" : "files");
@@ -840,10 +833,16 @@ const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function
 // aliases are synced only after that phase has finished.
 
 export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
+  const ws = yield* WorkspaceMutations;
   const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({ force: args.force });
   const workspaceGeneratorStep = yield* collectWorkspaceGeneratorStep();
 
-  if (steps.length === 0 && Option.isNone(workspaceGeneratorStep)) {
+  // A degraded lockfile is work even when nothing needs materializing: `axm sync`
+  // is the command users are pointed at to recover one, so it must not short-circuit
+  // to a no-op before reconciliation has had a chance to run.
+  const lockfileNeedsRecovery = (yield* ws.getLockfileState()) !== "ok";
+
+  if (steps.length === 0 && Option.isNone(workspaceGeneratorStep) && !lockfileNeedsRecovery) {
     yield* renderInstructionPhase(args.dryRun);
     if (!args.dryRun) {
       yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
@@ -858,16 +857,23 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
 
   const plan = makeSyncPlan({ materializeSteps: steps, workspaceGeneratorStep });
 
-  if (args.dryRun) {
-    yield* displayPlan(plan);
+  // `previewOrApplyPlan` rather than `applyPlan`: it prepends the lockfile
+  // recovery job when the lockfile is missing or unreadable.
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: true,
+    force: args.force,
+    preview: args.dryRun,
+    displayApplied: false,
+  });
+
+  if (resolution._tag === "PreviewedPlan") {
     yield* renderInstructionPhase(true);
-    yield* emitPlanResolutionResult("sync", previewPlan(plan));
+    yield* emitPlanResolutionResult("sync", resolution);
     return;
   }
 
-  const executed = yield* applyPlan(plan);
   yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
   yield* renderInstructionPhase(false);
-  yield* displayPlan(executed);
-  yield* emitPlanResolutionResult("sync", executed);
+  yield* displayPlan(resolution);
+  yield* emitPlanResolutionResult("sync", resolution);
 });

@@ -15,7 +15,11 @@ import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { AXM_MANAGED_MARKER } from "@agentxm/client-core/unstable/workspace";
+import {
+  AXM_MANAGED_MARKER,
+  withDegradedLockfileReads,
+} from "@agentxm/client-core/unstable/workspace";
+import YAML from "yaml";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -191,6 +195,62 @@ describe("root sync handler", () => {
         planName: "Sync workspace",
         message: "Workspace materialization is up to date",
       });
+    }),
+  );
+
+  it.effect("writes a missing lockfile even when there is nothing to materialize", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, { agents: [] });
+      fs.rmSync(path.join(axmDir, "axm-lock.yaml"), { force: true });
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+      expect(written.lockfileVersion).toBe(3);
+    }),
+  );
+
+  it.effect("backs up and regenerates an unreadable lockfile", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, { agents: [] });
+      fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: []\n");
+
+      // Mirrors the CLI's `withWorkspace` boundary.
+      yield* provide(withDegradedLockfileReads(handleSync({ dryRun: false, force: false })));
+
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 2,
+        warningCount: 2,
+      });
+      expect(result).toMatchObject({
+        steps: [
+          { label: "Recover lockfile (invalid)", status: "applied" },
+          { label: "Reconcile lockfile (invalid)", status: "applied" },
+        ],
+      });
+
+      const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+      expect(written.lockfileVersion).toBe(3);
+    }),
+  );
+
+  it.effect("does not fail a dry run against an unreadable lockfile", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, { agents: [] });
+      const corrupt = "lockfileVersion: 3\nskills: []\n";
+      fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), corrupt);
+
+      yield* provide(withDegradedLockfileReads(handleSync({ dryRun: true, force: false })));
+
+      // A dry run reports the recovery it would perform without performing it.
+      expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(corrupt);
     }),
   );
 

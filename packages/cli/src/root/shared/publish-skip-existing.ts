@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
 
 import type { PublishIdentity } from "./publish-preflight.js";
@@ -80,29 +80,3 @@ export const recoverPublishConflictAsSkipExisting =
       ),
     );
   };
-
-export const wrapPublishStepForSkipExistingRace = (args: {
-  readonly step: PlannedJobStep;
-  readonly registryUrl: string;
-  readonly target: SkipExistingPublishTarget;
-  readonly scope: "project" | "user";
-}): PlannedJobStep => {
-  switch (args.step.readiness) {
-    case "error":
-      return args.step;
-    case "ready":
-    case "warn":
-      return {
-        ...args.step,
-        run: args.step.run.pipe(
-          Effect.catch(
-            recoverPublishConflictAsSkipExisting({
-              registryUrl: args.registryUrl,
-              target: args.target,
-              scope: args.scope,
-            }),
-          ),
-        ),
-      };
-  }
-};

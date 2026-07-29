@@ -1,3 +1,36 @@
+## 0.23.0 (2026-07-29)
+
+### 🚀 Features
+
+- Close the Wave 0 extension-type parity gaps: register files, rule, hook, and knowledge reconciliation adapters (derived with the per-agent adapters from one factory) so corrupt-lockfile recovery no longer silently drops registry- and git-sourced declarations; retain pack-required subagents and knowledge bundles on uninstall via exhaustive returning switches; make publish manifest filename and schema policy total over every extension type so knowledge and rule manifests resolve instead of failing; replace the raw control byte in the hook manager with its unicode escape and gate the source tree with axm:verify-source-hygiene. ([c0e54b3f](https://github.com/agentxm/axm/commit/c0e54b3f))
+- Close the Wave 1 extension-type parity gaps (AXM-985): root `axm install`, `axm update`, and `axm sync` now act on configured knowledge bundles through a collector table that is total over installable types; `axm outdated` reports registry currency for files, rules, hooks, and knowledge with no empty default arm; publish enforces semver monotonicity on the live path (`--allow-older` bypass) and refuses archives containing `node_modules/`, `.git/`, or `.env*` plus oversized archives before upload (`--allow-unsafe-archive` bypass; clean archives stay byte-identical); unknown top-level keys in settings and the lockfile now decode, survive every write value-identically, and are reported by the new `workspace/settings-keys-recognized` lint rule at error severity, while invalid settings values fail as validation (exit 9) naming the offending key instead of internal (exit 10); every shipped help topic, the bundled AXM skill, and all suggested commands now resolve against the live command tree, enforced by a freshness test (`skills fork` → `copy`, `context` → `files`, phantom `axm rules install` and `axm sources add|list` guidance removed); knowledge verbs emit exactly one JSON document with enable/disable riding the plan model and `knowledge lint` exiting 1 on findings; `axm agents remove` cleans managed MCP entries and hook regions; per-type uninstall accepts `--scope`; `axm files prune` and `axm hooks prune` preview by default (`--yes` applies); and `axm mcps install --env` is repeatable with the dead per-command `--non-interactive` flag removed. ([4994933e](https://github.com/agentxm/axm/commit/4994933e))
+- Derive the extension-type system from one table (AXM-985 W3): EXTENSION_TYPE_TABLE is the single source of truth for type naming and the five capability axes (distribution, placement, governs, installInputs, workspaceCapability), with PerAgentType/WorkspaceType/RegistryType/InputType/BodyGovernedType derived and exact-membership-pinned in both directions; every catalog entry now carries a decided standard (Open Knowledge Format added to STANDARDS) and doc links distinct from the governing standard's url, enforced by schema checks; publish and version type policies are total Records over every extension type (rule stays non-publishable, files/rule/knowledge stay non-versionable, as recorded capability gaps); and the duplicate pack-inclusive CatalogExtensionTypeSchema export on the agent-capabilities subpath is removed — import the 8-member schema from unstable/extension-types instead. ([c0f64d41](https://github.com/agentxm/axm/commit/c0f64d41))
+- Open rule publishing end to end (AXM-985 W6 PR11): rule joins PUBLISHABLE_TYPES, the publish lint gate evaluates the rule manifest catalog, axm rules publish is registered, and the e2e matrices drive the full scaffold-publish-install round trip for rules over both file and HTTP registries. Verified against the deployed registry, which routes the rule type and returns the current problem-details contract. The parity exemption ledger is now empty: every catalog extension type meets every mechanically verified obligation. ([2eb9ff40](https://github.com/agentxm/axm/commit/2eb9ff40))
+- Make workspace reconciliation settings-authoritative with dedicated trust state and complete extension-type parity. ([bd52c8f3](https://github.com/agentxm/axm/commit/bd52c8f3))
+
+### 🩹 Fixes
+
+- Harden timestamp handling end to end: install metadata validates `installedAt` ([d9de43c3](https://github.com/agentxm/axm/commit/d9de43c3))
+  as an ISO 8601 UTC timestamp (malformed values are rejected on read instead of
+  flowing through as raw strings), token expiry and archive-cache age math use
+  DateTime/Duration instead of raw epoch-millisecond arithmetic, the registry
+  client generator maps any inline `format: "date-time"` string schema to the
+  shared DateTime schema and fails the build if one survives unmapped, and the
+  remote registry client no longer re-encodes and re-validates timestamps the
+  generated client already decoded. ZIP archive timestamps now serialize the same
+  calendar fields in every host timezone, preserving byte-for-byte deterministic
+  archives across developer and CI environments.
+
+### ⚠️ Breaking Changes
+
+- Complete the AXM-985 parity program's read-model, lint, CLI-surface, and derived-surface workstreams: all nine extension types have first-class workspace read-model families with a single records.rows(type) accessor; lock entries record advisory sourceHash for every type and packs record resolvedKnowledge members; files/hooks/knowledge gain ignore configuration; rule and knowledge get full five-rule lint manifest catalogs, hook rules evaluate in axm lint, knowledge publishes through the lint gate, and four workspace/mcp-server-* rule ids shard to workspace/mcps-* (breaking — rename lint.rules keys); axm lint --fix --json emits one schema-backed document (breaking); the rules group gains the full verb set with instruction-file management re-verbed to axm rules instructions (breaking) and axm mcps get renamed to axm mcps show with a uniform {item, agents} document shared by every type's new show verb (breaking); update selectors, installed-identifier resolution, entity keys, SubjectType, and plan artifact vocabulary all derive from the extension type table; agent capability slots key on the per-agent axis with accurate native-scope refusals, agent lifecycle surfacing, and an axm agents capabilities verb; knowledge gets a prose help topic, prose type enumerations generate from the catalog under generate:check, publish supports an opt-in manifest-declared archive ignore (default byte-identical), and the e2e matrix drives publish-and-install rows for every type over both file and HTTP registries. The parity exemption ledger shrank from fifteen seeded debt rows to one (rule's e2e install row, gated on rule publishing). ([531cad1c](https://github.com/agentxm/axm/commit/531cad1c))
+
+### ❤️ Thank You
+
+- Claude Fable 5
+- Craig Smitham
+- Test @songkang666
+
 ## Unreleased
 
 ### ⚠️ Breaking Changes

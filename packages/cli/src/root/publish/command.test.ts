@@ -804,33 +804,35 @@ describe("root publish", () => {
   });
 
   describe("result versions", () => {
-    const writeUnpublishableRule = () => {
+    const writeRegistrySourcedSkill = () => {
       fs.writeFileSync(
         path.join(tempDir, ".axm", "settings.json"),
         JSON.stringify({
           owner: "@acme",
           agents: [],
-          rules: { style: "workspace:@acme/rules/style" },
+          skills: { review: "@acme/skills/review@^1" },
         }),
       );
     };
 
     it.effect("omits version for an item with no resolved version", () => {
-      writeUnpublishableRule();
+      writeRegistrySourcedSkill();
       const { provide, rendererState } = makeContext();
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          const error = yield* handleRootPublish(
+            args(registryUrl, { preview: false, selectors: ["@acme/skills/review"] }),
+          ).pipe(Effect.flip);
+          expect(getAppError(error).detail).toContain("Failed to publish");
 
           const data = at(rendererState.results, 0).data;
           const result = expectPublishResult(data, { mode: "apply", count: 1 });
           const results = property(result, "results");
           if (!Array.isArray(results)) throw new Error("Expected publish results");
           const item = expectRecord(at(results, 0));
-          expect(property(item, "action")).toBe("skip");
-          expect(property(item, "reason")).toBe("not_publishable");
+          expect(property(item, "action")).toBe("error");
           expect(Object.keys(item)).not.toContain("version");
           expect(JSON.stringify(data)).not.toContain("0.0.0");
         }),
@@ -923,6 +925,13 @@ describe("root publish", () => {
 
     it.effect("reports mixed subject types across a multi-type selection", () => {
       writeReviewSkill({ rules: { style: "workspace:@acme/rules/style" } });
+      const ruleDir = path.join(tempDir, ".axm", "extensions", "@acme", "rules", "style");
+      fs.mkdirSync(path.join(ruleDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(ruleDir, "rule.json"),
+        JSON.stringify({ owner: "@acme", type: "rule", name: "style", version: "1.0.0" }),
+      );
+      fs.writeFileSync(path.join(ruleDir, "src", "RULE.md"), "# Style\n\nUse tabs.\n");
       const { provide } = makeContext();
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
@@ -933,7 +942,7 @@ describe("root publish", () => {
           );
 
           expect(properties["cli.subject_type"]).toBe("mixed");
-          expect(properties["cli.applied_count"]).toBe(1);
+          expect(properties["cli.applied_count"]).toBe(2);
         }),
       );
     });
@@ -962,10 +971,10 @@ describe("aggregatePublishFailure", () => {
 });
 
 describe("publish type policy", () => {
-  it("covers every extension type and only excludes rule", () => {
+  it("covers every extension type; every type is publishable", () => {
     expect(Object.keys(PUBLISHABLE_TYPES).sort()).toEqual([...extensionTypes].sort());
     for (const type of extensionTypes) {
-      expect(isPublishableType(type)).toBe(type !== "rule");
+      expect(isPublishableType(type)).toBe(true);
     }
   });
 });

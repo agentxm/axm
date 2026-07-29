@@ -95,8 +95,7 @@ import { recoverPublishConflictAsSkipExisting } from "../shared/publish-skip-exi
 
 /**
  * Publish policy, total over every extension type: a new type cannot be added
- * without deciding whether it publishes. `rule: false` is a capability gap the
- * parity program closes deliberately, not catalog data.
+ * without deciding whether it publishes.
  */
 export const PUBLISHABLE_TYPES = {
   skill: true,
@@ -104,7 +103,7 @@ export const PUBLISHABLE_TYPES = {
   "mcp-server": true,
   subagent: true,
   files: true,
-  rule: false,
+  rule: true,
   hook: true,
   knowledge: true,
   pack: true,
@@ -891,9 +890,7 @@ const selectedResult = (
       message:
         reason === "not_authored"
           ? "Dependency is not workspace-sourced; include it explicitly to publish"
-          : !isPublishableType(entry.type)
-            ? "Rule publishing is not supported yet"
-            : "Dependency is not a managed publish candidate",
+          : "Dependency is not a managed publish candidate",
     };
   }
   return {

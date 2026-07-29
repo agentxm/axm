@@ -61,7 +61,7 @@ export const EXTENSION_TYPE_MATRIX = [
     sentenceLabel: "rule",
     placement: "workspace",
     installInputs: false,
-    e2eExemptions: ["6.1-e2e-install-row"],
+    e2eExemptions: [],
   },
   {
     type: "hook",

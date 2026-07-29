@@ -58,10 +58,7 @@ const HTTP_PUBLISH = {
   knowledge: { newArgs: [] },
   files: { newArgs: [] },
   hook: { newArgs: [] },
-  rule: {
-    blocked:
-      "6.1-e2e-install-row — rule packages are not publishable, so no registry round trip exists on any transport.",
-  },
+  rule: { newArgs: [] },
   "mcp-server": {
     blocked:
       "`axm mcps new` scaffolds a manifest without a server definition, so publishing needs a hand-written manifest the file:// matrix already covers.",

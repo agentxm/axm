@@ -406,8 +406,7 @@ const PUBLISHERS = {
   files: publishScaffoldedToRegistry("files"),
   hook: publishScaffoldedToRegistry("hooks"),
   knowledge: publishScaffoldedToRegistry("knowledge"),
-  // Rules are not publishable, so there is no registry round trip to drive.
-  rule: null,
+  rule: publishScaffoldedToRegistry("rules"),
 } as const satisfies Record<MatrixExtensionType, Publisher | null>;
 
 const installCases = EXTENSION_TYPE_MATRIX.filter((row) => PUBLISHERS[row.type] !== null);

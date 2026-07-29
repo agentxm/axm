@@ -1,4 +1,5 @@
 import { Command } from "effect/unstable/cli";
+import { rulesPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
@@ -45,5 +46,6 @@ export const rulesCommand = Command.make("rules").pipe(
     updateCommand,
     instructionsCommand,
     versionCommand,
+    publishCommand,
   ]),
 );

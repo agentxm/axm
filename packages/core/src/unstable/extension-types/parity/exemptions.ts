@@ -37,37 +37,29 @@ export interface ParityExemption {
   readonly seed?: true;
 }
 
-const AXM_985 = "AXM-985";
-
 /**
  * Exemptions keyed by catalog extension type.
  *
- * The `satisfies Record<CatalogExtensionType, …>` is load-bearing: dropping a
- * key fails compile because the record no longer covers the union, and adding a
- * key that is not a catalog type fails compile as an excess property. A new
- * extension type therefore cannot land without a deliberate decision about
- * every obligation it meets.
+ * The record annotation is load-bearing: dropping a key fails compile because
+ * the record no longer covers the union, and adding a key that is not a
+ * catalog type fails compile as an excess property. A new extension type
+ * therefore cannot land without a deliberate decision about every obligation
+ * it meets.
+ *
+ * The ledger is EMPTY: every catalog type meets every mechanically-verified
+ * obligation. A future row uses the {@link ParityExemption} shape without
+ * `seed: true` (the shrink-only check rejects new seeded rows).
  */
-export const PARITY_EXEMPTIONS = {
+export const PARITY_EXEMPTIONS: Record<CatalogExtensionType, ReadonlyArray<ParityExemption>> = {
   skill: [],
   command: [],
   "mcp-server": [],
   subagent: [],
   files: [],
-  rule: [
-    {
-      obligation: "6.1-e2e-install-row",
-      reason:
-        "The type is not publishable, so there is no registry round trip to exercise. This is a " +
-        "capability boundary rather than debt; it is ledgered because publishability is a CLI " +
-        "decision the catalog does not yet carry as an axis.",
-      trackedBy: AXM_985,
-      seed: true,
-    },
-  ],
+  rule: [],
   hook: [],
   knowledge: [],
-} as const satisfies Record<CatalogExtensionType, ReadonlyArray<ParityExemption>>;
+};
 
 // Coverage witness: the `satisfies` above rejects a foreign key on its own;
 // this fails compile in the other direction too, when a catalog type loses its

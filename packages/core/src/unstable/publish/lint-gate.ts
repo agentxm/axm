@@ -17,6 +17,7 @@ import type {
   PackRuleContext,
   SkillRuleContext,
   SubagentRuleContext,
+  RuleRuleContext,
 } from "../lint/context.js";
 import { evaluateContexts } from "../lint/evaluate.js";
 import {
@@ -27,6 +28,7 @@ import {
   mcpServerRules,
   packRules,
   skillRules,
+  ruleRules,
   subagentRules,
 } from "../lint/publish.js";
 import type { LintFinding } from "../lint/rule.js";
@@ -74,6 +76,12 @@ export type PublishLintArgs =
       readonly platform: PublishLintPlatform;
     }
   | {
+      readonly type: "rule";
+      readonly extensionDir: string;
+      readonly manifestJson: unknown;
+      readonly platform: PublishLintPlatform;
+    }
+  | {
       readonly type: "files";
       readonly extensionDir: string;
       readonly manifestJson: unknown;
@@ -109,6 +117,8 @@ export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, A
       return evaluateFiles(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "knowledge":
       return evaluateKnowledge(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
+    case "rule":
+      return evaluateRule(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
   }
 };
 
@@ -197,6 +207,18 @@ const evaluateFiles = (args: Extract<PublishLintArgs, { readonly type: "files" }
     displayRoot: "",
   };
   return evaluateContexts(filesRules, [context], platformCanonicalLintConfig).pipe(
+    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
+  );
+};
+
+const evaluateRule = (args: Extract<PublishLintArgs, { readonly type: "rule" }>) => {
+  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
+  const context: RuleRuleContext = {
+    subject: { ruleJson: args.manifestJson },
+    files,
+    displayRoot: "",
+  };
+  return evaluateContexts(ruleRules, [context], platformCanonicalLintConfig).pipe(
     Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
   );
 };

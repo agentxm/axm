@@ -150,3 +150,4 @@ export const filesPublishCommand = makePerTypePublishCommand("files");
 export const hooksPublishCommand = makePerTypePublishCommand("hook");
 export const knowledgePublishCommand = makePerTypePublishCommand("knowledge");
 export const packsPublishCommand = makePerTypePublishCommand("pack");
+export const rulesPublishCommand = makePerTypePublishCommand("rule");

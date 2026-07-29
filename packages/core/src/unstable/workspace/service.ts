@@ -18,6 +18,7 @@
  * @packageDocumentation
  */
 
+import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -179,10 +180,9 @@ const nextUpdatedAt = (current: TimestampedLockEntry | undefined): Effect.Effect
     if (current === undefined) return now;
     // Keep updatedAt strictly increasing even when the clock has not advanced
     // between two writes within the same millisecond.
-    const currentMillis = DateTime.toEpochMillis(current.updatedAt);
-    return DateTime.toEpochMillis(now) > currentMillis
+    return DateTime.isGreaterThan(now, current.updatedAt)
       ? now
-      : DateTime.makeUnsafe(currentMillis + 1);
+      : DateTime.addDuration(current.updatedAt, Duration.millis(1));
   });
 
 const preserveLockTimestampsOnNoop = <TEntry extends TimestampedLockEntry>(

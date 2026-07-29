@@ -5,9 +5,9 @@
  */
 
 import * as os from "node:os";
-import * as Clock from "effect/Clock";
 import * as Config from "effect/Config";
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -16,11 +16,11 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { computeIntegrity } from "../utils/index.js";
 
 export const ARCHIVE_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
-export const ARCHIVE_CACHE_MAX_AGE_MILLIS = 90 * 24 * 60 * 60 * 1_000;
+export const ARCHIVE_CACHE_MAX_AGE = Duration.days(90);
 
 export interface ArchiveCacheOptions {
   readonly maxBytes?: number;
-  readonly maxAgeMillis?: number;
+  readonly maxAge?: Duration.Duration;
 }
 
 export interface ArchiveCacheStatus {
@@ -59,7 +59,7 @@ interface CacheEntry {
   readonly path: string;
   readonly integrity: string | undefined;
   readonly size: number;
-  readonly accessedAt: number;
+  readonly accessedAt: DateTime.Utc;
 }
 
 const cacheError = (detail: string, cause?: unknown): AppError =>
@@ -134,7 +134,7 @@ export const makeArchiveCache = (
   options: ArchiveCacheOptions = {},
 ): ArchiveCache => {
   const maxBytes = options.maxBytes ?? ARCHIVE_CACHE_MAX_BYTES;
-  const maxAgeMillis = options.maxAgeMillis ?? ARCHIVE_CACHE_MAX_AGE_MILLIS;
+  const maxAge = options.maxAge ?? ARCHIVE_CACHE_MAX_AGE;
 
   const pathForIntegrity = (integrity: string): Effect.Effect<string, AppError> => {
     const fileName = cacheFileName(integrity);
@@ -169,8 +169,8 @@ export const makeArchiveCache = (
               integrity: integrityFromFileName(name),
               size: Number(info.size),
               accessedAt: Option.match(info.mtime, {
-                onNone: () => 0,
-                onSome: (mtime) => mtime.getTime(),
+                onNone: () => DateTime.makeUnsafe(0),
+                onSome: (mtime) => DateTime.makeUnsafe(mtime),
               }),
             } satisfies CacheEntry;
           }),
@@ -187,9 +187,13 @@ export const makeArchiveCache = (
 
   const prune = (): Effect.Effect<ArchiveCachePruneResult, AppError> =>
     Effect.gen(function* () {
-      const now = yield* Clock.currentTimeMillis;
-      const entries = [...(yield* listEntries())].sort((a, b) => a.accessedAt - b.accessedAt);
-      const expired = entries.filter((entry) => now - entry.accessedAt > maxAgeMillis);
+      const now = yield* DateTime.now;
+      const entries = [...(yield* listEntries())].sort((a, b) =>
+        DateTime.Order(a.accessedAt, b.accessedAt),
+      );
+      const expired = entries.filter((entry) =>
+        Duration.isGreaterThan(DateTime.distance(entry.accessedAt, now), maxAge),
+      );
       yield* Effect.forEach(expired, (entry) => removeEntry(entry.path), { concurrency: 8 });
 
       const expiredPaths = new Set(expired.map((entry) => entry.path));
@@ -289,7 +293,7 @@ export const makeArchiveCache = (
       entries: entries.length,
       bytes: entries.reduce((total, entry) => total + entry.size, 0),
       maxBytes,
-      maxAgeDays: maxAgeMillis / (24 * 60 * 60 * 1_000),
+      maxAgeDays: Duration.toDays(maxAge),
     }));
 
   const verify = (): Effect.Effect<ArchiveCacheVerifyResult, AppError> =>

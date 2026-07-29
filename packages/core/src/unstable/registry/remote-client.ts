@@ -11,7 +11,6 @@
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -26,6 +25,7 @@ import {
   type ExtensionType,
 } from "../extensions/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
+import { CompanionPackageSchema } from "../package-urls/index.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
 import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
@@ -73,7 +73,8 @@ import type { ArchiveCache } from "./archive-cache.js";
 // -----------------------------------------------------------------------------
 
 const decodeExtensionType = Schema.decodeUnknownSync(ExtensionTypeSchema);
-const decodeExtensionIndex = Schema.decodeUnknownSync(ExtensionIndexSchema);
+const decodeExtensionIndex = Schema.decodeUnknownSync(Schema.toType(ExtensionIndexSchema));
+const decodeCompanionPackages = Schema.decodeUnknownSync(Schema.Array(CompanionPackageSchema));
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 
 /**
@@ -85,6 +86,11 @@ const narrowExtensionType = (type: string): ExtensionType => decodeExtensionType
 
 /**
  * Map the generated ExtensionsGet200 response to our domain ExtensionIndex type.
+ *
+ * Validates against the type side of ExtensionIndexSchema, so timestamps the
+ * generated client already decoded to DateTime.Utc flow through without an
+ * encode/re-decode round-trip. Companion packages are the one remaining
+ * wire-form field (versionRange strings), so they decode via the wire schema.
  */
 const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
   decodeExtensionIndex({
@@ -104,21 +110,18 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
             url: a.url ?? undefined,
           })),
     visibility: response.visibility ?? undefined,
-    deprecatedAt:
-      response.deprecated_at === null || response.deprecated_at === undefined
-        ? undefined
-        : DateTime.formatIso(response.deprecated_at),
+    deprecatedAt: response.deprecated_at ?? undefined,
     deprecationNotice: response.deprecation_notice ?? undefined,
     versions: response.versions.map((v) => ({
       version: v.version,
-      published: DateTime.formatIso(v.published),
+      published: v.published,
       integrity: v.integrity,
       dependencies: v.dependencies === null ? undefined : v.dependencies,
-      packages: v.packages === null || v.packages === undefined ? undefined : v.packages,
-      yankedAt:
-        v.yanked_at === null || v.yanked_at === undefined
+      packages:
+        v.packages === null || v.packages === undefined
           ? undefined
-          : DateTime.formatIso(v.yanked_at),
+          : decodeCompanionPackages(v.packages),
+      yankedAt: v.yanked_at ?? undefined,
       yankCategory: v.yank_category ?? undefined,
       yankNotice: v.yank_notice ?? undefined,
     })),

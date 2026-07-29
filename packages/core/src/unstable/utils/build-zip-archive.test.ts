@@ -22,7 +22,7 @@ const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem
 
 /** sha256 of the archive built from the fixture tree created in `beforeEach`. */
 const PINNED_CLEAN_ARCHIVE_DIGEST =
-  "36ff5d63e488993b5d39aeb209fce2f676d594112c1f2e992770a3a223c2e87c";
+  "549b3040df405bf93ce2c6dc580ae354684cfecc1b5f678362d8a7f0bb2ff82d";
 
 describe("buildZipArchive", () => {
   let tmpDir: string;

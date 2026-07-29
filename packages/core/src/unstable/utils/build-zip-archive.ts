@@ -15,7 +15,10 @@ import * as Path from "effect/Path";
 import { zipSync, type Zippable } from "fflate";
 import { makeAppError } from "../app-error/index.js";
 
-const DETERMINISTIC_MTIME = new Date("2020-01-01T00:00:00Z");
+// ZIP timestamps have no timezone. fflate serializes Date's local calendar
+// fields, so construct those fields locally to keep the encoded bytes stable
+// across host timezones.
+const DETERMINISTIC_MTIME = new Date(2020, 0, 1, 0, 0, 0, 0);
 const READ_CONCURRENCY = 16;
 
 /**

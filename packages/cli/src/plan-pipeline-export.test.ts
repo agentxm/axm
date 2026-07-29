@@ -1,12 +1,10 @@
 /**
  * Spec test for lint-engine Phase 1: the plan pipeline primitives MUST be
  * reachable from the stable kernel export path `@agentxm/client-core/unstable/plan`
- * so that both this CLI and the registry Worker can compose workspace Operations
- * without reaching into `@agentxm/client-core/unstable/workspace`.
+ * so that both this CLI and registry-side consumers can compose workspace
+ * Operations without reaching into `@agentxm/client-core/unstable/workspace`.
  *
- * Authoritative artifact:
- *   /Users/craig/Code/agentxm/agentxm-internal-b/sample/changes/add-lint-engine/specs/lint-engine/spec.md
- *   Requirement: "Plan pipeline primitives available in shared kernel"
+ * Requirement: "Plan pipeline primitives available in shared kernel"
  */
 
 import { describe, expect, it } from "@effect/vitest";

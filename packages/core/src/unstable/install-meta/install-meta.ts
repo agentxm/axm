@@ -16,6 +16,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
+import { DateTimeUtcSchema } from "../date-time.js";
 import { InstallMethodLiteral } from "../install-method/install-method.js";
 import { resolveUserScopeDir } from "../workspace/paths.js";
 
@@ -32,7 +33,7 @@ export const InstallMetaDataSchema = Schema.Struct({
   method: InstallMethodLiteral.pipe(
     Schema.annotateKey({ messageMissingKey: "method is required" }),
   ),
-  installedAt: Schema.String.pipe(
+  installedAt: DateTimeUtcSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "installedAt is required" }),
   ),
 }).annotate({
@@ -51,6 +52,8 @@ export type InstallMetaData = typeof InstallMetaDataSchema.Type;
 const decodeInstallMetaDataFromJsonString = Schema.decodeUnknownEffect(
   Schema.fromJsonString(InstallMetaDataSchema),
 );
+
+const encodeInstallMetaData = Schema.encodeEffect(InstallMetaDataSchema);
 
 // -----------------------------------------------------------------------------
 // Service interface
@@ -133,8 +136,13 @@ export const writeInstallMeta = (dataDir: string, data: InstallMetaData) =>
       Effect.catch(() => Effect.void),
     );
 
-    const content =
-      JSON.stringify({ method: data.method, installedAt: data.installedAt }, null, 2) + "\n";
+    const encoded = yield* encodeInstallMetaData(data).pipe(
+      Effect.tapError((e) => Effect.logWarning("Failed to write install metadata", { error: e })),
+      Effect.option,
+    );
+    if (Option.isNone(encoded)) return;
+
+    const content = JSON.stringify(encoded.value, null, 2) + "\n";
     yield* fs.writeFileString(metaPath, content).pipe(
       Effect.tapError((e) => Effect.logWarning("Failed to write install metadata", { error: e })),
       Effect.catch(() => Effect.void),

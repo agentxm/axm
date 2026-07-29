@@ -71,7 +71,34 @@ const swapDateTimeSchema = (source: string): string => {
     .replace(constAnchorPattern, "export const IsoDateTimeString = DateTimeUtcSchema");
 };
 
-fs.writeFileSync(OUTPUT_PATH, header + swapDateTimeSchema(result.stdout));
+/**
+ * The component swap above only covers fields routed through the shared
+ * IsoDateTimeString component. Spec fields that inline `format: "date-time"`
+ * are emitted as plain string schemas, so map those to the kernel schema as
+ * well, and fail loudly on any date-time-formatted string shape this mapping
+ * does not recognize.
+ */
+const inlineDateTimeStringPatterns: ReadonlyArray<RegExp> = [
+  /Schema\.String\.annotate\(\{\s*format:\s*"date-time"\s*\}\)/g,
+  /Schema\.String\.check\(Schema\.isMinLength\(1,\s*\{\s*format:\s*"date-time"\s*\}\)\)/g,
+];
+
+const mapInlineDateTimeSchemas = (source: string): string => {
+  const mapped = inlineDateTimeStringPatterns.reduce(
+    (current, pattern) => current.replace(pattern, "DateTimeUtcSchema"),
+    source,
+  );
+  if (/format:\s*"date-time"/.test(mapped)) {
+    console.error(
+      "generate-registry-client: unrecognized date-time schema shape in generated output; " +
+        "extend inlineDateTimeStringPatterns so the field maps to DateTimeUtcSchema.",
+    );
+    process.exit(1);
+  }
+  return mapped;
+};
+
+fs.writeFileSync(OUTPUT_PATH, header + mapInlineDateTimeSchemas(swapDateTimeSchema(result.stdout)));
 
 const formatResult = childProcess.spawnSync("pnpm", ["exec", "prettier", "--write", OUTPUT_PATH], {
   cwd: CORE_ROOT,

@@ -774,7 +774,7 @@ const handleScript = (method: { readonly execPath: string }, force: boolean) =>
     // Step 8: Update install metadata
     yield* installMeta.write({
       method: "script",
-      installedAt: DateTime.formatIso(yield* DateTime.now),
+      installedAt: yield* DateTime.now,
     });
 
     // Step 9: Clean up .old file on Windows

@@ -11,6 +11,7 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -62,17 +63,16 @@ describe("InstallMeta", () => {
       withContext(
         Effect.gen(function* () {
           nodeFs.mkdirSync(dataDir, { recursive: true });
-          const meta: InstallMetaData = {
-            method: "script",
-            installedAt: "2026-03-31T12:00:00Z",
-          };
-          nodeFs.writeFileSync(nodePath.join(dataDir, "install-meta.json"), JSON.stringify(meta));
+          nodeFs.writeFileSync(
+            nodePath.join(dataDir, "install-meta.json"),
+            JSON.stringify({ method: "script", installedAt: "2026-03-31T12:00:00.000Z" }),
+          );
 
           const result = yield* readInstallMeta(dataDir);
           expect(Option.isSome(result)).toBe(true);
           const value = Option.getOrThrow(result);
           expect(value.method).toBe("script");
-          expect(value.installedAt).toBe("2026-03-31T12:00:00Z");
+          expect(DateTime.formatIso(value.installedAt)).toBe("2026-03-31T12:00:00.000Z");
         }),
       ),
     );
@@ -119,15 +119,29 @@ describe("InstallMeta", () => {
       ),
     );
 
+    it.effect("returns None for a malformed installedAt timestamp", () =>
+      withContext(
+        Effect.gen(function* () {
+          nodeFs.mkdirSync(dataDir, { recursive: true });
+          nodeFs.writeFileSync(
+            nodePath.join(dataDir, "install-meta.json"),
+            JSON.stringify({ method: "script", installedAt: "not-a-timestamp" }),
+          );
+
+          const result = yield* readInstallMeta(dataDir);
+          expect(Option.isNone(result)).toBe(true);
+        }),
+      ),
+    );
+
     it.effect("reads homebrew method", () =>
       withContext(
         Effect.gen(function* () {
           nodeFs.mkdirSync(dataDir, { recursive: true });
-          const meta: InstallMetaData = {
-            method: "homebrew",
-            installedAt: "2026-01-15T08:30:00Z",
-          };
-          nodeFs.writeFileSync(nodePath.join(dataDir, "install-meta.json"), JSON.stringify(meta));
+          nodeFs.writeFileSync(
+            nodePath.join(dataDir, "install-meta.json"),
+            JSON.stringify({ method: "homebrew", installedAt: "2026-01-15T08:30:00.000Z" }),
+          );
 
           const result = yield* readInstallMeta(dataDir);
           expect(Option.isSome(result)).toBe(true);
@@ -148,7 +162,7 @@ describe("InstallMeta", () => {
         Effect.gen(function* () {
           const meta: InstallMetaData = {
             method: "script",
-            installedAt: "2026-03-31T12:00:00Z",
+            installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
           };
           yield* writeInstallMeta(dataDir, meta);
 
@@ -160,7 +174,7 @@ describe("InstallMeta", () => {
           const parsed: unknown = JSON.parse(content);
           expect(parsed).toEqual({
             method: "script",
-            installedAt: "2026-03-31T12:00:00Z",
+            installedAt: "2026-03-31T12:00:00.000Z",
           });
         }),
       ),
@@ -172,12 +186,12 @@ describe("InstallMeta", () => {
           nodeFs.mkdirSync(dataDir, { recursive: true });
           nodeFs.writeFileSync(
             nodePath.join(dataDir, "install-meta.json"),
-            JSON.stringify({ method: "script", installedAt: "2025-01-01T00:00:00Z" }),
+            JSON.stringify({ method: "script", installedAt: "2025-01-01T00:00:00.000Z" }),
           );
 
           const meta: InstallMetaData = {
             method: "homebrew",
-            installedAt: "2026-06-15T18:00:00Z",
+            installedAt: DateTime.makeUnsafe("2026-06-15T18:00:00.000Z"),
           };
           yield* writeInstallMeta(dataDir, meta);
 
@@ -185,7 +199,7 @@ describe("InstallMeta", () => {
           const parsed: unknown = JSON.parse(content);
           expect(parsed).toEqual({
             method: "homebrew",
-            installedAt: "2026-06-15T18:00:00Z",
+            installedAt: "2026-06-15T18:00:00.000Z",
           });
         }),
       ),
@@ -196,7 +210,7 @@ describe("InstallMeta", () => {
         Effect.gen(function* () {
           const meta: InstallMetaData = {
             method: "npm",
-            installedAt: "2026-03-31T12:00:00Z",
+            installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
           };
           yield* writeInstallMeta(dataDir, meta);
 
@@ -204,7 +218,7 @@ describe("InstallMeta", () => {
           expect(Option.isSome(result)).toBe(true);
           const value = Option.getOrThrow(result);
           expect(value.method).toBe("npm");
-          expect(value.installedAt).toBe("2026-03-31T12:00:00Z");
+          expect(DateTime.formatIso(value.installedAt)).toBe("2026-03-31T12:00:00.000Z");
         }),
       ),
     );
@@ -228,14 +242,14 @@ describe("InstallMeta", () => {
         const service = yield* InstallMeta;
         const meta: InstallMetaData = {
           method: "script",
-          installedAt: "2026-03-31T12:00:00Z",
+          installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
         };
         yield* service.write(meta);
         const result = yield* service.read();
         expect(Option.isSome(result)).toBe(true);
         const value = Option.getOrThrow(result);
         expect(value.method).toBe("script");
-        expect(value.installedAt).toBe("2026-03-31T12:00:00Z");
+        expect(DateTime.formatIso(value.installedAt)).toBe("2026-03-31T12:00:00.000Z");
       }).pipe(Effect.provide(InstallMetaTest(dataDir).pipe(Layer.provide(NodeServices.layer)))),
     );
 
@@ -245,19 +259,19 @@ describe("InstallMeta", () => {
 
         yield* service.write({
           method: "script",
-          installedAt: "2025-01-01T00:00:00Z",
+          installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
         });
 
         yield* service.write({
           method: "homebrew",
-          installedAt: "2026-06-15T18:00:00Z",
+          installedAt: DateTime.makeUnsafe("2026-06-15T18:00:00.000Z"),
         });
 
         const result = yield* service.read();
         expect(Option.isSome(result)).toBe(true);
         const value = Option.getOrThrow(result);
         expect(value.method).toBe("homebrew");
-        expect(value.installedAt).toBe("2026-06-15T18:00:00Z");
+        expect(DateTime.formatIso(value.installedAt)).toBe("2026-06-15T18:00:00.000Z");
       }).pipe(Effect.provide(InstallMetaTest(dataDir).pipe(Layer.provide(NodeServices.layer)))),
     );
   });
@@ -268,7 +282,7 @@ describe("InstallMeta", () => {
         const service = yield* InstallMeta;
         yield* service.write({
           method: "script",
-          installedAt: "2026-03-31T12:00:00Z",
+          installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
         });
 
         const filePath = nodePath.join(tempDir, ".axm", "install-meta.json");

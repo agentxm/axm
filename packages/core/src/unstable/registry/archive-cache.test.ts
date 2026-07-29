@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Clock from "effect/Clock";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -126,7 +127,7 @@ describe("ArchiveCache", () => {
         const path = yield* Path.Path;
         const cache = makeArchiveCache(fs, path, cacheRoot, {
           maxBytes: 5,
-          maxAgeMillis: 1_000,
+          maxAge: Duration.seconds(1),
         });
         const archives = [
           new Uint8Array([1, 1, 1]),

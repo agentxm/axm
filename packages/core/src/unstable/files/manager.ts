@@ -11,6 +11,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
@@ -33,14 +34,11 @@ import {
 } from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import {
-  isWorkspaceSourceLocator,
-  lockEntryToSourceParams,
-  printSourceParams,
-} from "../sources/index.js";
 import type { ExtensionManager, FilesExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { resolveConfiguredFiles } from "../workspace/configured-entry-resolution/index.js";
+import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import {
@@ -178,13 +176,7 @@ export const FilesManagerLive = Layer.effect(
 
     const materializeFromRegistry = (ref: RegistryFilesRef, force: boolean) =>
       Effect.gen(function* () {
-        const lockedEntry = yield* ws
-          .getLockedFilesEntry(ref.name)
-          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-        const lockedVersion = Option.match(lockedEntry, {
-          onNone: () => undefined,
-          onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
-        });
+        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
         return yield* provide(
           materializeRegistryPackage({
             baseDir,
@@ -291,12 +283,8 @@ export const FilesManagerLive = Layer.effect(
         ),
       );
 
-    const markerExtForLockedTarget = (name: string, lockEntry: FilesLockEntry) =>
+    const markerExtForPackageRoot = (name: string, packageRoot: string) =>
       Effect.gen(function* () {
-        if (lockEntry.type === "registry" || lockEntry.type === "workspace") {
-          return formatFqn({ owner: lockEntry.owner, type: "files", name: lockEntry.name });
-        }
-        const packageRoot = path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, FILES_EXTENSION_DIR, name);
         const manifest = yield* readManifest(packageRoot).pipe(Effect.option);
         return Option.match(manifest, {
           onNone: () => `file:${name}`,
@@ -466,20 +454,19 @@ export const FilesManagerLive = Layer.effect(
 
     const materializeUninstall: ExtensionManager<FilesExtensionRef>["materializeUninstall"] =
       Effect.fn("FilesManager.materializeUninstall")(function* ({ target, preserveSource }) {
-        const locked = yield* ws.getLockedFilesEntry(target.name);
-        if (Option.isNone(locked)) return;
-        const packageRoot =
-          locked.value.type === "registry" || locked.value.type === "workspace"
-            ? path.join(
-                baseDir,
-                REGISTRY_EXTENSIONS_DIR,
-                locked.value.owner,
-                FILES_EXTENSION_DIR,
-                locked.value.name,
-              )
-            : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, FILES_EXTENSION_DIR, target.name);
-        const manifest = yield* readManifest(packageRoot).pipe(Effect.option);
-        const markerExt = yield* markerExtForLockedTarget(target.name, locked.value);
+        const canonical = yield* provide(
+          trustedCanonicalObservation({
+            workspace: ws,
+            type: "files",
+            name: target.name,
+          }),
+        );
+        const packageRoot = Option.flatMap(canonical, (state) =>
+          Option.fromUndefinedOr(state.observation.path),
+        );
+        if (Option.isNone(packageRoot)) return;
+        const manifest = yield* readManifest(packageRoot.value).pipe(Effect.option);
+        const markerExt = yield* markerExtForPackageRoot(target.name, packageRoot.value);
         for (const contentEntry of Option.match(manifest, {
           onNone: () => [],
           onSome: (value) => value.contents,
@@ -506,15 +493,16 @@ export const FilesManagerLive = Layer.effect(
           yield* fs.writeFileString(absoluteTarget, updated).pipe(Effect.catch(() => Effect.void));
         }
         if (preserveSource !== true) {
-          yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
+          yield* fs.remove(packageRoot.value, { recursive: true }).pipe(Effect.ignore);
         }
       }, Effect.asVoid);
 
     return {
       type: "files",
+      validateTrustTransition: ({ ref }) =>
+        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
       isInstalled: ({ target }: { readonly target: FilesExtensionTarget }) =>
-        ws.getLockedFilesEntry(target.name).pipe(
-          Effect.map((locked) => Option.isSome(locked)),
+        isObservedInstalled(ws, "files", target.name).pipe(
           Effect.withSpan("FilesManager.isInstalled"),
         ),
 
@@ -553,21 +541,16 @@ export const FilesManagerLive = Layer.effect(
         versionRange,
       }) {
         const lockEntry = yield* buildLockEntry(ref);
-        const entries = yield* ws.getConfiguredFilesEntries();
-        const current = entries[ref.file.name];
-        const source =
-          current !== undefined && isWorkspaceSourceLocator(current.source)
-            ? current.source
-            : ref.refType === "registry"
-              ? (() => {
-                  const fqn = formatFqn({ owner: ref.owner, type: "files", name: ref.file.name });
-                  return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
-                })()
-              : printSourceParams(lockEntryToSourceParams(lockEntry));
-        yield* ws.setFilesEntry(ref.file.name, {
-          source,
-          enabled: true,
-          inputs: current?.inputs ?? {},
+        if (lockEntry.type === "registry") {
+          yield* validateExactResolvedVersion(
+            `files.${ref.file.name}.resolvedVersion`,
+            lockEntry.resolvedVersion,
+          );
+        }
+        yield* ws.setFiles({
+          name: ref.file.name,
+          lockEntry,
+          versionRange,
         });
       }),
 
@@ -576,28 +559,25 @@ export const FilesManagerLive = Layer.effect(
           .removeFilesSettings(target.name)
           .pipe(Effect.withSpan("FilesManager.removeSettingsEntry")),
 
-      upsertLockfileEntry: Effect.fn("FilesManager.upsertLockfileEntry")(function* ({
-        ref,
-        retainedByPack,
-      }) {
+      upsertLockfileEntry: Effect.fn("FilesManager.upsertLockfileEntry")(function* ({ ref }) {
         const lockEntry = yield* buildLockEntry(ref);
-        const retainedLockEntry =
-          retainedByPack === true ? { ...lockEntry, retainedByPack: true } : lockEntry;
-        if (retainedLockEntry.type === "registry") {
+        if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `files.${ref.file.name}.resolvedVersion`,
-            retainedLockEntry.resolvedVersion,
+            lockEntry.resolvedVersion,
           );
         }
         yield* ws.setFilesLock({
           name: ref.file.name,
-          lockEntry: retainedLockEntry,
+          lockEntry,
           versionRange: Option.none(),
         });
       }),
 
       removeLockfileEntry: ({ target }: { readonly target: FilesExtensionTarget }) =>
         ws.removeFilesLock(target.name).pipe(Effect.withSpan("FilesManager.removeLockfileEntry")),
+      removeTrustEntry: ({ target }: { readonly target: FilesExtensionTarget }) =>
+        ws.removeTrustRecord("files", target.name),
     } satisfies ExtensionManager<FilesExtensionRef>;
   }),
 );

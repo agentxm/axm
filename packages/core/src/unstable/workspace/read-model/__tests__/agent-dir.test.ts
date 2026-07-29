@@ -129,7 +129,7 @@ describe("agent-dir scanner", () => {
         project: {
           agentDirs: {
             "claude-code": {
-              "commands/some-command/some-command.md": "# cmd\n",
+              "commands/some-command.md": "# cmd\n",
             },
           },
         },
@@ -139,6 +139,7 @@ describe("agent-dir scanner", () => {
       );
       expect(commands).toHaveLength(1);
       expect(commands[0]?.name).toBe("some-command");
+      expect(commands[0]?.contentLocation).toBe("/ws/.claude/commands/some-command.md");
     }).pipe(Effect.provide(Path.layer)),
   );
 
@@ -150,7 +151,7 @@ describe("agent-dir scanner", () => {
         project: {
           agentDirs: {
             "claude-code": {
-              "agents/code-reviewer/code-reviewer.md": "# subagent\n",
+              "agents/code-reviewer.md": "# subagent\n",
             },
           },
         },
@@ -160,6 +161,7 @@ describe("agent-dir scanner", () => {
       );
       expect(subagents).toHaveLength(1);
       expect(subagents[0]?.name).toBe("code-reviewer");
+      expect(subagents[0]?.contentLocation).toBe("/ws/.claude/agents/code-reviewer.md");
     }).pipe(Effect.provide(Path.layer)),
   );
 

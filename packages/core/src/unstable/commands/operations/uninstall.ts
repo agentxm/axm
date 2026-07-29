@@ -1,24 +1,19 @@
 /**
  * Uninstall command executor — orchestrates per-command removal pipeline.
  *
- * Pipeline: read lockfile -> remove rendered files from agents -> remove
- * canonical dir -> remove lockfile/settings entry.
+ * Pipeline: resolve desired/observed state -> remove rendered files from
+ * agents -> remove canonical source -> clear settings and receipt.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import {
-  canonicalExtensionPathForLockEntry,
-  REGISTRY_EXTENSIONS_DIR,
-  EXTERNAL_EXTENSIONS_DIR,
-} from "../../extensions/index.js";
+import { REGISTRY_EXTENSIONS_DIR, EXTERNAL_EXTENSIONS_DIR } from "../../extensions/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { checkInstalledOnDisk } from "./shared-command-helpers.js";
 
@@ -50,10 +45,10 @@ export type UninstallCommandOperation = Operation<
 /**
  * Uninstall-command operation handler.
  *
- * 1. Read lockfile to determine if command is installed
+ * 1. Resolve configured and observed state
  * 2. Remove rendered files through configured agent adapters
  * 3. Remove canonical directory from disk (if exists)
- * 4. Remove lockfile + settings entry
+ * 4. Remove settings and receipt
  */
 export const uninstallCommand: (
   op: UninstallCommandOperation,
@@ -69,22 +64,28 @@ export const uninstallCommand: (
     const agentRepo = yield* CodingAgentRepository;
     const base = ws.baseDir;
 
-    const lockEntryOption = yield* ws.getLockedCommand(op.args.commandName).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read lockfile: ${e.message}`,
-          cause: e,
-        }),
-      ),
+    const desired = yield* ws.getDesiredStateGraph();
+    if (!desired.complete) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: "Cannot uninstall the command while the desired extension graph is incomplete.",
+        recover: "Repair or reinstall the configured packs, then retry.",
+      });
+    }
+    const desiredNode = desired.nodes.find(
+      (node) => node.type === "command" && node.name === op.args.commandName,
     );
-    const lockEntry = Option.getOrUndefined(lockEntryOption);
-
-    // Check if command exists on disk (scan registry extensions dir for any owner)
     const installedOnDisk = yield* checkInstalledOnDisk(fs, path, base, op.args.commandName);
 
-    if (!lockEntry && !installedOnDisk) {
+    if (desiredNode === undefined && !installedOnDisk) {
       return { result: "success", message: "not installed" } satisfies JobStepResult;
+    }
+    if (desiredNode?.origins.some((origin) => origin.type === "pack") === true) {
+      yield* ws.removeCommandSettings(op.args.commandName);
+      return {
+        result: "success",
+        message: "Kept on disk because dependency is still required by an installed pack",
+      } satisfies JobStepResult;
     }
 
     // --- Remove rendered files from agents ---
@@ -102,18 +103,7 @@ export const uninstallCommand: (
       { concurrency: "unbounded" },
     );
 
-    // --- Remove canonical directory ---
-    if (lockEntry?.type === "registry") {
-      const canonicalPath = canonicalExtensionPathForLockEntry(
-        path,
-        base,
-        "commands",
-        op.args.commandName,
-        lockEntry,
-      );
-      yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
-    } else if (installedOnDisk) {
-      // Remove from all known locations
+    if (installedOnDisk) {
       yield* removeFromAllCommandLocations(fs, path, base, op.args.commandName);
     }
 

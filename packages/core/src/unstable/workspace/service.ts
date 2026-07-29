@@ -30,8 +30,6 @@ import {
   type FilesLockMap,
   type HooksLockMap,
   type KnowledgeLockMap,
-  type PackLockEntry,
-  type ResolvedExtensionMap,
   type RulesLockMap,
   type SkillLockEntry,
   type SubagentLockEntry,
@@ -41,13 +39,14 @@ import type { Lockfile } from "../lockfile/schema.js";
 import { computeSkillPaths } from "../skills/paths.js";
 import { computePackPaths } from "../packs/paths.js";
 import type { Handle } from "../extensions/handle.js";
+import type { InstallableExtensionType } from "../extensions/installable-types.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
   ConfigurableAgentIdSchema,
   decodeExtensionNameSync,
   formatFqn,
-  parseExtensionFqnParts,
   parseRegistrySourcePatternParts,
+  type SourceHash,
 } from "../extensions/index.js";
 import { type AppError, BC, makeAppError } from "../app-error/index.js";
 import {
@@ -80,6 +79,14 @@ import {
 import { DEFAULT_MINIMUM_RELEASE_AGE } from "../registry/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
+import {
+  readWorkspaceTrustState,
+  TRUST_STATE_VERSION,
+  trustRecordKey,
+  trustStateFromLockfile,
+  writeWorkspaceTrustState,
+  type WorkspaceTrustState,
+} from "../trust/index.js";
 
 import { withStrictLockfileReads } from "./lockfile-read-tolerance.js";
 import { getAxmDir } from "./paths.js";
@@ -114,9 +121,15 @@ import {
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
+import { buildDesiredStateGraph } from "./desired-state-graph.js";
+import { validateDesiredPackTrust } from "./desired-pack-trust.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
   skills: {},
+});
+const createEmptyTrustState = (): WorkspaceTrustState => ({
+  trustStateVersion: TRUST_STATE_VERSION,
+  records: {},
 });
 
 const normalizeForStableCompare = (value: unknown): unknown => {
@@ -289,128 +302,6 @@ const requireInitializedWorkspace = (
     ),
   );
 
-/**
- * The pack-membership map a dependency target must be looked up in.
- *
- * A returning switch with no `default`: under `noImplicitReturns`, a missing
- * arm is a compile error rather than a silent fall-through into the wrong map.
- */
-const packResolvedMapForTarget = (
-  packEntry: PackLockEntry,
-  targetType: Exclude<ExtensionTarget["type"], "pack">,
-): ResolvedExtensionMap => {
-  switch (targetType) {
-    case "skill":
-      return packEntry.resolvedSkills;
-    case "command":
-      return packEntry.resolvedCommands;
-    case "mcp-server":
-      return packEntry.resolvedMcpServers;
-    case "subagent":
-      return packEntry.resolvedSubagents;
-    case "files":
-      return packEntry.resolvedFiles ?? {};
-    case "rule":
-      return packEntry.resolvedRules ?? {};
-    case "hook":
-      return packEntry.resolvedHooks ?? {};
-    case "knowledge":
-      return packEntry.resolvedKnowledge ?? {};
-  }
-};
-
-/**
- * The lockfile with `retainedByPack: true` written onto the target's entry, or
- * `undefined` when there is nothing to mark.
- *
- * A returning switch with no `default`: under `noImplicitReturns`, a missing
- * arm is a compile error instead of a silently unmarked retention.
- */
-const lockfileWithRetainedDependency = (
-  currentLockfile: Lockfile,
-  target: ExtensionTarget,
-): Lockfile | undefined => {
-  switch (target.type) {
-    case "skill": {
-      const entry = currentLockfile.skills[target.name];
-      if (entry === undefined) return undefined;
-      return {
-        ...currentLockfile,
-        skills: {
-          ...currentLockfile.skills,
-          [target.name]: { ...entry, retainedByPack: true },
-        },
-      };
-    }
-    case "command": {
-      const commands = currentLockfile.commands ?? {};
-      const entry = commands[target.name];
-      if (entry === undefined) return undefined;
-      return {
-        ...currentLockfile,
-        commands: { ...commands, [target.name]: { ...entry, retainedByPack: true } },
-      };
-    }
-    case "mcp-server": {
-      const mcpServers = currentLockfile.mcpServers ?? {};
-      const entry = mcpServers[target.name];
-      if (entry === undefined) return undefined;
-      return {
-        ...currentLockfile,
-        mcpServers: { ...mcpServers, [target.name]: { ...entry, retainedByPack: true } },
-      };
-    }
-    case "subagent": {
-      const subagents = currentLockfile.subagents ?? {};
-      const entry = subagents[target.name];
-      if (entry === undefined) return undefined;
-      return {
-        ...currentLockfile,
-        subagents: { ...subagents, [target.name]: { ...entry, retainedByPack: true } },
-      };
-    }
-    case "files": {
-      const files = currentLockfile.files ?? {};
-      const entry = files[target.name];
-      if (entry === undefined) return undefined;
-      return {
-        ...currentLockfile,
-        files: { ...files, [target.name]: { ...entry, retainedByPack: true } },
-      };
-    }
-    case "rule": {
-      const rules = currentLockfile.rules ?? {};
-      const entry = rules[target.name];
-      if (entry === undefined) return undefined;
-      return {
-        ...currentLockfile,
-        rules: { ...rules, [target.name]: { ...entry, retainedByPack: true } },
-      };
-    }
-    case "hook": {
-      const hooks = currentLockfile.hooks ?? {};
-      const entry = hooks[target.name];
-      if (entry === undefined) return undefined;
-      return {
-        ...currentLockfile,
-        hooks: { ...hooks, [target.name]: { ...entry, retainedByPack: true } },
-      };
-    }
-    case "knowledge": {
-      const knowledge = currentLockfile.knowledge ?? {};
-      const entry = knowledge[target.name];
-      if (entry === undefined) return undefined;
-      return {
-        ...currentLockfile,
-        knowledge: { ...knowledge, [target.name]: { ...entry, retainedByPack: true } },
-      };
-    }
-    case "pack":
-      // No retention marking for packs — packs are not dependencies of other packs
-      return undefined;
-  }
-};
-
 export const loadWorkspace = (options: WorkspaceLayerOptions) =>
   Effect.gen(function* () {
     const globalDir = yield* getAxmDir("user");
@@ -484,6 +375,25 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
      */
     const readLockfileSafe = (dir: string) => readLockfileCell(dir);
 
+    const readTrustState = () =>
+      readWorkspaceTrustState(workspaceDir).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.flatMap(
+          Option.match({
+            onNone: () => readLockfileSafe(workspaceDir).pipe(Effect.map(trustStateFromLockfile)),
+            onSome: Effect.succeed,
+          }),
+        ),
+      );
+
+    const readAuthoritativeTrustState = () =>
+      readWorkspaceTrustState(workspaceDir).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.map(Option.getOrElse(createEmptyTrustState)),
+      );
+
     /**
      * Look up `key` in `record`, failing with an `AppError` when absent.
      */
@@ -541,7 +451,30 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         Effect.mapError(contextCellErrorToAppError),
       );
 
-    const readModelRecordReaders = makeReadModelRecordReaders({ baseDir, path, readScopedContext });
+    const readDesiredStateGraph = () =>
+      Effect.gen(function* () {
+        const settings = yield* readSettingsSafe(workspaceDir);
+        const graph = yield* buildDesiredStateGraph({ baseDir, settings }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        // A valid legacy lockfile is the one-time migration source when a
+        // workspace has not written trust.json yet. Once the dedicated trust
+        // document exists, readTrustState ignores receipt content entirely.
+        // This keeps existing configured packs usable on the first command
+        // after upgrade without accepting an invalid or missing baseline.
+        const trust = yield* readTrustState();
+        return yield* validateDesiredPackTrust({ baseDir, graph, trust }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+      });
+    const readModelRecordReaders = makeReadModelRecordReaders({
+      baseDir,
+      path,
+      readScopedContext,
+      getDesiredStateGraph: readDesiredStateGraph,
+    });
     const records = {
       getExtensionInventory: readModelRecordReaders.getExtensionInventory,
       rows: readModelRecordReaders.getReadModelRecordRows,
@@ -617,6 +550,30 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       baseDir,
 
       getLockfileState,
+
+      getDesiredStateGraph: () =>
+        readDesiredStateGraph().pipe(Effect.withSpan("WorkspaceMutations.getDesiredStateGraph")),
+
+      getTrustState: () =>
+        readTrustState().pipe(Effect.withSpan("WorkspaceMutations.getTrustState")),
+
+      removeTrustRecord: (type: InstallableExtensionType, name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const trust = yield* readAuthoritativeTrustState();
+            const key = trustRecordKey(type, name);
+            if (!(key in trust.records)) return;
+            const { [key]: _, ...remainingRecords } = trust.records;
+            void _;
+            yield* writeWorkspaceTrustState(workspaceDir, {
+              ...trust,
+              records: remainingRecords,
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            );
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeTrustRecord")),
 
       getConfiguredSources,
 
@@ -1701,6 +1658,32 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setPack")),
 
+      refreshPackContentIdentity: (name: string, contentIdentity: SourceHash) =>
+        withMutex(
+          Effect.gen(function* () {
+            const trust = yield* readAuthoritativeTrustState();
+            const key = trustRecordKey("pack", name);
+            const record = trust.records[key];
+            if (record?.authority !== "workspace") {
+              return yield* makeAppError({
+                code: "conflict",
+                detail: `Pack "${name}" is not an authored workspace pack`,
+                recover: "Only workspace-authored packs can be edited in place.",
+              });
+            }
+            yield* writeWorkspaceTrustState(workspaceDir, {
+              ...trust,
+              records: {
+                ...trust.records,
+                [key]: { ...record, contentIdentity },
+              },
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            );
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.refreshPackContentIdentity")),
+
       setPackEntry: (name: string, entry: PackEntry) =>
         withMutex(
           Effect.gen(function* () {
@@ -1758,17 +1741,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.commands ?? {})[name])),
         ),
 
-      setCommand: ({ name, lockEntry }: SetCommandArgs) =>
+      setCommand: ({ name, lockEntry, versionRange }: SetCommandArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
             const source =
               lockEntry.type === "registry"
-                ? formatFqn({
-                    owner: lockEntry.owner,
-                    type: "command",
-                    name: decodeExtensionNameSync(name),
-                  })
+                ? (() => {
+                    const fqn = formatFqn({
+                      owner: lockEntry.owner,
+                      type: "command",
+                      name: decodeExtensionNameSync(name),
+                    });
+                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                  })()
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentCommands: CommandsMap = currentSettings.commands ?? {};
@@ -1904,17 +1890,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.withSpan("WorkspaceMutations.getConfiguredCommandEntries"),
         ),
 
-      setSubagent: ({ name, lockEntry }: SetSubagentArgs) =>
+      setSubagent: ({ name, lockEntry, versionRange }: SetSubagentArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
             const source =
               lockEntry.type === "registry"
-                ? formatFqn({
-                    owner: lockEntry.owner,
-                    type: "subagent",
-                    name: decodeExtensionNameSync(name),
-                  })
+                ? (() => {
+                    const fqn = formatFqn({
+                      owner: lockEntry.owner,
+                      type: "subagent",
+                      name: decodeExtensionNameSync(name),
+                    });
+                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                  })()
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
@@ -2084,7 +2073,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.mcpServers ?? {})[name])),
         ),
 
-      setMcpServer: ({ name, lockEntry, env, enabled }: SetMcpServerArgs) =>
+      setMcpServer: ({ name, lockEntry, versionRange, env, enabled }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
@@ -2106,11 +2095,16 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : {
                     source:
                       lockEntry.type === "registry"
-                        ? formatFqn({
-                            owner: lockEntry.owner,
-                            type: "mcp-server",
-                            name: decodeExtensionNameSync(name),
-                          })
+                        ? (() => {
+                            const fqn = formatFqn({
+                              owner: lockEntry.owner,
+                              type: "mcp-server",
+                              name: decodeExtensionNameSync(name),
+                            });
+                            return Option.isSome(versionRange)
+                              ? `${fqn}@${versionRange.value}`
+                              : fqn;
+                          })()
                         : printSourceParams(lockEntryToSourceParams(lockEntry)),
                     enabled: enabled ?? currentEnabled,
                     env: env ?? currentEnv,
@@ -2355,38 +2349,22 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
       isExtensionRequiredByInstalledPack: (target: ExtensionTarget) =>
         Effect.gen(function* () {
-          // Packs don't depend on other packs in this model
           if (target.type === "pack") return false;
-
-          const lockfile = yield* readLockfileSafe(workspaceDir);
-          const packs = lockfile.packs ?? {};
-
-          for (const packEntry of Object.values(packs)) {
-            const resolvedMap = packResolvedMapForTarget(packEntry, target.type);
-
-            // Check if any FQN key in the resolved map ends with the target name
-            for (const fqn of Object.keys(resolvedMap)) {
-              const resolvedName = parseExtensionFqnParts(fqn)?.name;
-              if (resolvedName === target.name) return true;
-            }
+          const graph = yield* readDesiredStateGraph();
+          if (!graph.complete) {
+            return yield* makeAppError({
+              code: "conflict",
+              detail: "Cannot decide pack retention because the desired pack graph is incomplete.",
+              recover: "Restore or reinstall configured pack manifests, then retry.",
+            });
           }
-
-          return false;
+          return graph.nodes.some(
+            (node) =>
+              node.type === target.type &&
+              node.name === target.name &&
+              node.origins.some((origin) => origin.type === "pack"),
+          );
         }),
-
-      markDependencyRetainedInLockfile: (target: ExtensionTarget) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const updatedLockfile = lockfileWithRetainedDependency(currentLockfile, target);
-            if (updatedLockfile === undefined) return;
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ),
     };
   });
 

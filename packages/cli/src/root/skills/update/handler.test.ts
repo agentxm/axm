@@ -25,6 +25,10 @@ import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents"
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";
 import {
+  computePackageContentHashSync,
+  writeTrustFromWorkspaceLockfile,
+} from "../../../test-stubs.js";
+import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
@@ -47,6 +51,7 @@ const initWorkspace = (
     skills?: Record<string, unknown>;
     skillLocks?: Record<string, unknown>;
     packLocks?: Record<string, unknown>;
+    packs?: Record<string, unknown>;
     sources?: ReadonlyArray<Record<string, unknown>>;
     agents?: string[];
   },
@@ -56,6 +61,7 @@ const initWorkspace = (
     agents: opts?.agents ?? ["claude-code"],
   };
   if (opts?.skills) settings["skills"] = opts.skills;
+  if (opts?.packs) settings["packs"] = opts.packs;
   if (opts?.sources) settings["sources"] = opts.sources;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   const lockfile: Record<string, unknown> = {
@@ -113,7 +119,7 @@ const makeRegistryLockEntry = (
   updatedAt: new Date().toISOString(),
 });
 
-const makePackLockEntry = (owner: string, name: string) => ({
+const makePackLockEntry = (owner: string, name: string, sourceHash?: string) => ({
   type: "registry",
   owner,
   name,
@@ -121,6 +127,7 @@ const makePackLockEntry = (owner: string, name: string) => ({
   integrity: "sha512-pack",
   sourceName: "local-reg",
   publisherBindingId: "hbnd_test",
+  ...(sourceHash === undefined ? {} : { sourceHash }),
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   resolvedSkills: {},
@@ -639,6 +646,15 @@ describe("update.handler — error recovery", () => {
         { version: "1.0.0", skillBody: "# code-review v1.0" },
       ],
     });
+    writeInstalledPackManifest({
+      workspaceRoot: tempDir,
+      owner: "@acme",
+      name: "frontend-pack",
+      dependencies: {
+        "@acme/skills/code-review": "^1.0.0",
+      },
+    });
+    const packDir = path.join(tempDir, REGISTRY_EXTENSIONS_DIR, "@acme", "packs", "frontend-pack");
 
     initWorkspace(path.join(tempDir, ".axm"), {
       agents: ["claude-code"],
@@ -652,21 +668,21 @@ describe("update.handler — error recovery", () => {
       skills: {
         "code-review": "@acme/skills/code-review",
       },
+      packs: {
+        "frontend-pack": "@acme/packs/frontend-pack",
+      },
       skillLocks: {
         "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
       },
       packLocks: {
-        "frontend-pack": makePackLockEntry("@acme", "frontend-pack"),
+        "frontend-pack": makePackLockEntry(
+          "@acme",
+          "frontend-pack",
+          computePackageContentHashSync(packDir),
+        ),
       },
     });
-    writeInstalledPackManifest({
-      workspaceRoot: tempDir,
-      owner: "@acme",
-      name: "frontend-pack",
-      dependencies: {
-        "@acme/skills/code-review": "^1.0.0",
-      },
-    });
+    writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
 
     return provide(
       Effect.gen(function* () {

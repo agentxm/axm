@@ -41,6 +41,10 @@ import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { expectNoOpPlanResult } from "../../../test-helpers.js";
+import {
+  computePackageContentHashSync,
+  writeTrustFromWorkspaceLockfile,
+} from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -61,14 +65,49 @@ const initWorkspace = (
   if (opts?.settingsSkills) settings["skills"] = opts.settingsSkills;
   if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
+  const lockfilePacks: Record<string, unknown> = { ...(opts?.lockfilePacks ?? {}) };
+  for (const [name, value] of Object.entries(lockfilePacks)) {
+    if (typeof value !== "object" || value === null) continue;
+    const owner = Reflect.get(value, "owner");
+    const version = Reflect.get(value, "resolvedVersion");
+    if (typeof owner !== "string" || typeof version !== "string") continue;
+    const dependencyMaps = [
+      Reflect.get(value, "resolvedSkills"),
+      Reflect.get(value, "resolvedCommands"),
+      Reflect.get(value, "resolvedMcpServers"),
+      Reflect.get(value, "resolvedSubagents"),
+    ];
+    const dependencies: Record<string, string> = {};
+    for (const dependencyMap of dependencyMaps) {
+      if (typeof dependencyMap !== "object" || dependencyMap === null) continue;
+      for (const [fqn, resolved] of Object.entries(dependencyMap)) {
+        const resolvedVersion =
+          typeof resolved === "object" && resolved !== null
+            ? Reflect.get(resolved, "version")
+            : null;
+        if (typeof resolvedVersion === "string") dependencies[fqn] = resolvedVersion;
+      }
+    }
+    const packDir = path.join(axmDir, "extensions", owner, "packs", name);
+    fs.mkdirSync(packDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(packDir, "pack.json"),
+      JSON.stringify({ owner, type: "pack", name, version, dependencies }),
+    );
+    lockfilePacks[name] = {
+      ...value,
+      sourceHash: computePackageContentHashSync(packDir),
+    };
+  }
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({
       lockfileVersion: 3,
       skills: opts?.lockfileSkills ?? {},
-      ...(opts?.lockfilePacks ? { packs: opts.lockfilePacks } : {}),
+      ...(Object.keys(lockfilePacks).length === 0 ? {} : { packs: lockfilePacks }),
     }),
   );
+  writeTrustFromWorkspaceLockfile(axmDir);
 };
 
 const defaultArgs = (

@@ -13,19 +13,12 @@ import {
   parseRegistrySourcePatternParts,
   decodeExtensionNameSync,
   type ExtensionName,
-  type ExtensionType,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import type {
-  CommandLockEntry,
-  FilesLockEntry,
-  HookLockEntry,
-  KnowledgeLockEntry,
-  McpServerLockEntry,
-  RuleLockEntry,
-  SkillLockEntry,
-  SubagentLockEntry,
-} from "@agentxm/client-core/unstable/lockfile";
+import {
+  isCatalogExtensionType,
+  type CatalogExtensionType,
+} from "@agentxm/client-core/unstable/extension-types";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
@@ -37,6 +30,7 @@ import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import {
@@ -69,36 +63,12 @@ const hashContent = (content: string) => crypto.createHash("sha256").update(cont
 const toVersionRange = (version: string): string => `^${version}`;
 
 /** Every type a pack can depend on — packs cannot nest. */
-type PackAddExtensionType = Exclude<ExtensionType, "pack">;
-
-const PACK_ADD_EXTENSION_TYPES: ReadonlySet<string> = new Set<PackAddExtensionType>([
-  "skill",
-  "command",
-  "mcp-server",
-  "subagent",
-  "files",
-  "rule",
-  "hook",
-  "knowledge",
-]);
-
-const isPackAddExtensionType = (type: string): type is PackAddExtensionType =>
-  PACK_ADD_EXTENSION_TYPES.has(type);
-
-type PackAddLockEntry =
-  | SkillLockEntry
-  | CommandLockEntry
-  | McpServerLockEntry
-  | SubagentLockEntry
-  | FilesLockEntry
-  | RuleLockEntry
-  | HookLockEntry
-  | KnowledgeLockEntry;
+type PackAddExtensionType = CatalogExtensionType;
 
 /** A versioned installed extension eligible to become a pack dependency. */
 interface PackAddCandidate {
   readonly type: PackAddExtensionType;
-  /** Workspace entry name (the lockfile key). */
+  /** Workspace projection name. */
   readonly name: string;
   readonly owner: Handle;
   /** Published package name, which may differ from the workspace name. */
@@ -207,62 +177,49 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     ),
   );
 
-  // Step 3: Resolve versioned managed extensions of every non-pack type.
-  const [
-    lockedSkills,
-    lockedCommands,
-    lockedMcpServers,
-    lockedSubagents,
-    lockedFiles,
-    lockedRules,
-    lockedHooks,
-    lockedKnowledge,
-  ] = yield* Effect.all(
-    [
-      ws.getLockedSkills(),
-      ws.getLockedCommands(),
-      ws.getLockedMcpServers(),
-      ws.getLockedSubagents(),
-      ws.getLockedFiles(),
-      ws.getLockedRules(),
-      ws.getLockedHooks(),
-      ws.getLockedKnowledge(),
-    ],
-    { concurrency: "unbounded" },
+  // Step 3: Resolve versioned managed extensions of every non-pack type from
+  // desired intent and authoritative trust. Receipt history is not consulted.
+  const graph = yield* ws.getDesiredStateGraph();
+  if (!graph.complete) {
+    return yield* makeAppError({
+      code: "conflict",
+      detail: "Cannot add dependencies while the desired extension graph is incomplete.",
+      recover: "Repair or reinstall the configured packs, then retry.",
+    });
+  }
+  const installedNames = new Set(
+    graph.nodes.filter((node) => node.type !== "pack").map((node) => node.name),
   );
-
-  const lockedByType = {
-    skill: lockedSkills,
-    command: lockedCommands,
-    "mcp-server": lockedMcpServers,
-    subagent: lockedSubagents,
-    files: lockedFiles,
-    rule: lockedRules,
-    hook: lockedHooks,
-    knowledge: lockedKnowledge,
-  } satisfies Record<PackAddExtensionType, Readonly<Record<string, PackAddLockEntry>>>;
-
-  // Only registry and workspace entries carry a version to pin. Git, local, and
-  // inline MCP entries are skipped, and reported as unversioned below.
+  const trust = yield* ws.getTrustState();
   const candidates: Array<PackAddCandidate> = [];
-  const installedNames = new Set<string>();
-  for (const [type, locked] of Object.entries(lockedByType)) {
-    if (!isPackAddExtensionType(type)) continue;
-    for (const [name, entry] of Object.entries(locked)) {
-      installedNames.add(name);
-      if (entry.type !== "registry" && entry.type !== "workspace") continue;
-      const packageName = decodeExtensionNameSync(entry.name);
-      candidates.push({
-        type,
-        name,
-        owner: entry.owner,
-        packageName,
-        fqn: formatFqn({ owner: entry.owner, type, name: packageName }),
-        versionRange: toVersionRange(
-          entry.type === "registry" ? entry.resolvedVersion : entry.version,
-        ),
-      });
+  for (const node of graph.nodes) {
+    if (!isCatalogExtensionType(node.type)) continue;
+    const record = trust.records[trustRecordKey(node.type, node.name)];
+    if (
+      record === undefined ||
+      (record.authority !== "registry" && record.authority !== "workspace") ||
+      record.resolvedVersion === undefined
+    ) {
+      continue;
     }
+    const trustedIdentity = record.sourceIdentity.startsWith("workspace:")
+      ? record.sourceIdentity.slice("workspace:".length)
+      : record.sourceIdentity;
+    const parsed = parseExtensionFqnParts(trustedIdentity);
+    if (parsed === undefined || parsed.type !== node.type) continue;
+    const desiredIdentity = node.identity.startsWith("workspace:")
+      ? node.identity.slice("workspace:".length)
+      : node.identity;
+    if (desiredIdentity !== trustedIdentity) continue;
+    const packageName = decodeExtensionNameSync(parsed.name);
+    candidates.push({
+      type: node.type,
+      name: node.name,
+      owner: parsed.owner,
+      packageName,
+      fqn: formatFqn({ owner: parsed.owner, type: node.type, name: packageName }),
+      versionRange: toVersionRange(record.resolvedVersion),
+    });
   }
 
   const requestedFqn = parseExtensionFqnParts(args.extension);

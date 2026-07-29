@@ -22,10 +22,13 @@ import {
   rowsFor,
 } from "../../workspace/test-stubs.js";
 import { sanitizeName } from "../../extensions/utils.js";
+import { computePackageContentHash } from "../../extensions/package-hash.js";
+import { type ExtensionTrustRecord, type WorkspaceTrustState } from "../../trust/index.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 import { handle } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "../../utils/path-types.js";
+import { computeSkillSourceHash } from "./source-hash.js";
 
 type SettingsSkillValue =
   | string
@@ -51,6 +54,7 @@ const makeWorkspaceMock = (
     configuredAgents?: ReadonlyArray<string>;
     lockfileSkills?: Record<string, SkillLockEntry>;
     settingsSkills?: Record<string, SettingsSkillValue>;
+    contentIdentity?: string;
     updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
     setSkillLockFn?: WorkspaceMutationsService["setSkillLock"];
   } = {},
@@ -58,6 +62,42 @@ const makeWorkspaceMock = (
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
   const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
   const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
+  const trustState = () => {
+    const name = "my-skill";
+    const lockEntry = lockfileSkills[name];
+    const settingsEntry = settingsSkills[name];
+    if (lockEntry === undefined || settingsEntry === undefined) {
+      const empty: WorkspaceTrustState = { trustStateVersion: 1, records: {} };
+      return Effect.succeed(empty);
+    }
+    const sourceIdentity = getConfiguredSkillSource(settingsEntry);
+    const contentIdentity = opts.contentIdentity ?? "0".repeat(64);
+    const record: ExtensionTrustRecord =
+      lockEntry.type === "registry"
+        ? {
+            extensionType: "skill",
+            name,
+            authority: "registry",
+            sourceIdentity,
+            resolvedVersion: lockEntry.resolvedVersion,
+            publisherBindingId: lockEntry.publisherBindingId,
+            sourceName: lockEntry.sourceName,
+            integrity: lockEntry.integrity,
+            contentIdentity,
+          }
+        : {
+            extensionType: "skill",
+            name,
+            authority: lockEntry.type,
+            sourceIdentity,
+            contentIdentity,
+          };
+    const state: WorkspaceTrustState = {
+      trustStateVersion: 1,
+      records: { [`skill:${name}`]: record },
+    };
+    return Effect.succeed(state);
+  };
 
   return makeBaseWorkspaceMock(axmDir, {
     rows: rowsFor({
@@ -71,6 +111,7 @@ const makeWorkspaceMock = (
       ),
     }),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
+    getTrustState: trustState,
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
     getSkillDir: (name: string) => {
@@ -170,6 +211,9 @@ describe("enableSkill", () => {
     it.effect("creates agent symlinks from existing canonical directory", () =>
       Effect.gen(function* () {
         const { axmDir, base, canonicalDir } = setupWorkspace();
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir).pipe(
+          Effect.provide(NodeServices.layer),
+        );
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -179,6 +223,7 @@ describe("enableSkill", () => {
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
+              contentIdentity,
             }),
           ),
         );
@@ -198,7 +243,12 @@ describe("enableSkill", () => {
 
     it.effect("handles multiple agents concurrently", () =>
       Effect.gen(function* () {
-        const { axmDir, base } = setupWorkspace({ agents: ["claude-code", "cursor"] });
+        const { axmDir, base, canonicalDir } = setupWorkspace({
+          agents: ["claude-code", "cursor"],
+        });
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir).pipe(
+          Effect.provide(NodeServices.layer),
+        );
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -208,6 +258,7 @@ describe("enableSkill", () => {
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
+              contentIdentity,
             }),
           ),
         );
@@ -222,7 +273,10 @@ describe("enableSkill", () => {
 
     it.effect("leaves the shared lock entry unchanged", () =>
       Effect.gen(function* () {
-        const { axmDir } = setupWorkspace();
+        const { axmDir, canonicalDir } = setupWorkspace();
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir).pipe(
+          Effect.provide(NodeServices.layer),
+        );
         const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
 
         yield* enableSkill(makeOp()).pipe(
@@ -233,6 +287,7 @@ describe("enableSkill", () => {
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
+              contentIdentity,
               setSkillLockFn,
             }),
           ),
@@ -244,7 +299,10 @@ describe("enableSkill", () => {
 
     it.effect("calls updateSkillEntry to set enabled: true", () =>
       Effect.gen(function* () {
-        const { axmDir } = setupWorkspace();
+        const { axmDir, canonicalDir } = setupWorkspace();
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir).pipe(
+          Effect.provide(NodeServices.layer),
+        );
         const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
 
         yield* enableSkill(makeOp()).pipe(
@@ -255,6 +313,7 @@ describe("enableSkill", () => {
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
+              contentIdentity,
               updateSkillEntryFn,
             }),
           ),
@@ -290,7 +349,7 @@ describe("enableSkill", () => {
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("not found");
+        expect(result.message).toContain("not usable");
         // State should NOT have been updated
         expect(updateSkillEntryFn).not.toHaveBeenCalled();
       }),
@@ -315,6 +374,9 @@ describe("enableSkill", () => {
         const registrySrcDir = path.join(registryCanonical, "src");
         fs.mkdirSync(registrySrcDir, { recursive: true });
         fs.writeFileSync(path.join(registrySrcDir, "SKILL.md"), "# my-skill");
+        const contentIdentity = yield* computePackageContentHash(registryCanonical).pipe(
+          Effect.provide(NodeServices.layer),
+        );
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -327,6 +389,7 @@ describe("enableSkill", () => {
                   enabled: false,
                 },
               },
+              contentIdentity,
             }),
           ),
         );
@@ -341,7 +404,7 @@ describe("enableSkill", () => {
   });
 
   describe("settings-only enable (no lock entry)", () => {
-    it.effect("updates settings to enabled: true without lockfile or symlink work", () =>
+    it.effect("fails without trusted canonical content", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
@@ -359,12 +422,11 @@ describe("enableSkill", () => {
               updateSkillEntryFn,
             }),
           ),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
-        expect(result.result).toBe("success");
-        // Settings should be updated
-        expect(updateSkillEntryFn).toHaveBeenCalledOnce();
-        expect(updateSkillEntryFn).toHaveBeenCalledWith("my-skill", expect.any(Function));
+        expect(result.result).toBe("error");
+        expect(updateSkillEntryFn).not.toHaveBeenCalled();
         // No agent symlinks should have been created (no canonical dir)
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
       }),
@@ -393,7 +455,7 @@ describe("enableSkill", () => {
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("not found");
+        expect(result.message).toContain("not usable");
       }),
     );
   });

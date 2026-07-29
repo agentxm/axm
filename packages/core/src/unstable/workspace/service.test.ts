@@ -5,6 +5,7 @@
  * including CI environment detection fallback.
  */
 
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -37,6 +38,7 @@ import {
   stringProperty,
   versionRange,
 } from "../test-helpers.js";
+import { computeSourceHash } from "../extensions/index.js";
 import { withDegradedLockfileReads } from "./lockfile-read-tolerance.js";
 import { layer as workspaceLayer } from "./service.js";
 import {
@@ -116,6 +118,51 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
+  describe("removeTrustRecord", () => {
+    it.effect("retires only the explicitly uninstalled identity", () =>
+      Effect.gen(function* () {
+        const trustPath = path.join(projectDir, ".axm", "trust.json");
+        fs.writeFileSync(
+          trustPath,
+          JSON.stringify({
+            trustStateVersion: 1,
+            records: {
+              "skill:review": {
+                extensionType: "skill",
+                name: "review",
+                authority: "registry",
+                sourceIdentity: "@acme/skills/review",
+                resolvedVersion: "1.0.0",
+                publisherBindingId: "hbnd_epoch_1",
+              },
+              "command:review": {
+                extensionType: "command",
+                name: "review",
+                authority: "registry",
+                sourceIdentity: "@acme/commands/review",
+                resolvedVersion: "1.0.0",
+                publisherBindingId: "hbnd_epoch_1",
+              },
+            },
+          }),
+        );
+        const ws = yield* getService({ scope: "project" });
+
+        yield* ws.removeTrustRecord("skill", "review");
+
+        const trust: unknown = JSON.parse(fs.readFileSync(trustPath, "utf8"));
+        expect(trust).toMatchObject({
+          records: {
+            "command:review": {
+              publisherBindingId: "hbnd_epoch_1",
+            },
+          },
+        });
+        expect(JSON.stringify(trust)).not.toContain('"skill:review"');
+      }),
+    );
+  });
+
   describe("workspace readiness", () => {
     it.effect("fails fast when settings.json is missing", () =>
       Effect.gen(function* () {
@@ -141,7 +188,7 @@ describe("WorkspaceMutationsService", () => {
 
         expect(inventory).toMatchObject({
           count: 1,
-          installedCount: 0,
+          installedCount: 1,
           unmanagedCount: 1,
           items: [
             {
@@ -244,6 +291,88 @@ describe("WorkspaceMutationsService", () => {
     const axmDir = path.join(dir, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
     fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings, null, 2));
+  };
+
+  const writePackManifestTo = (
+    dir: string,
+    owner: string,
+    name: string,
+    dependencies: Readonly<Record<string, string>>,
+  ) => {
+    const packDir = path.join(dir, ".axm", "extensions", owner, "packs", name);
+    fs.mkdirSync(packDir, { recursive: true });
+    const manifest = JSON.stringify({
+      owner,
+      type: "pack",
+      name,
+      version: "1.0.0",
+      dependencies,
+    });
+    fs.writeFileSync(path.join(packDir, "pack.json"), manifest);
+    const packageDigest = crypto
+      .createHash("sha256")
+      .update("pack.json")
+      .update("\0")
+      .update(manifest)
+      .update("\0")
+      .digest("hex");
+    const contentIdentity = computeSourceHash(packageDigest);
+    fs.writeFileSync(
+      path.join(dir, ".axm", "trust.json"),
+      JSON.stringify({
+        trustStateVersion: 1,
+        records: {
+          [`pack:${name}`]: {
+            extensionType: "pack",
+            name,
+            authority: "registry",
+            sourceIdentity: `${owner}/packs/${name}`,
+            resolvedVersion: "1.0.0",
+            publisherBindingId: "hbnd_test",
+            contentIdentity,
+          },
+        },
+      }),
+    );
+    return contentIdentity;
+  };
+
+  const writeLegacyPackReceiptTo = (
+    dir: string,
+    owner: string,
+    name: string,
+    contentIdentity: string,
+  ) => {
+    fs.rmSync(path.join(dir, ".axm", "trust.json"), { force: true });
+    fs.writeFileSync(
+      path.join(dir, ".axm", "axm-lock.yaml"),
+      YAML.stringify({
+        lockfileVersion: 3,
+        skills: {},
+        packs: {
+          [name]: {
+            type: "registry",
+            owner,
+            name,
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            sourceHash: contentIdentity,
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+            resolvedSkills: {},
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: {},
+            resolvedFiles: {},
+            resolvedRules: {},
+            resolvedHooks: {},
+            resolvedKnowledge: {},
+          },
+        },
+      }),
+    );
   };
 
   describe("getConfiguredSources", () => {
@@ -1274,6 +1403,70 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
+  describe("registry constraint parity", () => {
+    it.effect("preserves command, subagent, and MCP constraints in direct settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+        const now = yield* DateTime.now;
+        const ws = yield* getService(defaultOptions);
+
+        yield* ws.setCommand({
+          name: "review",
+          versionRange: Option.some(versionRange("^1.0.0")),
+          lockEntry: {
+            type: "registry",
+            owner: handle("@acme"),
+            name: extensionName("review"),
+            resolvedVersion: exactVersion("1.2.3"),
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            installedAt: now,
+            updatedAt: now,
+          },
+        });
+        yield* ws.setSubagent({
+          name: "reviewer",
+          versionRange: Option.some(versionRange("~2.0.0")),
+          lockEntry: {
+            type: "registry",
+            owner: handle("@acme"),
+            name: extensionName("reviewer"),
+            resolvedVersion: exactVersion("2.0.4"),
+            integrity: "sha512-BBBB==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            installedAt: now,
+            updatedAt: now,
+          },
+        });
+        yield* ws.setMcpServer({
+          name: "browser",
+          versionRange: Option.some(versionRange("3.x")),
+          lockEntry: {
+            type: "registry",
+            owner: handle("@acme"),
+            name: extensionName("browser"),
+            resolvedVersion: exactVersion("3.1.0"),
+            integrity: "sha512-CCCC==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            installedAt: now,
+            updatedAt: now,
+          },
+        });
+
+        const settings = JSON.parse(
+          fs.readFileSync(path.join(projectDir, ".axm", "settings.json"), "utf8"),
+        );
+        expect(settings.commands.review).toBe("@acme/commands/review@^1.0.0");
+        expect(settings.subagents.reviewer).toBe("@acme/subagents/reviewer@~2.0.0");
+        expect(settings.mcpServers.browser).toBe("@acme/mcps/browser@3.x");
+      }),
+    );
+  });
+
   describe("setSubagent", () => {
     it.effect("does not rewrite files when the subagent entry is unchanged", () =>
       Effect.gen(function* () {
@@ -1304,6 +1497,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.setSubagent({
           name: "planner",
+          versionRange: Option.none(),
           lockEntry: {
             ...makeSampleSubagentLockEntry(),
             installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
@@ -2097,9 +2291,192 @@ describe("WorkspaceMutationsService", () => {
         expect(knowledge["payments"]?.source).toBe("@acme/knowledge/payments@^1.0.0");
       }),
     );
+
+    it.effect(
+      "uses a valid legacy receipt as the one-time trust migration baseline for packs",
+      () =>
+        Effect.gen(function* () {
+          writeSettingsTo(projectDir, {
+            agents: ["claude-code"],
+            packs: { "starter-pack": "@acme/packs/starter-pack" },
+          });
+          const contentIdentity = writePackManifestTo(projectDir, "@acme", "starter-pack", {});
+          writeLegacyPackReceiptTo(projectDir, "@acme", "starter-pack", contentIdentity);
+
+          const ws = yield* getService(defaultOptions);
+          const graph = yield* ws.getDesiredStateGraph();
+
+          expect(graph.complete).toBe(true);
+          expect(graph.problems).toEqual([]);
+          expect(graph.nodes).toContainEqual(
+            expect.objectContaining({
+              type: "pack",
+              name: "starter-pack",
+            }),
+          );
+        }),
+    );
+
+    it.effect(
+      "keeps desired state identical across receipt conditions for all extension types",
+      () =>
+        Effect.gen(function* () {
+          writeSettingsTo(projectDir, {
+            agents: ["claude-code"],
+            skills: { review: "@acme/skills/review@^1.0.0" },
+            commands: { release: "@acme/commands/release@^1.0.0" },
+            mcpServers: { browser: "@acme/mcps/browser@^1.0.0" },
+            subagents: { planner: "@acme/subagents/planner@^1.0.0" },
+            files: { baseline: "@acme/files/baseline@^1.0.0" },
+            rules: { security: "@acme/rules/security@^1.0.0" },
+            hooks: { preflight: "@acme/hooks/preflight@^1.0.0" },
+            knowledge: { handbook: "@acme/knowledge/handbook@^1.0.0" },
+            packs: { "starter-pack": "@acme/packs/starter-pack@^1.0.0" },
+          });
+          writePackManifestTo(projectDir, "@acme", "starter-pack", {});
+
+          const timestamp = "2025-01-01T00:00:00.000Z";
+          const receiptEntry = (name: string, owner = "@acme") => ({
+            type: "registry",
+            owner,
+            name,
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            installedAt: timestamp,
+            updatedAt: timestamp,
+          });
+          const receipt = (suffix = "", owner = "@acme") => ({
+            lockfileVersion: 3,
+            skills: { [`review${suffix}`]: receiptEntry(`review${suffix}`, owner) },
+            commands: { [`release${suffix}`]: receiptEntry(`release${suffix}`, owner) },
+            mcpServers: { [`browser${suffix}`]: receiptEntry(`browser${suffix}`, owner) },
+            subagents: { [`planner${suffix}`]: receiptEntry(`planner${suffix}`, owner) },
+            files: { [`baseline${suffix}`]: receiptEntry(`baseline${suffix}`, owner) },
+            rules: { [`security${suffix}`]: receiptEntry(`security${suffix}`, owner) },
+            hooks: { [`preflight${suffix}`]: receiptEntry(`preflight${suffix}`, owner) },
+            knowledge: { [`handbook${suffix}`]: receiptEntry(`handbook${suffix}`, owner) },
+            packs: {
+              [`starter-pack${suffix}`]: {
+                ...receiptEntry(`starter-pack${suffix}`, owner),
+                resolvedSkills: {},
+                resolvedCommands: {},
+                resolvedMcpServers: {},
+                resolvedSubagents: {},
+                resolvedFiles: {},
+                resolvedRules: {},
+                resolvedHooks: {},
+                resolvedKnowledge: {},
+              },
+            },
+          });
+          const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+          const variants = [
+            {
+              name: "missing",
+              write: () => fs.rmSync(lockfilePath, { force: true }),
+            },
+            {
+              name: "accurate",
+              write: () => fs.writeFileSync(lockfilePath, YAML.stringify(receipt())),
+            },
+            {
+              name: "stale",
+              write: () => fs.writeFileSync(lockfilePath, YAML.stringify(receipt("-old"))),
+            },
+            {
+              name: "settings-conflicting",
+              write: () => fs.writeFileSync(lockfilePath, YAML.stringify(receipt("", "@other"))),
+            },
+            {
+              name: "corrupt",
+              write: () => fs.writeFileSync(lockfilePath, "not: [valid"),
+            },
+          ] as const;
+
+          const snapshots: Array<unknown> = [];
+          let observedTypes: ReadonlyArray<string> = [];
+          for (const variant of variants) {
+            variant.write();
+            const ws = yield* getService(defaultOptions);
+            const graph = yield* ws.getDesiredStateGraph();
+            snapshots.push({
+              complete: graph.complete,
+              nodes: graph.nodes,
+              problems: graph.problems,
+            });
+            if (observedTypes.length === 0) {
+              observedTypes = graph.nodes.map((node) => node.type);
+            }
+          }
+
+          expect(snapshots.slice(1)).toEqual(snapshots.slice(1).map(() => snapshots[0]));
+          expect(observedTypes).toEqual([
+            "skill",
+            "command",
+            "mcp-server",
+            "subagent",
+            "files",
+            "rule",
+            "hook",
+            "knowledge",
+            "pack",
+          ]);
+        }),
+    );
   });
 
   describe("getExtensionInventory", () => {
+    it.effect("derives implicit lifecycle for every pack leaf from the pack manifest", () =>
+      Effect.gen(function* () {
+        const cases = [
+          { type: "skill", name: "review", fqn: "@acme/skills/review" },
+          { type: "command", name: "release", fqn: "@acme/commands/release" },
+          { type: "mcp-server", name: "browser", fqn: "@acme/mcps/browser" },
+          { type: "subagent", name: "planner", fqn: "@acme/subagents/planner" },
+          { type: "files", name: "baseline", fqn: "@acme/files/baseline" },
+          { type: "rule", name: "security", fqn: "@acme/rules/security" },
+          { type: "hook", name: "preflight", fqn: "@acme/hooks/preflight" },
+          { type: "knowledge", name: "handbook", fqn: "@acme/knowledge/handbook" },
+        ] as const;
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        writePackManifestTo(
+          projectDir,
+          "@acme",
+          "starter-pack",
+          Object.fromEntries(cases.map((entry) => [entry.fqn, "^1.0.0"])),
+        );
+
+        const ws = yield* getService(defaultOptions);
+        for (const entry of cases) {
+          const rows = yield* ws.records.rows(entry.type);
+          expect(rows).toContainEqual(
+            expect.objectContaining({
+              type: entry.type,
+              name: entry.name,
+              lifecycle: "implicit",
+            }),
+          );
+
+          const inventory = yield* ws.records.getExtensionInventory(entry.type, {
+            includeIgnored: false,
+          });
+          expect(inventory.items).toContainEqual(
+            expect.objectContaining({
+              type: entry.type,
+              name: entry.name,
+              classification: { kind: "lifecycle", lifecycle: "implicit" },
+              installed: false,
+            }),
+          );
+        }
+      }),
+    );
+
     it.effect("returns lifecycle rows for an installed knowledge bundle", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2400,7 +2777,7 @@ describe("WorkspaceMutationsService", () => {
   // ---------------------------------------------------------------------------
 
   describe('rows("skill") — installed, with pack members', () => {
-    it.effect("lockfile-only native skill appears as implicit", () =>
+    it.effect("does not manufacture an installed skill from a receipt-only row", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -2423,8 +2800,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const skills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
 
-        expect(skills).toHaveProperty("code-review");
-        expect(recordEntry(skills, "code-review").lifecycle).toBe("implicit");
+        expect(skills).not.toHaveProperty("code-review");
       }),
     );
 
@@ -2594,7 +2970,7 @@ describe("WorkspaceMutationsService", () => {
   });
 
   describe('rows("command") — installed', () => {
-    it.effect("includes both configured and implicit commands", () =>
+    it.effect("excludes receipt-only commands while preserving configured intent", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -2626,21 +3002,24 @@ describe("WorkspaceMutationsService", () => {
         const installed = yield* ws.records.rows("command").pipe(Effect.map(installedRowsByName));
 
         expect(recordEntry(installed, "configured-cmd").lifecycle).toBe("configured");
-        expect(recordEntry(installed, "implicit-cmd").lifecycle).toBe("implicit");
+        expect(installed).not.toHaveProperty("implicit-cmd");
       }),
     );
   });
 
   // ---------------------------------------------------------------------------
-  // rows("command") — installed lifecycle, with transitive pack commands
+  // rows("command") — installed lifecycle, with desired pack commands
   // ---------------------------------------------------------------------------
 
-  describe('rows("command") — installed, with transitive pack commands', () => {
-    it.effect("pack-resolved commands appear as implicit", () =>
+  describe('rows("command") — installed, with desired pack commands', () => {
+    it.effect("pack-manifest commands appear as implicit", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           packs: { "my-pack": "@acme/packs/my-pack" },
+        });
+        writePackManifestTo(projectDir, "@acme", "my-pack", {
+          "@acme/commands/formatter": "^1.0.0",
         });
         writeLockfileTo(
           projectDir,
@@ -2680,7 +3059,10 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           packs: { "my-pack": "@acme/packs/my-pack" },
-          commands: { formatter: "github:acme/formatter" },
+          commands: { formatter: "@acme/commands/formatter" },
+        });
+        writePackManifestTo(projectDir, "@acme", "my-pack", {
+          "@acme/commands/formatter": "^1.0.0",
         });
         writeLockfileTo(
           projectDir,
@@ -2707,9 +3089,13 @@ describe("WorkspaceMutationsService", () => {
           },
           {
             formatter: {
-              type: "github",
-              owner: "acme",
-              repo: "formatter",
+              type: "registry",
+              owner: "@acme",
+              name: "formatter",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              publisherBindingId: "hbnd_test",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
             },
@@ -2723,11 +3109,15 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("multiple pack-resolved commands appear as implicit", () =>
+    it.effect("multiple pack-manifest commands appear as implicit", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           packs: { "my-pack": "@acme/packs/my-pack" },
+        });
+        writePackManifestTo(projectDir, "@acme", "my-pack", {
+          "@acme/commands/formatter": "^1.0.0",
+          "@acme/commands/linter": "^2.0.0",
         });
         writeLockfileTo(
           projectDir,
@@ -2847,7 +3237,7 @@ describe("WorkspaceMutationsService", () => {
   });
 
   describe('rows("mcp-server") — installed', () => {
-    it.effect("includes both configured and implicit MCP servers", () =>
+    it.effect("excludes receipt-only MCP servers while preserving configured intent", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -2881,7 +3271,7 @@ describe("WorkspaceMutationsService", () => {
           .pipe(Effect.map(installedRowsByName));
 
         expect(recordEntry(installed, "configured-mcp").lifecycle).toBe("configured");
-        expect(recordEntry(installed, "implicit-mcp").lifecycle).toBe("implicit");
+        expect(installed).not.toHaveProperty("implicit-mcp");
       }),
     );
   });
@@ -2931,7 +3321,7 @@ describe("WorkspaceMutationsService", () => {
   });
 
   describe('rows("pack") — installed, with pack members', () => {
-    it.effect("includes lockfile-only implicit packs", () =>
+    it.effect("does not manufacture an installed pack from a receipt-only row", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
         writeLockfileTo(
@@ -2960,11 +3350,11 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const installed = yield* ws.records.rows("pack").pipe(Effect.map(installedRowsByName));
 
-        expect(recordEntry(installed, "@axm/packs/default").lifecycle).toBe("implicit");
+        expect(installed).not.toHaveProperty("@axm/packs/default");
       }),
     );
 
-    it.effect("includes both configured and implicit packs", () =>
+    it.effect("excludes receipt-only packs while preserving configured intent", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -3013,7 +3403,7 @@ describe("WorkspaceMutationsService", () => {
         const installed = yield* ws.records.rows("pack").pipe(Effect.map(installedRowsByName));
 
         expect(recordEntry(installed, "my-pack").lifecycle).toBe("configured");
-        expect(recordEntry(installed, "@axm/packs/default").lifecycle).toBe("implicit");
+        expect(installed).not.toHaveProperty("@axm/packs/default");
       }),
     );
   });
@@ -3057,6 +3447,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.setMcpServer({
           name: "my-mcp",
+          versionRange: Option.none(),
           lockEntry: {
             type: "github" as const,
             owner: "acme",
@@ -3168,6 +3559,7 @@ describe("WorkspaceMutationsService", () => {
   const makeSampleSetCommandArgs = (overrides?: Partial<SetCommandArgs>): SetCommandArgs => ({
     name: "my-command",
     lockEntry: makeSampleCommandLockEntry(),
+    versionRange: Option.none(),
     ...overrides,
   });
 
@@ -3313,6 +3705,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setCommand({
           name: "my-command",
           lockEntry: updatedEntry,
+          versionRange: Option.none(),
         });
 
         // Verify settings updated
@@ -3469,6 +3862,7 @@ describe("WorkspaceMutationsService", () => {
   const makeSampleSetMcpServerArgs = (overrides?: Partial<SetMcpServerArgs>): SetMcpServerArgs => ({
     name: "my-mcp-server",
     lockEntry: makeSampleMcpServerLockEntry(),
+    versionRange: Option.none(),
     ...overrides,
   });
 
@@ -3617,6 +4011,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setMcpServer({
           name: "my-mcp-server",
           lockEntry: updatedEntry,
+          versionRange: Option.none(),
         });
 
         // Verify settings updated
@@ -4109,400 +4504,78 @@ describe("WorkspaceMutationsService", () => {
   // ---------------------------------------------------------------------------
 
   describe("isExtensionRequiredByInstalledPack", () => {
-    it.effect("returns true when skill is referenced by an installed pack", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-        });
-        writeLockfileTo(
-          projectDir,
-          {
-            "code-review": {
-              type: "github",
-              owner: "acme",
-              repo: "code-review",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-            },
-          },
-          {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
+    const writeConfiguredPack = (dependencies: Readonly<Record<string, string>>) => {
+      writeSettingsTo(projectDir, {
+        agents: ["claude-code"],
+        packs: { "starter-pack": "@acme/packs/starter-pack" },
+      });
+      writePackManifestTo(projectDir, "@acme", "starter-pack", dependencies);
+    };
 
-              publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: {
-                "@acme/skills/code-review": { version: "1.0.0", publisherBindingId: "hbnd_test" },
-              },
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-              resolvedSubagents: {},
-            },
-          },
-        );
+    it.effect("uses the authoritative pack manifest for every leaf extension type", () =>
+      Effect.gen(function* () {
+        writeConfiguredPack({
+          "@acme/skills/review": "^1.0.0",
+          "@acme/commands/release": "^1.0.0",
+          "@acme/mcps/browser": "^1.0.0",
+          "@acme/subagents/planner": "^1.0.0",
+          "@acme/files/baseline": "^1.0.0",
+          "@acme/rules/security": "^1.0.0",
+          "@acme/hooks/preflight": "^1.0.0",
+          "@acme/knowledge/handbook": "^1.0.0",
+        });
+        writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
-          type: "skill",
-          name: "code-review",
-        });
+        const targets = [
+          { type: "skill", name: "review" },
+          { type: "command", name: "release" },
+          { type: "mcp-server", name: "browser" },
+          { type: "subagent", name: "planner" },
+          { type: "files", name: "baseline" },
+          { type: "rule", name: "security" },
+          { type: "hook", name: "preflight" },
+          { type: "knowledge", name: "handbook" },
+        ] as const;
 
-        expect(result).toBe(true);
+        for (const target of targets) {
+          expect(yield* ws.isExtensionRequiredByInstalledPack(target)).toBe(true);
+        }
+        expect(
+          yield* ws.isExtensionRequiredByInstalledPack({
+            type: "knowledge",
+            name: "scratch-notes",
+          }),
+        ).toBe(false);
       }),
     );
 
-    it.effect("returns true when command is referenced by an installed pack", () =>
+    it.effect("does not accept a stale receipt as pack-retention authority", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-
-              publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: {},
-              resolvedCommands: {
-                "@acme/commands/my-cmd": { version: "1.0.0", publisherBindingId: "hbnd_test" },
-              },
-              resolvedMcpServers: {},
-              resolvedSubagents: {},
-            },
+        writeLockfileTo(projectDir, {
+          review: {
+            type: "github",
+            owner: "acme",
+            repo: "review",
+            retainedByPack: true,
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
           },
-          {
-            "my-cmd": {
-              type: "github",
-              owner: "acme",
-              repo: "my-cmd",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-            },
-          },
-        );
+        });
 
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
-          type: "command",
-          name: "my-cmd",
+        const error = yield* ws
+          .isExtensionRequiredByInstalledPack({ type: "skill", name: "review" })
+          .pipe(Effect.flip);
+
+        expect(getAppError(error)).toMatchObject({
+          code: "conflict",
+          detail: "Cannot decide pack retention because the desired pack graph is incomplete.",
         });
-
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("returns true when mcp-server is referenced by an installed pack", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-        });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-
-              publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: {},
-              resolvedCommands: {},
-              resolvedMcpServers: {
-                "@acme/mcps/my-mcp": { version: "1.0.0", publisherBindingId: "hbnd_test" },
-              },
-              resolvedSubagents: {},
-            },
-          },
-          undefined,
-          {
-            "my-mcp": {
-              type: "github",
-              owner: "acme",
-              repo: "my-mcp",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-            },
-          },
-        );
-
-        const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
-          type: "mcp-server",
-          name: "my-mcp",
-        });
-
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("returns true when subagent is referenced by an installed pack", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-        });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-
-              publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: {},
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-              resolvedSubagents: {
-                "@acme/subagents/planner": { version: "1.0.0", publisherBindingId: "hbnd_test" },
-              },
-            },
-          },
-          undefined,
-          undefined,
-          {
-            planner: {
-              type: "github",
-              owner: "acme",
-              repo: "planner",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-            },
-          },
-        );
-
-        const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
-          type: "subagent",
-          name: "planner",
-        });
-
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("returns true when a knowledge bundle is referenced by an installed pack", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-        });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-
-              publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: {},
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-              resolvedSubagents: {},
-              resolvedKnowledge: {
-                "@acme/knowledge/domain-model": {
-                  version: "1.0.0",
-                  publisherBindingId: "hbnd_test",
-                },
-              },
-            },
-          },
-          undefined,
-          undefined,
-          undefined,
-          {
-            "domain-model": {
-              type: "github",
-              owner: "acme",
-              repo: "domain-model",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-            },
-          },
-        );
-
-        const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
-          type: "knowledge",
-          name: "domain-model",
-        });
-
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("returns false for a knowledge bundle no installed pack requires", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-        });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-
-              publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: {},
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-              resolvedSubagents: {},
-              resolvedKnowledge: {
-                "@acme/knowledge/domain-model": {
-                  version: "1.0.0",
-                  publisherBindingId: "hbnd_test",
-                },
-              },
-            },
-          },
-          undefined,
-          undefined,
-          undefined,
-          {
-            "scratch-notes": {
-              type: "github",
-              owner: "acme",
-              repo: "scratch-notes",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-            },
-          },
-        );
-
-        const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
-          type: "knowledge",
-          name: "scratch-notes",
-        });
-
-        expect(result).toBe(false);
-      }),
-    );
-
-    it.effect("does not consult the hooks map for subagent targets", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-        });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-
-              publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: {},
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-              resolvedSubagents: {},
-              resolvedHooks: {
-                "@acme/hooks/planner": { version: "1.0.0", publisherBindingId: "hbnd_test" },
-              },
-            },
-          },
-        );
-
-        const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
-          type: "subagent",
-          name: "planner",
-        });
-
-        expect(result).toBe(false);
-      }),
-    );
-
-    it.effect("returns false when extension is not referenced by any pack", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-        });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              owner: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-
-              publisherBindingId: "hbnd_test",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: {},
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-              resolvedSubagents: {},
-            },
-          },
-        );
-
-        const ws = yield* getService(defaultOptions);
-        const result = yield* ws.isExtensionRequiredByInstalledPack({
-          type: "skill",
-          name: "orphan-skill",
-        });
-
-        expect(result).toBe(false);
       }),
     );
 
@@ -4534,129 +4607,6 @@ describe("WorkspaceMutationsService", () => {
         });
 
         expect(result).toBe(false);
-      }),
-    );
-  });
-
-  describe("markDependencyRetainedInLockfile", () => {
-    it.effect("marks skill as retained in lockfile by setting retainedByPack flag", () =>
-      Effect.gen(function* () {
-        writeLockfileTo(projectDir, {
-          "code-review": {
-            type: "github",
-            owner: "acme",
-            repo: "code-review",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        yield* ws.markDependencyRetainedInLockfile({ type: "skill", name: "code-review" });
-
-        const lockfile = readLockfileFromDisk(projectDir);
-        expect(property(recordEntry(lockfile.skills, "code-review"), "retainedByPack")).toBe(true);
-      }),
-    );
-
-    it.effect("marks command as retained in lockfile", () =>
-      Effect.gen(function* () {
-        writeLockfileTo(projectDir, {}, undefined, {
-          "my-cmd": {
-            type: "github",
-            owner: "acme",
-            repo: "my-cmd",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        yield* ws.markDependencyRetainedInLockfile({ type: "command", name: "my-cmd" });
-
-        const lockfile = readLockfileFromDisk(projectDir);
-        expect(
-          property(recordEntry(expectDefined(lockfile.commands), "my-cmd"), "retainedByPack"),
-        ).toBe(true);
-      }),
-    );
-
-    it.effect("marks mcp-server as retained in lockfile", () =>
-      Effect.gen(function* () {
-        writeLockfileTo(projectDir, {}, undefined, undefined, {
-          "my-mcp": {
-            type: "github",
-            owner: "acme",
-            repo: "my-mcp",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        yield* ws.markDependencyRetainedInLockfile({ type: "mcp-server", name: "my-mcp" });
-
-        const lockfile = readLockfileFromDisk(projectDir);
-        expect(
-          property(recordEntry(expectDefined(lockfile.mcpServers), "my-mcp"), "retainedByPack"),
-        ).toBe(true);
-      }),
-    );
-
-    it.effect("marks subagent as retained in lockfile", () =>
-      Effect.gen(function* () {
-        writeLockfileTo(projectDir, {}, undefined, undefined, undefined, {
-          planner: {
-            type: "github",
-            owner: "acme",
-            repo: "planner",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        yield* ws.markDependencyRetainedInLockfile({ type: "subagent", name: "planner" });
-
-        const lockfile = readLockfileFromDisk(projectDir);
-        expect(
-          property(recordEntry(expectDefined(lockfile.subagents), "planner"), "retainedByPack"),
-        ).toBe(true);
-      }),
-    );
-
-    it.effect("marks knowledge bundle as retained in lockfile", () =>
-      Effect.gen(function* () {
-        writeLockfileTo(projectDir, {}, undefined, undefined, undefined, undefined, {
-          handbook: {
-            type: "github",
-            owner: "acme",
-            repo: "handbook",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        yield* ws.markDependencyRetainedInLockfile({ type: "knowledge", name: "handbook" });
-
-        const lockfile = readLockfileFromDisk(projectDir);
-        expect(
-          property(recordEntry(expectDefined(lockfile.knowledge), "handbook"), "retainedByPack"),
-        ).toBe(true);
-      }),
-    );
-
-    it.effect("no-op when target not found in lockfile", () =>
-      Effect.gen(function* () {
-        writeLockfileTo(projectDir, {});
-
-        const ws = yield* getService(defaultOptions);
-        yield* ws.markDependencyRetainedInLockfile({ type: "skill", name: "nonexistent" });
-
-        // Should not throw, just no-op
-        const lockfile = readLockfileFromDisk(projectDir);
-        expect(lockfile.skills).toEqual({});
       }),
     );
   });

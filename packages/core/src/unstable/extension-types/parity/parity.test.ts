@@ -25,6 +25,7 @@ import { READ_MODEL_EXTENSION_FAMILY_BY_TYPE } from "../../workspace/read-model/
 import { CATALOG_EXTENSION_TYPES, type CatalogExtensionType } from "../schema.js";
 import { exemptedObligations } from "./exemptions.js";
 import { obligationsVerifiedBy, type ObligationId } from "./obligations.js";
+import { WORKSPACE_RECONCILIATION_OBLIGATIONS } from "./reconciliation.js";
 
 const TIER = "core-test";
 
@@ -72,6 +73,8 @@ const CHECKS: Record<ObligationId, ((type: CatalogExtensionType) => boolean) | n
     }),
   "2.9-read-model-family": (type) => READ_MODEL_EXTENSION_FAMILY_BY_TYPE[type] !== null,
   "2.11-ignore-config": (type) => SETTINGS_CONFIG_SCHEMA_BY_TYPE[type] !== null,
+  "2.12-workspace-reconciliation": (type) =>
+    WORKSPACE_RECONCILIATION_OBLIGATIONS[type] !== undefined,
   "6.1-e2e-install-row": null,
   "7.1-help-topic": null,
   "8.6-entity-key": null,
@@ -109,14 +112,14 @@ describe("extension type parity (core tier)", () => {
 
   it("names no extension type outside the designated ledger", () => {
     const parityDir = import.meta.dirname;
-    const LEDGER = "exemptions.ts";
+    const TYPE_INDEXED_TABLES = new Set(["exemptions.ts", "reconciliation.ts"]);
 
     const forbidden = new Set<string>(CATALOG_EXTENSION_TYPES);
     const quoted = /["'`]([^"'`\n]*)["'`]/g;
 
     const offenders = fs
       .readdirSync(parityDir)
-      .filter((entry) => entry !== LEDGER && entry.endsWith(".ts"))
+      .filter((entry) => !TYPE_INDEXED_TABLES.has(entry) && entry.endsWith(".ts"))
       .flatMap((entry) => {
         const source = fs.readFileSync(path.join(parityDir, entry), "utf-8");
         return Array.from(source.matchAll(quoted))

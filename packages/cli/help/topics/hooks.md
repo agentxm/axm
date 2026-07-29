@@ -179,4 +179,5 @@ See `axm help packs` for pack authoring and `standalone` semantics.
 - `axm hooks --help` — full hook subcommand surface
 - `axm help hook-schema` — raw `hook.json` JSON Schema
 - `axm help settings` — workspace state and the `hooks` map
+- `axm help workspace-state` — package, native-config, and fallback reconciliation
 - `axm help packs` — bundling hook extensions with extension packs

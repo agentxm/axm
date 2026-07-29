@@ -200,6 +200,66 @@ describe("root sync handler", () => {
     }),
   );
 
+  it.effect("migrates a valid legacy receipt into the dedicated trust baseline", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: [],
+        lockfileSkills: {
+          review: {
+            type: "registry",
+            owner: "@acme",
+            name: "review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        },
+      });
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"));
+      expect(trust.records["skill:review"]).toMatchObject({
+        extensionType: "skill",
+        authority: "registry",
+        sourceIdentity: "@acme/skills/review",
+        publisherBindingId: "hbnd_test",
+      });
+    }),
+  );
+
+  it.effect("keeps legacy trust migration preview read-only", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: [],
+        lockfileSkills: {
+          review: {
+            type: "registry",
+            owner: "@acme",
+            name: "review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        },
+      });
+
+      yield* provide(handleSync({ dryRun: true, force: false }));
+
+      expect(fs.existsSync(path.join(axmDir, "trust.json"))).toBe(false);
+    }),
+  );
+
   it.effect("writes a missing lockfile even when there is nothing to materialize", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();
@@ -287,6 +347,34 @@ describe("root sync handler", () => {
       ]);
       const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
       expect(config.mcpServers).toEqual({});
+    }),
+  );
+
+  it.effect("does not prune managed artifacts when configured pack state is incomplete", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        packs: {
+          missing: "@acme/packs/missing",
+        },
+      });
+      const configPath = path.join(tempDir, ".mcp.json");
+      writeJson(configPath, {
+        mcpServers: {
+          retained: {
+            "x-axm": { managed: true, source: "@acme/mcps/retained" },
+            type: "stdio",
+            command: "node",
+          },
+        },
+      });
+
+      const error = yield* provide(handleSync({ dryRun: false, force: false })).pipe(Effect.flip);
+
+      expect(error.detail).toContain("incomplete desired extension graph");
+      const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+      expect(config.mcpServers.retained.command).toBe("node");
     }),
   );
 
@@ -434,7 +522,7 @@ describe("root sync handler", () => {
 
   it.effect("renders settings-owned on-disk extensions while ignoring stale lockfile sources", () =>
     Effect.gen(function* () {
-      const { provide } = makeLayers();
+      const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = path.join(tempDir, ".axm");
       const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "review");
 
@@ -477,6 +565,13 @@ describe("root sync handler", () => {
       expect(fs.readFileSync(renderedSkill, "utf-8")).toContain("# Review");
       expect(fs.existsSync(universalSkill)).toBe(true);
       expect(fs.readFileSync(universalSkill, "utf-8")).toContain("# Review");
+
+      rendererState.results.length = 0;
+      yield* provide(handleSync({ dryRun: false, force: false }));
+      expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
     }),
   );
 
@@ -718,9 +813,9 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ dryRun: true, force: false }));
 
-      expectPreviewedPlanResult(rendererState.results[0]?.data, {
+      expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        totalSteps: 1,
+        message: "Workspace materialization is up to date",
       });
       const rendered = rendererState.logs.map((entry) => entry.message).join("\n");
       expect(rendered).not.toContain("instruction gitignore entries");

@@ -189,20 +189,30 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
             message: `Created ${fqn}`,
             buildArtifact: () =>
               Effect.gen(function* () {
-                const currentLockEntry = yield* ws.getLockedFilesEntry(name);
-                if (Option.isNone(currentLockEntry)) {
-                  return yield* makeAppError({
-                    code: "internal",
-                    detail: `Created files package ${fqn} but could not read its lockfile entry`,
-                    suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
-                  });
-                }
+                const currentLockEntry = yield* ws
+                  .getLockedFilesEntry(name)
+                  .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                 const materialization =
                   manager.getLastMaterialization === undefined
                     ? { agents: [], targets: [] }
                     : yield* manager.getLastMaterialization({
                         target: { type: "files", name },
                       });
+                if (Option.isNone(currentLockEntry)) {
+                  return {
+                    path: targetDir,
+                    scope: ws.scope,
+                    version,
+                    change: "created",
+                    targets: [
+                      { path: targetDir, change: "created" },
+                      ...materialization.targets.map((target) => ({
+                        ...target,
+                        change: "created" as const,
+                      })),
+                    ],
+                  } satisfies JobStepArtifact;
+                }
 
                 return filesNewArtifact({
                   lockEntry: currentLockEntry.value,

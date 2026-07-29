@@ -15,7 +15,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
-import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../extensions/index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  computePackageContentHash,
+  shouldReuseCanonicalInstall,
+  type SourceHash,
+} from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { PackRef, RegistryPackRef, WorkspacePackRef } from "./refs.js";
 import {
@@ -32,8 +37,10 @@ import { validateExactResolvedVersion } from "../lockfile/index.js";
 import type { AppError } from "../app-error/index.js";
 import { resolvePackDependencies } from "./dependency-resolution.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import type { RegistrySource } from "../sources/index.js";
-import { configuredRowsByName, installedRowsByName } from "../workspace/read-model-record-rows.js";
+import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
+import { isObservedInstalled } from "../workspace/observed-installed.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -48,6 +55,7 @@ const buildSetPackArgs = (
   ref: RegistryPackRef,
   versionRange: Option.Option<string>,
   sources: SourceHostProvidersService,
+  sourceHash: SourceHash,
 ): Effect.Effect<SetPackArgs, AppError> =>
   Effect.gen(function* () {
     const resolved = yield* resolvePackDependencies(ref, sources);
@@ -61,6 +69,7 @@ const buildSetPackArgs = (
       integrity: Option.getOrElse(ref.integrity, () => ""),
       sourceName: "default",
       publisherBindingId: ref.publisherBindingId,
+      sourceHash,
       installedAt: now,
       updatedAt: now,
       resolvedSkills: resolved.resolvedSkills,
@@ -193,13 +202,7 @@ export const PackManagerLive = Layer.effect(
         }
         return;
       }
-      const lockedEntry = yield* ws
-        .getLockedPack(ref.pack.name)
-        .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-      const lockedVersion = Option.match(lockedEntry, {
-        onNone: () => undefined,
-        onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
-      });
+      const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
       if (
         shouldReuseCanonicalInstall({
           canonicalExists,
@@ -246,13 +249,14 @@ export const PackManagerLive = Layer.effect(
 
     return {
       type: "pack",
+      validateTrustTransition: ({ ref }) =>
+        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
       isInstalled: Effect.fn("PackManager.isInstalled")(function* ({
         target,
       }: {
         readonly target: PackExtensionTarget;
       }) {
-        const installedPacks = yield* ws.records.rows("pack").pipe(Effect.map(installedRowsByName));
-        if (target.name in installedPacks) {
+        if (yield* isObservedInstalled(ws, "pack", target.name)) {
           return true;
         }
 
@@ -260,7 +264,7 @@ export const PackManagerLive = Layer.effect(
       }),
       materializeInstall,
       getConfiguredSource: Effect.fn("PackManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
+        const configured = yield* ws.getConfiguredPackEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("PackManager.listMaterializable")(function* () {
@@ -277,7 +281,14 @@ export const PackManagerLive = Layer.effect(
         readonly versionRange: Option.Option<string>;
       }) {
         if (ref.refType !== "workspace") {
-          const args = yield* buildSetPackArgs(ref, versionRange, sources);
+          const packDir = computePackPaths(
+            path.join,
+            baseDir,
+            ref.owner,
+            ref.pack.name,
+          ).canonicalPath;
+          const sourceHash = yield* provide(computePackageContentHash(packDir));
+          const args = yield* buildSetPackArgs(ref, versionRange, sources, sourceHash);
           return yield* ws.setPack(args);
         }
 
@@ -331,6 +342,8 @@ export const PackManagerLive = Layer.effect(
 
       removeLockfileEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
         ws.removePackLock(target.name).pipe(Effect.withSpan("PackManager.removeLockfileEntry")),
+      removeTrustEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
+        ws.removeTrustRecord("pack", target.name),
     } satisfies ExtensionManager<PackRef>;
   }),
 );

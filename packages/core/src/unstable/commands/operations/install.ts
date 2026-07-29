@@ -27,9 +27,14 @@ import { createRegistryClient, extractZip } from "../../registry/index.js";
 import type { Operation, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
+  trustedRegistryVersionForRef,
+  trustRecordKey,
+  validateRefTrustTransition,
+} from "../../trust/index.js";
+import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
-  computeSourceHash,
+  computePackageContentHash,
   shouldReuseCanonicalInstall,
 } from "../../extensions/index.js";
 import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
@@ -337,11 +342,11 @@ export const installCommand: (
     const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
     const { ref } = op.args;
-    const previousLockEntry = yield* ws.getLockedCommand(ref.command.name);
-    const lockedVersion = Option.match(previousLockEntry, {
-      onNone: () => undefined,
-      onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
-    });
+    const trustState = yield* ws.getTrustState();
+    yield* validateRefTrustTransition(trustState, ref);
+    const lockedVersion = trustedRegistryVersionForRef(trustState, ref);
+    const previouslyTrusted =
+      trustState.records[trustRecordKey("command", ref.command.name)] !== undefined;
 
     // --- Materialize ---
     const canonicalPath = yield* materializeCommand(ref, {
@@ -404,7 +409,7 @@ export const installCommand: (
     const renderingWarnings = collectRenderingWarningSummaries(outcomes);
 
     // --- Compute source hash ---
-    const sourceHash = computeSourceHash(body);
+    const sourceHash = yield* computePackageContentHash(canonicalPath);
 
     // --- Validate version before building lock entry (registry only) ---
     if (ref.refType === "registry") {
@@ -436,7 +441,7 @@ export const installCommand: (
     };
     const artifact = commandInstallArtifact({
       lockEntry,
-      previousLockEntry,
+      previouslyTrusted,
       versionRange: op.args.versionRange,
       canonicalPath,
       fallbackPath: ref.command.name,
@@ -456,8 +461,16 @@ export const installCommand: (
     }
 
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
-      ? ws.setCommandLock({ name: ref.command.name, lockEntry })
-      : ws.setCommand({ name: ref.command.name, lockEntry });
+      ? ws.setCommandLock({
+          name: ref.command.name,
+          lockEntry,
+          versionRange: Option.none(),
+        })
+      : ws.setCommand({
+          name: ref.command.name,
+          lockEntry,
+          versionRange: op.args.versionRange,
+        });
     const writeSucceeded = yield* writeEffect.pipe(
       Effect.as(true),
       Effect.tapError((e) => Effect.logWarning("Command write failed", { error: e })),

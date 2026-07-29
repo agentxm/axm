@@ -28,6 +28,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
+  LockfileSchema,
   type FilesLockEntry,
   type HookLockEntry,
   type RegistryPackLockEntry,
@@ -36,6 +37,8 @@ import {
   type RuleLockEntry,
   type SkillLockEntry,
 } from "@agentxm/client-core/unstable/lockfile";
+import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
+import { trustStateFromLockfile } from "@agentxm/client-core/unstable/trust";
 import {
   decodeVersionSync,
   decodeVersionRangeSync,
@@ -72,6 +75,13 @@ const path = (() => {
   const module = process.getBuiltinModule("node:path");
   if (!module) {
     throw new Error("node:path builtin is unavailable");
+  }
+  return module;
+})();
+const crypto = (() => {
+  const module = process.getBuiltinModule("node:crypto");
+  if (!module) {
+    throw new Error("node:crypto builtin is unavailable");
   }
   return module;
 })();
@@ -174,6 +184,17 @@ export const makeBaseWorkspaceMock = (
     baseDir,
     records,
     getLockfileState: () => Effect.succeed("ok" as const),
+    getDesiredStateGraph: () =>
+      Effect.succeed({
+        complete: true,
+        nodes: [],
+        problems: [],
+      }),
+    getTrustState: () =>
+      Effect.succeed({
+        trustStateVersion: 1,
+        records: {},
+      }),
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
@@ -248,6 +269,7 @@ export const makeBaseWorkspaceMock = (
     getLockedPacks: () => Effect.succeed({}),
     getLockedPack: () => Effect.succeed(Option.none()),
     setPack: () => Effect.void,
+    refreshPackContentIdentity: () => Effect.void,
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,
     getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
@@ -284,8 +306,8 @@ export const makeBaseWorkspaceMock = (
     removeMcpServerLock: () => Effect.void,
     removePackSettings: () => Effect.void,
     removePackLock: () => Effect.void,
+    removeTrustRecord: () => Effect.void,
     isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
   } satisfies WorkspaceMutationsService;
   return { ...base, ...serviceOverrides };
 };
@@ -346,6 +368,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfilePacks?: Record<string, unknown> | undefined;
   readonly subagents?: Record<string, unknown> | undefined;
   readonly lockfileSubagents?: Record<string, unknown> | undefined;
+  readonly writeTrustFromLockfile?: boolean | undefined;
 }
 
 export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
@@ -380,6 +403,50 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  if (opts.writeTrustFromLockfile === true) {
+    const decoded = Schema.decodeUnknownSync(LockfileSchema)(lockfile);
+    fs.writeFileSync(
+      path.join(axmDir, "trust.json"),
+      JSON.stringify(trustStateFromLockfile(decoded), null, 2),
+    );
+  }
+};
+
+export const computePackageContentHashSync = (packageDir: string): string => {
+  const files: Array<{ readonly absolutePath: string; readonly relativePath: string }> = [];
+  const visit = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath);
+      } else if (entry.isFile()) {
+        files.push({
+          absolutePath,
+          relativePath: path.relative(packageDir, absolutePath),
+        });
+      }
+    }
+  };
+  visit(packageDir);
+  files.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  const hash = crypto.createHash("sha256");
+  for (const file of files) {
+    hash.update(file.relativePath);
+    hash.update("\0");
+    hash.update(fs.readFileSync(file.absolutePath));
+    hash.update("\0");
+  }
+  return computeSourceHash(hash.digest("hex"));
+};
+
+export const writeTrustFromWorkspaceLockfile = (axmDir: string): void => {
+  const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+    YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")),
+  );
+  fs.writeFileSync(
+    path.join(axmDir, "trust.json"),
+    JSON.stringify(trustStateFromLockfile(lockfile), null, 2),
+  );
 };
 
 /**

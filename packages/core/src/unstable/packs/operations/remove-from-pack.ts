@@ -12,11 +12,12 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
 import { count } from "../../cli-renderer/index.js";
-import type { Handle } from "../../extensions/index.js";
+import { computePackageContentHash, type Handle } from "../../extensions/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import { trustRecordKey } from "../../trust/index.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
 import { packManifestArtifact } from "./artifact.js";
@@ -68,9 +69,16 @@ export const removeFromPack: OperationHandler<
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const base = ws.baseDir;
-
     const { packName, packOwner, removals, manifestHash } = op.args;
+    const trust = yield* ws.getTrustState();
+    if (trust.records[trustRecordKey("pack", packName)]?.authority !== "workspace") {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Pack "${packName}" is not an authored workspace pack`,
+        recover: "Only workspace-authored packs can be edited in place.",
+      });
+    }
+    const base = ws.baseDir;
 
     // 1. Short-circuit if nothing to remove
     if (removals.length === 0) {
@@ -149,6 +157,8 @@ export const removeFromPack: OperationHandler<
         }),
       ),
     );
+    const sourceHash = yield* computePackageContentHash(packDir.canonicalPath);
+    yield* ws.refreshPackContentIdentity(packName, sourceHash);
 
     return {
       result: "success",

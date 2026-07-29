@@ -1,14 +1,19 @@
 # Workspace Schema Evolution Guide
 
-How `.axm/settings.json` and `.axm/axm-lock.yaml` tolerate data they do not
-understand, and the rules for changing either schema. Use this guide before
+How `.axm/settings.json`, `.axm/trust.json`, and `.axm/axm-lock.yaml` tolerate
+data they do not understand, and the rules for changing these schemas. Use this guide before
 adding, renaming, or removing a top-level workspace field, or before changing
 decode strictness anywhere on a workspace read or write path.
+
+Read [Workspace State](workspace-state.md) first: settings declare desired
+state, trust preserves security-critical identity, and the lockfile is optional
+receipt history.
 
 ## Key Resources
 
 - [packages/core/src/unstable/settings/schema.ts](../../packages/core/src/unstable/settings/schema.ts) - settings schema
 - [packages/core/src/unstable/lockfile/schema.ts](../../packages/core/src/unstable/lockfile/schema.ts) - lockfile schema
+- [packages/core/src/unstable/trust/schema.ts](../../packages/core/src/unstable/trust/schema.ts) - trust-state schema
 - [packages/core/src/unstable/workspace/read-model/state.ts](../../packages/core/src/unstable/workspace/read-model/state.ts) - decode pipeline
 - [Workspace Read Model Guide](workspace-read-model.md) - read-model cells and caching
 

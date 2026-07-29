@@ -31,6 +31,7 @@ export const ExtensionInventoryRowSchema = Schema.Struct({
   name: Schema.String,
   classification: ExtensionInventoryClassificationSchema,
   enabled: Schema.NullOr(Schema.Boolean),
+  installed: Schema.Boolean,
   agents: Schema.Array(Schema.String),
   origins: Schema.Array(Schema.String),
   paths: Schema.Array(Schema.String),
@@ -67,6 +68,7 @@ export interface LifecycleInventoryCandidate extends ExtensionInventoryObservati
   readonly key: ExtensionKey;
   readonly lifecycle: ExtensionInventoryLifecycle;
   readonly enabled: boolean | null;
+  readonly installed: boolean;
 }
 
 export interface IgnoredInventoryCandidate extends ExtensionInventoryObservation {
@@ -86,6 +88,7 @@ interface MutableInventoryAggregate {
   readonly key: ExtensionKey;
   lifecycle: ExtensionInventoryLifecycle;
   enabled: boolean | null;
+  installed: boolean;
   readonly agents: Set<string>;
   readonly origins: Set<string>;
   readonly paths: Set<string>;
@@ -131,6 +134,7 @@ export const projectExtensionInventory = (
         key: candidate.key,
         lifecycle: candidate.lifecycle,
         enabled: candidate.enabled,
+        installed: candidate.installed,
         agents: new Set(candidate.agents ?? []),
         origins: new Set(candidate.origins ?? []),
         paths: new Set(candidate.paths ?? []),
@@ -143,6 +147,7 @@ export const projectExtensionInventory = (
       existing.lifecycle = candidate.lifecycle;
       existing.enabled = candidate.enabled;
     }
+    existing.installed = existing.installed || candidate.installed;
     addAll(existing.agents, candidate.agents);
     addAll(existing.origins, candidate.origins);
     addAll(existing.paths, candidate.paths);
@@ -181,6 +186,7 @@ export const projectExtensionInventory = (
       name: aggregate.key.name,
       classification: { kind: "lifecycle", lifecycle: aggregate.lifecycle },
       enabled: aggregate.enabled,
+      installed: aggregate.installed,
       agents: sorted(aggregate.agents),
       origins: sorted(aggregate.origins),
       paths: sorted(aggregate.paths),
@@ -199,6 +205,7 @@ export const projectExtensionInventory = (
             reasons: sorted(aggregate.reasons),
           },
           enabled: null,
+          installed: false,
           agents: sorted(aggregate.agents),
           origins: sorted(aggregate.origins),
           paths: sorted(aggregate.paths),
@@ -227,7 +234,9 @@ export const projectExtensionInventory = (
     count: items.length,
     configuredCount,
     implicitCount,
-    installedCount: configuredCount + implicitCount,
+    installedCount: items.filter(
+      (item) => item.classification.kind === "lifecycle" && item.installed,
+    ).length,
     unmanagedCount,
     ignoredCount,
   };

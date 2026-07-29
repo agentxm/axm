@@ -63,8 +63,14 @@ const makeWorkspaceMock = (
       args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
     ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
+    settingsSkills?: Readonly<
+      Record<string, { readonly source: string; readonly enabled: boolean }>
+    >;
   },
 ): WorkspaceMutationsService => {
+  const configuredSkills: Record<string, { readonly source: string; readonly enabled: boolean }> = {
+    ...overrides?.settingsSkills,
+  };
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
     if (!fs.existsSync(lfPath)) return { lockfileVersion: 3, skills: {} };
@@ -78,6 +84,7 @@ const makeWorkspaceMock = (
 
   return makeBaseWorkspaceMock(axmDir, {
     getConfiguredAgents: () => Effect.succeed(overrides?.configuredAgents ?? ["claude-code"]),
+    getConfiguredSkillEntries: () => Effect.succeed(configuredSkills),
     getLockedSkills: () => Effect.succeed(readLf().skills ?? {}),
     getLockedSkill: (name: string) =>
       Effect.succeed(Option.fromUndefinedOr(readLf().skills?.[name])),
@@ -108,6 +115,16 @@ const makeWorkspaceMock = (
               lf.skills[name] = {
                 ...lockEntry,
                 updatedAt: new Date().toISOString(),
+              };
+              const entry = expectRecord(lockEntry);
+              configuredSkills[name] = {
+                source:
+                  entry["type"] === "registry" &&
+                  typeof entry["owner"] === "string" &&
+                  typeof entry["name"] === "string"
+                    ? `${entry["owner"]}/skills/${entry["name"]}`
+                    : "local:/tmp/source",
+                enabled: true,
               };
               writeLf(lf);
             },
@@ -148,6 +165,9 @@ const makeServices = (
       args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
     ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
+    settingsSkills?: Readonly<
+      Record<string, { readonly source: string; readonly enabled: boolean }>
+    >;
   },
 ) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
@@ -232,6 +252,9 @@ const withServices = (
       args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
     ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
+    settingsSkills?: Readonly<
+      Record<string, { readonly source: string; readonly enabled: boolean }>
+    >;
   },
 ) => makeServices(axmDir, wsOverrides).layer;
 
@@ -504,13 +527,12 @@ describe("installSkill", () => {
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
+        const layer = withServices(axmDir, { configuredAgents: ["claude-code"] });
 
-        yield* installSkill(makeOp({ sourcePath: src })).pipe(
-          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
-        );
+        yield* installSkill(makeOp({ sourcePath: src })).pipe(Effect.provide(layer));
 
         const second = yield* installSkill(makeOp({ sourcePath: src, force: true })).pipe(
-          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+          Effect.provide(layer),
         );
 
         expect(second.result).toBe("success");
@@ -531,15 +553,33 @@ describe("installSkill", () => {
         Effect.gen(function* () {
           const src = setupSource();
           const { axmDir } = setupBase();
+          const layer = withServices(axmDir, { configuredAgents: ["claude-code"] });
 
-          yield* installSkill(makeOp({ sourcePath: src })).pipe(
-            Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+          yield* installSkill(makeOp({ sourcePath: src })).pipe(Effect.provide(layer));
+          const canonical = path.join(
+            path.dirname(axmDir),
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            "my-skill",
+          );
+          const canonicalBefore = yield* computeSkillSourceHash(canonical).pipe(
+            Effect.provide(NodeServices.layer),
           );
           fs.writeFileSync(path.join(src, "prompt.md"), "changed prompt content");
+          const changedSource = yield* computeSkillSourceHash(src).pipe(
+            Effect.provide(NodeServices.layer),
+          );
+          expect(changedSource).not.toBe(canonicalBefore);
 
           const second = yield* installSkill(makeOp({ sourcePath: src, force: true })).pipe(
-            Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+            Effect.provide(layer),
           );
+          const canonicalAfter = yield* computeSkillSourceHash(canonical).pipe(
+            Effect.provide(NodeServices.layer),
+          );
+          expect(canonicalAfter).toBe(changedSource);
 
           expect(second.result).toBe("success");
           if (second.result === "success") {
@@ -1016,7 +1056,7 @@ describe("installSkill", () => {
       });
 
     it.effect(
-      "reuses the existing canonical tree when the lockfile pins the requested version",
+      "reuses the existing canonical tree when desired state and trust pin the requested version",
       () =>
         Effect.gen(function* () {
           const { axmDir, base } = setupBase();
@@ -1035,7 +1075,16 @@ describe("installSkill", () => {
           fs.writeFileSync(path.join(canonical, "src", "SKILL.md"), "# my-skill\n\nreformatted\n");
 
           const result = yield* installSkill(registryOp()).pipe(
-            Effect.provide(withServices(axmDir)),
+            Effect.provide(
+              withServices(axmDir, {
+                settingsSkills: {
+                  "my-skill": {
+                    source: "@community/skills/my-skill",
+                    enabled: true,
+                  },
+                },
+              }),
+            ),
           );
 
           expect(result.result).toBe("success");
@@ -1304,7 +1353,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("symlink-mode install does not populate renderedFiles or sourceHash", () =>
+    it.effect("symlink-mode install records source identity without rendered files", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
@@ -1318,7 +1367,7 @@ describe("installSkill", () => {
         expect(setSkillFn).toHaveBeenCalledOnce();
         const lockEntry = expectRecord(at(setSkillFn.mock.calls, 0)[0].lockEntry);
         expect(lockEntry["renderedFiles"]).toBeUndefined();
-        expect(lockEntry["sourceHash"]).toBeUndefined();
+        expect(lockEntry["sourceHash"]).toEqual(expect.any(String));
         expect(lockEntry).not.toHaveProperty("agents");
         expect(lockEntry["universalArtifact"]).toBeUndefined();
       }),

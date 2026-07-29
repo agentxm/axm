@@ -7,6 +7,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
   buildInstallOperation,
+  buildMaterializeOperation,
+  buildUninstallOperation,
   formatPackageUrlParts,
   toLabelWithCompanions,
   toStepKey,
@@ -184,5 +186,109 @@ describe("buildInstallOperation", () => {
     expect(result.error.code).toBe("conflict");
     expect(result.error.detail).toContain("Cannot install over workspace-sourced skill");
     expect(materializeInstall).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildMaterializeOperation", () => {
+  it("persists the resolved content receipt only after materialization succeeds", async () => {
+    const calls: string[] = [];
+    const manager = {
+      type: "skill",
+      isInstalled: () => Effect.succeed(false),
+      materializeInstall: () => Effect.sync(() => calls.push("materialize")),
+      listMaterializable: () => Effect.succeed([]),
+      materializeUninstall: () => Effect.void,
+      upsertSettingsEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.sync(() => calls.push("receipt")),
+      removeLockfileEntry: () => Effect.void,
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const name = extensionName("review");
+    const ref: RegistrySkillRef = {
+      type: "skill",
+      refType: "registry",
+      publisherBindingId: "hbnd_test",
+      source: {
+        type: "registry",
+        location: new URL("https://registry.agentxm.ai"),
+        owner: Option.some(handle("@acme")),
+      },
+      owner: handle("@acme"),
+      name,
+      version: exactVersion("1.0.0"),
+      integrity: Option.none(),
+      packages: [],
+      skill: { name, description: Option.none(), metadata: Option.none() },
+    };
+    const operation = buildMaterializeOperation(manager, { ref });
+    if (operation.readiness === "error") {
+      throw new Error(operation.errorMessage);
+    }
+
+    await Effect.runPromise(operation.run);
+
+    expect(calls).toEqual(["materialize", "receipt"]);
+  });
+});
+
+describe("buildUninstallOperation", () => {
+  it("retires trust for an explicit uninstall even when no artifacts remain", async () => {
+    const removeTrustEntry = vi.fn(() => Effect.void);
+    const manager = {
+      type: "skill",
+      isInstalled: () => Effect.succeed(false),
+      materializeInstall: () => Effect.void,
+      getConfiguredSource: () => Effect.succeed(Option.none()),
+      listMaterializable: () => Effect.succeed([]),
+      materializeUninstall: () => Effect.void,
+      upsertSettingsEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.void,
+      removeLockfileEntry: () => Effect.void,
+      removeTrustEntry,
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const operation = buildUninstallOperation<SkillExtensionRef>(
+      manager,
+      { isRequiredByInstalledPack: () => Effect.succeed(false) },
+      { target: { type: "skill", name: "review" } },
+    );
+    if (operation.readiness === "error") {
+      throw new Error(operation.errorMessage);
+    }
+
+    await Effect.runPromise(operation.run);
+
+    expect(removeTrustEntry).toHaveBeenCalledWith({
+      target: { type: "skill", name: "review" },
+    });
+  });
+
+  it("preserves trust while an installed pack retains the extension", async () => {
+    const removeTrustEntry = vi.fn(() => Effect.void);
+    const manager = {
+      type: "skill",
+      isInstalled: () => Effect.succeed(true),
+      materializeInstall: () => Effect.void,
+      getConfiguredSource: () => Effect.succeed(Option.some("@acme/skills/review")),
+      listMaterializable: () => Effect.succeed([]),
+      materializeUninstall: () => Effect.void,
+      upsertSettingsEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.void,
+      removeLockfileEntry: () => Effect.void,
+      removeTrustEntry,
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const operation = buildUninstallOperation<SkillExtensionRef>(
+      manager,
+      { isRequiredByInstalledPack: () => Effect.succeed(true) },
+      { target: { type: "skill", name: "review" } },
+    );
+    if (operation.readiness === "error") {
+      throw new Error(operation.errorMessage);
+    }
+
+    await Effect.runPromise(operation.run);
+
+    expect(removeTrustEntry).not.toHaveBeenCalled();
   });
 });

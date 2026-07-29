@@ -41,6 +41,7 @@ const CHECKS: Record<ObligationId, ((type: CatalogExtensionType) => boolean) | n
   "2.6-source-hash": null,
   "2.9-read-model-family": null,
   "2.11-ignore-config": null,
+  "2.12-workspace-reconciliation": null,
   "6.1-e2e-install-row": null,
   "7.1-help-topic": (type) => topicNames.has(toExtensionTypePlural(type)),
   "8.6-entity-key": (type) => getEntityView(type) !== undefined,

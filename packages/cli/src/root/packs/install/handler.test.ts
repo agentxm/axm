@@ -50,7 +50,13 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/client-core/unstable/packaging";
-import { dependencyConstraintMap, exactVersion, extensionName } from "../../../test-stubs.js";
+import {
+  computePackageContentHashSync,
+  dependencyConstraintMap,
+  exactVersion,
+  extensionName,
+  writeTrustFromWorkspaceLockfile,
+} from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 
 const decodePackageType = Schema.decodeUnknownSync(PackageTypeSchema);
@@ -1327,8 +1333,25 @@ describe("packs install handler", () => {
         },
       };
 
+      const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "prune-pack");
+      fs.mkdirSync(packDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(packDir, "pack.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "prune-pack",
+          version: "1.0.0",
+          dependencies: {
+            "@acme/skills/kept-skill": "1.0.0",
+            "@acme/skills/dropped-skill": "1.0.0",
+          },
+        }),
+      );
+
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        settingsPacks: { "prune-pack": "@acme/packs/prune-pack" },
         lockfilePacks: {
           "prune-pack": {
             type: "registry",
@@ -1338,6 +1361,7 @@ describe("packs install handler", () => {
             integrity: "",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
+            sourceHash: computePackageContentHashSync(packDir),
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
@@ -1356,6 +1380,7 @@ describe("packs install handler", () => {
           },
         },
       });
+      writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
 
       const { provide } = makeLayersWithMockSources(mockService);
 

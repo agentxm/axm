@@ -3,9 +3,11 @@ import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
   configuredCommandsToDiskRefs,
@@ -114,6 +116,121 @@ describe("configured extensions to disk refs", () => {
       expect(mcpServers).toEqual([]);
       expect(subagents).toEqual([]);
     }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reconstructs a configured GitHub skill from matching trusted canonical content", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const env = { fs, path, baseDir: tempDir, scope: "project" as const };
+      const installedAt = DateTime.makeUnsafe("2026-07-29T00:00:00.000Z");
+
+      nodeFs.mkdirSync(nodePath.join(tempDir, ".axm/extensions/external/skills/quality"), {
+        recursive: true,
+      });
+      nodeFs.writeFileSync(
+        nodePath.join(tempDir, ".axm/extensions/external/skills/quality/SKILL.md"),
+        "---\nname: quality\ndescription: Review project quality.\n---\n",
+      );
+
+      const refs = yield* configuredSkillsToDiskRefs(
+        env,
+        {
+          quality: {
+            type: "skill",
+            name: "quality",
+            source: "github:qualitymd/quality.md",
+            enabled: true,
+            packagingKind: "non-native",
+            lifecycle: "configured",
+          },
+        },
+        {
+          lockEntries: {
+            quality: {
+              type: "github",
+              owner: "qualitymd",
+              repo: "quality.md",
+              installedAt,
+              updatedAt: installedAt,
+            },
+          },
+          getConfiguredSources: () =>
+            Effect.succeed([
+              {
+                name: "github",
+                type: "github",
+                url: new URL("https://github.com"),
+              },
+            ]),
+          getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+        },
+      );
+
+      expect(refs).toHaveLength(1);
+      const ref = refs[0];
+      if (ref === undefined || ref.refType !== "git-hosted") {
+        throw new Error("Expected one Git-hosted skill ref");
+      }
+      expect(ref.skill.name).toBe("quality");
+      expect(ref.location).toBe(
+        new URL("file://" + nodePath.join(tempDir, ".axm/extensions/external/skills/quality")).href,
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "rejects canonical GitHub skill content whose trusted source differs from settings",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const installedAt = DateTime.makeUnsafe("2026-07-29T00:00:00.000Z");
+
+        nodeFs.mkdirSync(nodePath.join(tempDir, ".axm/extensions/external/skills/quality"), {
+          recursive: true,
+        });
+        nodeFs.writeFileSync(
+          nodePath.join(tempDir, ".axm/extensions/external/skills/quality/SKILL.md"),
+          "---\nname: quality\ndescription: Review project quality.\n---\n",
+        );
+
+        const refs = yield* configuredSkillsToDiskRefs(
+          { fs, path, baseDir: tempDir, scope: "project" },
+          {
+            quality: {
+              type: "skill",
+              name: "quality",
+              source: "github:new-owner/quality.md",
+              enabled: true,
+              packagingKind: "non-native",
+              lifecycle: "configured",
+            },
+          },
+          {
+            lockEntries: {
+              quality: {
+                type: "github",
+                owner: "qualitymd",
+                repo: "quality.md",
+                installedAt,
+                updatedAt: installedAt,
+              },
+            },
+            getConfiguredSources: () =>
+              Effect.succeed([
+                {
+                  name: "github",
+                  type: "github",
+                  url: new URL("https://github.com"),
+                },
+              ]),
+            getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+          },
+        );
+
+        expect(refs).toEqual([]);
+      }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("skips settings entries whose on-disk manifest is missing", () =>

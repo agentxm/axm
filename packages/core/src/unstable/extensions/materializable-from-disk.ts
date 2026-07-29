@@ -2,12 +2,19 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import type { AppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import type { CommandExtensionRef } from "../commands/refs.js";
+import type { SkillLockEntry } from "../lockfile/index.js";
 import type { ConfiguredRecordRow } from "../workspace/read-model-record-rows.js";
 import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { PackRef } from "../packs/refs.js";
+import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
+import {
+  lockEntryToSourceParams,
+  printSourceParams,
+  skillLockEntryToRef,
+} from "../sources/index.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
 import type { SubagentExtensionRef } from "../subagents/refs.js";
 import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
@@ -20,6 +27,34 @@ interface DiskRefEnv {
   readonly baseDir: string;
   readonly scope: WorkspaceScope;
 }
+
+interface SkillDiskTrustContext {
+  readonly lockEntries: Readonly<Record<string, SkillLockEntry>>;
+  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
+  readonly getConfiguredSourceByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<SourceHostConfig>, AppError>;
+}
+
+const isGitHostedLockEntry = (
+  entry: SkillLockEntry,
+): entry is Exclude<
+  SkillLockEntry,
+  { readonly type: "registry" | "local" | "inline" | "workspace" }
+> => {
+  switch (entry.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+    case "git":
+      return true;
+    case "registry":
+    case "local":
+    case "workspace":
+      return false;
+  }
+};
 
 const resolveWorkspaceFromDisk = (
   env: DiskRefEnv,
@@ -41,17 +76,65 @@ const resolveWorkspaceFromDisk = (
 export const configuredSkillsToDiskRefs = (
   env: DiskRefEnv,
   configured: Readonly<Record<string, ConfiguredRecordRow>>,
+  trust?: SkillDiskTrustContext,
 ): Effect.Effect<ReadonlyArray<SkillExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
-    ([settingsName, entry]) =>
-      isWorkspaceSourceLocator(entry.source)
-        ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "skill").pipe(
-            Effect.map((ref) =>
-              ref.type === "skill" ? Option.some(ref) : Option.none<SkillExtensionRef>(),
-            ),
-          )
-        : Effect.succeed(Option.none<SkillExtensionRef>()),
+    ([settingsName, entry]) => {
+      if (isWorkspaceSourceLocator(entry.source)) {
+        return resolveWorkspaceFromDisk(env, settingsName, entry.source, "skill").pipe(
+          Effect.map((ref) =>
+            ref.type === "skill" ? Option.some(ref) : Option.none<SkillExtensionRef>(),
+          ),
+        );
+      }
+      if (trust === undefined) return Effect.succeed(Option.none<SkillExtensionRef>());
+
+      const lockEntry = trust.lockEntries[settingsName];
+      if (
+        lockEntry === undefined ||
+        !isGitHostedLockEntry(lockEntry) ||
+        printSourceParams(lockEntryToSourceParams(lockEntry)) !== entry.source
+      ) {
+        return Effect.succeed(Option.none<SkillExtensionRef>());
+      }
+
+      const skillFile = env.path.join(
+        env.baseDir,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        settingsName,
+        "SKILL.md",
+      );
+      return env.fs.exists(skillFile).pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to inspect canonical skill content for "${settingsName}"`,
+            cause,
+          }),
+        ),
+        Effect.flatMap((exists) =>
+          exists
+            ? skillLockEntryToRef(settingsName, lockEntry, {
+                baseDir: env.baseDir,
+                path: env.path,
+                scope: env.scope,
+                getConfiguredSources: trust.getConfiguredSources,
+                getConfiguredSourceByName: trust.getConfiguredSourceByName,
+              }).pipe(
+                Effect.map((ref) =>
+                  ref.refType === "git-hosted"
+                    ? Option.some(ref)
+                    : Option.none<SkillExtensionRef>(),
+                ),
+              )
+            : Effect.succeed(Option.none<SkillExtensionRef>()),
+        ),
+      );
+    },
     { concurrency: "unbounded" },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
 

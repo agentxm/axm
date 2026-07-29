@@ -532,6 +532,8 @@ export interface PruneManagedMcpServersArgs {
   readonly workspaceRoot: string;
   readonly declaredServerNames: ReadonlySet<string>;
   readonly scope?: "project" | "user";
+  /** Inspect and report stale targets without changing agent configuration. */
+  readonly dryRun?: boolean;
 }
 
 export const syncInlineMcpServerToAgent = (
@@ -648,19 +650,21 @@ export const pruneManagedMcpServersForAgent = (
             }
           });
           if (staleNames.length === 0) return;
-          yield* Effect.forEach(
-            staleNames,
-            (serverName) =>
-              removeAgentMcpConfig({
-                workspaceRoot: args.workspaceRoot,
-                serverName,
-                serversKey: config.serversKey,
-                target,
-                nativeEnabled: config.nativeEnabled,
-                disableOnly: false,
-              }),
-            { concurrency: "unbounded" },
-          );
+          if (args.dryRun !== true) {
+            yield* Effect.forEach(
+              staleNames,
+              (serverName) =>
+                removeAgentMcpConfig({
+                  workspaceRoot: args.workspaceRoot,
+                  serverName,
+                  serversKey: config.serversKey,
+                  target,
+                  nativeEnabled: config.nativeEnabled,
+                  disableOnly: false,
+                }),
+              { concurrency: "unbounded" },
+            );
+          }
           prunedTargets.push({ path: configPath, change: "updated" });
         }),
       { concurrency: "unbounded" },

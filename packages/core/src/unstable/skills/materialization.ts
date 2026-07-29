@@ -67,15 +67,18 @@ const materializeGitHosted = (
     );
     yield* validatePathSafety(baseDir, skillSrcPath);
     const sourcePath = stripFileProtocol(ref.location);
-    yield* preCleanAndCopy(
-      fs,
-      pathService,
-      baseDir,
-      sanitizedName,
-      sourcePath,
-      skillSrcPath,
-      provide,
-    );
+    const isSelfCopy = pathService.resolve(sourcePath) === pathService.resolve(skillSrcPath);
+    if (!isSelfCopy) {
+      yield* preCleanAndCopy(
+        fs,
+        pathService,
+        baseDir,
+        sanitizedName,
+        sourcePath,
+        skillSrcPath,
+        provide,
+      );
+    }
     return skillSrcPath;
   });
 

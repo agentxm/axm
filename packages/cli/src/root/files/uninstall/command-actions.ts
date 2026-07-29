@@ -85,7 +85,9 @@ const withFilesUninstallArtifact = (
   return {
     ...step,
     run: Effect.gen(function* () {
-      const lockEntry = yield* ws.getLockedFilesEntry(targetName);
+      const lockEntry = yield* ws
+        .getLockedFilesEntry(targetName)
+        .pipe(Effect.catch(() => Effect.succeed(Option.none())));
       const result = yield* step.run;
       if (result.result !== "success") return result;
       return {
@@ -118,15 +120,18 @@ export const UninstallFilesCommandWorkflowActionsLive = Layer.effect(
       parsed: ParsedFilesUninstallArgs,
     ): Effect.Effect<UninstallFilesCommandIntent, AppError> =>
       Effect.gen(function* () {
-        const locked = yield* ws.getLockedFilesEntry(parsed.name);
-        const configured = yield* ws.getConfiguredFilesEntries();
-        if (Option.isNone(locked) && configured[parsed.name] === undefined) {
+        const target: FilesExtensionTarget = { type: "files", name: parsed.name };
+        const configured =
+          filesManager.getConfiguredSource === undefined
+            ? Option.none<string>()
+            : yield* filesManager.getConfiguredSource({ target });
+        const installed = yield* filesManager.isInstalled({ target });
+        if (Option.isNone(configured) && !installed) {
           return yield* makeAppError({
             code: "not_found",
-            detail: `files package "${parsed.name}" is not installed`,
+            detail: `files package "${parsed.name}" is not configured or observed`,
           });
         }
-        const target: FilesExtensionTarget = { type: "files", name: parsed.name };
         return { targets: [target] };
       });
 

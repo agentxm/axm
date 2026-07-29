@@ -1,10 +1,8 @@
 /**
  * Disable subagent executor — removes rendered files but preserves canonical source.
  *
- * Three paths:
- * - Lock entry present: full disable (remove rendered files + clear lock + settings)
- * - No lock entry, configured: settings-only toggle
- * - No lock entry, implicit: promote to configured entry with enabled: false
+ * Materialized artifacts are observed directly. Receipts are not consulted:
+ * they are optional post-success history, not lifecycle authority.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -19,41 +17,15 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import type { SubagentLockEntry } from "../../lockfile/index.js";
 import { subagentLifecycleArtifact } from "./artifact.js";
 import { findManagedSubagentFiles } from "../../workspace/rendered-file-cleanup.js";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { RenderedFilePathSchema } from "../../extensions/index.js";
+import { sanitizeName } from "../../extensions/utils.js";
 import { installedRowsByName } from "../../workspace/read-model-record-rows.js";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-/** Derive a source string from lock entry metadata for implicit subagent promotion. */
-const deriveSourceString = (lockEntry: SubagentLockEntry): string => {
-  switch (lockEntry.type) {
-    case "local":
-      return lockEntry.path;
-    case "registry":
-      return `${lockEntry.owner}/subagents/${lockEntry.name}`;
-    case "workspace":
-      return `workspace:@${lockEntry.owner}/subagents/${lockEntry.name}`;
-    case "github":
-      return `${lockEntry.owner}/${lockEntry.repo}`;
-    case "gitlab":
-      return `${lockEntry.owner}/${lockEntry.repo}`;
-    case "bitbucket":
-      return `${lockEntry.owner}/${lockEntry.repo}`;
-    case "azurerepos":
-      return `${lockEntry.organization}/${lockEntry.project}/${lockEntry.repo}`;
-    case "git":
-      return lockEntry.url;
-  }
-};
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -76,18 +48,9 @@ export type DisableSubagentOperation = Operation<
 /**
  * Disable-subagent operation handler.
  *
- * Determines lifecycle via getInstalledSubagents, then branches:
- *
- * Implicit subagent -> promote to configured entry with enabled: false
- *   - If lock entry exists: also remove rendered files
- *   - If no lock entry: settings promotion only
- *
- * Configured subagent with lock entry -> full lock-backed disable
- *   - Remove rendered files, update settings
- *
- * Configured subagent without lock entry -> settings-only toggle
- *
- * Canonical source files are preserved for later re-enablement.
+ * Determines lifecycle from the workspace read model, removes observable
+ * rendered files, and promotes implicit pack members to a direct disabled
+ * preference. Canonical source files are preserved for later re-enablement.
  */
 export const disableSubagent: OperationHandler<
   DisableSubagentOperation,
@@ -109,26 +72,22 @@ export const disableSubagent: OperationHandler<
       .pipe(Effect.map(installedRowsByName));
     const installed = installedSubagents[op.args.subagentName];
     const isImplicit = installed !== undefined && installed.lifecycle === "implicit";
-
-    // Check for lock entry
-    const lockEntryOption = yield* ws.getLockedSubagent(op.args.subagentName).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read lockfile: ${e.message}`,
-          cause: e,
-        }),
-      ),
+    const graph = yield* ws.getDesiredStateGraph();
+    if (!graph.complete) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: "Cannot disable the subagent while pack-derived desired state is unresolved.",
+      });
+    }
+    const desired = graph.nodes.find(
+      (node) => node.type === "subagent" && node.name === op.args.subagentName,
     );
-    const lockEntry = Option.getOrUndefined(lockEntryOption);
-    const hasLockEntry = lockEntry !== undefined;
+    const stillRequiredByPack = desired?.origins.some((origin) => origin.type === "pack") ?? false;
 
     const renderedFiles: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
-    const configuredAgents = hasLockEntry ? yield* agentRepo.getConfiguredAgents() : [];
+    const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
-    // Lock-backed file operations (when lock entry exists)
-    if (hasLockEntry) {
-      // Remove rendered files via CodingAgent.removeSubagent()
+    if (!stillRequiredByPack) {
       yield* Effect.forEach(
         configuredAgents,
         (agent) =>
@@ -136,7 +95,7 @@ export const disableSubagent: OperationHandler<
             Effect.provide(fsPathLayer),
             Effect.flatMap((resolved) =>
               resolved._tag === "supported"
-                ? findManagedSubagentFiles(resolved.dir).pipe(
+                ? findManagedSubagentFiles(resolved.dir, sanitizeName(op.args.subagentName)).pipe(
                     Effect.provide(fsPathLayer),
                     Effect.flatMap((managedPaths) => {
                       renderedFiles[agent.id] = managedPaths.map((filePath) => ({
@@ -161,9 +120,7 @@ export const disableSubagent: OperationHandler<
 
     // State mutation: implicit promotion or configured toggle
     if (isImplicit) {
-      // Implicit promotion: derive source via deterministic fallback order
-      // 1. lock entry metadata  2. fail
-      const source = hasLockEntry ? deriveSourceString(lockEntry) : undefined;
+      const source = desired?.source ?? Option.getOrElse(installed.source, () => undefined);
       if (source === undefined) {
         return yield* makeAppError({
           code: "internal",
@@ -182,9 +139,6 @@ export const disableSubagent: OperationHandler<
         .pipe(Effect.catch(() => Effect.void));
     }
 
-    const version =
-      hasLockEntry && lockEntry.type === "registry" ? lockEntry.resolvedVersion : undefined;
-
     return {
       result: "success",
       message: `Disabled ${op.args.subagentName}`,
@@ -194,9 +148,8 @@ export const disableSubagent: OperationHandler<
         ...(configuredAgents.length === 0
           ? {}
           : { agents: configuredAgents.map((agent) => agent.id) }),
-        ...(version === undefined ? {} : { version }),
         change: "updated",
-        ...(hasLockEntry ? { renderedFiles } : {}),
+        renderedFiles,
         renderedChange: "removed",
       }),
     } satisfies JobStepResult;

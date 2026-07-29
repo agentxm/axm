@@ -26,6 +26,7 @@ import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../../trust/index.js";
 import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../../extensions/index.js";
 import { computePackageContentHash } from "../../extensions/package-hash.js";
 import type { SourceHash } from "../../extensions/rendered-files.js";
@@ -627,13 +628,9 @@ export const installMcpServer: (
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
-    const lockedMcpEntry = yield* ws
-      .getLockedMcpServer(ref.name)
-      .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-    const lockedVersion = Option.match(lockedMcpEntry, {
-      onNone: () => undefined,
-      onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
-    });
+    const trustState = yield* ws.getTrustState();
+    yield* validateRefTrustTransition(trustState, ref);
+    const lockedVersion = trustedRegistryVersionForRef(trustState, ref);
     const canonicalPath =
       ref.refType === "registry"
         ? yield* installFromRegistry(ref, { force: op.args.force, lockedVersion })
@@ -720,16 +717,6 @@ export const installMcpServer: (
     }
     const persistedEnv = redactSettingsEnv(mergedEnv, secretNames);
     const enabled = currentEntry?.enabled ?? true;
-    yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);
-
-    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
-      ? ws.setMcpServerLock({ name: ref.server.name, lockEntry })
-      : ws.setMcpServer({ name: ref.server.name, lockEntry, env: persistedEnv, enabled });
-    const writeWarning = yield* writeEffect.pipe(
-      Effect.as(Option.none<string>()),
-      Effect.catch((e) => Effect.succeed(Option.some(`MCP server update failed: ${e.detail}`))),
-    );
-
     const agentSync = yield* syncConfiguredAgentsOnInstall({
       wsBaseDir: ws.baseDir,
       scope: ws.scope,
@@ -742,6 +729,25 @@ export const installMcpServer: (
       enabled,
       configValues: mergedEnv,
     });
+
+    yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);
+    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
+      ? ws.setMcpServerLock({
+          name: ref.server.name,
+          lockEntry,
+          versionRange: Option.none(),
+        })
+      : ws.setMcpServer({
+          name: ref.server.name,
+          lockEntry,
+          versionRange: op.args.versionRange,
+          env: persistedEnv,
+          enabled,
+        });
+    const writeWarning = yield* writeEffect.pipe(
+      Effect.as(Option.none<string>()),
+      Effect.catch((e) => Effect.succeed(Option.some(`MCP server update failed: ${e.detail}`))),
+    );
 
     const warnings = Option.match(writeWarning, {
       onNone: () => agentSync.warnings,

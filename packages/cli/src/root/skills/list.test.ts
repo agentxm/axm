@@ -109,6 +109,8 @@ describe("list.handler", () => {
       "skill-one": makeLockEntry(),
       "skill-two": makeLockEntry(),
     });
+    createAgentSkill(tempDir, "claude-code", "skill-one");
+    createAgentSkill(tempDir, "claude-code", "skill-two");
 
     return provide(
       Effect.gen(function* () {
@@ -259,15 +261,13 @@ describe("list.handler", () => {
           items: [
             {
               name: "skill-one",
-              sourceType: "local",
               agents: ["claude-code"],
-              classification: { kind: "lifecycle", lifecycle: "implicit" },
+              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
             },
             {
               name: "skill-two",
-              sourceType: "local",
               agents: ["cursor"],
-              classification: { kind: "lifecycle", lifecycle: "implicit" },
+              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
             },
           ],
         });
@@ -276,7 +276,7 @@ describe("list.handler", () => {
     );
   });
 
-  it.effect("inventories configured, implicit, unmanaged, and optionally ignored skills", () => {
+  it.effect("inventories configured, unmanaged, and optionally ignored skills", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     const axmDir = path.join(tempDir, ".axm");
     initWorkspace(
@@ -305,10 +305,10 @@ describe("list.handler", () => {
       Effect.gen(function* () {
         yield* handleList({ agents: [], includeIgnored: false });
         expect(rendererState.results[0]?.data).toMatchObject({
-          count: 3,
+          count: 2,
           configuredCount: 1,
-          implicitCount: 1,
-          installedCount: 2,
+          implicitCount: 0,
+          installedCount: 1,
           unmanagedCount: 1,
           ignoredCount: 0,
         });
@@ -319,10 +319,6 @@ describe("list.handler", () => {
               classification: { kind: "lifecycle", lifecycle: "configured" },
             }),
             expect.objectContaining({
-              name: "implicit",
-              classification: { kind: "lifecycle", lifecycle: "implicit" },
-            }),
-            expect.objectContaining({
               name: "unmanaged",
               classification: { kind: "lifecycle", lifecycle: "unmanaged" },
             }),
@@ -331,8 +327,8 @@ describe("list.handler", () => {
 
         yield* handleList({ agents: [], includeIgnored: true });
         expect(rendererState.results[1]?.data).toMatchObject({
-          count: 4,
-          installedCount: 2,
+          count: 3,
+          installedCount: 1,
           unmanagedCount: 1,
           ignoredCount: 1,
           items: expect.arrayContaining([
@@ -367,7 +363,7 @@ describe("list.handler", () => {
           count: 1,
           configuredCount: 0,
           implicitCount: 0,
-          installedCount: 0,
+          installedCount: 1,
           unmanagedCount: 1,
           ignoredCount: 0,
           items: [
@@ -417,7 +413,7 @@ describe("list.handler", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 2,
           installedCount: 1,
-          unmanagedCount: 0,
+          unmanagedCount: 1,
           ignoredCount: 1,
           items: expect.arrayContaining([
             expect.objectContaining({ name: "skill-claude" }),

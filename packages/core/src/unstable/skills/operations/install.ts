@@ -17,6 +17,7 @@ import type { AgentId } from "../../agents/index.js";
 import { sourceToLockEntry } from "../../sources/index.js";
 import {
   UNIVERSAL_SKILLS_DIR,
+  computePackageContentHash,
   type RenderedFilePath,
   type RenderedFilesMap,
   RenderedFilePathSchema,
@@ -55,6 +56,11 @@ import type {
   JobStepResult,
 } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import {
+  trustedRegistryVersionForRef,
+  trustRecordKey,
+  validateRefTrustTransition,
+} from "../../trust/index.js";
 import {
   copyExtensionDirectory,
   formatCopyExtensionDirectoryFailure,
@@ -254,19 +260,6 @@ const countFiles = (dir: string): Effect.Effect<number, never, FileSystem.FileSy
     }
     return total;
   });
-
-const previousResolvedVersion = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("type" in entry) || entry.type !== "registry") return undefined;
-  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") return undefined;
-  return entry.resolvedVersion;
-};
-
-const previousSourceHash = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("sourceHash" in entry) || typeof entry.sourceHash !== "string") return undefined;
-  return entry.sourceHash;
-};
 
 const expectedSkillSrcPath = (ref: SkillExtensionRef) =>
   Effect.gen(function* () {
@@ -708,18 +701,12 @@ export const installSkill: OperationHandler<
     const { ref } = op.args;
     const sanitizedName = sanitizeName(ref.skill.name);
     const strictUnknownAgents = Option.getOrElse(op.args.strictUnknownAgents, () => false);
-    const previousLockEntry = yield* ws
-      .getLockedSkill(ref.skill.name)
-      .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-    const previousVersion = Option.match(previousLockEntry, {
-      onNone: () => undefined,
-      onSome: previousResolvedVersion,
-    });
-    const lockSourceHash = Option.match(previousLockEntry, {
-      onNone: () => undefined,
-      onSome: previousSourceHash,
-    });
-    const sourceHashBeforeInstall = lockSourceHash ?? (yield* existingSourceHash(ref));
+    const trustState = yield* ws.getTrustState();
+    yield* validateRefTrustTransition(trustState, ref);
+    const previousVersion = trustedRegistryVersionForRef(trustState, ref);
+    const previouslyTrusted =
+      trustState.records[trustRecordKey("skill", ref.skill.name)] !== undefined;
+    const sourceHashBeforeInstall = yield* existingSourceHash(ref);
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
     const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionRange, {
@@ -850,10 +837,6 @@ export const installSkill: OperationHandler<
       return matched.result;
     });
     // ── Shared: compute rendered files tracking for copy-mode ──────
-    const hasCopyResults = agentResults.some((r) => r.mode === "copy" && r.success);
-    const hasRenderInputs = perDirectoryResults.some(
-      ({ build }) => build.renderInput !== undefined,
-    );
     const renderWarnings: Array<string> = [];
     for (const { build, targetAgentId } of perDirectoryResults) {
       if (build.degraded) {
@@ -868,9 +851,11 @@ export const installSkill: OperationHandler<
       }
     }
     const sourceHash =
-      hasCopyResults || hasRenderInputs
-        ? yield* computeSkillSourceHash(materialized.skillSrcPath)
-        : undefined;
+      ref.refType === "workspace"
+        ? ref.sourceHash
+        : ref.refType === "registry"
+          ? yield* computePackageContentHash(path.dirname(materialized.skillSrcPath))
+          : yield* computeSkillSourceHash(materialized.skillSrcPath);
 
     // ── Shared: update lockfile + settings ──────────────────────────
     const workspaceRelativeLocalSourcePath =
@@ -892,7 +877,7 @@ export const installSkill: OperationHandler<
     });
     const lockEntry = {
       ...baseLockEntry,
-      ...(sourceHash !== undefined ? { sourceHash } : {}),
+      sourceHash,
     };
 
     if (lockEntry.type === "registry") {
@@ -901,19 +886,6 @@ export const installSkill: OperationHandler<
         lockEntry.resolvedVersion,
       );
     }
-
-    const skillArgs = {
-      name: ref.skill.name,
-      lockEntry,
-      versionRange: materialized.versionRange,
-    };
-    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
-      ? ws.setSkillLock(skillArgs)
-      : ws.setSkill(skillArgs);
-    const writeWarning = yield* writeEffect.pipe(
-      Effect.as(undefined),
-      Effect.catch((e) => Effect.succeed(`Skill update failed: ${String(e)}`)),
-    );
 
     // ── Shared: compute result ──────────────────────────────────────
     const anyFailed = agentResults.some((r) => !r.success);
@@ -938,7 +910,7 @@ export const installSkill: OperationHandler<
         : Option.getOrUndefined(op.args.versionRange);
     const sameVersion = previousVersion === version;
     const sameSource = sourceHashBeforeInstall === currentSourceHash;
-    const fallbackChange: JobStepArtifact["change"] = Option.isNone(previousLockEntry)
+    const fallbackChange: JobStepArtifact["change"] = !previouslyTrusted
       ? "created"
       : sameVersion && sameSource
         ? "unchanged"
@@ -959,6 +931,19 @@ export const installSkill: OperationHandler<
         }),
       } satisfies JobStepResult;
     }
+
+    const skillArgs = {
+      name: ref.skill.name,
+      lockEntry,
+      versionRange: materialized.versionRange,
+    };
+    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
+      ? ws.setSkillLock(skillArgs)
+      : ws.setSkill(skillArgs);
+    const writeWarning = yield* writeEffect.pipe(
+      Effect.as(undefined),
+      Effect.catch((e) => Effect.succeed(`Skill update failed: ${String(e)}`)),
+    );
 
     const warnings = [
       unknownAgentWarning,

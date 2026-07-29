@@ -34,17 +34,17 @@ describe("axm skills list", () => {
         },
       });
 
-      expect(textResult.exitCode).toBe(0);
+      expect(textResult.exitCode, getOutput(textResult)).toBe(0);
       expect(textResult.stdout).toBe("");
       expect(textResult.stderr).toContain("native-only");
       expect(textResult.stderr).toContain("unmanaged");
-      expect(textResult.stderr).toContain("0 installed");
+      expect(textResult.stderr).toContain("1 installed");
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout)).toMatchObject({
         count: 1,
         configuredCount: 0,
         implicitCount: 0,
-        installedCount: 0,
+        installedCount: 1,
         unmanagedCount: 1,
         ignoredCount: 0,
         items: [

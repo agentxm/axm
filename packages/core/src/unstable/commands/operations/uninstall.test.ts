@@ -228,7 +228,7 @@ describe("uninstallCommand", () => {
   });
 
   describe("canonical directory already missing", () => {
-    it.effect("still removes lockfile entry when canonical dir is missing", () =>
+    it.effect("ignores a stale receipt when canonical content is missing", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileCommands } = setupWorkspace({ createCanonical: false });
         const removeCommandFn = vi.fn((_name: string) => Effect.void);
@@ -238,8 +238,8 @@ describe("uninstallCommand", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled my-command");
-        expect(removeCommandFn).toHaveBeenCalledOnce();
+        expect(result.message).toBe("not installed");
+        expect(removeCommandFn).not.toHaveBeenCalled();
       }),
     );
   });

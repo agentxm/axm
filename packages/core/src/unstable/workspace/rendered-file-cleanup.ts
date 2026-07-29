@@ -144,8 +144,8 @@ const cleanupSubagentArtifactsInDir = (args: {
     return removedPaths;
   });
 
-/** Discover AXM-managed subagent files without mutating the workspace. */
-export const findManagedSubagentFiles = (subagentsDir: string) =>
+/** Discover one subagent's AXM-managed files without mutating the workspace. */
+export const findManagedSubagentFiles = (subagentsDir: string, subagentName: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -153,6 +153,7 @@ export const findManagedSubagentFiles = (subagentsDir: string) =>
     const entries = yield* safeReadDirectory(fs, subagentsDir);
 
     for (const entry of entries) {
+      if (extensionNameFromFilename(entry) !== subagentName) continue;
       const filePath = path.join(subagentsDir, entry);
       const stat = yield* fs.stat(filePath).pipe(Effect.option);
       if (stat._tag === "None" || stat.value.type !== "File") continue;

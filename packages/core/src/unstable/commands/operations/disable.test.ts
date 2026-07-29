@@ -143,6 +143,7 @@ describe("disableCommand", () => {
           expect(result.artifact).toEqual({
             path: ".axm/settings.json",
             scope: "project",
+            agents: ["claude-code"],
             change: "updated",
           });
         }
@@ -175,7 +176,6 @@ describe("disableCommand", () => {
             path: ".axm/settings.json",
             scope: "project",
             agents: ["claude-code"],
-            version: "1.0.0",
             change: "updated",
           });
         }

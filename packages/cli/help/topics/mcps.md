@@ -171,4 +171,5 @@ See `axm help packs` for pack authoring and `standalone` semantics.
 - `axm mcps --help` — full MCP server subcommand surface
 - `axm help mcp-schema` — raw `mcp.json` JSON Schema
 - `axm help settings` — workspace state, `mcpServers`, and `mcpServersConfig`
+- `axm help workspace-state` — packaged and inline MCP observation semantics
 - `axm help packs` — bundling MCP server extensions with extension packs

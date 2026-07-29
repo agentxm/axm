@@ -27,6 +27,13 @@ Bundle extensions by defining the pack dependencies in `pack.json`. Each key use
 
 Use `"*"` to indicate the latest version (recommended) unless there is a specific reason to constrain it.
 
+Configured pack manifests expand desired state across skills, commands, MCP
+servers, subagents, context files, rules, hooks, and knowledge bundles. AXM
+keeps owner, type, locator, and constraints when combining direct and pack
+origins. A missing or invalid configured manifest makes that desired subtree
+unknown and blocks destructive cleanup. Removing a pack retains members still
+required directly or by another pack.
+
 ## No transitive dependencies
 
 Packs may not depend on other extension packs. A pack's dependency graph is exactly the extensions it lists.
@@ -56,4 +63,4 @@ See the individual help topics for each extension type for more details.
 ## Where to go next
 
 - `axm packs --help` — full pack subcommand surface
-- `axm help skills` — the "Lockfile and integrity" section explains the lockfile's `integrity` and `sourceHash` fields; the same model applies to packs and their members
+- `axm help workspace-state` — desired graph, trust, receipts, and retention

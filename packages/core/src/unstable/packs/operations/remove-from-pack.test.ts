@@ -36,6 +36,20 @@ const makeWorkspaceMock = (
 
   return makeBaseWorkspaceMock(axmDir, {
     getConfiguredOwner: () => Effect.succeed(Option.some(handle(configuredProfile))),
+    getTrustState: () =>
+      Effect.succeed({
+        trustStateVersion: 1,
+        records: {
+          "pack:my-pack": {
+            extensionType: "pack",
+            name: "my-pack",
+            authority: "workspace",
+            sourceIdentity: "workspace:@myorg/packs/my-pack",
+            resolvedVersion: "0.0.1",
+            contentIdentity: hashContent("authored-pack"),
+          },
+        },
+      }),
     rows: rowsFor({
       pack: [
         configuredRow({

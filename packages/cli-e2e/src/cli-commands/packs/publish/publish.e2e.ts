@@ -11,6 +11,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../../e2e/utils.js";
+import { refreshAuthoredWorkspacePackState } from "../../../e2e/workspace-pack-state.js";
 
 /** Set up a workspace with registry source and owner. */
 const setupWorkspace = async (tempPath: string, registryPath: string, owner: string) => {
@@ -51,7 +52,7 @@ const createManagedSkill = (tempPath: string, owner: string, name: string, versi
 };
 
 /** Create a pack in .axm/extensions/ with a pack.json manifest. */
-const createManagedPack = (
+const createManagedPack = async (
   tempPath: string,
   owner: string,
   name: string,
@@ -60,8 +61,12 @@ const createManagedPack = (
     dependencies: Record<string, string>;
   },
 ) => {
+  const createResult = await runCli(["packs", "new", name, "--owner", owner, "--yes"], {
+    cwd: tempPath,
+  });
+  expect(createResult.exitCode, createResult.stderr).toBe(0);
+
   const packDir = path.join(tempPath, ".axm", "extensions", owner, "packs", name);
-  fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
     path.join(packDir, "pack.json"),
     JSON.stringify(
@@ -75,10 +80,7 @@ const createManagedPack = (
       2,
     ) + "\n",
   );
-  const settingsPath = path.join(tempPath, ".axm", "settings.json");
-  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.packs = { ...settings.packs, [name]: `workspace:${owner}/packs/${name}` };
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  refreshAuthoredWorkspacePackState(tempPath, owner, name);
 };
 
 describe("axm packs publish", () => {
@@ -96,7 +98,7 @@ describe("axm packs publish", () => {
         createManagedSkill(temp.path, owner, "dep-skill-b", "2.0.0");
 
         // Create the pack with dependencies referencing those skills
-        createManagedPack(temp.path, owner, "my-pack", {
+        await createManagedPack(temp.path, owner, "my-pack", {
           version: "1.0.0",
           dependencies: {
             [`${owner}/skills/dep-skill-a`]: "^1.0.0",
@@ -168,7 +170,7 @@ describe("axm packs publish", () => {
         createManagedSkill(temp.path, owner, "preview-dep", "1.0.0");
 
         // Create the pack referencing the dependency
-        createManagedPack(temp.path, owner, "preview-pack", {
+        await createManagedPack(temp.path, owner, "preview-pack", {
           version: "1.0.0",
           dependencies: {
             [`${owner}/skills/preview-dep`]: "^1.0.0",
@@ -233,7 +235,7 @@ describe("axm packs publish", () => {
         createManagedSkill(temp.path, owner, "ignored-dep", "1.0.0");
 
         // Create the pack referencing the dependency
-        createManagedPack(temp.path, owner, "solo-pack", {
+        await createManagedPack(temp.path, owner, "solo-pack", {
           version: "1.0.0",
           dependencies: {
             [`${owner}/skills/ignored-dep`]: "^1.0.0",

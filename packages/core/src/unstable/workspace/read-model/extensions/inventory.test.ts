@@ -7,9 +7,9 @@ describe("projectExtensionInventory", () => {
   it("returns the lifecycle partition and excludes ignored candidates by default", () => {
     const result = projectExtensionInventory({
       lifecycle: [
-        { key: key("configured"), lifecycle: "configured", enabled: true },
-        { key: key("implicit"), lifecycle: "implicit", enabled: true },
-        { key: key("unmanaged"), lifecycle: "unmanaged", enabled: null },
+        { key: key("configured"), lifecycle: "configured", enabled: true, installed: true },
+        { key: key("implicit"), lifecycle: "implicit", enabled: true, installed: true },
+        { key: key("unmanaged"), lifecycle: "unmanaged", enabled: null, installed: true },
       ],
       ignored: [{ key: key("old-skill"), reason: "actual-ignored" }],
       ignoredPatterns: new Set(["old-*", "*-skill"]),
@@ -21,7 +21,7 @@ describe("projectExtensionInventory", () => {
       count: 3,
       configuredCount: 1,
       implicitCount: 1,
-      installedCount: 2,
+      installedCount: 3,
       unmanagedCount: 1,
       ignoredCount: 0,
     });
@@ -61,6 +61,7 @@ describe("projectExtensionInventory", () => {
           reasons: ["actual-ignored", "declared-ignored"],
         },
         enabled: null,
+        installed: false,
         agents: ["claude-code", "codex"],
         origins: ["agent-skill-dir", "canonical-axm-skill"],
         paths: [
@@ -84,12 +85,14 @@ describe("projectExtensionInventory", () => {
           key: key("shared"),
           lifecycle: "unmanaged",
           enabled: null,
+          installed: true,
           agents: ["codex"],
         },
         {
           key: key("shared"),
           lifecycle: "configured",
           enabled: false,
+          installed: false,
           agents: ["claude-code"],
         },
       ],
@@ -111,8 +114,20 @@ describe("projectExtensionInventory", () => {
   it("filters lifecycle and ignored observations consistently by agent", () => {
     const result = projectExtensionInventory({
       lifecycle: [
-        { key: key("claude"), lifecycle: "unmanaged", enabled: null, agents: ["claude-code"] },
-        { key: key("codex"), lifecycle: "unmanaged", enabled: null, agents: ["codex"] },
+        {
+          key: key("claude"),
+          lifecycle: "unmanaged",
+          enabled: null,
+          installed: true,
+          agents: ["claude-code"],
+        },
+        {
+          key: key("codex"),
+          lifecycle: "unmanaged",
+          enabled: null,
+          installed: true,
+          agents: ["codex"],
+        },
       ],
       ignored: [
         { key: key("ignored-claude"), reason: "actual-ignored", agents: ["claude-code"] },

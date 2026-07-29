@@ -208,13 +208,24 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
                 message: `Installed ${ref.hook.name}`,
                 buildArtifact: ({ installedBefore }) =>
                   Effect.gen(function* () {
-                    const currentLockEntry = yield* ws.getLockedHookEntry(ref.hook.name);
+                    const currentLockEntry = yield* ws
+                      .getLockedHookEntry(ref.hook.name)
+                      .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                     if (Option.isNone(currentLockEntry)) {
-                      return yield* makeAppError({
-                        code: "internal",
-                        detail: `Installed hooks package ${ref.hook.name} but could not read its lockfile entry`,
-                        suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
-                      });
+                      const path =
+                        ref.refType === "registry" || ref.refType === "workspace"
+                          ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${HOOK_EXTENSION_DIR}/${ref.name}`
+                          : ref.hook.name;
+                      const change = installedBefore ? "updated" : "created";
+                      return {
+                        path,
+                        scope: ws.scope,
+                        ...(ref.refType === "registry" || ref.refType === "workspace"
+                          ? { version: ref.version }
+                          : {}),
+                        change,
+                        targets: [{ path, change }],
+                      } satisfies JobStepArtifact;
                     }
                     const materialization =
                       hookManager.getLastMaterialization === undefined

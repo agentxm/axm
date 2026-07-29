@@ -339,6 +339,7 @@ const makePlan = (
           .setMcpServer({
             name: server.name,
             lockEntry: server.lockEntry,
+            versionRange: Option.none(),
             env: server.env,
             enabled: true,
           })

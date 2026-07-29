@@ -572,7 +572,10 @@ export const runReconcileMaterializeOperation = (
       }
     }
 
-    yield* writeLockfile(lockfileDir, snapshot.lockfile);
+    // Receipt recovery must not erase a valid dedicated trust baseline. The
+    // regenerated receipt is optional operational history and may be partial
+    // when declarations require remote resolution.
+    yield* writeLockfile(lockfileDir, snapshot.lockfile, { preserveTrust: true });
 
     const backupNote =
       backupPath === undefined ? "" : ` (backed up invalid lockfile to ${backupPath})`;

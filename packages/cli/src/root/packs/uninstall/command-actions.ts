@@ -13,12 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import {
-  PackManager,
-  expandPackUninstallTargets,
-  type UninstallSettingsContext,
-  type PackRef,
-} from "@agentxm/client-core/unstable/packs";
+import { PackManager, type PackRef } from "@agentxm/client-core/unstable/packs";
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unstable/files";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
@@ -34,18 +29,16 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import {
   buildUninstallOperation,
-  normalizeHandle,
-  parseRegistrySourcePatternParts,
+  parseExtensionFqnParts,
   toLabel,
 } from "@agentxm/client-core/unstable/extensions";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { LOCKFILE_VERSION, type Lockfile } from "@agentxm/client-core/unstable/lockfile";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 
 // -----------------------------------------------------------------------------
@@ -109,9 +102,18 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
     const parseArgs = (args: UninstallPackHandlerArgs) =>
       Effect.gen(function* () {
-        const lockedPacks = yield* ws.getLockedPacks();
+        const graph = yield* ws.getDesiredStateGraph();
+        if (!graph.complete) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: "Cannot uninstall packs while the desired pack graph is incomplete",
+          });
+        }
         const isGlob = args.name.includes("*");
-        const packNames = expandGlob(args.name, Object.keys(lockedPacks));
+        const packNames = expandGlob(
+          args.name,
+          graph.nodes.filter((node) => node.type === "pack").map((node) => node.name),
+        );
 
         // Handle glob matching zero packs
         if (isGlob && packNames.length === 0) {
@@ -130,33 +132,27 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           return { packsToUninstall: [] };
         }
 
-        const lockedPacks = yield* ws.getLockedPacks();
-        const configuredPacks = yield* ws.records
-          .rows("pack")
-          .pipe(Effect.map(configuredRowsByName));
+        const graph = yield* ws.getDesiredStateGraph();
+        if (!graph.complete) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: "Cannot uninstall packs while the desired pack graph is incomplete",
+          });
+        }
 
         const targets = yield* Effect.forEach(
           parsed.packNames,
           (name): Effect.Effect<PackExtensionTarget, AppError> => {
-            const lockEntry = lockedPacks[name];
-            if (lockEntry !== undefined) {
+            const node = graph.nodes.find(
+              (candidate) => candidate.type === "pack" && candidate.name === name,
+            );
+            const identity = node === undefined ? undefined : parseExtensionFqnParts(node.identity);
+            if (node !== undefined && identity?.type === "pack") {
               return Effect.succeed({
                 type: "pack",
-                name,
-                owner: lockEntry.owner,
+                name: node.name,
+                owner: identity.owner,
               } satisfies PackExtensionTarget);
-            }
-
-            const settingsEntry = configuredPacks[name];
-            if (settingsEntry !== undefined) {
-              const parts = parseRegistrySourcePatternParts(settingsEntry.source);
-              if (parts !== undefined && parts.owner !== undefined) {
-                return Effect.succeed({
-                  type: "pack",
-                  name,
-                  owner: normalizeHandle(parts.owner),
-                } satisfies PackExtensionTarget);
-              }
             }
 
             return Effect.fail(
@@ -193,83 +189,42 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
 
         const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
-        // Load lockfile and settings for orphan computation
-        const lockedPacks = yield* ws.getLockedPacks();
-        const lockedSkills = yield* ws.getLockedSkills();
-        const lockedCommands = yield* ws.getLockedCommands();
-        const lockedMcpServers = yield* ws.getLockedMcpServers();
-        const lockedFiles = yield* ws.getLockedFiles();
-        const lockedHooks = yield* ws.getLockedHooks();
-        const lockfile = {
-          lockfileVersion: LOCKFILE_VERSION,
-          skills: lockedSkills,
-          commands: lockedCommands,
-          mcpServers: lockedMcpServers,
-          files: lockedFiles,
-          hooks: lockedHooks,
-          packs: lockedPacks,
-        } satisfies Lockfile;
-
-        // Build settings context for orphan check (just need the keys)
-        const configuredSkills = yield* ws.records
-          .rows("skill")
-          .pipe(Effect.map(configuredRowsByName));
-        const configuredCommands = yield* ws.records
-          .rows("command")
-          .pipe(Effect.map(configuredRowsByName));
-        const configuredMcpServers = yield* ws.records
-          .rows("mcp-server")
-          .pipe(Effect.map(configuredRowsByName));
-        const configuredSubagents = yield* ws.records
-          .rows("subagent")
-          .pipe(Effect.map(configuredRowsByName));
-        const configuredFiles = yield* ws.getConfiguredFilesEntries();
-        const configuredRules = yield* ws.getConfiguredRuleEntries();
-        const configuredHooks = yield* ws.getConfiguredHookEntries();
-        const configuredKnowledge = yield* ws.getConfiguredKnowledgeEntries();
-
-        const settings: UninstallSettingsContext = {
-          skills: Object.fromEntries(Object.keys(configuredSkills).map((k) => [k, k])),
-          commands: Object.fromEntries(Object.keys(configuredCommands).map((k) => [k, k])),
-          mcpServers: Object.fromEntries(Object.keys(configuredMcpServers).map((k) => [k, k])),
-          subagents: Object.fromEntries(Object.keys(configuredSubagents).map((k) => [k, k])),
-          files: Object.fromEntries(Object.keys(configuredFiles).map((k) => [k, k])),
-          rules: Object.fromEntries(Object.keys(configuredRules).map((k) => [k, k])),
-          hooks: Object.fromEntries(Object.keys(configuredHooks).map((k) => [k, k])),
-          knowledge: Object.fromEntries(Object.keys(configuredKnowledge).map((k) => [k, k])),
-        };
-
-        // Expand each pack and collect all targets, deduplicating by type+name
-        const allTargets = new Map<string, ExtensionTarget>();
-
-        // Every pack in this batch is being removed, so a dependency shared only
-        // among them is not retained by any surviving pack.
-        const removingPackNames = new Set(intent.packsToUninstall.map((p) => p.name));
-
-        for (const pack of intent.packsToUninstall) {
-          const targets = yield* expandPackUninstallTargets({
-            pack,
-            supportedDependencyTypes: [
-              "skill",
-              "command",
-              "mcp-server",
-              "subagent",
-              "files",
-              "rule",
-              "hook",
-              "knowledge",
-            ],
-            lockfile,
-            settings,
-            removingPackNames,
+        const graph = yield* ws.getDesiredStateGraph();
+        if (!graph.complete) {
+          return yield* makeAppError({
+            code: "validation",
+            detail: "Cannot uninstall packs while the desired pack graph is incomplete",
           });
-
-          for (const target of targets) {
-            const key = `${target.type}:${target.name}`;
-            if (!allTargets.has(key)) {
-              allTargets.set(key, target);
-            }
-          }
+        }
+        const allTargets = new Map<string, ExtensionTarget>();
+        for (const pack of intent.packsToUninstall) {
+          allTargets.set(`pack:${pack.name}`, pack);
+        }
+        const removingPackIdentities = new Set(
+          graph.nodes
+            .filter(
+              (node) =>
+                node.type === "pack" &&
+                intent.packsToUninstall.some((pack) => pack.name === node.name),
+            )
+            .map((node) => node.identity),
+        );
+        for (const node of graph.nodes) {
+          if (node.type === "pack") continue;
+          const removedOrigin = node.origins.some(
+            (origin) => origin.type === "pack" && removingPackIdentities.has(origin.pack),
+          );
+          if (!removedOrigin) continue;
+          const retainedOrigin = node.origins.some(
+            (origin) =>
+              origin.type === "settings" ||
+              (origin.type === "pack" && !removingPackIdentities.has(origin.pack)),
+          );
+          if (retainedOrigin) continue;
+          allTargets.set(`${node.type}:${node.name}`, {
+            type: node.type,
+            name: node.name,
+          });
         }
 
         // Order: pack targets first, then dependency targets

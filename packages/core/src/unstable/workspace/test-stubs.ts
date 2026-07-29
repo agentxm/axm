@@ -24,9 +24,14 @@ import {
 } from "../lockfile/index.js";
 import {
   decodeExtensionNameSync,
+  extensionTypes,
+  parseRegistrySourcePatternParts,
+  toExtensionTypePlural,
+  type ExtensionType,
   type InstallableExtensionType,
   type RenderedFilesMap,
 } from "../extensions/index.js";
+import { trustRecordKey, type TrustAuthority } from "../trust/index.js";
 import { type Handle } from "../extensions/handle.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 import { decodeVersionSync, type Version } from "../version-constraints/version-constraints.js";
@@ -159,12 +164,249 @@ export const makeBaseWorkspaceMock = (
     ...(rows === undefined ? {} : { rows }),
     ...(recordOverrides ?? {}),
   };
+  const emptyLocked = (): Effect.Effect<Readonly<Record<string, unknown>>, AppError> =>
+    Effect.succeed({});
+  const lockedForType = (
+    type: ExtensionType,
+  ): Effect.Effect<Readonly<Record<string, unknown>>, AppError> => {
+    switch (type) {
+      case "skill":
+        return (serviceOverrides.getLockedSkills ?? emptyLocked)().pipe(
+          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
+        );
+      case "command":
+        return (serviceOverrides.getLockedCommands ?? emptyLocked)().pipe(
+          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
+        );
+      case "mcp-server":
+        return (serviceOverrides.getLockedMcpServers ?? emptyLocked)().pipe(
+          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
+        );
+      case "subagent":
+        return (serviceOverrides.getLockedSubagents ?? emptyLocked)().pipe(
+          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
+        );
+      case "pack":
+        return (serviceOverrides.getLockedPacks ?? emptyLocked)().pipe(
+          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
+        );
+      case "files":
+        return (serviceOverrides.getLockedFiles ?? emptyLocked)().pipe(
+          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
+        );
+      case "rule":
+        return (serviceOverrides.getLockedRules ?? emptyLocked)().pipe(
+          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
+        );
+      case "hook":
+        return (serviceOverrides.getLockedHooks ?? emptyLocked)().pipe(
+          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
+        );
+      case "knowledge":
+        return (serviceOverrides.getLockedKnowledge ?? emptyLocked)().pipe(
+          Effect.map((entries): Readonly<Record<string, unknown>> => entries),
+        );
+    }
+  };
+  const configuredForType = (
+    type: ExtensionType,
+  ): Effect.Effect<Readonly<Record<string, unknown>>, AppError> => {
+    const normalize = <A>(
+      effect: Effect.Effect<Readonly<Record<string, A>>, AppError>,
+    ): Effect.Effect<Readonly<Record<string, unknown>>, AppError> =>
+      effect.pipe(Effect.map((entries): Readonly<Record<string, unknown>> => entries));
+    switch (type) {
+      case "skill":
+        return normalize((serviceOverrides.getConfiguredSkillEntries ?? emptyLocked)());
+      case "command":
+        return normalize((serviceOverrides.getConfiguredCommandEntries ?? emptyLocked)());
+      case "mcp-server":
+        return normalize((serviceOverrides.getConfiguredMcpServerEntries ?? emptyLocked)());
+      case "subagent":
+        return normalize((serviceOverrides.getConfiguredSubagentEntries ?? emptyLocked)());
+      case "pack":
+        return normalize((serviceOverrides.getConfiguredPackEntries ?? emptyLocked)());
+      case "files":
+        return normalize((serviceOverrides.getConfiguredFilesEntries ?? emptyLocked)());
+      case "rule":
+        return normalize((serviceOverrides.getConfiguredRuleEntries ?? emptyLocked)());
+      case "hook":
+        return normalize((serviceOverrides.getConfiguredHookEntries ?? emptyLocked)());
+      case "knowledge":
+        return normalize((serviceOverrides.getConfiguredKnowledgeEntries ?? emptyLocked)());
+    }
+  };
+  const sourceOf = (row: ReadModelRecordRow): string | undefined =>
+    row.lifecycle === "configured" ? row.source : Option.getOrUndefined(row.source);
+  interface DesiredTestEntry {
+    readonly name: string;
+    readonly source: string;
+    readonly enabled: boolean;
+  }
+  const desiredEntriesForType = (type: ExtensionType) =>
+    Effect.all({
+      rows: records.rows(type),
+      configured: configuredForType(type),
+    }).pipe(
+      Effect.map(({ rows, configured }) => {
+        const entries = new Map<string, DesiredTestEntry>();
+        for (const row of rows) {
+          const source = sourceOf(row);
+          if (source === undefined || row.lifecycle === "unmanaged") continue;
+          entries.set(row.name, { name: row.name, source, enabled: row.enabled });
+        }
+        for (const [name, value] of Object.entries(configured)) {
+          if (
+            entries.has(name) ||
+            typeof value !== "object" ||
+            value === null ||
+            !("source" in value) ||
+            typeof value.source !== "string"
+          ) {
+            continue;
+          }
+          entries.set(name, {
+            name,
+            source: value.source,
+            enabled: !("enabled" in value) || typeof value.enabled !== "boolean" || value.enabled,
+          });
+        }
+        return [...entries.values()];
+      }),
+    );
+  const authorityOf = (value: string): TrustAuthority | undefined => {
+    switch (value) {
+      case "registry":
+      case "github":
+      case "gitlab":
+      case "bitbucket":
+      case "azurerepos":
+      case "git":
+      case "local":
+      case "workspace":
+      case "inline":
+        return value;
+      default:
+        return undefined;
+    }
+  };
+  const getSynthesizedDesiredStateGraph = () =>
+    Effect.gen(function* () {
+      const rowsByType = yield* Effect.forEach(extensionTypes, (type) =>
+        desiredEntriesForType(type).pipe(Effect.map((entries) => ({ type, entries }))),
+      );
+      const nodes = rowsByType.flatMap(({ type, entries }) =>
+        entries.map((entry) => {
+          const source = entry.source;
+          const parsed = parseRegistrySourcePatternParts(source);
+          const identity =
+            parsed === undefined ? source : `${parsed.owner}/${parsed.type}/${parsed.name}`;
+          return {
+            type,
+            name: entry.name,
+            identity,
+            source,
+            enabled: entry.enabled,
+            constraints: parsed?.versionRange === undefined ? [] : [parsed.versionRange],
+            origins: [
+              {
+                type: "settings" as const,
+                source,
+                enabled: entry.enabled,
+              },
+            ],
+          };
+        }),
+      );
+      return { complete: true, nodes, problems: [] };
+    });
+  const getSynthesizedTrustState = () =>
+    Effect.gen(function* () {
+      const entries = yield* Effect.forEach(extensionTypes, (type) =>
+        Effect.all({
+          type: Effect.succeed(type),
+          desired: desiredEntriesForType(type),
+          locked: lockedForType(type),
+        }),
+      );
+      const trustRecords: Record<
+        string,
+        {
+          readonly extensionType: ExtensionType;
+          readonly name: string;
+          readonly authority: TrustAuthority;
+          readonly sourceIdentity: string;
+          readonly sourceName?: string;
+          readonly resolvedVersion?: string;
+          readonly immutableRevision?: string;
+          readonly publisherBindingId?: string;
+          readonly integrity?: string;
+          readonly contentIdentity?: string;
+        }
+      > = {};
+      for (const { type, desired, locked } of entries) {
+        for (const entry of desired) {
+          const lock = locked[entry.name];
+          const source = entry.source;
+          if (
+            source === undefined ||
+            typeof lock !== "object" ||
+            lock === null ||
+            !("type" in lock) ||
+            typeof lock.type !== "string"
+          ) {
+            continue;
+          }
+          const authority = authorityOf(lock.type);
+          if (authority === undefined) continue;
+          const parsed = parseRegistrySourcePatternParts(source);
+          const sourceIdentity =
+            authority === "registry" && parsed !== undefined
+              ? `${parsed.owner}/${toExtensionTypePlural(type)}/${parsed.name}`
+              : source;
+          const resolvedVersion =
+            "resolvedVersion" in lock && typeof lock.resolvedVersion === "string"
+              ? lock.resolvedVersion
+              : "version" in lock && typeof lock.version === "string"
+                ? lock.version
+                : undefined;
+          const immutableRevision =
+            "gitTreeHash" in lock && typeof lock.gitTreeHash === "string"
+              ? lock.gitTreeHash
+              : undefined;
+          const publisherBindingId =
+            "publisherBindingId" in lock && typeof lock.publisherBindingId === "string"
+              ? lock.publisherBindingId
+              : undefined;
+          const integrity =
+            "integrity" in lock && typeof lock.integrity === "string" ? lock.integrity : undefined;
+          const sourceName =
+            "sourceName" in lock && typeof lock.sourceName === "string"
+              ? lock.sourceName
+              : undefined;
+          trustRecords[trustRecordKey(type, entry.name)] = {
+            extensionType: type,
+            name: entry.name,
+            authority,
+            sourceIdentity,
+            ...(sourceName === undefined ? {} : { sourceName }),
+            ...(resolvedVersion === undefined ? {} : { resolvedVersion }),
+            ...(immutableRevision === undefined ? {} : { immutableRevision }),
+            ...(publisherBindingId === undefined ? {} : { publisherBindingId }),
+            ...(integrity === undefined ? {} : { integrity }),
+          };
+        }
+      }
+      return { trustStateVersion: 1 as const, records: trustRecords };
+    });
   const base = {
     scope: "project",
     path: axmDir,
     baseDir,
     records,
     getLockfileState: () => Effect.succeed("ok" as const),
+    getDesiredStateGraph: getSynthesizedDesiredStateGraph,
+    getTrustState: getSynthesizedTrustState,
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
@@ -240,6 +482,7 @@ export const makeBaseWorkspaceMock = (
     getLockedPacks: () => Effect.succeed({}),
     getLockedPack: () => Effect.succeed(Option.none()),
     setPack: () => Effect.void,
+    refreshPackContentIdentity: () => Effect.void,
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,
     getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
@@ -275,8 +518,8 @@ export const makeBaseWorkspaceMock = (
     removeMcpServerLock: () => Effect.void,
     removePackSettings: () => Effect.void,
     removePackLock: () => Effect.void,
+    removeTrustRecord: () => Effect.void,
     isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
-    markDependencyRetainedInLockfile: () => Effect.void,
   } satisfies WorkspaceMutationsService;
   return { ...base, ...serviceOverrides };
 };
@@ -424,6 +667,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly integrity?: string;
   readonly sourceName?: string;
   readonly publisherBindingId?: string;
+  readonly sourceHash?: RegistryPackLockEntry["sourceHash"];
   readonly resolvedSkills?: ResolvedExtensionMap;
   readonly resolvedCommands?: ResolvedExtensionMap;
   readonly resolvedMcpServers?: ResolvedExtensionMap;
@@ -438,6 +682,7 @@ export const makeRegistryPackLockEntry = (opts: {
     integrity: opts.integrity ?? "sha512-AAAA==",
     sourceName: opts.sourceName ?? "default",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+    ...(opts.sourceHash === undefined ? {} : { sourceHash: opts.sourceHash }),
     installedAt: opts.installedAt ?? TEST_DATE,
     updatedAt: opts.updatedAt ?? TEST_DATE,
     resolvedSkills: opts.resolvedSkills ?? {},

@@ -5,6 +5,8 @@ cached state.
 
 Use `WorkspaceMutations` for settings, lockfile, or materialized workspace
 changes. New read-only code should use `WorkspaceReadModel` projections.
+Apply the authority boundaries in [Workspace State](./workspace-state.md):
+settings, observations, trust, and receipt rows are not interchangeable cells.
 
 > [Effect Layers Guide](./effect-layers.md) - layer construction and provision
 

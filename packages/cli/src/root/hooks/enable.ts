@@ -106,7 +106,9 @@ export const handleEnableHook = Effect.fn("EnableHook.handle")(function* (args: 
             message: `Enabled ${args.name}`,
             buildArtifact: () =>
               Effect.gen(function* () {
-                const currentLockEntry = yield* ws.getLockedHookEntry(args.name);
+                const currentLockEntry = yield* ws
+                  .getLockedHookEntry(args.name)
+                  .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                 if (Option.isNone(currentLockEntry)) {
                   return {
                     path: ".axm/settings.json",

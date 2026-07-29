@@ -210,14 +210,6 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
       label: `${fqn} agent scope`,
       readiness: "ready",
       run: Effect.gen(function* () {
-        const lockedSkill = yield* ws.getLockedSkill(args.name);
-        if (Option.isNone(lockedSkill)) {
-          return {
-            result: "success" as const,
-            message: `Scoped skill ${fqn}`,
-          };
-        }
-
         const materializationAgentIds = (yield* agentRepo
           .getMaterializationAgents()
           .pipe(Effect.provideService(WorkspaceMutations, ws))).map((agent) => agent.id);

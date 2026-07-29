@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import { decodeExtensionNameSync } from "../../extensions/index.js";
+import { computePackageContentHash, decodeExtensionNameSync } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import {
   type ResolvedExtensionMap,
@@ -225,6 +225,8 @@ export const installPack: OperationHandler<
       }),
     );
 
+    const sourceHash = yield* computePackageContentHash(packDir);
+
     // Write lockfile + settings
     const now = yield* DateTime.now;
     const metadataWarning = yield* ws
@@ -236,6 +238,7 @@ export const installPack: OperationHandler<
         integrity: op.args.integrity,
         sourceName: op.args.sourceName,
         publisherBindingId: op.args.publisherBindingId,
+        sourceHash,
         installedAt: now,
         updatedAt: now,
         resolvedSkills: op.args.resolvedSkills,

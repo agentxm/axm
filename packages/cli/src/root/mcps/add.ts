@@ -349,6 +349,7 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
         .setMcpServer({
           name: args.name,
           lockEntry,
+          versionRange: Option.none(),
           env,
           enabled: true,
         })

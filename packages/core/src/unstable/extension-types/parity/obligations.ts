@@ -30,6 +30,7 @@ export const OBLIGATION_IDS = [
   "2.6-source-hash",
   "2.9-read-model-family",
   "2.11-ignore-config",
+  "2.12-workspace-reconciliation",
   "6.1-e2e-install-row",
   "7.1-help-topic",
   "8.6-entity-key",
@@ -67,6 +68,13 @@ export const PARITY_OBLIGATIONS = {
     description:
       "Settings carry a feature-level config schema for the type, so a workspace can leave " +
       "installed entries unmanaged.",
+    verifiedBy: "core-test",
+  },
+  "2.12-workspace-reconciliation": {
+    id: "2.12-workspace-reconciliation",
+    description:
+      "The type has an explicit workspace reconciliation contract covering canonical " +
+      "content, projections, and every supported source class.",
     verifiedBy: "core-test",
   },
   "6.1-e2e-install-row": {

@@ -173,4 +173,5 @@ exists.
 - `axm knowledge --help` — full knowledge subcommand surface
 - `axm help knowledge-schema` — raw `knowledge.json` JSON Schema
 - `axm help settings` — workspace state and the `knowledge` map
+- `axm help workspace-state` — bundle, index, and discovery reconciliation
 - `axm help authoring` — descriptions, keywords, and READMEs for the registry

@@ -1,8 +1,8 @@
 /**
  * Lockfile module for managing `.axm/axm-lock.yaml` (YAML format).
  *
- * Provides functions to read, write, and update lockfile entries
- * for tracking installed skill versions.
+ * Provides functions to read, write, and update optional operation receipt
+ * history. Desired, observed, and trust state are authoritative elsewhere.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -20,6 +20,11 @@ import type { PlatformError } from "effect/PlatformError";
 import YAML from "yaml";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
+import {
+  readWorkspaceTrustState,
+  trustStateFromLockfile,
+  writeWorkspaceTrustState,
+} from "../trust/index.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema, lockfileRestEntries } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -194,6 +199,30 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
     ...(packs !== undefined ? { packs } : {}),
   } satisfies Lockfile;
 };
+
+const EMPTY_LOCKFILE: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
+
+/**
+ * Apply only trust-relevant additions and changes from a lockfile patch.
+ * Deleting optional receipt history never deletes an authoritative trust
+ * baseline; a later install for the same key replaces it explicitly.
+ */
+const persistTrustPatch = (axmDir: string, seed: Lockfile, base: Lockfile, next: Lockfile) =>
+  Effect.gen(function* () {
+    const existing = yield* readWorkspaceTrustState(axmDir);
+    const current = existing._tag === "Some" ? existing.value : trustStateFromLockfile(seed);
+    const baseRecords = trustStateFromLockfile(base).records;
+    const nextRecords = trustStateFromLockfile(next).records;
+    const changedRecords = Object.fromEntries(
+      Object.entries(nextRecords).filter(
+        ([key, record]) => JSON.stringify(baseRecords[key]) !== JSON.stringify(record),
+      ),
+    );
+    yield* writeWorkspaceTrustState(axmDir, {
+      ...current,
+      records: { ...current.records, ...changedRecords },
+    });
+  });
 
 const readLockfileIfPresent = (
   axmDir: string,
@@ -418,13 +447,26 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
+export const writeLockfile = (
+  axmDir: string,
+  lockfile: Lockfile,
+  options?: { readonly preserveTrust?: boolean },
+) =>
   Effect.gen(function* () {
     yield* ensureAxmDir(axmDir);
     yield* withLockfileLock(
       axmDir,
       Effect.gen(function* () {
         yield* sweepStaleLockfileTemps(axmDir);
+        const current = yield* readLockfileIfPresent(axmDir);
+        if (options?.preserveTrust !== true) {
+          yield* persistTrustPatch(
+            axmDir,
+            current ?? lockfile,
+            current ?? EMPTY_LOCKFILE,
+            lockfile,
+          );
+        }
         yield* writeLockfileUnlocked(axmDir, lockfile);
       }),
     );
@@ -461,6 +503,7 @@ export const commitLockfileUpdates = (
         yield* sweepStaleLockfileTemps(axmDir);
         const current = yield* readLockfileIfPresent(axmDir);
         const updated = applyLockfileUpdates(current ?? lockfile, updates);
+        yield* persistTrustPatch(axmDir, current ?? lockfile, current ?? lockfile, updated);
         yield* writeLockfileUnlocked(axmDir, updated);
         return updated;
       }),
@@ -488,6 +531,7 @@ export const commitLockfileSnapshotUpdate = (axmDir: string, base: Lockfile, nex
         yield* sweepStaleLockfileTemps(axmDir);
         const current = yield* readLockfileIfPresent(axmDir);
         const updated = applyLockfileSnapshotPatch(current ?? base, base, next);
+        yield* persistTrustPatch(axmDir, current ?? base, base, next);
         yield* writeLockfileUnlocked(axmDir, updated);
         return updated;
       }),

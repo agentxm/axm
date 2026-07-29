@@ -31,12 +31,7 @@ export { ensureSkillAgentArtifact } from "./materialization.js";
 export { computeSkillPaths, type SkillPathSource, type SkillDirPaths } from "./paths.js";
 
 // Utilities
-export {
-  getSkillDisplayName,
-  getSkillFqn,
-  isReferencedByPack,
-  getReferencingPacks,
-} from "./utils.js";
+export { getSkillDisplayName } from "./utils.js";
 
 // Reconciliation
 export { skillReconciliationAdapter } from "./reconciliation-adapter.js";

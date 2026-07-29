@@ -177,13 +177,17 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     ),
     buildArtifact: () =>
       Effect.gen(function* () {
-        const currentLockEntry = yield* ws.getLockedCommand(args.name);
+        const currentLockEntry = yield* ws
+          .getLockedCommand(args.name)
+          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
         if (Option.isNone(currentLockEntry)) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Created command ${fqn} but could not read its lockfile entry`,
-            suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
-          });
+          return {
+            path: targetDir,
+            scope: ws.scope,
+            version,
+            change: "created",
+            targets: [{ path: targetDir, change: "created" }],
+          } satisfies JobStepArtifact;
         }
         const materialization =
           manager.getLastMaterialization === undefined
@@ -194,7 +198,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
 
         return commandInstallArtifact({
           lockEntry: currentLockEntry.value,
-          previousLockEntry: Option.none(),
+          previouslyTrusted: false,
           versionRange: Option.none(),
           canonicalPath: targetDir,
           fallbackPath: args.name,

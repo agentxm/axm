@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
@@ -34,6 +35,8 @@ import { decodeVersionSync } from "../version-constraints/version-constraints.js
 import { resolveConfiguredKnowledge } from "../workspace/configured-entry-resolution/index.js";
 import type { ExtensionManager, KnowledgeExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -157,13 +160,7 @@ export const KnowledgeManagerLive = Layer.effect(
       switch (ref.refType) {
         case "registry":
           return Effect.gen(function* () {
-            const lockedEntry = yield* ws
-              .getLockedKnowledgeEntry(ref.name)
-              .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-            const lockedVersion = Option.match(lockedEntry, {
-              onNone: () => undefined,
-              onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
-            });
+            const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
             return yield* provide(
               materializeRegistryPackage({
                 baseDir,
@@ -398,9 +395,11 @@ export const KnowledgeManagerLive = Layer.effect(
 
     return {
       type: "knowledge",
+      validateTrustTransition: ({ ref }) =>
+        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
       refreshCatalog: () => writeIndex().pipe(Effect.asVoid),
       isInstalled: ({ target }: { readonly target: KnowledgeExtensionTarget }) =>
-        ws.getLockedKnowledgeEntry(target.name).pipe(Effect.map(Option.isSome)),
+        isObservedInstalled(ws, "knowledge", target.name),
       materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(function* ({
         ref,
         force,
@@ -455,20 +454,18 @@ export const KnowledgeManagerLive = Layer.effect(
         target,
         preserveSource,
       }) {
-        const locked = yield* ws.getLockedKnowledgeEntry(target.name);
-        if (Option.isNone(locked)) return;
-        if (preserveSource !== true) {
-          const root =
-            locked.value.type === "registry" || locked.value.type === "workspace"
-              ? path.join(
-                  baseDir,
-                  REGISTRY_EXTENSIONS_DIR,
-                  locked.value.owner,
-                  KNOWLEDGE_EXTENSION_DIR,
-                  locked.value.name,
-                )
-              : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, KNOWLEDGE_EXTENSION_DIR, target.name);
-          yield* fs.remove(root, { recursive: true }).pipe(Effect.ignore);
+        const canonical = yield* provide(
+          trustedCanonicalObservation({
+            workspace: ws,
+            type: "knowledge",
+            name: target.name,
+          }),
+        );
+        const root = Option.flatMap(canonical, (state) =>
+          Option.fromUndefinedOr(state.observation.path),
+        );
+        if (preserveSource !== true && Option.isSome(root)) {
+          yield* fs.remove(root.value, { recursive: true }).pipe(Effect.ignore);
         }
         yield* writeIndex({ excludeName: target.name });
       }, Effect.asVoid),
@@ -483,11 +480,10 @@ export const KnowledgeManagerLive = Layer.effect(
           ),
         ),
       removeSettingsEntry: ({ target }) => ws.removeKnowledgeSettings(target.name),
-      upsertLockfileEntry: ({ ref, retainedByPack }) =>
+      upsertLockfileEntry: ({ ref }) =>
         DateTime.now.pipe(
           Effect.flatMap((now) => {
-            const entry = buildLockEntry(ref, now);
-            const lockEntry = retainedByPack === undefined ? entry : { ...entry, retainedByPack };
+            const lockEntry = buildLockEntry(ref, now);
             const validate =
               lockEntry.type === "registry"
                 ? validateExactResolvedVersion(
@@ -507,6 +503,7 @@ export const KnowledgeManagerLive = Layer.effect(
           }),
         ),
       removeLockfileEntry: ({ target }) => ws.removeKnowledgeLock(target.name),
+      removeTrustEntry: ({ target }) => ws.removeTrustRecord("knowledge", target.name),
     } satisfies KnowledgeManagerService;
   }),
 );

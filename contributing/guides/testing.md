@@ -22,6 +22,7 @@ configuration.
 
 - [Vitest Documentation](https://vitest.dev/) — Test runner API and configuration
 - [Effect Testing](https://effect.website/docs/testing) — Testing Effect programs
+- [Workspace State](./workspace-state.md) — Add receipt-metamorphic and per-type parity tests for reconciliation changes
 
 ## Skills
 

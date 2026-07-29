@@ -98,7 +98,9 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
             readiness: "ready",
             label: args.name,
             run: Effect.gen(function* () {
-              const lockEntry = yield* ws.getLockedHookEntry(args.name);
+              const lockEntry = yield* ws
+                .getLockedHookEntry(args.name)
+                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               yield* ws.updateHookEntry(args.name, (current) => ({
                 ...current,
                 enabled: false,

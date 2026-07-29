@@ -17,7 +17,8 @@ import { handleDisableMcpServer } from "./disable.js";
 import { handleEnableMcpServer } from "./enable.js";
 
 const mcpEntry = (enabled: boolean) => ({
-  source: "@acme/mcps/context",
+  url: "https://example.test/mcp",
+  headers: {},
   enabled,
   env: {},
 });
@@ -136,7 +137,7 @@ describe("mcps enable/disable output", () => {
 
         expect(logs.success).toEqual(["Enabled MCP server context"]);
         expect(rendererState.summaries).toEqual([
-          "context   updated   1 file   .axm (config/lockfile) (updated)",
+          "context   updated   2 files   .axm (config/lockfile) (updated), .mcp.json (created) [claude-code]",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },

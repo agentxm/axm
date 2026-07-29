@@ -130,13 +130,13 @@ describe("SubagentManager", () => {
       }).pipe(Effect.provide(makeTestLayer())),
     );
 
-    it.effect("returns true when subagent is in lockfile", () =>
+    it.effect("returns false when only an optional receipt names the subagent", () =>
       Effect.gen(function* () {
         const manager = yield* SubagentManager;
         const result = yield* manager.isInstalled({
           target: { type: "subagent", name: "planner" },
         });
-        expect(result).toBe(true);
+        expect(result).toBe(false);
       }).pipe(
         Effect.provide(
           makeTestLayer({

@@ -68,6 +68,9 @@ import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
+import type { WorkspaceTrustState } from "../trust/index.js";
+import type { SourceHash } from "../extensions/index.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -199,6 +202,9 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
     /** When true, re-materialize unconditionally instead of reusing an existing canonical tree. */
     readonly force?: boolean;
   }) => Effect.Effect<void, AppError, never>;
+  readonly validateTrustTransition?: (args: {
+    readonly ref: TRef;
+  }) => Effect.Effect<void, AppError, never>;
   readonly getLastMaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<MaterializationObservation, never, never>;
@@ -222,9 +228,15 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   }) => Effect.Effect<void, AppError, never>;
   readonly upsertLockfileEntry: (args: {
     readonly ref: TRef;
-    readonly retainedByPack?: boolean;
   }) => Effect.Effect<void, AppError, never>;
   readonly removeLockfileEntry: (args: {
+    readonly target: ExtensionTargetFor<TRef>;
+  }) => Effect.Effect<void, AppError, never>;
+  /**
+   * Retire the trusted identity after an explicit full uninstall. Optional for
+   * compatibility with lightweight manager implementations outside core.
+   */
+  readonly removeTrustEntry?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<void, AppError, never>;
 }
@@ -281,6 +293,7 @@ export type SetPackArgs = (RegistryPackLockEntry | WorkspacePackLockEntry) & {
 export interface SetCommandArgs {
   readonly name: string;
   readonly lockEntry: CommandLockEntry;
+  readonly versionRange: Option.Option<string>;
 }
 
 /**
@@ -289,6 +302,7 @@ export interface SetCommandArgs {
 export interface SetSubagentArgs {
   readonly name: string;
   readonly lockEntry: SubagentLockEntry;
+  readonly versionRange: Option.Option<string>;
 }
 
 /**
@@ -297,6 +311,7 @@ export interface SetSubagentArgs {
 export interface SetMcpServerArgs {
   readonly name: string;
   readonly lockEntry: McpServerLockEntry;
+  readonly versionRange: Option.Option<string>;
   readonly env?: Readonly<Record<string, string>>;
   readonly enabled?: boolean;
 }
@@ -355,6 +370,19 @@ export interface WorkspaceMutationsService {
   readonly baseDir: string;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<LockfileState, AppError>;
+  /** Build the authoritative desired extension graph from settings and installed pack manifests. */
+  readonly getDesiredStateGraph: () => Effect.Effect<DesiredStateGraph, AppError>;
+  /** Read the dedicated trust baseline, migrating in memory from a valid legacy lockfile if absent. */
+  readonly getTrustState: () => Effect.Effect<WorkspaceTrustState, AppError>;
+  /**
+   * Retire one trusted identity after an explicit full uninstall.
+   *
+   * Receipt-only maintenance must not call this operation.
+   */
+  readonly removeTrustRecord: (
+    type: InstallableExtensionType,
+    name: string,
+  ) => Effect.Effect<void, AppError>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   /** Lookup a source by name from the merged sources list. */
@@ -529,6 +557,11 @@ export interface WorkspaceMutationsService {
   readonly getLockedPack: (name: string) => Effect.Effect<Option.Option<PackLockEntry>, AppError>;
   /** Add or update a pack in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
   readonly setPack: (args: SetPackArgs) => Effect.Effect<void, AppError>;
+  /** Refresh the trusted content identity after an authorized edit to a workspace-authored pack. */
+  readonly refreshPackContentIdentity: (
+    name: string,
+    contentIdentity: SourceHash,
+  ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a pack entry in settings only (no lockfile). Serialized by semaphore. */
   readonly setPackEntry: (name: string, entry: PackEntry) => Effect.Effect<void, AppError>;
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
@@ -624,10 +657,6 @@ export interface WorkspaceMutationsService {
   readonly isExtensionRequiredByInstalledPack: (
     target: ExtensionTarget,
   ) => Effect.Effect<boolean, AppError>;
-  /** Update lockfile entry for a target to indicate it is retained as a pack dependency. No-op if not found. Serialized by semaphore. */
-  readonly markDependencyRetainedInLockfile: (
-    target: ExtensionTarget,
-  ) => Effect.Effect<void, AppError>;
 }
 
 // ---------------------------------------------------------------------------

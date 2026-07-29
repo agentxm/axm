@@ -149,4 +149,5 @@ source on every run.
 - `axm rules --help` — full command surface
 - `axm help settings` — workspace state and `rulesConfig`
 - `axm help settings-schema` — exact `rulesConfig.instructions` shape
+- `axm help workspace-state` — package and instruction-region reconciliation
 - `axm agents list` — configured, detected, and supported coding-agent IDs

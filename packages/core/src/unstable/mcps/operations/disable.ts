@@ -5,7 +5,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "../../agents/index.js";
@@ -50,11 +49,6 @@ export const disableMcpServer = (
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
-    let warnings: ReadonlyArray<string> = [];
-    let syncedAgents: ReadonlyArray<{
-      readonly agentId: AgentId;
-      readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
-    }> = [];
 
     const configured = yield* ws.getConfiguredMcpServerEntries();
     const entry = configured[op.args.serverName];
@@ -65,28 +59,28 @@ export const disableMcpServer = (
       });
     }
 
-    const lockEntry = yield* ws.getLockedMcpServer(op.args.serverName);
-    if (Option.isSome(lockEntry)) {
-      const agents = yield* agentRepo.getConfiguredAgents();
-      const outcomes = yield* Effect.forEach(
-        agents,
-        (agent) =>
-          agent.removeMcpServer({
-            workspaceRoot: ws.baseDir,
-            scope: ws.scope,
-            serverName: op.args.serverName,
-            disableOnly: true,
-          }),
-        { concurrency: "unbounded" },
-      );
-      syncedAgents = agents.flatMap((agent, index) => {
-        const outcome = outcomes[index];
-        return outcome !== undefined && "targets" in outcome
-          ? [{ agentId: agent.id, targets: outcome.targets }]
-          : [];
-      });
-      warnings = formatAgentSyncWarnings(op.args.serverName, outcomes);
-    }
+    const agents = yield* agentRepo.getConfiguredAgents();
+    const outcomes = yield* Effect.forEach(
+      agents,
+      (agent) =>
+        agent.removeMcpServer({
+          workspaceRoot: ws.baseDir,
+          scope: ws.scope,
+          serverName: op.args.serverName,
+          disableOnly: true,
+        }),
+      { concurrency: "unbounded" },
+    );
+    const syncedAgents: ReadonlyArray<{
+      readonly agentId: AgentId;
+      readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
+    }> = agents.flatMap((agent, index) => {
+      const outcome = outcomes[index];
+      return outcome !== undefined && "targets" in outcome
+        ? [{ agentId: agent.id, targets: outcome.targets }]
+        : [];
+    });
+    const warnings = formatAgentSyncWarnings(op.args.serverName, outcomes);
 
     yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
       ...current,
@@ -97,7 +91,7 @@ export const disableMcpServer = (
       result: "success",
       message: appendWarningsToMessage(`Disabled ${op.args.serverName}`, warnings),
       artifact: mcpServerArtifact({
-        lockEntry: Option.getOrUndefined(lockEntry),
+        lockEntry: undefined,
         scope: ws.scope,
         change: "updated",
         targets: [mcpSettingsTarget("updated"), ...agentConfigTargets(syncedAgents)],

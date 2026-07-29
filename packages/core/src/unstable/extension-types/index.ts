@@ -43,4 +43,11 @@ export {
   type ObligationId,
   type ObligationTier,
 } from "./parity/obligations.js";
+export {
+  RECONCILIATION_SOURCE_CLASSES,
+  WORKSPACE_RECONCILIATION_OBLIGATIONS,
+  type ReconciliationApplicability,
+  type ReconciliationObligation,
+  type ReconciliationSourceClass,
+} from "./parity/reconciliation.js";
 export { STANDARDS } from "./standards.js";

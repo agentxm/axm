@@ -30,7 +30,6 @@ import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   enabledConfiguredEntries,
-  formatFqn,
   markerFqnForRef,
   materializeExternalPackage,
   materializeRegistryPackage,
@@ -40,11 +39,6 @@ import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../l
 import type { HookLockEntry, MaterializedFileTarget } from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import {
-  isWorkspaceSourceLocator,
-  lockEntryToSourceParams,
-  printSourceParams,
-} from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import {
@@ -54,9 +48,12 @@ import {
 } from "../managed-files/index.js";
 import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import { resolveConfiguredHook } from "../workspace/configured-entry-resolution/index.js";
 import type { ExtensionManager, HookExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
 import {
   HOOK_EXTENSION_DIR,
   HOOK_MANIFEST_FILENAME,
@@ -417,38 +414,42 @@ export const HookManagerLive = Layer.effect(
     >();
 
     const materializeFromRegistry = (ref: RegistryHookRef) =>
-      provide(
-        materializeRegistryPackage({
-          baseDir,
-          canonicalPath: path.join(
+      Effect.gen(function* () {
+        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+        return yield* provide(
+          materializeRegistryPackage({
             baseDir,
-            REGISTRY_EXTENSIONS_DIR,
-            ref.owner,
-            HOOK_EXTENSION_DIR,
-            ref.name,
-          ),
-          sourceLocation: ref.source.location,
-          owner: ref.owner,
-          type: "hook",
-          name: ref.name,
-          version: ref.version,
-          integrity: ref.integrity,
-          messages: {
-            existsFailureDetail: (canonicalPath) =>
-              `Failed to check if canonical hook package path exists: ${canonicalPath}`,
-            integrityMismatchCode: "network",
-            integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,
-            tempDirectoryFailureDetail:
-              "Temporary directory for registry hook install could not be created",
-            createDirectoryFailureDetail: (canonicalPath) =>
-              `Failed to create registry hook directory: ${canonicalPath}`,
-            inspectExtractedFailureDetail: "Failed to inspect extracted registry hook package",
-            copyEntryFailureCode: "internal",
-            copyEntryFailureDetail: (entry) =>
-              `Failed to copy registry hook package entry: ${entry}`,
-          },
-        }),
-      );
+            canonicalPath: path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              HOOK_EXTENSION_DIR,
+              ref.name,
+            ),
+            sourceLocation: ref.source.location,
+            owner: ref.owner,
+            type: "hook",
+            name: ref.name,
+            version: ref.version,
+            integrity: ref.integrity,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            messages: {
+              existsFailureDetail: (canonicalPath) =>
+                `Failed to check if canonical hook package path exists: ${canonicalPath}`,
+              integrityMismatchCode: "network",
+              integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,
+              tempDirectoryFailureDetail:
+                "Temporary directory for registry hook install could not be created",
+              createDirectoryFailureDetail: (canonicalPath) =>
+                `Failed to create registry hook directory: ${canonicalPath}`,
+              inspectExtractedFailureDetail: "Failed to inspect extracted registry hook package",
+              copyEntryFailureCode: "internal",
+              copyEntryFailureDetail: (entry) =>
+                `Failed to copy registry hook package entry: ${entry}`,
+            },
+          }),
+        );
+      });
 
     const materializeFromExternal = (ref: GitHostedHookRef | LocalHookRef) =>
       provide(
@@ -856,31 +857,29 @@ export const HookManagerLive = Layer.effect(
 
     const materializeUninstall: ExtensionManager<HookExtensionRef>["materializeUninstall"] =
       Effect.fn("HookManager.materializeUninstall")(function* ({ target, preserveSource }) {
-        const locked = yield* ws.getLockedHookEntry(target.name);
-        if (Option.isNone(locked)) return;
+        const canonical = yield* provide(
+          trustedCanonicalObservation({
+            workspace: ws,
+            type: "hook",
+            name: target.name,
+          }),
+        );
         yield* writeHooksConfig({ excludeName: target.name });
 
-        const entry = locked.value;
-        const packageRoot =
-          entry.type === "registry" || entry.type === "workspace"
-            ? path.join(
-                baseDir,
-                REGISTRY_EXTENSIONS_DIR,
-                entry.owner,
-                HOOK_EXTENSION_DIR,
-                entry.name,
-              )
-            : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, HOOK_EXTENSION_DIR, target.name);
-        if (preserveSource !== true) {
-          yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
+        const packageRoot = Option.flatMap(canonical, (state) =>
+          Option.fromUndefinedOr(state.observation.path),
+        );
+        if (preserveSource !== true && Option.isSome(packageRoot)) {
+          yield* fs.remove(packageRoot.value, { recursive: true }).pipe(Effect.ignore);
         }
       }, Effect.asVoid);
 
     return {
       type: "hook",
+      validateTrustTransition: ({ ref }) =>
+        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
       isInstalled: ({ target }: { readonly target: HookExtensionTarget }) =>
-        ws.getLockedHookEntry(target.name).pipe(
-          Effect.map((locked) => Option.isSome(locked)),
+        isObservedInstalled(ws, "hook", target.name).pipe(
           Effect.withSpan("HookManager.isInstalled"),
         ),
 
@@ -917,20 +916,16 @@ export const HookManagerLive = Layer.effect(
         versionRange,
       }) {
         const lockEntry = yield* buildLockEntry(ref);
-        const entries = yield* ws.getConfiguredHookEntries();
-        const current = entries[ref.hook.name];
-        const source =
-          current !== undefined && isWorkspaceSourceLocator(current.source)
-            ? current.source
-            : ref.refType === "registry"
-              ? (() => {
-                  const fqn = formatFqn({ owner: ref.owner, type: "hook", name: ref.hook.name });
-                  return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
-                })()
-              : printSourceParams(lockEntryToSourceParams(lockEntry));
-        yield* ws.setHookEntry(ref.hook.name, {
-          source,
-          enabled: true,
+        if (lockEntry.type === "registry") {
+          yield* validateExactResolvedVersion(
+            `hooks.${ref.hook.name}.resolvedVersion`,
+            lockEntry.resolvedVersion,
+          );
+        }
+        yield* ws.setHook({
+          name: ref.hook.name,
+          lockEntry,
+          versionRange,
         });
       }),
 
@@ -938,12 +933,8 @@ export const HookManagerLive = Layer.effect(
         yield* ws.removeHookSettings(target.name);
       }),
 
-      upsertLockfileEntry: Effect.fn("HookManager.upsertLockfileEntry")(function* ({
-        ref,
-        retainedByPack,
-      }) {
-        const lockEntry = yield* buildLockEntry(ref);
-        const entry = retainedByPack === undefined ? lockEntry : { ...lockEntry, retainedByPack };
+      upsertLockfileEntry: Effect.fn("HookManager.upsertLockfileEntry")(function* ({ ref }) {
+        const entry = yield* buildLockEntry(ref);
         if (ref.refType === "registry") {
           yield* validateExactResolvedVersion(
             `hooks.${ref.hook.name}.resolvedVersion`,
@@ -960,6 +951,7 @@ export const HookManagerLive = Layer.effect(
       removeLockfileEntry: Effect.fn("HookManager.removeLockfileEntry")(function* ({ target }) {
         yield* ws.removeHookLock(target.name);
       }),
+      removeTrustEntry: ({ target }) => ws.removeTrustRecord("hook", target.name),
     };
   }),
 );

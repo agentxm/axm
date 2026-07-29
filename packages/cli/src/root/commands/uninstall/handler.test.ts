@@ -13,6 +13,7 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
+import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleUninstallCommand } from "./handler.js";
@@ -35,15 +36,36 @@ const initWorkspace = (
     agents,
     commands: Object.keys(commands).length > 0 ? commands : undefined,
     lockfileCommands: Object.keys(lockfileCommands).length > 0 ? lockfileCommands : undefined,
+    writeTrustFromLockfile: Object.keys(lockfileCommands).length > 0,
   });
 };
 
 const makeLockEntry = () => ({
-  type: "local",
-  path: "installed",
+  type: "registry",
+  owner: "@acme",
+  name: "my-cmd",
+  resolvedVersion: "1.0.0",
+  integrity: "sha512-AAAA==",
+  sourceName: "default",
+  publisherBindingId: "hbnd_test",
+  sourceHash: computeSourceHash("# my-cmd\n"),
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
+
+const writeCanonicalCommand = (axmDir: string) => {
+  const sourcePath = path.join(
+    axmDir,
+    "extensions",
+    "@acme",
+    "commands",
+    "my-cmd",
+    "src",
+    "my-cmd.md",
+  );
+  fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+  fs.writeFileSync(sourcePath, "# my-cmd\n");
+};
 
 const defaultArgs = (
   name: string,
@@ -157,6 +179,7 @@ describe("commands uninstall.handler", () => {
           "my-cmd": makeLockEntry(),
         },
       );
+      writeCanonicalCommand(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {

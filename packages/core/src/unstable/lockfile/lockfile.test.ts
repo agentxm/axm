@@ -216,6 +216,31 @@ describe("lockfile", () => {
   });
 
   describe("batched updates", () => {
+    it.effect("does not delete authoritative trust when receipt history is removed", () =>
+      withContext(
+        Effect.gen(function* () {
+          const base: Lockfile = {
+            lockfileVersion: 3,
+            skills: {
+              review: createTestEntry({ owner: "trusted-org", repo: "trusted-repo" }),
+            },
+          };
+          yield* writeLockfile(axmDir, base);
+
+          yield* commitLockfileSnapshotUpdate(axmDir, base, {
+            lockfileVersion: 3,
+            skills: {},
+          });
+
+          const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf-8"));
+          expect(trust.records["skill:review"]).toMatchObject({
+            authority: "github",
+            sourceIdentity: "github:trusted-org/trusted-repo",
+          });
+        }),
+      ),
+    );
+
     it.effect("preserves unknown top-level lockfile keys across a snapshot patch", () =>
       withContext(
         Effect.gen(function* () {

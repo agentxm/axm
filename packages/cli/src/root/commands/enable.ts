@@ -68,13 +68,10 @@ export const handleEnableCommand = Effect.fn("EnableCommand.handle")(function* (
     return;
   }
 
-  const lockedEntry = yield* ws.getLockedCommand(commandName);
   const configuredAgentIds = yield* ws.getConfiguredAgents();
   const planSections = combinePlanSections(
     makeAgentSection(
-      Option.isSome(lockedEntry)
-        ? "Would re-render to configured agents"
-        : "Would render to configured agents",
+      "Would render to configured agents",
       configuredAgentIds,
       "(no agents configured)",
     ),

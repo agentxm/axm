@@ -25,12 +25,7 @@ export { PackManager, PackManagerLive } from "./manager.js";
 export { computePackPaths, type PackDirPath } from "./paths.js";
 
 // Expansion helpers
-export {
-  expandPackInstallRefs,
-  expandPackUninstallTargets,
-  resolveSkillUninstallTargetsFromLockfile,
-  type UninstallSettingsContext,
-} from "./expansion.js";
+export { expandPackInstallRefs } from "./expansion.js";
 
 // Reconciliation adapter
 export { packReconciliationAdapter } from "./reconciliation-adapter.js";
@@ -43,8 +38,6 @@ export {
 } from "./operations/artifact.js";
 export type { InstallPackOperationArgs, InstallPackOperation } from "./operations/install.js";
 export { installPack } from "./operations/install.js";
-export type { UninstallPackOperationArgs, UninstallPackOperation } from "./operations/uninstall.js";
-export { uninstallPack } from "./operations/uninstall.js";
 export type { NewPackOperationArgs, NewPackOperation } from "./operations/new-pack.js";
 export { newPack } from "./operations/new-pack.js";
 export type { AddToPackOperationArgs, AddToPackOperation } from "./operations/add-to-pack.js";
@@ -56,5 +49,3 @@ export type {
 export { removeFromPack } from "./operations/remove-from-pack.js";
 export type { PublishPackOperationArgs, PublishPackOperation } from "./operations/publish.js";
 export { publishPack } from "./operations/publish.js";
-export type { UnpackPackOperationArgs, UnpackPackOperation } from "./operations/unpack.js";
-export { unpackPack } from "./operations/unpack.js";

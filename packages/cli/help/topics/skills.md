@@ -83,12 +83,15 @@ Prefer ignore for tool-managed skills. Copy only when you deliberately take owne
 
 ## Lockfile and integrity
 
-`.axm/axm-lock.yaml` records two different hashes for registry-installed skills:
+AXM records two different identities for registry-installed skills:
 
 - **`integrity`** — the SRI sha512 of the published archive. AXM verifies it against the downloaded bytes before extracting, every time it fetches. This is the supply-chain guarantee: a tampered or corrupted download fails the install.
-- **`sourceHash`** — an advisory SHA-256 marker of the installed source, captured at install time. AXM uses it to report installs as created, updated, or unchanged. It is not a tamper check.
+- **Content identity** — a SHA-256 marker used with source identity in `.axm/trust.json` to decide whether canonical content is safe to reuse. Receipt history may also record it as `sourceHash`.
 
-After install, the files under `.axm/extensions/` are owned by your workspace. Repo tooling that preserves content — Prettier, line-ending normalization, editorconfig fixers — may rewrite them freely: AXM never requires formatter opt-outs, never flags formatting as an error, and a no-op `axm install` will not revert those changes. To restore a skill to its published bytes, run `axm skills install <source> --force`, or `axm lint --fix` when the installed directory is missing.
+After install, remote-source canonical files under `.axm/extensions/` are
+AXM-managed. If their content identity changes, `axm sync` resolves the declared
+source instead of projecting untrusted local edits. Workspace-authored packages
+remain local authority and are re-materialized from their current source.
 
 ## Recommended packs
 
@@ -111,3 +114,4 @@ See `axm help packs` for pack authoring and `standalone` semantics.
 - `axm skills --help` — full skill subcommand surface
 - `axm help authoring` — writing the registry `description`, keywords, and README
 - `axm help packs` — bundling skill extensions with extension packs
+- `axm help workspace-state` — desired, observed, trust, and receipt semantics

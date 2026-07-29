@@ -9,6 +9,7 @@ import {
   type MatrixExtensionType,
 } from "./__generated__/extension-type-matrix.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
+import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
 
 const OWNER = "@test";
 const PUBLISH_ENV = { AXM_TOKEN: "e2e-test-token" };
@@ -273,6 +274,7 @@ const publishPackToRegistry = async (
           2,
         )}\n`,
       );
+      refreshAuthoredWorkspacePackState(workspace.path, OWNER, name);
     }
 
     const publishResult = await runCli(["packs", "publish", registryFqn("packs", name), "--yes"], {

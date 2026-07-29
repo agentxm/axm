@@ -14,6 +14,7 @@ Each guide is a single markdown file named after its topic:
 - `effect-option.md` — When to use `Option` versus nullable values
 - `effect-v4-quick-ref.md` — Common v3 to v4 API renames and migrations
 - `workspace-read-model.md` — Scoped workspace read model, caching, and test fixtures
+- `workspace-state.md` — Desired, observed, trust, receipt, and reconciliation semantics
 - `workspace-schema-evolution.md` — Settings and lockfile schema changes and decode strictness
 - `testing.md` — Testing orientation and skill references
 - `cli-design.md` — Command design, flags, prompts, and handler conventions

@@ -55,6 +55,32 @@ export {
   type ReconciliationSnapshot,
 } from "./reconciliation.js";
 
+export {
+  buildDesiredStateGraph,
+  type DesiredExtensionNode,
+  type DesiredExtensionOrigin,
+  type DesiredStateGraph,
+  type DesiredStateProblem,
+} from "./desired-state-graph.js";
+export { validateDesiredPackTrust } from "./desired-pack-trust.js";
+export {
+  observeCanonicalExtension,
+  canonicalPathForTrustedExtension,
+  type CanonicalObservation,
+  type CanonicalObservationStatus,
+} from "./canonical-observation.js";
+export {
+  trustedCanonicalRef,
+  trustedCanonicalObservation,
+  usableTrustedCanonical,
+  usableTrustedCanonicalObservation,
+  usableTrustedCanonicalRef,
+  type TrustedCanonicalObservation,
+  type UsableTrustedCanonical,
+  type UsableTrustedCanonicalObservation,
+} from "./trusted-canonical-ref.js";
+export { isObservedInstalled } from "./observed-installed.js";
+
 // Configured entry resolution
 export {
   resolveConfiguredCommand,

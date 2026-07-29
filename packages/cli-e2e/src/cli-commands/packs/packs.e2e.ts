@@ -12,6 +12,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createTempDir, runCli } from "../../e2e/utils.js";
+import { refreshAuthoredWorkspacePackState } from "../../e2e/workspace-pack-state.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -150,6 +151,7 @@ function updatePackManifest(
   manifest.version = args.version;
   manifest.dependencies = args.dependencies;
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  refreshAuthoredWorkspacePackState(workspaceRoot, "@test", packName);
 }
 
 function detachWorkspacePack(
@@ -314,7 +316,7 @@ describe("axm packs publish", () => {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },
       });
-      expect(publishResult.exitCode).toBe(0);
+      expect(publishResult.exitCode, publishResult.stderr).toBe(0);
 
       // Verify index.json in registry
       const registryIndexPath = path.join(
@@ -551,13 +553,14 @@ describe("axm packs install", () => {
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       packManifest.dependencies = { "@test/skills/dep-skill": "1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
+      refreshAuthoredWorkspacePackState(temp.path, "@test", "deps-pack");
 
       // Publish the pack (with the skill dependency)
       const packPublishResult = await runCli(["packs", "publish", "deps-pack", "--yes"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },
       });
-      expect(packPublishResult.exitCode).toBe(0);
+      expect(packPublishResult.exitCode, packPublishResult.stderr).toBe(0);
 
       // Clean up local state: remove pack from settings/lockfile/disk
       const settingsBefore = readSettings();
@@ -648,12 +651,13 @@ describe("axm packs install", () => {
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       packManifest.dependencies = { "@test/subagents/dep-subagent": "1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
+      refreshAuthoredWorkspacePackState(temp.path, "@test", "subagent-pack");
 
       const packPublishResult = await runCli(["packs", "publish", "subagent-pack", "--yes"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },
       });
-      expect(packPublishResult.exitCode).toBe(0);
+      expect(packPublishResult.exitCode, packPublishResult.stderr).toBe(0);
 
       const settingsBefore = readSettings();
       delete settingsBefore.subagents?.["dep-subagent"];
@@ -920,7 +924,7 @@ describe("axm packs unpack", () => {
       const result = await runCli(["packs", "unpack", "nonexistent", "--yes"], { cwd: temp.path });
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain("not installed");
+      expect(result.stderr).toContain("not configured");
     } finally {
       temp.cleanup();
     }

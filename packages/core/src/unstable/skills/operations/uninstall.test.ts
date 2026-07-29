@@ -22,7 +22,7 @@ import {
   makeRegistrySkillLockEntry,
 } from "../../workspace/test-stubs.js";
 import { decodeRelativePathSync } from "../../utils/path-types.js";
-import { exactVersion, getAppError, handle } from "../../test-helpers.js";
+import { exactVersion, handle } from "../../test-helpers.js";
 import type { UninstallSkillOperation } from "./uninstall.js";
 import { uninstallSkill } from "./uninstall.js";
 
@@ -50,6 +50,7 @@ const makeWorkspaceMock = (
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     lockedPacks?: Record<string, PackLockEntry>;
+    requiredByPack?: boolean;
   },
 ): WorkspaceMutationsService => {
   let skills: Record<string, SkillLockEntry> = { ...lockfileSkills };
@@ -129,6 +130,33 @@ const makeWorkspaceMock = (
               void name;
             }),
     getLockedPacks: () => Effect.succeed(lockedPacks),
+    ...(overrides?.requiredByPack === true
+      ? {
+          getDesiredStateGraph: () =>
+            Effect.succeed({
+              complete: true,
+              problems: [],
+              nodes: [
+                {
+                  type: "skill" as const,
+                  name: "my-skill",
+                  identity: "@acme/skills/my-skill",
+                  source: "@acme/skills/my-skill@^1.0.0",
+                  enabled: true,
+                  constraints: ["^1.0.0"],
+                  origins: [
+                    {
+                      type: "pack" as const,
+                      pack: "@acme/packs/starter-pack",
+                      source: "@acme/skills/my-skill",
+                      constraint: "^1.0.0",
+                    },
+                  ],
+                },
+              ],
+            }),
+        }
+      : {}),
   });
 };
 
@@ -143,6 +171,7 @@ const withServices = (
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     lockedPacks?: Record<string, PackLockEntry>;
+    requiredByPack?: boolean;
   },
 ) => {
   return Layer.mergeAll(
@@ -516,7 +545,7 @@ describe("uninstallSkill", () => {
   });
 
   describe("missing canonical dir", () => {
-    it.effect("skips without error when canonical dir does not exist", () =>
+    it.effect("ignores a stale receipt when canonical dir does not exist", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
@@ -533,11 +562,11 @@ describe("uninstallSkill", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled my-skill");
+        expect(result.message).toBe("not installed");
 
-        // Lockfile entry should be removed
+        // Historical receipt data is not mutation authority.
         const lockfile = readLockfileYaml(axmDir);
-        expect(lockfile.skills["my-skill"]).toBeUndefined();
+        expect(lockfile.skills["my-skill"]).toBeDefined();
       }),
     );
   });
@@ -596,9 +625,9 @@ describe("uninstallSkill", () => {
   });
 
   describe("lockfile read error handling", () => {
-    it.effect("propagates AppError from lockfile read failure", () =>
+    it.effect("uninstalls observed content without reading the receipt", () =>
       Effect.gen(function* () {
-        const { axmDir, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
+        const { axmDir, base, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
 
         const result = yield* uninstallSkill(makeOp()).pipe(
           Effect.provide(
@@ -616,14 +645,11 @@ describe("uninstallSkill", () => {
               },
             ),
           ),
-          Effect.flip,
         );
 
-        const error = getAppError(result);
-        expect(error.code).toBe("internal");
-        expect(error.cause).toBeInstanceOf(AppError);
-        // Canonical dir should still exist (error propagated before removal)
-        expect(fs.existsSync(canonicalPath)).toBe(true);
+        expect(result.result).toBe("success");
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
       }),
     );
   });
@@ -797,6 +823,7 @@ describe("uninstallSkill", () => {
                   "@acme/skills/my-skill": "1.0.0",
                 }),
               },
+              requiredByPack: true,
             }),
           ),
         );
@@ -853,6 +880,7 @@ describe("uninstallSkill", () => {
                   "@acme/skills/my-skill": "2.0.0",
                 }),
               },
+              requiredByPack: true,
             }),
           ),
         );
@@ -908,6 +936,7 @@ describe("uninstallSkill", () => {
                   "@community/skills/my-skill": "1.0.0",
                 }),
               },
+              requiredByPack: true,
             }),
           ),
         );

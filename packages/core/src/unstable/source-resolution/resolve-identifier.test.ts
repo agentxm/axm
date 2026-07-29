@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -14,20 +13,24 @@ import {
   decodeHandleSync,
   toExtensionTypePlural,
 } from "../extensions/index.js";
-import type { SkillsLockMap } from "../lockfile/index.js";
-import { decodeVersionSync } from "../version-constraints/version-constraints.js";
-import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../workspace/test-stubs.js";
+import {
+  configuredRow,
+  makeBaseWorkspaceMock,
+  makeRegistrySkillLockEntry,
+  readModelRecordStubs,
+  rowsFor,
+} from "../workspace/test-stubs.js";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "../workspace/index.js";
 import { resolveIdentifier, resolveInstalledIdentifier } from "./resolve-identifier.js";
 
-const owner = (value: string) => decodeHandleSync(value);
 const name = (value: string) => decodeExtensionNameSync(value);
 
 const provide = (
   effect: ReturnType<typeof resolveIdentifier>,
   options?: {
-    readonly lockedSkills?: () => Effect.Effect<SkillsLockMap>;
+    readonly rows?: WorkspaceMutationsService["records"]["rows"];
     readonly registryDir?: string;
+    readonly getLockedSkills?: WorkspaceMutationsService["getLockedSkills"];
   },
 ) =>
   effect.pipe(
@@ -36,7 +39,10 @@ const provide = (
         Layer.succeed(
           WorkspaceMutations,
           makeBaseWorkspaceMock("/tmp/axm", {
-            getLockedSkills: options?.lockedSkills ?? (() => Effect.succeed({})),
+            ...(options?.rows === undefined ? {} : { rows: options.rows }),
+            ...(options?.getLockedSkills === undefined
+              ? {}
+              : { getLockedSkills: options.getLockedSkills }),
             getRegistrySourceHosts: () =>
               Effect.succeed([
                 {
@@ -95,13 +101,15 @@ describe("resolveIdentifier", () => {
           scope: "installed",
         }),
         {
-          lockedSkills: () =>
-            Effect.succeed({
-              localKey: makeRegistrySkillLockEntry({
-                owner: owner("@acme"),
-                name: "code-review",
+          rows: rowsFor({
+            skill: [
+              configuredRow({
+                type: "skill",
+                name: "localKey",
+                source: "@acme/skills/code-review",
               }),
-            }),
+            ],
+          }),
         },
       );
 
@@ -120,17 +128,20 @@ describe("resolveIdentifier", () => {
             scope: "installed",
           }),
           {
-            lockedSkills: () =>
-              Effect.succeed({
-                acmeReview: makeRegistrySkillLockEntry({
-                  owner: owner("@acme"),
-                  name: "code-review",
+            rows: rowsFor({
+              skill: [
+                configuredRow({
+                  type: "skill",
+                  name: "acmeReview",
+                  source: "@acme/skills/code-review",
                 }),
-                otherReview: makeRegistrySkillLockEntry({
-                  owner: owner("@other"),
-                  name: "code-review",
+                configuredRow({
+                  type: "skill",
+                  name: "otherReview",
+                  source: "@other/skills/code-review",
                 }),
-              }),
+              ],
+            }),
           },
         ),
       );
@@ -141,6 +152,38 @@ describe("resolveIdentifier", () => {
         expect(result.failure.detail).toContain("@acme/skills/code-review");
         expect(result.failure.detail).toContain("@other/skills/code-review");
       }
+    }),
+  );
+
+  it.effect("ignores stale receipt identities", () =>
+    Effect.gen(function* () {
+      const resolved = yield* provide(
+        resolveIdentifier({
+          input: "code-review",
+          resourceType: "skill",
+          scope: "installed",
+        }),
+        {
+          rows: rowsFor({
+            skill: [
+              configuredRow({
+                type: "skill",
+                name: "codeReview",
+                source: "@current/skills/code-review",
+              }),
+            ],
+          }),
+          getLockedSkills: () =>
+            Effect.succeed({
+              codeReview: makeRegistrySkillLockEntry({
+                owner: decodeHandleSync("@stale"),
+                name: "code-review",
+              }),
+            }),
+        },
+      );
+
+      expect(resolved.fqn).toBe("@current/skills/code-review");
     }),
   );
 
@@ -172,13 +215,15 @@ describe("resolveIdentifier", () => {
           scope: "both",
         }),
         {
-          lockedSkills: () =>
-            Effect.succeed({
-              codeReview: makeRegistrySkillLockEntry({
-                owner: owner("@installed"),
-                name: "code-review",
+          rows: rowsFor({
+            skill: [
+              configuredRow({
+                type: "skill",
+                name: "codeReview",
+                source: "@installed/skills/code-review",
               }),
-            }),
+            ],
+          }),
         },
       );
 
@@ -207,37 +252,35 @@ describe("resolveIdentifier", () => {
   );
 });
 
-// Every registry lock arm carries the same field set, so one entry seeds any
-// per-type lock map.
-const sharedRegistryLockEntry = {
-  type: "registry",
-  owner: owner("@acme"),
-  name: name("shared"),
-  resolvedVersion: decodeVersionSync("1.0.0"),
-  integrity: "sha512-AAAA==",
-  sourceName: "default",
-  publisherBindingId: "hbnd_test",
-  installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-  updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-} as const;
-
-const lockedEntries = { installed: sharedRegistryLockEntry };
-
 /**
- * One lock-map override per catalog type. The `satisfies Record<…>` mirrors the
- * accessor table in `resolve-identifier.ts`: a new catalog type has to be wired
- * in both places or neither compiles.
+ * One desired-row override per catalog type. The `satisfies Record<…>` keeps
+ * identifier resolution exhaustive when a new catalog type is introduced.
  */
-const lockedOverrideFor = {
-  skill: { getLockedSkills: () => Effect.succeed(lockedEntries) },
-  command: { getLockedCommands: () => Effect.succeed(lockedEntries) },
-  "mcp-server": { getLockedMcpServers: () => Effect.succeed(lockedEntries) },
-  subagent: { getLockedSubagents: () => Effect.succeed(lockedEntries) },
-  files: { getLockedFiles: () => Effect.succeed(lockedEntries) },
-  rule: { getLockedRules: () => Effect.succeed(lockedEntries) },
-  hook: { getLockedHooks: () => Effect.succeed(lockedEntries) },
-  knowledge: { getLockedKnowledge: () => Effect.succeed(lockedEntries) },
-} as const satisfies Record<CatalogExtensionType, Partial<WorkspaceMutationsService>>;
+const desiredOverride = (type: CatalogExtensionType): Partial<WorkspaceMutationsService> => ({
+  records: {
+    ...readModelRecordStubs,
+    rows: rowsFor({
+      [type]: [
+        configuredRow({
+          type,
+          name: "installed",
+          source: `@acme/${toExtensionTypePlural(type)}/shared`,
+        }),
+      ],
+    }),
+  },
+});
+
+const desiredOverrideFor = {
+  skill: desiredOverride("skill"),
+  command: desiredOverride("command"),
+  "mcp-server": desiredOverride("mcp-server"),
+  subagent: desiredOverride("subagent"),
+  files: desiredOverride("files"),
+  rule: desiredOverride("rule"),
+  hook: desiredOverride("hook"),
+  knowledge: desiredOverride("knowledge"),
+} satisfies Record<CatalogExtensionType, Partial<WorkspaceMutationsService>>;
 
 const provideForType = (
   effect: ReturnType<typeof resolveInstalledIdentifier>,
@@ -248,7 +291,7 @@ const provideForType = (
       Layer.mergeAll(
         Layer.succeed(
           WorkspaceMutations,
-          makeBaseWorkspaceMock("/tmp/axm", lockedOverrideFor[type]),
+          makeBaseWorkspaceMock("/tmp/axm", desiredOverrideFor[type]),
         ),
         NodeServices.layer,
       ),

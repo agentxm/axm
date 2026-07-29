@@ -71,6 +71,12 @@ describe("printSourceParams", () => {
       ref: Option.none(),
     });
     expect(printSourceParams(source)).toBe("https://example.com/repo.git");
+    const sourceWithRef = makeSourceParams({
+      type: "git",
+      url: new URL("https://example.com/repo.git"),
+      ref: Option.some("release/1.x"),
+    });
+    expect(printSourceParams(sourceWithRef)).toBe("https://example.com/repo.git#release/1.x");
   });
 
   it("prints local source", () => {

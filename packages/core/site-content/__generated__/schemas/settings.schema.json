@@ -906,7 +906,7 @@
         },
         "skills": {
           "anyOf": [{ "$ref": "#/definitions/SkillsMap" }],
-          "description": "Your installed skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`."
+          "description": "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "skillsConfig": {
           "anyOf": [{ "$ref": "#/definitions/SkillsConfig" }],
@@ -914,7 +914,7 @@
         },
         "commands": {
           "anyOf": [{ "$ref": "#/definitions/CommandsMap" }],
-          "description": "Your installed commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`."
+          "description": "Desired commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "commandsConfig": {
           "anyOf": [{ "$ref": "#/definitions/CommandsConfig" }],
@@ -922,7 +922,7 @@
         },
         "files": {
           "anyOf": [{ "$ref": "#/definitions/FilesMap" }],
-          "description": "Your installed Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`."
+          "description": "Desired Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`."
         },
         "filesConfig": {
           "anyOf": [{ "$ref": "#/definitions/FilesConfig" }],
@@ -930,11 +930,11 @@
         },
         "rules": {
           "anyOf": [{ "$ref": "#/definitions/RulesMap" }],
-          "description": "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`."
+          "description": "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "hooks": {
           "anyOf": [{ "$ref": "#/definitions/HooksMap" }],
-          "description": "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`."
+          "description": "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "hooksConfig": {
           "anyOf": [{ "$ref": "#/definitions/HooksConfig" }],
@@ -942,7 +942,7 @@
         },
         "knowledge": {
           "anyOf": [{ "$ref": "#/definitions/KnowledgeMap" }],
-          "description": "Installed Open Knowledge Format bundles, isolated from agent instruction files."
+          "description": "Desired Open Knowledge Format bundles, isolated from agent instruction files."
         },
         "knowledgeConfig": {
           "anyOf": [{ "$ref": "#/definitions/KnowledgeConfig" }],
@@ -950,7 +950,7 @@
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],
-          "description": "Your installed subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`."
+          "description": "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
         "subagentsConfig": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsConfig" }],
@@ -958,7 +958,7 @@
         },
         "packs": {
           "anyOf": [{ "$ref": "#/definitions/PacksMap" }],
-          "description": "Your installed packs, keyed by workspace pack name. Pack entries do not support `enabled` yet."
+          "description": "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`."
         },
         "packsConfig": {
           "anyOf": [{ "$ref": "#/definitions/PacksConfig" }],
@@ -966,7 +966,7 @@
         },
         "mcpServers": {
           "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],
-          "description": "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values."
+          "description": "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values."
         },
         "mcpServersConfig": {
           "anyOf": [{ "$ref": "#/definitions/McpServersConfig" }],

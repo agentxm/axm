@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -10,6 +11,35 @@ const TEST_NAMESPACE = "@test";
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+};
+
+const computePackageContentIdentity = (packageDir: string): string => {
+  const files: Array<{ readonly absolutePath: string; readonly relativePath: string }> = [];
+  const visit = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath);
+      } else if (entry.isFile()) {
+        files.push({
+          absolutePath,
+          relativePath: path.relative(packageDir, absolutePath),
+        });
+      }
+    }
+  };
+  visit(packageDir);
+  files.sort((left, right) =>
+    left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
+  );
+  const packageHash = crypto.createHash("sha256");
+  for (const file of files) {
+    packageHash.update(file.relativePath);
+    packageHash.update("\0");
+    packageHash.update(fs.readFileSync(file.absolutePath));
+    packageHash.update("\0");
+  }
+  return crypto.createHash("sha256").update(packageHash.digest("hex")).digest("hex");
 };
 
 const setupCrossTypeManagedState = (workspacePath: string) => {
@@ -154,24 +184,38 @@ const setupCrossTypeManagedState = (workspacePath: string) => {
     },
   );
 
-  writeJson(
-    path.join(
-      workspacePath,
-      ".axm",
-      "extensions",
-      TEST_NAMESPACE,
-      "packs",
-      "managed-pack",
-      "pack.json",
-    ),
-    {
-      owner: TEST_NAMESPACE,
-      type: "pack",
-      name: "managed-pack",
-      version: "1.0.0",
-      dependencies: {},
-    },
+  const packDir = path.join(
+    workspacePath,
+    ".axm",
+    "extensions",
+    TEST_NAMESPACE,
+    "packs",
+    "managed-pack",
   );
+  writeJson(path.join(packDir, "pack.json"), {
+    owner: TEST_NAMESPACE,
+    type: "pack",
+    name: "managed-pack",
+    version: "1.0.0",
+    dependencies: {},
+  });
+
+  const trustPath = path.join(workspacePath, ".axm", "trust.json");
+  const trust = fs.existsSync(trustPath)
+    ? JSON.parse(fs.readFileSync(trustPath, "utf-8"))
+    : { trustStateVersion: 1, records: {} };
+  trust.records = {
+    ...trust.records,
+    "pack:managed-pack": {
+      extensionType: "pack",
+      name: "managed-pack",
+      authority: "workspace",
+      sourceIdentity: `workspace:${TEST_NAMESPACE}/packs/managed-pack`,
+      resolvedVersion: "1.0.0",
+      contentIdentity: computePackageContentIdentity(packDir),
+    },
+  };
+  writeJson(trustPath, trust);
 };
 
 describe("lockfile rebuild on missing/invalid lockfile", () => {

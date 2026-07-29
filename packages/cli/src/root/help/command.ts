@@ -48,6 +48,7 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "package-extensions",
   "settings",
   "settings-schema",
+  "trust-schema",
   "mcp-schema",
   "axm-lock-schema",
   "axm-package-meta-schema",

@@ -273,7 +273,7 @@ describe("buildPlan", () => {
     }),
   );
 
-  it.effect("returns an unchanged artifact without rewriting an installed command", () =>
+  it.effect("reinstalls when only receipt history exists", () =>
     Effect.gen(function* () {
       const lockEntry = makeCommandLockEntry();
       const workspace = makeBaseWorkspaceMock("/tmp/axm", {
@@ -299,16 +299,16 @@ describe("buildPlan", () => {
 
       expect(result).toEqual({
         result: "success",
-        message: "my-cmd already installed",
+        message: "Installed my-cmd",
         artifact: {
           path: "my-cmd",
           scope: "project",
-          change: "unchanged",
+          change: "updated",
         },
       });
-      expect(commandManager.materializeInstall).not.toHaveBeenCalled();
+      expect(commandManager.materializeInstall).toHaveBeenCalledOnce();
       expect(commandManager.upsertLockfileEntry).not.toHaveBeenCalled();
-      expect(commandManager.upsertSettingsEntry).not.toHaveBeenCalled();
+      expect(commandManager.upsertSettingsEntry).toHaveBeenCalledOnce();
     }),
   );
 

@@ -12,7 +12,6 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import {
   WorkspaceMutations,
-  configuredRowsByName,
   resolveConfiguredCommand,
   resolveConfiguredFiles,
   resolveConfiguredHook,
@@ -284,7 +283,7 @@ const collectSkillPlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSkillCommandWorkflowActions;
-    const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
+    const configured = yield* ws.getConfiguredSkillEntries();
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -303,7 +302,7 @@ const collectCommandPlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallCommandCommandWorkflowActions;
-    const configured = yield* ws.records.rows("command").pipe(Effect.map(configuredRowsByName));
+    const configured = yield* ws.getConfiguredCommandEntries();
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -398,7 +397,7 @@ const collectSubagentPlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSubagentCommandWorkflowActions;
-    const configured = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
+    const configured = yield* ws.getConfiguredSubagentEntries();
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -417,7 +416,7 @@ const collectMcpServerPlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallMcpServerCommandWorkflowActions;
-    const configured = yield* ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName));
+    const configured = yield* ws.getConfiguredMcpServerEntries();
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -436,7 +435,7 @@ const collectPackPlans = () =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallPackCommandWorkflowActions;
-    const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
+    const configured = yield* ws.getConfiguredPackEntries();
     const entries = Object.entries(configured);
 
     const plans = yield* Effect.forEach(

@@ -13,20 +13,17 @@ import * as Array from "effect/Array";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
 import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
   parseRegistrySourcePatternParts,
   type ExtensionName,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
 import {
   createRegistryClient,
   filterMatureVersions,
@@ -42,7 +39,8 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { LOCKFILE_VERSION, type Lockfile } from "@agentxm/client-core/unstable/lockfile";
+import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
+import type { SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -128,7 +126,10 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
-  const lockedSkills = yield* ws.getLockedSkills();
+  const lockedSkills = yield* ws
+    .getLockedSkills()
+    .pipe(Effect.catch(() => Effect.succeed<SkillsLockMap>({})));
+  const trustState = yield* ws.getTrustState();
 
   const disabledSkillEntries: ReadonlyArray<Extract<ResolveResult, { readonly type: "skip" }>> =
     Object.entries(allSkills).flatMap(([name, entry]) =>
@@ -459,11 +460,11 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   const warningsBySkill = new Map<string, ReadonlyArray<string>>();
   for (const item of resolved) {
-    const existing = lockedSkills[item.ref.skill.name];
-    const lockedEpoch = existing?.type === "registry" ? existing.publisherBindingId : undefined;
+    const trusted = trustState.records[trustRecordKey("skill", item.ref.skill.name)];
+    const lockedEpoch = trusted?.authority === "registry" ? trusted.publisherBindingId : undefined;
     const resolvedEpoch = item.ref.refType === "registry" ? item.ref.publisherBindingId : undefined;
     const publisherEpochChanged =
-      existing?.type === "registry" &&
+      trusted?.authority === "registry" &&
       item.ref.refType === "registry" &&
       lockedEpoch !== resolvedEpoch;
     if (publisherEpochChanged && args.yes) {
@@ -530,10 +531,9 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     );
 
   // Step 10: Build plan
-  const lockfile: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: lockedSkills };
   const rawPlan = buildUpdatePlan(
     ops,
-    lockfile,
+    trustState,
     "Update skills",
     Option.some("Update installed skills"),
     makeRunClosure,
@@ -589,70 +589,30 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   yield* emitPlanResolutionResult("skills.update", resolution);
 });
 
-/**
- * Read installed pack manifests and collect per-skill constraints.
- *
- * Returns a map from skill FQN (e.g., "@acme/skills/code-review") to an array of
- * pack constraints. Silently skips packs whose manifest can't be read.
- */
+/** Collect per-skill constraints from the authoritative desired pack graph. */
 const collectPackConstraints = () =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const base = ws.baseDir;
-
-    // Read lockfile to find installed packs
-    const lockedPacks = yield* ws.getLockedPacks();
-
+    const graph = yield* ws.getDesiredStateGraph();
+    if (!graph.complete) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Cannot update skills while the desired pack graph is incomplete",
+      });
+    }
     const constraintMap = new Map<string, Array<PackConstraint>>();
 
-    // Read each pack's manifest from disk (sequential to avoid data race on constraintMap)
-    yield* Effect.forEach(Object.entries(lockedPacks), ([packName, packEntry]) =>
-      Effect.gen(function* () {
-        const packDir = path.join(
-          base,
-          REGISTRY_EXTENSIONS_DIR,
-          packEntry.owner,
-          "packs",
-          packName,
-        );
-        const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
-
-        const exists = yield* fs
-          .exists(manifestPath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!exists) return;
-
-        const content = yield* fs
-          .readFileString(manifestPath)
-          .pipe(Effect.catch(() => Effect.succeed("")));
-        if (content === "") return;
-
-        const json = yield* Effect.try({
-          try: () => JSON.parse(content),
-          catch: () => ({ _tag: "parse-failed" as const }),
-        }).pipe(
-          Effect.map((value): unknown => value),
-          Effect.option,
-        );
-        if (Option.isNone(json)) return;
-
-        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json.value).pipe(
-          Effect.option,
-        );
-        if (Option.isNone(manifest)) return;
-
-        // Collect skill constraints from pack dependencies.
-        for (const [fqn, constraint] of Object.entries(manifest.value.dependencies)) {
-          if (!fqn.includes("/skills/")) continue;
-          if (typeof constraint !== "string" || constraint === "*" || constraint === "") continue;
-          const existing = constraintMap.get(fqn) ?? [];
-          existing.push({ packName, constraint });
-          constraintMap.set(fqn, existing);
+    for (const node of graph.nodes) {
+      if (node.type !== "skill") continue;
+      for (const origin of node.origins) {
+        if (origin.type !== "pack" || origin.constraint === "*" || origin.constraint === "") {
+          continue;
         }
-      }),
-    );
+        const existing = constraintMap.get(node.identity) ?? [];
+        existing.push({ packName: origin.pack, constraint: origin.constraint });
+        constraintMap.set(node.identity, existing);
+      }
+    }
 
     return constraintMap;
   });

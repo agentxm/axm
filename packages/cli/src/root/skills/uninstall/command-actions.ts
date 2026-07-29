@@ -192,7 +192,9 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
               }
 
               const sanitizedName = sanitizeName(entry.skillName);
-              const lockEntry = yield* ws.getLockedSkill(entry.skillName);
+              const lockEntry = yield* ws
+                .getLockedSkill(entry.skillName)
+                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               const artifact = yield* skillArtifactFromTargets({
                 targets: installableTargets,
                 workspaceRoot: ws.baseDir,

@@ -613,6 +613,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   integrity: Schema.String,
   sourceName: Schema.String,
   publisherBindingId: Schema.NonEmptyString,
+  sourceHash: Schema.optional(SourceHashSchema),
   installedAt: DateTimeUtcSchema,
   updatedAt: DateTimeUtcSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
@@ -797,7 +798,7 @@ export const LockfileSchema = Schema.StructWithRest(LockfileBaseSchema, [
   identifier: "Lockfile",
   title: "AXM Lockfile",
   description:
-    "Records the exact versions of all installed extensions so installs are reproducible.",
+    "Optional receipt history for successful extension resolution and materialization. Desired, observed, and trust state remain authoritative elsewhere.",
 });
 
 /**

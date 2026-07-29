@@ -422,6 +422,29 @@ describe("disableSkill", () => {
           getLockedSkills: () =>
             Effect.succeed({ "my-skill": makeRegistryLockEntry(["claude-code"]) }),
           getLockedSkill: () => Effect.succeed(Option.some(makeRegistryLockEntry(["claude-code"]))),
+          getDesiredStateGraph: () =>
+            Effect.succeed({
+              complete: true,
+              nodes: [
+                {
+                  type: "skill",
+                  name: "my-skill",
+                  identity: "@community/skills/my-skill",
+                  source: "@community/skills/my-skill",
+                  enabled: true,
+                  constraints: [],
+                  origins: [
+                    {
+                      type: "pack",
+                      pack: "@community/packs/toolkit",
+                      source: "@community/skills/my-skill",
+                      constraint: "*",
+                    },
+                  ],
+                },
+              ],
+              problems: [],
+            }),
           setSkillEntry: setSkillEntryFn,
         });
 

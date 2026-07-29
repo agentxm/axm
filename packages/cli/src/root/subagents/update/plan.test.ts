@@ -5,12 +5,11 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { RegistrySubagentRef } from "@agentxm/client-core/unstable/subagents";
 import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
+import type { WorkspaceTrustState } from "@agentxm/client-core/unstable/trust";
 import { buildUpdatePlan, type UpdateOperation } from "./plan.js";
 import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
 
@@ -35,16 +34,22 @@ const makeRegistryRef = (name: string, version: string): RegistrySubagentRef => 
   },
 });
 
-const makeRegistryLockEntry = (version: string): SubagentLockEntry => ({
-  type: "registry",
-  owner: handle("@test"),
-  name: extensionName("test"),
-  resolvedVersion: exactVersion(version),
-  integrity: "sha512-AAAA==",
-  sourceName: "test",
-  publisherBindingId: "hbnd_test",
-  installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
-  updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+const trustStateWith = (name: string, version: string | undefined): WorkspaceTrustState => ({
+  trustStateVersion: 1,
+  records:
+    version === undefined
+      ? {}
+      : {
+          [`subagent:${name}`]: {
+            extensionType: "subagent",
+            name,
+            authority: "registry",
+            sourceIdentity: `@test/subagents/${name}`,
+            resolvedVersion: version,
+            publisherBindingId: "hbnd_test",
+            integrity: "sha512-AAAA==",
+          },
+        },
 });
 
 const noopRunClosure = (_op: UpdateOperation) =>
@@ -57,12 +62,11 @@ const noopRunClosure = (_op: UpdateOperation) =>
 describe("buildUpdatePlan", () => {
   it("marks unchanged registry subagent as up to date", () => {
     const ref = makeRegistryRef("researcher", "1.0.0");
-    const lockEntry = makeRegistryLockEntry("1.0.0");
     const ops: ReadonlyArray<UpdateOperation> = [{ ref, force: false }];
 
     const plan = buildUpdatePlan(
       ops,
-      { lockfileVersion: 3, subagents: { researcher: lockEntry } },
+      trustStateWith("researcher", "1.0.0"),
       "Update subagents",
       Option.none(),
       noopRunClosure,
@@ -75,12 +79,11 @@ describe("buildUpdatePlan", () => {
 
   it("marks changed registry subagent as needing update", () => {
     const ref = makeRegistryRef("researcher", "2.0.0");
-    const lockEntry = makeRegistryLockEntry("1.0.0");
     const ops: ReadonlyArray<UpdateOperation> = [{ ref, force: false }];
 
     const plan = buildUpdatePlan(
       ops,
-      { lockfileVersion: 3, subagents: { researcher: lockEntry } },
+      trustStateWith("researcher", "1.0.0"),
       "Update subagents",
       Option.none(),
       noopRunClosure,
@@ -95,12 +98,11 @@ describe("buildUpdatePlan", () => {
 
   it("force flag overrides version comparison", () => {
     const ref = makeRegistryRef("researcher", "1.0.0");
-    const lockEntry = makeRegistryLockEntry("1.0.0");
     const ops: ReadonlyArray<UpdateOperation> = [{ ref, force: true }];
 
     const plan = buildUpdatePlan(
       ops,
-      { lockfileVersion: 3, subagents: { researcher: lockEntry } },
+      trustStateWith("researcher", "1.0.0"),
       "Update subagents",
       Option.none(),
       noopRunClosure,
@@ -114,7 +116,7 @@ describe("buildUpdatePlan", () => {
   it("handles empty operations", () => {
     const plan = buildUpdatePlan(
       [],
-      { lockfileVersion: 3, subagents: {} },
+      trustStateWith("researcher", undefined),
       "Update subagents",
       Option.none(),
       noopRunClosure,

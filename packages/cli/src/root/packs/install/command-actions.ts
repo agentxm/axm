@@ -31,7 +31,7 @@ import {
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import {
@@ -55,12 +55,10 @@ import {
 import {
   buildUninstallOperation,
   buildInstallOperation,
-  parseExtensionFqnParts,
   targetFromRef,
   toLabel,
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { ResolvedExtensionMap } from "@agentxm/client-core/unstable/lockfile";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { parseMinimumReleaseAge } from "@agentxm/client-core/unstable/registry";
 import type {
@@ -72,6 +70,7 @@ import type {
   RuleExtensionTarget,
   SkillExtensionTarget,
   SubagentExtensionTarget,
+  DesiredStateGraph,
 } from "@agentxm/client-core/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
@@ -184,8 +183,6 @@ const makePackDependencyNameSets = (): PackDependencyNameSets => ({
   knowledge: new Set<string>(),
 });
 
-const nameFromFqn = (fqn: string): string => parseExtensionFqnParts(fqn)?.name ?? fqn;
-
 const collectResolvedDependencyNames = (
   refs: ReadonlyArray<ExtensionRef>,
 ): PackDependencyNameSets => {
@@ -225,101 +222,25 @@ const collectResolvedDependencyNames = (
   return names;
 };
 
-const collectDirectlyConfiguredNames = (args: {
-  readonly skills: Readonly<Record<string, unknown>>;
-  readonly commands: Readonly<Record<string, unknown>>;
-  readonly mcpServers: Readonly<Record<string, unknown>>;
-  readonly subagents: Readonly<Record<string, unknown>>;
-  readonly files: Readonly<Record<string, unknown>>;
-  readonly rules: Readonly<Record<string, unknown>>;
-  readonly hooks: Readonly<Record<string, unknown>>;
-  readonly knowledge: Readonly<Record<string, unknown>>;
-}): PackDependencyNameSets => ({
-  skill: new Set(Object.keys(args.skills)),
-  command: new Set(Object.keys(args.commands)),
-  "mcp-server": new Set(Object.keys(args.mcpServers)),
-  subagent: new Set(Object.keys(args.subagents)),
-  files: new Set(Object.keys(args.files)),
-  rule: new Set(Object.keys(args.rules)),
-  hook: new Set(Object.keys(args.hooks)),
-  knowledge: new Set(Object.keys(args.knowledge)),
-});
-
 const collectDroppedPackDependencyTargets = (args: {
-  readonly lockedPack: {
-    readonly resolvedSkills: ResolvedExtensionMap;
-    readonly resolvedCommands: ResolvedExtensionMap;
-    readonly resolvedMcpServers: ResolvedExtensionMap;
-    readonly resolvedSubagents: ResolvedExtensionMap;
-    readonly resolvedFiles?: ResolvedExtensionMap | undefined;
-    readonly resolvedRules?: ResolvedExtensionMap | undefined;
-    readonly resolvedHooks?: ResolvedExtensionMap | undefined;
-    readonly resolvedKnowledge?: ResolvedExtensionMap | undefined;
-  };
+  readonly graph: DesiredStateGraph;
+  readonly replacingPackIdentity: string;
   readonly nextDependencies: PackDependencyNameSets;
-  readonly directlyConfigured: PackDependencyNameSets;
 }): ReadonlyArray<DroppedPackDependencyTarget> => {
   const droppedTargets: Array<DroppedPackDependencyTarget> = [];
-
-  for (const fqn of Object.keys(args.lockedPack.resolvedSkills)) {
-    const name = nameFromFqn(fqn);
-    if (!args.nextDependencies.skill.has(name) && !args.directlyConfigured.skill.has(name)) {
-      droppedTargets.push({ type: "skill", name });
-    }
-  }
-
-  for (const fqn of Object.keys(args.lockedPack.resolvedCommands)) {
-    const name = nameFromFqn(fqn);
-    if (!args.nextDependencies.command.has(name) && !args.directlyConfigured.command.has(name)) {
-      droppedTargets.push({ type: "command", name });
-    }
-  }
-
-  for (const fqn of Object.keys(args.lockedPack.resolvedMcpServers)) {
-    const name = nameFromFqn(fqn);
-    if (
-      !args.nextDependencies["mcp-server"].has(name) &&
-      !args.directlyConfigured["mcp-server"].has(name)
-    ) {
-      droppedTargets.push({ type: "mcp-server", name });
-    }
-  }
-
-  for (const fqn of Object.keys(args.lockedPack.resolvedSubagents)) {
-    const name = nameFromFqn(fqn);
-    if (!args.nextDependencies.subagent.has(name) && !args.directlyConfigured.subagent.has(name)) {
-      droppedTargets.push({ type: "subagent", name });
-    }
-  }
-
-  for (const fqn of Object.keys(args.lockedPack.resolvedFiles ?? {})) {
-    const name = nameFromFqn(fqn);
-    if (!args.nextDependencies.files.has(name) && !args.directlyConfigured.files.has(name)) {
-      droppedTargets.push({ type: "files", name });
-    }
-  }
-
-  for (const fqn of Object.keys(args.lockedPack.resolvedRules ?? {})) {
-    const name = nameFromFqn(fqn);
-    if (!args.nextDependencies.rule.has(name) && !args.directlyConfigured.rule.has(name)) {
-      droppedTargets.push({ type: "rule", name });
-    }
-  }
-
-  for (const fqn of Object.keys(args.lockedPack.resolvedHooks ?? {})) {
-    const name = nameFromFqn(fqn);
-    if (!args.nextDependencies.hook.has(name) && !args.directlyConfigured.hook.has(name)) {
-      droppedTargets.push({ type: "hook", name });
-    }
-  }
-
-  for (const fqn of Object.keys(args.lockedPack.resolvedKnowledge ?? {})) {
-    const name = nameFromFqn(fqn);
-    if (
-      !args.nextDependencies.knowledge.has(name) &&
-      !args.directlyConfigured.knowledge.has(name)
-    ) {
-      droppedTargets.push({ type: "knowledge", name });
+  for (const node of args.graph.nodes) {
+    if (node.type === "pack") continue;
+    const belongedToReplacedPack = node.origins.some(
+      (origin) => origin.type === "pack" && origin.pack === args.replacingPackIdentity,
+    );
+    if (!belongedToReplacedPack || args.nextDependencies[node.type].has(node.name)) continue;
+    const retainedElsewhere = node.origins.some(
+      (origin) =>
+        origin.type === "settings" ||
+        (origin.type === "pack" && origin.pack !== args.replacingPackIdentity),
+    );
+    if (!retainedElsewhere) {
+      droppedTargets.push({ type: node.type, name: node.name });
     }
   }
 
@@ -819,45 +740,16 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           sources,
           minimumReleaseAge,
         });
-        const lockedPack = yield* ws.getLockedPack(intent.packToInstall.pack.name);
-        const [
-          configuredSkills,
-          configuredCommands,
-          configuredMcpServers,
-          configuredSubagents,
-          configuredFiles,
-          configuredRules,
-          configuredHooks,
-          configuredKnowledge,
-          lockedSkills,
-          lockedCommands,
-          lockedMcpServers,
-          lockedSubagents,
-          lockedFiles,
-          lockedRules,
-          lockedHooks,
-          lockedKnowledge,
-        ] = yield* Effect.all(
-          [
-            ws.records.rows("skill").pipe(Effect.map(configuredRowsByName)),
-            ws.records.rows("command").pipe(Effect.map(configuredRowsByName)),
-            ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
-            ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
-            ws.getConfiguredFilesEntries(),
-            ws.getConfiguredRuleEntries(),
-            ws.getConfiguredHookEntries(),
-            ws.getConfiguredKnowledgeEntries(),
-            ws.getLockedSkills(),
-            ws.getLockedCommands(),
-            ws.getLockedMcpServers(),
-            ws.getLockedSubagents(),
-            ws.getLockedFiles(),
-            ws.getLockedRules(),
-            ws.getLockedHooks(),
-            ws.getLockedKnowledge(),
-          ],
-          { concurrency: "unbounded" },
-        );
+        const graph = yield* ws.getDesiredStateGraph();
+        // Installing is also the repair path for a configured pack whose
+        // canonical manifest or trust baseline is unavailable. Preserve
+        // fail-closed cleanup by suppressing dropped-member removal until the
+        // pre-install graph is complete.
+        const existingPack = graph.complete
+          ? graph.nodes.find(
+              (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,
+            )
+          : undefined;
 
         const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
@@ -865,112 +757,134 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           const target = targetFromRef(ref);
 
           if (ref.type === "pack") {
-            const installedBefore = Option.isSome(lockedPack);
             return buildInstallOperation<PackRef>(packMgr, {
               ref,
               versionRange: intent.versionRange,
-              installedBefore: Effect.succeed(installedBefore),
+              installedBefore: graph.complete
+                ? packMgr.isInstalled({
+                    target: { type: "pack", name: ref.pack.name, owner: ref.owner },
+                  })
+                : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
                 Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "skill") {
-            const installedBefore = Object.hasOwn(lockedSkills, ref.skill.name);
             return buildInstallOperation<SkillExtensionRef>(skillMgr, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
-              retainedByPack: true,
-              installedBefore: Effect.succeed(installedBefore),
+              installedBefore: graph.complete
+                ? skillMgr.isInstalled({
+                    target: { type: "skill", name: ref.skill.name },
+                  })
+                : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
                 Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "command") {
-            const installedBefore = Object.hasOwn(lockedCommands, ref.command.name);
             return buildInstallOperation<CommandExtensionRef>(commandMgr, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
-              installedBefore: Effect.succeed(installedBefore),
+              installedBefore: graph.complete
+                ? commandMgr.isInstalled({
+                    target: { type: "command", name: ref.command.name },
+                  })
+                : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
                 Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "mcp-server") {
-            const installedBefore = Object.hasOwn(lockedMcpServers, ref.server.name);
             return buildInstallOperation<McpServerExtensionRef>(mcpServerMgr, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
-              installedBefore: Effect.succeed(installedBefore),
+              installedBefore: graph.complete
+                ? mcpServerMgr.isInstalled({
+                    target: { type: "mcp-server", name: ref.server.name },
+                  })
+                : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
                 Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "subagent") {
-            const installedBefore = Object.hasOwn(lockedSubagents, ref.subagent.name);
             return buildInstallOperation<SubagentExtensionRef>(subagentMgr, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
-              installedBefore: Effect.succeed(installedBefore),
+              installedBefore: graph.complete
+                ? subagentMgr.isInstalled({
+                    target: { type: "subagent", name: ref.subagent.name },
+                  })
+                : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
                 Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "files") {
-            const installedBefore = Object.hasOwn(lockedFiles, ref.file.name);
             return buildInstallOperation<FilesExtensionRef>(contextManager, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
-              retainedByPack: true,
-              installedBefore: Effect.succeed(installedBefore),
+              installedBefore: graph.complete
+                ? contextManager.isInstalled({
+                    target: { type: "files", name: ref.file.name },
+                  })
+                : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
                 Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "rule") {
-            const installedBefore = Object.hasOwn(lockedRules, ref.rule.name);
             return buildInstallOperation<RuleExtensionRef>(ruleManager, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
-              retainedByPack: true,
-              installedBefore: Effect.succeed(installedBefore),
+              installedBefore: graph.complete
+                ? ruleManager.isInstalled({
+                    target: { type: "rule", name: ref.rule.name },
+                  })
+                : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
                 Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "hook") {
-            const installedBefore = Object.hasOwn(lockedHooks, ref.hook.name);
             return buildInstallOperation<HookExtensionRef>(hookManager, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
-              retainedByPack: true,
-              installedBefore: Effect.succeed(installedBefore),
+              installedBefore: graph.complete
+                ? hookManager.isInstalled({
+                    target: { type: "hook", name: ref.hook.name },
+                  })
+                : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
                 Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
           }
 
           if (ref.type === "knowledge") {
-            const installedBefore = Object.hasOwn(lockedKnowledge, ref.knowledge.name);
             return buildInstallOperation<KnowledgeExtensionRef>(knowledgeManager, {
               ref,
               versionRange: Option.none(),
               skipSettings: true,
-              retainedByPack: true,
-              installedBefore: Effect.succeed(installedBefore),
+              installedBefore: graph.complete
+                ? knowledgeManager.isInstalled({
+                    target: { type: "knowledge", name: ref.knowledge.name },
+                  })
+                : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
                 Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
             });
@@ -983,26 +897,15 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           };
         });
 
-        const directlyConfigured = collectDirectlyConfiguredNames({
-          skills: configuredSkills,
-          commands: configuredCommands,
-          mcpServers: configuredMcpServers,
-          subagents: configuredSubagents,
-          files: configuredFiles,
-          rules: configuredRules,
-          hooks: configuredHooks,
-          knowledge: configuredKnowledge,
-        });
         const nextDependencies = collectResolvedDependencyNames(refs);
-        const droppedTargets = Option.match(lockedPack, {
-          onNone: () => [],
-          onSome: (entry) =>
-            collectDroppedPackDependencyTargets({
-              lockedPack: entry,
-              nextDependencies,
-              directlyConfigured,
-            }),
-        });
+        const droppedTargets =
+          existingPack === undefined
+            ? []
+            : collectDroppedPackDependencyTargets({
+                graph,
+                replacingPackIdentity: existingPack.identity,
+                nextDependencies,
+              });
         const uninstallSteps = droppedTargets.map((target): PlannedJobStep => {
           if (target.type === "skill") {
             return buildUninstallOperation<SkillExtensionRef>(skillMgr, retentionPolicy, {
@@ -1044,6 +947,14 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             return buildUninstallOperation<HookExtensionRef>(hookManager, retentionPolicy, {
               target,
             });
+          }
+
+          if (target.type === "knowledge") {
+            return buildUninstallOperation<KnowledgeExtensionRef>(
+              knowledgeManager,
+              retentionPolicy,
+              { target },
+            );
           }
 
           return {

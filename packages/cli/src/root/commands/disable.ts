@@ -68,17 +68,14 @@ export const handleDisableCommand = Effect.fn("DisableCommand.handle")(function*
     return;
   }
 
-  const lockedEntry = yield* ws.getLockedCommand(commandName);
   const configuredAgentIds = yield* ws.getConfiguredAgents();
-  const planSections = Option.isSome(lockedEntry)
-    ? combinePlanSections(
-        makeAgentSection(
-          "Would remove rendered files from agents",
-          configuredAgentIds,
-          "(no agents configured)",
-        ),
-      )
-    : undefined;
+  const planSections = combinePlanSections(
+    makeAgentSection(
+      "Would remove rendered files from agents",
+      configuredAgentIds,
+      "(no agents configured)",
+    ),
+  );
 
   // Build operation
   const op = {

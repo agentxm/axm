@@ -25,7 +25,9 @@ that impossible, and what you have to do when you add the tenth type.
 - [`extension-types/standards.ts`](../../packages/core/src/unstable/extension-types/standards.ts) — The open standards types are grounded in
 - [`parity/obligations.ts`](../../packages/core/src/unstable/extension-types/parity/obligations.ts) — The obligations and the tier that verifies each
 - [`parity/exemptions.ts`](../../packages/core/src/unstable/extension-types/parity/exemptions.ts) — The debt ledger
+- [`parity/reconciliation.ts`](../../packages/core/src/unstable/extension-types/parity/reconciliation.ts) — Workspace reconciliation and source applicability, including pack
 - [`scripts/parity-ledger-check.ts`](../../scripts/parity-ledger-check.ts) — The shrink-only ledger gate
+- [Workspace State](./workspace-state.md) — Desired, observed, trust, receipt, and per-type reconciliation rules
 
 ---
 

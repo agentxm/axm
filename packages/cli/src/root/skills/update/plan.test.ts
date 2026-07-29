@@ -10,7 +10,11 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import type { Lockfile, SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type { SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import type {
+  ExtensionTrustRecord,
+  WorkspaceTrustState,
+} from "@agentxm/client-core/unstable/trust";
 import type { Version } from "@agentxm/client-core/unstable/version-constraints";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
@@ -197,9 +201,9 @@ const makeOp = (
   };
 };
 
-const emptyLockfile: Lockfile = {
-  lockfileVersion: 3,
-  skills: {},
+const emptyLockfile: WorkspaceTrustState = {
+  trustStateVersion: 1,
+  records: {},
 };
 
 const makeCommonLockFields = (overrides?: Partial<SkillLockEntry>) => ({
@@ -291,9 +295,58 @@ const makeLockEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => {
   }
 };
 
-const lockfileWith = (entries: Record<string, SkillLockEntry>): Lockfile => ({
-  lockfileVersion: 3,
-  skills: entries,
+const trustRecordFromLock = (name: string, entry: SkillLockEntry): ExtensionTrustRecord => {
+  switch (entry.type) {
+    case "registry":
+      return {
+        extensionType: "skill",
+        name,
+        authority: "registry",
+        sourceIdentity: `${entry.owner}/skills/${entry.name}`,
+        sourceName: entry.sourceName,
+        resolvedVersion: entry.resolvedVersion,
+        publisherBindingId: entry.publisherBindingId,
+        integrity: entry.integrity,
+      };
+    case "workspace":
+      return {
+        extensionType: "skill",
+        name,
+        authority: "workspace",
+        sourceIdentity: `workspace:${entry.owner}/skills/${entry.name}`,
+        resolvedVersion: entry.version,
+        contentIdentity: entry.sourceHash,
+      };
+    case "local":
+      return {
+        extensionType: "skill",
+        name,
+        authority: "local",
+        sourceIdentity: entry.path,
+      };
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+    case "git":
+      return {
+        extensionType: "skill",
+        name,
+        authority: entry.type,
+        sourceIdentity: name,
+        ...(entry.gitTreeHash === undefined ? {} : { immutableRevision: entry.gitTreeHash }),
+      };
+  }
+};
+
+const lockfileWith = (entries: Record<string, SkillLockEntry>): WorkspaceTrustState => ({
+  trustStateVersion: 1,
+  records: Object.fromEntries(
+    Object.entries(entries).map(([name, entry]) => [
+      `skill:${name}`,
+      trustRecordFromLock(name, entry),
+    ]),
+  ),
 });
 
 /**

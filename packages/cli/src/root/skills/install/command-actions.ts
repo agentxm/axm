@@ -644,7 +644,9 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
           (entry) =>
             Effect.gen(function* () {
               const ref = entry.ref;
-              const previousLockEntry = yield* ws.getLockedSkill(ref.skill.name);
+              const previousLockEntry = yield* ws
+                .getLockedSkill(ref.skill.name)
+                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               const previousVersion = Option.match(previousLockEntry, {
                 onNone: () => undefined,
                 onSome: previousResolvedVersion,

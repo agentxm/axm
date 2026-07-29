@@ -1536,7 +1536,7 @@ const SettingsBaseSchema = Schema.Struct({
   skills: Schema.optionalKey(
     Schema.Union([SkillsMapSchema]).annotate({
       description:
-        "Your installed skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   skillsConfig: Schema.optionalKey(
@@ -1547,7 +1547,7 @@ const SettingsBaseSchema = Schema.Struct({
   commands: Schema.optionalKey(
     Schema.Union([CommandsMapSchema]).annotate({
       description:
-        "Your installed commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired commands, keyed by workspace command name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   commandsConfig: Schema.optionalKey(
@@ -1558,7 +1558,7 @@ const SettingsBaseSchema = Schema.Struct({
   files: Schema.optionalKey(
     Schema.Union([FilesMapSchema]).annotate({
       description:
-        "Your installed Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`.",
+        "Desired Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`.",
     }),
   ),
   filesConfig: Schema.optionalKey(
@@ -1569,13 +1569,13 @@ const SettingsBaseSchema = Schema.Struct({
   rules: Schema.optionalKey(
     Schema.Union([RulesMapSchema]).annotate({
       description:
-        "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   hooks: Schema.optionalKey(
     Schema.Union([HooksMapSchema]).annotate({
       description:
-        "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   hooksConfig: Schema.optionalKey(
@@ -1585,8 +1585,7 @@ const SettingsBaseSchema = Schema.Struct({
   ),
   knowledge: Schema.optionalKey(
     Schema.Union([KnowledgeMapSchema]).annotate({
-      description:
-        "Installed Open Knowledge Format bundles, isolated from agent instruction files.",
+      description: "Desired Open Knowledge Format bundles, isolated from agent instruction files.",
     }),
   ),
   knowledgeConfig: Schema.optionalKey(
@@ -1597,7 +1596,7 @@ const SettingsBaseSchema = Schema.Struct({
   subagents: Schema.optionalKey(
     Schema.Union([SubagentsMapSchema]).annotate({
       description:
-        "Your installed subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
   subagentsConfig: Schema.optionalKey(
@@ -1608,7 +1607,7 @@ const SettingsBaseSchema = Schema.Struct({
   packs: Schema.optionalKey(
     Schema.Union([PacksMapSchema]).annotate({
       description:
-        "Your installed packs, keyed by workspace pack name. Pack entries do not support `enabled` yet.",
+        "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`.",
     }),
   ),
   packsConfig: Schema.optionalKey(
@@ -1619,7 +1618,7 @@ const SettingsBaseSchema = Schema.Struct({
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
-        "Your installed MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values.",
+        "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form only to set `enabled: false` or persisted `env` values.",
     }),
   ),
   mcpServersConfig: Schema.optionalKey(

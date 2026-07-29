@@ -22,6 +22,10 @@ import {
 } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
 import {
+  computePackageContentHashSync,
+  writeTrustFromWorkspaceLockfile,
+} from "../../../test-stubs.js";
+import {
   expectNoOpPlanResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
@@ -38,11 +42,13 @@ const initWorkspace = (
   agents: string[] = ["claude-code"],
   lockfilePacks: Record<string, unknown> = {},
   configuredSkills: Record<string, string> = {},
+  configuredPacks: Record<string, string> = {},
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   // Build settings skills map so removeSkill can find them
   const settingsSkills: Record<string, string> = { ...configuredSkills };
   for (const name of Object.keys(lockfileSkills)) {
+    if (name in settingsSkills) continue;
     const entry = lockfileSkills[name];
     const entryType =
       typeof entry === "object" &&
@@ -56,6 +62,9 @@ const initWorkspace = (
   const settings: Record<string, unknown> = { agents };
   if (Object.keys(settingsSkills).length > 0) {
     settings["skills"] = settingsSkills;
+  }
+  if (Object.keys(configuredPacks).length > 0) {
+    settings["packs"] = configuredPacks;
   }
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   const lockfile: Record<string, unknown> = { lockfileVersion: 3, skills: lockfileSkills };
@@ -108,6 +117,7 @@ const makePackLockEntry = (
   owner: string,
   name: string,
   resolvedSkills: Record<string, string> = {},
+  sourceHash?: string,
 ) => ({
   type: "registry",
   owner,
@@ -116,6 +126,7 @@ const makePackLockEntry = (
   integrity: "sha256-abc",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
+  ...(sourceHash === undefined ? {} : { sourceHash }),
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   resolvedSkills: Object.fromEntries(
@@ -431,12 +442,34 @@ describe("uninstall.handler", () => {
       const { provide } = makeLayers();
       const skillName = "my-skill";
       const fqn = "@my-ns/skills/my-skill";
+      const packDir = path.join(tempDir, ".axm", "extensions", "@my-ns", "packs", "my-pack");
+      fs.mkdirSync(packDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(packDir, "pack.json"),
+        JSON.stringify({
+          owner: "@my-ns",
+          type: "pack",
+          name: "my-pack",
+          version: "1.0.0",
+          dependencies: { [fqn]: "1.0.0" },
+        }),
+      );
       initWorkspace(
         path.join(tempDir, ".axm"),
         { [skillName]: makeRegistryLockEntry("@my-ns", "my-skill") },
         ["claude-code"],
-        { "my-pack": makePackLockEntry("@my-ns", "my-pack", { [fqn]: "1.0.0" }) },
+        {
+          "my-pack": makePackLockEntry(
+            "@my-ns",
+            "my-pack",
+            { [fqn]: "1.0.0" },
+            computePackageContentHashSync(packDir),
+          ),
+        },
+        { [skillName]: fqn },
+        { "my-pack": "@my-ns/packs/my-pack" },
       );
+      writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
       createCanonicalSkill(tempDir, skillName);
       createAgentSymlink(tempDir, ".claude", skillName);
 

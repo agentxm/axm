@@ -13,25 +13,27 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import * as Record from "effect/Record";
+import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 
-import type { AppError } from "../../app-error/index.js";
-import type {
-  ExtensionName,
-  ExtensionRef,
-  ExtensionType,
-  PerAgentType,
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import type { ExtensionName, ExtensionRef, ExtensionType } from "../../extensions/index.js";
+import {
+  parseExtensionFqnParts,
+  parseRegistrySourcePatternParts,
+  toExtensionTypePlural,
 } from "../../extensions/index.js";
-import { parseRegistrySourcePatternParts } from "../../extensions/registry-source.js";
-import { isConfiguredEntryEnabled, toExtensionTypePlural } from "../../extensions/index.js";
 import type { RegistryClient } from "../../registry/client.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
-import type { Version, VersionRange } from "../../version-constraints/version-constraints.js";
+import {
+  VersionSchema,
+  type Version,
+  type VersionRange,
+} from "../../version-constraints/version-constraints.js";
 import type { Handle } from "../../extensions/handle.js";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "../service-interface.js";
+import { trustRecordKey } from "../../trust/index.js";
+import { WorkspaceMutations } from "../service-interface.js";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
-import { configuredRowsByName } from "../read-model-record-rows.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,75 +94,66 @@ const buildFqn = (ownerHandle: Handle, type: ExtensionType, name: ExtensionName)
 // ---------------------------------------------------------------------------
 
 /**
- * Minimal shape shared by all registry-type lock entries.
- * Used to extract owner/name/version without requiring a specific union member.
+ * Collect currency from desired state and the security trust baseline. Receipts
+ * are deliberately excluded: update eligibility and currentness must be stable
+ * when optional history is missing, stale, or corrupt.
  */
-interface RegistryLockFields {
-  readonly type: "registry";
-  readonly owner: Handle;
-  readonly name: ExtensionName;
-  readonly resolvedVersion: Version;
-}
-
-interface ConfiguredEntryWithEnabled {
-  readonly source: string;
-  readonly enabled: boolean;
-}
-
-interface ConfiguredEntryWithoutEnabled {
-  readonly source: string;
-}
-
-type AnyConfiguredEntry = ConfiguredEntryWithEnabled | ConfiguredEntryWithoutEnabled;
-
-/** Type guard for registry lock entries. */
-const isRegistryLock = (lock: { readonly type: string }): lock is RegistryLockFields =>
-  lock.type === "registry";
-
-/**
- * Generic collector: given accessors for configured and locked entries, produce
- * currency entries for all enabled, registry-sourced extensions of the given type.
- */
-const collectCurrency = <
-  TConfigured extends AnyConfiguredEntry,
-  TLock extends { readonly type: string },
->(
+const collectCurrency = (
   extensionType: ExtensionType,
-  getConfigured: () => Effect.Effect<Record.ReadonlyRecord<string, TConfigured>, AppError>,
-  getLocked: () => Effect.Effect<Record.ReadonlyRecord<string, TLock>, AppError>,
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const configured = yield* getConfigured();
-    const locked = yield* getLocked();
-
-    // Pre-filter to enabled, registry-sourced entries with lock data
-    const eligible = Object.entries(configured).flatMap(([localName, configEntry]) => {
-      if ("enabled" in configEntry && !isConfiguredEntryEnabled(configEntry)) return [];
-      const lockEntry = locked[localName];
-      if (lockEntry === undefined) return [];
-      if (!isRegistryLock(lockEntry)) return [];
-      return [{ configEntry, lockEntry }];
+    const ws = yield* WorkspaceMutations;
+    const graph = yield* ws.getDesiredStateGraph();
+    if (!graph.complete) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Cannot assess extension currency while the desired pack graph is incomplete",
+      });
+    }
+    const trust = yield* ws.getTrustState();
+    const eligible = graph.nodes.flatMap((node) => {
+      if (node.type !== extensionType || !node.enabled) return [];
+      const record = trust.records[trustRecordKey(node.type, node.name)];
+      if (
+        record === undefined ||
+        record.authority !== "registry" ||
+        record.resolvedVersion === undefined
+      ) {
+        return [];
+      }
+      const identity = parseExtensionFqnParts(record.sourceIdentity);
+      if (identity === undefined || identity.type !== extensionType) return [];
+      return [{ node, record, identity }];
     });
 
-    // Fetch indices and check currency in parallel
     return yield* Effect.forEach(
       eligible,
-      ({ configEntry, lockEntry }) =>
+      ({ node, record, identity }) =>
         Effect.gen(function* () {
-          const constraint = parseConstraintFromSource(configEntry.source);
+          const installedVersion = yield* Schema.decodeUnknownEffect(VersionSchema)(
+            record.resolvedVersion,
+          ).pipe(
+            Effect.mapError(() =>
+              makeAppError({
+                code: "validation",
+                detail: `Trusted version for ${node.type} "${node.name}" is invalid`,
+              }),
+            ),
+          );
+          const constraint = parseConstraintFromSource(node.source);
           const indexOption = yield* client.getExtensionIndex({
-            owner: lockEntry.owner,
+            owner: identity.owner,
             type: extensionType,
-            name: lockEntry.name,
+            name: identity.name,
           });
           if (Option.isNone(indexOption)) return Option.none();
-          const currency = checkCurrency(lockEntry.resolvedVersion, constraint, indexOption.value);
+          const currency = checkCurrency(installedVersion, constraint, indexOption.value);
           return Option.some({
             kind: "registry-version",
-            ref: buildFqn(lockEntry.owner, extensionType, lockEntry.name),
+            ref: buildFqn(identity.owner, extensionType, identity.name),
             type: extensionType,
-            installedVersion: lockEntry.resolvedVersion,
+            installedVersion,
             constraint,
             currency,
           } satisfies ExtensionCurrencyEntry);
@@ -173,17 +166,7 @@ const collectCurrency = <
 // Git-hosted freshness collectors
 // ---------------------------------------------------------------------------
 
-interface GitHostedLockFields {
-  readonly type: "github" | "gitlab" | "bitbucket" | "azurerepos" | "git";
-  readonly gitTreeHash?: string;
-}
-
-const isGitHostedLock = (lock: { readonly type: string }): lock is GitHostedLockFields =>
-  lock.type === "github" ||
-  lock.type === "gitlab" ||
-  lock.type === "bitbucket" ||
-  lock.type === "azurerepos" ||
-  lock.type === "git";
+const gitAuthorities = new Set(["github", "gitlab", "bitbucket", "azurerepos", "git"]);
 
 const sourceFreshnessStatus = (
   installedTreeHash: Option.Option<string>,
@@ -263,29 +246,12 @@ const matchingRefTreeSha = (
   return match === undefined ? Option.none() : match.gitTreeSha;
 };
 
-/** Configured entry shape every type shares for freshness purposes. */
-interface FreshnessConfiguredEntry {
-  readonly source: string;
-  readonly enabled?: boolean;
-}
-
-/** Lock entry shape every type shares for freshness purposes. */
-interface FreshnessLockEntry {
-  readonly type: string;
-  readonly gitTreeHash?: string | undefined;
-}
-
 /**
- * Compare each git-sourced entry's recorded tree hash against the source's
- * current tree hash.
- *
- * Registry, local, workspace, and inline entries carry no upstream git tree to
- * compare and are skipped by `isGitHostedLock`.
+ * Compare desired Git-hosted entries against their trusted immutable revision.
+ * Receipt history is deliberately excluded from eligibility and currentness.
  */
 const collectSourceFreshness = (args: {
   readonly extensionType: ExtensionType;
-  readonly configured: Readonly<Record<string, FreshnessConfiguredEntry>>;
-  readonly locked: Readonly<Record<string, FreshnessLockEntry>>;
 }): Effect.Effect<
   ReadonlyArray<ExtensionSourceFreshnessEntry>,
   AppError,
@@ -293,38 +259,46 @@ const collectSourceFreshness = (args: {
 > =>
   Effect.gen(function* () {
     const providers = yield* SourceHostProviders;
-    const { extensionType, configured, locked } = args;
-
-    const eligible = Object.entries(configured).flatMap(([localName, configEntry]) => {
-      if (configEntry.enabled === false) return [];
-      const lockEntry = locked[localName];
-      if (lockEntry === undefined || !isGitHostedLock(lockEntry)) return [];
-      return [{ localName, configEntry, lockEntry }];
+    const ws = yield* WorkspaceMutations;
+    const { extensionType } = args;
+    const graph = yield* ws.getDesiredStateGraph();
+    if (!graph.complete) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Cannot assess source freshness while the desired pack graph is incomplete",
+      });
+    }
+    const trust = yield* ws.getTrustState();
+    const eligible = graph.nodes.flatMap((node) => {
+      if (node.type !== extensionType || !node.enabled) return [];
+      const record = trust.records[trustRecordKey(node.type, node.name)];
+      if (record === undefined || !gitAuthorities.has(record.authority)) return [];
+      return [{ node, record }];
     });
 
     return yield* Effect.forEach(
       eligible,
-      ({ localName, configEntry, lockEntry }) =>
+      ({ node, record }) =>
         Effect.gen(function* () {
-          const installedTreeHash = Option.fromUndefinedOr(lockEntry.gitTreeHash);
+          const installedTreeHash = Option.fromUndefinedOr(record.immutableRevision);
           const unresolved = (reason: string): ExtensionSourceFreshnessEntry =>
             freshnessEntry({
-              localName,
+              localName: node.name,
               extensionType,
-              source: configEntry.source,
+              source: node.source,
               installedTreeHash,
               currentTreeHash: Option.none(),
               reason: Option.some(reason),
             });
 
-          const sourceResult = yield* resolveSource(configEntry.source).pipe(Effect.result);
+          const sourceResult = yield* resolveSource(node.source).pipe(Effect.result);
           if (sourceResult._tag === "Failure") {
             return unresolved(sourceResult.failure.detail);
           }
 
           const refsResult = yield* providers
             .find(sourceResult.success, {
-              names: [localName],
+              names: [node.name],
               type: extensionType,
               owner: Option.none(),
               versionRange: Option.none(),
@@ -336,11 +310,11 @@ const collectSourceFreshness = (args: {
           }
 
           return freshnessEntry({
-            localName,
+            localName: node.name,
             extensionType,
-            source: configEntry.source,
+            source: node.source,
             installedTreeHash,
-            currentTreeHash: matchingRefTreeSha(refsResult.success, extensionType, localName),
+            currentTreeHash: matchingRefTreeSha(refsResult.success, extensionType, node.name),
             reason: Option.none(),
           });
         }),
@@ -354,80 +328,34 @@ type SourceFreshnessCollector = () => Effect.Effect<
   FileSystem.FileSystem | Path.Path | WorkspaceMutations | SourceHostProviders | Scope.Scope
 >;
 
-const makeRecordSourceFreshnessCollector =
-  (
-    extensionType: PerAgentType,
-    getLocked: (
-      ws: WorkspaceMutationsService,
-    ) => Effect.Effect<Readonly<Record<string, FreshnessLockEntry>>, AppError>,
-  ): SourceFreshnessCollector =>
+const makeSourceFreshnessCollector =
+  (extensionType: ExtensionType): SourceFreshnessCollector =>
   () =>
-    Effect.gen(function* () {
-      const ws = yield* WorkspaceMutations;
-      const configured = yield* ws.records
-        .rows(extensionType)
-        .pipe(Effect.map(configuredRowsByName));
-      const locked = yield* getLocked(ws);
-      return yield* collectSourceFreshness({ extensionType, configured, locked });
-    });
-
-const makeConfiguredSourceFreshnessCollector =
-  (
-    extensionType: ExtensionType,
-    getConfigured: (
-      ws: WorkspaceMutationsService,
-    ) => Effect.Effect<Readonly<Record<string, FreshnessConfiguredEntry>>, AppError>,
-    getLocked: (
-      ws: WorkspaceMutationsService,
-    ) => Effect.Effect<Readonly<Record<string, FreshnessLockEntry>>, AppError>,
-  ): SourceFreshnessCollector =>
-  () =>
-    Effect.gen(function* () {
-      const ws = yield* WorkspaceMutations;
-      const configured = yield* getConfigured(ws);
-      const locked = yield* getLocked(ws);
-      return yield* collectSourceFreshness({ extensionType, configured, locked });
-    });
+    collectSourceFreshness({ extensionType });
 
 export const collectSkillSourceFreshness: SourceFreshnessCollector =
-  makeRecordSourceFreshnessCollector("skill", (ws) => ws.getLockedSkills());
+  makeSourceFreshnessCollector("skill");
 
 export const collectCommandSourceFreshness: SourceFreshnessCollector =
-  makeRecordSourceFreshnessCollector("command", (ws) => ws.getLockedCommands());
+  makeSourceFreshnessCollector("command");
 
 export const collectMcpServerSourceFreshness: SourceFreshnessCollector =
-  makeRecordSourceFreshnessCollector("mcp-server", (ws) => ws.getLockedMcpServers());
+  makeSourceFreshnessCollector("mcp-server");
 
 export const collectSubagentSourceFreshness: SourceFreshnessCollector =
-  makeRecordSourceFreshnessCollector("subagent", (ws) => ws.getLockedSubagents());
+  makeSourceFreshnessCollector("subagent");
 
 export const collectFilesSourceFreshness: SourceFreshnessCollector =
-  makeConfiguredSourceFreshnessCollector(
-    "files",
-    (ws) => ws.getConfiguredFilesEntries(),
-    (ws) => ws.getLockedFiles(),
-  );
+  makeSourceFreshnessCollector("files");
 
 export const collectRuleSourceFreshness: SourceFreshnessCollector =
-  makeConfiguredSourceFreshnessCollector(
-    "rule",
-    (ws) => ws.getConfiguredRuleEntries(),
-    (ws) => ws.getLockedRules(),
-  );
+  makeSourceFreshnessCollector("rule");
 
 export const collectHookSourceFreshness: SourceFreshnessCollector =
-  makeConfiguredSourceFreshnessCollector(
-    "hook",
-    (ws) => ws.getConfiguredHookEntries(),
-    (ws) => ws.getLockedHooks(),
-  );
+  makeSourceFreshnessCollector("hook");
 
 export const collectKnowledgeSourceFreshness: SourceFreshnessCollector =
-  makeConfiguredSourceFreshnessCollector(
-    "knowledge",
-    (ws) => ws.getConfiguredKnowledgeEntries(),
-    (ws) => ws.getLockedKnowledge(),
-  );
+  makeSourceFreshnessCollector("knowledge");
 
 /** Every per-type git-source freshness collector, in catalog order. */
 export const sourceFreshnessCollectors: ReadonlyArray<SourceFreshnessCollector> = [
@@ -452,13 +380,7 @@ export const collectSkillCurrency = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency(
-      "skill",
-      () => ws.records.rows("skill").pipe(Effect.map(configuredRowsByName)),
-      ws.getLockedSkills,
-      client,
-    );
+    return yield* collectCurrency("skill", client);
   });
 
 /**
@@ -468,13 +390,7 @@ export const collectCommandCurrency = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency(
-      "command",
-      () => ws.records.rows("command").pipe(Effect.map(configuredRowsByName)),
-      ws.getLockedCommands,
-      client,
-    );
+    return yield* collectCurrency("command", client);
   });
 
 /**
@@ -484,13 +400,7 @@ export const collectMcpServerCurrency = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency(
-      "mcp-server",
-      () => ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
-      ws.getLockedMcpServers,
-      client,
-    );
+    return yield* collectCurrency("mcp-server", client);
   });
 
 /**
@@ -500,13 +410,7 @@ export const collectSubagentCurrency = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency(
-      "subagent",
-      () => ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
-      ws.getLockedSubagents,
-      client,
-    );
+    return yield* collectCurrency("subagent", client);
   });
 
 /**
@@ -516,13 +420,7 @@ export const collectPackCurrency = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency(
-      "pack",
-      () => ws.records.rows("pack").pipe(Effect.map(configuredRowsByName)),
-      ws.getLockedPacks,
-      client,
-    );
+    return yield* collectCurrency("pack", client);
   });
 
 /**
@@ -532,8 +430,7 @@ export const collectFilesCurrency = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency("files", ws.getConfiguredFilesEntries, ws.getLockedFiles, client);
+    return yield* collectCurrency("files", client);
   });
 
 /**
@@ -543,8 +440,7 @@ export const collectRuleCurrency = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency("rule", ws.getConfiguredRuleEntries, ws.getLockedRules, client);
+    return yield* collectCurrency("rule", client);
   });
 
 /**
@@ -554,8 +450,7 @@ export const collectHookCurrency = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency("hook", ws.getConfiguredHookEntries, ws.getLockedHooks, client);
+    return yield* collectCurrency("hook", client);
   });
 
 /**
@@ -565,13 +460,7 @@ export const collectKnowledgeCurrency = (
   client: RegistryClient,
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* collectCurrency(
-      "knowledge",
-      ws.getConfiguredKnowledgeEntries,
-      ws.getLockedKnowledge,
-      client,
-    );
+    return yield* collectCurrency("knowledge", client);
   });
 
 // ---------------------------------------------------------------------------

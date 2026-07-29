@@ -109,9 +109,6 @@ export interface UninstallRetentionPolicy {
   readonly isRequiredByInstalledPack: (args: {
     readonly target: ExtensionTarget;
   }) => Effect.Effect<boolean, AppError, never>;
-  readonly markDependencyRetainedInLockfile: (args: {
-    readonly target: ExtensionTarget;
-  }) => Effect.Effect<void, AppError, never>;
 }
 
 // -----------------------------------------------------------------------------
@@ -125,8 +122,6 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
   readonly force?: boolean;
   /** When true, skip writing to settings (e.g. pack dependency installs). */
   readonly skipSettings?: boolean;
-  /** When true, mark the lock entry as retained by an installed pack. */
-  readonly retainedByPack?: boolean;
   /** Optional pre-install state probe for artifact change labels. */
   readonly installedBefore?: Effect.Effect<boolean, AppError, never>;
   /** Optional presenter metadata computed after materialization/settings writes. */
@@ -149,7 +144,13 @@ export interface NewExtensionOperationArgs<
 }
 
 /**
- * Execute the canonical install sequence: materialize -> lockfile -> settings.
+ * Execute the canonical install sequence.
+ *
+ * Root installs materialize first, then commit settings and receipt together
+ * through the manager's settings boundary. Pack-derived installs have no
+ * settings declaration and commit only their receipt/trust row. This avoids
+ * writing receipt history ahead of successful materialization and avoids the
+ * former duplicate lock write for root installs.
  */
 const runInstallOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
@@ -176,15 +177,16 @@ const runInstallOperation = <TRef extends ExtensionRef>(
     }
     const installedBefore =
       args.installedBefore === undefined ? false : yield* args.installedBefore;
+    if (manager.validateTrustTransition !== undefined) {
+      yield* manager.validateTrustTransition({ ref: args.ref });
+    }
     yield* manager.materializeInstall({
       ref: args.ref,
       ...(args.force === undefined ? {} : { force: args.force }),
     });
-    yield* manager.upsertLockfileEntry({
-      ref: args.ref,
-      ...(args.retainedByPack === undefined ? {} : { retainedByPack: args.retainedByPack }),
-    });
-    if (!args.skipSettings) {
+    if (args.skipSettings) {
+      yield* manager.upsertLockfileEntry({ ref: args.ref });
+    } else {
       yield* manager.upsertSettingsEntry({
         ref: args.ref,
         versionRange: args.versionRange,
@@ -275,6 +277,8 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
 
 export interface MaterializeOperationArgs<TRef extends ExtensionRef> {
   readonly ref: TRef;
+  /** Reacquire canonical content before projecting it. */
+  readonly force?: boolean;
   readonly buildArtifact?: () => Effect.Effect<JobStepArtifact, AppError, never>;
   readonly message?: string;
 }
@@ -284,7 +288,15 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
   args: MaterializeOperationArgs<TRef>,
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
-    yield* manager.materializeInstall({ ref: args.ref });
+    yield* manager.materializeInstall({
+      ref: args.ref,
+      ...(args.force === undefined ? {} : { force: args.force }),
+    });
+    // Sync repairs an existing declaration, so settings remain authoritative
+    // and unchanged. Persist only the successful observed resolution/content
+    // receipt; the lockfile writer updates the dedicated trust baseline from
+    // this post-materialization record.
+    yield* manager.upsertLockfileEntry({ ref: args.ref });
     const artifact = args.buildArtifact === undefined ? undefined : yield* args.buildArtifact();
     return {
       result: "success" as const,
@@ -322,7 +334,6 @@ export interface UninstallOperationArgs<TRef extends ExtensionRef> {
  *
  * If the target is still required by an installed pack:
  *   1. Remove settings entry
- *   2. Mark dependency as retained in lockfile
  *
  * If not required:
  *   1. Unmaterialize from disk
@@ -357,6 +368,16 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
     }
     const isInstalled = yield* manager.isInstalled({ target: args.target });
     if (!isInstalled) {
+      if (Option.isSome(configuredSource)) {
+        yield* manager.removeSettingsEntry({ target: args.target });
+        yield* manager.removeLockfileEntry({ target: args.target });
+        yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
+        return {
+          result: "success" as const,
+          message: `Removed configured ${toLabel(args.target)}; no installed artifacts were observed`,
+        } satisfies JobStepResult;
+      }
+      yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
       return {
         result: "success" as const,
         message: "not installed",
@@ -369,7 +390,6 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
 
     if (stillRequiredByPack) {
       yield* manager.removeSettingsEntry({ target: args.target });
-      yield* retentionPolicy.markDependencyRetainedInLockfile({ target: args.target });
       return {
         result: "success" as const,
         message: "Kept on disk because dependency is still required by an installed pack",
@@ -382,6 +402,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
     });
     yield* manager.removeLockfileEntry({ target: args.target });
     yield* manager.removeSettingsEntry({ target: args.target });
+    yield* manager.removeTrustEntry?.({ target: args.target }) ?? Effect.void;
     return {
       result: "success" as const,
       message:

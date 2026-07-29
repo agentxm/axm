@@ -200,14 +200,10 @@ describe("uninstallMcpServer", () => {
         }
         expect(result.message).toContain("Uninstalled my-server");
         expect(result.artifact).toMatchObject({
-          path: ".axm/extensions/@community/mcps/my-server",
+          path: ".axm (config/lockfile)",
           scope: "project",
-          version: "1.0.0",
           change: "removed",
-          targets: [
-            { path: ".axm/extensions/@community/mcps/my-server", change: "removed" },
-            { path: ".axm (config/lockfile)", change: "removed" },
-          ],
+          targets: [{ path: ".axm (config/lockfile)", change: "removed" }],
         });
         expect(fs.existsSync(canonicalPath)).toBe(false);
       }),
@@ -250,7 +246,7 @@ describe("uninstallMcpServer", () => {
   });
 
   describe("canonical directory already missing", () => {
-    it.effect("still removes lockfile entry when canonical dir is missing", () =>
+    it.effect("ignores a stale receipt when canonical content is missing", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileMcpServers } = setupWorkspace({ createCanonical: false });
         const removeMcpServerFn = vi.fn((_name: string) => Effect.void);
@@ -260,8 +256,8 @@ describe("uninstallMcpServer", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toContain("Uninstalled my-server");
-        expect(removeMcpServerFn).toHaveBeenCalledOnce();
+        expect(result.message).toBe("not installed");
+        expect(removeMcpServerFn).not.toHaveBeenCalled();
       }),
     );
   });

@@ -10,6 +10,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
   exactVersion,
@@ -17,6 +18,8 @@ import {
   handle,
   makeLocalSkillLockEntry,
   makeRegistrySkillLockEntry,
+  computePackageContentHashSync,
+  writeTrustFromWorkspaceLockfile,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
 import {
@@ -124,6 +127,32 @@ const createPackManifest = (
       2,
     ),
   );
+  const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
+  const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
+  const packs = expectRecord(lockfile["packs"] ?? {});
+  const updatedPacks = {
+    ...packs,
+    [name]: {
+      type: "workspace",
+      owner,
+      extensionType: "pack",
+      name,
+      version: manifest?.["version"] ?? "0.0.1",
+      sourceHash: computePackageContentHashSync(packDir),
+      installedAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+      resolvedSkills: {},
+      resolvedCommands: {},
+      resolvedMcpServers: {},
+      resolvedSubagents: {},
+      resolvedFiles: {},
+      resolvedRules: {},
+      resolvedHooks: {},
+      resolvedKnowledge: {},
+    },
+  };
+  fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
+  writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
   return packDir;
 };
 
@@ -438,6 +467,11 @@ describe("packs-add.handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
+        skills: {
+          "effect-basics": "@acme/skills/effect-basics",
+          "effect-streams": "@acme/skills/effect-streams",
+          "other-skill": "@acme/skills/other-skill",
+        },
         lockfileSkills: {
           "effect-basics": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
@@ -490,6 +524,7 @@ describe("packs-add.handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
+        skills: { "some-skill": "@acme/skills/some-skill" },
         lockfileSkills: {
           "some-skill": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
@@ -519,6 +554,7 @@ describe("packs-add.handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
+        skills: { "local-skill": "./some/path" },
         lockfileSkills: {
           "local-skill": makeLocalSkillLockEntry({ path: "some/path" }),
         },
@@ -567,6 +603,10 @@ describe("packs-add.handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+        skills: {
+          "skill-a": "@acme/skills/skill-a",
+          "skill-b": "@acme/skills/skill-b",
+        },
         lockfileSkills: {
           "skill-a": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
@@ -617,6 +657,7 @@ describe("packs-add.handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
+        skills: { "code-review": "@acme/skills/code-review" },
         lockfileSkills: {
           "code-review": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
@@ -655,6 +696,7 @@ describe("packs-add.handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
+        skills: { "code-review": "@acme/skills/code-review" },
         lockfileSkills: {
           "code-review": makeRegistrySkillLockEntry({
             owner: handle("@acme"),

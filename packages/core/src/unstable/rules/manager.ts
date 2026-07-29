@@ -9,6 +9,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
@@ -18,7 +19,6 @@ import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   enabledConfiguredEntries,
-  formatFqn,
   markerFqnForRef,
   materializeExternalPackage,
   materializeRegistryPackage,
@@ -35,13 +35,14 @@ import {
   stripManagedRegion,
 } from "../managed-files/index.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type { ExtensionManager, RuleExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { resolveConfiguredRule } from "../workspace/configured-entry-resolution/index.js";
+import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
 import {
   RULE_BODY_FILENAME,
   RULE_EXTENSION_DIR,
@@ -157,13 +158,7 @@ export const RuleManagerLive = Layer.effect(
 
     const materializeFromRegistry = (ref: RegistryRuleRef, force: boolean) =>
       Effect.gen(function* () {
-        const lockedEntry = yield* ws
-          .getLockedRuleEntry(ref.name)
-          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-        const lockedVersion = Option.match(lockedEntry, {
-          onNone: () => undefined,
-          onSome: (entry) => (entry.type === "registry" ? entry.resolvedVersion : undefined),
-        });
+        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
         return yield* provide(
           materializeRegistryPackage({
             baseDir,
@@ -489,29 +484,28 @@ export const RuleManagerLive = Layer.effect(
 
     const materializeUninstall: ExtensionManager<RuleExtensionRef>["materializeUninstall"] =
       Effect.fn("RuleManager.materializeUninstall")(function* ({ target, preserveSource }) {
-        const locked = yield* ws.getLockedRuleEntry(target.name);
-        if (Option.isNone(locked)) return;
+        const canonical = yield* provide(
+          trustedCanonicalObservation({
+            workspace: ws,
+            type: "rule",
+            name: target.name,
+          }),
+        );
         yield* writeRulesRegion({ excludeName: target.name });
-        if (preserveSource !== true) {
-          const packageRoot =
-            locked.value.type === "registry" || locked.value.type === "workspace"
-              ? path.join(
-                  baseDir,
-                  REGISTRY_EXTENSIONS_DIR,
-                  locked.value.owner,
-                  RULE_EXTENSION_DIR,
-                  locked.value.name,
-                )
-              : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, RULE_EXTENSION_DIR, target.name);
-          yield* fs.remove(packageRoot, { recursive: true }).pipe(Effect.ignore);
+        const packageRoot = Option.flatMap(canonical, (state) =>
+          Option.fromUndefinedOr(state.observation.path),
+        );
+        if (preserveSource !== true && Option.isSome(packageRoot)) {
+          yield* fs.remove(packageRoot.value, { recursive: true }).pipe(Effect.ignore);
         }
       }, Effect.asVoid);
 
     return {
       type: "rule",
+      validateTrustTransition: ({ ref }) =>
+        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
       isInstalled: ({ target }: { readonly target: RuleExtensionTarget }) =>
-        ws.getLockedRuleEntry(target.name).pipe(
-          Effect.map((locked) => Option.isSome(locked)),
+        isObservedInstalled(ws, "rule", target.name).pipe(
           Effect.withSpan("RuleManager.isInstalled"),
         ),
 
@@ -541,16 +535,16 @@ export const RuleManagerLive = Layer.effect(
         versionRange,
       }) {
         const lockEntry = yield* buildLockEntry(ref);
-        const source =
-          ref.refType === "registry"
-            ? (() => {
-                const fqn = formatFqn({ owner: ref.owner, type: "rule", name: ref.rule.name });
-                return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
-              })()
-            : printSourceParams(lockEntryToSourceParams(lockEntry));
-        yield* ws.setRuleEntry(ref.rule.name, {
-          source,
-          enabled: true,
+        if (lockEntry.type === "registry") {
+          yield* validateExactResolvedVersion(
+            `rules.${ref.rule.name}.resolvedVersion`,
+            lockEntry.resolvedVersion,
+          );
+        }
+        yield* ws.setRule({
+          name: ref.rule.name,
+          lockEntry,
+          versionRange,
         });
       }),
 
@@ -558,12 +552,8 @@ export const RuleManagerLive = Layer.effect(
         yield* ws.removeRuleSettings(target.name);
       }),
 
-      upsertLockfileEntry: Effect.fn("RuleManager.upsertLockfileEntry")(function* ({
-        ref,
-        retainedByPack,
-      }) {
-        const entry = yield* buildLockEntry(ref);
-        const lockEntry = retainedByPack === undefined ? entry : { ...entry, retainedByPack };
+      upsertLockfileEntry: Effect.fn("RuleManager.upsertLockfileEntry")(function* ({ ref }) {
+        const lockEntry = yield* buildLockEntry(ref);
         if (lockEntry.type === "registry") {
           yield* validateExactResolvedVersion(
             `rules.${ref.rule.name}.resolvedVersion`,
@@ -580,6 +570,7 @@ export const RuleManagerLive = Layer.effect(
       removeLockfileEntry: Effect.fn("RuleManager.removeLockfileEntry")(function* ({ target }) {
         yield* ws.removeRuleLock(target.name);
       }),
+      removeTrustEntry: ({ target }) => ws.removeTrustRecord("rule", target.name),
     };
   }),
 );

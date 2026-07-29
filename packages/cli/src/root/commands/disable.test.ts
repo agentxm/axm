@@ -12,7 +12,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
+import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
+import {
+  computePackageContentHashSync,
+  extensionName,
+  writeWorkspaceFiles,
+} from "../../test-stubs.js";
 import {
   expectNoOpPlanResult,
   getAppError,
@@ -30,12 +35,16 @@ const initWorkspace = (
   commands: Record<string, unknown> = {},
   lockfileCommands: Record<string, unknown> = {},
   agents: string[] = ["claude-code"],
+  opts?: { packs?: Record<string, unknown>; lockfilePacks?: Record<string, unknown> },
 ) => {
   const configuredCommands = Object.keys(commands).length > 0 ? commands : undefined;
   writeWorkspaceFiles(axmDir, {
     agents,
     commands: configuredCommands,
+    packs: opts?.packs,
     lockfileCommands: Object.keys(lockfileCommands).length > 0 ? lockfileCommands : undefined,
+    lockfilePacks: opts?.lockfilePacks,
+    writeTrustFromLockfile: true,
   });
 };
 
@@ -254,12 +263,40 @@ describe("commands disable.handler", () => {
   // Implicit command disable (promotion)
   // ---------------------------------------------------------------------------
 
-  describe("implicit command disable (lockfile-only entry promotion)", () => {
+  describe("implicit command disable (pack-derived entry promotion)", () => {
     it.effect("creates direct entry when disabling implicit command", () => {
       const { provide, logs } = makeLayers();
-      // Implicit command: in lockfile but not in settings
+      const axmDir = path.join(tempDir, ".axm");
+      const commandDir = path.join(axmDir, "extensions", "@acme", "commands", "my-cmd");
+      fs.mkdirSync(path.join(commandDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(commandDir, "command.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "command",
+          name: "my-cmd",
+          version: "1.0.0",
+        }),
+      );
+      fs.writeFileSync(path.join(commandDir, "src", "my-cmd.md"), "# my-cmd");
+
+      const packDir = path.join(axmDir, "extensions", "@acme", "packs", "starter-pack");
+      fs.mkdirSync(packDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(packDir, "pack.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "starter-pack",
+          version: "1.0.0",
+          dependencies: {
+            "@acme/commands/my-cmd": "^1.0.0",
+          },
+        }),
+      );
+
       initWorkspace(
-        path.join(tempDir, ".axm"),
+        axmDir,
         {},
         {
           "my-cmd": {
@@ -270,12 +307,39 @@ describe("commands disable.handler", () => {
             integrity: "sha512-AAAA==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
+            sourceHash: computeSourceHash("# my-cmd"),
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             agents: [],
           },
         },
         ["claude-code"],
+        {
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+          lockfilePacks: {
+            "starter-pack": {
+              type: "registry",
+              owner: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              publisherBindingId: "hbnd_test",
+              sourceHash: computePackageContentHashSync(packDir),
+              installedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              resolvedSkills: {},
+              resolvedCommands: {
+                "@acme/commands/my-cmd": {
+                  version: "1.0.0",
+                  publisherBindingId: "hbnd_test",
+                },
+              },
+              resolvedMcpServers: {},
+              resolvedSubagents: {},
+            },
+          },
+        },
       );
 
       return provide(
@@ -292,7 +356,7 @@ describe("commands disable.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.commands?.["my-cmd"]).toEqual({
-            source: "@acme/commands/my-cmd",
+            source: "@acme/commands/my-cmd@>=1.0.0 <2.0.0-0",
             enabled: false,
           });
         }),

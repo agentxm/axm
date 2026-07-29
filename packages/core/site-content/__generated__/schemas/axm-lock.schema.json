@@ -128,6 +128,15 @@
         "integrity": { "type": "string" },
         "sourceName": { "type": "string" },
         "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "sourceHash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+            },
+            { "type": "null" }
+          ]
+        },
         "installedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "updatedAt": { "$ref": "#/definitions/IsoDateTimeString" },
         "resolvedSkills": {
@@ -2434,7 +2443,7 @@
       },
       "required": ["lockfileVersion", "skills"],
       "title": "AXM Lockfile",
-      "description": "Records the exact versions of all installed extensions so installs are reproducible."
+      "description": "Optional receipt history for successful extension resolution and materialization. Desired, observed, and trust state remain authoritative elsewhere."
     }
   }
 }

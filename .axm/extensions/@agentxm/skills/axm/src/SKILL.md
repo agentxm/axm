@@ -85,12 +85,12 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 ### Workspace state
 
-| Task                                          | Command          |
-| --------------------------------------------- | ---------------- |
-| Materialize workspace files from the lockfile | `axm sync`       |
-| Lint workspace (read-only)                    | `axm lint`       |
-| Reconcile workspace configuration             | `axm lint --fix` |
-| Remove unmanaged extension artifacts          | `axm prune`      |
+| Task                                           | Command          |
+| ---------------------------------------------- | ---------------- |
+| Reconcile desired and observed workspace state | `axm sync`       |
+| Lint workspace (read-only)                     | `axm lint`       |
+| Reconcile workspace configuration              | `axm lint --fix` |
+| Remove unmanaged extension artifacts           | `axm prune`      |
 
 ### Auth
 

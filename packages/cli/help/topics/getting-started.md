@@ -35,7 +35,7 @@ axm setup
 ```
 
 Setup is idempotent. It creates `.axm/`, detects supported coding agents,
-records workspace settings, and writes the resolution lockfile. Read
+records workspace settings, and initializes workspace state. Read
 `axm help basic-usage` to learn what those files do and which ones must be
 checked in.
 
@@ -65,6 +65,7 @@ know what to install.
 
 - `axm help basic-usage` — what each workspace file is for, what is safe to inspect, what changes state, and what must be checked in
 - `axm help settings` — `.axm/settings.json` fields
+- `axm help workspace-state` — desired, observed, trust, and receipt semantics
 - `axm help settings-schema` — `.axm/settings.json` raw JSON Schema
 - `axm help skills` — anatomy of a native managed skill on disk
 - `axm <command> --help` — flags and examples for any command

@@ -7,5 +7,6 @@ import "./cli-commands/skills/install/rebuild-lockfile.e2e.js";
 import "./cli-commands/skills/list/command.e2e.js";
 import "./cli-commands/skills/new/command.e2e.js";
 import "./cli-commands/skills/publish/publish.e2e.js";
+import "./cli-commands/skills/sync/command.e2e.js";
 import "./cli-commands/skills/uninstall/command.e2e.js";
 import "./cli-commands/skills/update/command.e2e.js";

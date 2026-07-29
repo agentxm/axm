@@ -16,7 +16,15 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import type { RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
+import { SkillManagerLive, type RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
+import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
+import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
+import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
+import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
+import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
+import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -29,7 +37,13 @@ import {
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
+import {
+  computePackageContentHashSync,
+  exactVersion,
+  extensionName,
+  handle,
+  writeTrustFromWorkspaceLockfile,
+} from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -108,6 +122,38 @@ const createCanonicalDirs = (
   }
 };
 
+const createPackManifest = (
+  baseDir: string,
+  name: string,
+  dependencies: Readonly<Record<string, string>>,
+) => {
+  const packDir = path.join(baseDir, ".axm", "extensions", "@test", "packs", name);
+  fs.mkdirSync(packDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(packDir, "pack.json"),
+    JSON.stringify({
+      owner: "@test",
+      type: "pack",
+      name,
+      version: "1.0.0",
+      dependencies,
+    }),
+  );
+  const lockfilePath = path.join(baseDir, ".axm", "axm-lock.yaml");
+  const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
+  const packs = expectRecord(lockfile["packs"] ?? {});
+  const lockedPack = expectRecord(packs[name]);
+  const updatedPacks = {
+    ...packs,
+    [name]: {
+      ...lockedPack,
+      sourceHash: computePackageContentHashSync(packDir),
+    },
+  };
+  fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
+  writeTrustFromWorkspaceLockfile(path.join(baseDir, ".axm"));
+};
+
 const defaultArgs = (
   name: string,
   overrides: Partial<UnpackHandlerArgs> = {},
@@ -174,12 +220,27 @@ describe("packs unpack.handler", () => {
       cloneUrl: () => Option.none(),
       origin: () => "test",
     });
-    const FullLayer = Layer.mergeAll(
+    const CoreLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
     );
+    const ManagersLayer = Layer.provide(
+      Layer.mergeAll(
+        SkillManagerLive,
+        CommandManagerLive,
+        McpServerManagerLive,
+        SubagentManagerLive,
+        FilesManagerLive,
+        RuleManagerLive,
+        HookManagerLive,
+        KnowledgeManagerLive,
+        PackManagerLive,
+      ),
+      CoreLayer,
+    );
+    const FullLayer = Layer.merge(CoreLayer, ManagersLayer);
     const provide = makeEffectProvide(FullLayer);
 
     return {
@@ -255,6 +316,10 @@ describe("packs unpack.handler", () => {
           { owner: "@test", name: "test-writer" },
         ],
       });
+      createPackManifest(tempDir, "frontend-tools", {
+        "@test/skills/code-review": "^1.0.0",
+        "@test/skills/test-writer": "^2.0.0",
+      });
 
       return provide(
         Effect.gen(function* () {
@@ -289,12 +354,8 @@ describe("packs unpack.handler", () => {
           });
           const steps = planResultSteps(result);
           const uninstallStep = expectRecord(expectDefined(steps[2], "Expected uninstall step"));
-          expect(property(uninstallStep, "artifact")).toMatchObject({
-            path: ".axm/extensions/@test/packs/frontend-tools",
-            scope: "project",
-            version: "1.0.0",
-            change: "removed",
-          });
+          expect(property(uninstallStep, "status")).toBe("applied");
+          expect(property(uninstallStep, "message")).toBe("Removed @test/frontend-tools");
         }),
       );
     });
@@ -369,6 +430,10 @@ describe("packs unpack.handler", () => {
           { owner: "@test", name: "new-skill" },
         ],
       });
+      createPackManifest(tempDir, "frontend-tools", {
+        "@test/skills/code-review": "^1.0.0",
+        "@test/skills/new-skill": "^1.0.0",
+      });
 
       return provide(
         Effect.gen(function* () {
@@ -410,7 +475,7 @@ describe("packs unpack.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.message).toContain("not installed");
+          expect(errorResult.message).toContain("not configured");
           expect(errorResult.guidance).toContain(
             "Install the pack first. · axm packs install <source>",
           );
@@ -420,8 +485,8 @@ describe("packs unpack.handler", () => {
     });
   });
 
-  describe("unpromotable members", () => {
-    it.effect("refuses to unpack a pack with subagent members rather than dropping them", () => {
+  describe("untrusted members", () => {
+    it.effect("refuses to unpack a member without authoritative trust", () => {
       const { provide } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
 
@@ -450,6 +515,9 @@ describe("packs unpack.handler", () => {
           },
         },
       });
+      createPackManifest(tempDir, "frontend-tools", {
+        "@test/subagents/reviewer": "^1.0.0",
+      });
 
       return provide(
         Effect.gen(function* () {
@@ -459,7 +527,7 @@ describe("packs unpack.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.message).toContain("subagents");
+          expect(errorResult.message).toContain("Trusted subagent identity");
 
           // The pack must NOT be removed when unpack refuses.
           const lockContent = YAML.parse(

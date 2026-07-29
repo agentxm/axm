@@ -22,7 +22,10 @@ import type {
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { ArtifactChangeSchema } from "@agentxm/client-core/unstable/plan";
-import { serializeErrorCauseChain } from "@agentxm/client-core/unstable/app-error";
+import {
+  redactSensitiveText,
+  serializeErrorCauseChain,
+} from "@agentxm/client-core/unstable/app-error";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
@@ -136,12 +139,33 @@ const artifactForJson = (
   options: PlanResolutionResultOptions,
 ): StepArtifact => {
   const { targets, source, ...base } = artifact;
-  const rest = options.debug === true && source !== undefined ? { ...base, source } : base;
+  const sanitizedBase = {
+    ...base,
+    ...(base.path === undefined ? {} : { path: redactSensitiveText(base.path) }),
+  };
+  const sanitizedSource =
+    source === undefined
+      ? undefined
+      : {
+          ...source,
+          origin: redactSensitiveText(source.origin),
+          ...(source.ref === undefined ? {} : { ref: redactSensitiveText(source.ref) }),
+        };
+  const rest =
+    options.debug === true && sanitizedSource !== undefined
+      ? { ...sanitizedBase, source: sanitizedSource }
+      : sanitizedBase;
   if (targets === undefined) return rest;
   const additionalTargets = artifact.targets?.filter((target) => target.path !== artifact.path);
   return additionalTargets === undefined || additionalTargets.length === 0
     ? rest
-    : { ...rest, targets: additionalTargets };
+    : {
+        ...rest,
+        targets: additionalTargets.map((target) => ({
+          ...target,
+          path: redactSensitiveText(target.path),
+        })),
+      };
 };
 
 export const PlanResolutionResultSchema = Schema.Struct({
@@ -172,6 +196,12 @@ export type PlanResolutionResult = typeof PlanResolutionResultSchema.Type;
 const PlanResolutionDocumentFields = {
   result: PlanResolutionResultSchema,
 } satisfies Schema.Struct.Fields;
+export const PlanResolutionDocumentSchema = Schema.Struct(PlanResolutionDocumentFields).annotate({
+  identifier: "PlanResolutionDocument",
+  title: "Plan Resolution Document",
+  description: "Top-level machine-output payload for a resolved AXM operation plan.",
+});
+export type PlanResolutionDocument = typeof PlanResolutionDocumentSchema.Type;
 
 const PublishActionSchema = Schema.Literals(["publish", "skip", "error"] as const).annotate({
   identifier: "PublishAction",
@@ -282,14 +312,18 @@ const completedStepToStep = (
     return {
       label: step.label,
       status,
-      ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
+      ...(step.result.message.length > 0
+        ? { message: redactSensitiveText(step.result.message) }
+        : {}),
       ...(step.result.warnings !== undefined && step.result.warnings.length > 0
-        ? { warnings: step.result.warnings }
+        ? { warnings: step.result.warnings.map((warning) => redactSensitiveText(warning)) }
         : {}),
       ...(step.result.artifact !== undefined
         ? { artifact: artifactForJson(step.result.artifact, options) }
         : {}),
-      ...(step.result.links !== undefined ? { links: step.result.links } : {}),
+      ...(step.result.links !== undefined
+        ? { links: { html: redactSensitiveText(step.result.links.html) } }
+        : {}),
     };
   }
 
@@ -301,13 +335,15 @@ const completedStepToStep = (
   return {
     label: step.label,
     status: step.result.message.includes("blocked") ? "blocked" : "failed",
-    ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
+    ...(step.result.message.length > 0
+      ? { message: redactSensitiveText(step.result.message) }
+      : {}),
     code,
     ...(includeErrorDetails
       ? {
           error: {
             code,
-            message: step.result.error.detail,
+            message: redactSensitiveText(step.result.error.detail),
             ...(causes.length > 0 ? { causes } : {}),
           },
         }
@@ -401,7 +437,7 @@ export const emitPlanResolutionResult = <TCommand extends string>(
           debug: verbosity.level === "debug",
         }),
       },
-      Schema.Struct(PlanResolutionDocumentFields),
+      PlanResolutionDocumentSchema,
       options,
     );
   });
@@ -510,7 +546,7 @@ export const emitNoOpResult = <TCommand extends string>(
           steps: [],
         },
       },
-      Schema.Struct(PlanResolutionDocumentFields),
+      PlanResolutionDocumentSchema,
       options,
     );
   });

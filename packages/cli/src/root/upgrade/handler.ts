@@ -194,7 +194,8 @@ export const UpgradeResultSchema = Schema.Struct({
 });
 export type UpgradeResult = typeof UpgradeResultSchema.Type;
 
-const UpgradeDocumentSchema = Schema.Struct({ result: UpgradeResultSchema });
+export const UpgradeDocumentSchema = Schema.Struct({ result: UpgradeResultSchema });
+export type UpgradeDocument = typeof UpgradeDocumentSchema.Type;
 
 const HOMEBREW_TAP = "agentxm/tap";
 const NPM_PACKAGE = "axm.sh";

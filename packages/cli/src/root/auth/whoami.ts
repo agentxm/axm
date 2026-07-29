@@ -8,13 +8,15 @@ import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withAuthRuntime } from "../../runtime.js";
 
-const WhoamiDataSchema = Schema.Struct({
+export const WhoamiDataSchema = Schema.Struct({
   user: Schema.String,
   registry: Schema.String,
 });
 const WhoamiDocumentFields = {
   data: WhoamiDataSchema,
 } satisfies Schema.Struct.Fields;
+export const WhoamiDocumentSchema = Schema.Struct(WhoamiDocumentFields);
+export type WhoamiDocument = typeof WhoamiDocumentSchema.Type;
 
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   const authClient = yield* AuthClient;
@@ -34,7 +36,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   };
 
   // Step 3: Display result
-  if (yield* renderer.result({ data: result }, Schema.Struct(WhoamiDocumentFields))) {
+  if (yield* renderer.result({ data: result }, WhoamiDocumentSchema)) {
     return;
   }
 

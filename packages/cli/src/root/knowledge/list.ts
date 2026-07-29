@@ -24,6 +24,7 @@ export const KnowledgeListQueryResultSchema = Schema.Struct({
   items: Schema.Array(BundleSchema),
   count: Schema.Number,
 });
+export type KnowledgeListQueryResult = typeof KnowledgeListQueryResultSchema.Type;
 
 interface BundleRow {
   readonly name: string;

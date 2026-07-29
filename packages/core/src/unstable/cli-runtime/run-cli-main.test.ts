@@ -78,6 +78,57 @@ describe("runCliMain", () => {
     ]);
   });
 
+  it("releases one complete JSON document after a successful machine invocation", async () => {
+    const document = { ok: true, result: { outcome: "no-op" } };
+    const execute = () =>
+      Effect.sync(() => {
+        process.stdout.write(`${JSON.stringify(document)}\n`);
+      });
+
+    await runCliMain(execute, { args: ["sync", "--json"] });
+
+    expect(stdoutWrites).toEqual([`${JSON.stringify(document)}\n`]);
+    expect(stderrWrites).toEqual([]);
+  });
+
+  it("replaces concatenated machine documents with one internal-error envelope", async () => {
+    const execute = () =>
+      Effect.sync(() => {
+        process.stdout.write('{"ok":true}\n');
+        process.stdout.write('{"ok":true}\n');
+      });
+
+    await expect(runCliMain(execute, { args: ["sync", "--json"] })).rejects.toMatchObject({
+      code: ExitCode.Internal,
+    });
+
+    expect(stdoutWrites).toHaveLength(1);
+    expect(JSON.parse(stdoutWrites.join(""))).toMatchObject({
+      ok: false,
+      code: "internal",
+    });
+    expect(stdoutWrites.join("")).not.toContain('{"ok":true}');
+  });
+
+  it("replaces stray human stdout with one internal-error envelope in machine mode", async () => {
+    const execute = () =>
+      Effect.sync(() => {
+        process.stdout.write("Preparing workspace...\n");
+        process.stdout.write('{"ok":true}\n');
+      });
+
+    await expect(runCliMain(execute, { args: ["setup", "--json"] })).rejects.toMatchObject({
+      code: ExitCode.Internal,
+    });
+
+    expect(stdoutWrites).toHaveLength(1);
+    expect(JSON.parse(stdoutWrites.join(""))).toMatchObject({
+      ok: false,
+      code: "internal",
+    });
+    expect(stdoutWrites.join("")).not.toContain("Preparing workspace");
+  });
+
   it("routes text parser usage help to stderr and drops the duplicate terse parser error", async () => {
     const execute = () =>
       Effect.sync(() => {

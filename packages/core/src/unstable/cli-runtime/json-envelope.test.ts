@@ -46,6 +46,8 @@ describe("SuggestedActionSchema", () => {
 });
 
 describe("JsonEnvelopeSchema", () => {
+  const secretSentinel = "AXM_SECRET_SENTINEL_92";
+
   it("decodes success envelopes with suggestions", () => {
     const envelope = makeJsonSuccessEnvelope({
       payload: { name: "code-reviewer" },
@@ -201,6 +203,48 @@ describe("JsonEnvelopeSchema", () => {
     expect(envelope.cause).toEqual([
       { _tag: "Error", message: "decode failed", stack: "Error: decode failed\n at test" },
     ]);
+  });
+
+  it.each([
+    { debug: false, label: "normal" },
+    { debug: true, label: "debug" },
+  ])("redacts secrets from $label error envelopes", ({ debug }) => {
+    const cause = new Error(`request failed with ${secretSentinel}`);
+    cause.stack = `Error: ${secretSentinel}\n at https://registry.test/callback?token=${secretSentinel}`;
+    const envelope = makeJsonErrorEnvelopeFromAppError(
+      makeAppError({
+        code: "internal",
+        title: `Failure ${secretSentinel}`,
+        detail: `Registry rejected ${secretSentinel}`,
+        metadata: {
+          request: {
+            service: "registry",
+            method: "POST",
+            url: `https://registry.test/v1?access_token=${secretSentinel}`,
+          },
+          response: {
+            status: 500,
+            body: {
+              access_token: secretSentinel,
+              nested: { message: `do not expose ${secretSentinel}` },
+            },
+          },
+        },
+        cause,
+        suggestions: [
+          {
+            description: `Retry without ${secretSentinel}`,
+            url: `https://registry.test/retry?code=${secretSentinel}`,
+          },
+        ],
+      }),
+      { debug },
+    );
+
+    const serialized = JSON.stringify(envelope);
+    expect(serialized).not.toContain(secretSentinel);
+    expect(serialized).toContain("[REDACTED]");
+    expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual(envelope);
   });
 
   it("omits cause when no cause is attached", () => {

@@ -13,7 +13,7 @@ import {
 import * as Schema from "effect/Schema";
 import { withAuthRuntime } from "../../runtime.js";
 
-const LogoutResultSchema = Schema.Struct({
+export const LogoutResultSchema = Schema.Struct({
   ...OperationPlanFields,
   status: Schema.Literals(["not-logged-in", "logged-out", "logged-out-local-only"] as const),
   registryHost: Schema.String,
@@ -22,8 +22,10 @@ const LogoutResultSchema = Schema.Struct({
 const LogoutDocumentFields = {
   result: LogoutResultSchema,
 } satisfies Schema.Struct.Fields;
+export const LogoutDocumentSchema = Schema.Struct(LogoutDocumentFields);
 
-type LogoutResult = typeof LogoutResultSchema.Type;
+export type LogoutResult = typeof LogoutResultSchema.Type;
+export type LogoutDocument = typeof LogoutDocumentSchema.Type;
 type LogoutStatus = LogoutResult["status"];
 
 const logoutSuggestions = (status: LogoutStatus): ReadonlyArray<SuggestedAction> =>
@@ -61,7 +63,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
       status,
       registryHost,
     };
-    if (yield* renderer.result({ result }, Schema.Struct(LogoutDocumentFields), { suggestions })) {
+    if (yield* renderer.result({ result }, LogoutDocumentSchema, { suggestions })) {
       return;
     }
     yield* renderer.success(`Not logged in to ${registryHost}.`, { suggestions });
@@ -112,7 +114,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   };
   const suggestions = logoutSuggestions(status);
 
-  if (yield* renderer.result({ result }, Schema.Struct(LogoutDocumentFields), { suggestions })) {
+  if (yield* renderer.result({ result }, LogoutDocumentSchema, { suggestions })) {
     return;
   }
 

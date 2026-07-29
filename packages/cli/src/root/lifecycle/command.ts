@@ -178,7 +178,7 @@ const emitLifecycleOutput = (input: {
     yield* renderer.success(input.message);
   });
 
-const handleYank = (input: {
+export const handleYank = (input: {
   readonly ref: string;
   readonly allVersions: boolean;
   readonly category: Option.Option<YankCategory>;
@@ -230,7 +230,7 @@ const handleYank = (input: {
     });
   });
 
-const handleUnyank = (input: string) =>
+export const handleUnyank = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExactVersionReference(input);
     yield* runWithStepUp((stepUpToken) =>
@@ -245,7 +245,7 @@ const handleUnyank = (input: string) =>
     });
   });
 
-const handleDeprecate = (input: { readonly ref: string; readonly message: string }) =>
+export const handleDeprecate = (input: { readonly ref: string; readonly message: string }) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input.ref);
     const message = input.message.trim();
@@ -265,7 +265,7 @@ const handleDeprecate = (input: { readonly ref: string; readonly message: string
     });
   });
 
-const handleUndeprecate = (input: string) =>
+export const handleUndeprecate = (input: string) =>
   Effect.gen(function* () {
     const ref = yield* parseExtensionReference(input);
     yield* undeprecateExtension(ref);

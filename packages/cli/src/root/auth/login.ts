@@ -30,7 +30,7 @@ import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cance
 import { envOption } from "@agentxm/client-core/unstable/utils";
 import { withAuthRuntime } from "../../runtime.js";
 
-const LoginNoOpResultSchema = Schema.Struct({
+export const LoginNoOpResultSchema = Schema.Struct({
   ...OperationPlanFields,
   status: Schema.Literal("already-logged-in"),
   registryHost: Schema.String,
@@ -40,7 +40,9 @@ const LoginNoOpResultSchema = Schema.Struct({
 const LoginNoOpDocumentFields = {
   result: LoginNoOpResultSchema,
 } satisfies Schema.Struct.Fields;
-type LoginNoOpResult = typeof LoginNoOpResultSchema.Type;
+export const LoginNoOpDocumentSchema = Schema.Struct(LoginNoOpDocumentFields);
+export type LoginNoOpResult = typeof LoginNoOpResultSchema.Type;
+export type LoginNoOpDocument = typeof LoginNoOpDocumentSchema.Type;
 
 const LoginNoOpSuggestions = [
   { description: "Check active account", cmd: "axm whoami" },
@@ -138,7 +140,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
       };
       if (!options.yes && jsonMode) {
         if (
-          yield* renderer.result({ result: noOpResult }, Schema.Struct(LoginNoOpDocumentFields), {
+          yield* renderer.result({ result: noOpResult }, LoginNoOpDocumentSchema, {
             suggestions: LoginNoOpSuggestions,
           })
         ) {
@@ -155,7 +157,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
           confirmRelogin(message);
         if (!shouldContinue) {
           if (
-            yield* renderer.result({ result: noOpResult }, Schema.Struct(LoginNoOpDocumentFields), {
+            yield* renderer.result({ result: noOpResult }, LoginNoOpDocumentSchema, {
               suggestions: LoginNoOpSuggestions,
             })
           ) {

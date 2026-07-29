@@ -3,7 +3,7 @@
  *
  * Explicit --json makes command results and built-in help/version output
  * machine-readable on stdout, while renderer chrome stays on stderr as NDJSON.
- * Parse and usage failures still report human diagnostics on stderr.
+ * Parse and usage failures emit schema-conformant NDJSON diagnostics on stderr.
  */
 
 import { describe, expect, it } from "vitest";

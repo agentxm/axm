@@ -9,7 +9,11 @@
  * intentionally minimal — per-command shape is covered elsewhere.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { runCommand } from "@agentxm/client-e2e-utils";
 import { createTempDir, runCli } from "../e2e/utils.js";
 
 interface JsonChannelChecks {
@@ -86,6 +90,93 @@ describe("JSON-mode channel contract (--json)", () => {
         (event) => isRecord(event) && event["type"] === "error" && event["code"] === "not_found",
       );
       expect(hasErrorEvent).toBe(true);
+    });
+  });
+
+  describe("partial-failure class", () => {
+    it("axm sync --json preserves one document when some steps apply and another fails", async () => {
+      const temp = createTempDir();
+      try {
+        const setup = await runCli(
+          ["setup", "--yes", "--non-interactive", "--agent", "claude-code", "--json"],
+          { cwd: temp.path },
+        );
+        expect(setup.exitCode).toBe(0);
+
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        if (!isRecord(settings)) throw new Error("Expected setup to create object settings");
+        fs.writeFileSync(
+          settingsPath,
+          JSON.stringify(
+            {
+              ...settings,
+              agents: ["claude-code"],
+              mcpServers: {
+                demo: {
+                  enabled: true,
+                  command: "node",
+                  args: ["server.js"],
+                  env: {},
+                },
+              },
+            },
+            null,
+            2,
+          ),
+        );
+        fs.writeFileSync(
+          path.join(temp.path, ".mcp.json"),
+          JSON.stringify(
+            {
+              mcpServers: {
+                demo: {
+                  "x-axm": { managed: true, source: "inline" },
+                  type: "stdio",
+                  command: "python",
+                },
+              },
+            },
+            null,
+            2,
+          ),
+        );
+
+        const result = await runCli(["sync", "--non-interactive", "--json"], {
+          cwd: temp.path,
+        });
+        const { stdoutDocument } = assertJsonChannelContract(result);
+
+        expect(isRecord(stdoutDocument)).toBe(true);
+        if (!isRecord(stdoutDocument)) return;
+        expect(stdoutDocument["ok"]).toBe(true);
+        const plan = stdoutDocument["result"];
+        expect(isRecord(plan)).toBe(true);
+        if (!isRecord(plan)) return;
+        expect(plan["failedCount"]).toBe(1);
+        expect(Number(plan["appliedCount"])).toBeGreaterThan(0);
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
+  describe("unexpected-defect class", () => {
+    it("the built runtime emits one redacted internal error document", async () => {
+      const fixture = fileURLToPath(
+        new URL("../fixtures/machine-output-defect.mjs", import.meta.url),
+      );
+      const result = await runCommand(process.execPath, [fixture], {});
+
+      expect(result.exitCode).not.toBe(0);
+      const { stdoutDocument, stderrEvents } = assertJsonChannelContract(result);
+      expect(isRecord(stdoutDocument)).toBe(true);
+      if (isRecord(stdoutDocument)) {
+        expect(stdoutDocument["ok"]).toBe(false);
+        expect(stdoutDocument["code"]).toBe("internal");
+        expect(JSON.stringify(stdoutDocument)).not.toContain("e2e-secret-sentinel");
+      }
+      expect(JSON.stringify(stderrEvents)).not.toContain("e2e-secret-sentinel");
     });
   });
 });

@@ -1081,6 +1081,8 @@ const applyFixes = (args: {
 const LintJsonDocumentFields = {
   result: LintJsonDocumentSchema,
 } satisfies Schema.Struct.Fields;
+export const LintResultDocumentSchema = Schema.Struct(LintJsonDocumentFields);
+export type LintResultDocument = typeof LintResultDocumentSchema.Type;
 
 /**
  * `--fix` emits the same lint document with the autofix plan nested under
@@ -1094,6 +1096,8 @@ const LintFixJsonDocumentFields = {
     plan: PlanResolutionResultSchema,
   }),
 } satisfies Schema.Struct.Fields;
+export const LintFixDocumentSchema = Schema.Struct(LintFixJsonDocumentFields);
+export type LintFixDocument = typeof LintFixDocumentSchema.Type;
 
 const emitJsonDocument = (
   doc: LintJsonDocument,
@@ -1104,10 +1108,10 @@ const emitJsonDocument = (
     if (Option.isSome(fixResolution)) {
       return yield* renderer.result(
         { result: { ...doc, plan: fixResolution.value } },
-        Schema.Struct(LintFixJsonDocumentFields),
+        LintFixDocumentSchema,
       );
     }
-    return yield* renderer.result({ result: doc }, Schema.Struct(LintJsonDocumentFields));
+    return yield* renderer.result({ result: doc }, LintResultDocumentSchema);
   });
 
 const emitHumanOutput = (args: {

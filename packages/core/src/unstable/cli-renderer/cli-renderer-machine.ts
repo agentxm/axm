@@ -23,6 +23,7 @@ import {
 } from "./cli-renderer.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
+import { redactSensitiveValue } from "../app-error/secret-redaction.js";
 import {
   normalizeSuggestions,
   taskCompletionMessage,
@@ -36,7 +37,7 @@ import {
 
 const emitStderrEvent = (event: Record<string, unknown>) =>
   Effect.sync(() => {
-    process.stderr.write(JSON.stringify(event) + "\n");
+    process.stderr.write(JSON.stringify(redactSensitiveValue(event)) + "\n");
   });
 
 const emitLogEvent = (level: "info" | "warn" | "error", message: string) =>
@@ -394,16 +395,6 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       encodeJson(data, schema).pipe(
         Effect.map((encoded) => makeSuccessEnvelope(encoded, options)),
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
-        Effect.as(true),
-      ),
-    resultStream: <S extends Schema.Top>(stream: Stream.Stream<Schema.Schema.Type<S>>, schema: S) =>
-      stream.pipe(
-        Stream.mapEffect((item) =>
-          encodeJson(item, schema).pipe(
-            Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded))),
-          ),
-        ),
-        Stream.runDrain,
         Effect.as(true),
       ),
 

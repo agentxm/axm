@@ -8,6 +8,10 @@ import {
   type SerializedErrorCause,
   serializeErrorCauseChain,
   effectiveSuggestionsFor,
+  collectSensitiveStrings,
+  redactAppErrorMetadata,
+  redactSensitiveText,
+  redactSuggestedAction,
 } from "../app-error/index.js";
 import { SuggestedActionSchema, type SuggestedAction } from "./suggested-action.js";
 
@@ -108,9 +112,9 @@ export const makeJsonSuccessEnvelope = (args?: {
     ensureNoReservedPayloadKeys(payload);
     return payload;
   })(),
-  ...(args?.summary !== undefined ? { summary: args.summary } : {}),
+  ...(args?.summary !== undefined ? { summary: redactSensitiveText(args.summary) } : {}),
   ...(args?.suggestions !== undefined && args.suggestions.length > 0
-    ? { suggestions: [...args.suggestions] }
+    ? { suggestions: args.suggestions.map((suggestion) => redactSuggestedAction(suggestion)) }
     : {}),
 });
 
@@ -121,30 +125,52 @@ export const makeJsonErrorEnvelope = (args: {
   readonly cause?: ReadonlyArray<SerializedErrorCause>;
   readonly metadata?: AppErrorMetadata;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
-}): JsonErrorEnvelope => ({
-  ok: false,
-  code: args.code,
-  title: args.title,
-  detail: args.detail,
-  ...(args.cause !== undefined && args.cause.length > 0 ? { cause: [...args.cause] } : {}),
-  ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
-  ...(args.suggestions !== undefined && args.suggestions.length > 0
-    ? { suggestions: [...args.suggestions] }
-    : {}),
-});
+}): JsonErrorEnvelope => {
+  const secrets = collectSensitiveStrings(args.metadata);
+  return {
+    ok: false,
+    code: args.code,
+    title: redactSensitiveText(args.title, { secrets }),
+    detail: redactSensitiveText(args.detail, { secrets }),
+    ...(args.cause !== undefined && args.cause.length > 0
+      ? {
+          cause: args.cause.map((cause) => ({
+            ...cause,
+            message: redactSensitiveText(cause.message, { secrets }),
+            ...(cause.stack === undefined
+              ? {}
+              : { stack: redactSensitiveText(cause.stack, { secrets }) }),
+          })),
+        }
+      : {}),
+    ...(args.metadata !== undefined
+      ? { metadata: redactAppErrorMetadata(args.metadata, secrets) }
+      : {}),
+    ...(args.suggestions !== undefined && args.suggestions.length > 0
+      ? {
+          suggestions: args.suggestions.map((suggestion) =>
+            redactSuggestedAction(suggestion, secrets),
+          ),
+        }
+      : {}),
+  };
+};
 
 export const makeJsonErrorEnvelopeFromAppError = (
   error: AppError,
   options: { readonly debug?: boolean } = {},
 ): JsonErrorEnvelope =>
-  makeJsonErrorEnvelope({
-    code: error.code,
-    title: error.title,
-    detail: error.detail,
-    cause: serializeErrorCauseChain(
-      error.cause,
-      options.debug === undefined ? {} : { debug: options.debug },
-    ),
-    ...(error.metadata !== undefined ? { metadata: error.metadata } : {}),
-    suggestions: effectiveSuggestionsFor(error),
-  });
+  (() => {
+    const secrets = collectSensitiveStrings(error.metadata);
+    return makeJsonErrorEnvelope({
+      code: error.code,
+      title: error.title,
+      detail: error.detail,
+      cause: serializeErrorCauseChain(error.cause, {
+        ...(options.debug === undefined ? {} : { debug: options.debug }),
+        secrets,
+      }),
+      ...(error.metadata !== undefined ? { metadata: error.metadata } : {}),
+      suggestions: effectiveSuggestionsFor(error),
+    });
+  })();

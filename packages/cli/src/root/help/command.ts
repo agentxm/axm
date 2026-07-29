@@ -30,6 +30,7 @@ const isHelpTopicName = (topic: string): topic is HelpTopicName =>
 const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "getting-started",
   "basic-usage",
+  "machine-output",
   "authoring",
   "skills",
   "skill-schema",
@@ -64,7 +65,7 @@ export const ORDERED_TOPIC_NAMES: ReadonlyArray<HelpTopicName> = (() => {
   });
 })();
 
-const HelpIndexResultSchema = Schema.Struct({
+export const HelpIndexResultSchema = Schema.Struct({
   usage: Schema.String,
   topics: Schema.Array(
     Schema.Struct({
@@ -73,11 +74,13 @@ const HelpIndexResultSchema = Schema.Struct({
     }),
   ),
 });
+export type HelpIndexResult = typeof HelpIndexResultSchema.Type;
 
-const HelpTopicResultSchema = Schema.Struct({
+export const HelpTopicResultSchema = Schema.Struct({
   topic: Schema.String,
   content: Schema.String,
 });
+export type HelpTopicResult = typeof HelpTopicResultSchema.Type;
 
 interface HelpTopicRow {
   readonly topic: HelpTopicName;

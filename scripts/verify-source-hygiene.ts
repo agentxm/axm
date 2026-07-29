@@ -12,11 +12,17 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { findSourceHygieneViolations, formatViolation } from "./verify-source-hygiene-lib.js";
+import {
+  findMachineOutputBoundaryViolations,
+  findSourceHygieneViolations,
+  formatMachineOutputBoundaryViolation,
+  formatViolation,
+} from "./verify-source-hygiene-lib.js";
 
 const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");
 const violations = findSourceHygieneViolations(repoRoot);
+const machineOutputViolations = findMachineOutputBoundaryViolations(repoRoot);
 
 if (violations.length > 0) {
   console.error("Source hygiene violations found:");
@@ -26,4 +32,13 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
+if (machineOutputViolations.length > 0) {
+  console.error("Machine-output boundary violations found:");
+  for (const violation of machineOutputViolations) {
+    console.error(`  ${formatMachineOutputBoundaryViolation(violation)}`);
+  }
+  process.exit(1);
+}
+
 console.log("Verified package sources contain no forbidden control bytes.");
+console.log("Verified production stdout is confined to approved renderer/runtime boundaries.");

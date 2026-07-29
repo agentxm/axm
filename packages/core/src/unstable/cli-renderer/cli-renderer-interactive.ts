@@ -536,7 +536,6 @@ export const InteractiveRenderer = (options?: {
 
     // Machine data output
     result: () => Effect.succeed(false),
-    resultStream: () => Effect.succeed(false),
 
     // Both modes
     json: (data) => writeStdoutLine(JSON.stringify(data, null, 2)),

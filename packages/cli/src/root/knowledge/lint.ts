@@ -29,10 +29,11 @@ const DiagnosticSchema = Schema.Struct({
   message: Schema.String,
 });
 
-const KnowledgeLintQueryResultSchema = Schema.Struct({
+export const KnowledgeLintQueryResultSchema = Schema.Struct({
   valid: Schema.Boolean,
   diagnostics: Schema.Array(DiagnosticSchema),
 });
+export type KnowledgeLintQueryResult = typeof KnowledgeLintQueryResultSchema.Type;
 
 const flattenDiagnostics = (
   bundles: ReadonlyArray<{

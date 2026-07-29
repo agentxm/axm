@@ -95,6 +95,12 @@ export {
   startLoopbackServer,
 } from "./loopback-server.js";
 export {
+  LoginDocumentSchema,
+  LoginResultSchema,
+  type LoginDocument,
+  type LoginResult,
+} from "./login-output.js";
+export {
   runPublishAuthorization,
   type PublishAuthorizationInput,
 } from "./publish-authorization.js";

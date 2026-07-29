@@ -8,7 +8,7 @@ import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.
 import type { OutputFormat } from "./output-mode.js";
 import { makeErrorEvent } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
-import { ExitCode, exitCodeFor } from "../app-error/index.js";
+import { ExitCode, exitCodeFor, redactSensitiveText } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { renderAppErrorChannels } from "./handle-error.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
@@ -41,7 +41,7 @@ const writeStderr = (message: string): void => {
 
 const defectMessage = (cause: Cause.Cause<unknown>): string => {
   const squashed = Cause.squash(cause);
-  return squashed instanceof Error ? squashed.message : String(squashed);
+  return redactSensitiveText(squashed instanceof Error ? squashed.message : String(squashed));
 };
 
 /**

@@ -76,3 +76,30 @@ export const collectHelpFiles = (
 /** Every command path the CLI registers, formatted as `axm <path>`. */
 export const collectCommandPaths = (): Effect.Effect<ReadonlySet<string>, unknown, never> =>
   collectHelpFiles().pipe(Effect.map((files) => new Set(files.keys())));
+
+/**
+ * Every registered alias invocation path mapped to its canonical command path.
+ *
+ * Effect exposes aliases on each parent's subcommand help row rather than as
+ * independent child documents, so alias coverage is derived after the
+ * canonical tree walk.
+ */
+export const collectCommandAliases = (): Effect.Effect<
+  ReadonlyMap<string, string>,
+  unknown,
+  never
+> =>
+  collectHelpFiles().pipe(
+    Effect.map((files) => {
+      const aliases = new Map<string, string>();
+      for (const [parentPath, doc] of files) {
+        for (const group of doc.subcommands ?? []) {
+          for (const subcommand of group.commands) {
+            if (subcommand.alias === undefined) continue;
+            aliases.set(`${parentPath} ${subcommand.alias}`, `${parentPath} ${subcommand.name}`);
+          }
+        }
+      }
+      return aliases;
+    }),
+  );

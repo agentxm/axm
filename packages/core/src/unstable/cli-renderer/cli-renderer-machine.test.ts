@@ -219,6 +219,30 @@ describe("MachineRenderer", () => {
       }),
     );
 
+    it.effect("redacts credentials from diagnostic and suggestion events", () =>
+      Effect.gen(function* () {
+        const secret = "ghp_abcdefghijklmnopqrstuvwxyz123456";
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.error(`Bearer ${secret}`, {
+              suggestions: [
+                {
+                  description: `Retry without ${secret}`,
+                  url: `https://registry.test/retry?token=${secret}`,
+                },
+              ],
+            });
+          }),
+        );
+
+        const serialized = stderrWrites.join("");
+        expect(serialized).not.toContain(secret);
+        expect(serialized).toContain("[REDACTED]");
+        expect(parseStderrEvents()).toHaveLength(2);
+      }),
+    );
+
     it.effect("cancel emits log event when message provided", () =>
       Effect.gen(function* () {
         yield* run(
@@ -560,45 +584,6 @@ describe("MachineRenderer", () => {
             { description: "Undo", cmd: "axm skills uninstall example" },
           ],
         });
-      }),
-    );
-  });
-
-  // -------------------------------------------------------------------------
-  // resultStream() — writes NDJSON to stdout, returns true
-  // -------------------------------------------------------------------------
-
-  describe("resultStream()", () => {
-    it.effect("returns true", () =>
-      Effect.gen(function* () {
-        const result = yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            return yield* r.resultStream(
-              Stream.make({ n: 1 }, { n: 2 }),
-              Schema.Struct({ n: Schema.Number }),
-            );
-          }),
-        );
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("writes each item as NDJSON line to stdout", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.resultStream(
-              Stream.make({ n: 1 }, { n: 2 }, { n: 3 }),
-              Schema.Struct({ n: Schema.Number }),
-            );
-          }),
-        );
-        // Each item is a separate JSON line
-        expect(stdoutWrites).toHaveLength(3);
-        const items = parseStdout();
-        expect(items).toEqual([{ n: 1 }, { n: 2 }, { n: 3 }]);
       }),
     );
   });

@@ -32,14 +32,16 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { withAuthRuntime } from "../../runtime.js";
 
-const TokenDataSchema = Schema.Struct({
+export const TokenDataSchema = Schema.Struct({
   token: Schema.String,
 });
 const TokenDocumentFields = {
   data: TokenDataSchema,
 } satisfies Schema.Struct.Fields;
+export const TokenDocumentSchema = Schema.Struct(TokenDocumentFields);
+export type TokenDocument = typeof TokenDocumentSchema.Type;
 
-const CreatedTokenDataSchema = Schema.Struct({
+export const CreatedTokenDataSchema = Schema.Struct({
   id: Schema.String,
   token: Schema.String,
   name: Schema.String,
@@ -47,7 +49,7 @@ const CreatedTokenDataSchema = Schema.Struct({
   createdAt: DateTimeUtcSchema,
   expiresAt: DateTimeUtcSchema,
 });
-const CreatedTokenResultSchema = Schema.Struct({
+export const CreatedTokenResultSchema = Schema.Struct({
   ...OperationPlanFields,
   status: Schema.Literal("created"),
   tokenId: Schema.String,
@@ -58,8 +60,10 @@ const CreatedTokenDocumentFields = {
   result: CreatedTokenResultSchema,
   data: CreatedTokenDataSchema,
 } satisfies Schema.Struct.Fields;
+export const CreatedTokenDocumentSchema = Schema.Struct(CreatedTokenDocumentFields);
+export type CreatedTokenDocument = typeof CreatedTokenDocumentSchema.Type;
 
-const TokenListItemSchema = Schema.Struct({
+export const TokenListItemSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.NullOr(Schema.String),
   type: Schema.String,
@@ -74,8 +78,10 @@ export const TokenListDocumentFields = {
   hasMore: Schema.Boolean,
   cursor: Schema.NullOr(Schema.String),
 } satisfies Schema.Struct.Fields;
+export const TokenListDocumentSchema = Schema.Struct(TokenListDocumentFields);
+export type TokenListDocument = typeof TokenListDocumentSchema.Type;
 
-const RevokeTokenResultSchema = Schema.Struct({
+export const RevokeTokenResultSchema = Schema.Struct({
   ...OperationPlanFields,
   status: Schema.Literal("revoked"),
   tokenId: Schema.String,
@@ -84,6 +90,8 @@ const RevokeTokenResultSchema = Schema.Struct({
 const RevokeTokenDocumentFields = {
   result: RevokeTokenResultSchema,
 } satisfies Schema.Struct.Fields;
+export const RevokeTokenDocumentSchema = Schema.Struct(RevokeTokenDocumentFields);
+export type RevokeTokenDocument = typeof RevokeTokenDocumentSchema.Type;
 
 const RevokeTokenSuggestions = [
   { description: "List remaining tokens", cmd: "axm token list" },
@@ -222,7 +230,7 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
 
   // Step 2: Output raw token to stdout, unless --json was explicitly requested
   if (json) {
-    yield* renderer.result({ data: { token: token.token } }, Schema.Struct(TokenDocumentFields));
+    yield* renderer.result({ data: { token: token.token } }, TokenDocumentSchema);
     return;
   }
 
@@ -281,7 +289,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
           expiresAt: created.expiresAt,
         },
       },
-      Schema.Struct(CreatedTokenDocumentFields),
+      CreatedTokenDocumentSchema,
       { suggestions },
     )
   ) {
@@ -327,7 +335,7 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
         hasMore: result.hasMore,
         cursor: result.cursor,
       },
-      Schema.Struct(TokenListDocumentFields),
+      TokenListDocumentSchema,
     )
   ) {
     return;
@@ -410,7 +418,7 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
           stepUpCompleted,
         },
       },
-      Schema.Struct(RevokeTokenDocumentFields),
+      RevokeTokenDocumentSchema,
       { suggestions: RevokeTokenSuggestions },
     )
   ) {

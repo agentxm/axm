@@ -53,6 +53,7 @@ export const InstructionsStatusOutputSchema = Schema.Struct({
   roots: Schema.Array(Schema.String),
   items: Schema.Array(InstructionStatusItemSchema),
 });
+export type InstructionsStatusOutput = typeof InstructionsStatusOutputSchema.Type;
 
 const InstructionsTable = {
   columns: {

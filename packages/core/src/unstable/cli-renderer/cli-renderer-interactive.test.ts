@@ -599,23 +599,6 @@ describe("InteractiveRenderer", () => {
       }),
     );
 
-    it.effect("resultStream() returns false in interactive mode", () =>
-      Effect.gen(function* () {
-        const result = yield* run(
-          Effect.gen(function* () {
-            const renderer = yield* CliRenderer;
-            return yield* renderer.resultStream(
-              Stream.make({ name: "test" }),
-              Schema.Struct({ name: Schema.String }),
-            );
-          }),
-        );
-
-        expect(result).toBe(false);
-        expect(stdoutWrites).toHaveLength(0);
-      }),
-    );
-
     it.effect("json() writes formatted JSON to stdout", () =>
       Effect.gen(function* () {
         yield* run(

@@ -4,7 +4,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
-import { errorClassForAppErrorCode, type AppError } from "../app-error/index.js";
+import {
+  collectSensitiveStrings,
+  errorClassForAppErrorCode,
+  redactSensitiveText,
+  type AppError,
+} from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { TelemetryClient } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
@@ -97,7 +102,9 @@ export const reportCliError = (
         const telemetry = yield* TelemetryClient;
         yield* telemetry.reportError({
           name: error.code,
-          message: error.detail,
+          message: redactSensitiveText(error.detail, {
+            secrets: collectSensitiveStrings(error.metadata),
+          }),
           category: error.code,
           level: "error",
           errorClass: errorClassForAppErrorCode(error.code),
@@ -167,7 +174,7 @@ export const CommandSemanticPropertiesLive: Layer.Layer<CommandSemanticPropertie
 
 const defectMessage = (cause: Cause.Cause<unknown>): string => {
   const squashed = Cause.squash(cause);
-  return squashed instanceof Error ? squashed.message : String(squashed);
+  return redactSensitiveText(squashed instanceof Error ? squashed.message : String(squashed));
 };
 
 export const reportCliDefect = (

@@ -64,6 +64,7 @@ export const ExtensionShowResultSchema = Schema.Struct({
   item: ShowItemSchema,
   agents: Schema.Array(ShowAgentSchema),
 });
+export type ExtensionShowResult = typeof ExtensionShowResultSchema.Type;
 
 /** Field order of `item`, pinned so every `<type> show` stays uniform. */
 export const EXTENSION_SHOW_ITEM_FIELDS = Object.keys(ShowItemSchema.fields);

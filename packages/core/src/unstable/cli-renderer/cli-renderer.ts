@@ -235,10 +235,6 @@ export class CliRenderer extends ServiceMap.Service<
       schema: S,
       options?: SuccessOptions,
     ) => Effect.Effect<boolean, never, S["EncodingServices"]>;
-    readonly resultStream: <S extends Schema.Top>(
-      stream: Stream.Stream<Schema.Schema.Type<S>>,
-      schema: S,
-    ) => Effect.Effect<boolean, never, S["EncodingServices"]>;
 
     // Both modes (stdout)
     readonly json: (data: unknown) => Effect.Effect<void>;

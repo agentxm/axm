@@ -26,6 +26,7 @@ export const HookPortabilityResultSchema = Schema.Struct({
   items: Schema.Array(HookPortabilityItemSchema),
   count: Schema.Number,
 });
+export type HookPortabilityResult = typeof HookPortabilityResultSchema.Type;
 
 const HookPortabilityTable = {
   columns: {

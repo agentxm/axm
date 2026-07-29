@@ -14,7 +14,8 @@ const CacheStatusSchema = Schema.Struct({
   maxAgeDays: Schema.Number,
 });
 
-const CacheStatusOutputSchema = Schema.Struct({ data: CacheStatusSchema });
+export const CacheStatusOutputSchema = Schema.Struct({ data: CacheStatusSchema });
+export type CacheStatusOutput = typeof CacheStatusOutputSchema.Type;
 
 const CacheVerifySchema = Schema.Struct({
   checked: Schema.Number,
@@ -22,7 +23,8 @@ const CacheVerifySchema = Schema.Struct({
   corruptRemoved: Schema.Number,
 });
 
-const CacheVerifyOutputSchema = Schema.Struct({ result: CacheVerifySchema });
+export const CacheVerifyOutputSchema = Schema.Struct({ result: CacheVerifySchema });
+export type CacheVerifyOutput = typeof CacheVerifyOutputSchema.Type;
 
 const CachePruneSchema = Schema.Struct({
   removed: Schema.Number,
@@ -31,7 +33,8 @@ const CachePruneSchema = Schema.Struct({
   remainingBytes: Schema.Number,
 });
 
-const CachePruneOutputSchema = Schema.Struct({ result: CachePruneSchema });
+export const CachePruneOutputSchema = Schema.Struct({ result: CachePruneSchema });
+export type CachePruneOutput = typeof CachePruneOutputSchema.Type;
 
 const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;

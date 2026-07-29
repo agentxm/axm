@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-05-08
-version: 0.2.0
+last-reviewed: 2026-07-29
+version: 0.3.0
 description: CLI renderer design for human output, machine JSON contracts, and stderr diagnostics
 depends-on:
   - ../../AGENTS.md
@@ -53,6 +53,8 @@ handler authoring live in [CLI Design Guide](./cli-design.md).
 - Effect Schema v4 is the source of truth for published JSON output contracts
 - `--json` should ship only once the output schema is published and tested
 - stdout is reserved for final data; diagnostics belong on stderr
+- a successful non-streaming `--json` invocation emits at most one complete
+  JSON document on stdout
 - Breaking JSON changes require explicit issue/design rationale and contract tests
 
 ---
@@ -107,7 +109,10 @@ Use Effect Schema v4 for all published machine-readable output:
 - structured error payloads
 - machine stderr event contracts
 
-The schema is the contract. It should define:
+The schema is the contract. Each shipped command path is also classified in
+`packages/cli/src/machine-output-contracts.ts`; its exact comparison with the
+real Effect command tree makes unclassified additions, aliases, and removals
+fail tests. The schema should define:
 
 - the wire shape
 - the derived TypeScript type
@@ -165,12 +170,13 @@ This keeps the published contract and the emitted bytes aligned.
 
 `CliRenderer` owns channel discipline:
 
-- `result` and `resultStream` emit command data to stdout
+- `result` emits one schema-encoded command document to stdout
 - `list(entity, ...)`, `detail(entity, ...)`, and `tree(entity, ...)` render
   entity-shaped data through the registry while preserving the same JSON payload
 - `suggestions` emits advisory follow-up tasks; machine mode also emits
   `suggestion` events on stderr
-- `json` and `raw` are escape hatches; use them sparingly
+- `json` and `raw` are text-mode escape hatches; guard them behind a
+  schema-backed `result` call when the command supports machine output
 - `info`, `message`, and `success` are human narration; machine mode silences
   those messages
 - `warn`, `error`, spinners, progress, task logs, and suggestions are signal
@@ -225,7 +231,10 @@ Some commands are intentionally pipe-friendly in text mode, like `auth token`.
 
 Use a top-level object for every command result.
 
-Machine mode wraps every successful payload in a flat success envelope:
+Machine mode wraps every ordinary successful payload in a flat success
+envelope. Built-in `--help --json` and `--version --json` are the deliberate
+formatter-owned exceptions and use their `type: "help"` / `type: "version"`
+schemas:
 
 ```json
 {
@@ -316,7 +325,8 @@ JSON errors use a fixed envelope:
 {
   "ok": false,
   "code": "auth",
-  "message": "No authentication token is available",
+  "title": "Unauthorized",
+  "detail": "No authentication token is available",
   "suggestions": [{ "description": "Authenticate", "cmd": "axm auth login" }]
 }
 ```
@@ -325,14 +335,24 @@ Rules:
 
 - use `ok: false` for error routing
 - include `code`; this is the stable agent-facing discriminator
-- include `message`; it is user-facing prose
+- include `title` and `detail`; `detail` is user-facing prose
 - include `suggestions` for structured follow-up tasks when useful
 - emit a matching stderr `error` event in machine mode
 
 The shell already conveys the process exit status, so the envelope does not
 restate it. Exit codes are derived 1:1 from `code`; see the `ExitCode` enum
 in `packages/core/src/unstable/app-error/app-error.ts` for the mapping and
-the reserved ranges (1–10 in use, 11–127 reserved, 128+ for POSIX signals).
+the reserved ranges (1–12 in use, 13–127 reserved, 128+ for POSIX signals).
+
+### Secret Safety
+
+Error and diagnostic surfaces redact credential-shaped text and exact secret
+values found under sensitive metadata keys. This applies to normal, verbose,
+and debug output, including response bodies, cause chains, stacks, URLs,
+suggestions, machine stderr events, and telemetry. Command result payloads are
+not generically redacted because `axm token --json` and `axm token create
+--json` intentionally return a requested token; those token result fields are
+the only secret-bearing output exception.
 
 ---
 
@@ -357,12 +377,14 @@ Future-friendly extension:
 
 Current contract:
 
-- stdout: final JSON result object
+- stdout: zero or one complete final JSON document
 - stderr: signal-only NDJSON diagnostics for warnings, errors, suggestions,
   progress, and task logs
 
 Keep that split. Do not overload `--json` to mean "mixed result and progress
-stream".
+stream". The runtime buffers stdout and validates the complete channel before
+releasing it; concatenated documents or stray text become an internal contract
+error instead of leaking malformed output.
 
 If we need consumable streaming results later, add an explicit mode with its
 own contract and version.
@@ -411,6 +433,8 @@ unexpected errors:
 "internal", message }` envelope on stdout
 
 Production callers reach this through `withCliErrorHandling`; do not bypass it.
+The same redaction boundary applies before defects reach stderr, stdout, or
+telemetry.
 
 ---
 

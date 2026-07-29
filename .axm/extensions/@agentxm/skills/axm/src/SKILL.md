@@ -12,9 +12,9 @@ invocable: true
 **MUST follow these rules:**
 
 0. **Read appropriate help topic**: Execute `!axm help --help` now to see list of available help topics. Refer to appropriate topic(s) if there is not clear guidance for task in this document.
-1. **Choose right output mode**: `--json` for full JSON. Text-mode command
-   output is diagnostic UI on stderr; stdout is reserved for JSON result
-   payloads when `--json` is used.
+1. **Choose right output mode**: `--json` for one complete machine-readable
+   stdout document plus signal-only NDJSON diagnostics on stderr. Text mode may
+   use stdout for primary human data and stderr for diagnostics.
 2. **Gate mutating CLI use**: AXM can copy, symlink, and delete AXM-managed files. Before running mutating AXM commands, verify:
    - User explicitly chose to trust AXM for filesystem mutations.
    - Agent sandbox can write every needed target. Codex: use `--sandbox workspace-write` plus `--add-dir <dir>` for extra roots; `read-only` needs explicit escalation. Claude Code: enable workspace/user-dir write permissions.

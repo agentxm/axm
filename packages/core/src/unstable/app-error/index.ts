@@ -24,3 +24,11 @@ export {
 } from "./builders.js";
 export { renderAppError, renderDefect } from "./render.js";
 export { serializeErrorCauseChain, type SerializedErrorCause } from "./cause-chain.js";
+export {
+  REDACTED_SECRET,
+  collectSensitiveStrings,
+  redactAppErrorMetadata,
+  redactSensitiveText,
+  redactSensitiveValue,
+  redactSuggestedAction,
+} from "./secret-redaction.js";

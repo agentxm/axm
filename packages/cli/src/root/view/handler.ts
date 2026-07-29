@@ -56,6 +56,11 @@ const ViewDocumentFields = {
     install: Schema.String,
   }),
 } satisfies Schema.Struct.Fields;
+export const ViewDocumentSchema = Schema.Struct(ViewDocumentFields);
+export type ViewDocument = typeof ViewDocumentSchema.Type;
+
+export const ViewFieldValueSchema = Schema.Union([Schema.String, Schema.Array(Schema.String)]);
+export type ViewFieldValue = typeof ViewFieldValueSchema.Type;
 
 type ViewDocumentData = Schema.Struct.Type<typeof ViewDocumentFields>["data"];
 
@@ -256,13 +261,10 @@ const fieldValue = (
   }
 };
 
-const emitFieldValue = (field: SupportedField, value: string | ReadonlyArray<string>) =>
+const emitFieldValue = (field: SupportedField, value: ViewFieldValue) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const emitted =
-      typeof value === "string"
-        ? yield* renderer.result(value, Schema.String)
-        : yield* renderer.result(value, Schema.Array(Schema.String));
+    const emitted = yield* renderer.result(value, ViewFieldValueSchema);
     if (emitted) return;
     yield* renderer.raw(typeof value === "string" ? `${value}\n` : `${value.join("\n")}\n`);
   });
@@ -342,7 +344,7 @@ const handleResolvedView = (args: {
       return;
     }
 
-    if (yield* renderer.result({ data }, Schema.Struct(ViewDocumentFields))) {
+    if (yield* renderer.result({ data }, ViewDocumentSchema)) {
       return;
     }
 

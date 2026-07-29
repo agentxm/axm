@@ -45,7 +45,7 @@ const AgentCapabilityItemSchema = Schema.Struct({
   scopes: Schema.String,
 });
 
-const AgentCapabilitiesOutputSchema = Schema.Struct({
+export const AgentCapabilitiesOutputSchema = Schema.Struct({
   agent: Schema.String,
   name: Schema.String,
   lifecycle: Schema.String,
@@ -53,6 +53,7 @@ const AgentCapabilitiesOutputSchema = Schema.Struct({
   items: Schema.Array(AgentCapabilityItemSchema),
   count: Schema.Number,
 });
+export type AgentCapabilitiesOutput = typeof AgentCapabilitiesOutputSchema.Type;
 
 const AgentCapabilityTable = {
   columns: {

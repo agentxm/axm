@@ -12,7 +12,8 @@ import { scopeConfig } from "./flags.js";
 import { inspectInstalledKnowledge } from "./inspect.js";
 import { ConceptSchema } from "./schemas.js";
 
-const KnowledgeOpenQueryResultSchema = Schema.Struct({ concept: ConceptSchema });
+export const KnowledgeOpenQueryResultSchema = Schema.Struct({ concept: ConceptSchema });
+export type KnowledgeOpenQueryResult = typeof KnowledgeOpenQueryResultSchema.Type;
 
 export const handleKnowledgeOpen = Effect.fn("Knowledge.open")(function* (
   bundleName: string,

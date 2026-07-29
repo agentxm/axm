@@ -39,6 +39,7 @@ const invokeWriteCallback = (
 };
 
 const bufferStdout = (): {
+  readonly contents: () => string;
   readonly discard: () => void;
   readonly flushToStderr: () => void;
   readonly flushToStdout: () => void;
@@ -67,6 +68,7 @@ const bufferStdout = (): {
   console.log = bufferedLog;
 
   return {
+    contents: () => chunks.join(""),
     discard: () => {
       chunks.length = 0;
     },
@@ -87,6 +89,27 @@ const bufferStdout = (): {
       console.log = originalConsoleLog;
     },
   };
+};
+
+/**
+ * Validate the complete buffered stdout channel before any machine output is
+ * released. JSON.parse accepts exactly one JSON value plus surrounding
+ * whitespace, so concatenated documents and stray human text both fail.
+ *
+ * Empty stdout is permitted for diagnostics-only success paths. The command
+ * contract register separately identifies which commands must emit a result.
+ */
+const validateMachineStdout = (stdout: string): void => {
+  if (stdout.trim().length === 0) return;
+
+  try {
+    JSON.parse(stdout);
+  } catch (cause) {
+    throw new Error(
+      "Machine-output contract violation: stdout must contain at most one complete JSON document.",
+      { cause },
+    );
+  }
 };
 
 const bufferStderr = (): {
@@ -166,6 +189,14 @@ export const runCliMain = async (
 
   try {
     await Effect.runPromise(withGracefulShutdown(execute(args)));
+    if (format === "json" && stdoutBuffer !== undefined) {
+      try {
+        validateMachineStdout(stdoutBuffer.contents());
+      } catch (error) {
+        stdoutBuffer.discard();
+        throw error;
+      }
+    }
     stdoutBuffer?.flushToStdout();
     stderrBuffer?.flushToStderr();
   } catch (error) {

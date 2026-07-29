@@ -53,6 +53,7 @@ export const AgentsListOutputSchema = Schema.Struct({
   available: Schema.Array(Schema.String),
   count: Schema.Number,
 });
+export type AgentsListOutput = typeof AgentsListOutputSchema.Type;
 
 const AgentListTable = {
   columns: {

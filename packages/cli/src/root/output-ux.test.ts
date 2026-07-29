@@ -97,10 +97,10 @@ const rendererResultCallPattern = /\brenderer\.result\(/g;
 const resultCallSnippetLength = 2_400;
 
 const planResultCallPattern =
-  /\b(?:PlanResolutionDocumentFields|PlanResolutionResultSchema|PublishResultSchema|SetupDocumentFields|UpgradeDocumentFields|UpgradeDocumentSchema|LoginDocumentFields|LoginNoOpDocumentFields|LogoutDocumentFields|CreatedTokenDocumentFields|RevokeTokenDocumentFields|LintFixJsonDocumentFields)\b/;
+  /\b(?:PlanResolutionDocumentSchema|PlanResolutionResultSchema|PublishResultSchema|SetupDocumentSchema|UpgradeDocumentSchema|LoginDocumentSchema|LoginNoOpDocumentSchema|LogoutDocumentSchema|CreatedTokenDocumentSchema|RevokeTokenDocumentSchema|LintFixDocumentSchema)\b/;
 
 const readQueryResultCallPattern =
-  /\b(?:AgentCapabilitiesOutputSchema|AgentsListOutputSchema|CachePruneOutputSchema|CacheStatusOutputSchema|CacheVerifyOutputSchema|DiscoverOutputSchema|ExtensionInventorySchema|GrantListOutputSchema|HelpTopicResultSchema|HelpTopicsResultSchema|HookPortabilityResultSchema|InstructionsStatusOutputSchema|KnowledgeListQueryResultSchema|KnowledgeSearchQueryResultSchema|KnowledgeOpenQueryResultSchema|KnowledgeLintQueryResultSchema|LintJsonDocumentFields|ExtensionShowResultSchema|OutdatedDocumentFields|TokenDocumentFields|TokenListDocumentFields|ViewDocumentFields|WhoamiDocumentFields|Schema\.Array\(Schema\.String\)|Schema\.String)\b/;
+  /\b(?:AgentCapabilitiesOutputSchema|AgentsListOutputSchema|CachePruneOutputSchema|CacheStatusOutputSchema|CacheVerifyOutputSchema|DiscoverOutputSchema|ExtensionInventorySchema|GrantListOutputSchema|HelpIndexResultSchema|HelpTopicResultSchema|HookPortabilityResultSchema|InstructionsStatusOutputSchema|KnowledgeListQueryResultSchema|KnowledgeSearchQueryResultSchema|KnowledgeOpenQueryResultSchema|KnowledgeLintQueryResultSchema|LintResultDocumentSchema|ExtensionShowResultSchema|OutdatedDocumentSchema|TokenDocumentSchema|TokenListDocumentSchema|ViewDocumentSchema|ViewFieldValueSchema|WhoamiDocumentSchema)\b/;
 
 const visibleLiteralText = (literal: string): string =>
   literal.startsWith("`") ? literal.replace(templateExpressionPattern, "") : literal;

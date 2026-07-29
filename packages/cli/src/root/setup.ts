@@ -99,7 +99,7 @@ const SetupPlanStepSchema = Schema.Struct({
   artifact: Schema.optional(SetupPlanStepArtifactSchema),
 });
 
-const SetupResultSchema = Schema.Struct({
+export const SetupResultSchema = Schema.Struct({
   outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
@@ -134,13 +134,15 @@ const SetupResultSchema = Schema.Struct({
   subagentFiles: Schema.optional(Schema.Array(SubagentSummarySchema)),
 });
 
-type SetupResult = typeof SetupResultSchema.Type;
+export type SetupResult = typeof SetupResultSchema.Type;
 type SetupStatus = SetupResult["status"];
 type SetupPlanStep = typeof SetupPlanStepSchema.Type;
 
 const SetupDocumentFields = {
   result: SetupResultSchema,
 } satisfies Schema.Struct.Fields;
+export const SetupDocumentSchema = Schema.Struct(SetupDocumentFields);
+export type SetupDocument = typeof SetupDocumentSchema.Type;
 
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
@@ -644,7 +646,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
           ...(subagentSummaries.length > 0 ? { subagentFiles: [...subagentSummaries] } : {}),
         },
       },
-      Schema.Struct(SetupDocumentFields),
+      SetupDocumentSchema,
       { suggestions },
     )
   ) {

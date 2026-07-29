@@ -498,20 +498,6 @@ const makeTestRendererService = (
         });
         return resultReturnValue;
       }),
-    resultStream: <S extends Schema.Top>(stream: Stream.Stream<Schema.Schema.Type<S>>, schema: S) =>
-      Stream.runCollect(stream).pipe(
-        Effect.tap((chunks) =>
-          Effect.sync(() => {
-            for (const item of chunks) {
-              state.results.push({
-                data: item,
-                schema: Option.some(schema),
-              });
-            }
-          }),
-        ),
-        Effect.as(resultReturnValue),
-      ),
 
     // Both modes (stdout)
     json: (data: unknown) =>

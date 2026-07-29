@@ -16,6 +16,7 @@ export const KnowledgeSearchQueryResultSchema = Schema.Struct({
   items: Schema.Array(ConceptSchema),
   count: Schema.Number,
 });
+export type KnowledgeSearchQueryResult = typeof KnowledgeSearchQueryResultSchema.Type;
 
 interface ConceptRow {
   readonly bundle: string;

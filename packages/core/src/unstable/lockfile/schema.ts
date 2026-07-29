@@ -25,6 +25,7 @@ import {
   SourceHashSchema,
 } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
+import type { CatalogExtensionType } from "../extension-types/schema.js";
 import { FileInputValueSchema, FileMaterializationModeSchema } from "../files/manifest-schema.js";
 import { RelativePathSchema } from "../utils/path-types.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
@@ -665,6 +666,33 @@ export const PacksLockMapSchema = Schema.Record(Schema.String, PackLockEntrySche
  * @experimental This API is unstable and may change without notice.
  */
 export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
+
+// =============================================================================
+// Lock entry schemas by extension type
+// =============================================================================
+
+/**
+ * Every catalog extension type's lock-entry schema, keyed by type.
+ *
+ * Total by construction: a new extension type fails compile here until its lock
+ * entry exists. The parity conformance suite decodes a synthetic entry through
+ * each schema to check obligations that must hold for every type.
+ *
+ * Packs are excluded — a pack lock entry records resolved members rather than a
+ * single installed source, so it is not shape-comparable with the others.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
+  skill: SkillLockEntrySchema,
+  command: CommandLockEntrySchema,
+  "mcp-server": McpServerLockEntrySchema,
+  subagent: SubagentLockEntrySchema,
+  files: FilesLockEntrySchema,
+  rule: RuleLockEntrySchema,
+  hook: HookLockEntrySchema,
+  knowledge: KnowledgeLockEntrySchema,
+} as const satisfies Record<CatalogExtensionType, Schema.Top>;
 
 // =============================================================================
 // Lockfile

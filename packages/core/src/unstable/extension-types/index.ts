@@ -22,4 +22,19 @@ export {
   type Standard,
   type Url,
 } from "./schema.js";
+export {
+  exemptedObligations,
+  parityExemptionRows,
+  PARITY_EXEMPTIONS,
+  type ParityExemption,
+} from "./parity/exemptions.js";
+export {
+  obligationsVerifiedBy,
+  OBLIGATION_IDS,
+  OBLIGATION_TIERS,
+  PARITY_OBLIGATIONS,
+  type ObligationDef,
+  type ObligationId,
+  type ObligationTier,
+} from "./parity/obligations.js";
 export { STANDARDS } from "./standards.js";

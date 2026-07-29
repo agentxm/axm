@@ -13,6 +13,7 @@ import {
   EXTENSION_NAME_PATTERN,
   FQN_PATTERN,
 } from "../extensions/common.js";
+import type { CatalogExtensionType } from "../extension-types/schema.js";
 import { FileInputValueSchema } from "../files/manifest-schema.js";
 import { HandleSchema } from "../extensions/handle.js";
 import { LintConfigSchema } from "../lint/config.js";
@@ -1333,6 +1334,27 @@ export const RulesConfigSchema = Schema.Struct({
 
 /** @experimental */
 export type RulesConfig = Schema.Schema.Type<typeof RulesConfigSchema>;
+
+/**
+ * Each catalog extension type's feature-level config schema, or `null` where
+ * none exists yet.
+ *
+ * Total by construction: a new extension type fails compile here until its
+ * settings coverage is decided. The parity conformance suite reads this map,
+ * and every `null` must be matched by a ledger row.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
+  skill: SkillsConfigSchema,
+  command: CommandsConfigSchema,
+  "mcp-server": McpServersConfigSchema,
+  subagent: SubagentsConfigSchema,
+  files: null,
+  rule: RulesConfigSchema,
+  hook: null,
+  knowledge: null,
+} as const satisfies Record<CatalogExtensionType, Schema.Top | null>;
 
 /**
  * Canonical key order for settings properties.

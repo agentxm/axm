@@ -1,5 +1,6 @@
 import { Command } from "effect/unstable/cli";
 
+import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { mcpsVersionCommand } from "../shared/version-command.js";
 import { addCommand } from "./add.js";
 import { disableCommand } from "./disable.js";
@@ -16,6 +17,13 @@ import { updateCommand } from "./update.js";
 
 export const mcpsCommand = Command.make("mcps").pipe(
   Command.withDescription("Manage MCP servers"),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([
+      ["axm help mcps", "Managing MCP server extensions with AXM"],
+      ["axm help mcp-schema", "Print the MCP server manifest JSON Schema"],
+    ]),
+  ),
   Command.withExamples([
     {
       command: "axm mcps install @acme/mcps/my-server",

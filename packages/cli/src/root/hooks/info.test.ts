@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import { expectNoPlanEnvelope, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
@@ -50,7 +51,7 @@ describe("hooks-info.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("emits hook portability rows in machine mode", () => {
+  it.effect("emits hook portability rows as one schema-encoded document", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     const hookDir = path.join(tempDir, ".axm", "extensions", "@acme", "hooks", "shell-audit");
     writeHookManifest(hookDir);
@@ -59,6 +60,11 @@ describe("hooks-info.handler", () => {
       Effect.gen(function* () {
         yield* handleHookInfo(hookDir);
 
+        // A schema carries the payload: unschema'd `renderer.list` output was
+        // the one machine emission in the CLI that skipped encoding.
+        expect(rendererState.results).toHaveLength(1);
+        expect(Option.isSome(rendererState.results[0]?.schema ?? Option.none())).toBe(true);
+        expect(Object.keys(rendererState.results[0]?.data ?? {})).toEqual(["items", "count"]);
         expect(rendererState.results[0]?.data).toMatchObject({
           items: expect.arrayContaining([
             {

@@ -34,6 +34,7 @@ import {
 } from "@agentxm/client-core/unstable/workflows";
 
 import { scopeFlag } from "../../cli-flags.js";
+import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleWorkspaceInstall } from "../install/workspace-install-handler.js";
 import { newCommand } from "./new.js";
@@ -662,6 +663,14 @@ const disableCommand = Command.make("disable", activationConfig, ({ name, scope 
 
 export const knowledgeCommand = Command.make("knowledge").pipe(
   Command.withDescription("Browse and validate Open Knowledge Format bundles"),
+  // No prose `knowledge` help topic exists yet; point at the topics that do.
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([
+      ["axm help knowledge-schema", "Print the knowledge manifest JSON Schema"],
+      ["axm help package-extensions", "How AXM links registry extensions to packages"],
+    ]),
+  ),
   Command.withExamples([
     { command: "axm knowledge list", description: "List installed knowledge bundles" },
     {

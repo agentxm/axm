@@ -22,6 +22,7 @@ import {
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
+import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
@@ -300,6 +301,13 @@ export const rulesCommand = Command.make("rules", rulesStatusConfig, ({ scope })
 ).pipe(
   withArgvTracking(rulesStatusConfig),
   Command.withDescription("Manage rules capabilities for configured agents"),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([
+      ["axm help rules", "Managing workspace instruction files with AXM"],
+      ["axm help rule-schema", "Print the rule manifest JSON Schema"],
+    ]),
+  ),
   Command.withExamples([
     { command: "axm rules", description: "Inspect instruction files" },
     {

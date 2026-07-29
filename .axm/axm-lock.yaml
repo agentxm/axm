@@ -1,32 +1,19 @@
-lockfileVersion: 2
+lockfileVersion: 3
 skills:
   axm:
     type: workspace
     owner: "@agentxm"
     extensionType: skill
     name: axm
-    version: 0.2.4
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot-cli
-    installedAt: 2026-07-10T18:27:51.930Z
-    updatedAt: 2026-07-10T19:28:00.000Z
-    sourceHash: 0c281721846f90cc51c2457287c29cf7fedd59f92b7418b7c84cccc8b1b83abe
-  okf-author:
-    type: registry
-    owner: "@craigsmitham"
-    name: okf-author
-    resolvedVersion: 0.0.1
-    integrity: sha512-InaY5EeTb20EhOfwHxWm/SUj5zX1gmul2GY8CFH5YI38oBM4Z36q6lAGedS+3Fnguu7ajafBY90j6TuyA+c6rw==
-    sourceName: default
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    agents:
-      - universal
-      - claude-code
-    installedAt: 2026-07-28T15:26:48.628Z
-    updatedAt: 2026-07-28T15:26:48.630Z
+    version: 0.2.5
+    installedAt: 2026-07-29T00:51:41.963Z
+    updatedAt: 2026-07-29T00:51:41.963Z
+    sourceHash: 20276eb6b3e13c27195c9ad13f1f339bedf074c1eedf47b61a72766d0ac9c43d
+commands: {}
+subagents: {}
+mcpServers: {}
+files: {}
+rules: {}
+hooks: {}
+knowledge: {}
+packs: {}

@@ -210,7 +210,9 @@ const PublishResultItemSchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypeSchema,
   name: ExtensionNameSchema,
-  version: VersionSchema,
+  // Omitted when no version was resolved (skipped, not-publishable, or
+  // preflight-failed items). Never fabricated.
+  version: Schema.optional(VersionSchema),
   sourceType: Schema.optional(SourceTypeSchema),
   authored: Schema.optional(Schema.Boolean),
   action: PublishActionSchema,
@@ -415,8 +417,43 @@ export const emitPublishResult = <TCommand extends string>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const existingSemanticProperties = yield* getCommandSemanticProperties;
+    yield* setCommandSemanticProperties({
+      ...existingSemanticProperties,
+      ...summarizeCommandOutcome(publishResultToSummary(result)),
+    });
     return yield* renderer.result(result, PublishResultSchema, options);
   });
+
+/**
+ * Convert a PublishResult to a CommandOutcomeSummary for telemetry.
+ *
+ * Outcome follows the same convention as executed plans: a run that touched
+ * nothing is `no-op`, and any applied or failed work is `applied` even when
+ * every item failed, so partial failures stay in one bucket.
+ */
+export const publishResultToSummary = (result: PublishResult): CommandOutcomeSummary => {
+  const appliedCount = result.results.filter(
+    (item) => item.action === "publish" && item.status === "success",
+  ).length;
+  const failedCount = result.results.filter((item) => item.status === "failed").length;
+  const types = new Set(result.results.map((item) => item.type));
+  const [onlyType] = [...types];
+  const subjectType: SubjectType =
+    onlyType === undefined ? "unknown" : types.size === 1 ? onlyType : "mixed";
+  return {
+    outcome:
+      result.mode === "preview"
+        ? "previewed"
+        : appliedCount === 0 && failedCount === 0
+          ? "no-op"
+          : "applied",
+    subjectType,
+    sourceKind: "workspace",
+    appliedCount,
+    failedCount,
+  };
+};
 
 /**
  * Convert a PlanResolution to a CommandOutcomeSummary for telemetry.

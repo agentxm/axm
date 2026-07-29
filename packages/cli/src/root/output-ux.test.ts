@@ -97,10 +97,10 @@ const rendererResultCallPattern = /\brenderer\.result\(/g;
 const resultCallSnippetLength = 2_400;
 
 const planResultCallPattern =
-  /\b(?:PlanResolutionDocumentFields|PlanResolutionResultSchema|SetupDocumentFields|UpgradeDocumentFields|LoginDocumentFields|LoginNoOpDocumentFields|LogoutDocumentFields|CreatedTokenDocumentFields|RevokeTokenDocumentFields|LintFixJsonDocumentFields)\b/;
+  /\b(?:PlanResolutionDocumentFields|PlanResolutionResultSchema|PublishResultSchema|SetupDocumentFields|UpgradeDocumentFields|LoginDocumentFields|LoginNoOpDocumentFields|LogoutDocumentFields|CreatedTokenDocumentFields|RevokeTokenDocumentFields|LintFixJsonDocumentFields)\b/;
 
 const readQueryResultCallPattern =
-  /\b(?:AgentsListOutputSchema|CachePruneOutputSchema|CacheStatusOutputSchema|CacheVerifyOutputSchema|DiscoverOutputSchema|ExtensionInventorySchema|GrantListOutputSchema|HelpTopicResultSchema|HelpTopicsResultSchema|InstructionsStatusOutputSchema|KnowledgeListQueryResultSchema|KnowledgeSearchQueryResultSchema|KnowledgeOpenQueryResultSchema|KnowledgeLintQueryResultSchema|LintJsonDocumentFields|McpServerGetResultSchema|OutdatedDocumentFields|TokenDocumentFields|TokenListDocumentFields|ViewDocumentFields|WhoamiDocumentFields|Schema\.Array\(Schema\.String\)|Schema\.String)\b/;
+  /\b(?:AgentsListOutputSchema|CachePruneOutputSchema|CacheStatusOutputSchema|CacheVerifyOutputSchema|DiscoverOutputSchema|ExtensionInventorySchema|GrantListOutputSchema|HelpTopicResultSchema|HelpTopicsResultSchema|HookPortabilityResultSchema|InstructionsStatusOutputSchema|KnowledgeListQueryResultSchema|KnowledgeSearchQueryResultSchema|KnowledgeOpenQueryResultSchema|KnowledgeLintQueryResultSchema|LintJsonDocumentFields|McpServerGetResultSchema|OutdatedDocumentFields|TokenDocumentFields|TokenListDocumentFields|ViewDocumentFields|WhoamiDocumentFields|Schema\.Array\(Schema\.String\)|Schema\.String)\b/;
 
 const visibleLiteralText = (literal: string): string =>
   literal.startsWith("`") ? literal.replace(templateExpressionPattern, "") : literal;

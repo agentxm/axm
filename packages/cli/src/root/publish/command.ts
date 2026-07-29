@@ -67,11 +67,7 @@ import {
   expandGlobs,
   isGlobPattern,
 } from "@agentxm/client-core/unstable/utils";
-import {
-  VersionSchema,
-  decodeVersionSync,
-  type Version,
-} from "@agentxm/client-core/unstable/version-constraints";
+import { VersionSchema, type Version } from "@agentxm/client-core/unstable/version-constraints";
 import { WorkspaceMutations, type WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
@@ -666,14 +662,14 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       detail: `Manifest identity does not match configured extension ${selected.fqn}`,
     });
   }
-  if (selected.type !== "files" && selected.type !== "knowledge") {
-    yield* runPublishLintGate({
-      type: selected.type,
-      extensionDir,
-      manifestJson,
-      platform: { fs, path },
-    });
-  }
+  // Total over `PublishableType`: adding a publishable type without a
+  // `PublishLintArgs` arm is a compile error here, not a silently skipped gate.
+  yield* runPublishLintGate({
+    type: selected.type,
+    extensionDir,
+    manifestJson,
+    platform: { fs, path },
+  });
   const archive = yield* buildZipArchive(extensionDir);
   // Guardrails run on the built bytes and only ever reject: rewriting the
   // archive here would change its integrity digest and break republishing an
@@ -877,7 +873,6 @@ const selectedResult = (
       owner: entry.owner,
       type: entry.type,
       name: decodeExtensionNameSync(entry.name),
-      version: decodeVersionSync("0.0.0"),
       sourceType: entry.sourceType,
       authored: entry.authored,
       action: "skip",
@@ -907,7 +902,6 @@ const failedSelectedResult = (entry: SelectedEntry, error: AppError): PublishRes
   owner: entry.owner,
   type: entry.type,
   name: decodeExtensionNameSync(entry.name),
-  version: decodeVersionSync("0.0.0"),
   sourceType: entry.sourceType,
   authored: entry.authored,
   action: "error",

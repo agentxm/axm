@@ -21,7 +21,8 @@ export const filesCommand = Command.make("files").pipe(
   Command.annotate(
     LearnMore,
     formatLearnMore([
-      ["axm files install @acme/files/workspace-baseline", "Install a Context Files package"],
+      ["axm help files", "Managing Context Files packages with AXM"],
+      ["axm help files-schema", "Print the files manifest JSON Schema"],
     ]),
   ),
   Command.withSubcommands([

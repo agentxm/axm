@@ -3,6 +3,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/client-core/unstable/auth";
+import {
+  CommandSemanticPropertiesLive,
+  getCommandSemanticProperties,
+} from "@agentxm/client-core/unstable/cli-runtime";
 import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -730,6 +734,208 @@ describe("root publish", () => {
           }),
         );
       });
+    });
+  });
+
+  describe("publish lint gate", () => {
+    const writeFilesPackage = (target: string) => {
+      fs.writeFileSync(
+        path.join(tempDir, ".axm", "settings.json"),
+        JSON.stringify({
+          owner: "@acme",
+          agents: [],
+          files: { editorconfig: "workspace:@acme/files/editorconfig" },
+        }),
+      );
+      const packageDir = path.join(tempDir, ".axm", "extensions", "@acme", "files", "editorconfig");
+      fs.mkdirSync(path.join(packageDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(packageDir, "files.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "files",
+          name: "editorconfig",
+          version: "1.0.0",
+          contents: [{ source: { kind: "static", path: "README.md" }, target, mode: "sync-once" }],
+        }),
+      );
+      fs.writeFileSync(path.join(packageDir, "src", "README.md"), "# editorconfig\n");
+    };
+
+    it.effect("fails a files publish whose manifest violates a files lint rule", () => {
+      writeFilesPackage(".axm/editorconfig.md");
+      const { provide } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          const error = getAppError(
+            yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(Effect.flip),
+          );
+
+          expect(error.code).toBe("validation");
+          expect(error.detail).toContain("Publish lint failed");
+          expect(error.detail).toContain("files/target-valid");
+        }),
+      );
+    });
+
+    it.effect("publishes a files package that passes the gate", () => {
+      writeFilesPackage("docs/editorconfig.md");
+      const { provide, rendererState } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+          const result = expectPublishResult(at(rendererState.results, 0).data, {
+            mode: "apply",
+            count: 1,
+          });
+          const results = property(result, "results");
+          if (!Array.isArray(results)) throw new Error("Expected publish results");
+          const item = expectRecord(at(results, 0));
+          expect(property(item, "type")).toBe("files");
+          expect(property(item, "status")).toBe("success");
+        }),
+      );
+    });
+  });
+
+  describe("result versions", () => {
+    const writeUnpublishableRule = () => {
+      fs.writeFileSync(
+        path.join(tempDir, ".axm", "settings.json"),
+        JSON.stringify({
+          owner: "@acme",
+          agents: [],
+          rules: { style: "workspace:@acme/rules/style" },
+        }),
+      );
+    };
+
+    it.effect("omits version for an item with no resolved version", () => {
+      writeUnpublishableRule();
+      const { provide, rendererState } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+          const data = at(rendererState.results, 0).data;
+          const result = expectPublishResult(data, { mode: "apply", count: 1 });
+          const results = property(result, "results");
+          if (!Array.isArray(results)) throw new Error("Expected publish results");
+          const item = expectRecord(at(results, 0));
+          expect(property(item, "action")).toBe("skip");
+          expect(property(item, "reason")).toBe("not_publishable");
+          expect(Object.keys(item)).not.toContain("version");
+          expect(JSON.stringify(data)).not.toContain("0.0.0");
+        }),
+      );
+    });
+  });
+
+  describe("command telemetry", () => {
+    const writeReviewSkill = (settings: Record<string, unknown> = {}) => {
+      fs.writeFileSync(
+        path.join(tempDir, ".axm", "settings.json"),
+        JSON.stringify({
+          owner: "@acme",
+          agents: [],
+          skills: { review: "workspace:@acme/skills/review" },
+          ...settings,
+        }),
+      );
+      const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+      fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(skillDir, "skill.json"),
+        JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
+      );
+      fs.writeFileSync(
+        path.join(skillDir, "src", "SKILL.md"),
+        "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
+      );
+    };
+
+    const semanticProperties = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.gen(function* () {
+        yield* effect;
+        return yield* getCommandSemanticProperties;
+      }).pipe(Effect.provide(CommandSemanticPropertiesLive));
+
+    it.effect("reports a previewed outcome and the selected subject type", () => {
+      writeReviewSkill();
+      const { provide } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          const properties = yield* semanticProperties(handleRootPublish(args(registryUrl)));
+
+          expect(properties["cli.outcome"]).toBe("previewed");
+          expect(properties["cli.subject_type"]).toBe("skill");
+          expect(properties["cli.source_kind"]).toBe("workspace");
+          expect(properties["cli.applied_count"]).toBe(0);
+          expect(properties["cli.failed_count"]).toBe(0);
+        }),
+      );
+    });
+
+    it.effect("reports an applied outcome with the published count", () => {
+      writeReviewSkill();
+      const { provide } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          const properties = yield* semanticProperties(
+            handleRootPublish(args(registryUrl, { preview: false })),
+          );
+
+          expect(properties["cli.outcome"]).toBe("applied");
+          expect(properties["cli.subject_type"]).toBe("skill");
+          expect(properties["cli.applied_count"]).toBe(1);
+          expect(properties["cli.failed_count"]).toBe(0);
+        }),
+      );
+    });
+
+    it.effect("reports a no-op outcome for an empty selection", () => {
+      const { provide } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          const properties = yield* semanticProperties(
+            handleRootPublish(args(registryUrl, { preview: false })),
+          );
+
+          expect(properties["cli.outcome"]).toBe("no-op");
+          expect(properties["cli.subject_type"]).toBe("unknown");
+          expect(properties["cli.applied_count"]).toBe(0);
+        }),
+      );
+    });
+
+    it.effect("reports mixed subject types across a multi-type selection", () => {
+      writeReviewSkill({ rules: { style: "workspace:@acme/rules/style" } });
+      const { provide } = makeContext();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          const properties = yield* semanticProperties(
+            handleRootPublish(args(registryUrl, { preview: false })),
+          );
+
+          expect(properties["cli.subject_type"]).toBe("mixed");
+          expect(properties["cli.applied_count"]).toBe(1);
+        }),
+      );
     });
   });
 });

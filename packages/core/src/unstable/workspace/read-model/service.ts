@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { AGENTS } from "../../agents/registry.js";
+import type { CatalogExtensionType } from "../../extension-types/schema.js";
 import { LOCKFILE_NAME } from "../../lockfile/lockfile.js";
 import { parseExtensionFqnParts, type ExtensionName } from "../../extensions/common.js";
 import { type Handle } from "../../extensions/handle.js";
@@ -114,6 +115,28 @@ export interface WorkspaceReadModel {
   readonly diagnostics: Effect.Effect<ReadonlyArray<Warning>>;
   readonly canonicalExtensions: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
 }
+
+/**
+ * The read-model family that carries each catalog extension type, or `null`
+ * where no family exists yet.
+ *
+ * Total by construction: a new extension type fails compile here until its
+ * read-model coverage is decided. The parity conformance suite reads this map
+ * to check the read-model obligation, and every `null` must be matched by a
+ * ledger row.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const READ_MODEL_EXTENSION_FAMILY_BY_TYPE = {
+  skill: "skills",
+  command: "commands",
+  "mcp-server": "mcpServers",
+  subagent: "subagents",
+  files: "files",
+  rule: "rules",
+  hook: null,
+  knowledge: null,
+} as const satisfies Record<CatalogExtensionType, keyof WorkspaceReadModel | null>;
 
 // ---------------------------------------------------------------------------
 // Factory configuration

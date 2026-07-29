@@ -22,7 +22,8 @@ export const hooksCommand = Command.make("hooks").pipe(
   Command.annotate(
     LearnMore,
     formatLearnMore([
-      ["axm hooks install @acme/hooks/workspace-baseline", "Install a hook extension"],
+      ["axm help hooks", "Managing hook extensions with AXM"],
+      ["axm help hook-schema", "Print the hook manifest JSON Schema"],
     ]),
   ),
   Command.withSubcommands([

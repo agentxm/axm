@@ -3,12 +3,14 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { count } from "../cli-renderer/index.js";
+import { makePlatformFilesAccessor } from "../lint/catalog/files-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../lint/catalog/pack-accessor/platform.js";
 import { makePlatformSkillFileAccessor } from "../lint/catalog/skill-accessor/platform.js";
 import { platformCanonicalLintConfig } from "../lint/config.js";
 import { composePath } from "../lint/compose-path.js";
 import type {
   CommandRuleContext,
+  FilesRuleContext,
   HookRuleContext,
   McpServerRuleContext,
   PackRuleContext,
@@ -18,6 +20,7 @@ import type {
 import { evaluateContexts } from "../lint/evaluate.js";
 import {
   commandRules,
+  filesRules,
   hookRules,
   mcpServerRules,
   packRules,
@@ -67,6 +70,18 @@ export type PublishLintArgs =
       readonly extensionDir: string;
       readonly manifestJson: unknown;
       readonly platform: PublishLintPlatform;
+    }
+  | {
+      readonly type: "files";
+      readonly extensionDir: string;
+      readonly manifestJson: unknown;
+      readonly platform: PublishLintPlatform;
+    }
+  | {
+      readonly type: "knowledge";
+      readonly extensionDir: string;
+      readonly manifestJson: unknown;
+      readonly platform: PublishLintPlatform;
     };
 
 interface PublishLintFinding {
@@ -88,6 +103,13 @@ export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, A
       return evaluateMcpServer(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "hook":
       return evaluateHook(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
+    case "files":
+      return evaluateFiles(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
+    case "knowledge":
+      // Knowledge bundles have no lint catalog yet; the arm exists so the call
+      // site stays total over `PublishableType`. Knowledge publish validation
+      // currently runs through `inspectKnowledgeBundle` in the CLI publish path.
+      return Effect.void;
   }
 };
 
@@ -164,6 +186,18 @@ const evaluateHook = (args: Extract<PublishLintArgs, { readonly type: "hook" }>)
     displayRoot: "",
   };
   return evaluateContexts(hookRules, [context], platformCanonicalLintConfig).pipe(
+    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
+  );
+};
+
+const evaluateFiles = (args: Extract<PublishLintArgs, { readonly type: "files" }>) => {
+  const files = makePlatformFilesAccessor(args.platform, args.extensionDir);
+  const context: FilesRuleContext = {
+    subject: { filesJson: args.manifestJson },
+    files,
+    displayRoot: "",
+  };
+  return evaluateContexts(filesRules, [context], platformCanonicalLintConfig).pipe(
     Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
   );
 };

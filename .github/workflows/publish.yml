@@ -81,10 +81,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: pnpm exec nx run axm:download-ci-binaries --outputStyle=static -- "${{ steps.release_meta.outputs.sha }}" release-assets
 
+      - name: Generate release checksums
+        run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static -- release-assets
+
       - name: Validate release asset set
         run: pnpm exec nx run axm:validate-release-assets --outputStyle=static -- release-assets
 
-      - name: Attach binaries to GitHub release
+      - name: Attach binaries and checksums to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ steps.release_meta.outputs.tag }}" release-assets/* --clobber

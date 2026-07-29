@@ -89,12 +89,12 @@ export const TestFlagsLayer = (overrides?: {
   nonInteractive?: boolean;
   json?: boolean;
 }) => {
-  const level: VerbosityLevel = overrides?.debug
-    ? "debug"
-    : overrides?.verbose
-      ? "verbose"
-      : overrides?.quiet
-        ? "quiet"
+  const level: VerbosityLevel = overrides?.quiet
+    ? "quiet"
+    : overrides?.debug
+      ? "debug"
+      : overrides?.verbose
+        ? "verbose"
         : "normal";
   return Layer.mergeAll(
     makeVerbosityLayer(level),

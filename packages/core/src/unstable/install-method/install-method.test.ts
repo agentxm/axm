@@ -135,33 +135,61 @@ describe("InstallMethod", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Priority 3: npm install
+  // Priority 3: package-manager layout
   // ---------------------------------------------------------------------------
 
-  describe("Priority 3: npm install", () => {
-    it.effect("detects npm when import.meta.url contains node_modules", () =>
+  describe("Priority 3: package-manager layout", () => {
+    it.effect("does not guess npm from an ambiguous node_modules layout", () =>
       Effect.gen(function* () {
         const inputs: InstallMethodInputs = {
           ...baseInputs,
           importMetaUrl: "file:///usr/local/lib/node_modules/axm.sh/dist/main.js",
         };
         const result = yield* detectFromInputs(inputs);
-        expect(result._tag).toBe("Npm");
-        if (result._tag === "Npm") {
-          expect(result.importUrl).toBe("file:///usr/local/lib/node_modules/axm.sh/dist/main.js");
+        expect(result._tag).toBe("Unknown");
+        if (result._tag === "Unknown") {
+          expect(result.reason).toBe("ambiguous");
         }
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 
-    it.effect("npm takes priority over metadata file", () =>
+    it.effect("detects npm, pnpm, and Yarn Classic from explicit manager evidence", () =>
       Effect.gen(function* () {
-        const inputs: InstallMethodInputs = {
+        const npm = yield* detectFromInputs({ ...baseInputs, packageManager: "npm" });
+        const pnpm = yield* detectFromInputs({ ...baseInputs, packageManager: "pnpm" });
+        const yarn = yield* detectFromInputs({
           ...baseInputs,
-          importMetaUrl: "file:///home/user/node_modules/axm/main.js",
-        };
-        // Even if install-meta.json exists, npm signal wins
-        const result = yield* detectFromInputs(inputs);
-        expect(result._tag).toBe("Npm");
+          packageManager: "yarn",
+          packageManagerVersion: "1.22.22",
+        });
+        const modernYarn = yield* detectFromInputs({
+          ...baseInputs,
+          packageManager: "yarn",
+          packageManagerVersion: "4.9.2",
+        });
+
+        expect(npm._tag).toBe("Npm");
+        expect(pnpm._tag).toBe("Pnpm");
+        expect(yarn._tag).toBe("Yarn");
+        if (yarn._tag === "Yarn") expect(yarn.supported).toBe(true);
+        expect(modernYarn._tag).toBe("Yarn");
+        if (modernYarn._tag === "Yarn") expect(modernYarn.supported).toBe(false);
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect("detects unambiguous pnpm and Yarn layouts", () =>
+      Effect.gen(function* () {
+        const pnpm = yield* detectFromInputs({
+          ...baseInputs,
+          importMetaUrl: "file:///opt/pnpm/global/5/node_modules/.pnpm/axm.sh/dist/main.js",
+        });
+        const yarn = yield* detectFromInputs({
+          ...baseInputs,
+          importMetaUrl: "file:///Users/test/.config/yarn/global/node_modules/axm.sh/main.js",
+          packageManagerVersion: "1.22.22",
+        });
+        expect(pnpm._tag).toBe("Pnpm");
+        expect(yarn._tag).toBe("Yarn");
       }).pipe(Effect.provide(NodeServices.layer)),
     );
   });
@@ -227,6 +255,95 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Npm");
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect("uses the executable path recorded by script metadata", () =>
+      Effect.gen(function* () {
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        const installedExecutable = nodePath.join(tempDir, ".axm", "bin", "axm");
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "script",
+            installedAt: "2026-01-15T08:30:00.000Z",
+            executablePath: installedExecutable,
+          }),
+        );
+
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: "/some/other/bin/bun",
+          importMetaUrl: "file:///some/other/path/main.ts",
+        });
+        expect(result._tag).toBe("Script");
+        if (result._tag === "Script") {
+          expect(result.execPath).toBe(installedExecutable);
+          expect(result.managerOwnedExecutable).toBe(installedExecutable);
+        }
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect("reads pnpm and Yarn metadata", () =>
+      Effect.gen(function* () {
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "pnpm",
+            installedAt: "2026-01-15T08:30:00.000Z",
+          }),
+        );
+        const pnpm = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: "/some/other/bin/axm",
+        });
+        expect(pnpm._tag).toBe("Pnpm");
+
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "yarn",
+            installedAt: "2026-01-15T08:30:00.000Z",
+            managerMajorVersion: 4,
+          }),
+        );
+        const yarn = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: "/some/other/bin/axm",
+        });
+        expect(yarn._tag).toBe("Yarn");
+        if (yarn._tag === "Yarn") expect(yarn.supported).toBe(false);
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect("treats path and metadata disagreement as conflicting", () =>
+      Effect.gen(function* () {
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "npm",
+            installedAt: "2026-01-15T08:30:00.000Z",
+          }),
+        );
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          importMetaUrl: "file:///opt/pnpm/global/5/node_modules/.pnpm/axm.sh/main.js",
+        });
+        expect(result._tag).toBe("Unknown");
+        if (result._tag === "Unknown") {
+          expect(result.reason).toBe("conflicting");
+          expect(result.detectionSource).toBe("conflicting");
+        }
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 

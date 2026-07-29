@@ -1,34 +1,47 @@
-/**
- * Unit tests for CLI version resolution.
- *
- * Covers: cli-v prefix stripping, fallback to listing releases, custom repo
- * parameter, network failure, GitHub API error status, semver comparison,
- * and the "unknown" local version sentinel.
- */
-
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import * as Effect from "effect/Effect";
-import { describe, expect, it } from "@effect/vitest";
 
-import { resolveLatestVersion, DEFAULT_GITHUB_REPO } from "./version-resolution.js";
+import {
+  DEFAULT_GITHUB_REPO,
+  resolveLatestVersion,
+  type VersionRelation,
+} from "./version-resolution.js";
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
+interface ReleaseInput {
+  readonly tag_name: string;
+  readonly draft?: boolean;
+  readonly prerelease?: boolean;
+  readonly assets?: ReadonlyArray<{
+    readonly name: string;
+    readonly browser_download_url?: string;
+  }>;
+}
 
-/**
- * Create a mock HTTP client that routes to a handler based on the request URL.
- */
+const release = (version: string, options: Omit<ReleaseInput, "tag_name"> = {}): ReleaseInput => ({
+  tag_name: `cli-v${version}`,
+  draft: false,
+  prerelease: false,
+  assets: [
+    {
+      name: "axm-linux-x64",
+      browser_download_url: `https://example.test/cli-v${version}/axm-linux-x64`,
+    },
+    {
+      name: "SHA256SUMS",
+      browser_download_url: `https://example.test/cli-v${version}/SHA256SUMS`,
+    },
+  ],
+  ...options,
+});
+
 const makeMockHttpClient = (handler: (url: string) => Response): HttpClient.HttpClient =>
   HttpClient.make((request) =>
     Effect.sync(() => HttpClientResponse.fromWeb(request, handler(request.url))),
   );
 
-/**
- * Create a mock HTTP client that always fails with a transport error.
- */
 const makeNetworkErrorClient = (): HttpClient.HttpClient =>
   HttpClient.make((request) =>
     Effect.fail(
@@ -42,230 +55,159 @@ const makeNetworkErrorClient = (): HttpClient.HttpClient =>
     ),
   );
 
-/**
- * Standard latest release with cli-v prefix.
- */
-const latestCliRelease = { tag_name: "cli-v0.3.0" };
-
-/**
- * Latest release that is NOT a CLI release.
- */
-const latestNonCliRelease = { tag_name: "core-v1.2.0" };
-
-/**
- * A list of releases with mixed CLI and non-CLI tags.
- */
-const mixedReleases = [
-  { tag_name: "core-v1.2.0" },
-  { tag_name: "cli-v0.2.0" },
-  { tag_name: "cli-v0.1.0" },
-];
-
-// =============================================================================
-// Tag with cli-v prefix
-// =============================================================================
+const resolve = (releases: ReadonlyArray<ReleaseInput>, localVersion: string | null = "0.2.0") =>
+  resolveLatestVersion(
+    makeMockHttpClient(() => new Response(JSON.stringify(releases), { status: 200 })),
+    localVersion,
+    DEFAULT_GITHUB_REPO,
+    "axm-linux-x64",
+  );
 
 describe("resolveLatestVersion", () => {
-  describe("latest release has cli-v prefix", () => {
-    it.effect("strips cli-v prefix and returns the version", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify(latestCliRelease), { status: 200 }),
-        );
-        const result = yield* resolveLatestVersion(httpClient, "0.2.0");
-        expect(result.remoteVersion).toBe("0.3.0");
-        expect(result.localVersion).toBe("0.2.0");
-      }),
-    );
+  it.effect("selects the highest eligible stable CLI release regardless of API order", () =>
+    Effect.gen(function* () {
+      const result = yield* resolve([
+        release("0.3.0"),
+        { tag_name: "core-v9.0.0" },
+        release("2.0.0"),
+        release("1.10.0"),
+      ]);
 
-    it.effect("detects stale when local < remote", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify(latestCliRelease), { status: 200 }),
-        );
-        const result = yield* resolveLatestVersion(httpClient, "0.2.0");
-        expect(result.isStale).toBe(true);
-      }),
-    );
+      expect(result.targetVersion).toBe("2.0.0");
+      expect(result.remoteVersion).toBe("2.0.0");
+      expect(result.release.tagName).toBe("cli-v2.0.0");
+      expect(result.release.binaryAssetUrl).toContain("axm-linux-x64");
+      expect(result.release.checksumAssetUrl).toContain("SHA256SUMS");
+    }),
+  );
 
-    it.effect("detects not stale when local >= remote", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify(latestCliRelease), { status: 200 }),
-        );
-        const result = yield* resolveLatestVersion(httpClient, "0.3.0");
-        expect(result.isStale).toBe(false);
-      }),
-    );
-
-    it.effect("detects not stale when local > remote", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify(latestCliRelease), { status: 200 }),
-        );
-        const result = yield* resolveLatestVersion(httpClient, "1.0.0");
-        expect(result.isStale).toBe(false);
-      }),
-    );
-  });
-
-  // ===========================================================================
-  // Fallback to listing releases
-  // ===========================================================================
-
-  describe("latest release does NOT have cli-v prefix (fallback)", () => {
-    it.effect("falls back to listing releases and uses first cli-v tag", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient((url) => {
-          if (url.includes("/releases/latest")) {
-            return new Response(JSON.stringify(latestNonCliRelease), { status: 200 });
-          }
-          return new Response(JSON.stringify(mixedReleases), { status: 200 });
+  it.effect("follows GitHub pagination", () =>
+    Effect.gen(function* () {
+      const visited: Array<string> = [];
+      const client = makeMockHttpClient((url) => {
+        visited.push(url);
+        if (url.includes("page=2")) {
+          return new Response(JSON.stringify([release("3.0.0")]), { status: 200 });
+        }
+        return new Response(JSON.stringify([release("1.0.0")]), {
+          status: 200,
+          headers: {
+            Link: '<https://api.github.com/repos/agentxm/axm/releases?per_page=100&page=2>; rel="next"',
+          },
         });
-        const result = yield* resolveLatestVersion(httpClient, "0.1.0");
-        expect(result.remoteVersion).toBe("0.2.0");
-        expect(result.isStale).toBe(true);
-      }),
-    );
+      });
 
-    it.effect("fails when no cli-v release exists in the list", () =>
+      const result = yield* resolveLatestVersion(
+        client,
+        "1.0.0",
+        DEFAULT_GITHUB_REPO,
+        "axm-linux-x64",
+      );
+
+      expect(result.targetVersion).toBe("3.0.0");
+      expect(visited).toHaveLength(2);
+    }),
+  );
+
+  it.effect(
+    "ignores malformed, unrelated, draft, GitHub prerelease, and semver prerelease tags",
+    () =>
       Effect.gen(function* () {
-        const httpClient = makeMockHttpClient((url) => {
-          if (url.includes("/releases/latest")) {
-            return new Response(JSON.stringify(latestNonCliRelease), { status: 200 });
-          }
-          return new Response(
-            JSON.stringify([{ tag_name: "core-v1.0.0" }, { tag_name: "lib-v2.0.0" }]),
-            { status: 200 },
-          );
-        });
-        const error = yield* Effect.flip(resolveLatestVersion(httpClient, "0.1.0"));
-        expect(error.code).toBe("not_found");
+        const result = yield* resolve([
+          { tag_name: "not-cli-v9.0.0" },
+          release("garbage"),
+          release("9.0.0", { draft: true }),
+          release("8.0.0", { prerelease: true }),
+          release("7.0.0-beta.1"),
+          release("6.0.0"),
+        ]);
+
+        expect(result.targetVersion).toBe("6.0.0");
       }),
-    );
-  });
+  );
 
-  // ===========================================================================
-  // Custom repo parameter
-  // ===========================================================================
+  it.effect("fails validation when CLI tags exist but none has valid stable semver", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        resolve([{ tag_name: "cli-vgarbage" }, release("1.0.0-beta.1")]),
+      );
+      expect(error.code).toBe("validation");
+    }),
+  );
 
-  describe("custom repo parameter", () => {
-    it.effect("uses the custom repo in API URLs", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient((url) => {
-          expect(url).toContain("my-org/my-cli");
-          return new Response(JSON.stringify(latestCliRelease), { status: 200 });
-        });
-        const result = yield* resolveLatestVersion(httpClient, "0.1.0", "my-org/my-cli");
-        expect(result.remoteVersion).toBe("0.3.0");
-      }),
-    );
+  it.effect("fails not_found when no CLI-tagged release exists", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        resolve([{ tag_name: "core-v1.0.0" }, { tag_name: "web-v2.0.0" }]),
+      );
+      expect(error.code).toBe("not_found");
+    }),
+  );
 
-    it.effect("defaults to the standard repo when no repo is specified", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient((url) => {
-          expect(url).toContain(DEFAULT_GITHUB_REPO);
-          return new Response(JSON.stringify(latestCliRelease), { status: 200 });
-        });
-        const result = yield* resolveLatestVersion(httpClient, "0.1.0");
-        expect(result.remoteVersion).toBe("0.3.0");
-      }),
-    );
-  });
+  it.effect("fails unavailable instead of falling back when the highest target lacks assets", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        resolve([
+          release("2.0.0", {
+            assets: [{ name: "axm-linux-x64", browser_download_url: "https://example.test/bin" }],
+          }),
+          release("1.0.0"),
+        ]),
+      );
+      expect(error.code).toBe("unavailable");
+    }),
+  );
 
-  // ===========================================================================
-  // Network failure
-  // ===========================================================================
+  it.effect("classifies every local version relation without a string sentinel", () =>
+    Effect.gen(function* () {
+      const cases: ReadonlyArray<readonly [string | null, VersionRelation]> = [
+        ["0.9.0", "upgrade-available"],
+        ["1.0.0", "current"],
+        ["2.0.0", "local-newer"],
+        [null, "unknown-local"],
+      ];
 
-  describe("network failure", () => {
-    it.effect("fails with VERSION_RESOLUTION_NETWORK_ERROR", () =>
-      Effect.gen(function* () {
-        const httpClient = makeNetworkErrorClient();
-        const error = yield* Effect.flip(resolveLatestVersion(httpClient, "0.1.0"));
-        expect(error.code).toBe("network");
-      }),
-    );
-  });
+      for (const [localVersion, expected] of cases) {
+        const result = yield* resolve([release("1.0.0")], localVersion);
+        expect(result.localVersion).toBe(localVersion);
+        expect(result.versionRelation).toBe(expected);
+      }
+    }),
+  );
 
-  // ===========================================================================
-  // GitHub API non-200 status
-  // ===========================================================================
+  it.effect("uses semver precedence for build metadata", () =>
+    Effect.gen(function* () {
+      const result = yield* resolve([release("1.0.0+build.2"), release("1.0.0+build.1")], "1.0.0");
+      expect(result.versionRelation).toBe("current");
+    }),
+  );
 
-  describe("GitHub API error status", () => {
-    it.effect("fails with VERSION_RESOLUTION_GITHUB_ERROR on 404", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify({ message: "Not Found" }), { status: 404 }),
-        );
-        const error = yield* Effect.flip(resolveLatestVersion(httpClient, "0.1.0"));
-        expect(error.code).toBe("internal");
-      }),
-    );
+  it.effect("uses a custom repository in API URLs", () =>
+    Effect.gen(function* () {
+      const client = makeMockHttpClient((url) => {
+        expect(url).toContain("my-org/my-cli");
+        return new Response(JSON.stringify([release("1.0.0")]), { status: 200 });
+      });
+      yield* resolveLatestVersion(client, "0.1.0", "my-org/my-cli", "axm-linux-x64");
+    }),
+  );
 
-    it.effect("fails with VERSION_RESOLUTION_GITHUB_ERROR on 403 (rate limited)", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify({ message: "rate limit exceeded" }), { status: 403 }),
-        );
-        const error = yield* Effect.flip(resolveLatestVersion(httpClient, "0.1.0"));
-        expect(error.code).toBe("internal");
-      }),
-    );
-  });
+  it.effect("maps rate limits, upstream failures, and transport failures", () =>
+    Effect.gen(function* () {
+      const rateLimited = makeMockHttpClient(() => new Response("rate limited", { status: 403 }));
+      const unavailable = makeMockHttpClient(
+        () => new Response("upstream failure", { status: 503 }),
+      );
 
-  // ===========================================================================
-  // Semver comparison
-  // ===========================================================================
-
-  describe("semver comparison", () => {
-    it.effect("treats 'unknown' local version as always stale", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify(latestCliRelease), { status: 200 }),
-        );
-        const result = yield* resolveLatestVersion(httpClient, "unknown");
-        expect(result.isStale).toBe(true);
-      }),
-    );
-
-    it.effect("compares patch versions correctly", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify({ tag_name: "cli-v1.0.1" }), { status: 200 }),
-        );
-        const result = yield* resolveLatestVersion(httpClient, "1.0.0");
-        expect(result.isStale).toBe(true);
-      }),
-    );
-
-    it.effect("compares minor versions correctly", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify({ tag_name: "cli-v1.1.0" }), { status: 200 }),
-        );
-        const result = yield* resolveLatestVersion(httpClient, "1.0.5");
-        expect(result.isStale).toBe(true);
-      }),
-    );
-
-    it.effect("same version is not stale", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify({ tag_name: "cli-v2.0.0" }), { status: 200 }),
-        );
-        const result = yield* resolveLatestVersion(httpClient, "2.0.0");
-        expect(result.isStale).toBe(false);
-      }),
-    );
-
-    it.effect("pre-release local version is stale compared to stable remote", () =>
-      Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(
-          () => new Response(JSON.stringify({ tag_name: "cli-v1.0.0" }), { status: 200 }),
-        );
-        const result = yield* resolveLatestVersion(httpClient, "1.0.0-beta.1");
-        expect(result.isStale).toBe(true);
-      }),
-    );
-  });
+      expect((yield* Effect.flip(resolveLatestVersion(rateLimited, "1.0.0"))).code).toBe(
+        "rate_limit",
+      );
+      expect((yield* Effect.flip(resolveLatestVersion(unavailable, "1.0.0"))).code).toBe(
+        "unavailable",
+      );
+      expect(
+        (yield* Effect.flip(resolveLatestVersion(makeNetworkErrorClient(), "1.0.0"))).code,
+      ).toBe("network");
+    }),
+  );
 });

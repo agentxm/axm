@@ -1,8 +1,5 @@
 /**
- * InstallMethod service — detects how axm was installed.
- *
- * Provides a `detect()` method returning a tagged union (`Script | Homebrew | Npm | Unknown`)
- * using a precedence chain of runtime signals.
+ * Install ownership detection for AXM.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -20,187 +17,265 @@ import * as ServiceMap from "effect/Context";
 import { envOption } from "../utils/index.js";
 import { resolveUserScopeDirPure } from "../workspace/paths.js";
 
-// -----------------------------------------------------------------------------
-// Tagged union type
-// -----------------------------------------------------------------------------
+export type DetectionSource =
+  | "executable-path"
+  | "resolved-executable-path"
+  | "module-url"
+  | "package-layout"
+  | "package-manager-query"
+  | "install-metadata"
+  | "conflicting"
+  | "unknown";
 
-/** Installed via the install script (~/.axm/bin/ or %USERPROFILE%\.axm\bin\). */
-export class Script extends Data.TaggedClass("Script")<{
-  readonly execPath: string;
-}> {}
+interface DetectionFields {
+  readonly detectionSource?: DetectionSource;
+  readonly evidence?: ReadonlyArray<string>;
+  readonly confidence?: "high" | "medium" | "low";
+  readonly managerOwnedExecutable?: string;
+}
 
-/** Installed via Homebrew (/Cellar/ in realpath of execPath). */
-export class Homebrew extends Data.TaggedClass("Homebrew")<{
-  readonly execPath: string;
-}> {}
+export class Script extends Data.TaggedClass("Script")<
+  DetectionFields & { readonly execPath: string }
+> {}
 
-/** Installed via npm/pnpm/yarn (node_modules in import URL). */
-export class Npm extends Data.TaggedClass("Npm")<{
-  readonly importUrl: string;
-}> {}
+export class Homebrew extends Data.TaggedClass("Homebrew")<
+  DetectionFields & { readonly execPath: string }
+> {}
 
-/** Install method could not be determined. */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- TaggedClass with no fields requires empty type parameter
-export class Unknown extends Data.TaggedClass("Unknown")<{}> {}
+export class Npm extends Data.TaggedClass("Npm")<
+  DetectionFields & { readonly importUrl: string }
+> {}
 
-/** Tagged union of all known install methods. */
-export type InstallMethodType = Script | Homebrew | Npm | Unknown;
+export class Pnpm extends Data.TaggedClass("Pnpm")<
+  DetectionFields & { readonly importUrl: string }
+> {}
 
-// -----------------------------------------------------------------------------
-// Install metadata schema
-// -----------------------------------------------------------------------------
+export class Yarn extends Data.TaggedClass("Yarn")<
+  DetectionFields & {
+    readonly importUrl: string;
+    readonly managerMajorVersion?: number;
+    readonly supported: boolean;
+  }
+> {}
 
-/** Literal schema for valid install method names. */
+export type UnknownReason = "ambiguous" | "conflicting" | "unsupported" | "unknown";
+
+export class Unknown extends Data.TaggedClass("Unknown")<
+  DetectionFields & { readonly reason?: UnknownReason }
+> {
+  constructor(props: DetectionFields & { readonly reason?: UnknownReason } = {}) {
+    super(props);
+  }
+}
+
+export type InstallMethodType = Script | Homebrew | Npm | Pnpm | Yarn | Unknown;
+
 export const InstallMethodLiteral = Schema.Literals([
   "script",
   "homebrew",
   "npm",
+  "pnpm",
+  "yarn",
 ] as const).annotate({
   identifier: "InstallMethodLiteral",
   title: "Install Method",
-  description: "How axm was installed: script, homebrew, or npm.",
+  description: "The installer or package manager that owns AXM.",
 });
+export type InstallMethodName = typeof InstallMethodLiteral.Type;
 
 const InstallMetaSchema = Schema.Struct({
-  method: InstallMethodLiteral.pipe(
-    Schema.annotateKey({ messageMissingKey: "method is required" }),
-  ),
-}).annotate({
-  identifier: "InstallMeta",
-  title: "Install Meta",
-  description: "How axm was installed on this machine.",
+  schemaVersion: Schema.optional(Schema.Number),
+  method: InstallMethodLiteral,
+  managerMajorVersion: Schema.optional(Schema.Number),
+  executablePath: Schema.optional(Schema.String),
 });
+type DetectionMeta = typeof InstallMetaSchema.Type;
 
 const decodeInstallMetaFromJsonString = Schema.decodeUnknownEffect(
   Schema.fromJsonString(InstallMetaSchema),
 );
 
-// -----------------------------------------------------------------------------
-// Service interface
-// -----------------------------------------------------------------------------
-
 export interface InstallMethodService {
   readonly detect: () => Effect.Effect<InstallMethodType>;
 }
 
-/**
- * Effect service tag for install method detection.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export class InstallMethod extends ServiceMap.Service<InstallMethod, InstallMethodService>()(
   "@agentxm/client-core/unstable/install-method/install-method/InstallMethod",
 ) {}
 
-// -----------------------------------------------------------------------------
-// Configurable inputs for testability
-// -----------------------------------------------------------------------------
-
-/**
- * Runtime inputs that the detection logic needs.
- * Abstracted for testability — production uses real values, tests inject fakes.
- */
 export interface InstallMethodInputs {
   readonly execPath: string;
   readonly importMetaUrl: string;
   readonly homeDir: string;
+  readonly packageManager?: "npm" | "pnpm" | "yarn";
+  readonly packageManagerVersion?: string;
+  readonly managerOwnedExecutable?: string;
 }
 
-// -----------------------------------------------------------------------------
-// Detection logic (pure functions operating on inputs)
-// -----------------------------------------------------------------------------
+const normalizedPath = (value: string): string => value.replace(/\\/gu, "/");
 
-const isScriptInstall = (inputs: InstallMethodInputs): Option.Option<Script> => {
-  const normalized = inputs.execPath.replace(/\\/g, "/");
-
-  // Script installer: ~/.axm/bin/ on Unix, %USERPROFILE%\.axm\bin\ on Windows.
-  const scriptPattern = `${inputs.homeDir.replace(/\\/g, "/")}/.axm/bin/`;
-  if (normalized.startsWith(scriptPattern)) {
-    return Option.some(new Script({ execPath: inputs.execPath }));
-  }
-
-  return Option.none();
+const managerMajor = (version: string | undefined): number | undefined => {
+  if (version === undefined) return undefined;
+  const first = version.split(".")[0];
+  if (first === undefined || !/^\d+$/u.test(first)) return undefined;
+  return Number(first);
 };
 
-const isHomebrewInstall = (realExecPath: string): Option.Option<Homebrew> => {
-  if (realExecPath.includes("/Cellar/")) {
-    return Option.some(new Homebrew({ execPath: realExecPath }));
+const methodName = (method: InstallMethodType): InstallMethodName | null => {
+  switch (method._tag) {
+    case "Script":
+      return "script";
+    case "Homebrew":
+      return "homebrew";
+    case "Npm":
+      return "npm";
+    case "Pnpm":
+      return "pnpm";
+    case "Yarn":
+      return "yarn";
+    case "Unknown":
+      return null;
   }
-  return Option.none();
 };
 
-const isNpmInstall = (importMetaUrl: string): Option.Option<Npm> => {
-  if (importMetaUrl.includes("node_modules")) {
-    return Option.some(new Npm({ importUrl: importMetaUrl }));
-  }
-  return Option.none();
-};
-
-const metaMethodToType = (method: string, inputs: InstallMethodInputs): InstallMethodType => {
+const methodFromName = (
+  method: InstallMethodName,
+  inputs: InstallMethodInputs,
+  source: DetectionSource,
+  meta?: DetectionMeta,
+): InstallMethodType => {
+  const metadataExecutable = source === "install-metadata" ? meta?.executablePath : undefined;
+  const ownedExecutable = inputs.managerOwnedExecutable ?? metadataExecutable;
+  const fields = {
+    detectionSource: source,
+    evidence: [`${source}:${method}`],
+    confidence: source === "install-metadata" ? ("medium" as const) : ("high" as const),
+    ...(ownedExecutable === undefined ? {} : { managerOwnedExecutable: ownedExecutable }),
+  };
   switch (method) {
     case "script":
-      return new Script({ execPath: inputs.execPath });
+      return new Script({ ...fields, execPath: metadataExecutable ?? inputs.execPath });
     case "homebrew":
-      return new Homebrew({ execPath: inputs.execPath });
+      return new Homebrew({ ...fields, execPath: metadataExecutable ?? inputs.execPath });
     case "npm":
-      return new Npm({ importUrl: inputs.importMetaUrl });
-    default:
-      return new Unknown();
+      return new Npm({ ...fields, importUrl: inputs.importMetaUrl });
+    case "pnpm":
+      return new Pnpm({ ...fields, importUrl: inputs.importMetaUrl });
+    case "yarn": {
+      const major = meta?.managerMajorVersion ?? managerMajor(inputs.packageManagerVersion);
+      return new Yarn({
+        ...fields,
+        importUrl: inputs.importMetaUrl,
+        ...(major === undefined ? {} : { managerMajorVersion: major }),
+        supported: major === 1,
+      });
+    }
   }
 };
 
-// -----------------------------------------------------------------------------
-// Core detection effect
-// -----------------------------------------------------------------------------
+const methodFromManagerEvidence = (inputs: InstallMethodInputs): InstallMethodType | null => {
+  if (inputs.packageManager !== undefined) {
+    return methodFromName(inputs.packageManager, inputs, "package-manager-query");
+  }
+  const modulePath = normalizedPath(inputs.importMetaUrl).toLowerCase();
+  if (modulePath.includes("/.pnpm/") || modulePath.includes("/pnpm/global/")) {
+    return methodFromName("pnpm", inputs, "package-layout");
+  }
+  if (modulePath.includes("/yarn/global/") || modulePath.includes("/.yarn/")) {
+    return methodFromName("yarn", inputs, "package-layout");
+  }
+  return null;
+};
 
-/**
- * Detect install method from the given inputs.
- * Exposed for testability — the live layer calls this with real values.
- */
+const directMethod = (
+  inputs: InstallMethodInputs,
+  realExecPath: string,
+): InstallMethodType | null => {
+  const executable = normalizedPath(inputs.execPath);
+  const home = normalizedPath(inputs.homeDir);
+  if (executable.startsWith(`${home}/.axm/bin/`)) {
+    return new Script({
+      execPath: inputs.execPath,
+      detectionSource: "executable-path",
+      evidence: [`executable:${inputs.execPath}`],
+      confidence: "high",
+    });
+  }
+  if (normalizedPath(realExecPath).includes("/Cellar/")) {
+    return new Homebrew({
+      execPath: realExecPath,
+      detectionSource:
+        realExecPath === inputs.execPath ? "executable-path" : "resolved-executable-path",
+      evidence: [`resolved-executable:${realExecPath}`],
+      confidence: "high",
+    });
+  }
+  return null;
+};
+
+const readInstallMeta = (fs: FileSystem.FileSystem, metaPath: string) =>
+  Effect.gen(function* () {
+    if (!(yield* fs.exists(metaPath).pipe(Effect.catch(() => Effect.succeed(false))))) {
+      return Option.none<DetectionMeta>();
+    }
+    const content = yield* fs.readFileString(metaPath).pipe(Effect.option);
+    if (Option.isNone(content)) return Option.none<DetectionMeta>();
+    return yield* decodeInstallMetaFromJsonString(content.value).pipe(
+      Effect.map(Option.some),
+      Effect.catch(() => Effect.succeed(Option.none<DetectionMeta>())),
+    );
+  });
+
+const conflicting = (evidence: ReadonlyArray<string>): Unknown =>
+  new Unknown({
+    reason: "conflicting",
+    detectionSource: "conflicting",
+    evidence,
+    confidence: "low",
+  });
+
 export const detectFromInputs = (inputs: InstallMethodInputs) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-
-    // Priority 1: Script install (exec path in ~/.axm/bin/)
-    const scriptResult = isScriptInstall(inputs);
-    if (Option.isSome(scriptResult)) return scriptResult.value;
-
-    // Priority 2: Homebrew (realpath of execPath contains /Cellar/)
     const realExecPath = yield* fs
       .realPath(inputs.execPath)
       .pipe(Effect.catch(() => Effect.succeed(inputs.execPath)));
-    const homebrewResult = isHomebrewInstall(realExecPath);
-    if (Option.isSome(homebrewResult)) return homebrewResult.value;
+    const direct = directMethod(inputs, realExecPath);
+    const manager = methodFromManagerEvidence(inputs);
+    const metaPath = path.join(
+      resolveUserScopeDirPure(path.join, inputs.homeDir),
+      "install-meta.json",
+    );
+    const meta = yield* readInstallMeta(fs, metaPath);
+    const metaMethod = Option.isSome(meta)
+      ? methodFromName(meta.value.method, inputs, "install-metadata", meta.value)
+      : null;
 
-    // Priority 3: npm (node_modules in import.meta.url)
-    const npmResult = isNpmInstall(inputs.importMetaUrl);
-    if (Option.isSome(npmResult)) return npmResult.value;
-
-    // Priority 4: install-meta.json fallback
-    const metaDir = resolveUserScopeDirPure(path.join, inputs.homeDir);
-    const metaPath = path.join(metaDir, "install-meta.json");
-    const metaResult = yield* readInstallMeta(fs, metaPath);
-    if (Option.isSome(metaResult)) {
-      return metaMethodToType(metaResult.value, inputs);
+    const strong = direct ?? manager;
+    if (direct !== null && manager !== null && methodName(direct) !== methodName(manager)) {
+      return conflicting([...(direct.evidence ?? []), ...(manager.evidence ?? [])]);
     }
+    if (strong !== null && metaMethod !== null && methodName(strong) !== methodName(metaMethod)) {
+      return conflicting([...(strong.evidence ?? []), ...(metaMethod.evidence ?? [])]);
+    }
+    if (strong !== null) return strong;
+    if (metaMethod !== null) return metaMethod;
 
-    // Priority 5: Unknown
-    return new Unknown();
-  });
-
-const readInstallMeta = (fs: FileSystem.FileSystem, metaPath: string) =>
-  Effect.gen(function* () {
-    const exists = yield* fs.exists(metaPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) return Option.none<string>();
-
-    const contentResult = yield* fs.readFileString(metaPath).pipe(Effect.option);
-    if (Option.isNone(contentResult)) return Option.none<string>();
-
-    const decoded = yield* decodeInstallMetaFromJsonString(contentResult.value).pipe(Effect.option);
-    if (Option.isNone(decoded)) return Option.none<string>();
-
-    return Option.some(decoded.value.method);
+    if (normalizedPath(inputs.importMetaUrl).includes("node_modules")) {
+      return new Unknown({
+        reason: "ambiguous",
+        detectionSource: "module-url",
+        evidence: [`module-url:${inputs.importMetaUrl}`],
+        confidence: "low",
+      });
+    }
+    return new Unknown({
+      reason: "unknown",
+      detectionSource: "unknown",
+      evidence: [],
+      confidence: "low",
+    });
   });
 
 const selectHomeDir = (
@@ -215,66 +290,63 @@ const selectHomeDir = (
     if (Option.isSome(homePath)) return homePath.value;
     return "/tmp";
   }
-
   if (Option.isSome(home)) return home.value;
   if (Option.isSome(userProfile)) return userProfile.value;
   if (Option.isSome(homePath)) return homePath.value;
   return "/tmp";
 };
 
-// -----------------------------------------------------------------------------
-// Live layer
-// -----------------------------------------------------------------------------
+const parseUserAgent = (
+  userAgent: Option.Option<string>,
+): Pick<InstallMethodInputs, "packageManager" | "packageManagerVersion"> => {
+  if (Option.isNone(userAgent)) return {};
+  const [managerWithVersion] = userAgent.value.split(/\s+/u);
+  const [manager, version] = managerWithVersion?.split("/") ?? [];
+  if (manager !== "npm" && manager !== "pnpm" && manager !== "yarn") return {};
+  return {
+    packageManager: manager,
+    ...(version === undefined ? {} : { packageManagerVersion: version }),
+  };
+};
 
 export const InstallMethodLive = Layer.effect(
   InstallMethod,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
-
-    // Capture runtime inputs once at layer construction
     const platform = yield* Effect.sync(() => process.platform);
     const home = yield* envOption("HOME");
     const userProfile = yield* envOption("USERPROFILE");
     const homePath = yield* envOption("HOMEPATH");
-    const homeDir = selectHomeDir(platform, home, userProfile, homePath);
-
+    const userAgent = yield* envOption("npm_config_user_agent");
     const inputs: InstallMethodInputs = {
       execPath: process.execPath,
       importMetaUrl: import.meta.url,
-      homeDir,
+      homeDir: selectHomeDir(platform, home, userProfile, homePath),
+      ...parseUserAgent(userAgent),
     };
-
-    const detect: InstallMethodService["detect"] = () =>
-      detectFromInputs(inputs).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, pathService),
-      );
-
-    return { detect } satisfies InstallMethodService;
+    return {
+      detect: () =>
+        detectFromInputs(inputs).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, pathService),
+        ),
+    } satisfies InstallMethodService;
   }),
 );
 
-// -----------------------------------------------------------------------------
-// Test layer factory
-// -----------------------------------------------------------------------------
-
-/**
- * Create an InstallMethod layer for testing with configurable inputs.
- */
 export const InstallMethodTest = (inputs: InstallMethodInputs) =>
   Layer.effect(
     InstallMethod,
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const pathService = yield* Path.Path;
-
-      const detect: InstallMethodService["detect"] = () =>
-        detectFromInputs(inputs).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, pathService),
-        );
-
-      return { detect } satisfies InstallMethodService;
+      return {
+        detect: () =>
+          detectFromInputs(inputs).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, pathService),
+          ),
+      } satisfies InstallMethodService;
     }),
   );

@@ -175,14 +175,13 @@ export const makeFoundationLayer = (
           const envDebug = options?.envDebug ?? false;
           const envVerbose = options?.envVerbose ?? false;
 
-          const level: VerbosityLevel =
-            flagDebug || envDebug
+          const level: VerbosityLevel = flagQuiet
+            ? "quiet"
+            : flagDebug || envDebug
               ? "debug"
               : flagVerbose || envVerbose
                 ? "verbose"
-                : flagQuiet
-                  ? "quiet"
-                  : "normal";
+                : "normal";
 
           return makeVerbosityLayer(level);
         }),

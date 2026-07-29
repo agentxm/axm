@@ -1,146 +1,222 @@
 #!/bin/sh
-# Install script for axm — the extension manager for AI coding agents.
+# Transactional AXM installer
 # Usage: curl -fsSL https://axm.sh/install.sh | sh
-set -e
+set -eu
 
-INSTALL_DIR="$HOME/.axm/bin"
+USER_HOME="${AXM_USER_HOME:-$HOME}"
+DATA_DIR="${AXM_INSTALL_DATA_DIR:-$USER_HOME/.axm}"
+INSTALL_DIR="${AXM_INSTALL_DIR:-$DATA_DIR/bin}"
 BINARY_NAME="axm"
 GITHUB_REPO="${AXM_INSTALL_GITHUB_REPO:-agentxm/axm}"
-BASE_URL="${AXM_INSTALL_BASE_URL:-https://github.com/${GITHUB_REPO}/releases/latest/download}"
+TARGET="${INSTALL_DIR}/${BINARY_NAME}"
+LOCK_DIR="${TARGET}.upgrade.lock"
+TEMP_BINARY=""
+TEMP_MANIFEST=""
+BACKUP=""
+ORIGINAL_VERSION=""
+REPLACED=0
+COMMITTED=0
+LOCK_ACQUIRED=0
 
-main() {
-  detect_platform
-  detect_downloader
-  download_binary
-  verify
+cleanup() {
+  status=$?
+  if [ "$REPLACED" -eq 1 ] && [ "$COMMITTED" -eq 0 ]; then
+    if [ -n "$BACKUP" ] && [ -f "$BACKUP" ]; then
+      rm -f "$TARGET"
+      if ! mv "$BACKUP" "$TARGET"; then
+        echo "Error: AXM rollback failed; recoverable backup retained at $BACKUP" >&2
+        status=10
+      fi
+    else
+      rm -f "$TARGET"
+    fi
+  fi
+  [ -z "$TEMP_BINARY" ] || rm -f "$TEMP_BINARY"
+  [ -z "$TEMP_MANIFEST" ] || rm -f "$TEMP_MANIFEST"
+  if [ "$COMMITTED" -eq 1 ]; then
+    [ -z "$BACKUP" ] || rm -f "$BACKUP"
+  fi
+  if [ "$LOCK_ACQUIRED" -eq 1 ]; then
+    rm -rf "$LOCK_DIR"
+  fi
+  exit "$status"
+}
+trap cleanup EXIT HUP INT TERM
+
+fail() {
+  echo "Error: $1" >&2
+  exit 1
+}
+
+valid_semver() {
+  printf '%s\n' "$1" |
+    grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
 }
 
 detect_platform() {
-  OS="$(uname -s)"
-  ARCH="$(uname -m)"
-
-  case "$OS" in
-    Darwin) PLATFORM="darwin" ;;
-    Linux)  PLATFORM="linux" ;;
-    *)
-      echo "Error: Unsupported operating system: $OS"
-      echo ""
-      echo "Supported platforms:"
-      echo "  - macOS (arm64, x64)"
-      echo "  - Linux (arm64, x64)"
-      exit 1
-      ;;
+  os="$(uname -s)"
+  arch="$(uname -m)"
+  case "$os" in
+    Darwin) platform="darwin" ;;
+    Linux) platform="linux" ;;
+    *) fail "Unsupported operating system: $os" ;;
   esac
-
-  case "$ARCH" in
-    arm64 | aarch64) ARCH="arm64" ;;
-    x86_64 | amd64)  ARCH="x64" ;;
-    *)
-      echo "Error: Unsupported architecture: $ARCH"
-      echo ""
-      echo "Supported architectures:"
-      echo "  - arm64 (aarch64)"
-      echo "  - x64 (x86_64)"
-      exit 1
-      ;;
+  case "$arch" in
+    arm64 | aarch64) arch="arm64" ;;
+    x86_64 | amd64) arch="x64" ;;
+    *) fail "Unsupported architecture: $arch" ;;
   esac
-
-  ARTIFACT="${BINARY_NAME}-${PLATFORM}-${ARCH}"
-  DOWNLOAD_URL="${BASE_URL}/${ARTIFACT}"
-  echo "Detected platform: ${PLATFORM}-${ARCH}"
+  ARTIFACT="${BINARY_NAME}-${platform}-${arch}"
+  echo "Detected platform: ${platform}-${arch}"
 }
 
-detect_downloader() {
+resolve_base_url() {
+  if [ -n "${AXM_INSTALL_VERSION:-}" ]; then
+    valid_semver "$AXM_INSTALL_VERSION" ||
+      fail "AXM_INSTALL_VERSION must be an unprefixed semantic version"
+    TARGET_VERSION="$AXM_INSTALL_VERSION"
+    RELEASE_PATH="cli-v${TARGET_VERSION}"
+  else
+    TARGET_VERSION=""
+    RELEASE_PATH="latest"
+  fi
+
+  if [ -n "${AXM_INSTALL_BASE_URL:-}" ]; then
+    BASE_URL="${AXM_INSTALL_BASE_URL%/}"
+  elif [ "$RELEASE_PATH" = "latest" ]; then
+    BASE_URL="https://github.com/${GITHUB_REPO}/releases/latest/download"
+  else
+    BASE_URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_PATH}"
+  fi
+}
+
+detect_tools() {
   if command -v curl >/dev/null 2>&1; then
     DOWNLOADER="curl"
   elif command -v wget >/dev/null 2>&1; then
     DOWNLOADER="wget"
   else
-    echo "Error: curl or wget is required but neither was found."
-    echo "Install curl or wget and try again."
-    exit 1
+    fail "curl or wget is required"
+  fi
+  if command -v sha256sum >/dev/null 2>&1; then
+    HASHER="sha256sum"
+  elif command -v shasum >/dev/null 2>&1; then
+    HASHER="shasum"
+  else
+    fail "sha256sum or shasum is required"
   fi
 }
 
 download() {
-  url="$1"
-  output="$2"
-
   if [ "$DOWNLOADER" = "curl" ]; then
-    curl -fsSL --output "$output" "$url"
+    curl -fsSL --output "$2" "$1"
   else
-    wget -qO "$output" "$url"
+    wget -qO "$2" "$1"
   fi
 }
 
-download_binary() {
-  echo "Downloading ${ARTIFACT}..."
+hash_file() {
+  if [ "$HASHER" = "sha256sum" ]; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+acquire_lock() {
   mkdir -p "$INSTALL_DIR"
-
-  target="${INSTALL_DIR}/${BINARY_NAME}"
-  if ! download "$DOWNLOAD_URL" "$target"; then
-    echo ""
-    echo "Error: Failed to download ${ARTIFACT}."
-    echo "URL: ${DOWNLOAD_URL}"
-    echo ""
-    echo "Check that the release exists and your network connection is working."
-    exit 1
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    LOCK_ACQUIRED=1
+    printf '%s\n' "$$" > "$LOCK_DIR/pid"
+    return
   fi
-
-  chmod +x "$target"
-  echo "Installed to ${target}"
-
-  # Write install metadata
-  meta_file="$HOME/.axm/install-meta.json"
-  timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  printf '{"method": "script", "installedAt": "%s"}\n' "$timestamp" > "$meta_file"
-}
-
-verify() {
-  echo ""
-
-  if command -v "$BINARY_NAME" >/dev/null 2>&1; then
-    "$BINARY_NAME" --version
-    echo ""
-    echo "Done! Run 'axm auth login' to get started."
-  else
-    echo "axm was installed to ${INSTALL_DIR} but it is not on your PATH."
-    echo ""
-    print_path_instructions
-    echo ""
-    echo "Then open a new terminal session and run: axm auth login"
-  fi
-}
-
-print_path_instructions() {
-  echo "Add axm to your PATH by running:"
-  echo ""
-
-  # Detect shell and suggest the right rc file
-  current_shell="$(basename "${SHELL:-sh}")"
-  case "$current_shell" in
-    zsh)
-      echo "  echo 'export PATH=\"\$HOME/.axm/bin:\$PATH\"' >> ~/.zshrc"
-      echo "  source ~/.zshrc"
-      ;;
-    bash)
-      if [ -f "$HOME/.bash_profile" ]; then
-        rc_file=".bash_profile"
-      else
-        rc_file=".bashrc"
-      fi
-      echo "  echo 'export PATH=\"\$HOME/.axm/bin:\$PATH\"' >> ~/${rc_file}"
-      echo "  source ~/${rc_file}"
-      ;;
-    fish)
-      echo "  set -Ux fish_user_paths \$HOME/.axm/bin \$fish_user_paths"
-      ;;
-    *)
-      echo "  export PATH=\"\$HOME/.axm/bin:\$PATH\""
-      echo ""
-      echo "Add that line to your shell's configuration file to make it permanent."
-      ;;
+  owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+  case "$owner" in
+    '' | *[!0-9]*) fail "Another AXM install may be active; lock ownership is unknown: $LOCK_DIR" ;;
   esac
+  if kill -0 "$owner" 2>/dev/null; then
+    fail "Another AXM install is active (pid $owner)"
+  fi
+  rm -rf "$LOCK_DIR"
+  mkdir "$LOCK_DIR" || fail "Could not acquire the AXM install lock"
+  LOCK_ACQUIRED=1
+  printf '%s\n' "$$" > "$LOCK_DIR/pid"
+}
+
+verify_version() {
+  "$1" --version 2>/dev/null | tr -d '\r\n'
+}
+
+install_transactionally() {
+  TEMP_BINARY="$(mktemp "${INSTALL_DIR}/.axm-download.XXXXXX")"
+  TEMP_MANIFEST="$(mktemp "${INSTALL_DIR}/.axm-checksums.XXXXXX")"
+  download "${BASE_URL}/${ARTIFACT}" "$TEMP_BINARY" ||
+    fail "Failed to download ${ARTIFACT} from ${BASE_URL}"
+  download "${BASE_URL}/SHA256SUMS" "$TEMP_MANIFEST" ||
+    fail "Failed to download SHA256SUMS from ${BASE_URL}"
+
+  checksum_lines="$(awk -v name="$ARTIFACT" '$2 == name && $1 ~ /^[0-9a-f]{64}$/ { print $1 }' "$TEMP_MANIFEST")"
+  checksum_count="$(printf '%s\n' "$checksum_lines" | awk 'NF { count++ } END { print count+0 }')"
+  [ "$checksum_count" -eq 1 ] || fail "SHA256SUMS must contain exactly one valid entry for ${ARTIFACT}"
+  expected_checksum="$(printf '%s\n' "$checksum_lines")"
+  actual_checksum="$(hash_file "$TEMP_BINARY")"
+  [ "$actual_checksum" = "$expected_checksum" ] ||
+    fail "Checksum mismatch for ${ARTIFACT}; the existing AXM was not changed"
+
+  chmod 755 "$TEMP_BINARY" || fail "Could not make the downloaded AXM executable"
+  downloaded_version="$(verify_version "$TEMP_BINARY")" ||
+    fail "The downloaded AXM binary did not execute"
+  if [ -z "$TARGET_VERSION" ]; then
+    TARGET_VERSION="$downloaded_version"
+  fi
+  [ "$downloaded_version" = "$TARGET_VERSION" ] ||
+    fail "Downloaded AXM reports ${downloaded_version}; expected ${TARGET_VERSION}"
+
+  if [ -f "$TARGET" ]; then
+    ORIGINAL_VERSION="$(verify_version "$TARGET" || true)"
+    BACKUP="$(mktemp "${INSTALL_DIR}/.axm-backup.XXXXXX")"
+    cp -p "$TARGET" "$BACKUP" || fail "Could not create a restorable AXM backup"
+  fi
+
+  mv -f "$TEMP_BINARY" "$TARGET" || fail "Could not atomically replace ${TARGET}"
+  TEMP_BINARY=""
+  REPLACED=1
+  installed_version="$(verify_version "$TARGET")" ||
+    fail "Installed AXM failed verification; restoring the previous installation"
+  [ "$installed_version" = "$TARGET_VERSION" ] ||
+    fail "Installed AXM reports ${installed_version}; expected ${TARGET_VERSION}; restoring the previous installation"
+
+  mkdir -p "$DATA_DIR"
+  meta_file="${DATA_DIR}/install-meta.json"
+  meta_temp="$(mktemp "${DATA_DIR}/.install-meta.XXXXXX")"
+  timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  printf '{"schemaVersion":2,"method":"script","installedAt":"%s","executablePath":"%s"}\n' \
+    "$timestamp" "$TARGET" > "$meta_temp" ||
+    fail "Could not write AXM install metadata"
+  mv -f "$meta_temp" "$meta_file" || fail "Could not atomically persist AXM install metadata"
+
+  COMMITTED=1
+  echo "Installed AXM ${TARGET_VERSION} to ${TARGET}"
+}
+
+verify_path() {
+  if command -v "$BINARY_NAME" >/dev/null 2>&1; then
+    path_version="$("$BINARY_NAME" --version 2>/dev/null || true)"
+    if [ "$path_version" != "$TARGET_VERSION" ]; then
+      echo "Warning: AXM on PATH reports ${path_version:-no version}; installed path reports ${TARGET_VERSION}." >&2
+    fi
+  else
+    echo "AXM is not on PATH. Add ${INSTALL_DIR} and open a new terminal."
+  fi
+}
+
+main() {
+  detect_platform
+  resolve_base_url
+  detect_tools
+  acquire_lock
+  install_transactionally
+  verify_path
 }
 
 main

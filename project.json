@@ -98,6 +98,14 @@
         "cwd": "."
       }
     },
+    "generate-release-checksums": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "pnpm generate-release-checksums",
+        "cwd": "."
+      }
+    },
     "validate-release-assets": {
       "executor": "nx:run-commands",
       "cache": false,

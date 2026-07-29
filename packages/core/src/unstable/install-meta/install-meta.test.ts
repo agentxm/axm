@@ -72,6 +72,7 @@ describe("InstallMeta", () => {
           expect(Option.isSome(result)).toBe(true);
           const value = Option.getOrThrow(result);
           expect(value.method).toBe("script");
+          expect(value.schemaVersion).toBe(2);
           expect(DateTime.formatIso(value.installedAt)).toBe("2026-03-31T12:00:00.000Z");
         }),
       ),
@@ -173,6 +174,7 @@ describe("InstallMeta", () => {
           const content = nodeFs.readFileSync(filePath, "utf-8");
           const parsed: unknown = JSON.parse(content);
           expect(parsed).toEqual({
+            schemaVersion: 2,
             method: "script",
             installedAt: "2026-03-31T12:00:00.000Z",
           });
@@ -198,6 +200,7 @@ describe("InstallMeta", () => {
           const content = nodeFs.readFileSync(nodePath.join(dataDir, "install-meta.json"), "utf-8");
           const parsed: unknown = JSON.parse(content);
           expect(parsed).toEqual({
+            schemaVersion: 2,
             method: "homebrew",
             installedAt: "2026-06-15T18:00:00.000Z",
           });
@@ -219,6 +222,46 @@ describe("InstallMeta", () => {
           const value = Option.getOrThrow(result);
           expect(value.method).toBe("npm");
           expect(DateTime.formatIso(value.installedAt)).toBe("2026-03-31T12:00:00.000Z");
+        }),
+      ),
+    );
+
+    it.effect("atomically persists package-manager ownership evidence", () =>
+      withContext(
+        Effect.gen(function* () {
+          yield* writeInstallMeta(dataDir, {
+            method: "pnpm",
+            installedAt: DateTime.makeUnsafe("2026-03-31T12:00:00.000Z"),
+            packageName: "axm.sh",
+            managerMajorVersion: 10,
+            executablePath: "/tmp/pnpm/bin/axm",
+          });
+
+          const result = Option.getOrThrow(yield* readInstallMeta(dataDir));
+          expect(result).toMatchObject({
+            schemaVersion: 2,
+            method: "pnpm",
+            packageName: "axm.sh",
+            managerMajorVersion: 10,
+            executablePath: "/tmp/pnpm/bin/axm",
+          });
+          expect(nodeFs.readdirSync(dataDir)).toEqual(["install-meta.json"]);
+        }),
+      ),
+    );
+
+    it.effect("reads legacy metadata and normalizes it to schema version 2", () =>
+      withContext(
+        Effect.gen(function* () {
+          nodeFs.mkdirSync(dataDir, { recursive: true });
+          nodeFs.writeFileSync(
+            nodePath.join(dataDir, "install-meta.json"),
+            JSON.stringify({ method: "npm", installedAt: "2026-01-15T08:30:00.000Z" }),
+          );
+
+          const result = Option.getOrThrow(yield* readInstallMeta(dataDir));
+          expect(result.schemaVersion).toBe(2);
+          expect(result.method).toBe("npm");
         }),
       ),
     );

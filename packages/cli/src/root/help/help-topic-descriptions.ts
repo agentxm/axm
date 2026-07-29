@@ -38,4 +38,5 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   "axm-lock-schema": "JSON Schema for the AXM lockfile.",
   "axm-package-meta-schema": "JSON Schema for package-native AXM extension metadata.",
   "exit-codes": "Exit codes returned by AXM commands and what each one means.",
+  upgrade: "How AXM selects, verifies, delegates, and rolls back CLI upgrades.",
 } as const satisfies Record<HelpTopicName, string>;

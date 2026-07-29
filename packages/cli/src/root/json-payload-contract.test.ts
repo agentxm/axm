@@ -336,7 +336,7 @@ const CALL_SITE_LEDGER: ReadonlyArray<RendererCallSite> = [
   {
     file: "packages/cli/src/root/upgrade/handler.ts",
     method: "result",
-    payload: "UpgradeDocumentFields",
+    payload: "UpgradeDocumentSchema",
   },
   {
     file: "packages/cli/src/root/view/handler.ts",

@@ -35,6 +35,15 @@
 
 ### ⚠️ Breaking Changes
 
+- `axm upgrade --json` now reports truthful transactional state through
+  `resultStatus`, nullable `localVersion` / `targetVersion` /
+  `reportedVersion`, `verification`, `mutationState`, `executedCommands`, and
+  `recommendedCommand`. The old overloaded `delegatedCommand` field remains for
+  one deprecation window but no longer indicates whether AXM executed a
+  command. Script upgrades and public installers now require release
+  `SHA256SUMS`, verify the temporary and installed binaries, and roll back
+  failed replacements. Package-manager installs delegate only through their
+  detected owner (Homebrew, npm, pnpm, or Yarn Classic).
 - `axm rules enable` / `axm rules disable` now activate and deactivate an
   installed rule extension and require a rule name. Instruction-file management
   moved to `axm rules instructions enable` / `axm rules instructions disable`,

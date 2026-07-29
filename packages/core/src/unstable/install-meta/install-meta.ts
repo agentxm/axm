@@ -16,6 +16,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
+import { makeAppError, type AppError } from "../app-error/index.js";
 import { DateTimeUtcSchema } from "../date-time.js";
 import { InstallMethodLiteral } from "../install-method/install-method.js";
 import { resolveUserScopeDir } from "../workspace/paths.js";
@@ -30,12 +31,16 @@ import { resolveUserScopeDir } from "../workspace/paths.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const InstallMetaDataSchema = Schema.Struct({
+  schemaVersion: Schema.optional(Schema.Literal(2)),
   method: InstallMethodLiteral.pipe(
     Schema.annotateKey({ messageMissingKey: "method is required" }),
   ),
   installedAt: DateTimeUtcSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "installedAt is required" }),
   ),
+  packageName: Schema.optional(Schema.String),
+  managerMajorVersion: Schema.optional(Schema.Number),
+  executablePath: Schema.optional(Schema.String),
 }).annotate({
   identifier: "InstallMetaData",
   title: "Install Metadata",
@@ -63,7 +68,7 @@ export interface InstallMetaService {
   /** Read `install-meta.json`. Returns `None` if file is missing or invalid. */
   readonly read: () => Effect.Effect<Option.Option<InstallMetaData>>;
   /** Write `install-meta.json` with the given method and timestamp. */
-  readonly write: (data: InstallMetaData) => Effect.Effect<void>;
+  readonly write: (data: InstallMetaData) => Effect.Effect<void, AppError>;
 }
 
 /**
@@ -114,7 +119,7 @@ export const readInstallMeta = (dataDir: string) =>
     const decoded = yield* decodeInstallMetaDataFromJsonString(content.value).pipe(Effect.option);
     if (Option.isNone(decoded)) return Option.none<InstallMetaData>();
 
-    return Option.some(decoded.value);
+    return Option.some({ ...decoded.value, schemaVersion: 2 as const });
   });
 
 /**
@@ -132,20 +137,67 @@ export const writeInstallMeta = (dataDir: string, data: InstallMetaData) =>
     const metaPath = path.join(dataDir, INSTALL_META_FILENAME);
 
     yield* fs.makeDirectory(dataDir, { recursive: true }).pipe(
-      Effect.tapError((e) => Effect.logWarning("Failed to write install metadata", { error: e })),
-      Effect.catch(() => Effect.void),
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: "Failed to create the AXM metadata directory",
+          suggestions: [{ description: "Check permissions and retry the upgrade." }],
+          cause,
+        }),
+      ),
     );
 
-    const encoded = yield* encodeInstallMetaData(data).pipe(
-      Effect.tapError((e) => Effect.logWarning("Failed to write install metadata", { error: e })),
-      Effect.option,
+    const encoded = yield* encodeInstallMetaData({ ...data, schemaVersion: 2 as const }).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: "Failed to encode AXM install metadata",
+          cause,
+        }),
+      ),
     );
-    if (Option.isNone(encoded)) return;
+    const content = JSON.stringify(encoded, null, 2) + "\n";
+    const tempPath = yield* fs
+      .makeTempFile({
+        directory: dataDir,
+        prefix: ".install-meta-",
+        suffix: ".tmp",
+      })
+      .pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "internal",
+            detail: "Failed to create temporary AXM install metadata",
+            cause,
+          }),
+        ),
+      );
+    const tempDirectory = path.dirname(tempPath);
 
-    const content = JSON.stringify(encoded.value, null, 2) + "\n";
-    yield* fs.writeFileString(metaPath, content).pipe(
-      Effect.tapError((e) => Effect.logWarning("Failed to write install metadata", { error: e })),
-      Effect.catch(() => Effect.void),
+    yield* Effect.ensuring(
+      Effect.gen(function* () {
+        yield* fs.writeFileString(tempPath, content).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: "Failed to write AXM install metadata",
+              suggestions: [{ description: "Check permissions and retry the upgrade." }],
+              cause,
+            }),
+          ),
+        );
+        yield* fs.rename(tempPath, metaPath).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: "Failed to atomically persist AXM install metadata",
+              suggestions: [{ description: "Check permissions and retry the upgrade." }],
+              cause,
+            }),
+          ),
+        );
+      }),
+      fs.remove(tempDirectory, { recursive: true }).pipe(Effect.ignore),
     );
   });
 

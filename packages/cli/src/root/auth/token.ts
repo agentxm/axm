@@ -1,4 +1,5 @@
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -161,7 +162,7 @@ export const parseExpiresInSeconds = (raw: string): Effect.Effect<number, AppErr
       ),
     onSome: (expiry) =>
       Effect.map(DateTime.now, (now) =>
-        Math.floor((DateTime.toEpochMillis(expiry) - DateTime.toEpochMillis(now)) / 1000),
+        Math.floor(Duration.toSeconds(DateTime.distance(now, expiry))),
       ),
   });
 };

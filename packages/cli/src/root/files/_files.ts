@@ -1,4 +1,5 @@
 import { Command } from "effect/unstable/cli";
+import { filesVersionCommand as versionCommand } from "../shared/version-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
@@ -33,6 +34,7 @@ export const filesCommand = Command.make("files").pipe(
     disableCommand,
     updateCommand,
     newCommand,
+    versionCommand,
     publishCommand,
     pruneCommand,
   ]),

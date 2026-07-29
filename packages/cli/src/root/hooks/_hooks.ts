@@ -1,4 +1,5 @@
 import { Command } from "effect/unstable/cli";
+import { hooksVersionCommand as versionCommand } from "../shared/version-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
@@ -35,6 +36,7 @@ export const hooksCommand = Command.make("hooks").pipe(
     enableCommand,
     disableCommand,
     updateCommand,
+    versionCommand,
     publishCommand,
     pruneCommand,
   ]),

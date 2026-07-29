@@ -36,6 +36,10 @@ const MANIFEST_FILES = {
   skills: { filename: "skill.json", type: "skill" },
   subagents: { filename: "subagent.json", type: "subagent" },
   mcps: { filename: "mcp.json", type: "mcp-server" },
+  files: { filename: "files.json", type: "files" },
+  rules: { filename: "rule.json", type: "rule" },
+  hooks: { filename: "hook.json", type: "hook" },
+  knowledge: { filename: "knowledge.json", type: "knowledge" },
   packs: { filename: "pack.json", type: "pack" },
 } as const;
 
@@ -348,18 +352,64 @@ describe("root version command handler", () => {
     );
   });
 
-  it.effect("rejects non-versionable extension type", () => {
-    const { provide } = makeWorkspaceHandlerTestContext();
+  it.effect("infers files type from FQN and bumps patch", () => {
+    const manifestPath = writeManifest(tempDir, "files", "my-file", "0.1.0");
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
 
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleRootVersion({
-          handle: "@te/files/my-file",
+        yield* handleRootVersion({
+          handle: "@test/files/my-file",
           bump: "patch",
           targetVersion: Option.none(),
           preview: false,
-        }).pipe(Effect.flip);
-        expect(getAppError(result).code).toBe("validation");
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("0.1.1");
+        expect(logs.success).toContain("Updated context files @test/files/my-file 0.1.0 -> 0.1.1");
+      }),
+    );
+  });
+
+  it.effect("infers rule type from FQN and bumps patch", () => {
+    const manifestPath = writeManifest(tempDir, "rules", "commit-style", "0.1.0");
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootVersion({
+          handle: "@test/rules/commit-style",
+          bump: "patch",
+          targetVersion: Option.none(),
+          preview: false,
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("0.1.1");
+        expect(logs.success).toContain("Updated rule @test/rules/commit-style 0.1.0 -> 0.1.1");
+      }),
+    );
+  });
+
+  it.effect("infers knowledge type from FQN and bumps minor", () => {
+    const manifestPath = writeManifest(tempDir, "knowledge", "handbook", "1.0.0");
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootVersion({
+          handle: "@test/knowledge/handbook",
+          bump: "minor",
+          targetVersion: Option.none(),
+          preview: false,
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("1.1.0");
+        expect(logs.success).toContain(
+          "Updated knowledge bundle @test/knowledge/handbook 1.0.0 -> 1.1.0",
+        );
       }),
     );
   });

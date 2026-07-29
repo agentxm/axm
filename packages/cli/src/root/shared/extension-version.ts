@@ -18,7 +18,10 @@ import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/mcps
 import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
+import { FILES_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/files";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/hooks";
+import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/knowledge";
+import { RULE_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/rules";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { VersionSchema, type Version } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -33,10 +36,10 @@ export const VERSIONABLE_TYPES = {
   command: true,
   "mcp-server": true,
   subagent: true,
-  files: false,
-  rule: false,
+  files: true,
+  rule: true,
   hook: true,
-  knowledge: false,
+  knowledge: true,
   pack: true,
 } as const satisfies Record<ExtensionType, boolean>;
 
@@ -50,7 +53,10 @@ export const versionableTypes = [
   "skill",
   "subagent",
   "mcp-server",
+  "files",
+  "rule",
   "hook",
+  "knowledge",
   "pack",
 ] as const satisfies ReadonlyArray<VersionableExtensionType>;
 export type VersionBump = "patch" | "minor" | "major" | "prerelease";
@@ -76,7 +82,10 @@ const manifestFilenameByType: Record<VersionableExtensionType, string> = {
   skill: SKILL_MANIFEST_FILENAME,
   subagent: SUBAGENT_MANIFEST_FILENAME,
   "mcp-server": MCP_SERVER_MANIFEST_FILENAME,
+  files: FILES_MANIFEST_FILENAME,
+  rule: RULE_MANIFEST_FILENAME,
   hook: HOOK_MANIFEST_FILENAME,
+  knowledge: KNOWLEDGE_MANIFEST_FILENAME,
   pack: PACK_MANIFEST_FILENAME,
 };
 

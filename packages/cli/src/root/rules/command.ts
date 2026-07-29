@@ -1,4 +1,5 @@
 import { Command, Flag } from "effect/unstable/cli";
+import { rulesVersionCommand } from "../shared/version-command.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -315,5 +316,5 @@ export const rulesCommand = Command.make("rules", rulesStatusConfig, ({ scope })
       description: "Repair instruction-file drift",
     },
   ]),
-  Command.withSubcommands([rulesEnableCommand, rulesDisableCommand]),
+  Command.withSubcommands([rulesEnableCommand, rulesDisableCommand, rulesVersionCommand]),
 );

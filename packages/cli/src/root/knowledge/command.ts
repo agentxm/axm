@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import { knowledgeVersionCommand as versionCommand } from "../shared/version-command.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -689,6 +690,7 @@ export const knowledgeCommand = Command.make("knowledge").pipe(
     lintCommand,
     enableCommand,
     disableCommand,
+    versionCommand,
     publishCommand,
   ]),
 );

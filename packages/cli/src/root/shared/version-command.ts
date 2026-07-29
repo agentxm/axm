@@ -71,6 +71,12 @@ const configuredSourceForVersionTarget = Effect.fn("Version.configuredSourceForT
       return entrySource((yield* ws.getConfiguredPackEntries())[name]);
     case "hook":
       return entrySource((yield* ws.getConfiguredHookEntries())[name]);
+    case "files":
+      return entrySource((yield* ws.getConfiguredFilesEntries())[name]);
+    case "rule":
+      return entrySource((yield* ws.getConfiguredRuleEntries())[name]);
+    case "knowledge":
+      return entrySource((yield* ws.getConfiguredKnowledgeEntries())[name]);
   }
 });
 
@@ -261,7 +267,10 @@ const exampleNamesByType: Record<VersionableExtensionType, string> = {
   skill: "code-review",
   subagent: "researcher",
   "mcp-server": "my-server",
+  files: "workspace-baseline",
+  rule: "commit-style",
   hook: "block-secrets",
+  knowledge: "platform-handbook",
   pack: "frontend-tools",
 };
 
@@ -307,6 +316,10 @@ export const skillsVersionCommand = makeVersionCommand("skill");
 export const subagentsVersionCommand = makeVersionCommand("subagent");
 export const mcpsVersionCommand = makeVersionCommand("mcp-server");
 export const packsVersionCommand = makeVersionCommand("pack");
+export const filesVersionCommand = makeVersionCommand("files");
+export const rulesVersionCommand = makeVersionCommand("rule");
+export const hooksVersionCommand = makeVersionCommand("hook");
+export const knowledgeVersionCommand = makeVersionCommand("knowledge");
 
 export interface RootVersionHandlerArgs {
   readonly handle: string;

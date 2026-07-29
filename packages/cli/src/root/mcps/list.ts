@@ -111,7 +111,7 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
             : row.classification.lifecycle === "unmanaged"
               ? "unmanaged"
               : configuredStatus({
-                  enabled: row.activation !== "disabled",
+                  enabled: row.enabled !== false,
                   configuredEntry,
                   inspections,
                 });

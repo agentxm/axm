@@ -86,7 +86,7 @@ describe("list command empty output", () => {
           items: [
             {
               name: "workspace-baseline",
-              activation: "disabled",
+              enabled: false,
               source: "@acme/files/workspace-baseline",
               locked: true,
               classification: { kind: "lifecycle", lifecycle: "configured" },
@@ -131,7 +131,7 @@ describe("list command empty output", () => {
           items: [
             {
               name: "tool-audit",
-              activation: "enabled",
+              enabled: true,
               source: "@acme/hooks/tool-audit",
               locked: true,
               classification: { kind: "lifecycle", lifecycle: "configured" },
@@ -180,7 +180,7 @@ describe("list command empty output", () => {
           items: [
             {
               name: "context",
-              activation: "enabled",
+              enabled: true,
               version: "2.3.4",
               status: "enabled",
               classification: { kind: "lifecycle", lifecycle: "configured" },

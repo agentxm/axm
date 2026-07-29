@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 import { ExtensionTypeSchema } from "../../../extensions/common.js";
-import type { ActivationState, ExtensionKey } from "../types.js";
+import type { ExtensionKey } from "../types.js";
 import { matchingIgnoredPatterns } from "./ignore-patterns.js";
 
 export const ExtensionInventoryLifecycleSchema = Schema.Literals([
@@ -30,7 +30,7 @@ export const ExtensionInventoryRowSchema = Schema.Struct({
   type: ExtensionTypeSchema,
   name: Schema.String,
   classification: ExtensionInventoryClassificationSchema,
-  activation: Schema.NullOr(Schema.Literals(["enabled", "disabled"])),
+  enabled: Schema.NullOr(Schema.Boolean),
   agents: Schema.Array(Schema.String),
   origins: Schema.Array(Schema.String),
   paths: Schema.Array(Schema.String),
@@ -66,7 +66,7 @@ export interface ExtensionInventoryObservation {
 export interface LifecycleInventoryCandidate extends ExtensionInventoryObservation {
   readonly key: ExtensionKey;
   readonly lifecycle: ExtensionInventoryLifecycle;
-  readonly activation: ActivationState | null;
+  readonly enabled: boolean | null;
 }
 
 export interface IgnoredInventoryCandidate extends ExtensionInventoryObservation {
@@ -85,7 +85,7 @@ export interface ProjectExtensionInventoryInput {
 interface MutableInventoryAggregate {
   readonly key: ExtensionKey;
   lifecycle: ExtensionInventoryLifecycle;
-  activation: ActivationState | null;
+  enabled: boolean | null;
   readonly agents: Set<string>;
   readonly origins: Set<string>;
   readonly paths: Set<string>;
@@ -130,7 +130,7 @@ export const projectExtensionInventory = (
       const aggregate: MutableInventoryAggregate = {
         key: candidate.key,
         lifecycle: candidate.lifecycle,
-        activation: candidate.activation,
+        enabled: candidate.enabled,
         agents: new Set(candidate.agents ?? []),
         origins: new Set(candidate.origins ?? []),
         paths: new Set(candidate.paths ?? []),
@@ -141,7 +141,7 @@ export const projectExtensionInventory = (
 
     if (lifecyclePriority[candidate.lifecycle] < lifecyclePriority[existing.lifecycle]) {
       existing.lifecycle = candidate.lifecycle;
-      existing.activation = candidate.activation;
+      existing.enabled = candidate.enabled;
     }
     addAll(existing.agents, candidate.agents);
     addAll(existing.origins, candidate.origins);
@@ -180,7 +180,7 @@ export const projectExtensionInventory = (
       type: aggregate.key.type,
       name: aggregate.key.name,
       classification: { kind: "lifecycle", lifecycle: aggregate.lifecycle },
-      activation: aggregate.activation,
+      enabled: aggregate.enabled,
       agents: sorted(aggregate.agents),
       origins: sorted(aggregate.origins),
       paths: sorted(aggregate.paths),
@@ -198,7 +198,7 @@ export const projectExtensionInventory = (
             matchedBy: matchingIgnoredPatterns(aggregate.key.name, input.ignoredPatterns),
             reasons: sorted(aggregate.reasons),
           },
-          activation: null,
+          enabled: null,
           agents: sorted(aggregate.agents),
           origins: sorted(aggregate.origins),
           paths: sorted(aggregate.paths),

@@ -274,7 +274,7 @@ describe("subagents list.handler", () => {
           items: [
             {
               name: "subagent-one",
-              activation: "enabled",
+              enabled: true,
               classification: { kind: "lifecycle", lifecycle: "configured" },
               agents: ["claude-code"],
             },

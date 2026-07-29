@@ -144,7 +144,7 @@ export const makeReadModelRecordReaders = (args: {
     return {
       key: row.key,
       lifecycle: row.installationOrigin._tag === "direct" ? "configured" : "implicit",
-      activation: row.activation,
+      enabled: row.activation === "enabled",
       agents: observedAgents.length === 0 ? defaultAgents : observedAgents,
       origins: observations.origins,
       paths: observations.paths,
@@ -157,7 +157,7 @@ export const makeReadModelRecordReaders = (args: {
   }): LifecycleInventoryCandidate => ({
     key: row.key,
     lifecycle: "unmanaged",
-    activation: null,
+    enabled: null,
     ...observationFromActual(row.actual),
   });
 
@@ -181,7 +181,7 @@ export const makeReadModelRecordReaders = (args: {
   const implicitCandidate = (key: ExtensionKey): LifecycleInventoryCandidate => ({
     key,
     lifecycle: "implicit",
-    activation: "enabled",
+    enabled: true,
     agents: [],
   });
 
@@ -222,7 +222,7 @@ export const makeReadModelRecordReaders = (args: {
       ([name, entry]): LifecycleInventoryCandidate => ({
         key: { scope: input.scope, type: input.type, name },
         lifecycle: "configured",
-        activation: entry.enabled ? "enabled" : "disabled",
+        enabled: entry.enabled,
       }),
     );
     const implicit = [
@@ -250,7 +250,7 @@ export const makeReadModelRecordReaders = (args: {
         {
           key: { scope: input.scope, type: input.type, name: key.name },
           lifecycle: "unmanaged",
-          activation: null,
+          enabled: null,
           ...observationFromActual(observation),
         } satisfies LifecycleInventoryCandidate,
       ];

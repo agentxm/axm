@@ -7,9 +7,9 @@ describe("projectExtensionInventory", () => {
   it("returns the lifecycle partition and excludes ignored candidates by default", () => {
     const result = projectExtensionInventory({
       lifecycle: [
-        { key: key("configured"), lifecycle: "configured", activation: "enabled" },
-        { key: key("implicit"), lifecycle: "implicit", activation: "enabled" },
-        { key: key("unmanaged"), lifecycle: "unmanaged", activation: null },
+        { key: key("configured"), lifecycle: "configured", enabled: true },
+        { key: key("implicit"), lifecycle: "implicit", enabled: true },
+        { key: key("unmanaged"), lifecycle: "unmanaged", enabled: null },
       ],
       ignored: [{ key: key("old-skill"), reason: "actual-ignored" }],
       ignoredPatterns: new Set(["old-*", "*-skill"]),
@@ -60,7 +60,7 @@ describe("projectExtensionInventory", () => {
           matchedBy: ["*-skill", "old-*"],
           reasons: ["actual-ignored", "declared-ignored"],
         },
-        activation: null,
+        enabled: null,
         agents: ["claude-code", "codex"],
         origins: ["agent-skill-dir", "canonical-axm-skill"],
         paths: [
@@ -83,13 +83,13 @@ describe("projectExtensionInventory", () => {
         {
           key: key("shared"),
           lifecycle: "unmanaged",
-          activation: null,
+          enabled: null,
           agents: ["codex"],
         },
         {
           key: key("shared"),
           lifecycle: "configured",
-          activation: "disabled",
+          enabled: false,
           agents: ["claude-code"],
         },
       ],
@@ -102,7 +102,7 @@ describe("projectExtensionInventory", () => {
       expect.objectContaining({
         name: "shared",
         classification: { kind: "lifecycle", lifecycle: "configured" },
-        activation: "disabled",
+        enabled: false,
         agents: ["claude-code", "codex"],
       }),
     ]);
@@ -111,8 +111,8 @@ describe("projectExtensionInventory", () => {
   it("filters lifecycle and ignored observations consistently by agent", () => {
     const result = projectExtensionInventory({
       lifecycle: [
-        { key: key("claude"), lifecycle: "unmanaged", activation: null, agents: ["claude-code"] },
-        { key: key("codex"), lifecycle: "unmanaged", activation: null, agents: ["codex"] },
+        { key: key("claude"), lifecycle: "unmanaged", enabled: null, agents: ["claude-code"] },
+        { key: key("codex"), lifecycle: "unmanaged", enabled: null, agents: ["codex"] },
       ],
       ignored: [
         { key: key("ignored-claude"), reason: "actual-ignored", agents: ["claude-code"] },

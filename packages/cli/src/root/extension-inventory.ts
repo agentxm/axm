@@ -10,7 +10,8 @@ export const inventoryState = (row: ExtensionInventoryRow): string =>
 export const inventoryIgnoredBy = (row: ExtensionInventoryRow): string =>
   row.classification.kind === "ignored" ? row.classification.matchedBy.join(", ") : "";
 
-export const inventoryActivation = (row: ExtensionInventoryRow): string => row.activation ?? "n/a";
+export const inventoryActivation = (row: ExtensionInventoryRow): string =>
+  row.enabled === null ? "n/a" : row.enabled ? "enabled" : "disabled";
 
 export const inventorySummary = (inventory: ExtensionInventory, label: string): string =>
   `${inventory.count} ${inventory.count === 1 ? label : `${label}s`} (${inventory.configuredCount} configured, ${inventory.implicitCount} implicit, ${inventory.installedCount} installed, ${inventory.unmanagedCount} unmanaged, ${inventory.ignoredCount} ignored)`;

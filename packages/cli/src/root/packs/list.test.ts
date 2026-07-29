@@ -160,7 +160,7 @@ describe("packs list.handler", () => {
           items: [
             {
               name: "starter-pack",
-              activation: "enabled",
+              enabled: true,
               owner: "@acme",
               version: "1.0.0",
               source: "default",

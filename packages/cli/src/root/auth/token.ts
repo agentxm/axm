@@ -68,12 +68,10 @@ const TokenListItemSchema = Schema.Struct({
   lastUsedAt: Schema.NullOr(DateTimeUtcSchema),
 });
 const TokenListDocumentFields = {
-  data: Schema.Struct({
-    tokens: Schema.Array(TokenListItemSchema),
-    hasMore: Schema.Boolean,
-    cursor: Schema.NullOr(Schema.String),
-  }),
+  items: Schema.Array(TokenListItemSchema),
   count: Schema.Number,
+  hasMore: Schema.Boolean,
+  cursor: Schema.NullOr(Schema.String),
 } satisfies Schema.Struct.Fields;
 
 const RevokeTokenResultSchema = Schema.Struct({
@@ -315,20 +313,18 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
   if (
     yield* renderer.result(
       {
-        data: {
-          tokens: result.tokens.map((item) => ({
-            id: item.id,
-            name: item.name,
-            type: item.type,
-            scopes: item.scopes,
-            createdAt: item.createdAt,
-            expiresAt: item.expiresAt,
-            lastUsedAt: item.lastUsedAt,
-          })),
-          hasMore: result.hasMore,
-          cursor: result.cursor,
-        },
+        items: result.tokens.map((item) => ({
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          scopes: item.scopes,
+          createdAt: item.createdAt,
+          expiresAt: item.expiresAt,
+          lastUsedAt: item.lastUsedAt,
+        })),
         count: result.tokens.length,
+        hasMore: result.hasMore,
+        cursor: result.cursor,
       },
       Schema.Struct(TokenListDocumentFields),
     )

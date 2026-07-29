@@ -63,7 +63,7 @@ const OutdatedEntrySchema = Schema.Struct({
 });
 
 const OutdatedDocumentFields = {
-  data: Schema.Array(OutdatedEntrySchema),
+  items: Schema.Array(OutdatedEntrySchema),
   count: Schema.Number,
 } satisfies Schema.Struct.Fields;
 
@@ -269,7 +269,7 @@ export const handleOutdatedWith = <E, R>(
     if (entries.length === 0) {
       const suggestions = [INSTALL_EXTENSION_FROM_REGISTRY];
       if (
-        yield* renderer.result({ data: [], count: 0 }, Schema.Struct(OutdatedDocumentFields), {
+        yield* renderer.result({ items: [], count: 0 }, Schema.Struct(OutdatedDocumentFields), {
           suggestions,
         })
       ) {
@@ -289,7 +289,7 @@ export const handleOutdatedWith = <E, R>(
 
     if (
       yield* renderer.result(
-        { data: jsonRows, count: jsonRows.length },
+        { items: jsonRows, count: jsonRows.length },
         Schema.Struct(OutdatedDocumentFields),
       )
     ) {

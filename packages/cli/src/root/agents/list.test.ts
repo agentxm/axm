@@ -146,7 +146,7 @@ describe("agents list.handler", () => {
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
-          data: [],
+          items: [],
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
         expect(rendererState.suggestions).toEqual([SET_UP_AXM_WORKSPACE]);

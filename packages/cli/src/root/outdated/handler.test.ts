@@ -227,7 +227,7 @@ describe("outdated handler", () => {
           });
           expect(doc).toEqual(
             expect.objectContaining({
-              data: expect.arrayContaining([
+              items: expect.arrayContaining([
                 expect.objectContaining({
                   kind: "registry-version",
                   ref: "@acme/skills/code-review",
@@ -265,7 +265,7 @@ describe("outdated handler", () => {
           expect(rendererState.results).toHaveLength(1);
           expect(rendererState.results[0]?.data).toMatchObject({
             count: 0,
-            data: [],
+            items: [],
           });
           expectNoPlanEnvelope(rendererState.results[0]?.data);
           expect(rendererState.suggestions).toEqual([INSTALL_EXTENSION_FROM_REGISTRY]);
@@ -337,7 +337,7 @@ describe("outdated handler", () => {
           expect(doc).toMatchObject({ count: 4 });
           expect(doc).toEqual(
             expect.objectContaining({
-              data: expect.arrayContaining([
+              items: expect.arrayContaining([
                 expect.objectContaining({ ref: "@acme/files/baseline", type: "files" }),
                 expect.objectContaining({ ref: "@acme/rules/api-conventions", type: "rule" }),
                 expect.objectContaining({ ref: "@acme/hooks/block-secrets", type: "hook" }),

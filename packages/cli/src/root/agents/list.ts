@@ -43,7 +43,7 @@ const AgentListItemSchema = Schema.Struct({
 });
 
 const AgentsListOutputSchema = Schema.Struct({
-  data: Schema.Array(AgentListItemSchema),
+  items: Schema.Array(AgentListItemSchema),
   configured: Schema.Array(Schema.String),
   detected: Schema.Array(Schema.String),
   available: Schema.Array(Schema.String),
@@ -106,7 +106,7 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
     }));
 
   const output = {
-    data: items,
+    items,
     configured: configured.filter((id) => id !== "universal"),
     detected,
     available: [...CONFIGURABLE_AGENT_IDS],

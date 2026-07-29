@@ -386,14 +386,12 @@ describe("auth token handler", () => {
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,
-          data: {
-            tokens: [
-              {
-                id: "token_123",
-                name: "ci",
-              },
-            ],
-          },
+          items: [
+            {
+              id: "token_123",
+              name: "ci",
+            },
+          ],
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
       }),
@@ -421,9 +419,7 @@ describe("auth token handler", () => {
         expect(rendererState.logs).toEqual([]);
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
-          data: {
-            tokens: [],
-          },
+          items: [],
         });
         expect(rendererState.results[1]?.data).toMatchObject({
           count: 0,

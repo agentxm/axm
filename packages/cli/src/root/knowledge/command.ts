@@ -79,10 +79,14 @@ const BundleSchema = Schema.Struct({
   diagnostics: Schema.Number,
 });
 
-const KnowledgeListQueryResultSchema = Schema.Struct({ bundles: Schema.Array(BundleSchema) });
+const KnowledgeListQueryResultSchema = Schema.Struct({
+  items: Schema.Array(BundleSchema),
+  count: Schema.Number,
+});
 const KnowledgeSearchQueryResultSchema = Schema.Struct({
   query: Schema.String,
-  concepts: Schema.Array(ConceptSchema),
+  items: Schema.Array(ConceptSchema),
+  count: Schema.Number,
 });
 const KnowledgeOpenQueryResultSchema = Schema.Struct({ concept: ConceptSchema });
 const KnowledgeLintQueryResultSchema = Schema.Struct({
@@ -193,7 +197,8 @@ export const handleKnowledgeList = Effect.fn("Knowledge.list")(function* () {
     concepts: inspection.concepts.length,
     diagnostics: inspection.diagnostics.length,
   }));
-  if (yield* renderer.result({ bundles: rows }, KnowledgeListQueryResultSchema)) return;
+  if (yield* renderer.result({ items: rows, count: rows.length }, KnowledgeListQueryResultSchema))
+    return;
   if (rows.length === 0) {
     yield* renderer.info("No knowledge bundles installed");
     return;
@@ -214,7 +219,13 @@ export const handleKnowledgeSearch = Effect.fn("Knowledge.search")(function* (qu
       ...concept,
     })),
   );
-  if (yield* renderer.result({ query, concepts }, KnowledgeSearchQueryResultSchema)) return;
+  if (
+    yield* renderer.result(
+      { query, items: concepts, count: concepts.length },
+      KnowledgeSearchQueryResultSchema,
+    )
+  )
+    return;
   const rows = concepts.map((concept) => ({
     bundle: concept.bundle,
     id: concept.id,

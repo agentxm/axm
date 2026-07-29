@@ -114,6 +114,14 @@
         "cwd": "."
       }
     },
+    "parity-ledger-check": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "pnpm parity-ledger-check",
+        "cwd": "."
+      }
+    },
     "verify-source-hygiene": {
       "executor": "nx:run-commands",
       "cache": true,
@@ -187,6 +195,9 @@
           },
           {
             "command": "pnpm exec nx run axm:verify-source-hygiene --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:parity-ledger-check --outputStyle=static"
           }
         ]
       }
@@ -248,6 +259,9 @@
           },
           {
             "command": "pnpm exec nx run axm:verify-source-hygiene --outputStyle=static"
+          },
+          {
+            "command": "pnpm exec nx run axm:parity-ledger-check --outputStyle=static"
           }
         ]
       }

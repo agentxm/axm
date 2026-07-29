@@ -472,7 +472,11 @@ export const applyOperationIntent = (
     case "remove-mcp-server-agent":
     case "enable-subagent":
     case "disable-subagent":
-      return;
+      // A fixture that exercises an autofix must observe its effect; silently
+      // ignoring the op would report the fix as converged without applying it.
+      throw new Error(
+        `applyOperationIntent: operation '${op.name}' has no fixture interpreter arm yet`,
+      );
     default:
       throw new Error(`applyOperationIntent: unknown operation '${op.name}'`);
   }

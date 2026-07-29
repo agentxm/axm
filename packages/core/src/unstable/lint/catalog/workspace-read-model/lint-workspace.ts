@@ -47,16 +47,22 @@ import type {
   ActualSubagent,
   InstalledCommand,
   InstalledFilesPackage,
+  InstalledHook,
+  InstalledKnowledgeBundle,
   InstalledMcpServer,
   InstalledPack,
+  InstalledRule,
   InstalledSkill,
   InstalledSubagent,
 } from "../../../workspace/read-model/extensions/index.js";
 import type {
   CommandRuleContext,
   FilesRuleContext,
+  HookRuleContext,
   InstalledExtensionManifest,
+  KnowledgeRuleContext,
   McpServerRuleContext,
+  RuleRuleContext,
   SubagentRuleContext,
   WorkspaceInstructionAccessor,
   WorkspaceRuleContext,
@@ -69,7 +75,10 @@ import { makePlatformFilesAccessor } from "../files-accessor/platform.js";
 import { parseRegistrySourceRef } from "../../../extensions/registry-source.js";
 import { COMMAND_MANIFEST_FILENAME } from "../../../commands/manifest-schema.js";
 import { FILES_MANIFEST_FILENAME } from "../../../files/manifest-schema.js";
+import { HOOK_MANIFEST_FILENAME } from "../../../hooks/manifest-schema.js";
+import { KNOWLEDGE_MANIFEST_FILENAME } from "../../../knowledge/manifest-schema.js";
 import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcps/manifest-schema.js";
+import { RULE_MANIFEST_FILENAME } from "../../../rules/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME } from "../../../packs/manifest-schema.js";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "../../../skills/manifest-schema.js";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "../../../subagents/manifest-schema.js";
@@ -93,6 +102,9 @@ export interface LintWorkspaceView {
   readonly subagentContexts: ReadonlyArray<SubagentRuleContext>;
   readonly mcpServerContexts: ReadonlyArray<McpServerRuleContext>;
   readonly fileContexts: ReadonlyArray<FilesRuleContext>;
+  readonly hookContexts: ReadonlyArray<HookRuleContext>;
+  readonly ruleContexts: ReadonlyArray<RuleRuleContext>;
+  readonly knowledgeContexts: ReadonlyArray<KnowledgeRuleContext>;
 }
 
 // -----------------------------------------------------------------------------
@@ -293,17 +305,21 @@ const buildLintWorkspaceView = (
   args: BuildLintWorkspaceViewArgs,
 ): Effect.Effect<LintWorkspaceProjection> =>
   Effect.gen(function* () {
-    const [skills, packs, commands, subagents, mcpServers, filesPackages] = yield* Effect.all(
-      [
-        args.readModel.skills.installed,
-        args.readModel.packs.installed,
-        args.readModel.commands.installed,
-        args.readModel.subagents.installed,
-        args.readModel.mcpServers.installed,
-        args.readModel.files.installed,
-      ],
-      { concurrency: "unbounded" },
-    );
+    const [skills, packs, commands, subagents, mcpServers, filesPackages, hooks, rules, knowledge] =
+      yield* Effect.all(
+        [
+          args.readModel.skills.installed,
+          args.readModel.packs.installed,
+          args.readModel.commands.installed,
+          args.readModel.subagents.installed,
+          args.readModel.mcpServers.installed,
+          args.readModel.files.installed,
+          args.readModel.hooks.installed,
+          args.readModel.rules.installed,
+          args.readModel.knowledge.installed,
+        ],
+        { concurrency: "unbounded" },
+      );
     const namedSkills = skills
       .filter((skill) => skill.actual.length > 0 || Option.isSome(skill.resolved))
       .map((skill): NamedSkill => {
@@ -342,6 +358,24 @@ const buildLintWorkspaceView = (
         ? []
         : [namedContext(filesPackage.key.name, context, FILES_MANIFEST_FILENAME)];
     });
+    const namedHooks = hooks.flatMap((hook) => {
+      const context = installedHookToContext(args, hook);
+      return context === undefined
+        ? []
+        : [namedContext(hook.key.name, context, HOOK_MANIFEST_FILENAME)];
+    });
+    const namedRules = rules.flatMap((rule) => {
+      const context = installedRuleToContext(args, rule);
+      return context === undefined
+        ? []
+        : [namedContext(rule.key.name, context, RULE_MANIFEST_FILENAME)];
+    });
+    const namedKnowledge = knowledge.flatMap((bundle) => {
+      const context = installedKnowledgeToContext(args, bundle);
+      return context === undefined
+        ? []
+        : [namedContext(bundle.key.name, context, KNOWLEDGE_MANIFEST_FILENAME)];
+    });
 
     const [
       skillsWithJson,
@@ -350,6 +384,9 @@ const buildLintWorkspaceView = (
       subagentsWithJson,
       mcpServersWithJson,
       filesWithJson,
+      hooksWithJson,
+      rulesWithJson,
+      knowledgeWithJson,
     ] = yield* Effect.all(
       [
         populateSkillManifestJson(namedSkills),
@@ -358,6 +395,9 @@ const buildLintWorkspaceView = (
         populateSubagentManifestJson(namedSubagents),
         populateMcpServerManifestJson(namedMcpServers),
         populateFilesManifestJson(namedFiles),
+        populateHookManifestJson(namedHooks),
+        populateRuleManifestJson(namedRules),
+        populateKnowledgeManifestJson(namedKnowledge),
       ],
       { concurrency: "unbounded" },
     );
@@ -370,6 +410,9 @@ const buildLintWorkspaceView = (
         subagentContexts: subagentsWithJson.map((entry) => entry.context),
         mcpServerContexts: mcpServersWithJson.map((entry) => entry.context),
         fileContexts: filesWithJson.map((entry) => entry.context),
+        hookContexts: hooksWithJson.map((entry) => entry.context),
+        ruleContexts: rulesWithJson.map((entry) => entry.context),
+        knowledgeContexts: knowledgeWithJson.map((entry) => entry.context),
       },
       installedManifests: [
         ...skillsWithJson.map((entry): InstalledExtensionManifest => ({
@@ -382,6 +425,9 @@ const buildLintWorkspaceView = (
         ...toManifests("subagent", subagentsWithJson, (c) => c.subject.subagentJson),
         ...toManifests("mcp-server", mcpServersWithJson, (c) => c.subject.mcpServerJson),
         ...toManifests("files", filesWithJson, (c) => c.subject.filesJson),
+        ...toManifests("hook", hooksWithJson, (c) => c.subject.hookJson),
+        ...toManifests("rule", rulesWithJson, (c) => c.subject.ruleJson),
+        ...toManifests("knowledge", knowledgeWithJson, (c) => c.subject.knowledgeJson),
       ],
     };
   });
@@ -478,6 +524,48 @@ const populateFilesManifestJson = (
       Effect.gen(function* () {
         const filesJson = yield* readManifestJson(entry.context.files, FILES_MANIFEST_FILENAME);
         return { ...entry, context: { ...entry.context, subject: { filesJson } } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateHookManifestJson = (
+  entries: ReadonlyArray<NamedContext<HookRuleContext>>,
+): Effect.Effect<ReadonlyArray<NamedContext<HookRuleContext>>> =>
+  Effect.forEach(
+    entries,
+    (entry) =>
+      Effect.gen(function* () {
+        const hookJson = yield* readManifestJson(entry.context.files, HOOK_MANIFEST_FILENAME);
+        return { ...entry, context: { ...entry.context, subject: { hookJson } } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateRuleManifestJson = (
+  entries: ReadonlyArray<NamedContext<RuleRuleContext>>,
+): Effect.Effect<ReadonlyArray<NamedContext<RuleRuleContext>>> =>
+  Effect.forEach(
+    entries,
+    (entry) =>
+      Effect.gen(function* () {
+        const ruleJson = yield* readManifestJson(entry.context.files, RULE_MANIFEST_FILENAME);
+        return { ...entry, context: { ...entry.context, subject: { ruleJson } } };
+      }),
+    { concurrency: "unbounded" },
+  );
+
+const populateKnowledgeManifestJson = (
+  entries: ReadonlyArray<NamedContext<KnowledgeRuleContext>>,
+): Effect.Effect<ReadonlyArray<NamedContext<KnowledgeRuleContext>>> =>
+  Effect.forEach(
+    entries,
+    (entry) =>
+      Effect.gen(function* () {
+        const knowledgeJson = yield* readManifestJson(
+          entry.context.files,
+          KNOWLEDGE_MANIFEST_FILENAME,
+        );
+        return { ...entry, context: { ...entry.context, subject: { knowledgeJson } } };
       }),
     { concurrency: "unbounded" },
   );
@@ -661,6 +749,137 @@ const installedFilesPackageToContext = (
     files: makePlatformFilesAccessor(args.platform, root),
     displayRoot: relativeDisplayRoot(args, root),
   };
+};
+
+const installedHookToContext = (
+  args: BuildLintWorkspaceViewArgs,
+  hook: InstalledHook,
+): HookRuleContext | undefined => {
+  const root = canonicalPackageRoot(args, {
+    name: hook.key.name,
+    plural: "hooks",
+    actual: hook.actual,
+    resolved: hook.resolved,
+    installationOrigin: hook.installationOrigin,
+  });
+  if (root === undefined) {
+    return undefined;
+  }
+  return {
+    subject: { hookJson: undefined },
+    files: makePlatformPackFileAccessor(args.platform, root),
+    displayRoot: relativeDisplayRoot(args, root),
+  };
+};
+
+const installedRuleToContext = (
+  args: BuildLintWorkspaceViewArgs,
+  rule: InstalledRule,
+): RuleRuleContext | undefined => {
+  const root = canonicalPackageRoot(args, {
+    name: rule.key.name,
+    plural: "rules",
+    actual: rule.actual,
+    resolved: rule.resolved,
+    installationOrigin: rule.installationOrigin,
+  });
+  if (root === undefined) {
+    return undefined;
+  }
+  return {
+    subject: { ruleJson: undefined },
+    files: makePlatformPackFileAccessor(args.platform, root),
+    displayRoot: relativeDisplayRoot(args, root),
+  };
+};
+
+const installedKnowledgeToContext = (
+  args: BuildLintWorkspaceViewArgs,
+  bundle: InstalledKnowledgeBundle,
+): KnowledgeRuleContext | undefined => {
+  const root = canonicalPackageRoot(args, {
+    name: bundle.key.name,
+    plural: "knowledge",
+    actual: bundle.actual,
+    resolved: bundle.resolved,
+    installationOrigin: bundle.installationOrigin,
+  });
+  if (root === undefined) {
+    return undefined;
+  }
+  return {
+    subject: { knowledgeJson: undefined },
+    files: makePlatformPackFileAccessor(args.platform, root),
+    displayRoot: relativeDisplayRoot(args, root),
+  };
+};
+
+/**
+ * Locate an installed package's root the same way for every family whose
+ * canonical layout is `.axm/extensions/<owner>/<plural>/<name>`: prefer a
+ * scanned `packageRoot`, then the registry owner the lockfile resolved, then
+ * the owner parsed out of a direct settings declaration.
+ *
+ * Returns `undefined` when none of the three apply — the extension is
+ * configured but not on disk in a location lint can read, which is
+ * `workspace/configured-but-not-installed`'s finding to make, not a per-type
+ * manifest rule's.
+ */
+const canonicalPackageRoot = (
+  args: BuildLintWorkspaceViewArgs,
+  subject: {
+    readonly name: string;
+    readonly plural: string;
+    readonly actual: ReadonlyArray<{ readonly packageRoot: string | null }>;
+    readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
+    readonly installationOrigin: { readonly _tag: string };
+  },
+): string | undefined => {
+  const scanned = subject.actual.find((entry) => entry.packageRoot !== null);
+  if (scanned?.packageRoot !== undefined && scanned.packageRoot !== null) {
+    return scanned.packageRoot;
+  }
+
+  const owner = canonicalOwner(subject);
+  return owner === undefined
+    ? undefined
+    : args.platform.path.resolve(
+        args.workspaceRoot,
+        `.axm/extensions/${owner}/${subject.plural}/${subject.name}`,
+      );
+};
+
+const canonicalOwner = (subject: {
+  readonly plural: string;
+  readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
+  readonly installationOrigin: { readonly _tag: string };
+}): string | undefined => {
+  const resolved = subject.resolved;
+  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+    const lockEntry = resolved.value.lockEntry;
+    if ("owner" in lockEntry && typeof lockEntry.owner === "string") {
+      return lockEntry.owner;
+    }
+  }
+
+  const origin = subject.installationOrigin;
+  if (origin._tag !== "direct" || !("declared" in origin)) {
+    return undefined;
+  }
+  const declared = origin.declared;
+  if (typeof declared !== "object" || declared === null || !("entry" in declared)) {
+    return undefined;
+  }
+  const entry = declared.entry;
+  if (typeof entry !== "object" || entry === null || !("source" in entry)) {
+    return undefined;
+  }
+  const source = entry.source;
+  if (typeof source !== "string") {
+    return undefined;
+  }
+  const parsed = parseRegistrySourceRef(source);
+  return parsed !== undefined && parsed.type === subject.plural ? parsed.owner : undefined;
 };
 
 const chooseSkillActual = (actual: ReadonlyArray<ActualSkill>): ActualSkill | undefined =>

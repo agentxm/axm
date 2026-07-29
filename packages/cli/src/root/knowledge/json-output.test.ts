@@ -14,7 +14,8 @@ import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { expectAppliedPlanResult, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
-import { handleKnowledgeLint, setKnowledgeEnabled } from "./command.js";
+import { setKnowledgeEnabled } from "./activation.js";
+import { handleKnowledgeLint } from "./lint.js";
 
 const stubKnowledgeManager = {
   type: "knowledge",

@@ -135,41 +135,6 @@ export const devinAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://docs.devin.ai/cli/extensibility/rules"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -300,6 +265,27 @@ export const devinAgent = {
         },
         lastVerified: "2026-07-22",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://docs.devin.ai/cli/extensibility/rules"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

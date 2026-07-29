@@ -24,7 +24,8 @@ import {
   materializeRegistryPackage,
 } from "../extensions/index.js";
 import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
-import { computeSourceHash } from "../extensions/rendered-files.js";
+import { computePackageContentHash } from "../extensions/package-hash.js";
+import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
 import type { MaterializedFileTarget, RuleLockEntry } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema, validateExactResolvedVersion } from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
@@ -64,7 +65,15 @@ const RULES_REGION = "rules";
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryRuleLockEntry = (ref: RegistryRuleRef, now: DateTime.Utc): RuleLockEntry => ({
+const optionalSourceHash = (
+  sourceHash: SourceHash | undefined,
+): { readonly sourceHash?: SourceHash } => (sourceHash === undefined ? {} : { sourceHash });
+
+const registryRuleLockEntry = (
+  ref: RegistryRuleRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): RuleLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -73,27 +82,29 @@ const registryRuleLockEntry = (ref: RegistryRuleRef, now: DateTime.Utc): RuleLoc
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
-const gitRuleLockEntry = (ref: GitHostedRuleRef, now: DateTime.Utc): RuleLockEntry => {
-  const common = {
-    ...commonLockFields(now),
-  };
-
-  return {
-    ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-    ...common,
-  };
-};
+const gitRuleLockEntry = (
+  ref: GitHostedRuleRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): RuleLockEntry => ({
+  ...gitSourceLockFields(ref.source, ref.gitTreeSha),
+  ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
+});
 
 const localRuleLockEntry = (
   ref: LocalRuleRef,
   now: DateTime.Utc,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
+  sourceHash: SourceHash | undefined,
 ): RuleLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
 const workspaceRuleLockEntry = (ref: WorkspaceRuleRef, now: DateTime.Utc): RuleLockEntry => ({
@@ -140,6 +151,7 @@ export const RuleManagerLive = Layer.effect(
         readonly ref: RuleExtensionRef;
         readonly materializedTargets: ReadonlyArray<MaterializedFileTarget>;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
+        readonly sourceHash: SourceHash;
       }
     >();
 
@@ -445,10 +457,12 @@ export const RuleManagerLive = Layer.effect(
       }
 
       const materializedTarget = yield* writeRulesRegion({ include: { ref, packageRoot } });
+      const sourceHash = yield* provide(computePackageContentHash(packageRoot));
       lastInstallState.set(ref.rule.name, {
         ref,
         materializedTargets: [materializedTarget],
         workspaceRelativeLocalSourcePath,
+        sourceHash,
       });
     }, Effect.asVoid);
 
@@ -458,14 +472,15 @@ export const RuleManagerLive = Layer.effect(
         const now = yield* DateTime.now;
         switch (ref.refType) {
           case "registry":
-            return registryRuleLockEntry(ref, now);
+            return registryRuleLockEntry(ref, now, state?.sourceHash);
           case "git-hosted":
-            return gitRuleLockEntry(ref, now);
+            return gitRuleLockEntry(ref, now, state?.sourceHash);
           case "local":
             return localRuleLockEntry(
               ref,
               now,
               state?.workspaceRelativeLocalSourcePath ?? Option.none(),
+              state?.sourceHash,
             );
           case "workspace":
             return workspaceRuleLockEntry(ref, now);

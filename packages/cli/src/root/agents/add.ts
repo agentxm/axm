@@ -31,6 +31,7 @@ import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
+import { lifecycleWarning } from "./lifecycle.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { dedupe, validateAgentIds } from "./shared.js";
 
@@ -266,6 +267,13 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
       message: "All requested agents are already configured",
     });
     return;
+  }
+
+  // Warn rather than block: the workspace may still need a retired agent
+  // configured, but the user should know the vendor has stopped maintaining it.
+  for (const agentId of agentIds) {
+    const warning = lifecycleWarning(agentId);
+    if (warning !== undefined) yield* renderer.warn(warning);
   }
 
   const materialize = yield* collectMaterializeSteps();

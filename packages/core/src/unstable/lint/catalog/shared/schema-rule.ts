@@ -1,8 +1,8 @@
 /**
  * Shared schema-delegation plumbing for `-schema-valid` rules.
  *
- * Per `docs/design/lint-engine.md §4` ("Schema-valid rules delegate to Effect
- * Schema"), every rule whose id ends in `-schema-valid` implements `check` by
+ * Per `contributing/guides/lint-rule-authoring.md` ("Schema-Valid vs
+ * Keys-Recognized Split"), every rule whose id ends in `-schema-valid` implements `check` by
  * running the canonical schema through `Schema.decodeUnknownResult` with
  * `onExcessProperty: "ignore"` and `errors: "all"`, then mapping the issues
  * through `issuesToFindings`.
@@ -18,6 +18,7 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+import { describeSchemaDocument } from "../../describe-document.js";
 import { issuesToFindings } from "../../issues-to-findings.js";
 import type { AdvisoryFinding, Severity } from "../../rule.js";
 import { isManifestJsonParseFailure, manifestJsonParseFailureToFinding } from "./manifest-json.js";
@@ -124,24 +125,3 @@ export const enumerateUnknownTopLevelKeys = (
 
 const isPlainRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
-
-const describeSchemaDocument = (file: string): string => {
-  switch (file) {
-    case "command.json":
-      return "Command manifest";
-    case "files.json":
-      return "context manifest";
-    case "mcp.json":
-      return "MCP server manifest";
-    case "skill.json":
-      return "Skill manifest";
-    case "pack.json":
-      return "Pack manifest";
-    case "subagent.json":
-      return "Subagent manifest";
-    case "hook.json":
-      return "Hook manifest";
-    default:
-      return "Document";
-  }
-};

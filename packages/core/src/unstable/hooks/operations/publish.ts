@@ -22,6 +22,7 @@ import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { runPublishLintGate } from "../../publish/lint-gate.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
+import { publishArchiveOptions } from "../../publish/publish-ignore.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
@@ -111,7 +112,10 @@ export const publishHook: (
       platform: { fs, path },
     });
 
-    const archive = yield* buildZipArchive(extensionDir);
+    const archive = yield* buildZipArchive(
+      extensionDir,
+      yield* publishArchiveOptions("hook", manifest.publish?.ignore),
+    );
     const integrity = yield* computeIntegrity(archive);
     const registrySource = yield* ws.getConfiguredSourceByName(op.args.registryName).pipe(
       Effect.mapError((cause) =>

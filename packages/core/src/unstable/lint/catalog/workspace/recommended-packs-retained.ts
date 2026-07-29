@@ -29,6 +29,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { InstalledExtensionManifest, WorkspaceRuleContext } from "../../context.js";
+import { extensionTypeSentenceLabels } from "../../../extensions/common.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import type { Lockfile } from "../../../lockfile/schema.js";
 import { splitPackSpec } from "../shared/recommended-packs-rules.js";
@@ -68,20 +69,8 @@ const recommendedPackFqns = (manifestJson: unknown): ReadonlyArray<string> => {
     .map((entry) => splitPackSpec(entry).fqn);
 };
 
-const typeLabel = (extensionType: InstalledExtensionManifest["extensionType"]): string => {
-  switch (extensionType) {
-    case "skill":
-      return "skill";
-    case "command":
-      return "command";
-    case "subagent":
-      return "subagent";
-    case "mcp-server":
-      return "MCP server";
-    case "files":
-      return "context package";
-  }
-};
+const typeLabel = (extensionType: InstalledExtensionManifest["extensionType"]): string =>
+  extensionTypeSentenceLabels[extensionType];
 
 const missingPackFinding = (
   manifest: InstalledExtensionManifest,

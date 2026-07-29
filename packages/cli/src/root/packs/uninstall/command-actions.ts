@@ -22,6 +22,10 @@ import {
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unstable/files";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
+import {
+  KnowledgeManager,
+  type KnowledgeExtensionRef,
+} from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import {
@@ -36,7 +40,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { PackExtensionTarget, ExtensionTarget } from "@agentxm/client-core/unstable/workspace";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
@@ -98,6 +102,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
     const commandMgr = yield* CommandManager;
     const contextManager = yield* FilesManager;
     const hookManager = yield* HookManager;
+    const knowledgeManager = yield* KnowledgeManager;
     const mcpServerMgr = yield* McpServerManager;
     const ruleManager = yield* RuleManager;
     const subagentMgr = yield* SubagentManager;
@@ -126,7 +131,9 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         }
 
         const lockedPacks = yield* ws.getLockedPacks();
-        const configuredPacks = yield* ws.records.getConfiguredPacks();
+        const configuredPacks = yield* ws.records
+          .rows("pack")
+          .pipe(Effect.map(configuredRowsByName));
 
         const targets = yield* Effect.forEach(
           parsed.packNames,
@@ -204,13 +211,22 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         } satisfies Lockfile;
 
         // Build settings context for orphan check (just need the keys)
-        const configuredSkills = yield* ws.records.getConfiguredSkills();
-        const configuredCommands = yield* ws.records.getConfiguredCommands();
-        const configuredMcpServers = yield* ws.records.getConfiguredMcpServers();
-        const configuredSubagents = yield* ws.records.getConfiguredSubagents();
+        const configuredSkills = yield* ws.records
+          .rows("skill")
+          .pipe(Effect.map(configuredRowsByName));
+        const configuredCommands = yield* ws.records
+          .rows("command")
+          .pipe(Effect.map(configuredRowsByName));
+        const configuredMcpServers = yield* ws.records
+          .rows("mcp-server")
+          .pipe(Effect.map(configuredRowsByName));
+        const configuredSubagents = yield* ws.records
+          .rows("subagent")
+          .pipe(Effect.map(configuredRowsByName));
         const configuredFiles = yield* ws.getConfiguredFilesEntries();
         const configuredRules = yield* ws.getConfiguredRuleEntries();
         const configuredHooks = yield* ws.getConfiguredHookEntries();
+        const configuredKnowledge = yield* ws.getConfiguredKnowledgeEntries();
 
         const settings: UninstallSettingsContext = {
           skills: Object.fromEntries(Object.keys(configuredSkills).map((k) => [k, k])),
@@ -220,6 +236,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
           files: Object.fromEntries(Object.keys(configuredFiles).map((k) => [k, k])),
           rules: Object.fromEntries(Object.keys(configuredRules).map((k) => [k, k])),
           hooks: Object.fromEntries(Object.keys(configuredHooks).map((k) => [k, k])),
+          knowledge: Object.fromEntries(Object.keys(configuredKnowledge).map((k) => [k, k])),
         };
 
         // Expand each pack and collect all targets, deduplicating by type+name
@@ -240,6 +257,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
               "files",
               "rule",
               "hook",
+              "knowledge",
             ],
             lockfile,
             settings,
@@ -309,6 +327,14 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             return buildUninstallOperation<HookExtensionRef>(hookManager, retentionPolicy, {
               target,
             });
+          }
+
+          if (target.type === "knowledge") {
+            return buildUninstallOperation<KnowledgeExtensionRef>(
+              knowledgeManager,
+              retentionPolicy,
+              { target },
+            );
           }
 
           return {

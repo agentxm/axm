@@ -24,7 +24,8 @@ import {
   type HooksWriter,
   installable,
 } from "../agent-capabilities/index.js";
-import { computeSourceHash } from "../extensions/rendered-files.js";
+import { computePackageContentHash } from "../extensions/package-hash.js";
+import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
@@ -91,7 +92,15 @@ const packageMaterializeLockFor = (key: string): Semaphore.Semaphore => {
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryHookLockEntry = (ref: RegistryHookRef, now: DateTime.Utc): HookLockEntry => ({
+const optionalSourceHash = (
+  sourceHash: SourceHash | undefined,
+): { readonly sourceHash?: SourceHash } => (sourceHash === undefined ? {} : { sourceHash });
+
+const registryHookLockEntry = (
+  ref: RegistryHookRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): HookLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -100,27 +109,29 @@ const registryHookLockEntry = (ref: RegistryHookRef, now: DateTime.Utc): HookLoc
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
-const gitHookLockEntry = (ref: GitHostedHookRef, now: DateTime.Utc): HookLockEntry => {
-  const common = {
-    ...commonLockFields(now),
-  };
-
-  return {
-    ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-    ...common,
-  };
-};
+const gitHookLockEntry = (
+  ref: GitHostedHookRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): HookLockEntry => ({
+  ...gitSourceLockFields(ref.source, ref.gitTreeSha),
+  ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
+});
 
 const localHookLockEntry = (
   ref: LocalHookRef,
   now: DateTime.Utc,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
+  sourceHash: SourceHash | undefined,
 ): HookLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
 const workspaceHookLockEntry = (ref: WorkspaceHookRef, now: DateTime.Utc): HookLockEntry => ({
@@ -401,6 +412,7 @@ export const HookManagerLive = Layer.effect(
         readonly ref: HookExtensionRef;
         readonly materializedTargets: ReadonlyArray<MaterializedFileTarget>;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
+        readonly sourceHash: SourceHash;
       }
     >();
 
@@ -812,10 +824,12 @@ export const HookManagerLive = Layer.effect(
       }
 
       const materializedTargets = yield* writeHooksConfig({ include: { ref, packageRoot } });
+      const sourceHash = yield* provide(computePackageContentHash(packageRoot));
       lastInstallState.set(ref.hook.name, {
         ref,
         materializedTargets,
         workspaceRelativeLocalSourcePath,
+        sourceHash,
       });
     }, Effect.asVoid);
 
@@ -825,14 +839,15 @@ export const HookManagerLive = Layer.effect(
         const now = yield* DateTime.now;
         switch (ref.refType) {
           case "registry":
-            return registryHookLockEntry(ref, now);
+            return registryHookLockEntry(ref, now, state?.sourceHash);
           case "git-hosted":
-            return gitHookLockEntry(ref, now);
+            return gitHookLockEntry(ref, now, state?.sourceHash);
           case "local":
             return localHookLockEntry(
               ref,
               now,
               state?.workspaceRelativeLocalSourcePath ?? Option.none(),
+              state?.sourceHash,
             );
           case "workspace":
             return workspaceHookLockEntry(ref, now);

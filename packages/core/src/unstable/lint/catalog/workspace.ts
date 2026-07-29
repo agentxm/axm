@@ -1,7 +1,7 @@
 /**
  * `workspace/*` rule catalog — the v1 rule set.
  *
- * Per `docs/design/lint-engine.md §10.workspace`, `axm lint` (locally only —
+ * Per `agentxm-internal/docs/design/lint-engine.md §10.workspace`, `axm lint` (locally only —
  * never publish) runs exactly these rules against each workspace read model.
  * Rules are grouped by classification invariant — foundation first, then
  * one group per invariant that install-family rules enforce:
@@ -60,10 +60,10 @@ import { packsDependenciesResolvedRule } from "./workspace/packs-dependencies-re
 import { packsMembersRetainedRule } from "./workspace/packs-members-retained.js";
 import { recommendedPacksRetainedRule } from "./workspace/recommended-packs-retained.js";
 import { configuredButNotInstalledRule } from "./workspace/configured-but-not-installed.js";
-import { mcpServerNoSecretLiteralRule } from "./workspace/mcp-server-no-secret-literal.js";
-import { mcpServerTransportExclusivityRule } from "./workspace/mcp-server-transport-exclusivity.js";
-import { mcpServerAgentDriftRule } from "./workspace/mcp-server-agent-drift.js";
-import { mcpServerAgentOrphanedRule } from "./workspace/mcp-server-agent-orphaned.js";
+import { mcpServerNoSecretLiteralRule } from "./workspace/mcps-no-secret-literal.js";
+import { mcpServerTransportExclusivityRule } from "./workspace/mcps-transport-exclusivity.js";
+import { mcpServerAgentDriftRule } from "./workspace/mcps-agent-drift.js";
+import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation

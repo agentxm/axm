@@ -13,6 +13,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
+  augmentInventory,
   inventoryActivation,
   inventoryState,
   inventorySummary,
@@ -61,17 +62,13 @@ export const handleListFiles = Effect.fn("ListFiles.handle")(function* () {
     locked: locked[row.name] !== undefined,
   }));
   const details = new Map(items.map((item) => [item.name, item]));
-  const output = {
-    ...inventory,
-    items: inventory.items.map((row) => {
-      const item = details.get(row.name);
-      return {
-        ...row,
-        source: item?.source ?? row.origins.join(", "),
-        locked: item?.locked ?? false,
-      };
-    }),
-  };
+  const output = augmentInventory(inventory, (row) => {
+    const item = details.get(row.name);
+    return {
+      source: item?.source ?? row.origins.join(", "),
+      locked: item?.locked ?? false,
+    };
+  });
 
   if (yield* renderer.result(output, ExtensionInventorySchema)) return;
   if (items.length === 0) {

@@ -15,7 +15,12 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../../workspace/test-stubs.js";
+import {
+  configuredRow,
+  makeBaseWorkspaceMock,
+  makeRegistrySkillLockEntry,
+  rowsFor,
+} from "../../workspace/test-stubs.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
@@ -55,33 +60,16 @@ const makeWorkspaceMock = (
   const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredSkills: () =>
-      Effect.succeed(
-        Object.fromEntries(
-          Object.entries(settingsSkills).map(([k, v]) => [
-            k,
-            {
-              source: getConfiguredSkillSource(v),
-              enabled: isConfiguredSkillEnabled(v),
-              packagingKind: "non-native" as const,
-            },
-          ]),
-        ),
+    rows: rowsFor({
+      skill: Object.entries(settingsSkills).map(([name, value]) =>
+        configuredRow({
+          type: "skill",
+          name,
+          source: getConfiguredSkillSource(value),
+          enabled: isConfiguredSkillEnabled(value),
+        }),
       ),
-    getInstalledSkills: () =>
-      Effect.succeed(
-        Object.fromEntries(
-          Object.entries(settingsSkills).map(([k, v]) => [
-            k,
-            {
-              lifecycle: "configured" as const,
-              source: getConfiguredSkillSource(v),
-              enabled: isConfiguredSkillEnabled(v),
-              packagingKind: "non-native" as const,
-            },
-          ]),
-        ),
-      ),
+    }),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
@@ -107,7 +95,6 @@ const makeWorkspaceMock = (
     },
     updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
     setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
-    getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
 

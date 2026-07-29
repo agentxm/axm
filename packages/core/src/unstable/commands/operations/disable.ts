@@ -19,6 +19,7 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { JobStepArtifact, Operation, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
+import { configuredRowsByName } from "../../workspace/read-model-record-rows.js";
 
 const commandVersion = (entry: CommandLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
@@ -114,9 +115,10 @@ export const disableCommand: OperationHandler<
     // Update settings to mark as disabled
     // For configured commands: update existing entry
     // For implicit commands (lockfile-only): promote to direct entry
-    const existingSettings = yield* ws.records
-      .getConfiguredCommands()
-      .pipe(Effect.catch(() => Effect.succeed({})));
+    const existingSettings = yield* ws.records.rows("command").pipe(
+      Effect.map(configuredRowsByName),
+      Effect.catch(() => Effect.succeed({})),
+    );
     if (op.args.commandName in existingSettings) {
       yield* ws
         .updateCommandEntry(op.args.commandName, (entry) => ({

@@ -12,18 +12,9 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import type {
   WorkspaceMutationsService,
-  ConfiguredSkill,
-  UnmanagedSkill,
-  InstalledSkill,
-  ConfiguredCommand,
-  UnmanagedCommand,
-  InstalledCommand,
-  ConfiguredSubagent,
-  InstalledSubagent,
-  ConfiguredExtensionRef,
-  UnmanagedExtensionRef,
-  InstalledExtensionRef,
   ExtensionInventory,
+  PackagingKind,
+  ReadModelRecordRow,
 } from "@agentxm/client-core/unstable/workspace";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -32,6 +23,7 @@ import {
   type ExtensionDependencyConstraintMap,
   type ExtensionName,
   type Handle,
+  type InstallableExtensionType,
   normalizeHandle,
 } from "@agentxm/client-core/unstable/extensions";
 import {
@@ -51,14 +43,13 @@ import {
   type VersionRange,
 } from "@agentxm/client-core/unstable/version-constraints";
 import { decodeRelativePathSync } from "@agentxm/client-core/unstable/utils";
-import type * as Record from "effect/Record";
 
-type R<T> = Effect.Effect<Record.ReadonlyRecord<string, T>, AppError>;
 type RA = Effect.Effect<ReadonlyArray<string>, AppError>;
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
   Partial<WorkspaceMutationsService["records"]>;
 
-const empty = <T>(): R<T> => Effect.succeed<Record.ReadonlyRecord<string, T>>({});
+const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
+  Effect.succeed([]);
 const emptyArr = (): RA => Effect.succeed([]);
 const emptyInventory = (): Effect.Effect<ExtensionInventory, AppError> =>
   Effect.succeed({
@@ -85,6 +76,62 @@ const path = (() => {
   return module;
 })();
 
+/** Build a `configured` read-model row for `records.rows` stubs. */
+export const configuredRow = (args: {
+  readonly type: InstallableExtensionType;
+  readonly name: string;
+  readonly source: string;
+  readonly enabled?: boolean;
+  readonly packagingKind?: PackagingKind;
+}): ReadModelRecordRow => ({
+  type: args.type,
+  name: args.name,
+  source: args.source,
+  enabled: args.enabled ?? true,
+  packagingKind: args.packagingKind ?? "native",
+  lifecycle: "configured",
+});
+
+/** Build an `implicit` read-model row (pack member or lockfile-only entry). */
+export const implicitRow = (args: {
+  readonly type: InstallableExtensionType;
+  readonly name: string;
+  readonly source?: string;
+  readonly packagingKind?: PackagingKind;
+}): ReadModelRecordRow => ({
+  type: args.type,
+  name: args.name,
+  source: Option.fromUndefinedOr(args.source),
+  enabled: true,
+  packagingKind: args.packagingKind ?? "native",
+  lifecycle: "implicit",
+});
+
+/** Build an `unmanaged` read-model row (observed on disk, unclaimed). */
+export const unmanagedRow = (args: {
+  readonly type: InstallableExtensionType;
+  readonly name: string;
+  readonly locations?: ReadonlyArray<string>;
+  readonly packagingKind?: PackagingKind;
+}): ReadModelRecordRow => ({
+  type: args.type,
+  name: args.name,
+  source: Option.none(),
+  enabled: true,
+  packagingKind: args.packagingKind ?? "non-native",
+  locations: args.locations ?? [],
+  lifecycle: "unmanaged",
+});
+
+/**
+ * Build a `records.rows` stub from per-type row lists. Types absent from the
+ * map yield an empty array, matching the real reader's totality.
+ */
+export const rowsFor =
+  (byType: Partial<Record<InstallableExtensionType, ReadonlyArray<ReadModelRecordRow>>>) =>
+  (type: InstallableExtensionType): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
+    Effect.succeed(byType[type] ?? []);
+
 /**
  * No-op stubs for all read-model record getters. Spread into mock objects:
  * ```ts
@@ -96,25 +143,7 @@ const path = (() => {
  */
 export const readModelRecordStubs = {
   getExtensionInventory: emptyInventory,
-  // Skill read-model records
-  getConfiguredSkills: empty<ConfiguredSkill>,
-  getUnmanagedSkills: empty<UnmanagedSkill>,
-  getInstalledSkills: empty<InstalledSkill>,
-  // Command read-model records
-  getConfiguredCommands: empty<ConfiguredCommand>,
-  getUnmanagedCommands: empty<UnmanagedCommand>,
-  getInstalledCommands: empty<InstalledCommand>,
-  // MCP Server read-model records
-  getConfiguredMcpServers: empty<ConfiguredExtensionRef>,
-  getUnmanagedMcpServers: empty<UnmanagedExtensionRef>,
-  getInstalledMcpServers: empty<InstalledExtensionRef>,
-  // Subagent read-model records
-  getConfiguredSubagents: empty<ConfiguredSubagent>,
-  getInstalledSubagents: empty<InstalledSubagent>,
-  // Pack read-model records
-  getConfiguredPacks: empty<ConfiguredExtensionRef>,
-  getUnmanagedPacks: empty<UnmanagedExtensionRef>,
-  getInstalledPacks: empty<InstalledExtensionRef>,
+  rows: emptyRows,
 } as const;
 
 /**
@@ -133,40 +162,10 @@ export const makeBaseWorkspaceMock = (
   overrides?: WorkspaceMockOverrides,
 ): WorkspaceMutationsService => {
   const baseDir = axmDir.replace(/\/\.axm$/, "") || "/tmp";
-  const {
-    getConfiguredSkills,
-    getUnmanagedSkills,
-    getInstalledSkills,
-    getConfiguredCommands,
-    getUnmanagedCommands,
-    getInstalledCommands,
-    getConfiguredSubagents,
-    getInstalledSubagents,
-    getConfiguredMcpServers,
-    getUnmanagedMcpServers,
-    getInstalledMcpServers,
-    getConfiguredPacks,
-    getUnmanagedPacks,
-    getInstalledPacks,
-    records: recordOverrides,
-    ...serviceOverrides
-  } = overrides ?? {};
+  const { rows, records: recordOverrides, ...serviceOverrides } = overrides ?? {};
   const records = {
     ...readModelRecordStubs,
-    ...(getConfiguredSkills === undefined ? {} : { getConfiguredSkills }),
-    ...(getUnmanagedSkills === undefined ? {} : { getUnmanagedSkills }),
-    ...(getInstalledSkills === undefined ? {} : { getInstalledSkills }),
-    ...(getConfiguredCommands === undefined ? {} : { getConfiguredCommands }),
-    ...(getUnmanagedCommands === undefined ? {} : { getUnmanagedCommands }),
-    ...(getInstalledCommands === undefined ? {} : { getInstalledCommands }),
-    ...(getConfiguredSubagents === undefined ? {} : { getConfiguredSubagents }),
-    ...(getInstalledSubagents === undefined ? {} : { getInstalledSubagents }),
-    ...(getConfiguredMcpServers === undefined ? {} : { getConfiguredMcpServers }),
-    ...(getUnmanagedMcpServers === undefined ? {} : { getUnmanagedMcpServers }),
-    ...(getInstalledMcpServers === undefined ? {} : { getInstalledMcpServers }),
-    ...(getConfiguredPacks === undefined ? {} : { getConfiguredPacks }),
-    ...(getUnmanagedPacks === undefined ? {} : { getUnmanagedPacks }),
-    ...(getInstalledPacks === undefined ? {} : { getInstalledPacks }),
+    ...(rows === undefined ? {} : { rows }),
     ...(recordOverrides ?? {}),
   };
   const base = {

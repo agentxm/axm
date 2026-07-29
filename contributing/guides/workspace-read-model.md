@@ -46,6 +46,50 @@ const fresh = yield * makeWorkspaceReadModel(scope);
 const settings = yield * fresh.state.settings;
 ```
 
+## Record Rows
+
+`WorkspaceMutations.records` exposes two readers: `getExtensionInventory(type,
+options)` and `rows(type)`. `rows` is total over `InstallableExtensionType` and
+non-throwing — a type with nothing installed yields an empty array — so a new
+extension type needs no new accessor.
+
+Each `ReadModelRecordRow` carries `type`, `name`, `source`, `enabled`,
+`packagingKind`, and a `lifecycle` discriminant. Narrow with the helpers in
+`workspace/read-model-record-rows.ts` rather than re-deriving predicates:
+
+```ts
+const configured = yield * ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
+```
+
+`configuredRowsByName`, `installedRowsByName`, and `unmanagedRowsByName` return
+name-indexed maps; `configuredRecordRows`, `installedRecordRows`, and
+`unmanagedRecordRows` return arrays when order matters.
+
+## Write-Path Fresh Reads
+
+Manager mutation flows deliberately do **not** read through `records.rows`.
+Each `WorkspaceMutations.getConfigured*Entries()` call builds a fresh
+`makeWorkspaceReadModel` instance, so a read taken mid-flow observes settings
+that the same flow just wrote. A command-scoped cached read model would return
+the pre-write snapshot and the materialize pass would skip or duplicate work.
+
+Leave these sites on `WorkspaceMutations`:
+
+- `files/manager.ts` — `materializeInstall` input resolution, `getConfiguredSource`,
+  `listMaterializable`, `upsertSettingsEntry` read-modify-write
+- `rules/manager.ts` — the render/sync pass over configured rules,
+  `getConfiguredSource`, `listMaterializable`
+- `hooks/manager.ts` — the render pass, the sync pass, `getConfiguredSource`,
+  `listMaterializable`, `upsertSettingsEntry` read-modify-write
+- `knowledge/manager.ts` — `writeIndex` during install/uninstall,
+  `getConfiguredSource`, `listMaterializable`
+- `mcps/operations/{install,enable,disable}.ts`, the `new-*` operations for
+  skills, subagents, and hooks, and the CLI `demote` settings dispatcher
+
+The invariant is behavioral, not typed: nothing stops a future mechanical
+migration from swapping one of these for a cached read. Check the flow writes
+settings before it reads them again before touching any of them.
+
 ## State Cells
 
 Use `state.settings` and `state.lockfile` when callers need decoded, typed

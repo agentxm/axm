@@ -11,6 +11,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
 import type { CodingAgent } from "../../agents/coding-agent.js";
+import { nonInteractiveFlag } from "../../cli-flags/index.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionRef } from "../../extensions/index.js";
@@ -122,7 +123,6 @@ const makeWorkspaceMock = (
                 cause: error,
               }),
           }),
-    getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
 
@@ -431,6 +431,58 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("success");
         expect(persistedEnv).toEqual({ PUBLIC_URL: "https://example.test" });
+      }),
+    );
+
+    it.effect("fails with the --env recipe when a required input is unset", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        fs.writeFileSync(
+          path.join(canonicalPath, "mcp.json"),
+          JSON.stringify({
+            owner: "@community",
+            type: "mcp-server",
+            name: "my-server",
+            version: "1.0.0",
+            server: {
+              name: "io.github.community/my-server",
+              description: "MCP server my-server",
+              version: "1.0.0",
+              packages: [
+                {
+                  registryType: "npm",
+                  identifier: "@community/my-server",
+                  version: "1.0.0",
+                  transport: { type: "stdio" },
+                  environmentVariables: [
+                    { name: "PUBLIC_URL", isRequired: true },
+                    { name: "REGION", isRequired: true },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+
+        const result = yield* Effect.result(
+          installMcpServer(
+            makeOp({
+              ref: makeRegistryRef({ integrity: "" }),
+              env: { PUBLIC_URL: "https://example.test" },
+            }),
+          ).pipe(
+            Effect.provide(withServices(axmDir)),
+            Effect.provideService(nonInteractiveFlag, Option.some(true)),
+          ),
+        );
+
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("usage");
+          expect(result.failure.detail).toContain("REGION");
+          expect(result.failure.suggestions?.[0]?.cmd).toBe("--env REGION=<value>");
+        }
       }),
     );
   });

@@ -18,39 +18,32 @@ export {
   resolveUserScopeDirPure,
 } from "./paths.js";
 
-// Read-model record conversion helpers
+// Read-model record rows + lifecycle views
 export {
-  toConfiguredCommandRecord,
-  toConfiguredExtensionRefRecord,
-  toConfiguredSkillRecord,
-  toInstalledCommandRecord,
-  toInstalledExtensionRefRecord,
-  toInstalledSkillRecord,
-  toUnmanagedCommandRecord,
-  toUnmanagedExtensionRefRecord,
-  toUnmanagedSkillRecord,
-} from "./read-model-record-converters.js";
+  configuredRecordRows,
+  configuredRowsByName,
+  installedRecordRows,
+  installedRowsByName,
+  isConfiguredRecordRow,
+  isInstalledRecordRow,
+  isUnmanagedRecordRow,
+  recordRowsByName,
+  unmanagedRecordRows,
+  unmanagedRowsByName,
+  type ConfiguredRecordRow,
+  type ImplicitRecordRow,
+  type InstalledRecordRow,
+  type UnmanagedRecordRow,
+} from "./read-model-record-rows.js";
 
-// Read-model record types
-export type {
-  ReadModelRecordRow,
-  ConfiguredCommand,
-  ConfiguredExtensionRef,
-  ConfiguredSkill,
-  ConfiguredSubagent,
-  ImplicitCommand,
-  ImplicitExtensionRef,
-  ImplicitSkill,
-  ImplicitSubagent,
-  InstalledCommand,
-  InstalledExtensionRef,
-  InstalledSkill,
-  InstalledSubagent,
-  PackagingKind,
-  UnmanagedCommand,
-  UnmanagedExtensionRef,
-  UnmanagedSkill,
-} from "./read-model-record-types.js";
+export type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
+
+export {
+  getLockedEntries,
+  lockEntryVersion,
+  type AnyLockEntry,
+  type AnyLockMap,
+} from "./locked-entries.js";
 
 // Reconciliation
 export {
@@ -246,6 +239,14 @@ export {
   collectRuleCurrency,
   collectSkillCurrency,
   collectSkillSourceFreshness,
+  collectCommandSourceFreshness,
+  collectMcpServerSourceFreshness,
+  collectSubagentSourceFreshness,
+  collectFilesSourceFreshness,
+  collectRuleSourceFreshness,
+  collectHookSourceFreshness,
+  collectKnowledgeSourceFreshness,
+  sourceFreshnessCollectors,
   collectSubagentCurrency,
   type CurrencyResult,
   type CurrencyStatus,

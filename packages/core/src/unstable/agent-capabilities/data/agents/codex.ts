@@ -160,41 +160,6 @@ export const codexAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://github.com/openai/codex/blob/main/docs/agents_md.md"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -337,6 +302,27 @@ export const codexAgent = {
         },
         lastVerified: "2026-07-22",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://github.com/openai/codex/blob/main/docs/agents_md.md"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

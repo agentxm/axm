@@ -1,6 +1,7 @@
 import {
   decodeExtensionNameSync,
   type ExtensionName,
+  extensionTypeToPlural,
   parseExtensionFqnParts,
 } from "../extensions/index.js";
 import { PackManifestSchema, PACK_MANIFEST_FILENAME } from "./manifest-schema.js";
@@ -53,54 +54,22 @@ const parsePackDependency = (
     return Option.none();
   }
 
-  switch (parsed.type) {
-    case "skill":
-      return Option.some({
-        type: "skills",
-        owner: parsed.owner,
-        name: parsed.name,
-        source: fqn,
-        declarationSourceOrConstraint: constraint,
-        order,
-        origin: "pack",
-      });
-    case "command":
-      return Option.some({
-        type: "commands",
-        owner: parsed.owner,
-        name: parsed.name,
-        source: fqn,
-        declarationSourceOrConstraint: constraint,
-        order,
-        origin: "pack",
-      });
-    case "mcp-server":
-      return Option.some({
-        type: "mcps",
-        owner: parsed.owner,
-        name: parsed.name,
-        source: fqn,
-        declarationSourceOrConstraint: constraint,
-        order,
-        origin: "pack",
-      });
-    case "subagent":
-      return Option.some({
-        type: "subagents",
-        owner: parsed.owner,
-        name: parsed.name,
-        source: fqn,
-        declarationSourceOrConstraint: constraint,
-        order,
-        origin: "pack",
-      });
-    case "files":
-    case "rule":
-    case "hook":
-    case "knowledge":
-    case "pack":
-      return Option.none();
+  // Packs cannot nest; every other type declares a pack-origin member. Mapping
+  // through the shared plural table keeps a new extension type from being
+  // silently dropped — it would fail to satisfy ReconcileExtensionType instead.
+  if (parsed.type === "pack") {
+    return Option.none();
   }
+
+  return Option.some({
+    type: extensionTypeToPlural[parsed.type],
+    owner: parsed.owner,
+    name: parsed.name,
+    source: fqn,
+    declarationSourceOrConstraint: constraint,
+    order,
+    origin: "pack",
+  });
 };
 
 const collectPackDependencyDeclarations = (

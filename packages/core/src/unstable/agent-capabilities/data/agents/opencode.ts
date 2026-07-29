@@ -130,42 +130,6 @@ export const opencodeAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "OpenCode reads AGENTS.md project rules, a global ~/.config/opencode/AGENTS.md, and Claude-compatible CLAUDE.md fallbacks. AXM can target the universal AGENTS.md project file.",
-        docs: [],
-        sources: ["https://opencode.ai/docs/rules/"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -184,6 +148,28 @@ export const opencodeAgent = {
         reason:
           "OpenCode hooks are in-process JavaScript plugin exports, not declarative config; AXM's command-stdin serializer has no way to emit them.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "OpenCode reads AGENTS.md project rules, a global ~/.config/opencode/AGENTS.md, and Claude-compatible CLAUDE.md fallbacks. AXM can target the universal AGENTS.md project file.",
+      docs: [],
+      sources: ["https://opencode.ai/docs/rules/"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

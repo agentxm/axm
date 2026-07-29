@@ -77,8 +77,6 @@ const makeWorkspaceMock = (
   const setSkillFn = overrides?.setSkillFn;
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(overrides?.configuredAgents ?? ["claude-code"]),
     getLockedSkills: () => Effect.succeed(readLf().skills ?? {}),
     getLockedSkill: (name: string) =>
@@ -140,7 +138,6 @@ const makeWorkspaceMock = (
                 cause: error,
               }),
           }),
-    getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
 

@@ -24,6 +24,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/index.js";
 import { parseFqnOrThrow } from "../../extensions/index.js";
+import { configuredRowsByName } from "../../workspace/read-model-record-rows.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -88,10 +89,16 @@ export const unpackPack: OperationHandler<UnpackPackOperation, WorkspaceMutation
     const now = yield* DateTime.now;
 
     // Read current configured extensions to preserve existing direct entries
-    const currentSkills = yield* ws.records.getConfiguredSkills();
-    const currentCommands = yield* ws.records.getConfiguredCommands();
-    const currentMcpServers = yield* ws.records.getConfiguredMcpServers();
-    const currentSubagents = yield* ws.records.getConfiguredSubagents();
+    const currentSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
+    const currentCommands = yield* ws.records
+      .rows("command")
+      .pipe(Effect.map(configuredRowsByName));
+    const currentMcpServers = yield* ws.records
+      .rows("mcp-server")
+      .pipe(Effect.map(configuredRowsByName));
+    const currentSubagents = yield* ws.records
+      .rows("subagent")
+      .pipe(Effect.map(configuredRowsByName));
 
     // Add resolved skills as direct entries (only if not already present)
     // Use the short name from the FQN as the settings key since SkillsMapSchema

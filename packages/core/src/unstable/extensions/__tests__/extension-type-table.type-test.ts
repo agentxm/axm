@@ -16,9 +16,16 @@ import type {
   InputType,
   PerAgentType,
   RegistryType,
+  SpecTrackedType,
+  WorkspaceCapabilityType,
   WorkspaceType,
 } from "../common.js";
 import type { CatalogExtensionType, LeafExtensionType } from "../../extension-types/schema.js";
+import type {
+  Agent,
+  AgentCapabilities,
+  StandardsCompliance,
+} from "../../agent-capabilities/schema.js";
 
 type _PerAgentExpected = "skill" | "command" | "mcp-server" | "subagent" | "hook";
 type _PerAgentNoExtra = [Exclude<PerAgentType, _PerAgentExpected>] extends [never] ? true : false;
@@ -58,6 +65,73 @@ type _BodyGovernedNoMissing = [Exclude<_BodyGovernedExpected, BodyGovernedType>]
   : false;
 const _bodyGovernedNoMissing = true as const satisfies _BodyGovernedNoMissing;
 
+type _WorkspaceCapabilityExpected = "rule";
+type _WorkspaceCapabilityNoExtra = [
+  Exclude<WorkspaceCapabilityType, _WorkspaceCapabilityExpected>,
+] extends [never]
+  ? true
+  : false;
+const _workspaceCapabilityNoExtra = true as const satisfies _WorkspaceCapabilityNoExtra;
+type _WorkspaceCapabilityNoMissing = [
+  Exclude<_WorkspaceCapabilityExpected, WorkspaceCapabilityType>,
+] extends [never]
+  ? true
+  : false;
+const _workspaceCapabilityNoMissing = true as const satisfies _WorkspaceCapabilityNoMissing;
+
+// The agent capability map is keyed on the placement axis: every per-agent type
+// has a capability slot, and nothing else does. A workspace-placed type that
+// gains a slot fails the no-extra direction; a per-agent type without one fails
+// the no-missing direction.
+type _CapabilityKeysArePerAgent = [Exclude<keyof AgentCapabilities, PerAgentType>] extends [never]
+  ? true
+  : false;
+const _capabilityKeysArePerAgent = true as const satisfies _CapabilityKeysArePerAgent;
+type _PerAgentAreCapabilityKeys = [Exclude<PerAgentType, keyof AgentCapabilities>] extends [never]
+  ? true
+  : false;
+const _perAgentAreCapabilityKeys = true as const satisfies _PerAgentAreCapabilityKeys;
+
+// A capability schema carries a standards-compliance grade exactly when the
+// `governs` axis names a standard for that type. Hand-applying the spec-tracked
+// fields to one more (or one fewer) capability schema fails one direction here.
+type _CatalogCapabilities = AgentCapabilities & { readonly rule: Agent["instructions"] };
+type _NativeOf<Capability> = Capability extends { readonly native: infer Native } ? Native : never;
+type _Graded<Capability> = [
+  Extract<_NativeOf<Capability>, { readonly standardsCompliance: StandardsCompliance }>,
+] extends [never]
+  ? false
+  : true;
+type _GradedCapabilityType = {
+  [Type in keyof _CatalogCapabilities]: _Graded<_CatalogCapabilities[Type]> extends true
+    ? Type
+    : never;
+}[keyof _CatalogCapabilities];
+
+type _SpecTrackedCapabilityExpected = Extract<SpecTrackedType, keyof _CatalogCapabilities>;
+type _GradedNoExtra = [Exclude<_GradedCapabilityType, _SpecTrackedCapabilityExpected>] extends [
+  never,
+]
+  ? true
+  : false;
+const _gradedNoExtra = true as const satisfies _GradedNoExtra;
+type _GradedNoMissing = [Exclude<_SpecTrackedCapabilityExpected, _GradedCapabilityType>] extends [
+  never,
+]
+  ? true
+  : false;
+const _gradedNoMissing = true as const satisfies _GradedNoMissing;
+
+type _SpecTrackedExpected = "skill" | "mcp-server" | "rule" | "knowledge";
+type _SpecTrackedNoExtra = [Exclude<SpecTrackedType, _SpecTrackedExpected>] extends [never]
+  ? true
+  : false;
+const _specTrackedNoExtra = true as const satisfies _SpecTrackedNoExtra;
+type _SpecTrackedNoMissing = [Exclude<_SpecTrackedExpected, SpecTrackedType>] extends [never]
+  ? true
+  : false;
+const _specTrackedNoMissing = true as const satisfies _SpecTrackedNoMissing;
+
 // Alignment pins with the extension-types registries: the catalog's 8-member
 // union is exactly the registry-distributed set, and the leaf set is exactly
 // the registry set minus knowledge.
@@ -94,6 +168,14 @@ export type _Refs = [
   typeof _inputNoMissing,
   typeof _bodyGovernedNoExtra,
   typeof _bodyGovernedNoMissing,
+  typeof _workspaceCapabilityNoExtra,
+  typeof _workspaceCapabilityNoMissing,
+  typeof _capabilityKeysArePerAgent,
+  typeof _perAgentAreCapabilityKeys,
+  typeof _gradedNoExtra,
+  typeof _gradedNoMissing,
+  typeof _specTrackedNoExtra,
+  typeof _specTrackedNoMissing,
   typeof _catalogIsRegistry,
   typeof _registryIsCatalog,
   typeof _leafIsRegistryMinusKnowledge,

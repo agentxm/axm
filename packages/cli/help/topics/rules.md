@@ -5,6 +5,11 @@ agent how to work in this repo. AXM keeps one file under your control and
 propagates it to each configured agent's native convention so you never have to
 hand-maintain `CLAUDE.md`, `GEMINI.md`, `AGENTS.md`, and friends in parallel.
 
+The governing standard for this extension type is
+[AGENTS.md](https://agents.md), the cross-vendor convention for a single
+instruction file at the root of a repository. AXM treats that file as the
+source of truth and derives every agent-specific alias from it.
+
 ## Source of truth
 
 The default source file is `AGENTS.md` at the workspace root. AXM also walks
@@ -57,8 +62,8 @@ automatically:
   Cursor setups) are currently reported as `unsupported`; manage those files
   manually.
 
-Run `axm rules` to see the mechanism, target file, and health for each
-configured agent and propagation root.
+Run `axm rules instructions` to see the mechanism, target file, and health for
+each configured agent and propagation root.
 
 ## Installable rule extensions
 
@@ -68,16 +73,19 @@ body into the managed `region=rules` block in the workspace instruction source,
 then the existing instruction propagation sends that source to configured
 agents.
 
-Install or remove rules through the generic extension commands:
+Install, inspect, and remove rules through the `axm rules` group:
 
 ```bash
-axm install @owner/rules/<name>
-axm uninstall @owner/rules/<name>
+axm rules install @owner/rules/<name>
+axm rules list
+axm rules show <name>
+axm rules uninstall <name>
 ```
 
 Rules are tracked in `.axm/settings.json` under `rules` and in
-`.axm/axm-lock.yaml` under `rules`. Set a rule entry to `{ "enabled": false }`
-to keep it installed but omit it from the rendered guidance region.
+`.axm/axm-lock.yaml` under `rules`. `axm rules disable <name>` keeps a rule
+installed but omits it from the rendered guidance region; `axm rules enable
+<name>` restores it.
 
 Run `axm help rule-schema` to inspect the raw `rule.json` schema.
 
@@ -86,12 +94,27 @@ Run `axm help rule-schema` to inspect the raw `rule.json` schema.
 All commands live under `axm rules` and accept `--scope project` (default) or
 `--scope user`.
 
-- `axm rules enable [--file AGENTS.md] [--gitignore|--no-gitignore]`
+Rule extensions:
+
+- `axm rules new <name>` — scaffold a rule package.
+- `axm rules install [source]` — install one rule, or reinstall the configured
+  set when the source is omitted.
+- `axm rules list` — inventory detected rules and their lifecycle
+  classification.
+- `axm rules show <name>` — installed-state detail for one rule.
+- `axm rules enable <name>` / `axm rules disable <name>` — activate or
+  deactivate an installed rule.
+- `axm rules update [source] [--name <glob>]` — update configured rules.
+- `axm rules uninstall <name>` — remove a rule.
+
+Instruction-file management:
+
+- `axm rules instructions` — show source file, target file, mechanism, and
+  health for each configured agent.
+- `axm rules instructions enable [--file AGENTS.md] [--gitignore|--no-gitignore]`
   — turn management on and write the resolved config to settings.
-- `axm rules disable` — set `instructions: false` so AXM stops touching
-  instruction files.
-- `axm rules` — show source file, target file, mechanism, and health for each
-  configured agent (default action with no subcommand).
+- `axm rules instructions disable` — set `instructions: false` so AXM stops
+  touching instruction files.
 
 ## Diagnosis and repair
 

@@ -1117,9 +1117,9 @@ describe("displayPlan", () => {
         );
 
         expect(state.suggestions).toEqual([
-          { description: "Inspect installed hooks packages", cmd: "axm hooks list" },
+          { description: "Inspect installed hooks", cmd: "axm hooks list" },
           { description: "Undo", cmd: "axm hooks disable identity-check" },
-          { description: "Inspect installed hooks packages", cmd: "axm hooks list" },
+          { description: "Inspect installed hooks", cmd: "axm hooks list" },
           { description: "Undo", cmd: "axm hooks enable identity-check" },
         ]);
       }),
@@ -1158,8 +1158,8 @@ describe("displayPlan", () => {
           "Enabled instruction-file management to this project",
         );
         expect(state.suggestions).toEqual([
-          { description: "Inspect instruction-file management", cmd: "axm rules" },
-          { description: "Undo", cmd: "axm rules disable" },
+          { description: "Inspect instruction-file management", cmd: "axm rules instructions" },
+          { description: "Undo", cmd: "axm rules instructions disable" },
         ]);
       }),
     ),

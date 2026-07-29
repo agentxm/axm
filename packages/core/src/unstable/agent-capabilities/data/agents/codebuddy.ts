@@ -133,43 +133,6 @@ export const codebuddyAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "CodeBuddy loads CODEBUDDY.md plus nested .codebuddy/rules instruction files and supports @path imports.",
-        docs: [],
-        sources: ["https://www.codebuddy.ai/docs/cli/memory"],
-        scopes: ["user", "project"],
-        standardsCompliance: "none",
-        convention: "vendor",
-        kind: "own-file",
-        files: ["CODEBUDDY.md"],
-        nestedDiscovery: true,
-        importSyntax: "at-path",
-        directory: ".codebuddy/rules",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -310,6 +273,29 @@ export const codebuddyAgent = {
         },
         lastVerified: "2026-07-22",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "CodeBuddy loads CODEBUDDY.md plus nested .codebuddy/rules instruction files and supports @path imports.",
+      docs: [],
+      sources: ["https://www.codebuddy.ai/docs/cli/memory"],
+      scopes: ["user", "project"],
+      standardsCompliance: "none",
+      convention: "vendor",
+      kind: "own-file",
+      files: ["CODEBUDDY.md"],
+      nestedDiscovery: true,
+      importSyntax: "at-path",
+      directory: ".codebuddy/rules",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

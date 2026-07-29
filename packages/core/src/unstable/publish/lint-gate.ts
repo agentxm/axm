@@ -12,6 +12,7 @@ import type {
   CommandRuleContext,
   FilesRuleContext,
   HookRuleContext,
+  KnowledgeRuleContext,
   McpServerRuleContext,
   PackRuleContext,
   SkillRuleContext,
@@ -22,6 +23,7 @@ import {
   commandRules,
   filesRules,
   hookRules,
+  knowledgeRules,
   mcpServerRules,
   packRules,
   skillRules,
@@ -106,10 +108,7 @@ export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, A
     case "files":
       return evaluateFiles(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "knowledge":
-      // Knowledge bundles have no lint catalog yet; the arm exists so the call
-      // site stays total over `PublishableType`. Knowledge publish validation
-      // currently runs through `inspectKnowledgeBundle` in the CLI publish path.
-      return Effect.void;
+      return evaluateKnowledge(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
   }
 };
 
@@ -198,6 +197,18 @@ const evaluateFiles = (args: Extract<PublishLintArgs, { readonly type: "files" }
     displayRoot: "",
   };
   return evaluateContexts(filesRules, [context], platformCanonicalLintConfig).pipe(
+    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
+  );
+};
+
+const evaluateKnowledge = (args: Extract<PublishLintArgs, { readonly type: "knowledge" }>) => {
+  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
+  const context: KnowledgeRuleContext = {
+    subject: { knowledgeJson: args.manifestJson },
+    files,
+    displayRoot: "",
+  };
+  return evaluateContexts(knowledgeRules, [context], platformCanonicalLintConfig).pipe(
     Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
   );
 };

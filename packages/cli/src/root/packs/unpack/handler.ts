@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
 import type { InstallCommandOperation } from "@agentxm/client-core/unstable/commands";
 import type { InstallMcpServerOperation } from "@agentxm/client-core/unstable/mcps";
 import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
@@ -135,6 +135,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     ["files", entry.resolvedFiles],
     ["rules", entry.resolvedRules],
     ["hooks", entry.resolvedHooks],
+    ["knowledge", entry.resolvedKnowledge],
   ] as const;
   const droppedTypes = unpromotableMembers
     .filter(([, map]) => map !== undefined && Object.keys(map).length > 0)
@@ -224,9 +225,13 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
   );
 
   // Load configured extensions for no-op detection
-  const configuredSkills = yield* ws.records.getConfiguredSkills();
-  const configuredCommands = yield* ws.records.getConfiguredCommands();
-  const configuredMcpServers = yield* ws.records.getConfiguredMcpServers();
+  const configuredSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
+  const configuredCommands = yield* ws.records
+    .rows("command")
+    .pipe(Effect.map(configuredRowsByName));
+  const configuredMcpServers = yield* ws.records
+    .rows("mcp-server")
+    .pipe(Effect.map(configuredRowsByName));
 
   // Build and execute plan
   const plan = yield* buildUnpackPlan({

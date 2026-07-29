@@ -15,6 +15,12 @@ import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import {
+  EXTENSION_TYPE_TABLE,
+  extensionTypes,
+  toExtensionTypePlural,
+  type ExtensionType,
+} from "../../../extensions/common.js";
 import { buildFixture, type FixtureSpec } from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeCanonicalExtensionsScanner } from "../scanners/canonical-extensions.js";
@@ -157,25 +163,27 @@ describe("canonical-extensions scanner", () => {
     }).pipe(Effect.provide(Path.layer)),
   );
 
-  it.effect("covers all seven extension types under one owner", () =>
+  it.effect("covers every extension type under one owner", () =>
     Effect.gen(function* () {
-      const types = ["skills", "commands", "mcps", "subagents", "files", "rules", "packs"] as const;
+      // Container types hold their members directly; every other type nests its
+      // content under `src/`. Both the set of types and that distinction come
+      // from the catalog, so a new type joins this case without an edit here.
+      const markerFor = (type: ExtensionType) =>
+        EXTENSION_TYPE_TABLE[type].placement === "container"
+          ? `@owner/${toExtensionTypePlural(type)}/sample/marker`
+          : `@owner/${toExtensionTypePlural(type)}/sample/src/marker`;
+
       const project: FixtureSpec["project"] = {
-        axmExtensions: Object.fromEntries(
-          types.map((type) => [
-            type === "packs" ? `@owner/${type}/sample/marker` : `@owner/${type}/sample/src/marker`,
-            "ok\n",
-          ]),
-        ),
+        axmExtensions: Object.fromEntries(extensionTypes.map((type) => [markerFor(type), "ok\n"])),
       };
       const { occurrences } = yield* runScanner({
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project,
       });
-      expect(occurrences).toHaveLength(7);
+      expect(occurrences).toHaveLength(extensionTypes.length);
       const observedTypes = new Set(occurrences.map((o) => o.type));
-      expect(observedTypes.size).toBe(7);
+      expect(observedTypes.size).toBe(extensionTypes.length);
     }).pipe(Effect.provide(Path.layer)),
   );
 

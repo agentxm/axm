@@ -2,9 +2,10 @@
  * `workspace/packs-dependencies-resolved` — every pack-declared dependency
  * FQN is installed.
  *
- * For each `RegistryPackLockEntry`, every FQN appearing in
- * `resolvedSkills`, `resolvedCommands`, `resolvedMcpServers`, or
- * `resolvedSubagents` has a matching installed member lock entry.
+ * For each `RegistryPackLockEntry`, every FQN appearing in any `resolved*` map
+ * has a matching installed member lock entry. The family table is total over
+ * every non-pack extension type, so a pack that depends on a context package,
+ * rule, hook, or knowledge bundle is checked like any other member.
  *
  * One finding per missing dependency (per-entity cascade). Advisory.
  *
@@ -18,6 +19,11 @@ import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { type Lockfile, type PackLockEntry } from "../../../lockfile/schema.js";
+import {
+  extensionTypeSentenceLabels,
+  extensionTypeToPlural,
+  type ExtensionType,
+} from "../../../extensions/common.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/packs-dependencies-resolved";
@@ -47,41 +53,81 @@ const isInstalledFragment = (entry: unknown): entry is InstalledEntryFragment =>
   );
 };
 
+/** Packs cannot contain packs, so every other extension type is a member type. */
+type MemberType = Exclude<ExtensionType, "pack">;
+
+/**
+ * Where each member type's installed lock entries and pack-resolved FQNs live.
+ * Total over `MemberType`: a new extension type fails compile here until its
+ * pack-dependency coverage is decided.
+ */
+const MEMBER_FAMILIES = {
+  skill: {
+    installed: (lockfile: Lockfile) => lockfile.skills,
+    resolved: (pack: PackLockEntry) => pack.resolvedSkills,
+  },
+  command: {
+    installed: (lockfile: Lockfile) => lockfile.commands,
+    resolved: (pack: PackLockEntry) => pack.resolvedCommands,
+  },
+  subagent: {
+    installed: (lockfile: Lockfile) => lockfile.subagents,
+    resolved: (pack: PackLockEntry) => pack.resolvedSubagents,
+  },
+  "mcp-server": {
+    installed: (lockfile: Lockfile) => lockfile.mcpServers,
+    resolved: (pack: PackLockEntry) => pack.resolvedMcpServers,
+  },
+  files: {
+    installed: (lockfile: Lockfile) => lockfile.files,
+    resolved: (pack: PackLockEntry) => pack.resolvedFiles,
+  },
+  rule: {
+    installed: (lockfile: Lockfile) => lockfile.rules,
+    resolved: (pack: PackLockEntry) => pack.resolvedRules,
+  },
+  hook: {
+    installed: (lockfile: Lockfile) => lockfile.hooks,
+    resolved: (pack: PackLockEntry) => pack.resolvedHooks,
+  },
+  knowledge: {
+    installed: (lockfile: Lockfile) => lockfile.knowledge,
+    resolved: (pack: PackLockEntry) => pack.resolvedKnowledge,
+  },
+} as const satisfies Record<
+  MemberType,
+  {
+    readonly installed: (lockfile: Lockfile) => Readonly<Record<string, unknown>> | undefined;
+    readonly resolved: (pack: PackLockEntry) => Readonly<Record<string, unknown>> | undefined;
+  }
+>;
+
+/** Walk order; findings render in this order. */
+const MEMBER_ORDER: ReadonlyArray<MemberType> = [
+  "skill",
+  "command",
+  "subagent",
+  "mcp-server",
+  "files",
+  "rule",
+  "hook",
+  "knowledge",
+];
+
 export const buildInstalledFqnIndex = (lockfile: Lockfile): ReadonlySet<string> => {
   const set = new Set<string>();
-  const absorb = (
-    typeSegment: string,
-    map: Readonly<Record<string, unknown>> | undefined,
-  ): void => {
+  for (const type of MEMBER_ORDER) {
+    const map = MEMBER_FAMILIES[type].installed(lockfile);
     if (map === undefined) {
-      return;
+      continue;
     }
     for (const entry of Object.values(map)) {
       if (isInstalledFragment(entry)) {
-        set.add(`${entry.owner}/${typeSegment}/${entry.name}`);
+        set.add(`${entry.owner}/${extensionTypeToPlural[type]}/${entry.name}`);
       }
     }
-  };
-  absorb("skills", lockfile.skills);
-  absorb("commands", lockfile.commands);
-  absorb("subagents", lockfile.subagents);
-  absorb("mcps", lockfile.mcpServers);
-  return set;
-};
-
-const singularDependencyType = (typeSegment: string): string => {
-  switch (typeSegment) {
-    case "skills":
-      return "skill";
-    case "commands":
-      return "command";
-    case "subagents":
-      return "subagent";
-    case "mcps":
-      return "MCP server";
-    default:
-      return typeSegment;
   }
+  return set;
 };
 
 const packInstallSpecifier = (entry: PackLockEntry, packName: string): string =>
@@ -91,13 +137,13 @@ const missingDependencyFinding = (
   packName: string,
   packSpecifier: string,
   dependencyFqn: string,
-  dependencyType: string,
+  dependencyType: MemberType,
 ): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message:
-    `Pack '${packName}' requires ${singularDependencyType(dependencyType)} '${dependencyFqn}', but that ${singularDependencyType(dependencyType)} is not installed. ` +
+    `Pack '${packName}' requires ${extensionTypeSentenceLabels[dependencyType]} '${dependencyFqn}', but that ${extensionTypeSentenceLabels[dependencyType]} is not installed. ` +
     `To restore it, run \`axm packs install ${packSpecifier}\`. ` +
     `If you no longer need '${packName}', run \`axm packs uninstall ${packName}\`.`,
   location: { file: LOCKFILE_REL },
@@ -105,12 +151,13 @@ const missingDependencyFinding = (
 
 const collectResolved = (
   entry: PackLockEntry,
-): ReadonlyArray<{ readonly fqn: string; readonly typeSegment: string }> => [
-  ...Object.keys(entry.resolvedSkills).map((fqn) => ({ fqn, typeSegment: "skills" })),
-  ...Object.keys(entry.resolvedCommands).map((fqn) => ({ fqn, typeSegment: "commands" })),
-  ...Object.keys(entry.resolvedSubagents).map((fqn) => ({ fqn, typeSegment: "subagents" })),
-  ...Object.keys(entry.resolvedMcpServers).map((fqn) => ({ fqn, typeSegment: "mcps" })),
-];
+): ReadonlyArray<{ readonly fqn: string; readonly memberType: MemberType }> =>
+  MEMBER_ORDER.flatMap((memberType) =>
+    Object.keys(MEMBER_FAMILIES[memberType].resolved(entry) ?? {}).map((fqn) => ({
+      fqn,
+      memberType,
+    })),
+  );
 
 export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -135,14 +182,14 @@ export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> =
       const installed = buildInstalledFqnIndex(lockOption.value);
       const findings: Array<AdvisoryFinding> = [];
       for (const [packName, packEntry] of Object.entries(packLock)) {
-        for (const { fqn, typeSegment } of collectResolved(packEntry)) {
+        for (const { fqn, memberType } of collectResolved(packEntry)) {
           if (!installed.has(fqn)) {
             findings.push(
               missingDependencyFinding(
                 packName,
                 packInstallSpecifier(packEntry, packName),
                 fqn,
-                typeSegment,
+                memberType,
               ),
             );
           }

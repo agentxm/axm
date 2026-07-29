@@ -36,10 +36,28 @@ export { collectFixOperations, evaluateContexts, type Evaluated } from "./evalua
 
 // Rule-context types and narrow file accessor interfaces
 export type {
+  CommandContent,
+  CommandFileAccessor,
+  CommandRuleContext,
   FileAccessError,
   FilesContent,
   FilesAccessor,
   FilesRuleContext,
+  HookContent,
+  HookFileAccessor,
+  HookRuleContext,
+  KnowledgeContent,
+  KnowledgeFileAccessor,
+  KnowledgeRuleContext,
+  McpServerContent,
+  McpServerFileAccessor,
+  McpServerRuleContext,
+  RuleContent,
+  RuleFileAccessor,
+  RuleRuleContext,
+  SubagentContent,
+  SubagentFileAccessor,
+  SubagentRuleContext,
   PackContent,
   PackFileAccessor,
   PackRuleContext,
@@ -49,6 +67,26 @@ export type {
   WorkspaceRuleContext,
   WorkspaceSubject,
 } from "./context.js";
+
+// Catalog table — the exhaustive group -> rules / group -> contexts mapping
+// the runner drives off.
+export {
+  CATALOG_GROUP_ORDER,
+  DRIFT_DETECTED_GROUPS,
+  LINT_CATALOGS,
+  emptyCatalogRuleContexts,
+  type CatalogContext,
+  type CatalogGroup,
+  type CatalogRuleContexts,
+} from "./catalog-contexts.js";
+
+// `--json` document schema + derived types
+export {
+  LintJsonDocumentSchema,
+  LintJsonFindingSchema,
+  type LintJsonDocument,
+  type LintJsonFinding,
+} from "./json-schema.js";
 
 // Path rendering
 export { composePath } from "./compose-path.js";
@@ -88,8 +126,6 @@ export {
   type LintHumanDiagnostic,
   type LintHumanReporter,
   type LintExitCategory,
-  type LintJsonDocument,
-  type LintJsonFinding,
   type LintSummary,
   type RenderFindingsArgs,
   type RenderedFinding,

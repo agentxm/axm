@@ -1,5 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
+import { extensionTypeSentenceLabels, type ExtensionType } from "../../../extensions/common.js";
+import type { WorkspaceReadModel } from "../../../workspace/read-model/service.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { categorizeEntry } from "./helpers/source-categorize.js";
@@ -15,7 +17,7 @@ interface ActualWithOrigin {
 
 interface InstalledRow {
   readonly key: {
-    readonly type: string;
+    readonly type: ExtensionType;
     readonly name: string;
   };
   readonly activation: "enabled" | "disabled";
@@ -39,22 +41,46 @@ interface InstalledRow {
       };
 }
 
-const extensionLabel = (type: string): string => {
-  switch (type) {
-    case "mcp-server":
-      return "MCP server";
-    case "pack":
-      return "pack";
-    case "subagent":
-      return "subagent";
-    case "command":
-      return "command";
-    case "skill":
-      return "skill";
-    default:
-      return "extension";
-  }
-};
+/**
+ * Every read-model family whose rows this rule walks.
+ *
+ * Total over `ExtensionType`: the rule used to read five of the nine families
+ * and silently said nothing about a configured-but-absent context package,
+ * rule, hook, or knowledge bundle. Keyed off the type table, a new extension
+ * type now fails compile here until its coverage is decided.
+ */
+const INSTALLED_ROWS_BY_TYPE = {
+  skill: (workspace: WorkspaceReadModel) => workspace.skills.installed,
+  command: (workspace: WorkspaceReadModel) => workspace.commands.installed,
+  "mcp-server": (workspace: WorkspaceReadModel) => workspace.mcpServers.installed,
+  subagent: (workspace: WorkspaceReadModel) => workspace.subagents.installed,
+  files: (workspace: WorkspaceReadModel) => workspace.files.installed,
+  rule: (workspace: WorkspaceReadModel) => workspace.rules.installed,
+  hook: (workspace: WorkspaceReadModel) => workspace.hooks.installed,
+  knowledge: (workspace: WorkspaceReadModel) => workspace.knowledge.installed,
+  pack: (workspace: WorkspaceReadModel) => workspace.packs.installed,
+} satisfies Record<
+  ExtensionType,
+  (workspace: WorkspaceReadModel) => Effect.Effect<ReadonlyArray<InstalledRow>, unknown>
+>;
+
+/**
+ * Read order. Findings render in this order, so it is declared rather than
+ * derived from object key order.
+ */
+const READ_ORDER: ReadonlyArray<ExtensionType> = [
+  "skill",
+  "command",
+  "mcp-server",
+  "subagent",
+  "files",
+  "rule",
+  "hook",
+  "knowledge",
+  "pack",
+];
+
+const extensionLabel = (type: ExtensionType): string => extensionTypeSentenceLabels[type];
 
 const hasCanonicalContent = (actual: ReadonlyArray<ActualWithOrigin>): boolean =>
   actual.some(
@@ -119,24 +145,12 @@ export const configuredButNotInstalledRule: AdvisoryRule<WorkspaceRuleContext> =
   kind: "advisory",
   severity: "error",
   check: (context) =>
-    Effect.gen(function* () {
-      const [skills, commands, mcpServers, subagents, packs] = yield* Effect.all(
-        [
-          readRows(context.workspace.skills.installed),
-          readRows(context.workspace.commands.installed),
-          readRows(context.workspace.mcpServers.installed),
-          readRows(context.workspace.subagents.installed),
-          readRows(context.workspace.packs.installed),
-        ],
+    Effect.map(
+      Effect.forEach(
+        READ_ORDER,
+        (type) => readRows(INSTALLED_ROWS_BY_TYPE[type](context.workspace)),
         { concurrency: "unbounded" },
-      );
-
-      return [
-        ...checkRows(skills),
-        ...checkRows(commands),
-        ...checkRows(mcpServers),
-        ...checkRows(subagents),
-        ...checkRows(packs),
-      ];
-    }),
+      ),
+      (families) => families.flatMap(checkRows),
+    ),
 };

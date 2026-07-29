@@ -121,42 +121,6 @@ export const windsurfAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://docs.devin.ai/desktop/cascade/agents-md"],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        directory: ".devin/rules",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -304,6 +268,28 @@ export const windsurfAgent = {
         lastVerified: "2026-06-06",
         reason: "AXM has not implemented a Devin Desktop/Cascade hooks writer.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://docs.devin.ai/desktop/cascade/agents-md"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      directory: ".devin/rules",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

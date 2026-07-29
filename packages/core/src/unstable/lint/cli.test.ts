@@ -106,6 +106,20 @@ const workspace: WorkspaceRuleContext = {
   displayRoot: "",
 };
 
+/** Every group empty; tests spread this and override only the groups they exercise. */
+const noEvaluations: GroupEvaluations = {
+  skill: [],
+  pack: [],
+  command: [],
+  subagent: [],
+  "mcp-server": [],
+  files: [],
+  rule: [],
+  hook: [],
+  knowledge: [],
+  workspace: [],
+};
+
 describe("detectPublishGateDrift", () => {
   it("flags publish-gate rules weakened to off / info / warn", () => {
     const config: LintConfig = {
@@ -167,13 +181,14 @@ describe("resolveLintExitCategory", () => {
 describe("countFindings and summarizeEvaluations", () => {
   it("counts errors/warnings/infos across groups", () => {
     const evaluations: GroupEvaluations = {
-      skills: [
+      ...noEvaluations,
+      skill: [
         makeEvaluated<SkillRuleContext>({ id: "skill/manifest-present", severity: "error" })(
           skillCtx,
           [advisory("skill/manifest-present", "error")],
         ),
       ],
-      packs: [
+      pack: [
         makeEvaluated<PackRuleContext>({ id: "pack/manifest-present", severity: "error" })(
           packCtx,
           [advisory("pack/manifest-present", "warning")],
@@ -198,7 +213,7 @@ describe("countFindings and summarizeEvaluations", () => {
   });
 
   it("is clean when no findings are present", () => {
-    const evaluations: GroupEvaluations = { skills: [], packs: [], workspace: [] };
+    const evaluations: GroupEvaluations = noEvaluations;
     const summary = summarizeEvaluations(evaluations, {});
     expect(summary.counts).toEqual({ total: 0, errors: 0, warnings: 0, infos: 0 });
     expect(summary.exitCategory).toBe("clean");
@@ -206,8 +221,8 @@ describe("countFindings and summarizeEvaluations", () => {
 
   it("is warnings when only warning-severity findings are present", () => {
     const evaluations: GroupEvaluations = {
-      skills: [],
-      packs: [],
+      ...noEvaluations,
+      skill: [],
       workspace: [
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/agents-detected-declared",
@@ -223,8 +238,8 @@ describe("countFindings and summarizeEvaluations", () => {
 describe("renderFindingsText", () => {
   it("renders the default grouped reporter with overview, drift banner, and sections", () => {
     const evaluations: GroupEvaluations = {
-      skills: [],
-      packs: [],
+      ...noEvaluations,
+      skill: [],
       workspace: [
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/lockfile-valid",
@@ -252,13 +267,13 @@ describe("renderFindingsText", () => {
   });
 
   it("prints 'No findings.' for an empty clean summary", () => {
-    const summary = summarizeEvaluations({ skills: [], packs: [], workspace: [] }, {});
+    const summary = summarizeEvaluations(noEvaluations, {});
     const lines = renderFindingsText({ summary });
     expect(lines).toContain("No findings.");
   });
 
   it("appends the fix summary when provided", () => {
-    const summary = summarizeEvaluations({ skills: [], packs: [], workspace: [] }, {});
+    const summary = summarizeEvaluations(noEvaluations, {});
     const lines = renderFindingsText({
       summary,
       fixSummary: { attempted: 2, applied: 2, failed: 0, warnings: ["lockfile rewrite"] },
@@ -271,7 +286,8 @@ describe("renderFindingsText", () => {
 describe("toLintHumanBlocks", () => {
   it("builds grouped diagnostics by default", () => {
     const evaluations: GroupEvaluations = {
-      skills: [
+      ...noEvaluations,
+      skill: [
         makeEvaluated<SkillRuleContext>({ id: "skill/manifest-present", severity: "error" })(
           skillCtx,
           [
@@ -285,7 +301,6 @@ describe("toLintHumanBlocks", () => {
           ],
         ),
       ],
-      packs: [],
       workspace: [
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/lockfile-valid",
@@ -353,7 +368,8 @@ describe("toLintHumanBlocks", () => {
 
   it("builds an overview and path-grouped diagnostics for the full reporter", () => {
     const evaluations: GroupEvaluations = {
-      skills: [
+      ...noEvaluations,
+      skill: [
         makeEvaluated<SkillRuleContext>({ id: "skill/manifest-present", severity: "error" })(
           skillCtx,
           [
@@ -367,7 +383,6 @@ describe("toLintHumanBlocks", () => {
           ],
         ),
       ],
-      packs: [],
       workspace: [
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/lockfile-valid",
@@ -434,8 +449,8 @@ describe("toLintHumanBlocks", () => {
 
   it("groups unmanaged skills by their actual workspace skill directory", () => {
     const evaluations: GroupEvaluations = {
-      skills: [],
-      packs: [],
+      ...noEvaluations,
+      skill: [],
       workspace: [
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/skills-managed",
@@ -490,8 +505,8 @@ describe("toLintHumanBlocks", () => {
 
   it("keeps advisory findings from autofixing rules non-fixable and preserves their help", () => {
     const evaluations: GroupEvaluations = {
-      skills: [],
-      packs: [],
+      ...noEvaluations,
+      skill: [],
       workspace: [
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/skills-integrity-valid",
@@ -545,8 +560,8 @@ describe("toLintHumanBlocks", () => {
 describe("toLintJsonDocument", () => {
   it("emits findings[], summary, and driftBanner", () => {
     const evaluations: GroupEvaluations = {
-      skills: [],
-      packs: [],
+      ...noEvaluations,
+      skill: [],
       workspace: [
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/lockfile-valid",
@@ -567,7 +582,7 @@ describe("toLintJsonDocument", () => {
   });
 
   it("includes the fix block when a fix summary is provided", () => {
-    const summary = summarizeEvaluations({ skills: [], packs: [], workspace: [] }, {});
+    const summary = summarizeEvaluations(noEvaluations, {});
     const doc = toLintJsonDocument({
       summary,
       fixSummary: { attempted: 3, applied: 3, failed: 0, warnings: [] },
@@ -579,8 +594,8 @@ describe("toLintJsonDocument", () => {
 describe("collectAutofixableEntries", () => {
   it("returns only autofixable findings from autofixing rules", () => {
     const evaluations: GroupEvaluations = {
-      skills: [],
-      packs: [],
+      ...noEvaluations,
+      skill: [],
       workspace: [
         makeEvaluated<WorkspaceRuleContext>({
           id: "workspace/lockfile-valid",

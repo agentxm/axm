@@ -121,11 +121,26 @@ describe("Settings schema", () => {
         subagentsConfig: { ignore: ["draft-*"] },
         packsConfig: { ignore: ["legacy-*"] },
         mcpServersConfig: { ignore: ["test-*"] },
+        filesConfig: { ignore: ["vendor-*"] },
+        hooksConfig: { ignore: ["experimental-*"] },
+        knowledgeConfig: { ignore: ["scratch-*"] },
       };
       const decoded = Schema.decodeUnknownSync(SettingsSchema)(input);
       const encoded = Schema.encodeSync(SettingsSchema)(decoded);
 
       expect(encoded).toEqual(input);
+    });
+
+    it("exposes ignore lists for files, hooks, and knowledge", () => {
+      const decoded = Schema.decodeUnknownSync(SettingsSchema)({
+        filesConfig: { ignore: ["vendor-*"] },
+        hooksConfig: { ignore: ["experimental-*"] },
+        knowledgeConfig: { ignore: ["scratch-*"] },
+      });
+
+      expect(decoded.filesConfig?.ignore).toEqual(["vendor-*"]);
+      expect(decoded.hooksConfig?.ignore).toEqual(["experimental-*"]);
+      expect(decoded.knowledgeConfig?.ignore).toEqual(["scratch-*"]);
     });
 
     it("accepts workspace vars and context entries with scalar inputs", () => {

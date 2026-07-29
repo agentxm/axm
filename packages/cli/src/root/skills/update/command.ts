@@ -3,6 +3,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
+import { updateNameFilterFlag } from "../../shared/update-targets.js";
 import { handleUpdate } from "./handler.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
@@ -18,10 +19,12 @@ const updateConfig = {
     Flag.withDescription("Update only skills installed for specific agents"),
     Flag.atLeast(0),
   ),
-  skill: Flag.string("skill").pipe(
+  name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific skills by name or glob pattern"),
-    Flag.atLeast(0),
   ),
+  // Kept alongside --name so existing invocations keep working; both lists are
+  // merged into one filter set.
+  skill: Flag.string("skill").pipe(Flag.withDescription("Alias for --name"), Flag.atLeast(0)),
   yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
   force: forceFlag.pipe(
     Flag.withDescription("Update even if version constraints would prevent it"),
@@ -32,11 +35,15 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, agent, skill, yes, force, preview }) =>
-    handleUpdate({ source, agents: agent, skills: skill, yes, force, preview }).pipe(
-      withWorkspace(scope),
-      withRuntime("skills update"),
-    ),
+  ({ source, scope, agent, name, skill, yes, force, preview }) =>
+    handleUpdate({
+      source,
+      agents: agent,
+      skills: [...name, ...skill],
+      yes,
+      force,
+      preview,
+    }).pipe(withWorkspace(scope), withRuntime("skills update")),
 ).pipe(
   withArgvTracking(updateConfig),
   Command.withDescription("Update installed skills to latest versions"),

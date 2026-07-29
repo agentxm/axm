@@ -176,7 +176,7 @@ describe("view handler", () => {
 
   // `axm rules` only toggles instruction-file management, so rule extensions
   // must be pointed at the root installer rather than `axm rules install`.
-  it.effect("suggests the root install command for rule extensions", () => {
+  it.effect("suggests the per-type install command for rule extensions", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     initWorkspace(tempDir, registryRoot);
     writeRuleIndex(registryRoot);
@@ -192,7 +192,7 @@ describe("view handler", () => {
         expect(rendererState.results[0]?.data).toEqual(
           expect.objectContaining({
             data: expect.objectContaining({
-              install: "axm install @test/rules/house-style",
+              install: "axm rules install @test/rules/house-style",
             }),
           }),
         );

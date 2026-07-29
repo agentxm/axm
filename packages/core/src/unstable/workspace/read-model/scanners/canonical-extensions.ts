@@ -118,6 +118,8 @@ const extensionTypeFromLocalDir = (entry: string): ExtensionType | null => {
       return "rule";
     case "hooks":
       return "hook";
+    case "knowledge":
+      return "knowledge";
     case "packs":
       return "pack";
     default:

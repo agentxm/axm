@@ -118,6 +118,7 @@ export {
   type FilesExtensionsApiDeps,
   type FilesPackMember,
   type FilesScanners,
+  type FilesScopedLoaders,
   type IgnoredFilesCandidate,
   type InstalledFilesPackage,
   type InstalledPackForFiles,
@@ -125,6 +126,52 @@ export {
   type ResolvedFiles,
   type UnmanagedFilesPackage,
 } from "./files.js";
+
+// ---------------------------------------------------------------------------
+// Hook subject
+// ---------------------------------------------------------------------------
+
+export {
+  makeHookExtensionsApi,
+  type ActualHook,
+  type ActualHooks,
+  type DeclaredHook,
+  type DeclaredHooks,
+  type HookDetectionOrigin,
+  type HookExtensionsApi,
+  type HookExtensionsApiDeps,
+  type HookPackMember,
+  type HookScanners,
+  type HookScopedLoaders,
+  type IgnoredHookCandidate,
+  type InstalledHook,
+  type InstalledPackForHooks,
+  type ResolvedHook,
+  type ResolvedHooks,
+  type UnmanagedHook,
+} from "./hook.js";
+
+// ---------------------------------------------------------------------------
+// Knowledge subject
+// ---------------------------------------------------------------------------
+
+export {
+  makeKnowledgeExtensionsApi,
+  type ActualKnowledge,
+  type ActualKnowledgeBundle,
+  type DeclaredKnowledge,
+  type DeclaredKnowledgeBundle,
+  type IgnoredKnowledgeCandidate,
+  type InstalledKnowledgeBundle,
+  type KnowledgeDetectionOrigin,
+  type KnowledgeExtensionsApi,
+  type KnowledgeExtensionsApiDeps,
+  type KnowledgeScanners,
+  type KnowledgeScopedLoaders,
+  type ResolvedKnowledge,
+  type ResolvedKnowledgeBundle,
+  type UnmanagedKnowledgeBundle,
+} from "./knowledge.js";
 
 // ---------------------------------------------------------------------------
 // Rule subject

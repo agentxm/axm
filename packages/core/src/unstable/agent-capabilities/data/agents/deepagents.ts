@@ -99,45 +99,6 @@ export const deepagentsAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Project instructions are auto-discovered from .deepagents/AGENTS.md first and the repository-root AGENTS.md second; both are loaded as memory. User-level instructions live at ~/.deepagents/AGENTS.md.",
-        docs: [],
-        sources: [
-          "https://github.com/langchain-ai/deepagents/blob/main/libs/code/deepagents_code/project_utils.py",
-          "https://docs.langchain.com/oss/python/deepagents/overview",
-        ],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-24",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
@@ -151,6 +112,31 @@ export const deepagentsAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Project instructions are auto-discovered from .deepagents/AGENTS.md first and the repository-root AGENTS.md second; both are loaded as memory. User-level instructions live at ~/.deepagents/AGENTS.md.",
+      docs: [],
+      sources: [
+        "https://github.com/langchain-ai/deepagents/blob/main/libs/code/deepagents_code/project_utils.py",
+        "https://docs.langchain.com/oss/python/deepagents/overview",
+      ],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-24",
+      writer: null,
     },
   },
   permissions: {

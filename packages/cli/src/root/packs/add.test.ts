@@ -41,7 +41,13 @@ const initWorkspace = (
     profile?: string;
     packs?: Record<string, unknown>;
     skills?: Record<string, unknown>;
+    commands?: Record<string, unknown>;
+    rules?: Record<string, unknown>;
+    knowledge?: Record<string, unknown>;
     lockfileSkills?: Record<string, unknown>;
+    lockfileCommands?: Record<string, unknown>;
+    lockfileRules?: Record<string, unknown>;
+    lockfileKnowledge?: Record<string, unknown>;
   } = {},
 ) => {
   writeWorkspaceFiles(axmDir, {
@@ -56,8 +62,43 @@ const initWorkspace = (
             ]),
           ),
     skills: opts.skills,
+    commands: opts.commands,
+    rules: opts.rules,
+    knowledge: opts.knowledge,
     lockfileSkills: opts.lockfileSkills,
+    lockfileCommands: opts.lockfileCommands,
+    lockfileRules: opts.lockfileRules,
+    lockfileKnowledge: opts.lockfileKnowledge,
   });
+};
+
+/** Registry lock fields shared by every non-skill lock union used below. */
+const registryLockEntry = (name: string, version: string) => ({
+  type: "registry",
+  owner: "@acme",
+  name,
+  resolvedVersion: version,
+  integrity: "sha512-AAAA==",
+  sourceName: "local",
+  publisherBindingId: "hbnd_test",
+  installedAt: "2025-01-01T00:00:00.000Z",
+  updatedAt: "2025-01-01T00:00:00.000Z",
+});
+
+const readPackDependencies = (tempDir: string, pack: string): Record<string, string> => {
+  const manifestPath = path.join(
+    tempDir,
+    ".axm",
+    "extensions",
+    "@acme",
+    "packs",
+    pack,
+    "pack.json",
+  );
+  const manifest: { dependencies?: Record<string, string> } = JSON.parse(
+    fs.readFileSync(manifestPath, "utf-8"),
+  );
+  return manifest.dependencies ?? {};
 };
 
 const createPackManifest = (
@@ -181,6 +222,168 @@ describe("packs-add.handler", () => {
             change: "updated",
             fileCount: 1,
           });
+        }),
+      );
+    });
+  });
+
+  describe("add non-skill extension types", () => {
+    it.effect("adds a registry-sourced command to the pack manifest", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        profile: "@acme",
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+        commands: { deploy: "@acme/commands/deploy" },
+        lockfileCommands: { deploy: registryLockEntry("deploy", "2.1.0") },
+      });
+      createPackManifest(tempDir, "@acme", "frontend-tools");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("frontend-tools", "deploy"));
+
+          expect(readPackDependencies(tempDir, "frontend-tools")["@acme/commands/deploy"]).toBe(
+            "^2.1.0",
+          );
+        }),
+      );
+    });
+
+    it.effect("adds a registry-sourced knowledge bundle to the pack manifest", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        profile: "@acme",
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+        knowledge: { "domain-model": "@acme/knowledge/domain-model" },
+        lockfileKnowledge: { "domain-model": registryLockEntry("domain-model", "3.0.0") },
+      });
+      createPackManifest(tempDir, "@acme", "frontend-tools");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("frontend-tools", "domain-model"));
+
+          expect(
+            readPackDependencies(tempDir, "frontend-tools")["@acme/knowledge/domain-model"],
+          ).toBe("^3.0.0");
+        }),
+      );
+    });
+
+    it.effect("adds a registry-sourced rule to the pack manifest", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        profile: "@acme",
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+        rules: { "style-guide": "@acme/rules/style-guide" },
+        lockfileRules: { "style-guide": registryLockEntry("style-guide", "1.5.0") },
+      });
+      createPackManifest(tempDir, "@acme", "frontend-tools");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("frontend-tools", "style-guide"));
+
+          expect(readPackDependencies(tempDir, "frontend-tools")["@acme/rules/style-guide"]).toBe(
+            "^1.5.0",
+          );
+        }),
+      );
+    });
+
+    it.effect("expands a glob across every extension type", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        profile: "@acme",
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+        skills: { "shared-review": "@acme/skills/shared-review" },
+        commands: { "shared-deploy": "@acme/commands/shared-deploy" },
+        knowledge: { "shared-model": "@acme/knowledge/shared-model" },
+        lockfileSkills: {
+          "shared-review": makeRegistrySkillLockEntry({
+            owner: handle("@acme"),
+            name: extensionName("shared-review"),
+            resolvedVersion: exactVersion("1.0.0"),
+            sourceName: "local",
+            publisherBindingId: "hbnd_test",
+          }),
+        },
+        lockfileCommands: { "shared-deploy": registryLockEntry("shared-deploy", "2.0.0") },
+        lockfileKnowledge: { "shared-model": registryLockEntry("shared-model", "3.0.0") },
+      });
+      createPackManifest(tempDir, "@acme", "frontend-tools");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("frontend-tools", "shared-*"));
+
+          const dependencies = readPackDependencies(tempDir, "frontend-tools");
+          expect(dependencies["@acme/skills/shared-review"]).toBe("^1.0.0");
+          expect(dependencies["@acme/commands/shared-deploy"]).toBe("^2.0.0");
+          expect(dependencies["@acme/knowledge/shared-model"]).toBe("^3.0.0");
+        }),
+      );
+    });
+
+    it.effect("rejects a bare name installed under more than one type", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        profile: "@acme",
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+        skills: { review: "@acme/skills/review" },
+        commands: { review: "@acme/commands/review" },
+        lockfileSkills: {
+          review: makeRegistrySkillLockEntry({
+            owner: handle("@acme"),
+            name: extensionName("review"),
+            resolvedVersion: exactVersion("1.0.0"),
+            sourceName: "local",
+            publisherBindingId: "hbnd_test",
+          }),
+        },
+        lockfileCommands: { review: registryLockEntry("review", "2.0.0") },
+      });
+      createPackManifest(tempDir, "@acme", "frontend-tools");
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handlePacksAdd(defaultArgs("frontend-tools", "review")).pipe(
+            Effect.flip,
+          );
+
+          expect(getAppError(error).detail).toContain("installed as");
+          expect(readPackDependencies(tempDir, "frontend-tools")).toEqual({});
+        }),
+      );
+    });
+
+    it.effect("disambiguates an overloaded name via its fully qualified name", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        profile: "@acme",
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+        skills: { review: "@acme/skills/review" },
+        commands: { review: "@acme/commands/review" },
+        lockfileSkills: {
+          review: makeRegistrySkillLockEntry({
+            owner: handle("@acme"),
+            name: extensionName("review"),
+            resolvedVersion: exactVersion("1.0.0"),
+            sourceName: "local",
+            publisherBindingId: "hbnd_test",
+          }),
+        },
+        lockfileCommands: { review: registryLockEntry("review", "2.0.0") },
+      });
+      createPackManifest(tempDir, "@acme", "frontend-tools");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("frontend-tools", "@acme/commands/review"));
+
+          const dependencies = readPackDependencies(tempDir, "frontend-tools");
+          expect(dependencies["@acme/commands/review"]).toBe("^2.0.0");
+          expect(dependencies["@acme/skills/review"]).toBeUndefined();
         }),
       );
     });

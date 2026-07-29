@@ -91,4 +91,61 @@ describe("buildZipArchive", () => {
       }),
     ),
   );
+
+  // The ignore option is opt-in. Anything that made the no-policy path diverge
+  // — including passing an options object at all — would change the digest of
+  // every archive published without a policy.
+  it.effect("produces the pinned bytes when no ignore policy is configured", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const noOptions = yield* buildZipArchive(sourceDir);
+        const emptyOptions = yield* buildZipArchive(sourceDir, {});
+        const undefinedIgnore = yield* buildZipArchive(sourceDir, { ignore: undefined });
+        const emptyIgnore = yield* buildZipArchive(sourceDir, { ignore: [] });
+
+        for (const archive of [emptyOptions, undefinedIgnore, emptyIgnore]) {
+          expect(Buffer.from(archive).equals(Buffer.from(noOptions))).toBe(true);
+        }
+        expect(crypto.createHash("sha256").update(noOptions).digest("hex")).toBe(
+          PINNED_CLEAN_ARCHIVE_DIGEST,
+        );
+      }),
+    ),
+  );
+
+  it.effect("omits entries matching an ignore pattern", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const archive = yield* buildZipArchive(sourceDir, { ignore: ["nested/*"] });
+
+        expect(Object.keys(unzipSync(archive))).toEqual(["hello.txt"]);
+      }),
+    ),
+  );
+
+  it.effect("matches ignore patterns against archive-relative paths", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(sourceDir, "notes.md"), "notes");
+        fs.writeFileSync(path.join(sourceDir, "nested", "notes.md"), "nested notes");
+
+        const archive = yield* buildZipArchive(sourceDir, { ignore: ["*.md"] });
+
+        // `*` spans separators, so a bare extension pattern reaches nested paths.
+        expect(Object.keys(unzipSync(archive)).sort()).toEqual(["hello.txt", "nested/inner.txt"]);
+      }),
+    ),
+  );
+
+  it.effect("leaves the archive alone when no path matches the patterns", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const archive = yield* buildZipArchive(sourceDir, { ignore: ["never-matches-*"] });
+
+        expect(crypto.createHash("sha256").update(archive).digest("hex")).toBe(
+          PINNED_CLEAN_ARCHIVE_DIGEST,
+        );
+      }),
+    ),
+  );
 });

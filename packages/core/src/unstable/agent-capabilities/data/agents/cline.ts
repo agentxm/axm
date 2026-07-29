@@ -123,42 +123,6 @@ export const clineAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
-        docs: [],
-        sources: ["https://docs.cline.bot/customization/cline-rules"],
-        scopes: ["user", "project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        kind: "rules-dir",
-        files: ["*.md", "*.txt"],
-        nestedDiscovery: false,
-        importSyntax: null,
-        directory: ".clinerules",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -176,6 +140,28 @@ export const clineAgent = {
         lastVerified: "2026-06-06",
         reason: "AXM has not implemented a Cline hook script directory writer.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
+      docs: [],
+      sources: ["https://docs.cline.bot/customization/cline-rules"],
+      scopes: ["user", "project"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      kind: "rules-dir",
+      files: ["*.md", "*.txt"],
+      nestedDiscovery: false,
+      importSyntax: null,
+      directory: ".clinerules",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

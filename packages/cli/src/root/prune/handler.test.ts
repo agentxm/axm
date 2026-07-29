@@ -12,7 +12,8 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import { handleRootPrune } from "./handler.js";
+import { PER_AGENT_EXTENSION_TYPES } from "@agentxm/client-core/unstable/extension-types";
+import { handleRootPrune, PRUNE_COLLECTORS } from "./handler.js";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -34,6 +35,26 @@ const createSkillOnDisk = (baseDir: string, agentDir: string, name: string) => {
     `---\nname: ${name}\ndescription: Test skill ${name}\n---\n\n# ${name}\n`,
   );
   return skillDir;
+};
+
+/** Write a minimal workspace with claude-code configured. */
+const initWorkspace = (baseDir: string) => {
+  const axmDir = nodePath.join(baseDir, ".axm");
+  fs.mkdirSync(axmDir, { recursive: true });
+  fs.writeFileSync(
+    nodePath.join(axmDir, "settings.json"),
+    JSON.stringify({ agents: ["claude-code"] }),
+  );
+  fs.writeFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
+};
+
+/** Create a command file on disk (detected as unmanaged when not in settings). */
+const createCommandOnDisk = (baseDir: string, agentDir: string, name: string) => {
+  const commandsDir = nodePath.join(baseDir, agentDir, "commands");
+  fs.mkdirSync(commandsDir, { recursive: true });
+  const commandPath = nodePath.join(commandsDir, `${name}.md`);
+  fs.writeFileSync(commandPath, `---\ndescription: Test command ${name}\n---\n\nRun ${name}.\n`);
+  return commandPath;
 };
 
 // ---------------------------------------------------------------------------
@@ -85,6 +106,33 @@ describe("root.prune.handler", () => {
             false,
           );
           expect(logs.success.some((m) => m.includes("Pruned"))).toBe(true);
+        }),
+      );
+    });
+
+    it("registers a prune collector for every per-agent extension type", () => {
+      expect(Object.keys(PRUNE_COLLECTORS).sort()).toEqual([...PER_AGENT_EXTENSION_TYPES].sort());
+      for (const type of PER_AGENT_EXTENSION_TYPES) {
+        expect(PRUNE_COLLECTORS[type].type).toBe(type);
+      }
+    });
+
+    it.effect("sweeps unmanaged artifacts without disturbing other per-agent types", () => {
+      const { provide } = makeLayers();
+      initWorkspace(tempDir);
+      createSkillOnDisk(tempDir, ".claude", "legacy-skill");
+      createCommandOnDisk(tempDir, ".claude", "keep-command");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPrune({ patterns: ["legacy-*"] }, { yes: true });
+
+          expect(fs.existsSync(nodePath.join(tempDir, ".claude", "skills", "legacy-skill"))).toBe(
+            false,
+          );
+          expect(
+            fs.existsSync(nodePath.join(tempDir, ".claude", "commands", "keep-command.md")),
+          ).toBe(true);
         }),
       );
     });

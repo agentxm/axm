@@ -24,15 +24,10 @@ import { loadVersion } from "./version.js";
 
 import { setupCommand } from "./root/setup.js";
 import { agentsCommand } from "./root/agents/_agents.js";
-import { rulesCommand } from "./root/rules/command.js";
-import { skillsCommand } from "./root/skills/_skills.js";
-import { packsCommand } from "./root/packs/_packs.js";
-import { commandsCommand } from "./root/commands/_commands.js";
-import { filesCommand } from "./root/files/_files.js";
-import { hooksCommand } from "./root/hooks/_hooks.js";
-import { knowledgeCommand } from "./root/knowledge/command.js";
-import { mcpsCommand } from "./root/mcps/_mcps.js";
-import { subagentsCommand } from "./root/subagents/_subagents.js";
+import {
+  extensionGroupCommands,
+  workspaceCapabilityCommands,
+} from "./root/extension-type-commands.js";
 import { authCommand } from "./root/auth/_auth.js";
 import { loginCommand } from "./root/auth/login.js";
 import { logoutCommand } from "./root/auth/logout.js";
@@ -91,14 +86,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     {
       group: "EXTENSIONS",
       commands: [
-        skillsCommand,
-        commandsCommand,
-        filesCommand,
-        hooksCommand,
-        knowledgeCommand,
-        mcpsCommand,
-        subagentsCommand,
-        packsCommand,
+        ...extensionGroupCommands,
         publishCommand,
         adoptCommand,
         demoteCommand,
@@ -119,7 +107,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       commands: [
         syncCommand,
         agentsCommand,
-        rulesCommand,
+        ...workspaceCapabilityCommands,
         lintCommand,
         pruneCommand,
         cacheCommand,

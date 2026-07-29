@@ -7,6 +7,16 @@
 import * as Schema from "effect/Schema";
 import type { ExtensionType } from "../extensions/common.js";
 
+// The placement axis lives on EXTENSION_TYPE_TABLE; the derived unions are
+// re-exported here so catalog consumers reach the whole type vocabulary through
+// one module. Type-only on purpose: extensions/common.js reaches back into the
+// agent catalog at runtime, so a value re-export would close an import cycle.
+export type {
+  PerAgentType,
+  WorkspaceCapabilityKey,
+  WorkspaceCapabilityType,
+} from "../extensions/common.js";
+
 const isUrl = (value: string): boolean => {
   try {
     new URL(value);
@@ -60,6 +70,12 @@ type _CatalogCoversNonPackTypes =
   Exclude<ExtensionType, "pack" | CatalogExtensionType> extends never ? true : false;
 const _catalogCoversNonPackTypes = true as const satisfies _CatalogCoversNonPackTypes;
 export type _CatalogExtensionTypeCoverage = typeof _catalogCoversNonPackTypes;
+
+const catalogExtensionTypeSet: ReadonlySet<string> = new Set(CATALOG_EXTENSION_TYPES);
+
+/** @experimental This API is unstable and may change without notice. */
+export const isCatalogExtensionType = (type: ExtensionType): type is CatalogExtensionType =>
+  catalogExtensionTypeSet.has(type);
 
 /** @experimental This API is unstable and may change without notice. */
 export const CatalogExtensionTypeSchema = Schema.Literals(CATALOG_EXTENSION_TYPES).annotate({

@@ -23,6 +23,15 @@ import { describe, expect, it } from "vitest";
 
 import { ExtensionInventorySchema } from "@agentxm/client-core/unstable/workspace";
 
+import { AgentsListOutputSchema } from "./agents/list.js";
+import { TokenListDocumentFields } from "./auth/token.js";
+import { DiscoverOutputSchema } from "./discover/handler.js";
+import { HookPortabilityResultSchema } from "./hooks/info.js";
+import { KnowledgeListQueryResultSchema } from "./knowledge/list.js";
+import { KnowledgeSearchQueryResultSchema } from "./knowledge/search.js";
+import { OutdatedDocumentFields } from "./outdated/handler.js";
+import { InstructionsStatusOutputSchema } from "./rules/instructions.js";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const sourceRoot = "packages/cli/src";
 
@@ -105,6 +114,11 @@ const CALL_SITE_LEDGER: ReadonlyArray<RendererCallSite> = [
     payload: "PlanResolutionDocumentFields",
   },
   { file: "packages/cli/src/json-output.ts", method: "result", payload: "PublishResultSchema" },
+  {
+    file: "packages/cli/src/root/agents/capabilities.ts",
+    method: "result",
+    payload: "AgentCapabilitiesOutputSchema",
+  },
   { file: "packages/cli/src/root/agents/list.ts", method: "list", payload: "agent" },
   {
     file: "packages/cli/src/root/agents/list.ts",
@@ -215,22 +229,23 @@ const CALL_SITE_LEDGER: ReadonlyArray<RendererCallSite> = [
     payload: "ExtensionInventorySchema",
   },
   {
-    file: "packages/cli/src/root/knowledge/command.ts",
+    file: "packages/cli/src/root/knowledge/lint.ts",
     method: "result",
     payload: "KnowledgeLintQueryResultSchema",
   },
+  { file: "packages/cli/src/root/knowledge/list.ts", method: "list", payload: "knowledge" },
   {
-    file: "packages/cli/src/root/knowledge/command.ts",
+    file: "packages/cli/src/root/knowledge/list.ts",
     method: "result",
     payload: "KnowledgeListQueryResultSchema",
   },
   {
-    file: "packages/cli/src/root/knowledge/command.ts",
+    file: "packages/cli/src/root/knowledge/open.ts",
     method: "result",
     payload: "KnowledgeOpenQueryResultSchema",
   },
   {
-    file: "packages/cli/src/root/knowledge/command.ts",
+    file: "packages/cli/src/root/knowledge/search.ts",
     method: "result",
     payload: "KnowledgeSearchQueryResultSchema",
   },
@@ -243,12 +258,6 @@ const CALL_SITE_LEDGER: ReadonlyArray<RendererCallSite> = [
     file: "packages/cli/src/root/lint/handler.ts",
     method: "result",
     payload: "LintJsonDocumentFields",
-  },
-  { file: "packages/cli/src/root/mcps/get.ts", method: "detail", payload: "VIEW_STYLE" },
-  {
-    file: "packages/cli/src/root/mcps/get.ts",
-    method: "result",
-    payload: "McpServerGetResultSchema",
   },
   {
     file: "packages/cli/src/root/mcps/list.ts",
@@ -285,20 +294,35 @@ const CALL_SITE_LEDGER: ReadonlyArray<RendererCallSite> = [
     method: "result",
     payload: "ExtensionInventorySchema",
   },
-  { file: "packages/cli/src/root/rules/command.ts", method: "list", payload: "agent-rule" },
-  { file: "packages/cli/src/root/rules/command.ts", method: "list", payload: "agent-rule" },
-  { file: "packages/cli/src/root/rules/command.ts", method: "list", payload: "agent-rule" },
+  { file: "packages/cli/src/root/rules/instructions.ts", method: "list", payload: "agent-rule" },
+  { file: "packages/cli/src/root/rules/instructions.ts", method: "list", payload: "agent-rule" },
+  { file: "packages/cli/src/root/rules/instructions.ts", method: "list", payload: "agent-rule" },
   {
-    file: "packages/cli/src/root/rules/command.ts",
+    file: "packages/cli/src/root/rules/instructions.ts",
     method: "result",
     payload: "InstructionsStatusOutputSchema",
   },
   {
-    file: "packages/cli/src/root/rules/command.ts",
+    file: "packages/cli/src/root/rules/instructions.ts",
     method: "result",
     payload: "InstructionsStatusOutputSchema",
+  },
+  {
+    file: "packages/cli/src/root/rules/list.ts",
+    method: "result",
+    payload: "ExtensionInventorySchema",
   },
   { file: "packages/cli/src/root/setup.ts", method: "result", payload: "SetupDocumentFields" },
+  {
+    file: "packages/cli/src/root/shared/extension-show.ts",
+    method: "detail",
+    payload: "VIEW_STYLE",
+  },
+  {
+    file: "packages/cli/src/root/shared/extension-show.ts",
+    method: "result",
+    payload: "ExtensionShowResultSchema",
+  },
   {
     file: "packages/cli/src/root/skills/list.ts",
     method: "result",
@@ -341,22 +365,41 @@ const CONTRACT_EXEMPTIONS: ReadonlyArray<{ readonly payload: string; readonly re
     reason: "publish reports mode/selection/results as three top-level keys; permanent",
   },
   {
-    payload: "LintFixJsonDocumentFields",
-    reason: "lint --fix emits result plus data as dual primary keys; W7 PR16 owns the fix",
-  },
-  {
     payload: "Schema.Array(Schema.String)",
     reason: "view emits a bare value envelope for raw file listings; permanent",
   },
 ];
 
-describe("json payload contract", () => {
-  it("matches the machine-emitting call-site ledger exactly", () => {
-    expect(censusOf()).toStrictEqual(CALL_SITE_LEDGER);
-  });
-
-  it("keeps the extension inventory collection under items", () => {
-    expect(Object.keys(ExtensionInventorySchema.fields)).toStrictEqual([
+/**
+ * Every command payload that carries a collection, with its top-level keys
+ * pinned. Adding, removing, or renaming a key on any of these is a breaking
+ * change to that command's `--json` output and must be made here deliberately.
+ */
+const COLLECTION_PAYLOADS = [
+  [
+    "axm agents list",
+    AgentsListOutputSchema.fields,
+    ["items", "configured", "detected", "available", "count"],
+  ],
+  [
+    "axm discover",
+    DiscoverOutputSchema.fields,
+    ["items", "count", "totalDetected", "registryAvailable"],
+  ],
+  ["axm hooks info", HookPortabilityResultSchema.fields, ["items", "count"]],
+  ["axm knowledge list", KnowledgeListQueryResultSchema.fields, ["items", "count"]],
+  ["axm knowledge search", KnowledgeSearchQueryResultSchema.fields, ["query", "items", "count"]],
+  ["axm outdated", OutdatedDocumentFields, ["items", "count"]],
+  [
+    "axm rules",
+    InstructionsStatusOutputSchema.fields,
+    ["enabled", "sourceFileName", "gitignoreAliases", "roots", "items"],
+  ],
+  ["axm token list", TokenListDocumentFields, ["items", "count", "hasMore", "cursor"]],
+  [
+    "axm <type> list",
+    ExtensionInventorySchema.fields,
+    [
       "items",
       "count",
       "configuredCount",
@@ -364,7 +407,27 @@ describe("json payload contract", () => {
       "installedCount",
       "unmanagedCount",
       "ignoredCount",
-    ]);
+    ],
+  ],
+] as const satisfies ReadonlyArray<
+  readonly [command: string, fields: Record<string, unknown>, keys: ReadonlyArray<string>]
+>;
+
+describe("json payload contract", () => {
+  it("matches the machine-emitting call-site ledger exactly", () => {
+    expect(censusOf()).toStrictEqual(CALL_SITE_LEDGER);
+  });
+
+  it.each(COLLECTION_PAYLOADS)("pins the top-level keys of %s", (_name, fields, keys) => {
+    expect(Object.keys(fields)).toStrictEqual(keys);
+  });
+
+  it("names every collection under items", () => {
+    const misnamed = COLLECTION_PAYLOADS.filter(([, , keys]) => !keys.includes("items")).map(
+      ([name]) => name,
+    );
+
+    expect(misnamed).toStrictEqual([]);
   });
 
   it("holds every contract deviation in the exemption ledger", () => {

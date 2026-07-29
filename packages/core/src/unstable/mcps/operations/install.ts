@@ -18,6 +18,7 @@ import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { computeIntegrity, isPathSafe } from "../../utils/index.js";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
@@ -26,6 +27,8 @@ import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../../extensions/index.js";
+import { computePackageContentHash } from "../../extensions/package-hash.js";
+import type { SourceHash } from "../../extensions/rendered-files.js";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
@@ -75,7 +78,11 @@ export type InstallMcpServerOperation = Operation<
 // Lock entry builder
 // -----------------------------------------------------------------------------
 
-const buildLockEntry = (ref: RegistryMcpServerRef, now: DateTime.Utc): McpServerLockEntry => ({
+const buildLockEntry = (
+  ref: RegistryMcpServerRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash,
+): McpServerLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -83,6 +90,7 @@ const buildLockEntry = (ref: RegistryMcpServerRef, now: DateTime.Utc): McpServer
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
+  sourceHash,
   installedAt: now,
   updatedAt: now,
 });
@@ -161,6 +169,30 @@ const maybeSecretInputName = (
   if ("name" in input) return input.name;
   if ("valueHint" in input) return input.valueHint;
   return undefined;
+};
+
+/**
+ * Named environment inputs the manifest marks required. Only key/value inputs
+ * are collected: an unnamed input has nothing a caller could pass through
+ * `--env KEY=VALUE`, so it cannot be reported as a missing name.
+ */
+const collectRequiredInputNames = (manifest: McpServerManifest): ReadonlySet<string> => {
+  const names = new Set<string>();
+  const add = (input: McpRegistryKeyValueInput) => {
+    if (input.isRequired === true && input.value === undefined && input.default === undefined) {
+      names.add(input.name);
+    }
+  };
+
+  for (const pkg of manifest.server.packages ?? []) {
+    for (const input of pkg.environmentVariables ?? []) add(input);
+  }
+
+  for (const remote of manifest.server.remotes ?? []) {
+    for (const input of remote.headers ?? []) add(input);
+  }
+
+  return names;
 };
 
 const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySet<string> => {
@@ -582,8 +614,14 @@ export const installMcpServer: (
 
     if (ref.refType !== "registry" && ref.refType !== "workspace") {
       return yield* makeAppError({
-        code: "internal",
-        detail: `Unsupported ref type for MCP server install: ${ref.refType}`,
+        code: "usage",
+        detail: `MCP servers install from a registry or a workspace package, not from a ${ref.refType} source`,
+        suggestions: [
+          {
+            description: "Install from the registry",
+            cmd: `axm mcps install @owner/mcps/${ref.server.name}`,
+          },
+        ],
       });
     }
 
@@ -650,11 +688,36 @@ export const installMcpServer: (
     // Build lock entry and persist
     const now = yield* DateTime.now;
     const lockEntry =
-      ref.refType === "registry" ? buildLockEntry(ref, now) : buildWorkspaceLockEntry(ref, now);
+      ref.refType === "registry"
+        ? buildLockEntry(ref, now, yield* computePackageContentHash(canonicalPath))
+        : buildWorkspaceLockEntry(ref, now);
     const currentMcpServers = yield* ws.getConfiguredMcpServerEntries();
     const currentEntry = currentMcpServers[ref.server.name];
     const storedSecrets = yield* loadStoredMcpSecrets(ref.server.name, secretNames);
     const mergedEnv = { ...storedSecrets, ...(currentEntry?.env ?? {}), ...env };
+
+    // Under --non-interactive there is nobody to prompt, so a required input
+    // that nothing supplied would otherwise install a server that cannot start.
+    // Fail with the exact recipe instead.
+    const requiredInputNames = Option.match(manifest, {
+      onNone: () => new Set<string>(),
+      onSome: collectRequiredInputNames,
+    });
+    const missingInputs = [...requiredInputNames]
+      .filter((name) => mergedEnv[name] === undefined || mergedEnv[name] === "")
+      .sort((left, right) => left.localeCompare(right));
+    if (missingInputs.length > 0 && (yield* isNonInteractiveOptional)) {
+      return yield* makeAppError({
+        code: "usage",
+        detail: `${ref.server.name} needs ${missingInputs.join(", ")}, and --non-interactive cannot prompt for them`,
+        suggestions: [
+          {
+            description: "Supply each required input on the command line",
+            cmd: missingInputs.map((name) => `--env ${name}=<value>`).join(" "),
+          },
+        ],
+      });
+    }
     const persistedEnv = redactSettingsEnv(mergedEnv, secretNames);
     const enabled = currentEntry?.enabled ?? true;
     yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);

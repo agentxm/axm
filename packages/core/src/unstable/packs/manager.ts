@@ -33,6 +33,7 @@ import type { AppError } from "../app-error/index.js";
 import { resolvePackDependencies } from "./dependency-resolution.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type { RegistrySource } from "../sources/index.js";
+import { configuredRowsByName, installedRowsByName } from "../workspace/read-model-record-rows.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -69,6 +70,7 @@ const buildSetPackArgs = (
       resolvedFiles: resolved.resolvedFiles,
       resolvedRules: resolved.resolvedRules,
       resolvedHooks: resolved.resolvedHooks,
+      resolvedKnowledge: resolved.resolvedKnowledge,
       versionRange,
     } satisfies SetPackArgs;
   });
@@ -98,6 +100,7 @@ const buildWorkspaceSetPackArgs = (
       resolvedFiles: resolved.resolvedFiles,
       resolvedRules: resolved.resolvedRules,
       resolvedHooks: resolved.resolvedHooks,
+      resolvedKnowledge: resolved.resolvedKnowledge,
       versionRange,
     } satisfies SetPackArgs;
   });
@@ -248,7 +251,7 @@ export const PackManagerLive = Layer.effect(
       }: {
         readonly target: PackExtensionTarget;
       }) {
-        const installedPacks = yield* ws.records.getInstalledPacks();
+        const installedPacks = yield* ws.records.rows("pack").pipe(Effect.map(installedRowsByName));
         if (target.name in installedPacks) {
           return true;
         }
@@ -257,11 +260,11 @@ export const PackManagerLive = Layer.effect(
       }),
       materializeInstall,
       getConfiguredSource: Effect.fn("PackManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.records.getConfiguredPacks();
+        const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("PackManager.listMaterializable")(function* () {
-        const configured = yield* ws.records.getConfiguredPacks();
+        const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
         return yield* configuredPacksToDiskRefs({ fs, path, baseDir, scope: ws.scope }, configured);
       }),
       materializeUninstall,
@@ -296,6 +299,7 @@ export const PackManagerLive = Layer.effect(
             resolvedFiles: {},
             resolvedRules: {},
             resolvedHooks: {},
+            resolvedKnowledge: {},
             versionRange,
           });
         }

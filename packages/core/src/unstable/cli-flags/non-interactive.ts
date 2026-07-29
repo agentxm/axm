@@ -35,3 +35,16 @@ export const isNonInteractive = Effect.gen(function* () {
   const ci = yield* isCI;
   return Option.getOrElse(flag, () => ci || process.stdin.isTTY !== true);
 });
+
+/**
+ * Same resolution as {@link isNonInteractive}, but reads the global flag
+ * optionally so the caller does not inherit a `GlobalFlag` requirement. Use
+ * this from core operations that run both under the CLI runtime and from
+ * tests that provide no flag layer; an absent flag falls back to environment
+ * detection exactly as an unset flag would.
+ */
+export const isNonInteractiveOptional: Effect.Effect<boolean> = Effect.gen(function* () {
+  const explicit = Option.flatten(yield* Effect.serviceOption(nonInteractiveFlag));
+  const ci = yield* isCI;
+  return Option.getOrElse(explicit, () => ci || process.stdin.isTTY !== true);
+});

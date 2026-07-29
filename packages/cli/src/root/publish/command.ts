@@ -30,6 +30,7 @@ import {
   ExtensionTypeSchema,
   EXTERNAL_EXTENSIONS_DIR,
   HandleSchema,
+  PublishOptionsSchema,
   REGISTRY_EXTENSIONS_DIR,
   extensionTypeToPlural,
   decodeExtensionNameSync,
@@ -52,6 +53,7 @@ import {
 import {
   checkForbiddenSourceEntries,
   enforceArchiveSizeLimit,
+  publishArchiveOptions,
   runPublishLintGate,
   validateArchive,
 } from "@agentxm/client-core/unstable/publish";
@@ -68,7 +70,11 @@ import {
   isGlobPattern,
 } from "@agentxm/client-core/unstable/utils";
 import { VersionSchema, type Version } from "@agentxm/client-core/unstable/version-constraints";
-import { WorkspaceMutations, type WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+import {
+  WorkspaceMutations,
+  configuredRowsByName,
+  type WorkspaceScope,
+} from "@agentxm/client-core/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { emitPublishResult, type PublishResultItem } from "../../json-output.js";
@@ -167,6 +173,7 @@ const CandidateManifestSchema = Schema.Struct({
   version: VersionSchema,
   packages: Schema.optional(Schema.Array(CompanionPackageSchema)),
   dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
+  publish: Schema.optional(PublishOptionsSchema),
 });
 
 interface CatalogEntry {
@@ -241,15 +248,15 @@ const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
   const [skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs] =
     yield* Effect.all(
       [
-        ws.records.getConfiguredSkills(),
-        ws.records.getConfiguredCommands(),
-        ws.records.getConfiguredMcpServers(),
-        ws.records.getConfiguredSubagents(),
+        ws.records.rows("skill").pipe(Effect.map(configuredRowsByName)),
+        ws.records.rows("command").pipe(Effect.map(configuredRowsByName)),
+        ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
+        ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
         ws.getConfiguredFilesEntries(),
         ws.getConfiguredRuleEntries(),
         ws.getConfiguredHookEntries(),
         ws.getConfiguredKnowledgeEntries(),
-        ws.records.getConfiguredPacks(),
+        ws.records.rows("pack").pipe(Effect.map(configuredRowsByName)),
       ],
       { concurrency: "unbounded" },
     );
@@ -670,7 +677,10 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     manifestJson,
     platform: { fs, path },
   });
-  const archive = yield* buildZipArchive(extensionDir);
+  const archive = yield* buildZipArchive(
+    extensionDir,
+    yield* publishArchiveOptions(selected.type, manifest.publish?.ignore),
+  );
   // Guardrails run on the built bytes and only ever reject: rewriting the
   // archive here would change its integrity digest and break republishing an
   // already-published version under `--on-existing verify`.

@@ -7,6 +7,7 @@ import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   WorkspaceMutations,
+  configuredRowsByName,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 import { installCommand as installCommandOp } from "@agentxm/client-core/unstable/commands";
@@ -23,8 +24,10 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import {
+  UPDATE_NAME_FILTER_FLAG,
   allUpdateTargetResolutionsFailed,
   resolveUpdateTargets,
+  updateNameFilterFlag,
 } from "../shared/update-targets.js";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
@@ -32,7 +35,10 @@ import { toJobStepResult } from "./job-step-result.js";
 import { combinePlanSections, makeItemSection } from "./preview-sections.js";
 
 export interface UpdateCommandHandlerArgs {
-  readonly name: Option.Option<string>;
+  /** Positional selector: an installed name or a source origin. */
+  readonly source: Option.Option<string>;
+  /** Repeated `--name` filters, each a name, FQN, or glob. */
+  readonly names: ReadonlyArray<string>;
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
@@ -88,7 +94,7 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
   const renderer = yield* CliRenderer;
 
   // Step 1: Load configured commands and filter to enabled
-  const allCommands = yield* ws.records.getConfiguredCommands();
+  const allCommands = yield* ws.records.rows("command").pipe(Effect.map(configuredRowsByName));
 
   const commandEntries: ReadonlyArray<readonly [string, string]> = Object.entries(
     allCommands,
@@ -103,15 +109,14 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
     return;
   }
 
-  const rawNameValue = Option.getOrUndefined(args.name);
   const targetResolution = yield* resolveUpdateTargets({
     command: "commands.update",
     planName: "Update commands",
     planDescription: "Update installed commands",
     entries: commandEntries,
-    source: Option.none(),
-    nameFilters: rawNameValue === undefined ? [] : [rawNameValue],
-    nameFilterFlag: "name",
+    source: args.source,
+    nameFilters: args.names,
+    nameFilterFlag: UPDATE_NAME_FILTER_FLAG,
     resourceType: "command",
     resourceLabel: "command",
     resourceLabelPlural: "commands",
@@ -242,12 +247,15 @@ export const handleUpdateCommand = Effect.fn("UpdateCommand.handle")(function* (
 });
 
 const updateConfig = {
-  name: Argument.string("name").pipe(
-    Argument.withDescription("Name of the command to update (updates all if omitted)"),
+  source: Argument.string("source").pipe(
+    Argument.withDescription("Filter to commands matching a name or source"),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Update commands in project (default) or user-level configuration"),
+  ),
+  name: updateNameFilterFlag.pipe(
+    Flag.withDescription("Update only specific commands by name or glob pattern"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
   force: forceFlag.pipe(
@@ -259,8 +267,8 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ name, scope, yes, force, preview }) =>
-    handleUpdateCommand({ name, yes, force, preview }).pipe(
+  ({ source, scope, name, yes, force, preview }) =>
+    handleUpdateCommand({ source, names: name, yes, force, preview }).pipe(
       withWorkspace(scope),
       withRuntime("commands update"),
     ),
@@ -275,6 +283,10 @@ export const updateCommand = Command.make(
     {
       command: "axm commands update my-cmd",
       description: "Update a specific command",
+    },
+    {
+      command: "axm commands update --name my-*",
+      description: "Update only commands matching a glob",
     },
     {
       command: "axm commands update --preview",

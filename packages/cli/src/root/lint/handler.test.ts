@@ -29,6 +29,7 @@ import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
@@ -46,7 +47,7 @@ import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-
 import { InstallRuleCommandWorkflowActionsLive } from "../rules/install/command-actions.js";
 import { InstallSkillCommandWorkflowActionsLive } from "../skills/install/command-actions.js";
 import { InstallSubagentCommandWorkflowActionsLive } from "../subagents/install/command-actions.js";
-import { expectAppliedPlanResult, planResultSteps } from "../../test-helpers.js";
+import { expectAppliedPlanResult, expectRecord, planResultSteps } from "../../test-helpers.js";
 import { handleLint, resolveLintRoot } from "./handler.js";
 
 describe("axm lint handler", () => {
@@ -122,6 +123,7 @@ describe("axm lint handler", () => {
       commandsLayer,
       contextLayer,
       hooksLayer,
+      KnowledgeManagerLive,
       mcpServersLayer,
       rulesLayer,
       skillsLayer,
@@ -431,13 +433,18 @@ describe("axm lint handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* lint({ fix: true }).pipe(Effect.exit);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Lint autofix",
-          totalSteps: 2,
-          appliedCount: 2,
-        });
+        // `--fix` emits one primary payload: the lint document, with the
+        // autofix plan nested under `plan`.
+        const result = expectAppliedPlanResult(
+          { result: expectRecord(expectRecord(rendererState.results[0]?.data)["result"])["plan"] },
+          {
+            planName: "Lint autofix",
+            totalSteps: 2,
+            appliedCount: 2,
+          },
+        );
         expect(rendererState.results[0]?.data).toMatchObject({
-          data: {
+          result: {
             findings: expect.any(Array),
             summary: expect.objectContaining({
               total: expect.any(Number),
@@ -524,8 +531,8 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
         const reportMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(reportMessages).toContain("workspace/mcp-server-agent-drift");
-        expect(reportMessages).toContain("workspace/mcp-server-agent-orphaned");
+        expect(reportMessages).toContain("workspace/mcps-agent-drift");
+        expect(reportMessages).toContain("workspace/mcps-agent-orphaned");
 
         yield* lint({ fix: true }).pipe(Effect.exit);
         const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));

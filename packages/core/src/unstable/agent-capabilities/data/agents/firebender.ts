@@ -99,29 +99,6 @@ export const firebenderAgent = {
         writer: null,
       },
     },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Firebender reads .firebender/rules/*.mdc and also supports AGENTS.md; this entry models its primary vendor rule directory.",
-        docs: [],
-        sources: ["https://docs.firebender.com/multi-agent/global-rules"],
-        scopes: ["user", "project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        kind: "rules-dir",
-        directory: ".firebender/rules",
-        files: ["*.mdc"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -239,19 +216,28 @@ export const firebenderAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Firebender reads .firebender/rules/*.mdc and also supports AGENTS.md; this entry models its primary vendor rule directory.",
+      docs: [],
+      sources: ["https://docs.firebender.com/multi-agent/global-rules"],
+      scopes: ["user", "project"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      kind: "rules-dir",
+      directory: ".firebender/rules",
+      files: ["*.mdc"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

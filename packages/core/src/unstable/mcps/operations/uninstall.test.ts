@@ -69,8 +69,6 @@ const makeWorkspaceMock = (
               mcpServers = rest;
               writeToDisk();
             }),
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
 

@@ -69,30 +69,42 @@ describe("configured extensions to disk refs", () => {
       const [skills, commands, mcpServers, subagents] = yield* Effect.all([
         configuredSkillsToDiskRefs(env, {
           review: {
+            type: "skill",
+            name: "review",
             source: "@acme/skills/review",
             enabled: true,
             packagingKind: "native",
+            lifecycle: "configured",
           },
         }),
         configuredCommandsToDiskRefs(env, {
           deploy: {
+            type: "command",
+            name: "deploy",
             source: "@acme/commands/deploy",
             enabled: true,
             packagingKind: "native",
+            lifecycle: "configured",
           },
         }),
         configuredMcpServersToDiskRefs(env, {
           browser: {
+            type: "mcp-server",
+            name: "browser",
             source: "@acme/mcps/browser",
             enabled: true,
             packagingKind: "native",
+            lifecycle: "configured",
           },
         }),
         configuredSubagentsToDiskRefs(env, {
           planner: {
+            type: "subagent",
+            name: "planner",
             source: "@acme/subagents/planner",
             enabled: true,
             packagingKind: "native",
+            lifecycle: "configured",
           },
         }),
       ]);
@@ -112,9 +124,12 @@ describe("configured extensions to disk refs", () => {
         { fs, path, baseDir: tempDir, scope: "project" },
         {
           stale: {
+            type: "subagent",
+            name: "stale",
             source: "@acme/subagents/stale",
             enabled: true,
             packagingKind: "native",
+            lifecycle: "configured",
           },
         },
       );
@@ -151,9 +166,12 @@ describe("configured extensions to disk refs", () => {
 
       const refs = yield* configuredMcpServersToDiskRefs(env, {
         browser: {
+          type: "mcp-server",
+          name: "browser",
           source: "@acme/mcps/browser",
           enabled: false,
           packagingKind: "native",
+          lifecycle: "configured",
         },
       });
 

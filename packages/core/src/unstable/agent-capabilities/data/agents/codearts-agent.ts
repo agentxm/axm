@@ -82,35 +82,6 @@ export const codeartsAgentAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Re-checked on 2026-07-24: no Huawei Cloud documentation confirms AGENTS.md or another instruction-file convention for CodeArts Agent. Left absent until a vendor source names the file.",
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
@@ -124,6 +95,21 @@ export const codeartsAgentAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Re-checked on 2026-07-24: no Huawei Cloud documentation confirms AGENTS.md or another instruction-file convention for CodeArts Agent. Left absent until a vendor source names the file.",
+      docs: [],
+      sources: [],
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

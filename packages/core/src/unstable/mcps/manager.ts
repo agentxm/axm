@@ -26,6 +26,7 @@ import { createRegistryClient, extractZip } from "../registry/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
+import { configuredRowsByName, installedRowsByName } from "../workspace/read-model-record-rows.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -107,8 +108,14 @@ export const McpServerManagerLive = Layer.effect(
       Effect.fn("McpServerManager.materializeInstall")(function* ({ ref, force }) {
         if (ref.refType !== "registry") {
           return yield* makeAppError({
-            code: "internal",
-            detail: `Unsupported ref type for MCP server install: ${ref.refType}`,
+            code: "usage",
+            detail: `MCP servers materialize from a registry package, not from a ${ref.refType} source`,
+            suggestions: [
+              {
+                description: "Install from the registry",
+                cmd: `axm mcps install @owner/mcps/${ref.server.name}`,
+              },
+            ],
           });
         }
 
@@ -270,7 +277,9 @@ export const McpServerManagerLive = Layer.effect(
       }: {
         readonly target: McpServerExtensionTarget;
       }) {
-        const installedMcpServers = yield* ws.records.getInstalledMcpServers();
+        const installedMcpServers = yield* ws.records
+          .rows("mcp-server")
+          .pipe(Effect.map(installedRowsByName));
         if (target.name in installedMcpServers) {
           return true;
         }
@@ -282,11 +291,15 @@ export const McpServerManagerLive = Layer.effect(
       getConfiguredSource: Effect.fn("McpServerManager.getConfiguredSource")(function* ({
         target,
       }) {
-        const configured = yield* ws.records.getConfiguredMcpServers();
+        const configured = yield* ws.records
+          .rows("mcp-server")
+          .pipe(Effect.map(configuredRowsByName));
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("McpServerManager.listMaterializable")(function* () {
-        const configured = yield* ws.records.getConfiguredMcpServers();
+        const configured = yield* ws.records
+          .rows("mcp-server")
+          .pipe(Effect.map(configuredRowsByName));
         return yield* configuredMcpServersToDiskRefs(
           { fs, path, baseDir, scope: ws.scope },
           configured,

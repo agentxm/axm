@@ -132,41 +132,6 @@ export const commandCodeAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Command Code reads AGENTS.md memory/instruction files.",
-        docs: [],
-        sources: ["https://commandcode.ai/docs/core-concepts/memory"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -184,6 +149,27 @@ export const commandCodeAgent = {
         lastVerified: null,
         reason: "AXM has not implemented a Command Code hook writer.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: "Command Code reads AGENTS.md memory/instruction files.",
+      docs: [],
+      sources: ["https://commandcode.ai/docs/core-concepts/memory"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

@@ -9,6 +9,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import {
+  AGENT_IDS as CATALOG_AGENT_IDS,
+  agentById,
+  agentSupportsType,
+  type AgentId as CatalogAgentId,
+} from "../agent-capabilities/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
@@ -29,6 +35,7 @@ import { kiroCliCodingAgent } from "./kiro-cli/service.js";
 import { opencodeCodingAgent } from "./opencode/service.js";
 import { rooCodingAgent } from "./roo/service.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "./subagent-sync.js";
+import { userScopeRefusal } from "./scope-refusal.js";
 import { windsurfCodingAgent } from "./windsurf/service.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "./mcp-sync.js";
 import { AGENTS } from "./registry.js";
@@ -39,12 +46,34 @@ const UNIVERSAL_AGENT_ID = "universal";
 
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
+const catalogAgentIds = new Set<string>(CATALOG_AGENT_IDS);
+
+const isCatalogAgentId = (id: string): id is CatalogAgentId => catalogAgentIds.has(id);
+
+/**
+ * Whether the capability catalog records a skills surface AXM can write for
+ * this agent. Descriptors outside the catalog (`universal`) own their skills
+ * directory outright and are always writable.
+ */
+const descriptorSupportsSkills = (descriptor: AgentDescriptor): boolean =>
+  isCatalogAgentId(descriptor.id) ? agentSupportsType(agentById(descriptor.id), "skill") : true;
+
 const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => {
   const commandSyncConfig = { agentId: descriptor.id };
   const agent: CodingAgent = {
     id: descriptor.id,
     resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
       Effect.gen(function* () {
+        // Behavior-neutral today — every catalog agent supports skills — but
+        // the resolve no longer assumes it. Without this an agent whose skill
+        // capability AXM does not support would resolve an empty directory and
+        // render into the workspace root.
+        if (!descriptorSupportsSkills(descriptor)) {
+          return {
+            _tag: "unsupported",
+            reason: `Skills are not supported for ${descriptor.id}`,
+          } as const;
+        }
         const path = yield* Path.Path;
         return {
           _tag: "supported",
@@ -64,7 +93,11 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
         if (scope === "user") {
           return {
             _tag: "unsupported",
-            reason: `${descriptor.name} does not support user-scope commands`,
+            reason: userScopeRefusal({
+              agentId: descriptor.id,
+              agentName: descriptor.name,
+              type: "commands",
+            }),
           } as const;
         }
         const path = yield* Path.Path;
@@ -89,7 +122,11 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
         if (scope === "user") {
           return {
             _tag: "unsupported",
-            reason: `${descriptor.name} does not support user-scope subagents`,
+            reason: userScopeRefusal({
+              agentId: descriptor.id,
+              agentName: descriptor.name,
+              type: "subagents",
+            }),
           } as const;
         }
         const path = yield* Path.Path;

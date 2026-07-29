@@ -40,6 +40,7 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "files",
   "files-schema",
   "hooks",
+  "knowledge",
   "mcps",
   "rules",
   "packs",

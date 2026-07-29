@@ -93,34 +93,6 @@ export const aiderDeskAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -139,6 +111,20 @@ export const aiderDeskAgent = {
         reason:
           "AiderDesk hooks are in-process JS/TS callbacks with no command-stdin serialization dialect, and its 30+ native events are not canonically mapped, so AXM has no hook writer.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

@@ -1,5 +1,5 @@
 {
-  "description": "MCP server settings store literal env/header secrets. workspace/mcp-server-no-secret-literal fires.",
+  "description": "MCP server settings store literal env/header secrets. workspace/mcps-no-secret-literal fires.",
   "state": {
     "settings": {
       "mcpServers": {
@@ -58,13 +58,13 @@
   "scope": "project",
   "expectedFindings": [
     {
-      "ruleId": "workspace/mcp-server-no-secret-literal",
+      "ruleId": "workspace/mcps-no-secret-literal",
       "severity": "warning",
       "file": ".axm/settings.json",
       "messageIncludes": "headers.Authorization"
     },
     {
-      "ruleId": "workspace/mcp-server-no-secret-literal",
+      "ruleId": "workspace/mcps-no-secret-literal",
       "severity": "warning",
       "file": ".axm/settings.json",
       "messageIncludes": "env.GITHUB_TOKEN"

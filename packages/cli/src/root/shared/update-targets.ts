@@ -1,19 +1,41 @@
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+import { enabledConfiguredEntries } from "@agentxm/client-core/unstable/extensions";
+import type { IdentifierResourceType } from "@agentxm/client-core/unstable/source-resolution";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import {
   SourceHostProviders,
   resolveSource,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { expandGlobs } from "@agentxm/client-core/unstable/utils";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { Flag } from "effect/unstable/cli";
 
 import { emitNoOpOutcome } from "./no-op-output.js";
 
 export type UpdateTargetEntry = readonly [name: string, source: string];
 
-export type UpdateTargetResource = "skill" | "subagent" | "command";
+/**
+ * Every catalog type an update selector can name. Packs are excluded for the
+ * same reason identifier resolution excludes them: they are containers, not
+ * a per-type installed inventory.
+ */
+export type UpdateTargetResource = IdentifierResourceType;
+
+/**
+ * The repeated name-filter flag every `<type> update` accepts. Groups that
+ * shipped a type-specific spelling (`--skill`, `--subagent`) keep it as an
+ * additional alias; `--name` is the one spelling that works everywhere.
+ */
+export const updateNameFilterFlag = Flag.string("name").pipe(
+  Flag.withDescription("Update only specific extensions by name or glob pattern"),
+  Flag.atLeast(0),
+);
+
+/** Flag name reported in the "nothing matched" envelope. */
+export const UPDATE_NAME_FILTER_FLAG = "--name";
 
 export interface ResolveUpdateTargetsArgs {
   readonly command: string;
@@ -154,4 +176,68 @@ export const resolveUpdateTargets = (args: ResolveUpdateTargetsArgs) =>
       type: "targets",
       entries: filteredEntries,
     } satisfies ResolveUpdateTargetsResult;
+  });
+
+export type WorkspaceUpdateSelection =
+  /** No selector was given: every configured entry of the type is in scope. */
+  | { readonly type: "all" }
+  /** A selector matched these installed names. */
+  | { readonly type: "names"; readonly names: ReadonlyArray<string> }
+  /** A selector matched nothing; the no-op envelope has already been emitted. */
+  | { readonly type: "no-op" };
+
+export interface ResolveWorkspaceUpdateSelectionArgs {
+  readonly command: string;
+  readonly planName: string;
+  readonly planDescription: string;
+  readonly resourceType: UpdateTargetResource;
+  readonly resourceLabel: string;
+  readonly resourceLabelPlural: string;
+  readonly source: Option.Option<string>;
+  readonly nameFilters: ReadonlyArray<string>;
+}
+
+/**
+ * Shared selector semantics for the `<type> update` commands that run through
+ * the workspace update plan. Reads the type's configured, enabled entries from
+ * the read model, then applies the same source/name filtering every other
+ * update verb uses. Returns `all` when no selector was given, so a workspace
+ * with nothing configured still reports through the plan builder's own
+ * "no configured …" message rather than a selector no-op.
+ */
+export const resolveWorkspaceUpdateSelection = (args: ResolveWorkspaceUpdateSelectionArgs) =>
+  Effect.gen(function* () {
+    if (Option.isNone(args.source) && args.nameFilters.length === 0) {
+      return { type: "all" } satisfies WorkspaceUpdateSelection;
+    }
+
+    const ws = yield* WorkspaceMutations;
+    const configured = yield* ws.records
+      .rows(args.resourceType)
+      .pipe(Effect.map(configuredRowsByName));
+    const entries: ReadonlyArray<UpdateTargetEntry> = enabledConfiguredEntries(configured).map(
+      ([name, entry]) => [name, entry.source] as const,
+    );
+
+    const resolution = yield* resolveUpdateTargets({
+      command: args.command,
+      planName: args.planName,
+      planDescription: args.planDescription,
+      entries,
+      source: args.source,
+      nameFilters: args.nameFilters,
+      nameFilterFlag: UPDATE_NAME_FILTER_FLAG,
+      resourceType: args.resourceType,
+      resourceLabel: args.resourceLabel,
+      resourceLabelPlural: args.resourceLabelPlural,
+    });
+
+    if (resolution.type === "no-op") {
+      return { type: "no-op" } satisfies WorkspaceUpdateSelection;
+    }
+
+    return {
+      type: "names",
+      names: resolution.entries.map(([name]) => name),
+    } satisfies WorkspaceUpdateSelection;
   });

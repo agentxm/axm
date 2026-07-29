@@ -6,7 +6,12 @@ import { Flag, GlobalFlag } from "effect/unstable/cli";
 // Global flag definitions (parsed by Effect CLI at the root command level)
 // ---------------------------------------------------------------------------
 
-export { isCI, isNonInteractive, nonInteractiveFlag } from "./non-interactive.js";
+export {
+  isCI,
+  isNonInteractive,
+  isNonInteractiveOptional,
+  nonInteractiveFlag,
+} from "./non-interactive.js";
 import { nonInteractiveFlag } from "./non-interactive.js";
 
 export const jsonFlag = GlobalFlag.setting("axm-json")({

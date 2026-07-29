@@ -5,10 +5,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { decodeVersionSync, type Version } from "../../version-constraints/version-constraints.js";
-import { decodeExtensionNameSync } from "../../extensions/index.js";
+import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
 import { normalizeHandle } from "../../extensions/handle.js";
 import {
+  configuredRow,
   makeBaseWorkspaceMock,
+  rowsFor,
   makeRegistrySkillLockEntry,
   makeRegistryCommandLockEntry,
   makeRegistryMcpServerLockEntry,
@@ -22,6 +24,10 @@ import {
 import {
   collectSkillCurrency,
   collectSkillSourceFreshness,
+  collectCommandSourceFreshness,
+  collectHookSourceFreshness,
+  collectKnowledgeSourceFreshness,
+  collectMcpServerSourceFreshness,
   collectCommandCurrency,
   collectMcpServerCurrency,
   collectSubagentCurrency,
@@ -60,14 +66,16 @@ describe("collectSkillCurrency", () => {
   it.effect("returns currency entries for registry-sourced enabled skills", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSkills: () =>
-          Effect.succeed({
-            "code-review": {
+        rows: rowsFor({
+          skill: [
+            configuredRow({
+              type: "skill",
+              name: "code-review",
               source: "@acme/skills/code-review@^1.0.0",
-              enabled: true,
-              packagingKind: "non-native" as const,
-            },
-          }),
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
         getLockedSkills: () =>
           Effect.succeed({
             "code-review": makeRegistrySkillLockEntry({
@@ -96,14 +104,17 @@ describe("collectSkillCurrency", () => {
   it.effect("skips disabled skills", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSkills: () =>
-          Effect.succeed({
-            "code-review": {
+        rows: rowsFor({
+          skill: [
+            configuredRow({
+              type: "skill",
+              name: "code-review",
               source: "@acme/skills/code-review",
               enabled: false,
-              packagingKind: "non-native" as const,
-            },
-          }),
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
         getLockedSkills: () =>
           Effect.succeed({
             "code-review": makeRegistrySkillLockEntry({
@@ -125,14 +136,16 @@ describe("collectSkillCurrency", () => {
   it.effect("skips non-registry-sourced skills", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSkills: () =>
-          Effect.succeed({
-            "local-skill": {
+        rows: rowsFor({
+          skill: [
+            configuredRow({
+              type: "skill",
+              name: "local-skill",
               source: "github:user/repo",
-              enabled: true,
-              packagingKind: "non-native" as const,
-            },
-          }),
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
         getLockedSkills: () =>
           Effect.succeed({
             "local-skill": {
@@ -163,14 +176,16 @@ describe("collectSkillSourceFreshness", () => {
           Effect.succeed([
             { name: "github", type: "github" as const, url: new URL("https://github.com") },
           ]),
-        getConfiguredSkills: () =>
-          Effect.succeed({
-            "find-skills": {
+        rows: rowsFor({
+          skill: [
+            configuredRow({
+              type: "skill",
+              name: "find-skills",
               source: "github:vercel-labs/skills//skills/find-skills",
-              enabled: true,
-              packagingKind: "non-native" as const,
-            },
-          }),
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
         getLockedSkills: () =>
           Effect.succeed({
             "find-skills": {
@@ -231,18 +246,195 @@ describe("collectSkillSourceFreshness", () => {
   );
 });
 
+describe("git-source freshness beyond skills", () => {
+  const gitLockEntry = (repo: string, gitTreeHash: string) => ({
+    type: "github" as const,
+    owner: "acme",
+    repo,
+    gitTreeHash,
+    installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+  });
+
+  const providersReturning = (refs: ReadonlyArray<ExtensionRef>): SourceHostProvidersService => ({
+    find: () => Effect.succeed(refs),
+    fetch: () => Effect.die(new Error("not used")),
+    cloneUrl: () => Option.none(),
+    origin: () => "https://github.com/acme/pkg",
+  });
+
+  const gitSource = (repo: string) => ({
+    type: "github" as const,
+    url: new URL("https://github.com"),
+    owner: "acme",
+    repo,
+    ref: Option.none(),
+    subPath: Option.none(),
+  });
+
+  const namePayload = (name: string) => ({
+    name: decodeExtensionNameSync(name),
+    description: Option.none(),
+    metadata: Option.none(),
+  });
+
+  const configuredSources = () =>
+    Effect.succeed([
+      { name: "github", type: "github" as const, url: new URL("https://github.com") },
+    ]);
+
+  it.effect("reports a changed command whose upstream tree hash moved", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredSources: configuredSources,
+        rows: rowsFor({
+          command: [
+            configuredRow({
+              type: "command",
+              name: "deploy",
+              source: "github:acme/deploy",
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
+        getLockedCommands: () => Effect.succeed({ deploy: gitLockEntry("deploy", "old-tree") }),
+      });
+      const layer = Layer.merge(
+        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
+        Layer.succeed(
+          SourceHostProviders,
+          providersReturning([
+            {
+              type: "command",
+              refType: "git-hosted",
+              command: namePayload("deploy"),
+              source: gitSource("deploy"),
+              location: "file:///tmp/deploy",
+              sourcePath: "deploy",
+              gitTreeSha: Option.some("new-tree"),
+            },
+          ]),
+        ),
+      );
+
+      const entries = yield* collectCommandSourceFreshness().pipe(Effect.provide(layer));
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.type).toBe("command");
+      expect(entries[0]?.ref).toBe("commands/deploy");
+      expect(entries[0]?.status).toBe("changed");
+    }),
+  );
+
+  it.effect("reports a current hook whose upstream tree hash matches", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredSources: configuredSources,
+        getConfiguredHookEntries: () =>
+          Effect.succeed({ guard: { source: "github:acme/guard", enabled: true } }),
+        getLockedHooks: () => Effect.succeed({ guard: gitLockEntry("guard", "same-tree") }),
+      });
+      const layer = Layer.merge(
+        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
+        Layer.succeed(
+          SourceHostProviders,
+          providersReturning([
+            {
+              type: "hook",
+              refType: "git-hosted",
+              hook: namePayload("guard"),
+              source: gitSource("guard"),
+              location: "file:///tmp/guard",
+              sourcePath: "guard",
+              gitTreeSha: Option.some("same-tree"),
+            },
+          ]),
+        ),
+      );
+
+      const entries = yield* collectHookSourceFreshness().pipe(Effect.provide(layer));
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.type).toBe("hook");
+      expect(entries[0]?.status).toBe("current");
+    }),
+  );
+
+  it.effect("reports unknown for a knowledge bundle whose source cannot resolve", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredSources: () => Effect.succeed([]),
+        getConfiguredKnowledgeEntries: () =>
+          Effect.succeed({
+            "domain-model": { source: "unknown-host:acme/domain-model", enabled: true },
+          }),
+        getLockedKnowledge: () =>
+          Effect.succeed({ "domain-model": gitLockEntry("domain-model", "old-tree") }),
+      });
+      const layer = Layer.merge(
+        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
+        Layer.succeed(SourceHostProviders, providersReturning([])),
+      );
+
+      const entries = yield* collectKnowledgeSourceFreshness().pipe(Effect.provide(layer));
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.type).toBe("knowledge");
+      expect(entries[0]?.status).toBe("unknown");
+      expect(Option.isSome(entries[0]?.reason ?? Option.none())).toBe(true);
+    }),
+  );
+
+  it.effect("skips inline MCP server lock entries", () =>
+    Effect.gen(function* () {
+      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+        getConfiguredSources: configuredSources,
+        rows: rowsFor({
+          "mcp-server": [
+            configuredRow({
+              type: "mcp-server",
+              name: "local-server",
+              source: "inline",
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
+        getLockedMcpServers: () =>
+          Effect.succeed({
+            "local-server": {
+              type: "inline" as const,
+              command: "run-server",
+              installedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+              updatedAt: DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"),
+            },
+          }),
+      });
+      const layer = Layer.merge(
+        Layer.merge(Layer.succeed(WorkspaceMutations, ws), NodeServices.layer),
+        Layer.succeed(SourceHostProviders, providersReturning([])),
+      );
+
+      const entries = yield* collectMcpServerSourceFreshness().pipe(Effect.provide(layer));
+
+      expect(entries).toHaveLength(0);
+    }),
+  );
+});
+
 describe("collectCommandCurrency", () => {
   it.effect("returns currency entries for registry-sourced enabled commands", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredCommands: () =>
-          Effect.succeed({
-            formatter: {
+        rows: rowsFor({
+          command: [
+            configuredRow({
+              type: "command",
+              name: "formatter",
               source: "@acme/commands/formatter",
-              enabled: true,
-              packagingKind: "non-native" as const,
-            },
-          }),
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
         getLockedCommands: () =>
           Effect.succeed({
             formatter: makeRegistryCommandLockEntry({
@@ -271,14 +463,16 @@ describe("collectMcpServerCurrency", () => {
   it.effect("returns currency entries for registry-sourced mcps", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredMcpServers: () =>
-          Effect.succeed({
-            "my-server": {
+        rows: rowsFor({
+          "mcp-server": [
+            configuredRow({
+              type: "mcp-server",
+              name: "my-server",
               source: "@acme/mcps/my-server@^1.0.0",
-              enabled: true,
-              packagingKind: "non-native" as const,
-            },
-          }),
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
         getLockedMcpServers: () =>
           Effect.succeed({
             "my-server": makeRegistryMcpServerLockEntry({
@@ -307,14 +501,16 @@ describe("collectSubagentCurrency", () => {
   it.effect("returns currency entries for registry-sourced enabled subagents", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSubagents: () =>
-          Effect.succeed({
-            "my-agent": {
+        rows: rowsFor({
+          subagent: [
+            configuredRow({
+              type: "subagent",
+              name: "my-agent",
               source: "@acme/subagents/my-agent",
-              enabled: true,
-              packagingKind: "non-native" as const,
-            },
-          }),
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
         getLockedSubagents: () =>
           Effect.succeed({
             "my-agent": {
@@ -351,14 +547,16 @@ describe("collectPackCurrency", () => {
   it.effect("returns currency entries for registry-sourced packs", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredPacks: () =>
-          Effect.succeed({
-            starter: {
+        rows: rowsFor({
+          pack: [
+            configuredRow({
+              type: "pack",
+              name: "starter",
               source: "@acme/packs/starter",
-              enabled: true,
-              packagingKind: "non-native" as const,
-            },
-          }),
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
         getLockedPacks: () =>
           Effect.succeed({
             starter: makeRegistryPackLockEntry({
@@ -564,14 +762,24 @@ describe("collectAllCurrencyEntries", () => {
   it.effect("aggregates entries from all extension types", () =>
     Effect.gen(function* () {
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSkills: () =>
-          Effect.succeed({
-            "code-review": {
+        rows: rowsFor({
+          skill: [
+            configuredRow({
+              type: "skill",
+              name: "code-review",
               source: "@acme/skills/code-review",
-              enabled: true,
-              packagingKind: "non-native" as const,
-            },
-          }),
+              packagingKind: "non-native",
+            }),
+          ],
+          command: [
+            configuredRow({
+              type: "command",
+              name: "formatter",
+              source: "@acme/commands/formatter",
+              packagingKind: "non-native",
+            }),
+          ],
+        }),
         getLockedSkills: () =>
           Effect.succeed({
             "code-review": makeRegistrySkillLockEntry({
@@ -579,14 +787,6 @@ describe("collectAllCurrencyEntries", () => {
               name: "code-review",
               resolvedVersion: v("1.0.0"),
             }),
-          }),
-        getConfiguredCommands: () =>
-          Effect.succeed({
-            formatter: {
-              source: "@acme/commands/formatter",
-              enabled: true,
-              packagingKind: "non-native" as const,
-            },
           }),
         getLockedCommands: () =>
           Effect.succeed({

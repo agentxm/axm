@@ -202,7 +202,7 @@ export interface ResolvePlanArgs {
  *
  * Consumers that need lockfile reconciliation (install, uninstall, pack) keep
  * calling `previewOrApplyPlan`; lint-fix composes the narrower pipeline
- * described in `docs/design/lint-engine.md §6`:
+ * described in `contributing/guides/lint-rule-authoring.md` ("Writing `fix`"):
  * `collectFixOperations → resolvePlan → applyPlan`.
  *
  * @experimental This API is unstable and may change without notice.

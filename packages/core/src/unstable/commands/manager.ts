@@ -49,6 +49,7 @@ import {
   readCommandContent,
   renderToAgents,
 } from "./operations/shared-command-helpers.js";
+import { configuredRowsByName, installedRowsByName } from "../workspace/read-model-record-rows.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -370,7 +371,9 @@ export const CommandManagerLive = Layer.effect(
       }: {
         readonly target: CommandExtensionTarget;
       }) {
-        const installedCommands = yield* ws.records.getInstalledCommands();
+        const installedCommands = yield* ws.records
+          .rows("command")
+          .pipe(Effect.map(installedRowsByName));
         if (target.name in installedCommands) {
           return true;
         }
@@ -384,11 +387,11 @@ export const CommandManagerLive = Layer.effect(
           lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
         ),
       getConfiguredSource: Effect.fn("CommandManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.records.getConfiguredCommands();
+        const configured = yield* ws.records.rows("command").pipe(Effect.map(configuredRowsByName));
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("CommandManager.listMaterializable")(function* () {
-        const configured = yield* ws.records.getConfiguredCommands();
+        const configured = yield* ws.records.rows("command").pipe(Effect.map(configuredRowsByName));
         return yield* configuredCommandsToDiskRefs(
           { fs, path, baseDir, scope: ws.scope },
           configured,

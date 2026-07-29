@@ -24,9 +24,18 @@
  *   `axm.writer !== null` means AXM has verified write mechanics for that
  *   capability.
  *
- * `permissions` lives beside `capabilities` because it models AXM grant/write
- * mechanics for an agent's permission system. It is not a publishable leaf
- * extension type and therefore is not keyed under the extension capability map.
+ * `capabilities` is keyed on the placement axis: exactly the extension types
+ * `EXTENSION_TYPE_TABLE` marks `placement: "per-agent"`, because only those
+ * render into a directory the agent owns. Two sibling fields sit beside it
+ * rather than inside it:
+ *
+ * - `instructions` carries the `rule` capability. Rules are `placement:
+ *   "workspace"` — they live in shared instruction files that every configured
+ *   agent reads — so the catalog records how each agent consumes that shared
+ *   file, not an agent-owned slot. The field name is the type's
+ *   `workspaceCapability` axis value.
+ * - `permissions` models AXM grant/write mechanics for an agent's permission
+ *   system. It is not a publishable extension type at all.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -36,7 +45,7 @@ import {
   DocLinkSchema,
   LeafExtensionTypeSchema,
   UrlSchema,
-  type LeafExtensionType,
+  type PerAgentType,
   type Url,
 } from "../extension-types/schema.js";
 
@@ -47,6 +56,7 @@ export {
   UrlSchema,
   type DocLink,
   type LeafExtensionType,
+  type PerAgentType,
   type Standard,
   type Url,
 } from "../extension-types/schema.js";
@@ -717,29 +727,6 @@ export const RulesExtensionCapabilitySchema = Schema.Struct({
 
 /** @experimental This API is unstable and may change without notice. */
 export type RulesExtensionCapability = Schema.Schema.Type<typeof RulesExtensionCapabilitySchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const FilesExtensionCapabilitySchema = Schema.Struct({
-  native: Schema.Union([
-    Schema.Struct({
-      ...AvailableNativeCapabilityBaseFields,
-      directory: Schema.NonEmptyString,
-      files: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
-      naming: Schema.NullOr(Schema.NonEmptyString),
-    }),
-    Schema.Struct(UnavailableNativeCapabilityFields),
-  ]),
-  axm: NoWriterAxmCapabilityStateSchema,
-})
-  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
-  .annotate({
-    identifier: "FilesExtensionCapability",
-    title: "Files Capability",
-    description: "Agent support for standalone context-file scaffolding.",
-  });
-
-/** @experimental This API is unstable and may change without notice. */
-export type FilesExtensionCapability = Schema.Schema.Type<typeof FilesExtensionCapabilitySchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const ConfigFileFormatSchema = Schema.Literals([
@@ -1426,28 +1413,26 @@ export type PermissionsExtensionCapability = Schema.Schema.Type<
   typeof PermissionsExtensionCapabilitySchema
 >;
 
-const LeafCapabilitySchemaByType = {
+const PerAgentCapabilitySchemaByType = {
   skill: SkillsExtensionCapabilitySchema,
   command: CommandsExtensionCapabilitySchema,
   "mcp-server": McpExtensionCapabilitySchema,
   subagent: SubagentsExtensionCapabilitySchema,
-  files: FilesExtensionCapabilitySchema,
-  rule: RulesExtensionCapabilitySchema,
   hook: HooksExtensionCapabilitySchema,
-} satisfies Record<LeafExtensionType, Schema.Top>;
+} satisfies Record<PerAgentType, Schema.Top>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const AgentCapabilitiesSchema = Schema.Struct(LeafCapabilitySchemaByType).annotate({
+export const AgentCapabilitiesSchema = Schema.Struct(PerAgentCapabilitySchemaByType).annotate({
   identifier: "AgentCapabilities",
   title: "Agent Capabilities",
-  description: "Agent extension capabilities keyed by leaf extension type.",
+  description: "Agent extension capabilities keyed by per-agent extension type.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
 export type AgentCapabilities = Schema.Schema.Type<typeof AgentCapabilitiesSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export type AgentExtensionCapability = AgentCapabilities[LeafExtensionType];
+export type AgentExtensionCapability = AgentCapabilities[PerAgentType] | RulesExtensionCapability;
 
 /** @experimental This API is unstable and may change without notice. */
 export type NativeCapability = AgentExtensionCapability["native"];
@@ -1544,6 +1529,7 @@ const AgentStruct = Schema.Struct({
   detection: DetectionSchema,
   docs: Schema.Array(DocLinkSchema),
   capabilities: AgentCapabilitiesSchema,
+  instructions: RulesExtensionCapabilitySchema,
   permissions: PermissionsExtensionCapabilitySchema,
   targeting: Schema.optionalKey(CapabilityTargetingSchema),
 });
@@ -1553,13 +1539,13 @@ export const AgentSchema = AgentStruct.pipe(
   Schema.check(
     Schema.makeFilter((agent: Schema.Schema.Type<typeof AgentStruct>) => {
       if (
-        "kind" in agent.capabilities.rule.native &&
-        agent.capabilities.rule.native.kind === "agents-md" &&
-        agent.capabilities.rule.native.files[0] !== "AGENTS.md"
+        "kind" in agent.instructions.native &&
+        agent.instructions.native.kind === "agents-md" &&
+        agent.instructions.native.files[0] !== "AGENTS.md"
       ) {
         return {
-          path: ["capabilities", "rule", "native", "files"],
-          issue: 'capabilities.rule.kind "agents-md" requires AGENTS.md.',
+          path: ["instructions", "native", "files"],
+          issue: 'instructions.kind "agents-md" requires AGENTS.md.',
         };
       }
       return undefined;

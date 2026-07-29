@@ -129,43 +129,6 @@ export const kiroCliAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Kiro CLI steering files live under .kiro/steering and can be always-on, conditional, or manually referenced.",
-        docs: [],
-        sources: ["https://kiro.dev/docs/cli/steering/"],
-        scopes: ["user", "project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        directory: ".kiro/steering",
-        kind: "rules-dir",
-        files: ["*.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -186,6 +149,29 @@ export const kiroCliAgent = {
         lastVerified: "2026-06-06",
         reason: "AXM has not implemented a Kiro CLI hooks writer.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Kiro CLI steering files live under .kiro/steering and can be always-on, conditional, or manually referenced.",
+      docs: [],
+      sources: ["https://kiro.dev/docs/cli/steering/"],
+      scopes: ["user", "project"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      directory: ".kiro/steering",
+      kind: "rules-dir",
+      files: ["*.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

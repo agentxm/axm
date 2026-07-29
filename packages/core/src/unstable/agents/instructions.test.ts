@@ -271,6 +271,58 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("reports native rules directories AXM does not sync", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+
+        const status = yield* getInstructionsStatus({
+          workspaceRoot: tempDir,
+          // cursor: agents-md plus a secondary native rules directory.
+          // roo: rules-dir, which AXM resolves to the unwritten adapter path.
+          // codex: agents-md with no secondary directory.
+          configuredAgents: ["cursor", "roo", "codex"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+        });
+        const detailsById = new Map(status.items.map((item) => [item.agentId, item.details]));
+
+        expect(detailsById.get("cursor")).toBe(
+          "Instruction file is current. Native rules directory .cursor/rules is not synced by AXM.",
+        );
+        expect(detailsById.get("roo")).toBe(
+          "Native rules directory .roo/rules is not yet synced by AXM.",
+        );
+        expect(detailsById.get("codex")).toBe("Instruction file is current.");
+
+        // Reporting is parity work only: the adapter mechanism stays unbuilt, so
+        // rules-dir agents keep reporting unsupported and nothing is written.
+        expect(status.items.find((item) => item.agentId === "roo")?.health).toBe("unsupported");
+        expect(fs.existsSync(path.join(tempDir, ".roo"))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, ".cursor"))).toBe(false);
+      }),
+    ),
+  );
+
+  it("carries every catalog secondary rules directory onto the descriptor", () => {
+    const secondary = Object.values(AGENTS).flatMap((descriptor) => {
+      const instructions = descriptor.instructions;
+      if (instructions === undefined || instructions.kind === "rules-dir") return [];
+      return instructions.rulesDir === undefined ? [] : [[descriptor.id, instructions.rulesDir]];
+    });
+
+    // windsurf's ".devin/rules" is very likely a catalog copy-paste error (Devin
+    // is a different agent). Pinned rather than corrected: fixing it is a
+    // catalog-verification change, and this test makes the value visible now
+    // that status output shows it to users.
+    expect(Object.fromEntries(secondary)).toEqual({
+      antigravity: ".agents/rules",
+      codebuddy: ".codebuddy/rules",
+      cursor: ".cursor/rules",
+      "ibm-bob": ".bob/rules",
+      windsurf: ".devin/rules",
+    });
+  });
+
   it.effect("removes the managed gitignore block when gitignoreAliases is disabled", () =>
     run(
       Effect.gen(function* () {

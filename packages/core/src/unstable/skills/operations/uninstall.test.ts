@@ -76,8 +76,6 @@ const makeWorkspaceMock = (
   };
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(legacyConfiguredAgents(lockfileSkills)),
     getLockedSkills: () =>
       lockfileErrorOverride !== undefined ? lockfileErrorOverride() : Effect.succeed(skills),
@@ -131,7 +129,6 @@ const makeWorkspaceMock = (
               void name;
             }),
     getLockedPacks: () => Effect.succeed(lockedPacks),
-    getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
 

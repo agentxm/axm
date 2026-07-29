@@ -21,6 +21,7 @@
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { InstructionsGitignoreStatus, InstructionsStatus } from "../agents/instructions.js";
+import type { ExtensionType } from "../extensions/common.js";
 import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
 
 // -----------------------------------------------------------------------------
@@ -103,6 +104,16 @@ export interface McpServerFileAccessor {
 }
 
 export interface HookFileAccessor {
+  readonly exists: (path: string) => Effect.Effect<boolean>;
+  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
+}
+
+export interface RuleFileAccessor {
+  readonly exists: (path: string) => Effect.Effect<boolean>;
+  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
+}
+
+export interface KnowledgeFileAccessor {
   readonly exists: (path: string) => Effect.Effect<boolean>;
   readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
 }
@@ -279,6 +290,33 @@ export interface FilesContent {
 }
 
 /**
+ * Context passed to `rule/*` rules.
+ *
+ * The doubled word is unavoidable: `rule` is an extension type and `rule` is
+ * also the lint primitive, so the context for the `rule` extension type is a
+ * `RuleRuleContext`. Every other name here follows `<Type>RuleContext`.
+ */
+export interface RuleRuleContext<S = RuleContent> {
+  readonly subject: S;
+  readonly files: RuleFileAccessor;
+  readonly displayRoot: string;
+}
+
+export interface RuleContent {
+  readonly ruleJson: unknown;
+}
+
+export interface KnowledgeRuleContext<S = KnowledgeContent> {
+  readonly subject: S;
+  readonly files: KnowledgeFileAccessor;
+  readonly displayRoot: string;
+}
+
+export interface KnowledgeContent {
+  readonly knowledgeJson: unknown;
+}
+
+/**
  * Context passed to `workspace/*` rules.
  *
  * `subject.scope` is `"project"` (default) or `"user"` (user-level `.axm/`).
@@ -318,8 +356,6 @@ export interface WorkspaceInstructionAccessor {
  * Narrow accessor over the manifests of every installed non-pack extension.
  *
  * Packs are excluded — they carry neither `standalone` nor `recommendedPacks`.
- * Hooks are excluded too: the workspace read model has no hook family yet, so
- * there is nothing to project.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -336,7 +372,7 @@ export interface WorkspaceInstalledExtensionAccessor {
  * @experimental This API is unstable and may change without notice.
  */
 export interface InstalledExtensionManifest {
-  readonly extensionType: "skill" | "command" | "subagent" | "mcp-server" | "files";
+  readonly extensionType: Exclude<ExtensionType, "pack">;
   readonly name: string;
   /** Workspace-root-relative posix path of the manifest file. */
   readonly manifestPath: string;

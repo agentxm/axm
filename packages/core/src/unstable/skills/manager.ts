@@ -42,6 +42,7 @@ import {
   materializeCapabilityTargetedBuild,
 } from "../capability-targeting/index.js";
 import { renderTargetAgentIdForLocation } from "./operations/install.js";
+import { configuredRowsByName, installedRowsByName } from "../workspace/read-model-record-rows.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -255,7 +256,9 @@ export const SkillManagerLive = Layer.effect(
       }: {
         readonly target: SkillExtensionTarget;
       }) {
-        const installedSkills = yield* ws.records.getInstalledSkills();
+        const installedSkills = yield* ws.records
+          .rows("skill")
+          .pipe(Effect.map(installedRowsByName));
         if (target.name in installedSkills) {
           return true;
         }
@@ -265,11 +268,11 @@ export const SkillManagerLive = Layer.effect(
 
       materializeInstall,
       getConfiguredSource: Effect.fn("SkillManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.records.getConfiguredSkills();
+        const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("SkillManager.listMaterializable")(function* () {
-        const configured = yield* ws.records.getConfiguredSkills();
+        const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
         return yield* configuredSkillsToDiskRefs(
           { fs, path, baseDir, scope: ws.scope },
           configured,

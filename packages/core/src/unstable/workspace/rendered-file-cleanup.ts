@@ -8,7 +8,7 @@ import {
   type CodingAgent,
 } from "../agents/index.js";
 import { AGENTS as CAPABILITY_AGENTS } from "../agent-capabilities/index.js";
-import { LEAF_EXTENSION_TYPES, type LeafExtensionType } from "../extension-types/index.js";
+import { PER_AGENT_EXTENSION_TYPES, type PerAgentType } from "../extensions/common.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import { stripManagedHooksFromJson } from "../hooks/managed-groups.js";
 import type { WorkspaceScope } from "./scope.js";
@@ -278,17 +278,15 @@ const cleanupAgentHooks: RemovedAgentCleanup = (context) =>
   });
 
 /**
- * `files` extensions render to workspace paths rather than per-agent
- * directories, and `rule` extensions live in shared instruction files as
- * managed regions that other configured agents still read. Neither is keyed to
- * a single agent, so removing one agent must not delete them.
- */
-const noAgentScopedArtifacts: RemovedAgentCleanup = () => Effect.succeed(NO_PATHS);
-
-/**
- * Cleanup keyed by leaf extension type: adding a per-agent type to
- * `LEAF_EXTENSION_TYPES` fails to compile here until its removal behavior is
- * decided.
+ * Cleanup keyed on the placement axis: every extension type that renders into a
+ * directory the agent owns needs removal behavior here, and adding a per-agent
+ * type fails to compile until that behavior is decided.
+ *
+ * Workspace-placed types are deliberately absent rather than mapped to a no-op.
+ * `files` extensions render to workspace paths, and `rule` extensions live in
+ * shared instruction files as managed regions that other configured agents
+ * still read. Neither is keyed to a single agent, so removing one agent must
+ * not delete them.
  */
 const cleanupByExtensionType = {
   skill: cleanupAgentSkills,
@@ -296,9 +294,7 @@ const cleanupByExtensionType = {
   subagent: cleanupAgentSubagents,
   "mcp-server": cleanupAgentMcpServers,
   hook: cleanupAgentHooks,
-  files: noAgentScopedArtifacts,
-  rule: noAgentScopedArtifacts,
-} as const satisfies Record<LeafExtensionType, RemovedAgentCleanup>;
+} as const satisfies Record<PerAgentType, RemovedAgentCleanup>;
 
 /**
  * Remove AXM-managed artifacts for agents that are no longer configured for a
@@ -332,7 +328,7 @@ export const cleanupManagedArtifactsForRemovedAgents = (args: {
         workspaceRoot: ws.baseDir,
         scope: ws.scope,
       };
-      for (const type of LEAF_EXTENSION_TYPES) {
+      for (const type of PER_AGENT_EXTENSION_TYPES) {
         removedPaths.push(...(yield* cleanupByExtensionType[type](context)));
       }
     }

@@ -28,11 +28,12 @@ export interface ResolvedPackDependencies {
   readonly resolvedFiles: ResolvedExtensionMap;
   readonly resolvedRules: ResolvedExtensionMap;
   readonly resolvedHooks: ResolvedExtensionMap;
+  readonly resolvedKnowledge: ResolvedExtensionMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
 
-type SupportedPackDependencyType =
-  "skill" | "command" | "mcp-server" | "subagent" | "files" | "rule" | "hook";
+/** Every extension type a pack can depend on — packs cannot nest. */
+type SupportedPackDependencyType = Exclude<ExtensionType, "pack">;
 
 const registrySourceForDependency = (
   pack: PackRef,
@@ -146,47 +147,35 @@ const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
     { concurrency: "unbounded" },
   );
 
+/**
+ * Group dependency FQNs by extension type.
+ *
+ * The `groups` record is keyed by every non-pack extension type, so a new type
+ * fails compile here rather than being silently dropped from pack membership.
+ */
 const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) => {
-  const skills: Array<readonly [string, VersionRange]> = [];
-  const commands: Array<readonly [string, VersionRange]> = [];
-  const mcpServers: Array<readonly [string, VersionRange]> = [];
-  const subagents: Array<readonly [string, VersionRange]> = [];
-  const files: Array<readonly [string, VersionRange]> = [];
-  const rules: Array<readonly [string, VersionRange]> = [];
-  const hooks: Array<readonly [string, VersionRange]> = [];
+  const groups: Record<SupportedPackDependencyType, Array<readonly [string, VersionRange]>> = {
+    skill: [],
+    command: [],
+    "mcp-server": [],
+    subagent: [],
+    files: [],
+    rule: [],
+    hook: [],
+    knowledge: [],
+  };
   const unsupported: string[] = [];
 
   for (const [fqn, constraint] of Object.entries(dependencies)) {
     const parsed = parseFqnOrThrow(fqn);
-    switch (parsed.type) {
-      case "skill":
-        skills.push([fqn, constraint]);
-        break;
-      case "command":
-        commands.push([fqn, constraint]);
-        break;
-      case "mcp-server":
-        mcpServers.push([fqn, constraint]);
-        break;
-      case "subagent":
-        subagents.push([fqn, constraint]);
-        break;
-      case "files":
-        files.push([fqn, constraint]);
-        break;
-      case "rule":
-        rules.push([fqn, constraint]);
-        break;
-      case "hook":
-        hooks.push([fqn, constraint]);
-        break;
-      case "pack":
-        unsupported.push(fqn);
-        break;
+    if (parsed.type === "pack") {
+      unsupported.push(fqn);
+      continue;
     }
+    groups[parsed.type].push([fqn, constraint]);
   }
 
-  return { skills, commands, mcpServers, subagents, files, rules, hooks, unsupported };
+  return { groups, unsupported };
 };
 
 export const resolvePackDependencies = (
@@ -204,62 +193,24 @@ export const resolvePackDependencies = (
       });
     }
 
-    const resolvedSkills = yield* resolveDependencyGroup(
-      pack,
-      dependencies.skills,
-      "skill",
-      sources,
-      minimumReleaseAge,
-      sourceOverride,
-    );
-    const resolvedCommands = yield* resolveDependencyGroup(
-      pack,
-      dependencies.commands,
-      "command",
-      sources,
-      minimumReleaseAge,
-      sourceOverride,
-    );
-    const resolvedMcpServers = yield* resolveDependencyGroup(
-      pack,
-      dependencies.mcpServers,
-      "mcp-server",
-      sources,
-      minimumReleaseAge,
-      sourceOverride,
-    );
-    const resolvedSubagents = yield* resolveDependencyGroup(
-      pack,
-      dependencies.subagents,
-      "subagent",
-      sources,
-      minimumReleaseAge,
-      sourceOverride,
-    );
-    const resolvedFiles = yield* resolveDependencyGroup(
-      pack,
-      dependencies.files,
-      "files",
-      sources,
-      minimumReleaseAge,
-      sourceOverride,
-    );
-    const resolvedRules = yield* resolveDependencyGroup(
-      pack,
-      dependencies.rules,
-      "rule",
-      sources,
-      minimumReleaseAge,
-      sourceOverride,
-    );
-    const resolvedHooks = yield* resolveDependencyGroup(
-      pack,
-      dependencies.hooks,
-      "hook",
-      sources,
-      minimumReleaseAge,
-      sourceOverride,
-    );
+    const resolveGroup = <T extends SupportedPackDependencyType>(type: T) =>
+      resolveDependencyGroup(
+        pack,
+        dependencies.groups[type],
+        type,
+        sources,
+        minimumReleaseAge,
+        sourceOverride,
+      );
+
+    const resolvedSkills = yield* resolveGroup("skill");
+    const resolvedCommands = yield* resolveGroup("command");
+    const resolvedMcpServers = yield* resolveGroup("mcp-server");
+    const resolvedSubagents = yield* resolveGroup("subagent");
+    const resolvedFiles = yield* resolveGroup("files");
+    const resolvedRules = yield* resolveGroup("rule");
+    const resolvedHooks = yield* resolveGroup("hook");
+    const resolvedKnowledge = yield* resolveGroup("knowledge");
 
     return {
       resolvedSkills: toResolvedMap(resolvedSkills),
@@ -269,6 +220,7 @@ export const resolvePackDependencies = (
       resolvedFiles: toResolvedMap(resolvedFiles),
       resolvedRules: toResolvedMap(resolvedRules),
       resolvedHooks: toResolvedMap(resolvedHooks),
+      resolvedKnowledge: toResolvedMap(resolvedKnowledge),
       dependencyRefs: [
         ...resolvedSkills,
         ...resolvedCommands,
@@ -277,6 +229,7 @@ export const resolvePackDependencies = (
         ...resolvedFiles,
         ...resolvedRules,
         ...resolvedHooks,
+        ...resolvedKnowledge,
       ].map((dependency) => dependency.ref),
     };
   });

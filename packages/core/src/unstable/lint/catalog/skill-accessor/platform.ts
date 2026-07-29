@@ -3,7 +3,7 @@
  *
  * Maps accessor-relative posix paths to on-disk absolute paths rooted at
  * the caller-supplied skill-root directory. Layout conventions per
- * `docs/design/lint-engine.md §3` "Skill accessor root":
+ * `agentxm-internal/docs/design/lint-engine.md §3` "Skill accessor root":
  *
  * - **Native (registry-installed):**
  *   `<workspaceRoot>/.axm/extensions/<@owner>/skills/<sanitized-name>/src/`

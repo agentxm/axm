@@ -12,7 +12,6 @@
  * Supporting logic is split into focused modules:
  * - `source-metadata.ts` — source metadata derivation helpers
  * - `initialization.ts` — workspace initialization (agent detection, settings creation)
- * - `read-model-record-converters.ts` — workspace row → record map converters
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -115,19 +114,6 @@ import {
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
-import {
-  toConfiguredCommandRecord,
-  toConfiguredExtensionRefRecord,
-  toConfiguredSkillRecord,
-  toInstalledCommandRecord,
-  toInstalledExtensionRefRecord,
-  toInstalledSkillRecord,
-  toUnmanagedCommandRecord,
-  toUnmanagedExtensionRefRecord,
-  toUnmanagedSkillRecord,
-  toConfiguredSubagentRecord,
-  toInstalledSubagentRecord,
-} from "./read-model-record-converters.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
   skills: {},
@@ -329,9 +315,7 @@ const packResolvedMapForTarget = (
     case "hook":
       return packEntry.resolvedHooks ?? {};
     case "knowledge":
-      // PackLockEntry has no resolvedKnowledge map yet; knowledge members
-      // cannot be pack-required until the lockfile records them.
-      return {};
+      return packEntry.resolvedKnowledge ?? {};
   }
 };
 
@@ -558,37 +542,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       );
 
     const readModelRecordReaders = makeReadModelRecordReaders({ baseDir, path, readScopedContext });
-    const getReadModelRecordRows = readModelRecordReaders.getReadModelRecordRows;
     const records = {
       getExtensionInventory: readModelRecordReaders.getExtensionInventory,
-      getConfiguredSkills: () =>
-        getReadModelRecordRows("skill").pipe(Effect.map(toConfiguredSkillRecord)),
-      getUnmanagedSkills: () =>
-        getReadModelRecordRows("skill").pipe(Effect.map(toUnmanagedSkillRecord)),
-      getInstalledSkills: () =>
-        getReadModelRecordRows("skill").pipe(Effect.map(toInstalledSkillRecord)),
-      getConfiguredCommands: () =>
-        getReadModelRecordRows("command").pipe(Effect.map(toConfiguredCommandRecord)),
-      getUnmanagedCommands: () =>
-        getReadModelRecordRows("command").pipe(Effect.map(toUnmanagedCommandRecord)),
-      getInstalledCommands: () =>
-        getReadModelRecordRows("command").pipe(Effect.map(toInstalledCommandRecord)),
-      getConfiguredMcpServers: () =>
-        getReadModelRecordRows("mcp-server").pipe(Effect.map(toConfiguredExtensionRefRecord)),
-      getUnmanagedMcpServers: () =>
-        getReadModelRecordRows("mcp-server").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
-      getInstalledMcpServers: () =>
-        getReadModelRecordRows("mcp-server").pipe(Effect.map(toInstalledExtensionRefRecord)),
-      getConfiguredPacks: () =>
-        getReadModelRecordRows("pack").pipe(Effect.map(toConfiguredExtensionRefRecord)),
-      getUnmanagedPacks: () =>
-        getReadModelRecordRows("pack").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
-      getInstalledPacks: () =>
-        getReadModelRecordRows("pack").pipe(Effect.map(toInstalledExtensionRefRecord)),
-      getConfiguredSubagents: () =>
-        getReadModelRecordRows("subagent").pipe(Effect.map(toConfiguredSubagentRecord)),
-      getInstalledSubagents: () =>
-        getReadModelRecordRows("subagent").pipe(Effect.map(toInstalledSubagentRecord)),
+      rows: readModelRecordReaders.getReadModelRecordRows,
     };
 
     /**
@@ -1514,10 +1470,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               skills: {
                 ...currentLockfile.skills,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: yield* nextUpdatedAt(currentLockEntry),
-                },
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1533,17 +1486,15 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            if (skillLockEntrySemanticallyEqual(currentLockfile.skills[name], lockEntry)) {
+            const currentLockEntry = currentLockfile.skills[name];
+            if (skillLockEntrySemanticallyEqual(currentLockEntry, lockEntry)) {
               return;
             }
             const updatedLockfile = {
               ...currentLockfile,
               skills: {
                 ...currentLockfile.skills,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: yield* nextUpdatedAt(currentLockfile.skills[name]),
-                },
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(

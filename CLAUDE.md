@@ -128,6 +128,8 @@ the summary here, follow the guide.
 | [Logging Guide](contributing/guides/logging.md)                             | Before adding structured logs, read for logging conventions                               |
 | [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Before writing or revising TypeScript, read for narrowing and immutability rules          |
 | [Agent Capability Model](contributing/guides/agent-capabilities.md)         | Before adding an agent or changing a capability claim, read for the standard/bridged rule |
+| [Extension Type Parity Guide](contributing/guides/extension-type-parity.md) | Before adding an extension type, adding a per-type surface, or changing a parity obligation |
+| [Lint Rule Authoring Guide](contributing/guides/lint-rule-authoring.md)     | Before adding or changing a lint rule for skills, packs, or workspaces                    |
 
 ## Code Organization
 

@@ -25,6 +25,7 @@ import { findManagedSubagentFiles } from "../../workspace/rendered-file-cleanup.
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { RenderedFilePathSchema } from "../../extensions/index.js";
+import { installedRowsByName } from "../../workspace/read-model-record-rows.js";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
@@ -103,7 +104,9 @@ export const disableSubagent: OperationHandler<
     );
 
     // Read lifecycle to determine promotion needs
-    const installedSubagents = yield* ws.records.getInstalledSubagents();
+    const installedSubagents = yield* ws.records
+      .rows("subagent")
+      .pipe(Effect.map(installedRowsByName));
     const installed = installedSubagents[op.args.subagentName];
     const isImplicit = installed !== undefined && installed.lifecycle === "implicit";
 

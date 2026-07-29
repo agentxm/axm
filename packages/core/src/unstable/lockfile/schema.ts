@@ -354,10 +354,19 @@ export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>
  *
  * Same structure as SkillLockEntry but without the `agents` field.
  *
+ * Includes an advisory `sourceHash` change marker for the installed package
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check. Inline servers carry no source content and so have no `sourceHash`.
+ *
  * @experimental This API is unstable and may change without notice.
  */
+const McpServerCommonFields = {
+  ...BaseCommonFields,
+  sourceHash: Schema.optional(SourceHashSchema),
+};
+
 export const McpServerLockEntrySchema = Schema.Union([
-  makeSourceLockUnion(BaseCommonFields, "mcp-server", BaseCommonFields),
+  makeSourceLockUnion(McpServerCommonFields, "mcp-server", BaseCommonFields),
   InlineMcpServerLockEntrySchema,
 ]);
 
@@ -427,21 +436,32 @@ export const MaterializedFileTargetSchema = Schema.Struct({
 /** @experimental */
 export type MaterializedFileTarget = Schema.Schema.Type<typeof MaterializedFileTargetSchema>;
 
-const FilesCommonFields = {
+const FilesWorkspaceFields = {
   ...BaseCommonFields,
   resolvedInputs: Schema.optional(FilesResolvedInputsMapSchema),
+};
+
+// The workspace variant declares a required `sourceHash` of its own, so the
+// optional marker only belongs on the remaining source variants.
+const FilesCommonFields = {
+  ...FilesWorkspaceFields,
+  sourceHash: Schema.optional(SourceHashSchema),
 };
 
 /**
  * Lock entry for a single installed Context Files package.
  * Discriminated union by the `type` field.
  *
+ * Includes an advisory `sourceHash` change marker for the installed package
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 export const FilesLockEntrySchema = makeSourceLockUnion(
   FilesCommonFields,
   "files",
-  FilesCommonFields,
+  FilesWorkspaceFields,
 );
 
 /** @experimental */
@@ -461,12 +481,21 @@ export type FilesLockMap = Schema.Schema.Type<typeof FilesLockMapSchema>;
 // Rule Lock Entry (union of all source types, no agents)
 // =============================================================================
 
+const RuleCommonFields = {
+  ...BaseCommonFields,
+  sourceHash: Schema.optional(SourceHashSchema),
+};
+
 /**
  * Lock entry for a single installed rule.
  *
+ * Includes an advisory `sourceHash` change marker for the installed package
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check.
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleLockEntrySchema = makeSourceLockUnion(BaseCommonFields, "rule", BaseCommonFields);
+export const RuleLockEntrySchema = makeSourceLockUnion(RuleCommonFields, "rule", BaseCommonFields);
 
 /** @experimental */
 export type RuleLockEntry = Schema.Schema.Type<typeof RuleLockEntrySchema>;
@@ -485,12 +514,21 @@ export type RulesLockMap = Schema.Schema.Type<typeof RulesLockMapSchema>;
 // Hook Lock Entry (union of all source types, no agents)
 // =============================================================================
 
+const HookCommonFields = {
+  ...BaseCommonFields,
+  sourceHash: Schema.optional(SourceHashSchema),
+};
+
 /**
  * Lock entry for a single installed hook.
  *
+ * Includes an advisory `sourceHash` change marker for the installed package
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check.
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookLockEntrySchema = makeSourceLockUnion(BaseCommonFields, "hook", BaseCommonFields);
+export const HookLockEntrySchema = makeSourceLockUnion(HookCommonFields, "hook", BaseCommonFields);
 
 /** @experimental */
 export type HookLockEntry = Schema.Schema.Type<typeof HookLockEntrySchema>;
@@ -509,8 +547,22 @@ export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
 // Knowledge Lock Entry (isolated OKF bundle plus derived index)
 // =============================================================================
 
+const KnowledgeCommonFields = {
+  ...BaseCommonFields,
+  sourceHash: Schema.optional(SourceHashSchema),
+};
+
+/**
+ * Lock entry for a single installed knowledge bundle.
+ *
+ * Includes an advisory `sourceHash` change marker for the installed bundle
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
 export const KnowledgeLockEntrySchema = makeSourceLockUnion(
-  BaseCommonFields,
+  KnowledgeCommonFields,
   "knowledge",
   BaseCommonFields,
 );
@@ -570,6 +622,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedFiles: Schema.optional(ResolvedExtensionMapSchema),
   resolvedRules: Schema.optional(ResolvedExtensionMapSchema),
   resolvedHooks: Schema.optional(ResolvedExtensionMapSchema),
+  resolvedKnowledge: Schema.optional(ResolvedExtensionMapSchema),
 }).annotate({
   identifier: "RegistryPackLockEntry",
   title: "Registry Pack Lock Entry",
@@ -600,6 +653,7 @@ export const WorkspacePackLockEntrySchema = Schema.Struct({
   resolvedFiles: Schema.optional(ResolvedExtensionMapSchema),
   resolvedRules: Schema.optional(ResolvedExtensionMapSchema),
   resolvedHooks: Schema.optional(ResolvedExtensionMapSchema),
+  resolvedKnowledge: Schema.optional(ResolvedExtensionMapSchema),
 }).annotate({
   identifier: "WorkspacePackLockEntry",
   title: "Workspace Pack Lock Entry",

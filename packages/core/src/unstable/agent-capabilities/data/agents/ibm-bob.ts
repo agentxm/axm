@@ -131,42 +131,6 @@ export const ibmBobAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Bob automatically loads AGENTS.md from the workspace root.\n",
-        docs: [],
-        sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        directory: ".bob/rules",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
@@ -180,6 +144,28 @@ export const ibmBobAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: "Bob automatically loads AGENTS.md from the workspace root.\n",
+      docs: [],
+      sources: ["https://bob.ibm.com/docs/ide/configuration/rules"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      directory: ".bob/rules",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

@@ -130,42 +130,6 @@ export const qwenCodeAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Qwen Code loads QWEN.md from the project root and ~/.qwen/QWEN.md, and also reads AGENTS.md when present. AXM targets the universal AGENTS.md convention for project rules.",
-        docs: [],
-        sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/memory/"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -312,6 +276,28 @@ export const qwenCodeAgent = {
         },
         lastVerified: "2026-07-22",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Qwen Code loads QWEN.md from the project root and ~/.qwen/QWEN.md, and also reads AGENTS.md when present. AXM targets the universal AGENTS.md convention for project rules.",
+      docs: [],
+      sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/memory/"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

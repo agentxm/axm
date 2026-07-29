@@ -31,7 +31,7 @@ import {
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import {
@@ -42,6 +42,10 @@ import {
 import { CommandManager, type CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import { FilesManager, type FilesExtensionRef } from "@agentxm/client-core/unstable/files";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
+import {
+  KnowledgeManager,
+  type KnowledgeExtensionRef,
+} from "@agentxm/client-core/unstable/knowledge";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import {
@@ -63,6 +67,7 @@ import type {
   CommandExtensionTarget,
   FilesExtensionTarget,
   HookExtensionTarget,
+  KnowledgeExtensionTarget,
   McpServerExtensionTarget,
   RuleExtensionTarget,
   SkillExtensionTarget,
@@ -155,6 +160,7 @@ type PackDependencyNameSets = {
   readonly files: Set<string>;
   readonly rule: Set<string>;
   readonly hook: Set<string>;
+  readonly knowledge: Set<string>;
 };
 
 type DroppedPackDependencyTarget =
@@ -164,7 +170,8 @@ type DroppedPackDependencyTarget =
   | SubagentExtensionTarget
   | FilesExtensionTarget
   | RuleExtensionTarget
-  | HookExtensionTarget;
+  | HookExtensionTarget
+  | KnowledgeExtensionTarget;
 
 const makePackDependencyNameSets = (): PackDependencyNameSets => ({
   skill: new Set<string>(),
@@ -174,6 +181,7 @@ const makePackDependencyNameSets = (): PackDependencyNameSets => ({
   files: new Set<string>(),
   rule: new Set<string>(),
   hook: new Set<string>(),
+  knowledge: new Set<string>(),
 });
 
 const nameFromFqn = (fqn: string): string => parseExtensionFqnParts(fqn)?.name ?? fqn;
@@ -208,6 +216,9 @@ const collectResolvedDependencyNames = (
       case "hook":
         names.hook.add(ref.hook.name);
         break;
+      case "knowledge":
+        names.knowledge.add(ref.knowledge.name);
+        break;
     }
   }
 
@@ -222,6 +233,7 @@ const collectDirectlyConfiguredNames = (args: {
   readonly files: Readonly<Record<string, unknown>>;
   readonly rules: Readonly<Record<string, unknown>>;
   readonly hooks: Readonly<Record<string, unknown>>;
+  readonly knowledge: Readonly<Record<string, unknown>>;
 }): PackDependencyNameSets => ({
   skill: new Set(Object.keys(args.skills)),
   command: new Set(Object.keys(args.commands)),
@@ -230,6 +242,7 @@ const collectDirectlyConfiguredNames = (args: {
   files: new Set(Object.keys(args.files)),
   rule: new Set(Object.keys(args.rules)),
   hook: new Set(Object.keys(args.hooks)),
+  knowledge: new Set(Object.keys(args.knowledge)),
 });
 
 const collectDroppedPackDependencyTargets = (args: {
@@ -241,6 +254,7 @@ const collectDroppedPackDependencyTargets = (args: {
     readonly resolvedFiles?: ResolvedExtensionMap | undefined;
     readonly resolvedRules?: ResolvedExtensionMap | undefined;
     readonly resolvedHooks?: ResolvedExtensionMap | undefined;
+    readonly resolvedKnowledge?: ResolvedExtensionMap | undefined;
   };
   readonly nextDependencies: PackDependencyNameSets;
   readonly directlyConfigured: PackDependencyNameSets;
@@ -296,6 +310,16 @@ const collectDroppedPackDependencyTargets = (args: {
     const name = nameFromFqn(fqn);
     if (!args.nextDependencies.hook.has(name) && !args.directlyConfigured.hook.has(name)) {
       droppedTargets.push({ type: "hook", name });
+    }
+  }
+
+  for (const fqn of Object.keys(args.lockedPack.resolvedKnowledge ?? {})) {
+    const name = nameFromFqn(fqn);
+    if (
+      !args.nextDependencies.knowledge.has(name) &&
+      !args.directlyConfigured.knowledge.has(name)
+    ) {
+      droppedTargets.push({ type: "knowledge", name });
     }
   }
 
@@ -436,6 +460,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
     const contextManager = yield* FilesManager;
     const ruleManager = yield* RuleManager;
     const hookManager = yield* HookManager;
+    const knowledgeManager = yield* KnowledgeManager;
     const mcpServerMgr = yield* McpServerManager;
     const subagentMgr = yield* SubagentManager;
     const verbosityOption = yield* Effect.serviceOption(Verbosity);
@@ -789,6 +814,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             "files",
             "rule",
             "hook",
+            "knowledge",
           ],
           sources,
           minimumReleaseAge,
@@ -802,6 +828,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           configuredFiles,
           configuredRules,
           configuredHooks,
+          configuredKnowledge,
           lockedSkills,
           lockedCommands,
           lockedMcpServers,
@@ -809,15 +836,17 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           lockedFiles,
           lockedRules,
           lockedHooks,
+          lockedKnowledge,
         ] = yield* Effect.all(
           [
-            ws.records.getConfiguredSkills(),
-            ws.records.getConfiguredCommands(),
-            ws.records.getConfiguredMcpServers(),
-            ws.records.getConfiguredSubagents(),
+            ws.records.rows("skill").pipe(Effect.map(configuredRowsByName)),
+            ws.records.rows("command").pipe(Effect.map(configuredRowsByName)),
+            ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
+            ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
             ws.getConfiguredFilesEntries(),
             ws.getConfiguredRuleEntries(),
             ws.getConfiguredHookEntries(),
+            ws.getConfiguredKnowledgeEntries(),
             ws.getLockedSkills(),
             ws.getLockedCommands(),
             ws.getLockedMcpServers(),
@@ -825,6 +854,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             ws.getLockedFiles(),
             ws.getLockedRules(),
             ws.getLockedHooks(),
+            ws.getLockedKnowledge(),
           ],
           { concurrency: "unbounded" },
         );
@@ -933,6 +963,19 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             });
           }
 
+          if (ref.type === "knowledge") {
+            const installedBefore = Object.hasOwn(lockedKnowledge, ref.knowledge.name);
+            return buildInstallOperation<KnowledgeExtensionRef>(knowledgeManager, {
+              ref,
+              versionRange: Option.none(),
+              skipSettings: true,
+              retainedByPack: true,
+              installedBefore: Effect.succeed(installedBefore),
+              buildArtifact: ({ installedBefore }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+            });
+          }
+
           return {
             label: toLabel(target),
             readiness: "error",
@@ -948,6 +991,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           files: configuredFiles,
           rules: configuredRules,
           hooks: configuredHooks,
+          knowledge: configuredKnowledge,
         });
         const nextDependencies = collectResolvedDependencyNames(refs);
         const droppedTargets = Option.match(lockedPack, {

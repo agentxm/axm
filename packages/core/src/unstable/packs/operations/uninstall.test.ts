@@ -32,10 +32,6 @@ const makeWorkspaceMock = (
     getConfiguredOwner: () => Effect.succeed(Option.some(handle("@community"))),
     getConfiguredSources: () => Effect.succeed([]),
     getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed([]),
     ...overrides,
   });

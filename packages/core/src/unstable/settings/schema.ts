@@ -1336,6 +1336,69 @@ export const RulesConfigSchema = Schema.Struct({
 export type RulesConfig = Schema.Schema.Type<typeof RulesConfigSchema>;
 
 /**
+ * Feature-level configuration for Context Files packages.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const FilesConfigSchema = Schema.Struct({
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed Context Files package names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
+}).annotate({
+  identifier: "FilesConfig",
+  title: "Files Config",
+  description: "Feature-level configuration for Context Files packages.",
+});
+
+/** @experimental */
+export type FilesConfig = Schema.Schema.Type<typeof FilesConfigSchema>;
+
+/**
+ * Feature-level configuration for hooks.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const HooksConfigSchema = Schema.Struct({
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed hook names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
+}).annotate({
+  identifier: "HooksConfig",
+  title: "Hooks Config",
+  description: "Feature-level configuration for hooks.",
+});
+
+/** @experimental */
+export type HooksConfig = Schema.Schema.Type<typeof HooksConfigSchema>;
+
+/**
+ * Feature-level configuration for knowledge bundles.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const KnowledgeConfigSchema = Schema.Struct({
+  ignore: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "Installed knowledge bundle names AXM should leave unmanaged.",
+      examples: [["local-*", "legacy-helper"]],
+    }),
+  ),
+}).annotate({
+  identifier: "KnowledgeConfig",
+  title: "Knowledge Config",
+  description: "Feature-level configuration for knowledge bundles.",
+});
+
+/** @experimental */
+export type KnowledgeConfig = Schema.Schema.Type<typeof KnowledgeConfigSchema>;
+
+/**
  * Each catalog extension type's feature-level config schema, or `null` where
  * none exists yet.
  *
@@ -1350,10 +1413,10 @@ export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
   command: CommandsConfigSchema,
   "mcp-server": McpServersConfigSchema,
   subagent: SubagentsConfigSchema,
-  files: null,
+  files: FilesConfigSchema,
   rule: RulesConfigSchema,
-  hook: null,
-  knowledge: null,
+  hook: HooksConfigSchema,
+  knowledge: KnowledgeConfigSchema,
 } as const satisfies Record<CatalogExtensionType, Schema.Top | null>;
 
 /**
@@ -1378,9 +1441,12 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "commands",
   "commandsConfig",
   "files",
+  "filesConfig",
   "rules",
   "hooks",
+  "hooksConfig",
   "knowledge",
+  "knowledgeConfig",
   "subagents",
   "subagentsConfig",
   "packs",
@@ -1405,8 +1471,12 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - commands: Desired commands by name to version specifier
  * - commandsConfig: Feature-level configuration for commands
  * - files: Desired Context Files packages by name to source string or input config
+ * - filesConfig: Feature-level configuration for Context Files packages
  * - rules: Desired rules by name to source string
  * - hooks: Desired hooks by name to source string
+ * - hooksConfig: Feature-level configuration for hooks
+ * - knowledge: Desired knowledge bundles by name to source string
+ * - knowledgeConfig: Feature-level configuration for knowledge bundles
  * - subagents: Desired subagents by name to version specifier
  * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
@@ -1491,6 +1561,11 @@ const SettingsBaseSchema = Schema.Struct({
         "Your installed Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`.",
     }),
   ),
+  filesConfig: Schema.optionalKey(
+    Schema.Union([FilesConfigSchema]).annotate({
+      description: "Feature-level options for Context Files package management.",
+    }),
+  ),
   rules: Schema.optionalKey(
     Schema.Union([RulesMapSchema]).annotate({
       description:
@@ -1503,10 +1578,20 @@ const SettingsBaseSchema = Schema.Struct({
         "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
+  hooksConfig: Schema.optionalKey(
+    Schema.Union([HooksConfigSchema]).annotate({
+      description: "Feature-level options for hook management.",
+    }),
+  ),
   knowledge: Schema.optionalKey(
     Schema.Union([KnowledgeMapSchema]).annotate({
       description:
         "Installed Open Knowledge Format bundles, isolated from agent instruction files.",
+    }),
+  ),
+  knowledgeConfig: Schema.optionalKey(
+    Schema.Union([KnowledgeConfigSchema]).annotate({
+      description: "Feature-level options for knowledge bundle management.",
     }),
   ),
   subagents: Schema.optionalKey(

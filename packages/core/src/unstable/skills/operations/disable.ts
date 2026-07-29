@@ -24,6 +24,7 @@ import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
+import { installedRowsByName } from "../../workspace/read-model-record-rows.js";
 
 // Helpers
 // -----------------------------------------------------------------------------
@@ -96,7 +97,7 @@ export const disableSkill: OperationHandler<
     );
 
     // Read lifecycle to determine promotion needs
-    const installedSkills = yield* ws.records.getInstalledSkills();
+    const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
     const installed = installedSkills[op.args.skillName];
     const isImplicit = installed !== undefined && installed.lifecycle === "implicit";
 

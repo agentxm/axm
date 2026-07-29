@@ -4,9 +4,13 @@ Use this when the current workspace has never been managed by AXM before. It
 walks through first-time setup. Once `.axm/` exists, switch to
 `axm help basic-usage`.
 
-AXM manages agent extensions for a workspace: skills, commands, MCP servers,
-subagents, and packs. A workspace is the project (or user) directory whose
-extensions AXM tracks.
+<!-- axm:generated:extension-type-list -->
+
+AXM manages skills, commands, MCP servers, subagents, context files, rules, hooks, knowledge bundles, and packs.
+
+<!-- /axm:generated -->
+
+A workspace is the project (or user) directory whose extensions AXM tracks.
 
 ## Confirm AXM is installed
 

@@ -6,9 +6,13 @@ import {
   LOCKFILE_VERSION,
   CommandLockEntrySchema,
   FilesLockEntrySchema,
+  HookLockEntrySchema,
+  KnowledgeLockEntrySchema,
   LockfileSchema,
+  McpServerLockEntrySchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
+  RuleLockEntrySchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";
@@ -990,6 +994,68 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
       expect(() => decode(input)).not.toThrow();
+    });
+  });
+
+  describe("optional sourceHash on non-skill lock entries", () => {
+    const schemasByType = {
+      "mcp-server": McpServerLockEntrySchema,
+      files: FilesLockEntrySchema,
+      rule: RuleLockEntrySchema,
+      hook: HookLockEntrySchema,
+      knowledge: KnowledgeLockEntrySchema,
+    };
+
+    const registryEntry = {
+      type: "registry",
+      owner: "@acme",
+      name: "widget",
+      resolvedVersion: "1.2.0",
+      integrity: "sha512-abc123",
+      sourceName: "default",
+      publisherBindingId: "hbnd_test",
+      installedAt: "2025-01-15T10:30:00.000Z",
+      updatedAt: "2025-01-15T10:30:00.000Z",
+    };
+
+    for (const [type, schema] of Object.entries(schemasByType)) {
+      const decode = Schema.decodeUnknownSync(schema);
+      const encode = Schema.encodeUnknownSync(schema);
+
+      it(`decodes a ${type} registry entry without sourceHash`, () => {
+        const decoded = decode(registryEntry, { onExcessProperty: "error" });
+        expect(decoded).not.toHaveProperty("sourceHash");
+      });
+
+      it(`round-trips a ${type} registry entry carrying sourceHash`, () => {
+        const input = { ...registryEntry, sourceHash: "abc123" };
+        expect(encode(decode(input, { onExcessProperty: "error" }))).toEqual(input);
+      });
+
+      it(`round-trips a ${type} git entry carrying sourceHash`, () => {
+        const input = {
+          type: "github",
+          owner: "acme",
+          repo: "widgets",
+          sourceHash: "abc123",
+          installedAt: "2025-01-15T10:30:00.000Z",
+          updatedAt: "2025-01-15T10:30:00.000Z",
+        };
+        expect(encode(decode(input, { onExcessProperty: "error" }))).toEqual(input);
+      });
+    }
+
+    it("rejects sourceHash on an inline MCP server entry", () => {
+      const input = {
+        type: "inline",
+        command: "run-server",
+        sourceHash: "abc123",
+        installedAt: "2025-01-15T10:30:00.000Z",
+        updatedAt: "2025-01-15T10:30:00.000Z",
+      };
+      expect(() =>
+        Schema.decodeUnknownSync(McpServerLockEntrySchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
     });
   });
 

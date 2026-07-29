@@ -3,6 +3,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
+import { updateNameFilterFlag } from "../../shared/update-targets.js";
 import { handleUpdate } from "./handler.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
@@ -20,10 +21,12 @@ const updateConfig = {
     Flag.withDescription("Update only subagents installed for specific agents"),
     Flag.atLeast(0),
   ),
-  subagent: Flag.string("subagent").pipe(
+  name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific subagents by name or glob pattern"),
-    Flag.atLeast(0),
   ),
+  // Kept alongside --name so existing invocations keep working; both lists are
+  // merged into one filter set.
+  subagent: Flag.string("subagent").pipe(Flag.withDescription("Alias for --name"), Flag.atLeast(0)),
   yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
   force: forceFlag.pipe(
     Flag.withDescription("Update even if version constraints would prevent it"),
@@ -34,11 +37,11 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, agent, subagent, yes, force, preview }) =>
+  ({ source, scope, agent, name, subagent, yes, force, preview }) =>
     handleUpdate({
       source,
       agents: agent,
-      subagents: subagent,
+      subagents: [...name, ...subagent],
       yes,
       force,
       preview,

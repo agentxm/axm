@@ -420,6 +420,20 @@
         }
       ]
     },
+    "FilesConfig": {
+      "type": "object",
+      "properties": {
+        "ignore": {
+          "type": "array",
+          "description": "Installed Context Files package names AXM should leave unmanaged.",
+          "examples": [["local-*", "legacy-helper"]],
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false,
+      "title": "Files Config",
+      "description": "Feature-level configuration for Context Files packages."
+    },
     "RuleEntry": {
       "anyOf": [
         { "type": "string" },
@@ -522,6 +536,20 @@
         }
       ]
     },
+    "HooksConfig": {
+      "type": "object",
+      "properties": {
+        "ignore": {
+          "type": "array",
+          "description": "Installed hook names AXM should leave unmanaged.",
+          "examples": [["local-*", "legacy-helper"]],
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false,
+      "title": "Hooks Config",
+      "description": "Feature-level configuration for hooks."
+    },
     "KnowledgeEntry": {
       "anyOf": [
         { "type": "string" },
@@ -572,6 +600,20 @@
           }
         }
       ]
+    },
+    "KnowledgeConfig": {
+      "type": "object",
+      "properties": {
+        "ignore": {
+          "type": "array",
+          "description": "Installed knowledge bundle names AXM should leave unmanaged.",
+          "examples": [["local-*", "legacy-helper"]],
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false,
+      "title": "Knowledge Config",
+      "description": "Feature-level configuration for knowledge bundles."
     },
     "SubagentEntry": {
       "anyOf": [
@@ -882,6 +924,10 @@
           "anyOf": [{ "$ref": "#/definitions/FilesMap" }],
           "description": "Your installed Context Files packages, keyed by workspace package name. Prefer plain source strings; use the object form only to set `enabled: false` or scalar `inputs`."
         },
+        "filesConfig": {
+          "anyOf": [{ "$ref": "#/definitions/FilesConfig" }],
+          "description": "Feature-level options for Context Files package management."
+        },
         "rules": {
           "anyOf": [{ "$ref": "#/definitions/RulesMap" }],
           "description": "Your installed rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`."
@@ -890,9 +936,17 @@
           "anyOf": [{ "$ref": "#/definitions/HooksMap" }],
           "description": "Your installed hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
+        "hooksConfig": {
+          "anyOf": [{ "$ref": "#/definitions/HooksConfig" }],
+          "description": "Feature-level options for hook management."
+        },
         "knowledge": {
           "anyOf": [{ "$ref": "#/definitions/KnowledgeMap" }],
           "description": "Installed Open Knowledge Format bundles, isolated from agent instruction files."
+        },
+        "knowledgeConfig": {
+          "anyOf": [{ "$ref": "#/definitions/KnowledgeConfig" }],
+          "description": "Feature-level options for knowledge bundle management."
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],

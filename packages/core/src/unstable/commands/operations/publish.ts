@@ -27,6 +27,7 @@ import {
 } from "../manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
+import { publishArchiveOptions } from "../../publish/publish-ignore.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepArtifact, JobStepResult, Operation } from "../../plan/plan.js";
@@ -178,7 +179,10 @@ export const publishCommand: (
     });
 
     // Build zip archive from extension directory
-    const archive = yield* buildZipArchive(extensionDir);
+    const archive = yield* buildZipArchive(
+      extensionDir,
+      yield* publishArchiveOptions("command", manifest.publish?.ignore),
+    );
 
     // Compute integrity
     const integrity = yield* computeIntegrity(archive);

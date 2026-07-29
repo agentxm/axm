@@ -2,11 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
 
+import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
+
 import { ExitCode } from "@agentxm/client-core/unstable/app-error";
+import {
+  EXTENSION_ONLY_TYPES,
+  WORKSPACE_CAPABILITY_EXTENSION_TYPES,
+  toExtensionTypePlural,
+} from "@agentxm/client-core/unstable/extensions";
 
 import { run } from "./app.js";
 import { captureHelpDoc, collectHelpFiles } from "./command-tree-test-helpers.js";
 import { LearnMore } from "./formatter.js";
+
+const groupCommandNames = (doc: HelpDoc, group: string): ReadonlyArray<string> =>
+  (doc.subcommands ?? [])
+    .filter((entry) => entry.group === group)
+    .flatMap((entry) => entry.commands.map((command) => command.name));
 
 class ExitCalled extends Error {
   readonly code: number;
@@ -47,6 +59,24 @@ describe("root command help", () => {
 
     expect(missingExamples).toEqual([]);
     expect(invalidExamples).toEqual([]);
+  });
+
+  it("opens the EXTENSIONS group with the catalog's extension-only types, in table order", async () => {
+    const doc = await Effect.runPromise(captureHelpDoc([]));
+    const extensions = groupCommandNames(doc, "EXTENSIONS");
+    const expected = EXTENSION_ONLY_TYPES.map(toExtensionTypePlural);
+
+    expect(extensions.slice(0, expected.length)).toEqual(expected);
+  });
+
+  it("lists workspace-capability types under WORKSPACE rather than EXTENSIONS", async () => {
+    const doc = await Effect.runPromise(captureHelpDoc([]));
+    const workspace = groupCommandNames(doc, "WORKSPACE");
+    const extensions = groupCommandNames(doc, "EXTENSIONS");
+    const expected = WORKSPACE_CAPABILITY_EXTENSION_TYPES.map(toExtensionTypePlural);
+
+    expect(expected.filter((plural) => !workspace.includes(plural))).toEqual([]);
+    expect(expected.filter((plural) => extensions.includes(plural))).toEqual([]);
   });
 
   it("does not expose the retired maintainer command", async () => {

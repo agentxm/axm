@@ -123,45 +123,6 @@ export const junieAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Junie CLI reads persistent project guidance from .junie/AGENTS.md and suggests importing AGENTS.md-style files from other agents into that location.",
-        docs: [],
-        sources: [
-          "https://junie.jetbrains.com/docs/guidelines-and-memory.html",
-          "https://junie.jetbrains.com/docs/junie-cli-usage.html",
-        ],
-        scopes: ["project", "user"],
-        standardsCompliance: "parity",
-        convention: "vendor",
-        kind: "own-file",
-        files: [".junie/AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -182,6 +143,31 @@ export const junieAgent = {
         lastVerified: "2026-07-22",
         reason: "AXM has no trusted project hook writer target for Junie CLI hooks.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Junie CLI reads persistent project guidance from .junie/AGENTS.md and suggests importing AGENTS.md-style files from other agents into that location.",
+      docs: [],
+      sources: [
+        "https://junie.jetbrains.com/docs/guidelines-and-memory.html",
+        "https://junie.jetbrains.com/docs/junie-cli-usage.html",
+      ],
+      scopes: ["project", "user"],
+      standardsCompliance: "parity",
+      convention: "vendor",
+      kind: "own-file",
+      files: [".junie/AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

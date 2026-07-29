@@ -311,6 +311,7 @@ const reconstructWorkspaceDeclaration = (
                     resolvedFiles: {},
                     resolvedRules: {},
                     resolvedHooks: {},
+                    resolvedKnowledge: {},
                   },
                 },
               })

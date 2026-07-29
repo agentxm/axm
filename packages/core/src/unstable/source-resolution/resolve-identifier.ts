@@ -6,6 +6,7 @@ import type * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { isCatalogExtensionType, type CatalogExtensionType } from "../extension-types/schema.js";
 import {
   decodeExtensionNameSync,
   extensionTypePluralSentenceLabels,
@@ -17,11 +18,17 @@ import {
   type ExtensionType,
   type Handle,
 } from "../extensions/index.js";
-import type { CommandLockEntry, SkillLockEntry, SubagentLockEntry } from "../lockfile/index.js";
 import { createRegistryClient } from "../registry/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
+import { getLockedEntries, type AnyLockEntry } from "../workspace/locked-entries.js";
+import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 
-export type IdentifierResourceType = "skill" | "command" | "subagent";
+/**
+ * Every non-pack extension type an installed identifier can name. Packs are
+ * excluded because they are containers: a pack has no per-type lock map of its
+ * own to resolve a bare name against.
+ */
+export type IdentifierResourceType = CatalogExtensionType;
 export type IdentifierResolutionScope = "installed" | "registry" | "both";
 
 export interface ResolvedIdentifier {
@@ -58,7 +65,7 @@ interface IdentifierParts {
 }
 
 const isIdentifierResourceType = (type: ExtensionType): type is IdentifierResourceType =>
-  type === "skill" || type === "command" || type === "subagent";
+  isCatalogExtensionType(type);
 
 const decodeName = (input: string) =>
   Effect.try({
@@ -92,7 +99,7 @@ const makeCandidate = (
 
 const lockEntryParts = (
   resourceType: IdentifierResourceType,
-  entry: SkillLockEntry | CommandLockEntry | SubagentLockEntry,
+  entry: AnyLockEntry,
 ): Option.Option<IdentifierParts> => {
   if (entry.type !== "registry") return Option.none();
   return Option.some({
@@ -167,96 +174,36 @@ const installedCandidates = (
     const ws = yield* WorkspaceMutations;
     const candidates: IdentifierCandidate[] = [];
 
-    switch (resourceType) {
-      case "skill": {
-        const [locked, configured] = yield* Effect.all(
-          [ws.getLockedSkills(), ws.records.getConfiguredSkills()],
-          { concurrency: "unbounded" },
-        );
-        for (const [name, entry] of Object.entries(locked)) {
-          const parts = lockEntryParts(resourceType, entry);
-          if (Option.isSome(parts)) {
-            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
-          } else if (name === input) {
-            const decodedName = yield* decodeName(name);
-            candidates.push({
-              owner: Option.none<Handle>(),
-              type: resourceType,
-              name: decodedName,
-              fqn: name,
-              installedName: Option.some(name),
-              registryLocation: Option.none(),
-              source: "installed",
-            });
-          }
-        }
-        for (const [name, entry] of Object.entries(configured)) {
-          const parts = configuredSourceParts(resourceType, entry.source);
-          if (Option.isSome(parts)) {
-            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
-          }
-        }
-        break;
+    const [locked, configured] = yield* Effect.all(
+      [
+        getLockedEntries(ws, resourceType),
+        ws.records.rows(resourceType).pipe(Effect.map(configuredRowsByName)),
+      ],
+      { concurrency: "unbounded" },
+    );
+
+    for (const [name, entry] of Object.entries(locked)) {
+      const parts = lockEntryParts(resourceType, entry);
+      if (Option.isSome(parts)) {
+        candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
+      } else if (name === input) {
+        const decodedName = yield* decodeName(name);
+        candidates.push({
+          owner: Option.none<Handle>(),
+          type: resourceType,
+          name: decodedName,
+          fqn: name,
+          installedName: Option.some(name),
+          registryLocation: Option.none(),
+          source: "installed",
+        });
       }
-      case "command": {
-        const [locked, configured] = yield* Effect.all(
-          [ws.getLockedCommands(), ws.records.getConfiguredCommands()],
-          { concurrency: "unbounded" },
-        );
-        for (const [name, entry] of Object.entries(locked)) {
-          const parts = lockEntryParts(resourceType, entry);
-          if (Option.isSome(parts)) {
-            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
-          } else if (name === input) {
-            const decodedName = yield* decodeName(name);
-            candidates.push({
-              owner: Option.none<Handle>(),
-              type: resourceType,
-              name: decodedName,
-              fqn: name,
-              installedName: Option.some(name),
-              registryLocation: Option.none(),
-              source: "installed",
-            });
-          }
-        }
-        for (const [name, entry] of Object.entries(configured)) {
-          const parts = configuredSourceParts(resourceType, entry.source);
-          if (Option.isSome(parts)) {
-            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
-          }
-        }
-        break;
-      }
-      case "subagent": {
-        const [locked, configured] = yield* Effect.all(
-          [ws.getLockedSubagents(), ws.records.getConfiguredSubagents()],
-          { concurrency: "unbounded" },
-        );
-        for (const [name, entry] of Object.entries(locked)) {
-          const parts = lockEntryParts(resourceType, entry);
-          if (Option.isSome(parts)) {
-            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
-          } else if (name === input) {
-            const decodedName = yield* decodeName(name);
-            candidates.push({
-              owner: Option.none<Handle>(),
-              type: resourceType,
-              name: decodedName,
-              fqn: name,
-              installedName: Option.some(name),
-              registryLocation: Option.none(),
-              source: "installed",
-            });
-          }
-        }
-        for (const [name, entry] of Object.entries(configured)) {
-          const parts = configuredSourceParts(resourceType, entry.source);
-          if (Option.isSome(parts)) {
-            candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
-          }
-        }
-        break;
+    }
+
+    for (const [name, entry] of Object.entries(configured)) {
+      const parts = configuredSourceParts(resourceType, entry.source);
+      if (Option.isSome(parts)) {
+        candidates.push(makeCandidate(parts.value, Option.some(name), "installed"));
       }
     }
 

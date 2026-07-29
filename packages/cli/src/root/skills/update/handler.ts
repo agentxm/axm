@@ -18,7 +18,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
 import {
   REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
@@ -52,6 +52,7 @@ import {
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
+  UPDATE_NAME_FILTER_FLAG,
   allUpdateTargetResolutionsFailed,
   resolveUpdateTargets,
 } from "../../shared/update-targets.js";
@@ -126,7 +127,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const renderer = yield* CliRenderer;
 
   // Step 1: Load configured skills and filter to enabled
-  const allSkills = yield* ws.records.getConfiguredSkills();
+  const allSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
   const lockedSkills = yield* ws.getLockedSkills();
 
   const disabledSkillEntries: ReadonlyArray<Extract<ResolveResult, { readonly type: "skip" }>> =
@@ -163,7 +164,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     entries: skillEntries,
     source: args.source,
     nameFilters: args.skills,
-    nameFilterFlag: "--skill",
+    nameFilterFlag: UPDATE_NAME_FILTER_FLAG,
     resourceType: "skill",
     resourceLabel: "skill",
     resourceLabelPlural: "skills",

@@ -423,6 +423,20 @@ export type InputType = TypesWhere<"installInputs", true>;
 /** Extension types whose governing standard covers the package body. */
 export type BodyGovernedType = TypesWhere<"governs", "package-body">;
 
+/**
+ * Extension types a standard governs at all. The agent catalog records a
+ * standards-compliance grade for exactly these, so the grade is never
+ * hand-applied per capability schema.
+ */
+export type SpecTrackedType = TypesWhere<"governs", StandardGoverns>;
+
+/**
+ * Extension types that double as a workspace-level capability toggle. These
+ * carry workspace configuration of their own, so surfaces that split extension
+ * management from workspace management group them with the workspace.
+ */
+export type WorkspaceCapabilityType = TypesWhere<"workspaceCapability", WorkspaceCapabilityKey>;
+
 export const PER_AGENT_EXTENSION_TYPES: ReadonlyArray<PerAgentType> = extensionTypes.filter(
   (type): type is PerAgentType => EXTENSION_TYPE_TABLE[type].placement === "per-agent",
 );
@@ -442,6 +456,23 @@ export const INPUT_EXTENSION_TYPES: ReadonlyArray<InputType> = extensionTypes.fi
 export const BODY_GOVERNED_EXTENSION_TYPES: ReadonlyArray<BodyGovernedType> = extensionTypes.filter(
   (type): type is BodyGovernedType => EXTENSION_TYPE_TABLE[type].governs === "package-body",
 );
+
+export const SPEC_TRACKED_EXTENSION_TYPES: ReadonlyArray<SpecTrackedType> = extensionTypes.filter(
+  (type): type is SpecTrackedType => EXTENSION_TYPE_TABLE[type].governs !== null,
+);
+
+export const WORKSPACE_CAPABILITY_EXTENSION_TYPES: ReadonlyArray<WorkspaceCapabilityType> =
+  extensionTypes.filter(
+    (type): type is WorkspaceCapabilityType =>
+      EXTENSION_TYPE_TABLE[type].workspaceCapability !== null,
+  );
+
+/** Extension types managed purely as extensions, with no workspace capability. */
+export const EXTENSION_ONLY_TYPES: ReadonlyArray<Exclude<ExtensionType, WorkspaceCapabilityType>> =
+  extensionTypes.filter(
+    (type): type is Exclude<ExtensionType, WorkspaceCapabilityType> =>
+      EXTENSION_TYPE_TABLE[type].workspaceCapability === null,
+  );
 const EXTENSION_NAME_MAX_LENGTH = 64;
 const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";
 const EXTENSION_NAME_BRAND = "ExtensionName" as const;
@@ -842,12 +873,42 @@ export type NonPackExtensionDependencyConstraintMap = Schema.Schema.Type<
 >;
 
 /**
+ * Publish-time packaging options.
+ *
+ * Declared in the manifest rather than in workspace settings so the policy
+ * travels with the package: whoever publishes a checkout produces the same
+ * archive. Absent means every file under the package directory is published,
+ * which is the default and the only behavior before this field existed.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PublishOptionsSchema = Schema.Struct({
+  ignore: Schema.optional(
+    Schema.Array(Schema.NonEmptyString)
+      .pipe(Schema.check(Schema.isUnique()))
+      .annotate({
+        description:
+          "Glob patterns matched against archive-relative POSIX paths. Matching files are left out of the published archive. `*` matches any run of characters, including `/`. A pattern that would drop the manifest is rejected at publish time.",
+        examples: [["*.test.ts", "fixtures/*"]],
+      }),
+  ),
+}).annotate({
+  identifier: "PublishOptions",
+  title: "Publish Options",
+  description: "Options that shape the archive this package publishes.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PublishOptions = Schema.Schema.Type<typeof PublishOptionsSchema>;
+
+/**
  * Common base fields shared across manifest types.
  * Type-specific manifests provide their own `type` and `name` fields explicitly.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const CommonManifestBaseFields = {
+  publish: Schema.optional(PublishOptionsSchema),
   owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),
   version: VersionSchema.pipe(Schema.annotateKey({ messageMissingKey: "version is required" })),
   description: Schema.optional(

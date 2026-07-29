@@ -2,7 +2,7 @@
  * `workspace/settings-schema-valid` — `.axm/settings.json` conforms to
  * `SettingsSchema`.
  *
- * Cascade per `docs/design/lint-engine.md §10.workspace`:
+ * Cascade per `agentxm-internal/docs/design/lint-engine.md §10.workspace`:
  *
  * 1. `.axm/settings.json` is present (`workspace/initialized` owns the
  *    absence arm; this rule early-returns when the file is missing).

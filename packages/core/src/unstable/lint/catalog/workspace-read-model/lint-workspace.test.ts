@@ -6,6 +6,7 @@ import {
 } from "../../../workspace/read-model/__fixtures__/builder.js";
 import { buildPackRuleContexts } from "../pack-accessor/contexts.js";
 import { buildSkillRuleContexts } from "../skill-accessor/contexts.js";
+import { emptyCatalogRuleContexts } from "../../catalog-contexts.js";
 import { collectRenderedFindings, evaluateAllCatalogs } from "../../cli.js";
 import { platformCanonicalLintConfig } from "../../config.js";
 import { buildLintWorkspace } from "./lint-workspace.js";
@@ -154,12 +155,18 @@ const buildAndEvaluate = (spec: FixtureSpec) =>
       scope: "project",
     });
     const evaluations = yield* evaluateAllCatalogs({
-      skillContexts: buildSkillRuleContexts(lintWorkspace.view),
-      packContexts: buildPackRuleContexts(lintWorkspace.view),
-      commandContexts: lintWorkspace.view.commandContexts,
-      subagentContexts: lintWorkspace.view.subagentContexts,
-      mcpServerContexts: lintWorkspace.view.mcpServerContexts,
-      workspaceContext: lintWorkspace.rule,
+      contexts: {
+        ...emptyCatalogRuleContexts,
+        skill: buildSkillRuleContexts(lintWorkspace.view),
+        pack: buildPackRuleContexts(lintWorkspace.view),
+        command: lintWorkspace.view.commandContexts,
+        subagent: lintWorkspace.view.subagentContexts,
+        "mcp-server": lintWorkspace.view.mcpServerContexts,
+        hook: lintWorkspace.view.hookContexts,
+        rule: lintWorkspace.view.ruleContexts,
+        knowledge: lintWorkspace.view.knowledgeContexts,
+        workspace: [lintWorkspace.rule],
+      },
       config: platformCanonicalLintConfig,
     });
     return {

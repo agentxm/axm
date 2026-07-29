@@ -53,6 +53,7 @@ import {
   findManagedSubagentFiles,
   hasAxmManagedMarker,
 } from "../workspace/rendered-file-cleanup.js";
+import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 
 const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
@@ -576,11 +577,15 @@ export const SubagentManagerLive = Layer.effect(
 
       materializeInstall,
       getConfiguredSource: Effect.fn("SubagentManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.records.getConfiguredSubagents();
+        const configured = yield* ws.records
+          .rows("subagent")
+          .pipe(Effect.map(configuredRowsByName));
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("SubagentManager.listMaterializable")(function* () {
-        const configured = yield* ws.records.getConfiguredSubagents();
+        const configured = yield* ws.records
+          .rows("subagent")
+          .pipe(Effect.map(configuredRowsByName));
         return yield* configuredSubagentsToDiskRefs(
           { fs, path, baseDir, scope: ws.scope },
           configured,

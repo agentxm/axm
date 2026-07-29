@@ -53,11 +53,9 @@ describe("resolveRootInstallIntent", () => {
         .join("\n");
 
       expect(guidance).toContain("axm skills install code-review");
-      // `rules` is the one type without a per-type install subcommand.
       expect(guidance).toContain(
-        "skills, commands, mcps, subagents, files, hooks, knowledge, packs",
+        "skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs",
       );
-      expect(guidance).not.toContain("axm rules install");
     }),
   );
 

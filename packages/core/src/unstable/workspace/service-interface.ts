@@ -12,7 +12,6 @@
 import type * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as Option from "effect/Option";
-import type * as Record from "effect/Record";
 import * as ServiceMap from "effect/Context";
 
 import type { AppError } from "../app-error/index.js";
@@ -65,19 +64,7 @@ import type {
   SubagentsMap,
   SourceHostConfig,
 } from "../settings/index.js";
-import type {
-  ConfiguredCommand,
-  ConfiguredExtensionRef,
-  ConfiguredSkill,
-  ConfiguredSubagent,
-  InstalledCommand,
-  InstalledExtensionRef,
-  InstalledSkill,
-  InstalledSubagent,
-  UnmanagedCommand,
-  UnmanagedExtensionRef,
-  UnmanagedSkill,
-} from "./read-model-record-types.js";
+import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
@@ -251,65 +238,17 @@ export interface WorkspaceReadModelRecords {
       readonly agents?: ReadonlyArray<string>;
     },
   ) => Effect.Effect<ExtensionInventory, AppError>;
-  /** Configured skills from settings with source metadata. */
-  readonly getConfiguredSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredSkill>,
-    AppError
-  >;
-  /** Unmanaged skills (on-disk only, not configured or implicit). */
-  readonly getUnmanagedSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedSkill>,
-    AppError
-  >;
-  /** Installed skills (configured + implicit). */
-  readonly getInstalledSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledSkill>,
-    AppError
-  >;
-  readonly getConfiguredCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredCommand>,
-    AppError
-  >;
-  readonly getUnmanagedCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedCommand>,
-    AppError
-  >;
-  readonly getInstalledCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledCommand>,
-    AppError
-  >;
-  readonly getConfiguredMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    AppError
-  >;
-  readonly getUnmanagedMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    AppError
-  >;
-  readonly getInstalledMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    AppError
-  >;
-  readonly getConfiguredPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    AppError
-  >;
-  readonly getUnmanagedPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    AppError
-  >;
-  readonly getInstalledPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    AppError
-  >;
-  readonly getConfiguredSubagents: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredSubagent>,
-    AppError
-  >;
-  readonly getInstalledSubagents: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledSubagent>,
-    AppError
-  >;
+  /**
+   * Every read-model row for one extension type, tagged with its lifecycle
+   * (`configured` / `implicit` / `unmanaged`).
+   *
+   * Total over `InstallableExtensionType` and non-throwing: a type whose
+   * workspace has no entries yields an empty array. Narrow with the helpers in
+   * `read-model-record-rows.ts` rather than adding a per-type accessor.
+   */
+  readonly rows: (
+    type: InstallableExtensionType,
+  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError>;
 }
 
 // ---------------------------------------------------------------------------

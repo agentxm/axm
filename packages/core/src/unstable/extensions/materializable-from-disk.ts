@@ -4,11 +4,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
 import type { CommandExtensionRef } from "../commands/refs.js";
-import type {
-  ConfiguredExtensionRef,
-  ConfiguredSkill,
-  ConfiguredSubagent,
-} from "../workspace/read-model-record-types.js";
+import type { ConfiguredRecordRow } from "../workspace/read-model-record-rows.js";
 import type { McpServerExtensionRef } from "../mcps/refs.js";
 import type { PackRef } from "../packs/refs.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
@@ -44,7 +40,7 @@ const resolveWorkspaceFromDisk = (
 
 export const configuredSkillsToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredSkill>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<SkillExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
@@ -61,7 +57,7 @@ export const configuredSkillsToDiskRefs = (
 
 export const configuredCommandsToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredExtensionRef & { readonly enabled: boolean }>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<CommandExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
@@ -78,7 +74,7 @@ export const configuredCommandsToDiskRefs = (
 
 export const configuredMcpServersToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredExtensionRef>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<McpServerExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
@@ -95,7 +91,7 @@ export const configuredMcpServersToDiskRefs = (
 
 export const configuredSubagentsToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredSubagent>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<SubagentExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
@@ -112,7 +108,7 @@ export const configuredSubagentsToDiskRefs = (
 
 export const configuredPacksToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredExtensionRef>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<PackRef>, AppError> =>
   Effect.forEach(
     Object.entries(configured),

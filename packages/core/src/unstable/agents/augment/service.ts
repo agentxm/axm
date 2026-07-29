@@ -13,6 +13,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { CodingAgent } from "../coding-agent.js";
+import { userScopeRefusal } from "../scope-refusal.js";
 import {
   addCommandViaResolve,
   removeCommandViaResolve,
@@ -107,7 +108,7 @@ export const augmentCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Augment does not support user-scope commands",
+          reason: userScopeRefusal({ agentId: "augment", agentName: "Augment", type: "commands" }),
         } as const;
       }
       return {
@@ -148,7 +149,7 @@ export const augmentCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Augment does not support user-scope subagents",
+          reason: userScopeRefusal({ agentId: "augment", agentName: "Augment", type: "subagents" }),
         } as const;
       }
       return {

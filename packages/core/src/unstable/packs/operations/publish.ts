@@ -23,6 +23,7 @@ import {
 } from "../manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
+import { publishArchiveOptions } from "../../publish/publish-ignore.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
@@ -134,7 +135,10 @@ export const publishPack: OperationHandler<
     });
 
     // Build zip archive from pack directory
-    const archive = yield* buildZipArchive(packDir);
+    const archive = yield* buildZipArchive(
+      packDir,
+      yield* publishArchiveOptions("pack", manifest.publish?.ignore),
+    );
 
     // Compute integrity
     const integrity = yield* computeIntegrity(archive);

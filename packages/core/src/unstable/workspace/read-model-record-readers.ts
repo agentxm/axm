@@ -9,7 +9,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
-import type { Lockfile } from "../lockfile/index.js";
 import {
   parseExtensionFqnParts,
   type ExtensionName,
@@ -30,11 +29,6 @@ import { deriveSourceMetaFromLockType } from "./source-metadata.js";
 import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 
 type WorkspaceManagedExtensionType = InstallableExtensionType;
-
-const createInventoryEmptyLockfile = (): Lockfile => ({
-  lockfileVersion: 3,
-  skills: {},
-});
 
 type ReadScopedContext = <A>(
   f: (scoped: WorkspaceReadModel) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
@@ -201,61 +195,15 @@ export const makeReadModelRecordReaders = (args: {
       case "pack":
         return settings.packsConfig?.ignore ?? [];
       case "files":
-      case "rule":
+        return settings.filesConfig?.ignore ?? [];
       case "hook":
+        return settings.hooksConfig?.ignore ?? [];
       case "knowledge":
+        return settings.knowledgeConfig?.ignore ?? [];
+      // RulesConfig carries instruction-file options only; rules have no ignore list.
+      case "rule":
         return [];
     }
-  };
-
-  const lifecycleFromPackageMaps = (input: {
-    readonly scope: WorkspaceReadModel["scope"];
-    readonly type: "files" | "hook";
-    readonly configured: Readonly<Record<string, { readonly enabled: boolean }>>;
-    readonly locked: Readonly<Record<string, unknown>>;
-    readonly packMembers: ReadonlyArray<ExtensionName>;
-    readonly actual: ReadonlyArray<unknown>;
-  }): ReadonlyArray<LifecycleInventoryCandidate> => {
-    const configuredNames = new Set(Object.keys(input.configured));
-    const lockedNames = new Set(Object.keys(input.locked));
-    const configured = Object.entries(input.configured).map(
-      ([name, entry]): LifecycleInventoryCandidate => ({
-        key: { scope: input.scope, type: input.type, name },
-        lifecycle: "configured",
-        enabled: entry.enabled,
-      }),
-    );
-    const implicit = [
-      ...Object.entries(input.locked)
-        .filter(([name]) => !configuredNames.has(name))
-        .map(([name]) => implicitCandidate({ scope: input.scope, type: input.type, name })),
-      ...input.packMembers
-        .filter((name) => !configuredNames.has(name) && !lockedNames.has(name))
-        .map((name) => implicitCandidate({ scope: input.scope, type: input.type, name })),
-    ];
-    const actual = input.actual.flatMap((observation) => {
-      if (typeof observation !== "object" || observation === null || !("key" in observation)) {
-        return [];
-      }
-      const key = observation.key;
-      if (
-        typeof key !== "object" ||
-        key === null ||
-        !("name" in key) ||
-        typeof key.name !== "string"
-      ) {
-        return [];
-      }
-      return [
-        {
-          key: { scope: input.scope, type: input.type, name: key.name },
-          lifecycle: "unmanaged",
-          enabled: null,
-          ...observationFromActual(observation),
-        } satisfies LifecycleInventoryCandidate,
-      ];
-    });
-    return [...configured, ...implicit, ...actual];
   };
 
   const resolvedRowToImplicit = (
@@ -493,16 +441,19 @@ export const makeReadModelRecordReaders = (args: {
             });
           }
           case "files": {
+            const settings = yield* scoped.state.settings;
             const installed = yield* scoped.files.installed;
             const resolved = yield* scoped.files.resolved;
             const packs = yield* scoped.packs.resolved;
             const unmanaged = yield* scoped.files.unmanaged;
+            const ignored =
+              Option.getOrElse(settings, () => createDefaultSettings()).filesConfig?.ignore ?? [];
             return collectReadModelRecordRows({
               type,
               installed,
               resolved,
               unmanaged,
-              ignored: [],
+              ignored,
               packMemberNames: packMemberNames(
                 Option.getOrElse(packs, () => []),
                 "resolvedFiles",
@@ -527,55 +478,41 @@ export const makeReadModelRecordReaders = (args: {
             });
           }
           case "hook": {
-            const settingsOption = yield* scoped.state.settings;
-            const lockfileOption = yield* scoped.state.lockfile;
+            const settings = yield* scoped.state.settings;
+            const installed = yield* scoped.hooks.installed;
+            const resolved = yield* scoped.hooks.resolved;
             const packs = yield* scoped.packs.resolved;
-            const settings = Option.getOrElse(settingsOption, () => createDefaultSettings());
-            const configured = settings.hooks ?? {};
-            const locked = Option.match(lockfileOption, {
-              onNone: () => ({}),
-              onSome: (lockfile) => lockfile.hooks ?? {},
+            const unmanaged = yield* scoped.hooks.unmanaged;
+            const ignored =
+              Option.getOrElse(settings, () => createDefaultSettings()).hooksConfig?.ignore ?? [];
+            return collectReadModelRecordRows({
+              type,
+              installed,
+              resolved,
+              unmanaged,
+              ignored,
+              packMemberNames: packMemberNames(
+                Option.getOrElse(packs, () => []),
+                "resolvedHooks",
+              ),
             });
-            const configuredNames = new Set(Object.keys(configured));
-            const lockedEntries = Object.entries(locked);
-            const lockedByName = new Map(lockedEntries);
-            const configuredRows = Object.entries(configured).map(
-              ([name, entry]): ReadModelRecordRow => {
-                const lockEntry = lockedByName.get(name);
-                return {
-                  type,
-                  name,
-                  source: entry.source,
-                  enabled: entry.enabled,
-                  packagingKind: packagingKindForResolved(
-                    Option.fromUndefinedOr(lockEntry === undefined ? undefined : { lockEntry }),
-                    type,
-                    entry.source,
-                  ),
-                  lifecycle: "configured",
-                };
-              },
-            );
-            const lockedRows = lockedEntries.flatMap(([name, lockEntry]) => {
-              if (configuredNames.has(name)) return [];
-              return Option.getOrElse(
-                resolvedRowToImplicit(type, {
-                  name,
-                  lockEntry,
-                }),
-                () => [],
-              );
-            });
-            const packRows = packMemberNames(
-              Option.getOrElse(packs, () => []),
-              "resolvedHooks",
-            )
-              .filter((name) => !configuredNames.has(name))
-              .map((name) => packMemberToImplicit(type, name));
-            return [...configuredRows, ...lockedRows, ...packRows];
           }
-          case "knowledge":
-            return [];
+          case "knowledge": {
+            const settings = yield* scoped.state.settings;
+            const installed = yield* scoped.knowledge.installed;
+            const resolved = yield* scoped.knowledge.resolved;
+            const unmanaged = yield* scoped.knowledge.unmanaged;
+            const ignored =
+              Option.getOrElse(settings, () => createDefaultSettings()).knowledgeConfig?.ignore ??
+              [];
+            return collectReadModelRecordRows({
+              type,
+              installed,
+              resolved,
+              unmanaged,
+              ignored,
+            });
+          }
         }
       }),
     );
@@ -637,9 +574,7 @@ export const makeReadModelRecordReaders = (args: {
     args.readScopedContext((scoped) =>
       Effect.gen(function* () {
         const settingsOption = yield* scoped.state.settings;
-        const lockfileOption = yield* scoped.state.lockfile;
         const settings = Option.getOrElse(settingsOption, () => createDefaultSettings());
-        const lockfile = Option.getOrElse(lockfileOption, createInventoryEmptyLockfile);
         const ignoredPatterns = ignoredPatternsFor(settings, type);
         const agents = options.agents ?? [];
 
@@ -753,67 +688,59 @@ export const makeReadModelRecordReaders = (args: {
             });
           }
           case "files": {
-            const packs = yield* scoped.packs.resolved;
-            const actual = yield* scoped.files.actual;
-            return projectExtensionInventory({
-              lifecycle: lifecycleFromPackageMaps({
-                scope: scoped.scope,
-                type,
-                configured: settings.files ?? {},
-                locked: lockfile.files ?? {},
-                packMembers: packMemberNames(
-                  Option.getOrElse(packs, () => []),
-                  "resolvedFiles",
-                ),
-                actual,
-              }),
-              ignored: [],
-              ignoredPatterns: new Set(),
-              includeIgnored: false,
+            const installed = yield* scoped.files.installed;
+            const resolved = yield* scoped.files.resolved;
+            const unmanaged = yield* scoped.files.unmanaged;
+            const ignored = yield* scoped.files.ignored;
+            return projectStandardInventory({
+              scope: scoped.scope,
+              type,
+              installed,
+              resolved: Option.getOrElse(resolved, () => []),
+              unmanaged,
+              ignored,
+              ignoredPatterns,
+              includeIgnored: options.includeIgnored,
               agents,
+              configuredAgents: settings.agents ?? [],
             });
           }
           case "hook": {
-            const packs = yield* scoped.packs.resolved;
-            const canonical = yield* scoped.canonicalExtensions;
-            const actual = canonical
-              .filter((occurrence) => occurrence.type === "hook")
-              .map((occurrence) => ({
-                key: { scope: scoped.scope, type: "hook", name: occurrence.name },
-                origin: {
-                  _tag:
-                    occurrence.origin === "canonical-axm"
-                      ? "canonical-axm-hook"
-                      : "external-axm-hook",
-                },
-                contentRoot: occurrence.contentLocation,
-              }));
-            return projectExtensionInventory({
-              lifecycle: lifecycleFromPackageMaps({
-                scope: scoped.scope,
-                type,
-                configured: settings.hooks ?? {},
-                locked: lockfile.hooks ?? {},
-                packMembers: packMemberNames(
-                  Option.getOrElse(packs, () => []),
-                  "resolvedHooks",
-                ),
-                actual,
-              }),
-              ignored: [],
-              ignoredPatterns: new Set(),
-              includeIgnored: false,
+            const installed = yield* scoped.hooks.installed;
+            const resolved = yield* scoped.hooks.resolved;
+            const unmanaged = yield* scoped.hooks.unmanaged;
+            const ignored = yield* scoped.hooks.ignored;
+            return projectStandardInventory({
+              scope: scoped.scope,
+              type,
+              installed,
+              resolved: Option.getOrElse(resolved, () => []),
+              unmanaged,
+              ignored,
+              ignoredPatterns,
+              includeIgnored: options.includeIgnored,
               agents,
+              configuredAgents: settings.agents ?? [],
             });
           }
-          case "knowledge":
-            return projectExtensionInventory({
-              lifecycle: [],
-              ignored: [],
-              ignoredPatterns: new Set(),
-              includeIgnored: false,
+          case "knowledge": {
+            const installed = yield* scoped.knowledge.installed;
+            const resolved = yield* scoped.knowledge.resolved;
+            const unmanaged = yield* scoped.knowledge.unmanaged;
+            const ignored = yield* scoped.knowledge.ignored;
+            return projectStandardInventory({
+              scope: scoped.scope,
+              type,
+              installed,
+              resolved: Option.getOrElse(resolved, () => []),
+              unmanaged,
+              ignored,
+              ignoredPatterns,
+              includeIgnored: options.includeIgnored,
               agents,
+              configuredAgents: settings.agents ?? [],
             });
+          }
         }
       }),
     );

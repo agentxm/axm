@@ -1,0 +1,77 @@
+import * as Effect from "effect/Effect";
+import * as Path from "effect/Path";
+
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  EXTERNAL_EXTENSIONS_DIR,
+  REGISTRY_EXTENSIONS_DIR,
+} from "@agentxm/client-core/unstable/extensions";
+import {
+  KNOWLEDGE_EXTENSION_DIR,
+  KNOWLEDGE_SOURCE_DIR,
+  inspectKnowledgeBundle,
+} from "@agentxm/client-core/unstable/knowledge";
+import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+
+export const bundleRoot = (
+  baseDir: string,
+  name: string,
+  entry: KnowledgeLockEntry,
+  path: Path.Path,
+): string =>
+  entry.type === "registry" || entry.type === "workspace"
+    ? path.join(
+        baseDir,
+        REGISTRY_EXTENSIONS_DIR,
+        entry.owner,
+        KNOWLEDGE_EXTENSION_DIR,
+        name,
+        KNOWLEDGE_SOURCE_DIR,
+      )
+    : path.join(
+        baseDir,
+        EXTERNAL_EXTENSIONS_DIR,
+        KNOWLEDGE_EXTENSION_DIR,
+        name,
+        KNOWLEDGE_SOURCE_DIR,
+      );
+
+export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")(function* (
+  selectedName?: string,
+) {
+  const ws = yield* WorkspaceMutations;
+  const path = yield* Path.Path;
+  const locked = yield* ws.getLockedKnowledge();
+  const configured = yield* ws.getConfiguredKnowledgeEntries();
+  const entries = Object.entries(locked)
+    .filter(
+      ([name]) =>
+        (selectedName === undefined || name === selectedName) &&
+        configured[name]?.enabled !== false,
+    )
+    .sort(([left], [right]) => left.localeCompare(right));
+  if (selectedName !== undefined && entries.length === 0) {
+    return yield* makeAppError({
+      code: "not_found",
+      detail: `Knowledge bundle "${selectedName}" is not installed`,
+    });
+  }
+  return yield* Effect.forEach(
+    entries,
+    ([name, entry]) => {
+      const sourceRoot = bundleRoot(ws.baseDir, name, entry, path);
+      return inspectKnowledgeBundle(sourceRoot).pipe(
+        Effect.map((inspection) => ({ name, sourceRoot, inspection })),
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "validation",
+            detail: `Failed to inspect knowledge bundle "${name}"`,
+            cause,
+          }),
+        ),
+      );
+    },
+    { concurrency: "unbounded" },
+  );
+});

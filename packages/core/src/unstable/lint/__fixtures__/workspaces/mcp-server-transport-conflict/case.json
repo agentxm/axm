@@ -24,7 +24,7 @@
       "file": ".axm/settings.json"
     },
     {
-      "ruleId": "workspace/mcp-server-transport-exclusivity",
+      "ruleId": "workspace/mcps-transport-exclusivity",
       "severity": "warning",
       "file": ".axm/settings.json",
       "messageIncludes": "exactly one of source, command, or url"

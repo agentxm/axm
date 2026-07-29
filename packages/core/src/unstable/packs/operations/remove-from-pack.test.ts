@@ -13,7 +13,7 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { configuredRow, makeBaseWorkspaceMock, rowsFor } from "../../workspace/test-stubs.js";
 import { handle } from "../../test-helpers.js";
 import type { RemoveFromPackOperation } from "./remove-from-pack.js";
 import { removeFromPack } from "./remove-from-pack.js";
@@ -36,14 +36,16 @@ const makeWorkspaceMock = (
 
   return makeBaseWorkspaceMock(axmDir, {
     getConfiguredOwner: () => Effect.succeed(Option.some(handle(configuredProfile))),
-    getConfiguredPacks: () =>
-      Effect.succeed({
-        "my-pack": {
+    rows: rowsFor({
+      pack: [
+        configuredRow({
+          type: "pack",
+          name: "my-pack",
           source: "@myorg/packs/my-pack",
-          enabled: true,
-          packagingKind: "non-native" as const,
-        },
-      }),
+          packagingKind: "non-native",
+        }),
+      ],
+    }),
   });
 };
 

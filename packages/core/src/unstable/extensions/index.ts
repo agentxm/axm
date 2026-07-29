@@ -28,9 +28,12 @@ export {
   nonPackExtensionTypePluralSegments,
   PACK_FQN_PATTERN,
   PackFqnSchema,
+  PublishOptionsSchema,
   PackSpecSchema,
   parseExtensionSpecParts,
   decodeExtensionNameSync,
+  EXTENSION_ONLY_TYPES,
+  WORKSPACE_CAPABILITY_EXTENSION_TYPES,
   extensionTypeFromPlural,
   extensionTypeLabels,
   extensionTypePluralSegments,
@@ -59,6 +62,9 @@ export {
   type NonPackExtensionTypePlural,
   type PackFqn,
   type PackSpec,
+  type PerAgentType,
+  type PublishOptions,
+  type WorkspaceCapabilityType,
 } from "./common.js";
 
 export { parseLicenseExpression } from "./license.js";
@@ -200,6 +206,8 @@ export {
   type RenderedFilesMap,
   type SourceHash,
 } from "./rendered-files.js";
+
+export { computePackageContentHash } from "./package-hash.js";
 
 // Frontmatter parsing
 export {

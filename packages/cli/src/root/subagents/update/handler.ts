@@ -8,6 +8,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 
 import {
   WorkspaceMutations,
+  configuredRowsByName,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 import type { Handle } from "@agentxm/client-core/unstable/extensions";
@@ -25,6 +26,7 @@ import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
+  UPDATE_NAME_FILTER_FLAG,
   allUpdateTargetResolutionsFailed,
   resolveUpdateTargets,
 } from "../../shared/update-targets.js";
@@ -95,7 +97,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
   const sources = yield* SourceHostProviders;
 
   // Step 1: Load configured subagents and filter to enabled
-  const allSubagents = yield* ws.records.getConfiguredSubagents();
+  const allSubagents = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
   const lockedSubagents = yield* ws.getLockedSubagents();
 
   const subagentEntries: ReadonlyArray<readonly [string, string]> = Object.entries(
@@ -118,7 +120,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     entries: subagentEntries,
     source: args.source,
     nameFilters: args.subagents,
-    nameFilterFlag: "--subagent",
+    nameFilterFlag: UPDATE_NAME_FILTER_FLAG,
     resourceType: "subagent",
     resourceLabel: "subagent",
     resourceLabelPlural: "subagents",

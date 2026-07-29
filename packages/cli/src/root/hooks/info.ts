@@ -22,7 +22,7 @@ const HookPortabilityItemSchema = Schema.Struct({
 
 type HookPortabilityItem = typeof HookPortabilityItemSchema.Type;
 
-const HookPortabilityResultSchema = Schema.Struct({
+export const HookPortabilityResultSchema = Schema.Struct({
   items: Schema.Array(HookPortabilityItemSchema),
   count: Schema.Number,
 });

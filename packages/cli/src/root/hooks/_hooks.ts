@@ -1,4 +1,5 @@
 import { Command } from "effect/unstable/cli";
+import { makeExtensionShowCommand } from "../shared/extension-show.js";
 import { hooksVersionCommand as versionCommand } from "../shared/version-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { disableCommand } from "./disable.js";
@@ -11,6 +12,12 @@ import { pruneCommand } from "./prune.js";
 import { hooksPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { updateCommand } from "./update.js";
+
+const showCommand = makeExtensionShowCommand({
+  type: "hook",
+  group: "hooks",
+  exampleName: "workspace-baseline",
+});
 
 export const hooksCommand = Command.make("hooks").pipe(
   Command.withDescription("Manage hook extensions"),
@@ -33,6 +40,7 @@ export const hooksCommand = Command.make("hooks").pipe(
     uninstallCommand,
     infoCommand,
     listCommand,
+    showCommand,
     enableCommand,
     disableCommand,
     updateCommand,

@@ -47,6 +47,12 @@ import {
   type WorkspaceMutationsOptions,
 } from "./service-interface.js";
 import { bootstrapWorkspace, WorkspaceInitializationInteractionTest } from "./index.js";
+import { installableExtensionTypes } from "../extensions/installable-types.js";
+import {
+  configuredRowsByName,
+  installedRowsByName,
+  unmanagedRowsByName,
+} from "./read-model-record-rows.js";
 
 describe("WorkspaceMutationsService", () => {
   let tempDir: string;
@@ -745,7 +751,7 @@ describe("WorkspaceMutationsService", () => {
   // Query methods
   // ---------------------------------------------------------------------------
 
-  describe("getInstalledSkills", () => {
+  describe('rows("skill") — installed', () => {
     it.effect("returns normalized installed skills when skills are configured", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -754,16 +760,20 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getInstalledSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
 
         expect(skills).toEqual({
           "code-review": {
+            type: "skill",
+            name: "code-review",
             lifecycle: "configured",
             source: "github:acme/code-review",
             enabled: true,
             packagingKind: "non-native",
           },
           "test-gen": {
+            type: "skill",
+            name: "test-gen",
             lifecycle: "configured",
             source: "local:/tmp/test-gen",
             enabled: true,
@@ -778,7 +788,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getInstalledSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
 
         expect(skills).toEqual({});
       }),
@@ -1064,6 +1074,45 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
+    it.effect("preserves the original installedAt when the lock entry changes", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "code-review": "github:acme/code-review" },
+        });
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "github",
+            owner: "acme",
+            repo: "code-review",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        // A re-install stamps a fresh installedAt on the candidate entry; the
+        // workspace must keep the timestamp from the first install.
+        yield* ws.setSkill({
+          name: "code-review",
+          lockEntry: {
+            type: "github",
+            owner: "acme",
+            repo: "code-review-v2",
+            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+          },
+          versionRange: Option.none(),
+        });
+
+        const entry = recordEntry(readLockfileFromDisk(projectDir).skills, "code-review");
+        expect(stringProperty(entry, "installedAt")).toBe("2025-01-01T00:00:00.000Z");
+        expect(
+          DateTime.toEpochMillis(DateTime.makeUnsafe(stringProperty(entry, "updatedAt"))),
+        ).toBeGreaterThan(DateTime.toEpochMillis(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z")));
+      }),
+    );
+
     it.effect("preserves version constraint in settings for registry skills", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
@@ -1154,6 +1203,73 @@ describe("WorkspaceMutationsService", () => {
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills.tool).toBe("@acme/skills/tool@1.2.3");
+      }),
+    );
+  });
+
+  describe("setSkillLock", () => {
+    it.effect("preserves the original installedAt when the lock entry changes", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "github",
+            owner: "acme",
+            repo: "code-review",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setSkillLock({
+          name: "code-review",
+          lockEntry: {
+            type: "github",
+            owner: "acme",
+            repo: "code-review-v2",
+            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+          },
+          versionRange: Option.none(),
+        });
+
+        const entry = recordEntry(readLockfileFromDisk(projectDir).skills, "code-review");
+        expect(stringProperty(entry, "repo")).toBe("code-review-v2");
+        expect(stringProperty(entry, "installedAt")).toBe("2025-01-01T00:00:00.000Z");
+        expect(
+          DateTime.toEpochMillis(DateTime.makeUnsafe(stringProperty(entry, "updatedAt"))),
+        ).toBeGreaterThan(DateTime.toEpochMillis(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z")));
+      }),
+    );
+
+    it.effect("does not rewrite the lockfile when the entry is unchanged", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "github",
+            owner: "acme",
+            repo: "code-review",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+        const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+        const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setSkillLock({
+          name: "code-review",
+          lockEntry: {
+            ...makeSampleLockEntry(),
+            installedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-02-03T04:05:06.000Z"),
+          },
+          versionRange: Option.none(),
+        });
+
+        expect(fs.readFileSync(lockfilePath, "utf-8")).toBe(lockfileBefore);
       }),
     );
   });
@@ -1663,10 +1779,10 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // getConfiguredSkills
+  // rows("skill") — configured lifecycle
   // ---------------------------------------------------------------------------
 
-  describe("getConfiguredSkills", () => {
+  describe('rows("skill") — configured', () => {
     it.effect("returns all configured entries normalized", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -1678,12 +1794,15 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getConfiguredSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
 
         expect(Object.keys(skills)).toEqual(["code-review", "my-linter"]);
 
         // String entry normalizes to enabled with source + metadata
         expect(skills["code-review"]).toEqual({
+          type: "skill",
+          name: "code-review",
+          lifecycle: "configured",
           source: "github:acme/code-review",
           enabled: true,
           packagingKind: "non-native",
@@ -1691,6 +1810,9 @@ describe("WorkspaceMutationsService", () => {
 
         // Object entry normalizes to disabled with source + metadata
         expect(skills["my-linter"]).toEqual({
+          type: "skill",
+          name: "my-linter",
+          lifecycle: "configured",
           source: "github:acme/linter",
           enabled: false,
           packagingKind: "non-native",
@@ -1703,7 +1825,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getConfiguredSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
 
         expect(skills).toEqual({});
       }),
@@ -1711,10 +1833,10 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // getInstalledSkills (normalized read-model record shapes)
+  // rows("skill") — installed lifecycle, normalized row shapes
   // ---------------------------------------------------------------------------
 
-  describe("getInstalledSkills (normalized)", () => {
+  describe('rows("skill") — installed, normalized', () => {
     it.effect("returns all configured entries as SkillEntry", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -1726,11 +1848,13 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getInstalledSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
 
         expect(Object.keys(skills)).toEqual(["code-review", "my-linter"]);
 
         expect(skills["code-review"]).toEqual({
+          type: "skill",
+          name: "code-review",
           lifecycle: "configured",
           source: "github:acme/code-review",
           enabled: true,
@@ -1738,6 +1862,8 @@ describe("WorkspaceMutationsService", () => {
         });
 
         expect(skills["my-linter"]).toEqual({
+          type: "skill",
+          name: "my-linter",
           lifecycle: "configured",
           source: "github:acme/linter",
           enabled: false,
@@ -1751,7 +1877,7 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getInstalledSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
 
         expect(skills).toEqual({});
       }),
@@ -1767,7 +1893,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getInstalledSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
 
         for (const entry of Object.values(skills)) {
           if (entry.lifecycle === "configured") {
@@ -1860,7 +1986,7 @@ describe("WorkspaceMutationsService", () => {
     publisherBindingId: overrides?.publisherBindingId ?? "hbnd_test",
   });
 
-  describe("getConfiguredPacks", () => {
+  describe('rows("pack") — configured', () => {
     it.effect("returns packs map when packs are configured", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -1869,43 +1995,12 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.records.getConfiguredPacks();
+        const packs = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
 
         expect(packs).toEqual({
           "starter-pack": {
-            source: "@acme/packs/starter-pack",
-            enabled: true,
-            packagingKind: "native",
-          },
-        });
-      }),
-    );
-
-    it.effect("returns empty record when no packs configured", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, { agents: ["claude-code"] });
-
-        const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.records.getConfiguredPacks();
-
-        expect(packs).toEqual({});
-      }),
-    );
-  });
-
-  describe("getInstalledPacks", () => {
-    it.effect("returns packs map when packs are configured", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.records.getInstalledPacks();
-
-        expect(packs).toEqual({
-          "starter-pack": {
+            type: "pack",
+            name: "starter-pack",
             lifecycle: "configured",
             source: "@acme/packs/starter-pack",
             enabled: true,
@@ -1920,9 +2015,130 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const packs = yield* ws.records.getInstalledPacks();
+        const packs = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
 
         expect(packs).toEqual({});
+      }),
+    );
+  });
+
+  describe('rows("pack") — installed', () => {
+    it.effect("returns packs map when packs are configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const packs = yield* ws.records.rows("pack").pipe(Effect.map(installedRowsByName));
+
+        expect(packs).toEqual({
+          "starter-pack": {
+            type: "pack",
+            name: "starter-pack",
+            lifecycle: "configured",
+            source: "@acme/packs/starter-pack",
+            enabled: true,
+            packagingKind: "native",
+          },
+        });
+      }),
+    );
+
+    it.effect("returns empty record when no packs configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const packs = yield* ws.records.rows("pack").pipe(Effect.map(installedRowsByName));
+
+        expect(packs).toEqual({});
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // records.rows / getExtensionInventory totality
+  // ---------------------------------------------------------------------------
+
+  describe("records.rows", () => {
+    it.effect("is total and non-throwing for every installable extension type", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const byType = yield* Effect.forEach(installableExtensionTypes, (type) =>
+          ws.records.rows(type).pipe(Effect.map((rows) => [type, rows] as const)),
+        );
+
+        expect(byType.map(([type]) => type)).toEqual([...installableExtensionTypes]);
+        for (const [, rows] of byType) {
+          expect(Array.isArray(rows)).toBe(true);
+        }
+      }),
+    );
+
+    it.effect("projects declared hooks and knowledge bundles the families now own", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          hooks: { "block-secrets": "@acme/hooks/block-secrets@^1.0.0" },
+          knowledge: { payments: "@acme/knowledge/payments@^1.0.0" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const hooks = yield* ws.records.rows("hook").pipe(Effect.map(configuredRowsByName));
+        const knowledge = yield* ws.records
+          .rows("knowledge")
+          .pipe(Effect.map(configuredRowsByName));
+
+        expect(hooks["block-secrets"]?.source).toBe("@acme/hooks/block-secrets@^1.0.0");
+        expect(knowledge["payments"]?.source).toBe("@acme/knowledge/payments@^1.0.0");
+      }),
+    );
+  });
+
+  describe("getExtensionInventory", () => {
+    it.effect("returns lifecycle rows for an installed knowledge bundle", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          knowledge: { payments: "@acme/knowledge/payments@^1.0.0" },
+        });
+        const bundleSrc = path.join(
+          projectDir,
+          ".axm",
+          "extensions",
+          "@acme",
+          "knowledge",
+          "payments",
+          "src",
+        );
+        fs.mkdirSync(bundleSrc, { recursive: true });
+        fs.writeFileSync(path.join(bundleSrc, "index.md"), "# Payments\n");
+
+        const ws = yield* getService(defaultOptions);
+        const inventory = yield* ws.records.getExtensionInventory("knowledge", {
+          includeIgnored: false,
+        });
+
+        expect(inventory.count).toBe(1);
+        expect(inventory.configuredCount).toBe(1);
+        expect(inventory.items[0]?.name).toBe("payments");
+      }),
+    );
+
+    it.effect("is total and non-throwing for every installable extension type", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const inventories = yield* Effect.forEach(installableExtensionTypes, (type) =>
+          ws.records.getExtensionInventory(type, { includeIgnored: true }),
+        );
+
+        expect(inventories).toHaveLength(installableExtensionTypes.length);
       }),
     );
   });
@@ -2180,10 +2396,10 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // getInstalledSkills with transitive pack skills
+  // rows("skill") — installed lifecycle, with transitive pack skills
   // ---------------------------------------------------------------------------
 
-  describe("getInstalledSkills (read-model records)", () => {
+  describe('rows("skill") — installed, with pack members', () => {
     it.effect("lockfile-only native skill appears as implicit", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2205,7 +2421,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getInstalledSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
 
         expect(skills).toHaveProperty("code-review");
         expect(recordEntry(skills, "code-review").lifecycle).toBe("implicit");
@@ -2234,13 +2450,13 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getInstalledSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
 
         expect(recordEntry(skills, "code-review").lifecycle).toBe("configured");
       }),
     );
 
-    it.effect("getConfiguredSkills only returns direct settings entries", () =>
+    it.effect("configured rows only include direct settings entries", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -2274,7 +2490,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const configured = yield* ws.records.getConfiguredSkills();
+        const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
 
         expect(Object.keys(configured)).toEqual(["my-skill"]);
         expect(configured).not.toHaveProperty("implicit-skill");
@@ -2286,13 +2502,13 @@ describe("WorkspaceMutationsService", () => {
   // Read-model record getter contracts (skills)
   // ---------------------------------------------------------------------------
 
-  describe("getUnmanagedSkills", () => {
+  describe('rows("skill") — unmanaged', () => {
     it.effect("returns empty when no unmanaged skills detected", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const unmanaged = yield* ws.records.getUnmanagedSkills();
+        const unmanaged = yield* ws.records.rows("skill").pipe(Effect.map(unmanagedRowsByName));
 
         expect(unmanaged).toEqual({});
       }),
@@ -2330,7 +2546,7 @@ describe("WorkspaceMutationsService", () => {
   // Read-model record getter contracts (commands)
   // ---------------------------------------------------------------------------
 
-  describe("getConfiguredCommands (read-model records)", () => {
+  describe('rows("command") — configured', () => {
     it.effect("returns configured commands with source metadata", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2339,9 +2555,12 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const commands = yield* ws.records.getConfiguredCommands();
+        const commands = yield* ws.records.rows("command").pipe(Effect.map(configuredRowsByName));
 
         expect(commands["my-cmd"]).toEqual({
+          type: "command",
+          name: "my-cmd",
+          lifecycle: "configured",
           source: "github:acme/my-cmd",
           enabled: true,
           packagingKind: "non-native",
@@ -2354,27 +2573,27 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const commands = yield* ws.records.getConfiguredCommands();
+        const commands = yield* ws.records.rows("command").pipe(Effect.map(configuredRowsByName));
 
         expect(commands).toEqual({});
       }),
     );
   });
 
-  describe("getUnmanagedCommands", () => {
+  describe('rows("command") — unmanaged', () => {
     it.effect("returns empty (phase 1 - no command unmanaged detection)", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const unmanaged = yield* ws.records.getUnmanagedCommands();
+        const unmanaged = yield* ws.records.rows("command").pipe(Effect.map(unmanagedRowsByName));
 
         expect(unmanaged).toEqual({});
       }),
     );
   });
 
-  describe("getInstalledCommands", () => {
+  describe('rows("command") — installed', () => {
     it.effect("includes both configured and implicit commands", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2404,7 +2623,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.records.getInstalledCommands();
+        const installed = yield* ws.records.rows("command").pipe(Effect.map(installedRowsByName));
 
         expect(recordEntry(installed, "configured-cmd").lifecycle).toBe("configured");
         expect(recordEntry(installed, "implicit-cmd").lifecycle).toBe("implicit");
@@ -2413,10 +2632,10 @@ describe("WorkspaceMutationsService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // getInstalledCommands with transitive pack commands
+  // rows("command") — installed lifecycle, with transitive pack commands
   // ---------------------------------------------------------------------------
 
-  describe("getInstalledCommands (transitive pack commands)", () => {
+  describe('rows("command") — installed, with transitive pack commands', () => {
     it.effect("pack-resolved commands appear as implicit", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2449,7 +2668,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.records.getInstalledCommands();
+        const installed = yield* ws.records.rows("command").pipe(Effect.map(installedRowsByName));
 
         expect(installed).toHaveProperty("formatter");
         expect(recordEntry(installed, "formatter").lifecycle).toBe("implicit");
@@ -2498,7 +2717,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.records.getInstalledCommands();
+        const installed = yield* ws.records.rows("command").pipe(Effect.map(installedRowsByName));
 
         expect(recordEntry(installed, "formatter").lifecycle).toBe("configured");
       }),
@@ -2537,7 +2756,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.records.getInstalledCommands();
+        const installed = yield* ws.records.rows("command").pipe(Effect.map(installedRowsByName));
 
         expect(installed).toHaveProperty("formatter");
         expect(installed).toHaveProperty("linter");
@@ -2578,7 +2797,7 @@ describe("WorkspaceMutationsService", () => {
   // Read-model record getter contracts (MCP servers)
   // ---------------------------------------------------------------------------
 
-  describe("getConfiguredMcpServers (read-model records)", () => {
+  describe('rows("mcp-server") — configured', () => {
     it.effect("returns configured MCP servers with source metadata", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2587,9 +2806,12 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const servers = yield* ws.records.getConfiguredMcpServers();
+        const servers = yield* ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName));
 
         expect(servers["my-mcp"]).toEqual({
+          type: "mcp-server",
+          name: "my-mcp",
+          lifecycle: "configured",
           source: "github:acme/my-mcp",
           enabled: true,
           packagingKind: "non-native",
@@ -2602,27 +2824,29 @@ describe("WorkspaceMutationsService", () => {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const servers = yield* ws.records.getConfiguredMcpServers();
+        const servers = yield* ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName));
 
         expect(servers).toEqual({});
       }),
     );
   });
 
-  describe("getUnmanagedMcpServers", () => {
+  describe('rows("mcp-server") — unmanaged', () => {
     it.effect("returns empty (phase 1 - no MCP server unmanaged detection)", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const unmanaged = yield* ws.records.getUnmanagedMcpServers();
+        const unmanaged = yield* ws.records
+          .rows("mcp-server")
+          .pipe(Effect.map(unmanagedRowsByName));
 
         expect(unmanaged).toEqual({});
       }),
     );
   });
 
-  describe("getInstalledMcpServers", () => {
+  describe('rows("mcp-server") — installed', () => {
     it.effect("includes both configured and implicit MCP servers", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -2652,7 +2876,9 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.records.getInstalledMcpServers();
+        const installed = yield* ws.records
+          .rows("mcp-server")
+          .pipe(Effect.map(installedRowsByName));
 
         expect(recordEntry(installed, "configured-mcp").lifecycle).toBe("configured");
         expect(recordEntry(installed, "implicit-mcp").lifecycle).toBe("implicit");
@@ -2691,20 +2917,20 @@ describe("WorkspaceMutationsService", () => {
   // Read-model record getter contracts (packs)
   // ---------------------------------------------------------------------------
 
-  describe("getUnmanagedPacks", () => {
+  describe('rows("pack") — unmanaged', () => {
     it.effect("returns empty (phase 1 - no pack unmanaged detection)", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
-        const unmanaged = yield* ws.records.getUnmanagedPacks();
+        const unmanaged = yield* ws.records.rows("pack").pipe(Effect.map(unmanagedRowsByName));
 
         expect(unmanaged).toEqual({});
       }),
     );
   });
 
-  describe("getInstalledPacks (read-model records)", () => {
+  describe('rows("pack") — installed, with pack members', () => {
     it.effect("includes lockfile-only implicit packs", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
@@ -2732,7 +2958,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.records.getInstalledPacks();
+        const installed = yield* ws.records.rows("pack").pipe(Effect.map(installedRowsByName));
 
         expect(recordEntry(installed, "@axm/packs/default").lifecycle).toBe("implicit");
       }),
@@ -2784,7 +3010,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         const ws = yield* getService(defaultOptions);
-        const installed = yield* ws.records.getInstalledPacks();
+        const installed = yield* ws.records.rows("pack").pipe(Effect.map(installedRowsByName));
 
         expect(recordEntry(installed, "my-pack").lifecycle).toBe("configured");
         expect(recordEntry(installed, "@axm/packs/default").lifecycle).toBe("implicit");
@@ -2872,7 +3098,7 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("getConfiguredMcpServers reads from mcpServers key", () =>
+    it.effect("configured mcp-server rows read from the mcpServers key", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -2880,7 +3106,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const servers = yield* ws.records.getConfiguredMcpServers();
+        const servers = yield* ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName));
 
         expect(servers).toHaveProperty("my-mcp");
       }),
@@ -2892,7 +3118,7 @@ describe("WorkspaceMutationsService", () => {
   // ---------------------------------------------------------------------------
 
   describe("read-model record shapes have no managed marker", () => {
-    it.effect("getConfiguredSkills entries have no managed field", () =>
+    it.effect("configured skill rows have no managed field", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -2900,7 +3126,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getConfiguredSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
 
         for (const entry of Object.values(skills)) {
           expect(entry).not.toHaveProperty("managed");
@@ -2908,7 +3134,7 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("getInstalledSkills entries have no managed field", () =>
+    it.effect("installed skill rows have no managed field", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -2916,7 +3142,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.records.getInstalledSkills();
+        const skills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
 
         for (const entry of Object.values(skills)) {
           expect(entry).not.toHaveProperty("managed");
@@ -4082,6 +4308,120 @@ describe("WorkspaceMutationsService", () => {
         });
 
         expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("returns true when a knowledge bundle is referenced by an installed pack", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              owner: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+              resolvedSubagents: {},
+              resolvedKnowledge: {
+                "@acme/knowledge/domain-model": {
+                  version: "1.0.0",
+                  publisherBindingId: "hbnd_test",
+                },
+              },
+            },
+          },
+          undefined,
+          undefined,
+          undefined,
+          {
+            "domain-model": {
+              type: "github",
+              owner: "acme",
+              repo: "domain-model",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
+          type: "knowledge",
+          name: "domain-model",
+        });
+
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("returns false for a knowledge bundle no installed pack requires", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              owner: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+
+              publisherBindingId: "hbnd_test",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+              resolvedSubagents: {},
+              resolvedKnowledge: {
+                "@acme/knowledge/domain-model": {
+                  version: "1.0.0",
+                  publisherBindingId: "hbnd_test",
+                },
+              },
+            },
+          },
+          undefined,
+          undefined,
+          undefined,
+          {
+            "scratch-notes": {
+              type: "github",
+              owner: "acme",
+              repo: "scratch-notes",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
+          type: "knowledge",
+          name: "scratch-notes",
+        });
+
+        expect(result).toBe(false);
       }),
     );
 

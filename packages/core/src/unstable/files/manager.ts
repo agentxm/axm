@@ -23,7 +23,8 @@ import {
   materializeExternalPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
-import { computeSourceHash } from "../extensions/rendered-files.js";
+import { computePackageContentHash } from "../extensions/package-hash.js";
+import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
 import type { FilesLockEntry } from "../lockfile/index.js";
 import {
   MaterializedFileTargetSchema,
@@ -68,10 +69,15 @@ export class FilesManager extends ServiceMap.Service<
 const decodeFilesManifest = Schema.decodeUnknownEffect(FilesManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
+const optionalSourceHash = (
+  sourceHash: SourceHash | undefined,
+): { readonly sourceHash?: SourceHash } => (sourceHash === undefined ? {} : { sourceHash });
+
 const registryFilesLockEntry = (
   ref: RegistryFilesRef,
   now: DateTime.Utc,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
+  sourceHash: SourceHash | undefined,
 ): FilesLockEntry => ({
   type: "registry",
   owner: ref.owner,
@@ -82,34 +88,33 @@ const registryFilesLockEntry = (
   publisherBindingId: ref.publisherBindingId,
   resolvedInputs,
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
 const gitFilesLockEntry = (
   ref: GitHostedFilesRef,
   now: DateTime.Utc,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
-): FilesLockEntry => {
-  const common = {
-    resolvedInputs,
-    ...commonLockFields(now),
-  };
-
-  return {
-    ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-    ...common,
-  };
-};
+  sourceHash: SourceHash | undefined,
+): FilesLockEntry => ({
+  ...gitSourceLockFields(ref.source, ref.gitTreeSha),
+  resolvedInputs,
+  ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
+});
 
 const localFilesLockEntry = (
   ref: LocalFilesRef,
   now: DateTime.Utc,
   resolvedInputs: Readonly<Record<string, FileInputValue>>,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
+  sourceHash: SourceHash | undefined,
 ): FilesLockEntry => ({
   type: "local",
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   resolvedInputs,
   ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
 const workspaceFilesLockEntry = (
@@ -167,6 +172,7 @@ export const FilesManagerLive = Layer.effect(
         readonly resolvedInputs: Readonly<Record<string, FileInputValue>>;
         readonly materializedTargets: ReadonlyArray<MaterializedFileTarget>;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
+        readonly sourceHash: SourceHash;
       }
     >();
 
@@ -425,11 +431,13 @@ export const FilesManagerLive = Layer.effect(
         });
       }
 
+      const sourceHash = yield* provide(computePackageContentHash(packageRoot));
       lastInstallState.set(ref.file.name, {
         ref,
         resolvedInputs,
         materializedTargets,
         workspaceRelativeLocalSourcePath,
+        sourceHash,
       });
     }, Effect.asVoid);
 
@@ -440,15 +448,16 @@ export const FilesManagerLive = Layer.effect(
         const now = yield* DateTime.now;
         switch (ref.refType) {
           case "registry":
-            return registryFilesLockEntry(ref, now, resolvedInputs);
+            return registryFilesLockEntry(ref, now, resolvedInputs, state?.sourceHash);
           case "git-hosted":
-            return gitFilesLockEntry(ref, now, resolvedInputs);
+            return gitFilesLockEntry(ref, now, resolvedInputs, state?.sourceHash);
           case "local":
             return localFilesLockEntry(
               ref,
               now,
               resolvedInputs,
               state?.workspaceRelativeLocalSourcePath ?? Option.none(),
+              state?.sourceHash,
             );
           case "workspace":
             return workspaceFilesLockEntry(ref, now, resolvedInputs);

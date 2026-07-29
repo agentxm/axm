@@ -91,43 +91,6 @@ export const tabnineCliAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Tabnine reads guidelines.md files under .tabnine/guidelines and can override the context filename through settings.",
-        docs: [],
-        sources: ["https://docs.tabnine.com/main/getting-started/tabnine-agent/guidelines"],
-        scopes: ["user", "project"],
-        standardsCompliance: "parity",
-        convention: "vendor",
-        kind: "own-file",
-        directory: ".tabnine/guidelines",
-        files: ["guidelines.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -213,6 +176,29 @@ export const tabnineCliAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Tabnine reads guidelines.md files under .tabnine/guidelines and can override the context filename through settings.",
+      docs: [],
+      sources: ["https://docs.tabnine.com/main/getting-started/tabnine-agent/guidelines"],
+      scopes: ["user", "project"],
+      standardsCompliance: "parity",
+      convention: "vendor",
+      kind: "own-file",
+      directory: ".tabnine/guidelines",
+      files: ["guidelines.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

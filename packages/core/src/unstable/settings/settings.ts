@@ -61,6 +61,9 @@ const settingsConfigKeys = new Set([
   "subagentsConfig",
   "packsConfig",
   "mcpServersConfig",
+  "filesConfig",
+  "hooksConfig",
+  "knowledgeConfig",
 ]);
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>

@@ -38,7 +38,11 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 `--json` for machine-readable output. `--scope user` targets `$HOME/.axm` instead of the project workspace. Install/uninstall/update accept a registry FQN (`@owner/<plural-type>/<name>[@version]`) and support `--preview`.
 
-`<type>` ∈ {`skills`, `subagents`, `commands`, `mcps`, `files`, `hooks`, `knowledge`, `packs`}. Rules are not a per-type group — use `axm rules [enable|disable]`.
+<!-- axm:generated:extension-type-namespace-set -->
+
+`<type>` ∈ {`skills`, `commands`, `mcps`, `subagents`, `files`, `rules`, `hooks`, `knowledge`, `packs`}
+
+<!-- /axm:generated -->
 
 ### Workspace setup & discovery
 
@@ -47,7 +51,7 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 | Detect agents and create `.axm/settings.json` | `axm setup`                     |
 | Find extensions for the current project       | `axm discover`                  |
 | Add / remove a coding agent harness           | `axm agents <add\|remove> <id>` |
-| Inspect agent instruction files               | `axm rules [enable\|disable]`   |
+| Inspect agent instruction files               | `axm rules instructions`        |
 | Update AXM itself                             | `axm upgrade`                   |
 
 ### Creating & publishing extensions

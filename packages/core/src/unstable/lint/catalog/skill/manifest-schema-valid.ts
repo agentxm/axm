@@ -2,7 +2,7 @@
  * `skill/manifest-schema-valid` — `skill.json` conforms to
  * `SkillManifestSchema`.
  *
- * Delegates to Effect Schema per `docs/design/lint-engine.md §4`
+ * Delegates to Effect Schema per `contributing/guides/lint-rule-authoring.md` ("Schema-Valid vs Keys-Recognized Split")
  * ("Schema-valid rules delegate to Effect Schema"). Issues map 1:1 to
  * findings via `issuesToFindings`.
  *

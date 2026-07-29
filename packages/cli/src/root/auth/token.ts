@@ -68,7 +68,7 @@ const TokenListItemSchema = Schema.Struct({
   expiresAt: DateTimeUtcSchema,
   lastUsedAt: Schema.NullOr(DateTimeUtcSchema),
 });
-const TokenListDocumentFields = {
+export const TokenListDocumentFields = {
   items: Schema.Array(TokenListItemSchema),
   count: Schema.Number,
   hasMore: Schema.Boolean,

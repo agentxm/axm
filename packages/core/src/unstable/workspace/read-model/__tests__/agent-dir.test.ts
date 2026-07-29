@@ -175,6 +175,7 @@ describe("agent-dir scanner", () => {
         ...rooDescriptor,
         subagents: {
           dir: ".roo/agent-file.txt",
+          scopes: rooDescriptor.subagents?.scopes ?? ["project"],
           isFile: true,
         },
       };

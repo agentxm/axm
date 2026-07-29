@@ -232,9 +232,7 @@ describe("subagents-update.handler", () => {
           yield* handleUpdate(defaultArgs({ subagents: ["nonexistent-*"] }));
 
           expect(
-            logs.success.some((m) =>
-              m.includes("No installed subagents match the --subagent filter"),
-            ),
+            logs.success.some((m) => m.includes("No installed subagents match the --name filter")),
           ).toBe(true);
         }),
       );

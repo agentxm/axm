@@ -11,7 +11,12 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock, makeRegistryPackLockEntry } from "../../workspace/test-stubs.js";
+import {
+  configuredRow,
+  makeBaseWorkspaceMock,
+  makeRegistryPackLockEntry,
+  rowsFor,
+} from "../../workspace/test-stubs.js";
 import { exactVersion, handle } from "../../test-helpers.js";
 import { unpackPack, type UnpackPackOperation } from "./unpack.js";
 
@@ -33,10 +38,6 @@ const makeWorkspaceMock = (
     getRegistrySourceHosts: () => Effect.succeed([]),
     getConfiguredOwner: () => Effect.succeed(Option.some(handle("@test"))),
     getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-    getConfiguredPacks: () => Effect.succeed({}),
-    getInstalledPacks: () => Effect.succeed({}),
-    getConfiguredCommands: () => Effect.succeed({}),
-    getConfiguredMcpServers: () => Effect.succeed({}),
     ...overrides,
   });
 
@@ -131,14 +132,16 @@ describe("unpackPack", () => {
             }),
           ),
         ),
-      getConfiguredCommands: () =>
-        Effect.succeed({
-          "existing-cmd": {
+      rows: rowsFor({
+        command: [
+          configuredRow({
+            type: "command",
+            name: "existing-cmd",
             source: "@acme/commands/existing-cmd",
-            enabled: true,
-            packagingKind: "native" as const,
-          },
-        }),
+            packagingKind: "native",
+          }),
+        ],
+      }),
       setCommand,
     });
 

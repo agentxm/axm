@@ -94,6 +94,57 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         }
       }),
   );
+
+  it.effect("leaves workspace-placed rule and files artifacts in place", () =>
+    Effect.gen(function* () {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-cleanup-workspace-"));
+      try {
+        const axmDir = path.join(tempDir, ".axm");
+        const rulesDir = path.join(tempDir, ".cursor", "rules");
+        fs.mkdirSync(rulesDir, { recursive: true });
+        fs.mkdirSync(path.join(tempDir, ".cursor", "skills"), { recursive: true });
+
+        // Rules render into shared instruction files and files extensions render
+        // to workspace paths; both carry the managed banner, and neither is
+        // keyed to a single agent, so removing an agent must not delete them.
+        const instructionFile = path.join(tempDir, "AGENTS.md");
+        const renderedRule = path.join(rulesDir, "style.md");
+        const contextFile = path.join(tempDir, "NOTES.md");
+        for (const file of [instructionFile, renderedRule, contextFile]) {
+          fs.writeFileSync(file, `# ${AXM_MANAGED_MARKER}\nbody\n`);
+        }
+
+        const cursor = makeProjectOnlyCodingAgent({
+          agentId: "cursor",
+          displayName: "Cursor",
+          skillsProjectDir: ".cursor/skills",
+        });
+        const agentRepo: CodingAgentRepositoryService = {
+          get: () => Effect.succeed(cursor),
+          all: Effect.succeed([cursor]),
+          getConfiguredAgents: () => Effect.succeed([]),
+          getMaterializationAgents: () => Effect.succeed([]),
+          getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+        };
+        const layer = Layer.mergeAll(
+          NodeServices.layer,
+          Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(axmDir)),
+          Layer.succeed(CodingAgentRepository, agentRepo),
+        );
+
+        const result = yield* cleanupManagedArtifactsForRemovedAgents({
+          removedAgentIds: new Set(["cursor"]),
+        }).pipe(Effect.provide(layer));
+
+        expect(result.removedPaths).toEqual([]);
+        expect(fs.existsSync(instructionFile)).toBe(true);
+        expect(fs.existsSync(renderedRule)).toBe(true);
+        expect(fs.existsSync(contextFile)).toBe(true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }),
+  );
 });
 
 describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () => {

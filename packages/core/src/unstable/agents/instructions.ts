@@ -228,6 +228,25 @@ export const probeSymlinkSupport = (workspaceRoot: string) =>
     return result;
   });
 
+/**
+ * Human-readable status line. Agents whose native convention AXM cannot write —
+ * a rules directory it converts nothing into, or a secondary rules directory
+ * beside the instruction file — say so explicitly, so "ok" is never claimed for
+ * a location AXM never touched.
+ */
+const instructionDetails = (
+  descriptor: AgentInstructionsDescriptor,
+  health: InstructionHealth,
+): string => {
+  if (descriptor.kind === "rules-dir") {
+    return `Native rules directory ${descriptor.dir} is not yet synced by AXM.`;
+  }
+  const base =
+    health === "ok" ? "Instruction file is current." : "Instruction file needs attention.";
+  if (descriptor.rulesDir === undefined) return base;
+  return `${base} Native rules directory ${descriptor.rulesDir} is not synced by AXM.`;
+};
+
 const readFileOption = (filePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -381,10 +400,7 @@ export const getInstructionsStatus = (args: {
                 targetFile: targetPath,
                 mechanism,
                 health,
-                details:
-                  health === "ok"
-                    ? "Instruction file is current."
-                    : "Instruction file needs attention.",
+                details: instructionDetails(descriptor.instructions, health),
               } satisfies InstructionStatusItem;
             }),
           { concurrency: "unbounded" },

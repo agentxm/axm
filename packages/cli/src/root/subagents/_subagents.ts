@@ -1,4 +1,5 @@
 import { Command } from "effect/unstable/cli";
+import { makeExtensionShowCommand } from "../shared/extension-show.js";
 
 import { subagentsVersionCommand } from "../shared/version-command.js";
 import { installCommand } from "./install/command.js";
@@ -10,6 +11,12 @@ import { publishCommand } from "./publish/command.js";
 import { enableCommand } from "./enable/command.js";
 import { disableCommand } from "./disable/command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
+
+const showCommand = makeExtensionShowCommand({
+  type: "subagent",
+  group: "subagents",
+  exampleName: "researcher",
+});
 
 export const subagentsCommand = Command.make("subagents").pipe(
   Command.withDescription("Manage subagents"),
@@ -38,6 +45,7 @@ export const subagentsCommand = Command.make("subagents").pipe(
     installCommand,
     uninstallCommand,
     listCommand,
+    showCommand,
     updateCommand,
     newCommand,
     publishCommand,

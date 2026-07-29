@@ -47,6 +47,7 @@ import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { refFromFragment, refFromUrlHash, stripUrlHash } from "./url-fragment.js";
+import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -462,14 +463,17 @@ export const routeNameInput = (
     }
 
     // Tier 2: configured skill with a source string
-    const configured = yield* ws.records.getConfiguredSkills().pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to read settings: ${e._tag}`,
-        }),
-      ),
-    );
+    const configured = yield* ws.records
+      .rows("skill")
+      .pipe(Effect.map(configuredRowsByName))
+      .pipe(
+        Effect.mapError((e) =>
+          makeAppError({
+            code: "validation",
+            detail: `Failed to read settings: ${e._tag}`,
+          }),
+        ),
+      );
     const entry = configured[name];
     if (entry !== undefined) {
       return yield* resolveSource(entry.source);

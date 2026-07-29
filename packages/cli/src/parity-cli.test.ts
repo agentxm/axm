@@ -8,7 +8,10 @@
  * `@agentxm/client-core` extension-types/parity.
  */
 
+import * as fs from "node:fs";
+
 import { getEntityView } from "@agentxm/client-core/unstable/cli-renderer";
+import type { SubjectType } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   CATALOG_EXTENSION_TYPES,
   exemptedObligations,
@@ -56,6 +59,21 @@ const observedFailures = (): Record<CatalogExtensionType, ReadonlyArray<Obligati
     ]),
   );
 
+// Type-level pin, both directions. `SubjectType` labels what a command acted
+// on in telemetry and JSON output, so it must name every catalog type plus
+// packs — and nothing else. A one-directional check would let a member linger
+// after its type was renamed or removed. `mixed` and `unknown` are aggregate
+// markers rather than types, so they are excluded before comparing.
+type ExtensionSubjectType = Exclude<SubjectType, "mixed" | "unknown">;
+type _SubjectTypeMatchesCatalog =
+  Exclude<CatalogExtensionType | "pack", ExtensionSubjectType> extends never
+    ? Exclude<ExtensionSubjectType, CatalogExtensionType | "pack"> extends never
+      ? true
+      : false
+    : false;
+const _subjectTypeMatchesCatalog = true as const satisfies _SubjectTypeMatchesCatalog;
+export type _SubjectTypeCoverage = typeof _subjectTypeMatchesCatalog;
+
 describe("extension type parity (cli tier)", () => {
   it("has a checker for every obligation this tier verifies", () => {
     expect(cliObligations.filter((id) => CHECKS[id] === null)).toStrictEqual([]);
@@ -63,5 +81,19 @@ describe("extension type parity (cli tier)", () => {
 
   it("matches the exemption ledger exactly", () => {
     expect(observedFailures()).toStrictEqual(exemptedObligations(TIER));
+  });
+
+  it("names no extension type in its own source", () => {
+    // A hand-written type name here would let this suite keep passing while
+    // silently skipping a type the catalog added. The forbidden set is built
+    // at runtime, so this file never has to spell one out.
+    const forbidden = new Set<string>(CATALOG_EXTENSION_TYPES);
+    const source = fs.readFileSync(import.meta.filename, "utf-8");
+
+    const offenders = Array.from(source.matchAll(/["'`]([^"'`\n]*)["'`]/g))
+      .filter(([, literal = ""]) => forbidden.has(literal))
+      .map(([match]) => match);
+
+    expect(offenders).toStrictEqual([]);
   });
 });

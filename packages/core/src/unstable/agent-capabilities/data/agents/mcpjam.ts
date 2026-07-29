@@ -86,34 +86,6 @@ export const mcpjamAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
@@ -127,6 +99,20 @@ export const mcpjamAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

@@ -2,21 +2,17 @@ import { registerLintRuleIds } from "../config.js";
 import type { HookRuleContext } from "../context.js";
 import type { LintRule } from "../rule.js";
 import { entrypointExistsRule } from "./hook/entrypoint-exists.js";
-import { manifestKeysRecognizedRule } from "./hook/manifest-keys-recognized.js";
-import { manifestPresentRule } from "./hook/manifest-present.js";
-import { manifestSchemaValidRule } from "./hook/manifest-schema-valid.js";
+import { hookEnvelopeRules } from "./hook/envelope.js";
 import { matcherRawPortabilityRule } from "./hook/matcher-raw-portability.js";
-import { recommendedPacksValidRule } from "./hook/recommended-packs-valid.js";
-import { standaloneDeclarationValidRule } from "./hook/standalone-declaration-valid.js";
 
 export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
-  manifestPresentRule,
-  manifestSchemaValidRule,
-  manifestKeysRecognizedRule,
+  hookEnvelopeRules.manifestPresent,
+  hookEnvelopeRules.manifestSchemaValid,
+  hookEnvelopeRules.manifestKeysRecognized,
   matcherRawPortabilityRule,
   entrypointExistsRule,
-  standaloneDeclarationValidRule,
-  recommendedPacksValidRule,
+  hookEnvelopeRules.standaloneDeclarationValid,
+  hookEnvelopeRules.recommendedPacksValid,
 ];
 
 registerLintRuleIds(hookRules.map((r) => r.id));

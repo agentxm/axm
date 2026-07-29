@@ -35,6 +35,7 @@ import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
@@ -162,6 +163,7 @@ describe("packs uninstall handler", () => {
       CommandManagerLive,
       FilesManagerLive,
       HookManagerLive,
+      KnowledgeManagerLive,
       McpServerManagerLive,
       RuleManagerLive,
       SubagentManagerLive,

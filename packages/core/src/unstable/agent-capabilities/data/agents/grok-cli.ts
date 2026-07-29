@@ -96,42 +96,6 @@ export const grokCliAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Project rules are merged by directory depth from the repository root. Grok also reads documented AGENTS.md filename variants and Markdown files in .grok/rules, with compatibility for .claude/rules and .cursor/rules; AXM writes the universal AGENTS.md surface.",
-        docs: [],
-        sources: ["https://docs.x.ai/build/features/project-rules"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-07-22",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -149,6 +113,28 @@ export const grokCliAgent = {
         lastVerified: "2026-06-06",
         reason: "AXM has not implemented a Grok CLI hooks writer.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Project rules are merged by directory depth from the repository root. Grok also reads documented AGENTS.md filename variants and Markdown files in .grok/rules, with compatibility for .claude/rules and .cursor/rules; AXM writes the universal AGENTS.md surface.",
+      docs: [],
+      sources: ["https://docs.x.ai/build/features/project-rules"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

@@ -78,6 +78,7 @@ export interface UninstallSettingsContext {
   readonly files?: Readonly<Record<string, string>> | undefined;
   readonly rules?: Readonly<Record<string, string>> | undefined;
   readonly hooks?: Readonly<Record<string, string>> | undefined;
+  readonly knowledge?: Readonly<Record<string, string>> | undefined;
 }
 
 /**
@@ -134,6 +135,9 @@ export const expandPackUninstallTargets = (args: {
   const candidateHooks = supportedDependencyTypes.includes("hook")
     ? Object.keys(packEntry.resolvedHooks ?? {})
     : [];
+  const candidateKnowledge = supportedDependencyTypes.includes("knowledge")
+    ? Object.keys(packEntry.resolvedKnowledge ?? {})
+    : [];
 
   // Collect dependencies still referenced by OTHER installed packs
   const retainedByOtherPacks = new Set<string>();
@@ -160,6 +164,9 @@ export const expandPackUninstallTargets = (args: {
     for (const fqn of Object.keys(entry.resolvedHooks ?? {})) {
       retainedByOtherPacks.add(fqn);
     }
+    for (const fqn of Object.keys(entry.resolvedKnowledge ?? {})) {
+      retainedByOtherPacks.add(fqn);
+    }
   }
 
   // Collect directly-configured extensions from settings
@@ -183,6 +190,9 @@ export const expandPackUninstallTargets = (args: {
     directlyConfigured.add(name);
   }
   for (const name of Object.keys(settings.hooks ?? {})) {
+    directlyConfigured.add(name);
+  }
+  for (const name of Object.keys(settings.knowledge ?? {})) {
     directlyConfigured.add(name);
   }
 
@@ -235,6 +245,13 @@ export const expandPackUninstallTargets = (args: {
     const name = nameFromFqn(fqn);
     if (!retainedByOtherPacks.has(fqn) && !directlyConfigured.has(name)) {
       orphanedTargets.push({ type: "hook", name });
+    }
+  }
+
+  for (const fqn of candidateKnowledge) {
+    const name = nameFromFqn(fqn);
+    if (!retainedByOtherPacks.has(fqn) && !directlyConfigured.has(name)) {
+      orphanedTargets.push({ type: "knowledge", name });
     }
   }
 

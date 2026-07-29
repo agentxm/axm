@@ -20,6 +20,7 @@ const groupHelpTopics = [
   ["commands", "commands"],
   ["files", "files"],
   ["hooks", "hooks"],
+  ["knowledge", "knowledge"],
   ["mcps", "mcps"],
   ["packs", "packs"],
   ["rules", "rules"],

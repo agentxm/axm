@@ -1,3 +1,41 @@
+## Unreleased
+
+### ⚠️ Breaking Changes
+
+- `axm rules enable` / `axm rules disable` now activate and deactivate an
+  installed rule extension and require a rule name. Instruction-file management
+  moved to `axm rules instructions enable` / `axm rules instructions disable`,
+  and the instruction-file status report moved from bare `axm rules` to
+  `axm rules instructions`. A bare `axm rules enable` or `axm rules disable`
+  exits 2 with a pointer to the new spelling. The status document's JSON shape
+  is unchanged, so `--json` consumers of the report are not affected.
+- `axm mcps get` is now `axm mcps show`. The JSON document's top-level key
+  changed from `mcpServer` to `item`, with a uniform field set shared by every
+  `<type> show` command; the per-agent inspection rows moved to a sibling
+  `agents` array.
+
+### 🚀 Features
+
+- The `rules` group gained the full extension lifecycle: `axm rules new`,
+  `install`, `uninstall`, `list`, `show`, `update`, `enable`, and `disable`.
+  Bare `axm rules` now prints group help and exits 0.
+- Every catalog extension type exposes `<type> show <name>` for installed-state
+  detail, with an identical top-level field set across types.
+- Every `<type> update` accepts the same target selectors: an optional
+  positional source (matched as a name or a source origin) and a repeated
+  `--name` filter with glob support. `--skill` and `--subagent` remain accepted
+  as aliases for `--name`.
+- Installed-identifier resolution (bare names and fully-qualified names) now
+  covers every catalog extension type instead of only skills, commands, and
+  subagents.
+
+### 🩹 Fixes
+
+- Plan summaries name extension types from the canonical type table, so
+  "context files" and "hooks" replace the previous "files package" and "hooks
+  package" wording, and knowledge plans are no longer summarized as generic
+  steps.
+
 ## 0.22.14 (2026-07-28)
 
 ### 🚀 Features

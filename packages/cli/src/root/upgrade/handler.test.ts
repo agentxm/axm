@@ -5,6 +5,7 @@ import * as path from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
@@ -753,21 +754,32 @@ describe("transactional script upgrade", () => {
       const target = path.join(directory, process.platform === "win32" ? "axm.exe" : "axm");
       fs.writeFileSync(target, "old", { mode: 0o755 });
       const resolvedTarget = fs.realpathSync(target);
-      const subprocess = makeSubprocess((invocation) =>
-        invocation.executable === resolvedTarget ? "never" : commandResult(),
-      );
+      const installedCheckStarted = yield* Deferred.make<void>();
+      const calls: Array<Invocation> = [];
+      const subprocess = {
+        calls,
+        layer: Layer.succeed(Subprocess, {
+          run: (executable: string, args: ReadonlyArray<string>, options?: RunCommandOptions) =>
+            Effect.suspend(() => {
+              const invocation = { executable, args: [...args], options };
+              calls.push(invocation);
+              return calls.length === 2
+                ? Effect.gen(function* () {
+                    yield* Deferred.succeed(installedCheckStarted, undefined);
+                    return yield* Effect.never;
+                  })
+                : Effect.succeed(commandResult());
+            }),
+        }),
+      };
       const harness = makeHarness(new Script({ execPath: target }), { subprocess });
       try {
         const fiber = yield* handleUpgrade({ force: false }).pipe(
           Effect.provide(harness.layer),
           Effect.forkChild,
         );
-        for (let attempt = 0; attempt < 100; attempt += 1) {
-          if (fs.existsSync(target) && fs.readFileSync(target).equals(Buffer.from(BINARY))) {
-            break;
-          }
-          yield* Effect.yieldNow;
-        }
+        yield* Deferred.await(installedCheckStarted);
+        expect(calls[1]?.executable).toBe(resolvedTarget);
         expect(fs.readFileSync(target)).toEqual(Buffer.from(BINARY));
         yield* Fiber.interrupt(fiber);
         expect(fs.readFileSync(target, "utf8")).toBe("old");

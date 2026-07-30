@@ -1,3 +1,19 @@
+## 0.24.1 (2026-07-30)
+
+### 🩹 Fixes
+
+- Fix the Windows installer's checksum verification: the SHA256SUMS accumulator ([e3c0425f](https://github.com/agentxm/axm/commit/e3c0425f))
+  shadowed PowerShell's automatic `$Matches` variable (variable names are
+  case-insensitive), so every checksum-verified install failed with "A hash
+  table can only be added to another hash table". First surfaced by the
+  cli-v0.24.0 installer verification; npm, Homebrew, and macOS/Linux script
+  installs were unaffected.
+
+### ❤️ Thank You
+
+- Claude Fable 5
+- Craig Smitham
+
 ## 0.24.0 (2026-07-30)
 
 ### ⚠️ Breaking Changes

@@ -1,5 +1,5 @@
 ---
-__default__: minor
+__default__: major
 ---
 
 Align the CLI with Effect v4 beta.101 idioms. Built-in global flags are now

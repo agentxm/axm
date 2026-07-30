@@ -50,24 +50,30 @@ const runAxm = (args: ReadonlyArray<string>): Promise<CliResult> =>
   });
 
 describe("axm source smoke", () => {
-  it("keeps AXM globals and omits suppressed Effect built-ins from root help", async () => {
-    const result = await runAxm(["--help"]);
-    const output = combinedOutput(result);
+  // Spawns the real CLI via bun; cold starts run over vitest's 5s default
+  // under CI load, so give the subprocess an explicit budget.
+  it(
+    "keeps AXM globals and omits suppressed Effect built-ins from root help",
+    { timeout: 30_000 },
+    async () => {
+      const result = await runAxm(["--help"]);
+      const output = combinedOutput(result);
 
-    expect(result.exitCode).toBe(0);
-    for (const flag of [
-      "--help",
-      "--version",
-      "--wizard",
-      "--non-interactive",
-      "--verbose",
-      "--debug",
-      "--quiet",
-      "--json",
-    ]) {
-      expect(output).toContain(flag);
-    }
-    expect(output).not.toContain("--completions");
-    expect(output).not.toContain("--log-level");
-  });
+      expect(result.exitCode).toBe(0);
+      for (const flag of [
+        "--help",
+        "--version",
+        "--wizard",
+        "--non-interactive",
+        "--verbose",
+        "--debug",
+        "--quiet",
+        "--json",
+      ]) {
+        expect(output).toContain(flag);
+      }
+      expect(output).not.toContain("--completions");
+      expect(output).not.toContain("--log-level");
+    },
+  );
 });

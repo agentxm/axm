@@ -483,6 +483,25 @@ describe("InteractiveRenderer", () => {
       }),
     );
 
+    it.effect("suppresses progress in quiet mode without skipping the work", () =>
+      Effect.gen(function* () {
+        const value = yield* runQuiet(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            return yield* renderer.withSpinner(
+              "Resolving @acme/skills/review",
+              () => Effect.succeed("resolved"),
+              { successMessage: "Resolved @acme/skills/review" },
+            );
+          }),
+        );
+
+        expect(value).toBe("resolved");
+        expect(stdoutWrites).toEqual([]);
+        expect(stderrWrites).toEqual([]);
+      }),
+    );
+
     it.effect("writes a table to stdout without the guide prefix", () =>
       Effect.gen(function* () {
         const SkillTable = {

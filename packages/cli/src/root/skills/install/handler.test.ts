@@ -301,7 +301,7 @@ describe("skills install handler — error propagation", () => {
         }).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
-        expect(rendererState.spinnerMessages).toEqual([]);
+        expect(rendererState.spinnerMessages).toEqual(["Resolving extension sources", "Failed"]);
       }),
     );
   });
@@ -391,7 +391,8 @@ describe("skills install handler — error propagation", () => {
           preview: false,
         });
 
-        expect(rendererState.spinnerMessages).toEqual([]);
+        expect(rendererState.spinnerMessages).toContain("Resolving extension sources");
+        expect(rendererState.spinnerMessages).toContain("Resolved extension sources");
         expect(logs.info.some((line) => line.includes("Source:"))).toBe(true);
         expect(logs.info.some((line) => line.includes("Resolution:"))).toBe(true);
       }),

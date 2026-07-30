@@ -125,20 +125,35 @@ export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptio
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
+    const renderer = yield* CliRenderer;
+    const registryHost = new URL(registryUrl).host;
 
     if (!credStore.allowsPersistedCredentials) {
       return yield* makePersistedCredentialsUnsupportedError();
     }
 
-    const deviceFlow = yield* authClient.initiateDeviceFlow({
-      ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
-    });
+    const deviceFlow = yield* renderer.withSpinner(
+      `Starting device authorization for ${registryHost}`,
+      () =>
+        authClient.initiateDeviceFlow({
+          ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
+        }),
+      { successMessage: `Started device authorization for ${registryHost}` },
+    );
 
     yield* presentDeviceFlow(deviceFlow.verification_uri, deviceFlow.user_code, options);
 
-    const token = yield* authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval);
+    const token = yield* renderer.withSpinner(
+      `Waiting for device authorization on ${registryHost}`,
+      () => authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval),
+      { successMessage: `Authorized device on ${registryHost}` },
+    );
 
-    const handle = yield* persistLoginCredentials(registryUrl, token);
+    const handle = yield* renderer.withSpinner(
+      `Saving credentials for ${registryHost}`,
+      () => persistLoginCredentials(registryUrl, token),
+      { successMessage: `Saved credentials for ${registryHost}` },
+    );
 
     yield* emitLoginSuccess(registryUrl, handle);
   });

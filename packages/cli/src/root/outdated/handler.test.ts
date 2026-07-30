@@ -150,6 +150,10 @@ describe("outdated handler", () => {
           expect(JSON.stringify(rendererState.results[1]?.data)).not.toContain(
             "@acme/packs/frontend",
           );
+          expect(rendererState.spinnerMessages).toEqual([
+            "Checking extension updates",
+            "Checked extension updates",
+          ]);
         }),
       ),
     );

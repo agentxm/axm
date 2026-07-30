@@ -298,7 +298,11 @@ export const handleOutdatedWith = <E, R>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const entries = yield* collect(args.type);
+    const entries = yield* renderer.withSpinner(
+      "Checking extension updates",
+      () => collect(args.type),
+      { successMessage: "Checked extension updates" },
+    );
 
     if (entries.length === 0) {
       const suggestions = [INSTALL_EXTENSION_FROM_REGISTRY];

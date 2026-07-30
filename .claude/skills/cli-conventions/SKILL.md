@@ -446,9 +446,17 @@ export const SkillsListOutputSchema = Schema.Struct({
 });
 ```
 
-### Long-Running Commands (NDJSON)
+### Long-Running Commands (Liveness)
 
-Long-running commands emit progress events before the final result. See
+A command is never silent while working: first visible feedback within ~100 ms,
+and any phase that can exceed ~1 second (network, registry resolution,
+subprocess, bulk file I/O) runs under `withSpinner`, `withProgress`, or
+`runTasks` with a message naming the phase and subject. The renderer adapts per
+mode — animated spinner on TTY, static phase lines when piped, NDJSON
+`progress` events on stderr in `--json`, suppressed under `--quiet`. Progress
+is exempt from the render-once rule (which governs the result channel); ad hoc
+`console.log` progress is not. See "Progress And Liveness" in
+`contributing/guides/cli-renderer.md` for the normative contract and
 `packages/cli-spike/src/root/pets/intake.ts` for the complete pattern.
 
 ---

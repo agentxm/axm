@@ -188,7 +188,7 @@ describe("root sync handler", () => {
 
   it.effect("reports no-op when workspace materialization is already up to date", () =>
     Effect.gen(function* () {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: [],
       });
@@ -196,6 +196,10 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ dryRun: false, force: false }));
 
       expect(logs.success).toEqual(["Workspace materialization is up to date"]);
+      expect(rendererState.spinnerMessages).toEqual([
+        "Resolving workspace sync",
+        "Resolved workspace sync",
+      ]);
     }),
   );
 

@@ -308,7 +308,12 @@ const handleResolvedView = (args: {
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const client = yield* createRegistryClient(args.targetRegistry.registryUrl);
-    const indexOption = yield* client.getExtensionIndex(args.parts);
+    const subject = `${args.handle} from ${args.targetRegistry.registryName}`;
+    const indexOption = yield* renderer.withSpinner(
+      `Loading ${subject}`,
+      () => client.getExtensionIndex(args.parts),
+      { successMessage: `Loaded ${subject}` },
+    );
 
     if (Option.isNone(indexOption)) {
       return yield* makeAppError({

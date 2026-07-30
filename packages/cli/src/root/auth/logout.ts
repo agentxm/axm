@@ -75,9 +75,11 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   const optionalHandle = handle !== "unknown" ? { handle } : {};
 
   // Step 2: Attempt remote revoke (tolerate failure)
-  const revokeResult = yield* authClient
-    .revokeToken(existing.value.refresh_token)
-    .pipe(Effect.option);
+  const revokeResult = yield* renderer.withSpinner(
+    `Revoking registry session on ${registryHost}`,
+    () => authClient.revokeToken(existing.value.refresh_token).pipe(Effect.option),
+    { successMessage: `Checked registry session revocation on ${registryHost}` },
+  );
 
   // Step 3: Clear local credentials
   yield* credStore.clear(registryUrl);

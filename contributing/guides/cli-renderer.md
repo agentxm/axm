@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-07-29
-version: 0.3.0
+last-reviewed: 2026-07-30
+version: 0.4.0
 description: CLI renderer design for human output, machine JSON contracts, and stderr diagnostics
 depends-on:
   - ../../AGENTS.md
@@ -183,7 +183,52 @@ This keeps the published contract and the emitted bytes aligned.
   diagnostics; machine mode emits them as NDJSON on stderr
 
 Handlers should compute structured data first, then render once. Avoid
-interleaving business logic with ad hoc log formatting.
+interleaving business logic with ad hoc log formatting. Render-once applies to
+the **result** channel; long-running phases still emit live progress through
+the renderer's progress APIs — see
+[Progress And Liveness](#progress-and-liveness).
+
+---
+
+## Progress And Liveness
+
+A command is never silent while working. Perceived responsiveness matters more
+than raw speed: a CLI that prints nothing during a network fetch reads as hung,
+and users and agents interrupt healthy runs.
+
+Normative rules:
+
+- **First feedback within ~100 ms.** Every command produces visible
+  acknowledgment near-instantly — either its result (fast commands) or a
+  progress line naming the current phase.
+- **Slow phases run under a progress API.** Any phase that can plausibly exceed
+  ~1 second — registry resolution, network fetch, subprocess execution, bulk
+  file I/O — runs under `withSpinner`, `withProgress`, or `runTasks`, with a
+  message naming the phase and subject (`Resolving @acme/skills/foo…`). Do not
+  hand-roll progress with `info` lines or `console.log`.
+- **Progress is transient scaffolding, not a transcript.** A spinner settles
+  into the final outcome line. Interrupted or failed phases settle the line
+  (via the renderer) rather than leaving a dangling animation frame. Progress
+  narration never substitutes for the outcome-first result.
+- **Progress is exempt from render-once.** The render-once rule governs the
+  result channel (stdout, one render at the end). Progress emitted through the
+  renderer's progress APIs is a stderr diagnostic and runs mid-flight by
+  design.
+- **Quiet-by-default is not silent-while-working.** Omitting transport plumbing
+  from default output governs _what detail_ appears, not _whether_ liveness
+  appears. A spinner naming the current phase is not plumbing; the registry
+  URLs and probe details behind it belong in `--verbose`.
+
+Per-mode behavior is owned by the renderer implementations — handlers call the
+progress APIs and the renderer adapts:
+
+| Mode                      | Behavior                                                       |
+| ------------------------- | -------------------------------------------------------------- |
+| Interactive TTY           | Animated spinner / progress bar; settles into the outcome line |
+| Non-TTY / CI / `NO_COLOR` | Static phase line per update; no animation, no ANSI            |
+| `--json`                  | NDJSON `progress` events on stderr; stdout result untouched    |
+| `--quiet`                 | Progress suppressed; errors still surface                      |
+| `--verbose`               | Progress retained, plus the plumbing detail behind each phase  |
 
 ---
 

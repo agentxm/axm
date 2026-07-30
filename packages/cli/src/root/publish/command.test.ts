@@ -23,6 +23,8 @@ import {
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../test-helpers.js";
+import { exactVersion, extensionName, handle } from "../../test-stubs.js";
+import { emitPublishResult } from "../../json-output.js";
 import {
   aggregatePublishFailure,
   handleRootPublish,
@@ -78,9 +80,9 @@ describe("root publish", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeContext = () => {
+  const makeContext = (machine = true) => {
     const context = makeWorkspaceHandlerTestContext({
-      machine: true,
+      machine,
       wsOptions: { projectRoot: tempDir },
     });
     const interaction = DeviceLoginInteractionTest();
@@ -91,6 +93,105 @@ describe("root publish", () => {
       ),
     };
   };
+
+  const writeReviewSkill = () => {
+    fs.writeFileSync(
+      path.join(tempDir, ".axm", "settings.json"),
+      JSON.stringify({
+        owner: "@acme",
+        agents: [],
+        skills: { review: "workspace:@acme/skills/review" },
+      }),
+    );
+    const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(skillDir, "skill.json"),
+      JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
+    );
+    fs.writeFileSync(
+      path.join(skillDir, "src", "SKILL.md"),
+      "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
+    );
+  };
+
+  describe("human output", () => {
+    it.effect("renders the published FQN and version after a successful apply", () => {
+      writeReviewSkill();
+      const { provide, logs, rendererState } = makeContext(false);
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+          expect(logs.success).toContain("Published @acme/skills/review@1.0.0");
+          expect(rendererState.spinnerMessages).toContain("Resolving publish registry");
+          expect(rendererState.spinnerMessages).toContain("Preparing publish candidates");
+          expect(rendererState.spinnerMessages).toContain("Applying Publish extensions");
+        }),
+      );
+    });
+
+    it.effect("renders an honest preview without claiming the extension was published", () => {
+      writeReviewSkill();
+      const { provide, logs } = makeContext(false);
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl));
+
+          expect(logs.success).toContain("Would publish @acme/skills/review@1.0.0");
+          expect(logs.success.some((message) => message.startsWith("Published "))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("renders an explicit empty-selection outcome", () => {
+      const { provide, logs } = makeContext(false);
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+          expect(logs.success).toContain("No extensions selected for publishing");
+        }),
+      );
+    });
+
+    it.effect("surfaces the registry URL and browser suggestion", () => {
+      const { provide, logs, rendererState } = makeContext(false);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* emitPublishResult("publish", {
+            mode: "apply",
+            results: [
+              {
+                owner: handle("@acme"),
+                type: "skill",
+                name: extensionName("review"),
+                version: exactVersion("1.0.0"),
+                action: "publish",
+                status: "success",
+                links: { html: "https://agentxm.ai/acme/skills/review" },
+              },
+            ],
+          });
+
+          expect(logs.success).toContain(
+            "Published @acme/skills/review@1.0.0\nhttps://agentxm.ai/acme/skills/review",
+          );
+          expect(rendererState.suggestions).toContainEqual({
+            description: "View in browser",
+            url: "https://agentxm.ai/acme/skills/review",
+          });
+        }),
+      );
+    });
+  });
 
   it.effect("returns a machine-readable no-op for an empty authored selection", () => {
     const { provide, rendererState } = makeContext();

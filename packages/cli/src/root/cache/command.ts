@@ -52,7 +52,9 @@ const formatBytes = (bytes: number): string => {
 export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
   const renderer = yield* CliRenderer;
   const cache = yield* makeUserArchiveCache();
-  const status = yield* cache.status();
+  const status = yield* renderer.withSpinner("Loading archive cache status", () => cache.status(), {
+    successMessage: "Loaded archive cache status",
+  });
   if (yield* renderer.result({ data: status }, CacheStatusOutputSchema)) return;
   yield* renderer.raw(
     [
@@ -69,7 +71,9 @@ export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
 export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
   const renderer = yield* CliRenderer;
   const cache = yield* makeUserArchiveCache();
-  const result = yield* cache.verify();
+  const result = yield* renderer.withSpinner("Verifying archive cache", () => cache.verify(), {
+    successMessage: "Verified archive cache",
+  });
   if (yield* renderer.result({ result }, CacheVerifyOutputSchema)) return;
   yield* renderer.success(
     `Verified ${result.checked} archive cache entr${result.checked === 1 ? "y" : "ies"}; ${result.corruptRemoved} corrupt removed.`,
@@ -79,7 +83,9 @@ export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
 export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
   const renderer = yield* CliRenderer;
   const cache = yield* makeUserArchiveCache();
-  const result = yield* cache.prune();
+  const result = yield* renderer.withSpinner("Pruning archive cache", () => cache.prune(), {
+    successMessage: "Pruned archive cache",
+  });
   if (yield* renderer.result({ result }, CachePruneOutputSchema)) return;
   yield* renderer.success(
     `Pruned ${result.removed} archive cache entr${result.removed === 1 ? "y" : "ies"} (${formatBytes(result.bytesFreed)}); ${result.remaining} remain (${formatBytes(result.remainingBytes)}).`,

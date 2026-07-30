@@ -123,6 +123,9 @@ describe("machine-output contract register", () => {
   it("keeps every row deliberate, documented, and connected to coverage", () => {
     for (const row of [...MACHINE_OUTPUT_CONTRACT_ROWS, FORMATTER_VERSION_CONTRACT]) {
       expect(row.family.id).not.toBe("");
+      expect(["orientation", "query", "mutation", "mixed"]).toContain(row.family.humanOutputKind);
+      expect(["immediate", "progress"]).toContain(row.family.liveness);
+      expect(row.family.livenessCoverage.length).toBeGreaterThan(0);
       expect(row.family.schemaNames.length).toBeGreaterThan(0);
       expect(row.family.requiredTopLevelKeys.length).toBeGreaterThan(0);
       expect(row.family.scenarios.length).toBeGreaterThan(0);

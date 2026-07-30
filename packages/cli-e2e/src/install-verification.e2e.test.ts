@@ -241,11 +241,40 @@ const expectJsonObject = (value: unknown): Readonly<Record<string, unknown>> => 
 const parseJsonObject = (input: string): Readonly<Record<string, unknown>> =>
   expectJsonObject(JSON.parse(input));
 
+const expectProgressMessages = (
+  stderr: string,
+  expectedMessages: ReadonlyArray<string | RegExp>,
+) => {
+  const progressEvents = stderr
+    .trim()
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map(parseJsonObject);
+  expect(progressEvents.length).toBeGreaterThan(0);
+  expect(progressEvents.every((event) => event["type"] === "progress")).toBe(true);
+  const progressMessages = progressEvents.map((event) => event["message"]);
+  for (const expectedMessage of expectedMessages) {
+    if (typeof expectedMessage === "string") {
+      expect(progressMessages).toContain(expectedMessage);
+      continue;
+    }
+    expect(
+      progressMessages.some(
+        (progressMessage) =>
+          typeof progressMessage === "string" && expectedMessage.test(progressMessage),
+      ),
+    ).toBe(true);
+  }
+};
+
 const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<string, string>>) => {
   const runBinary = createBinaryRunner(binaryPath);
   const jsonResult = await runBinary(["upgrade", "--json"], { env });
   expectCommandSuccess("axm upgrade --json", jsonResult);
-  expect(jsonResult.stderr).toBe("");
+  expectProgressMessages(jsonResult.stderr, [
+    "Checking AXM releases",
+    "Detecting AXM installation method",
+  ]);
   const jsonDocument = parseJsonObject(jsonResult.stdout);
   expect(jsonDocument["ok"]).toBe(true);
   const currentResult = expectJsonObject(jsonDocument["result"]);
@@ -274,7 +303,11 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
         `Locked upgrade exited ${lockedResult.exitCode}; stdout: ${lockedResult.stdout}; stderr: ${lockedResult.stderr}`,
       );
     }
-    expect(lockedResult.stderr).toBe("");
+    expectProgressMessages(lockedResult.stderr, [
+      "Checking AXM releases",
+      "Detecting AXM installation method",
+      /^Upgrading AXM to /,
+    ]);
     const lockedDocument = parseJsonObject(lockedResult.stdout);
     expect(lockedDocument["ok"]).toBe(true);
     const blockedResult = expectJsonObject(lockedDocument["result"]);

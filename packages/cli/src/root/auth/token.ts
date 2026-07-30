@@ -229,10 +229,8 @@ export const handleToken = Effect.fn("AuthToken.handle")(function* () {
   });
 
   // Step 2: Output raw token to stdout, unless --json was explicitly requested
-  if (json) {
-    yield* renderer.result({ data: { token: token.token } }, TokenDocumentSchema);
+  if (json && (yield* renderer.result({ data: { token: token.token } }, TokenDocumentSchema)))
     return;
-  }
 
   yield* renderer.raw(token.token + "\n");
 }, Effect.asVoid);
@@ -251,11 +249,16 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
     Effect.flatMap(validateExpiresInSeconds),
   );
 
-  const created = yield* authClient.createToken(token.token, {
-    name: args.name,
-    expiresIn,
-    permissions: compactPermissions(args),
-  });
+  const created = yield* renderer.withSpinner(
+    `Creating registry token "${args.name}"`,
+    () =>
+      authClient.createToken(token.token, {
+        name: args.name,
+        expiresIn,
+        permissions: compactPermissions(args),
+      }),
+    { successMessage: `Created registry token "${args.name}"` },
+  );
   const suggestions = createTokenSuggestions(created.id);
 
   if (
@@ -317,7 +320,11 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(function* () {
     missingTokenError: errAuthRequired("Not authenticated"),
   });
 
-  const result = yield* authClient.listTokens(token.token);
+  const result = yield* renderer.withSpinner(
+    "Loading registry tokens",
+    () => authClient.listTokens(token.token),
+    { successMessage: "Loaded registry tokens" },
+  );
 
   if (
     yield* renderer.result(
@@ -374,12 +381,19 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
   });
 
   let stepUpCompleted = false;
-  const revokeResult = yield* Effect.result(authClient.deleteToken(token.token, tokenId));
+  const revokeSpinner = yield* renderer.spinner(`Revoking registry token ${tokenId}`);
+  const revokeResult = yield* Effect.result(authClient.deleteToken(token.token, tokenId)).pipe(
+    Effect.onInterrupt(() =>
+      revokeSpinner.cancel(`Cancelled registry token ${tokenId} revocation`),
+    ),
+  );
   if (Result.isFailure(revokeResult)) {
     const stepUp = readStepUpRequired(revokeResult.failure);
     if (stepUp === null) {
+      yield* revokeSpinner.error(`Failed to revoke registry token ${tokenId}`);
       return yield* revokeResult.failure;
     }
+    yield* revokeSpinner.stop(`Additional authorization required for token ${tokenId}`);
 
     const opened = yield* interaction.openBrowser(stepUp.authUrl);
     if (!jsonMode) {
@@ -391,9 +405,19 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
       yield* renderer.step(`Visit: ${stepUp.authUrl}`);
     }
 
-    const stepUpToken = yield* authClient.pollStepUpChallenge(token.token, stepUp.doneUrl);
-    yield* authClient.deleteToken(token.token, tokenId, { stepUpToken });
+    const stepUpToken = yield* renderer.withSpinner(
+      `Waiting for authorization to revoke token ${tokenId}`,
+      () => authClient.pollStepUpChallenge(token.token, stepUp.doneUrl),
+      { successMessage: `Authorized token ${tokenId} revocation` },
+    );
+    yield* renderer.withSpinner(
+      `Revoking registry token ${tokenId}`,
+      () => authClient.deleteToken(token.token, tokenId, { stepUpToken }),
+      { successMessage: `Revoked registry token ${tokenId}` },
+    );
     stepUpCompleted = true;
+  } else {
+    yield* revokeSpinner.stop(`Revoked registry token ${tokenId}`);
   }
 
   if (

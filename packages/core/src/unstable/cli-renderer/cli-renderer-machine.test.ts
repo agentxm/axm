@@ -38,8 +38,11 @@ afterEach(() => {
 });
 
 const layer = MachineRenderer();
+const quietLayer = MachineRenderer({ quiet: true });
 
 const run = <A>(effect: Effect.Effect<A, never, CliRenderer>) => Effect.provide(effect, layer);
+const runQuiet = <A>(effect: Effect.Effect<A, never, CliRenderer>) =>
+  Effect.provide(effect, quietLayer);
 
 const parseStderrEvents = () =>
   stderrWrites.map((line) => {
@@ -294,6 +297,24 @@ describe("MachineRenderer", () => {
           phase: "work",
           percent: 100,
         });
+      }),
+    );
+
+    it.effect("suppresses progress in quiet mode without skipping the work", () =>
+      Effect.gen(function* () {
+        const value = yield* runQuiet(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            return yield* r.withSpinner(
+              "Resolving @acme/skills/review",
+              () => Effect.succeed("resolved"),
+              { successMessage: "Resolved @acme/skills/review" },
+            );
+          }),
+        );
+
+        expect(value).toBe("resolved");
+        expect(stderrWrites).toEqual([]);
       }),
     );
 

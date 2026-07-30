@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-07-14
-version: 0.2.2
+last-reviewed: 2026-07-30
+version: 0.3.0
 description: CLI command design conventions for command shape, flags, prompts, and handler structure
 depends-on:
   - ../../CLAUDE.md
@@ -159,7 +159,7 @@ when the step is directly runnable.
 
 ## Design Principles
 
-Four principles ground the conventions in this guide. When a command design
+Five principles ground the conventions in this guide. When a command design
 question isn't covered by a specific rule, reason from these principles.
 
 1. **Discoverability** — Users find commands through exploration. Consistent
@@ -177,6 +177,16 @@ question isn't covered by a specific rule, reason from these principles.
    minimal flags; advanced options exist but don't clutter the default
    experience.
 
+5. **Responsive feedback** — A command is never silent while working. First
+   visible feedback arrives within ~100 ms, and any phase that can exceed
+   ~1 second (network, registry resolution, subprocess, bulk file I/O) shows
+   live progress through the `CliRenderer` progress APIs. Perceived
+   responsiveness beats raw speed — a silent CLI reads as hung, and users and
+   agents interrupt healthy runs. Quiet-by-default governs _what detail_
+   appears, not _whether_ liveness appears. See
+   [Progress And Liveness](./cli-renderer.md#progress-and-liveness) for the
+   normative contract.
+
 ### Design Principles Checklist
 
 - [ ] **Discoverable** — Command is findable through help, tab-completion, and
@@ -187,6 +197,8 @@ question isn't covered by a specific rule, reason from these principles.
       patterns as peer commands
 - [ ] **Progressively disclosed** — Common path needs minimal arguments;
       advanced options don't clutter defaults
+- [ ] **Responsive** — First feedback within ~100 ms; phases that can exceed
+      ~1 s run under `withSpinner`, `withProgress`, or `runTasks`
 
 ---
 
@@ -528,8 +540,14 @@ it can only be exercised by parsing command-line arguments.
 
 1. Parse at the command boundary (`Command.make`)
 2. Map parsed values into handler arguments
-3. Run domain logic through services
-4. Render through `CliRenderer` once at the end
+3. Run domain logic through services, wrapping phases that can exceed ~1 s in a
+   `CliRenderer` progress API (`withSpinner`, `withProgress`, `runTasks`)
+4. Render the result through `CliRenderer` once at the end
+
+The render-once rule governs the **result** channel. Progress emitted through
+the renderer's progress APIs is transient stderr diagnostics and runs
+mid-flight by design — it is not "line-by-line rendering." See
+[Progress And Liveness](./cli-renderer.md#progress-and-liveness).
 
 Per-command flag values are passed as explicit handler arguments, not read from
 a service.
@@ -551,8 +569,11 @@ format — see [CLI Renderer Guide](./cli-renderer.md) for the full contract.
       Effect layers
 - [ ] **Explicit flag args** — Flag values are passed as handler arguments, not
       read from a service
-- [ ] **Renders once** — Output rendering happens once at the end, not
-      interleaved with logic
+- [ ] **Renders once** — Result rendering happens once at the end; mid-flight
+      output goes only through `CliRenderer` progress APIs, never ad hoc logging
+- [ ] **Slow phases show progress** — Any phase that can exceed ~1 s (network,
+      registry resolution, subprocess, bulk file I/O) runs under `withSpinner`,
+      `withProgress`, or `runTasks`
 - [ ] **No Command.make logic** — `Command.make` contains only argument parsing
       and handler wiring
 
@@ -702,6 +723,7 @@ particular way. See [Testing Guide](./testing.md) for depth.
 | Inconsistent flag meaning   | `--force` skips confirms on one command, overrides on another | Users can't build muscle memory; scripts break across resources         |
 | Raw parser types in handler | Handler receives `string \| undefined` instead of `Option`    | Parsing concern leaks past the boundary; handler logic gets noisy       |
 | Line-by-line rendering      | `console.log` calls interleaved with business logic           | No structured result; can't switch to JSON output; hard to test         |
+| Silent long-running command | Registry fetch runs for seconds with no output                | Reads as hung; users and agents interrupt healthy runs                  |
 | Premature `--json`          | Flag advertised before a result schema exists                 | Machine consumers build on an unstable contract                         |
 | Formatted machine output    | JSON piped through a human formatter                          | Breaks both audiences — unreadable for humans, unparseable for machines |
 | Premature directory split   | `list/command.ts` + `list/handler.ts` for a 30-line command   | Extra files without testable complexity to justify them                 |
@@ -716,6 +738,8 @@ particular way. See [Testing Guide](./testing.md) for depth.
 - [ ] **No parser types in handlers** — Handlers accept domain values, not
       framework types
 - [ ] **No mixed rendering** — Business logic and output rendering are separated
+- [ ] **No silent waits** — Phases that can exceed ~1 s show a spinner or
+      progress line
 - [ ] **No premature --json** — JSON output only advertised after schema is
       published
 - [ ] **No formatted machine output** — JSON contains data, not presentation

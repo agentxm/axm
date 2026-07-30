@@ -123,14 +123,19 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
     displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(CliRenderer, renderer)));
 
   // Step 1: Lockfile reconciliation
-  const augmented = yield* augmentPlanWithReconciliation(
-    plan,
-    getLockfileState,
-    ws.baseDir,
-    ws.path,
-    readSettingsSafe,
-    fsLayer,
-  ).pipe(Effect.provide(reconciliationAdaptersLayer));
+  const augmented = yield* renderer.withSpinner(
+    `Resolving ${plan.name}`,
+    () =>
+      augmentPlanWithReconciliation(
+        plan,
+        getLockfileState,
+        ws.baseDir,
+        ws.path,
+        readSettingsSafe,
+        fsLayer,
+      ).pipe(Effect.provide(reconciliationAdaptersLayer)),
+    { successMessage: `Resolved ${plan.name}` },
+  );
 
   const augmentedPlan = augmented.plan;
 
@@ -168,7 +173,11 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
   }
 
   // Step 6: Apply and display
-  const executed = yield* applyPlan(augmentedPlan);
+  const executed = yield* renderer.withSpinner(
+    `Applying ${augmentedPlan.name}`,
+    () => applyPlan(augmentedPlan),
+    { successMessage: `Finished applying ${augmentedPlan.name}` },
+  );
   if (flags.displayApplied !== false) {
     yield* showPlan(executed);
   }

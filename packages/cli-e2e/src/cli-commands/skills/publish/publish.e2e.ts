@@ -67,9 +67,14 @@ describe("axm skills publish", () => {
         // Publish the extension
         const publishResult = await runCli(
           ["skills", "publish", "@test/skills/my-publish-skill", "--yes"],
-          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" } },
         );
         expect(publishResult.exitCode).toBe(0);
+        expect(publishResult.stdout).toBe("");
+        expect(publishResult.stderr).toContain("Resolving publish registry");
+        expect(publishResult.stderr).toContain("Preparing publish candidates");
+        expect(publishResult.stderr).toContain("Published @test/skills/my-publish-skill@1.0.0");
+        expect(publishResult.stderr).not.toContain("\u001b");
 
         // Verify index.json in registry
         const registryIndexPath = path.join(
@@ -111,6 +116,22 @@ describe("axm skills publish", () => {
         // ZIP magic bytes: PK (0x50 0x4b)
         expect(archiveBytes[0]).toBe(0x50);
         expect(archiveBytes[1]).toBe(0x4b);
+
+        const quietResult = await runCli(
+          [
+            "skills",
+            "publish",
+            "@test/skills/my-publish-skill",
+            "--on-existing",
+            "skip",
+            "--yes",
+            "--quiet",
+          ],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" } },
+        );
+        expect(quietResult.exitCode).toBe(0);
+        expect(quietResult.stdout).toBe("");
+        expect(quietResult.stderr).toBe("");
       } finally {
         temp.cleanup();
         registryDir.cleanup();
@@ -210,6 +231,8 @@ describe("axm skills publish", () => {
         );
         expect(publishResult.exitCode).toBe(0);
         expect(JSON.parse(publishResult.stdout).results).toEqual([]);
+        expect(publishResult.stderr).toContain('"type":"progress"');
+        expect(publishResult.stderr).toContain('"message":"Resolving publish registry"');
       } finally {
         temp.cleanup();
         registryDir.cleanup();

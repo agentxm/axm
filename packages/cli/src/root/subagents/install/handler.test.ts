@@ -262,7 +262,7 @@ describe("subagents install handler — error propagation", () => {
         }).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
-        expect(rendererState.spinnerMessages).toEqual([]);
+        expect(rendererState.spinnerMessages).toEqual(["Resolving extension sources", "Failed"]);
       }),
     );
   });

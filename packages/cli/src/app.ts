@@ -160,7 +160,9 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
         quiet: resolveVerbosityFromArgv(argv) === "quiet",
       });
 
-      const rendererLayer = isJson ? MachineRenderer() : InteractiveRenderer({ outputPolicy });
+      const rendererLayer = isJson
+        ? MachineRenderer({ quiet: outputPolicy.quiet })
+        : InteractiveRenderer({ outputPolicy });
 
       return withUpdateCheck(commandProgram, {
         localVersion: version,

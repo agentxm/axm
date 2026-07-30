@@ -12,10 +12,15 @@ import { afterEach, beforeEach } from "vitest";
 import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import {
+  computePackageContentHashSync,
+  writeKnowledgeExtension,
+  writeWorkspaceFiles,
+} from "../../test-stubs.js";
 import { expectAppliedPlanResult, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { setKnowledgeEnabled } from "./activation.js";
 import { handleKnowledgeLint } from "./lint.js";
+import { handleKnowledgeSearch } from "./search.js";
 
 const stubKnowledgeManager = {
   type: "knowledge",
@@ -124,6 +129,48 @@ describe("knowledge JSON output", () => {
         yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
 
         expect(logs.error).toContain("1 knowledge validation error");
+      }),
+    );
+  });
+
+  it.effect("search reports liveness before returning machine results", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    writeKnowledgeExtension(axmDir, "platform");
+    const packageRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "platform");
+    fs.writeFileSync(
+      path.join(packageRoot, "src", "auth.md"),
+      "---\ntype: policy\ndescription: Authentication policy\n---\n# Authentication\n\nRotate credentials.\n",
+    );
+    writeWorkspaceFiles(axmDir, {
+      knowledge: { platform: "workspace:@acme/knowledge/platform" },
+      lockfileKnowledge: {
+        platform: {
+          type: "workspace",
+          owner: "@acme",
+          extensionType: "knowledge",
+          name: "platform",
+          version: "1.0.0",
+          sourceHash: computePackageContentHashSync(packageRoot),
+          installedAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleKnowledgeSearch("Authentication");
+
+        expect(rendererState.spinnerMessages).toEqual([
+          'Searching knowledge for "Authentication"',
+          'Searched knowledge for "Authentication"',
+        ]);
+        expect(rendererState.results).toHaveLength(1);
+        expect(rendererState.results[0]?.data).toMatchObject({
+          query: "Authentication",
+          count: 1,
+        });
       }),
     );
   });

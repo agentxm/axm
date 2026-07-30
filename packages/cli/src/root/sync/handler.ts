@@ -1234,6 +1234,7 @@ const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function
 
 export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
   const ws = yield* WorkspaceMutations;
+  const renderer = yield* CliRenderer;
   const target = args.target ?? Option.none<string>();
   const type = args.type ?? Option.none<Exclude<ExtensionType, "pack">>();
   const selection = { target, type };
@@ -1245,21 +1246,42 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
       : "workspace";
   const planName = scoped ? `Sync ${scopeLabel}` : PLAN_NAME;
   const planDescription = scoped ? `Scoped materialization for ${scopeLabel}` : PLAN_DESCRIPTION;
-  const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({
-    force: args.force,
-    selection,
-  });
-  const workspaceGeneratorStep = scoped
-    ? Option.none<PlannedJobStep>()
-    : yield* collectWorkspaceGeneratorStep();
-  const trustMigrationStep = scoped
-    ? Option.none<PlannedJobStep>()
-    : yield* collectTrustMigrationStep();
+  const preflight = yield* renderer.withSpinner(
+    `Resolving ${scopeLabel} sync`,
+    () =>
+      Effect.gen(function* () {
+        const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({
+          force: args.force,
+          selection,
+        });
+        const workspaceGeneratorStep = scoped
+          ? Option.none<PlannedJobStep>()
+          : yield* collectWorkspaceGeneratorStep();
+        const trustMigrationStep = scoped
+          ? Option.none<PlannedJobStep>()
+          : yield* collectTrustMigrationStep();
 
-  // A degraded lockfile is work even when nothing needs materializing: `axm sync`
-  // is the command users are pointed at to recover one, so it must not short-circuit
-  // to a no-op before reconciliation has had a chance to run.
-  const lockfileNeedsRecovery = !scoped && (yield* ws.getLockfileState()) !== "ok";
+        // A degraded lockfile is work even when nothing needs materializing: `axm sync`
+        // is the command users are pointed at to recover one, so it must not short-circuit
+        // to a no-op before reconciliation has had a chance to run.
+        const lockfileNeedsRecovery = !scoped && (yield* ws.getLockfileState()) !== "ok";
+        return {
+          steps,
+          expectedSubagentNames,
+          workspaceGeneratorStep,
+          trustMigrationStep,
+          lockfileNeedsRecovery,
+        };
+      }),
+    { successMessage: `Resolved ${scopeLabel} sync` },
+  );
+  const {
+    steps,
+    expectedSubagentNames,
+    workspaceGeneratorStep,
+    trustMigrationStep,
+    lockfileNeedsRecovery,
+  } = preflight;
 
   if (
     steps.length === 0 &&
@@ -1299,7 +1321,9 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
           description: plan.description,
           jobs: plan.jobs,
         }
-      : yield* applyPlan(plan)
+      : yield* renderer.withSpinner(`Applying ${plan.name}`, () => applyPlan(plan), {
+          successMessage: `Finished applying ${plan.name}`,
+        })
     : yield* previewOrApplyPlan(plan, {
         yes: true,
         force: args.force,

@@ -920,7 +920,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
   args: RootPublishHandlerArgs,
   registry: TargetRegistry,
 ) {
-  const catalog = yield* catalogEntries();
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const authClient = yield* AuthClient;
@@ -934,19 +933,30 @@ const runPublish = Effect.fn("Publish.run")(function* (
     skipExisting: args.skipExisting,
     bulkSelection,
   });
-  const selection = yield* selectEntries(catalog, args);
-  const selected = selection.entries;
-  const decoded = yield* Effect.forEach(
-    selected,
-    (entry) =>
-      Effect.result(
-        decodeCandidate(entry, effectivePolicy, registry, args.visibility, {
-          allowOlder: args.allowOlder,
-          allowUnsafeArchive: args.allowUnsafeArchive,
-        }),
-      ),
-    { concurrency: 4 },
+  const prepared = yield* renderer.withSpinner(
+    "Preparing publish candidates",
+    () =>
+      Effect.gen(function* () {
+        const catalog = yield* catalogEntries();
+        const selection = yield* selectEntries(catalog, args);
+        const decoded = yield* Effect.forEach(
+          selection.entries,
+          (entry) =>
+            Effect.result(
+              decodeCandidate(entry, effectivePolicy, registry, args.visibility, {
+                allowOlder: args.allowOlder,
+                allowUnsafeArchive: args.allowUnsafeArchive,
+              }),
+            ),
+          { concurrency: 4 },
+        );
+        return { selection, decoded };
+      }),
+    { successMessage: "Prepared publish candidates" },
   );
+  const selection = prepared.selection;
+  const selected = selection.entries;
+  const decoded = prepared.decoded;
   const candidates = decoded.flatMap((result) =>
     Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
   );
@@ -1088,7 +1098,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
 export const handleRootPublish = Effect.fn("Publish.handle")(function* (
   args: RootPublishHandlerArgs,
 ) {
-  const registry = yield* resolveTargetRegistry(args.registry, args.registryUrl);
+  const renderer = yield* CliRenderer;
+  const registry = yield* renderer.withSpinner(
+    "Resolving publish registry",
+    () => resolveTargetRegistry(args.registry, args.registryUrl),
+    { successMessage: "Resolved publish registry" },
+  );
   yield* runPublish(args, registry);
 });
 

@@ -1415,18 +1415,24 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       suggestions: [{ description: "Use a supported AXM platform." }],
     });
   }
+  const renderer = yield* CliRenderer;
 
   const httpClient = yield* HttpClient.HttpClient;
   const repo = yield* resolveGithubRepo();
   const githubApiBase = yield* resolveGithubApiBase();
   const observedLocal = args.localVersion === undefined ? loadVersion() : args.localVersion;
   const localVersion = observedLocal === null ? null : semver.valid(observedLocal);
-  const resolution = yield* resolveLatestVersion(
-    httpClient,
-    localVersion,
-    repo,
-    platform.value.binaryName,
-    githubApiBase,
+  const resolution = yield* renderer.withSpinner(
+    "Checking AXM releases",
+    () =>
+      resolveLatestVersion(
+        httpClient,
+        localVersion,
+        repo,
+        platform.value.binaryName,
+        githubApiBase,
+      ),
+    { successMessage: "Checked AXM releases" },
   );
   const targetVersion = resolution.targetVersion;
   if (semver.valid(targetVersion) === null) {
@@ -1438,7 +1444,11 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
 
   const installMethod = yield* InstallMethod;
   const detectionCommands: Array<CommandRecord> = [];
-  const initiallyDetectedMethod = yield* installMethod.detect();
+  const initiallyDetectedMethod = yield* renderer.withSpinner(
+    "Detecting AXM installation method",
+    () => installMethod.detect(),
+    { successMessage: "Detected AXM installation method" },
+  );
   const ownershipRequired =
     resolution.versionRelation !== "local-newer" &&
     !(resolution.versionRelation === "current" && !args.force);
@@ -1455,7 +1465,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   };
   const action = decideUpgrade(resolution.versionRelation, args.force, supportedMethod(method));
 
-  const result = yield* (() => {
+  const resultEffect = (() => {
     switch (action) {
       case "noop-current":
         return Effect.succeed(noMutationResult(input, "already-up-to-date", null));
@@ -1487,6 +1497,12 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
         return handleDelegated(input);
     }
   })();
+  const result =
+    action === "mutate"
+      ? yield* renderer.withSpinner(`Upgrading AXM to ${targetVersion}`, () => resultEffect, {
+          successMessage: `Finished AXM upgrade attempt for ${targetVersion}`,
+        })
+      : yield* resultEffect;
 
   const machineResult = withUpgradePlanFields(result);
   yield* setCommandSemanticProperties(
@@ -1499,7 +1515,6 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       blockedCount: machineResult.blockedCount,
     }),
   );
-  const renderer = yield* CliRenderer;
   if (
     yield* renderer.result({ result: machineResult }, UpgradeDocumentSchema, {
       suggestions: upgradeSuggestions(result),

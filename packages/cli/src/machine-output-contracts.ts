@@ -13,10 +13,15 @@
  */
 
 export type MachineOutputClass = "formatter-help" | "structured-result";
+export type HumanOutputKind = "orientation" | "query" | "mutation" | "mixed";
+export type LivenessClass = "immediate" | "progress";
 
 export interface MachineOutputFamily {
   readonly id: string;
   readonly outputClass: MachineOutputClass;
+  readonly humanOutputKind: HumanOutputKind;
+  readonly liveness: LivenessClass;
+  readonly livenessCoverage: ReadonlyArray<string>;
   readonly schemaNames: ReadonlyArray<string>;
   readonly requiredTopLevelKeys: ReadonlyArray<string>;
   readonly optionalTopLevelKeys: ReadonlyArray<string>;
@@ -36,6 +41,9 @@ export interface MachineOutputContractRow {
 const helpFamily = {
   id: "formatter-help",
   outputClass: "formatter-help",
+  humanOutputKind: "orientation",
+  liveness: "immediate",
+  livenessCoverage: ["packages/cli/src/formatter.test.ts"],
   schemaNames: ["JsonHelpDocSchema"],
   requiredTopLevelKeys: ["type", "name", "usage"],
   optionalTopLevelKeys: ["summary", "arguments", "flags", "subcommands", "examples", "learnMore"],
@@ -52,6 +60,12 @@ const helpFamily = {
 const planFamily = {
   id: "plan-resolution",
   outputClass: "structured-result",
+  humanOutputKind: "mutation",
+  liveness: "progress",
+  livenessCoverage: [
+    "packages/core/src/unstable/plan/resolve-plan.test.ts",
+    "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
+  ],
   schemaNames: ["PlanResolutionDocumentSchema"],
   requiredTopLevelKeys: ["ok", "result"],
   optionalTopLevelKeys: ["summary", "suggestions"],
@@ -68,6 +82,12 @@ const planFamily = {
 const publishFamily = {
   id: "publish",
   outputClass: "structured-result",
+  humanOutputKind: "mutation",
+  liveness: "progress",
+  livenessCoverage: [
+    "packages/cli/src/root/publish/command.test.ts",
+    "packages/cli-e2e/src/cli-commands/skills/publish/publish.e2e.ts",
+  ],
   schemaNames: ["PublishResultSchema"],
   requiredTopLevelKeys: ["ok", "mode", "results"],
   optionalTopLevelKeys: ["selection", "summary", "suggestions"],
@@ -90,9 +110,15 @@ const defineResultFamily = (input: {
   readonly scenarios: ReadonlyArray<string>;
   readonly rationale: string;
   readonly commandCoverage: ReadonlyArray<string>;
+  readonly humanOutputKind?: HumanOutputKind;
+  readonly liveness?: LivenessClass;
+  readonly livenessCoverage?: ReadonlyArray<string>;
 }): MachineOutputFamily => ({
   id: input.id,
   outputClass: "structured-result",
+  humanOutputKind: input.humanOutputKind ?? "query",
+  liveness: input.liveness ?? "progress",
+  livenessCoverage: input.livenessCoverage ?? input.commandCoverage,
   schemaNames: input.schemaNames,
   requiredTopLevelKeys: ["ok", ...input.requiredTopLevelKeys],
   optionalTopLevelKeys: ["summary", "suggestions", ...(input.optionalTopLevelKeys ?? [])],
@@ -130,6 +156,7 @@ const loginFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["logged in", "already logged in", "auth failure"],
   rationale: "Login has applied and already-authenticated operation-plan documents.",
+  humanOutputKind: "mutation",
   commandCoverage: [
     "packages/cli/src/root/auth/login.test.ts",
     "packages/core/src/unstable/auth/device-login.test.ts",
@@ -143,6 +170,7 @@ const logoutFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["logged out", "local-only logout", "not logged in"],
   rationale: "Logout reports the durable credential operation and its status.",
+  humanOutputKind: "mutation",
   commandCoverage: ["packages/cli/src/root/auth/logout.test.ts"],
 });
 
@@ -153,6 +181,7 @@ const tokenFamily = defineResultFamily({
   scenarios: ["authenticated", "auth failure"],
   rationale:
     "The token is an explicitly requested secret-bearing result and the sole secret exception.",
+  liveness: "immediate",
   commandCoverage: ["packages/cli/src/root/auth/token.test.ts"],
 });
 
@@ -163,6 +192,7 @@ const tokenCreateFamily = defineResultFamily({
   scenarios: ["created", "step-up authentication", "auth failure"],
   rationale:
     "Token creation intentionally returns the newly created token once alongside its plan.",
+  humanOutputKind: "mutation",
   commandCoverage: ["packages/cli/src/root/auth/token.test.ts"],
 });
 
@@ -181,6 +211,7 @@ const tokenRevokeFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["revoked", "step-up authentication", "auth failure"],
   rationale: "Revocation reports one durable credential operation.",
+  humanOutputKind: "mutation",
   commandCoverage: ["packages/cli/src/root/auth/token.test.ts"],
 });
 
@@ -217,6 +248,7 @@ const cachePruneFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["pruned", "no-op"],
   rationale: "Cache pruning reports cache-specific byte and entry counts.",
+  humanOutputKind: "mutation",
   commandCoverage: ["packages/cli/src/root/cache/command.test.ts"],
 });
 
@@ -291,6 +323,7 @@ const packRepairFamily = defineResultFamily({
   ],
   scenarios: ["current", "previewed", "requires confirmation", "repaired"],
   rationale: "Pack repair reports the classified trust-baseline transition.",
+  humanOutputKind: "mutation",
   commandCoverage: ["packages/cli/src/root/packs/repair.test.ts"],
 });
 
@@ -316,6 +349,8 @@ const helpTopicFamily = defineResultFamily({
   optionalTopLevelKeys: ["usage", "topics", "topic", "content"],
   scenarios: ["topic index", "topic page", "schema topic", "unknown topic"],
   rationale: "The help command returns raw topic data; built-in --help remains formatter-owned.",
+  humanOutputKind: "orientation",
+  liveness: "immediate",
   commandCoverage: ["packages/cli/src/root/help/command.test.ts"],
 });
 
@@ -370,6 +405,7 @@ const lintFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["clean", "findings", "fixed", "partially fixed", "fix failure"],
   rationale: "Lint query and fix modes share a report, with fix nesting the applied plan.",
+  humanOutputKind: "mixed",
   commandCoverage: ["packages/cli/src/root/lint/handler.test.ts"],
 });
 
@@ -388,6 +424,7 @@ const instructionsFamily = defineResultFamily({
   requiredTopLevelKeys: ["enabled", "sourceFileName", "gitignoreAliases", "roots", "items"],
   scenarios: ["enabled", "disabled", "mixed roots"],
   rationale: "Instructions status is a read query; enable and disable remain plan mutations.",
+  humanOutputKind: "mixed",
   commandCoverage: ["packages/cli/src/root/rules/instructions.test.ts"],
 });
 
@@ -397,6 +434,7 @@ const setupFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["initialized", "already initialized", "previewed", "partial failure"],
   rationale: "Setup has additional discovery data nested in its purpose-built operation result.",
+  humanOutputKind: "mutation",
   commandCoverage: ["packages/cli/src/root/setup.test.ts"],
 });
 
@@ -406,6 +444,7 @@ const upgradeFamily = defineResultFamily({
   requiredTopLevelKeys: ["result"],
   scenarios: ["upgraded", "already current", "previewed", "interrupted", "verification failure"],
   rationale: "CLI upgrade reports the package-manager command and verification outcome.",
+  humanOutputKind: "mutation",
   commandCoverage: ["packages/cli/src/root/upgrade/handler.test.ts"],
 });
 
@@ -611,6 +650,9 @@ export const FORMATTER_VERSION_CONTRACT = {
   family: {
     id: "formatter-version",
     outputClass: "formatter-help",
+    humanOutputKind: "orientation",
+    liveness: "immediate",
+    livenessCoverage: ["packages/cli/src/formatter.test.ts"],
     schemaNames: ["JsonVersionDocSchema"],
     requiredTopLevelKeys: ["type", "name", "version"],
     optionalTopLevelKeys: [],

@@ -68,6 +68,7 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
     const credStore = yield* CredentialStore;
     const renderer = yield* CliRenderer;
     const interaction = yield* DeviceLoginInteraction;
+    const registryHost = new URL(registryUrl).host;
 
     if (!credStore.allowsPersistedCredentials) {
       return yield* makePersistedCredentialsUnsupportedError();
@@ -96,7 +97,11 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
 
     yield* renderer.step("Opening browser to sign in...");
 
-    const callback = yield* server.awaitCallback(state, Duration.toMillis(LOOPBACK_TIMEOUT));
+    const callback = yield* renderer.withSpinner(
+      `Waiting for browser authorization on ${registryHost}`,
+      () => server.awaitCallback(state, Duration.toMillis(LOOPBACK_TIMEOUT)),
+      { successMessage: `Received browser authorization on ${registryHost}` },
+    );
     const expectedIssuer = authClient.getAuthorizationIssuer();
     if (callback.iss !== expectedIssuer) {
       return yield* new LoopbackCallbackRejected({
@@ -105,12 +110,18 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
       });
     }
 
-    const token = yield* authClient.exchangePkceCode({
-      code: callback.code,
-      verifier,
-      redirectUri: server.redirectUri,
-    });
-
-    const handle = yield* persistLoginCredentials(registryUrl, token);
+    const handle = yield* renderer.withSpinner(
+      `Completing sign-in to ${registryHost}`,
+      () =>
+        Effect.gen(function* () {
+          const token = yield* authClient.exchangePkceCode({
+            code: callback.code,
+            verifier,
+            redirectUri: server.redirectUri,
+          });
+          return yield* persistLoginCredentials(registryUrl, token);
+        }),
+      { successMessage: `Completed sign-in to ${registryHost}` },
+    );
     yield* emitLoginSuccess(registryUrl, handle);
   });

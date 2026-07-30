@@ -116,7 +116,11 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   const existing = yield* credStore.load(registryUrl);
   if (Option.isSome(existing)) {
     const authClient = yield* AuthClient;
-    const meResult = yield* authClient.getMe(existing.value.access_token).pipe(Effect.option);
+    const meResult = yield* renderer.withSpinner(
+      `Checking registry session on ${registryHost}`,
+      () => authClient.getMe(existing.value.access_token).pipe(Effect.option),
+      { successMessage: `Checked registry session on ${registryHost}` },
+    );
 
     if (Option.isSome(meResult)) {
       const noOpMessage = `Already logged in to ${registryHost} as ${meResult.value.userHandle}`;

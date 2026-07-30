@@ -29,7 +29,12 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(function* () {
   });
 
   // Step 2: Call whoami
-  const identity = yield* authClient.getWhoami(token.token);
+  const registryHost = new URL(registryUrl).host;
+  const identity = yield* renderer.withSpinner(
+    `Checking identity on ${registryHost}`,
+    () => authClient.getWhoami(token.token),
+    { successMessage: `Checked identity on ${registryHost}` },
+  );
   const result = {
     user: identity.handle,
     registry: registryUrl,

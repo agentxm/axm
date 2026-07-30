@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { SourceTypeSchema } from "@agentxm/client-core/unstable/sources";
 
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import {
   type SuggestedAction,
@@ -30,6 +30,7 @@ import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   HandleSchema,
+  formatFqn,
 } from "@agentxm/client-core/unstable/extensions";
 import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -288,6 +289,123 @@ export const PublishResultSchema = Schema.Struct({
 export type PublishResult = typeof PublishResultSchema.Type;
 export type PublishResultItem = typeof PublishResultItemSchema.Type;
 
+const publishIdentity = (item: PublishResultItem): string => {
+  const fqn = formatFqn({ owner: item.owner, type: item.type, name: item.name });
+  return item.version === undefined ? fqn : `${fqn}@${item.version}`;
+};
+
+const publishBrowserSuggestions = (result: PublishResult): ReadonlyArray<SuggestedAction> =>
+  result.results.flatMap((item) =>
+    item.links === undefined ? [] : [{ description: "View in browser", url: item.links.html }],
+  );
+
+const publishItemLine = (item: PublishResultItem): string =>
+  item.links === undefined ? publishIdentity(item) : `${publishIdentity(item)}\n${item.links.html}`;
+
+const renderHumanPublishResult = (
+  renderer: typeof CliRenderer.Service,
+  result: PublishResult,
+  options: {
+    readonly suggestions: ReadonlyArray<SuggestedAction>;
+    readonly withoutSuggestions?: boolean;
+  },
+) =>
+  Effect.gen(function* () {
+    const verbosity = yield* Verbosity;
+    if (verbosity.level === "quiet") return;
+
+    const published = result.results.filter(
+      (item) => item.action === "publish" && item.status === "success",
+    );
+    const publishable = result.results.filter((item) => item.action === "publish");
+    const skipped = result.results.filter((item) => item.action === "skip");
+    const failed = result.results.filter(
+      (item) => item.action === "error" || item.status === "failed",
+    );
+    const suggestions =
+      options.suggestions.length === 0
+        ? undefined
+        : {
+            suggestions: options.suggestions,
+            ...(options.withoutSuggestions === undefined
+              ? {}
+              : { withoutSuggestions: options.withoutSuggestions }),
+          };
+
+    if (result.results.length === 0) {
+      yield* renderer.success("No extensions selected for publishing", suggestions);
+      return;
+    }
+
+    if (result.mode === "preview") {
+      const previewItems = publishable.filter((item) => item.status !== "failed");
+      const [previewItem] = previewItems;
+      const headline =
+        previewItem !== undefined && previewItems.length === 1
+          ? `Would publish ${publishIdentity(previewItem)}`
+          : `Would publish ${count(previewItems.length, "extension")}`;
+      const summary =
+        previewItems.length <= 1
+          ? undefined
+          : previewItems.map((item) => publishItemLine(item)).join("\n");
+      const previewOptions = {
+        ...(summary === undefined ? {} : { summary }),
+        ...(suggestions ?? {}),
+      };
+      yield* renderer.success(headline, previewOptions);
+      if (failed.length > 0) {
+        yield* renderer.error(`${count(failed.length, "extension")} blocked from publishing`);
+      }
+      return;
+    }
+
+    if (published.length > 0 && failed.length === 0) {
+      const [publishedItem] = published;
+      const headline =
+        publishedItem !== undefined && published.length === 1
+          ? `Published ${publishItemLine(publishedItem)}`
+          : `Published ${count(published.length, "extension")}`;
+      const summary =
+        published.length <= 1
+          ? undefined
+          : published.map((item) => publishItemLine(item)).join("\n");
+      yield* renderer.success(headline, {
+        ...(summary === undefined ? {} : { summary }),
+        ...(suggestions ?? {}),
+      });
+      return;
+    }
+
+    if (published.length > 0) {
+      const headline = `Published ${count(published.length, "extension")}; ${count(
+        failed.length,
+        "extension",
+      )} failed`;
+      yield* renderer.error(headline, suggestions);
+      yield* renderer.info(
+        [...published, ...failed].map((item) => publishItemLine(item)).join("\n"),
+      );
+      return;
+    }
+
+    if (failed.length > 0) {
+      const [failedItem] = failed;
+      const headline =
+        failedItem !== undefined && failed.length === 1
+          ? `Failed to publish ${publishIdentity(failedItem)}`
+          : `Failed to publish ${count(failed.length, "extension")}`;
+      yield* renderer.error(headline, suggestions);
+      return;
+    }
+
+    const [skippedItem] = skipped;
+    const headline =
+      skippedItem !== undefined && skipped.length === 1
+        ? `Already published — ${publishIdentity(skippedItem)}`
+        : `No extensions published — ${count(skipped.length, "extension")} already published`;
+    yield* renderer.success(headline, suggestions);
+  });
+
 const plannedStepToStep = (step: PlannedJobStep): Step => {
   switch (step.readiness) {
     case "ready":
@@ -471,12 +589,30 @@ export const emitPublishResult = <TCommand extends string>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
+    const browserSuggestions = publishBrowserSuggestions(result);
+    const suggestions = [...(options?.suggestions ?? []), ...browserSuggestions];
+    const renderOptions = {
+      ...(options?.summary === undefined ? {} : { summary: options.summary }),
+      ...(suggestions.length === 0 ? {} : { suggestions }),
+      ...(options?.withoutSuggestions === undefined
+        ? {}
+        : { withoutSuggestions: options.withoutSuggestions }),
+    };
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(publishResultToSummary(result)),
     });
-    return yield* renderer.result(result, PublishResultSchema, options);
+    const emitted = yield* renderer.result(result, PublishResultSchema, renderOptions);
+    if (!emitted) {
+      yield* renderHumanPublishResult(renderer, result, {
+        suggestions,
+        ...(options?.withoutSuggestions === undefined
+          ? {}
+          : { withoutSuggestions: options.withoutSuggestions }),
+      });
+    }
+    return emitted;
   });
 
 /**

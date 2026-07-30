@@ -330,10 +330,21 @@ export const withWorkspace =
       const envConfig = yield* readRuntimeEnvConfig;
       const resolved = typeof options === "string" ? { scope: options } : options;
       const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
-      return yield* Effect.provide(
-        flagUnreadableLockfile.pipe(Effect.andThen(program)),
-        wsLayer,
-      ).pipe(withDegradedLockfileReads);
+      const renderer = yield* CliRenderer;
+      return yield* Effect.scoped(
+        renderer
+          .withSpinner(`Loading ${resolved.scope} workspace`, () => Layer.build(wsLayer), {
+            successMessage: `Loaded ${resolved.scope} workspace`,
+          })
+          .pipe(
+            Effect.flatMap((workspaceContext) =>
+              Effect.provide(
+                flagUnreadableLockfile.pipe(Effect.andThen(program)),
+                workspaceContext,
+              ).pipe(withDegradedLockfileReads),
+            ),
+          ),
+      );
     });
 
 export const withAuthRuntime =

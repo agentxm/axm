@@ -104,7 +104,7 @@ describe("view handler", () => {
   });
 
   it.effect("prints latest version in field mode", () => {
-    const { provide, logs } = makeWorkspaceHandlerTestContext();
+    const { provide, logs, rendererState } = makeWorkspaceHandlerTestContext();
     initWorkspace(tempDir, registryRoot);
     writeIndex(registryRoot);
 
@@ -117,6 +117,10 @@ describe("view handler", () => {
         });
 
         expect(logs.message).toContain("1.2.3\n");
+        expect(rendererState.spinnerMessages).toEqual([
+          "Loading @test/skills/code-review from local",
+          "Loaded @test/skills/code-review from local",
+        ]);
       }),
     );
   });

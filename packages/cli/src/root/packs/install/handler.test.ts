@@ -542,7 +542,7 @@ describe("packs install handler", () => {
             }).pipe(Effect.flip),
           );
           expect(error.code).toBe("validation");
-          expect(rendererState.spinnerMessages).toEqual([]);
+          expect(rendererState.spinnerMessages).toEqual(["Resolving extension sources", "Failed"]);
         }),
       );
     });

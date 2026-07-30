@@ -36,7 +36,11 @@ const ConceptTable = {
 
 export const handleKnowledgeSearch = Effect.fn("Knowledge.search")(function* (query: string) {
   const renderer = yield* CliRenderer;
-  const bundles = yield* inspectInstalledKnowledge();
+  const bundles = yield* renderer.withSpinner(
+    `Searching knowledge for "${query}"`,
+    () => inspectInstalledKnowledge(),
+    { successMessage: `Searched knowledge for "${query}"` },
+  );
   const concepts = bundles.flatMap(({ name, inspection }) =>
     searchKnowledgeConcepts(inspection.concepts, query).map((concept) => ({
       bundle: name,

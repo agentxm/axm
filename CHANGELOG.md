@@ -1,3 +1,26 @@
+## 0.24.0 (2026-07-30)
+
+### ⚠️ Breaking Changes
+
+- Align the CLI with Effect v4 beta.101 idioms. Built-in global flags are now ([#6769](https://github.com/agentxm/axm/issues/6769), [#51](https://github.com/agentxm/axm/issues/51))
+  filtered through `CliConfig.layer({ builtIns })` instead of mutating
+  `GlobalFlag.BuiltIns`; `--verbose`/`--debug` connect to Effect's minimum
+  log-level channel; browser/clipboard and agent-CLI subprocess spawns run
+  through Effect's `ChildProcessSpawner`; eight temp-file-and-rename writers
+  share one `writeFileAtomic` helper with a concurrent-writer test; the
+  generated registry client decodes server-sent event streams correctly
+  (post-processed while Effect-TS/effect#6769 is open); and empty environment
+  values follow current `Config` semantics (`AXM_USER_HOME=""` now falls back
+  to the home directory).
+
+- Make `axm upgrade` transactional and installation-method aware. Release selection now follows pagination, chooses the highest stable CLI semver, and requires platform binaries plus `SHA256SUMS`; script installs verify integrity and exact versions before replacement and roll back failed replacements; npm, pnpm, Yarn Classic, and Homebrew upgrades delegate only through the owning manager. The `axm upgrade --json` result is intentionally breaking: `resultStatus`, nullable version fields, structured verification and mutation state, `executedCommands`, and `recommendedCommand` are authoritative, while `delegatedCommand` remains for one deprecation window. ([d496010f](https://github.com/agentxm/axm/commit/d496010f))
+
+### ❤️ Thank You
+
+- Claude Fable 5
+- Craig Smitham
+- Test @songkang666
+
 ## 0.23.0 (2026-07-29)
 
 ### 🚀 Features

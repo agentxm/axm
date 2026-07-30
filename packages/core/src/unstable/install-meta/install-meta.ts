@@ -17,6 +17,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { writeFileAtomic } from "../utils/index.js";
 import { DateTimeUtcSchema } from "../date-time.js";
 import { InstallMethodLiteral } from "../install-method/install-method.js";
 import { resolveUserScopeDir } from "../workspace/paths.js";
@@ -157,48 +158,20 @@ export const writeInstallMeta = (dataDir: string, data: InstallMetaData) =>
       ),
     );
     const content = JSON.stringify(encoded, null, 2) + "\n";
-    const tempPath = yield* fs
-      .makeTempFile({
-        directory: dataDir,
-        prefix: ".install-meta-",
-        suffix: ".tmp",
-      })
-      .pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "internal",
-            detail: "Failed to create temporary AXM install metadata",
-            cause,
-          }),
-        ),
-      );
-    const tempDirectory = path.dirname(tempPath);
-
-    yield* Effect.ensuring(
-      Effect.gen(function* () {
-        yield* fs.writeFileString(tempPath, content).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: "Failed to write AXM install metadata",
-              suggestions: [{ description: "Check permissions and retry the upgrade." }],
-              cause,
-            }),
-          ),
-        );
-        yield* fs.rename(tempPath, metaPath).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: "Failed to atomically persist AXM install metadata",
-              suggestions: [{ description: "Check permissions and retry the upgrade." }],
-              cause,
-            }),
-          ),
-        );
-      }),
-      fs.remove(tempDirectory, { recursive: true }).pipe(Effect.ignore),
-    );
+    yield* writeFileAtomic(fs, {
+      targetPath: metaPath,
+      content,
+      mapError: (failure) =>
+        makeAppError({
+          code: "internal",
+          detail:
+            failure.step === "rename"
+              ? "Failed to atomically persist AXM install metadata"
+              : "Failed to write AXM install metadata",
+          suggestions: [{ description: "Check permissions and retry the upgrade." }],
+          cause: failure.cause,
+        }),
+    });
   });
 
 // -----------------------------------------------------------------------------

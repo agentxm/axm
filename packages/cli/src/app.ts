@@ -4,7 +4,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
+import { CliConfig, CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
 
 import {
   InteractiveRenderer,
@@ -12,7 +12,7 @@ import {
   resolveCliOutputPolicy,
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { resolveVerbosityFromArgv } from "@agentxm/client-core/unstable/cli-flags";
-import { removeBuiltInFlag, runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
+import { runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
 import { InstallMethodLive } from "@agentxm/client-core/unstable/install-method";
 import { UpdateCheckLive } from "@agentxm/client-core/unstable/update-check";
 
@@ -59,8 +59,13 @@ import {
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
 
-removeBuiltInFlag(GlobalFlag.Completions);
-removeBuiltInFlag(GlobalFlag.LogLevel);
+/**
+ * Effect CLI built-ins kept for axm: `--completions` and `--log-level` are
+ * intentionally absent — verbosity flags own logger severity instead.
+ */
+export const cliConfigLayer = CliConfig.layer({
+  builtIns: [GlobalFlag.Help, GlobalFlag.Version, GlobalFlag.Wizard],
+});
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
@@ -170,6 +175,7 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
             baseLayer,
             updateCheckServicesLayer,
             rendererLayer,
+            cliConfigLayer,
             CliOutput.layer(makeAxmFormatter({ json: isJson, colors: outputPolicy.colors })),
           ),
         ),

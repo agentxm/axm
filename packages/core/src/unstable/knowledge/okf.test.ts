@@ -1,5 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -10,7 +10,7 @@ import {
   searchKnowledgeConcepts,
 } from "./okf.js";
 
-describe("Open Knowledge Format bundles", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format bundles", (it) => {
   it.effect("discovers typed concepts and preserves reserved index semantics", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -35,7 +35,7 @@ describe("Open Knowledge Format bundles", () => {
       expect(searchKnowledgeConcepts(inspected.concepts, "30 days")).toHaveLength(1);
       expect(searchKnowledgeConcepts(inspected.concepts, "payments")).toHaveLength(2);
       expect(openKnowledgeConcept(inspected.concepts, "payments/refunds")?.type).toBe("policy");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped),
   );
 
   it.effect("enforces the explicit AgentXM root-index and concept-type profile", () =>
@@ -52,7 +52,7 @@ describe("Open Knowledge Format bundles", () => {
         "missing-description",
         "missing-tags",
       ]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped),
   );
 
   it.effect("does not classify descriptive prose as prompt injection", () =>
@@ -76,7 +76,7 @@ describe("Open Knowledge Format bundles", () => {
         { code: "missing-description", severity: "warning" },
         { code: "missing-tags", severity: "warning" },
       ]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped),
   );
 
   it.effect("reports stable blocking safety and metadata diagnostics", () =>
@@ -111,7 +111,7 @@ describe("Open Knowledge Format bundles", () => {
           .filter((diagnostic) => diagnostic.severity === "error")
           .every((diagnostic) => diagnostic.code !== "inconsistent-type"),
       ).toBe(true);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped),
   );
 
   it.effect("rejects cross-platform path collisions from virtual archive entries", () =>
@@ -208,7 +208,7 @@ describe("Open Knowledge Format bundles", () => {
         at: "2026-06-20T22:53:05Z",
       });
       expect(schema?.trust).toBe("human-reviewed");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped),
   );
 
   it.effect("derives machine-confirmed and unverified trust tiers", () =>
@@ -356,6 +356,6 @@ describe("Open Knowledge Format bundles", () => {
       expect(warningCodes.has("missing-index-entry")).toBe(true);
       expect(warningCodes.has("embedded-html")).toBe(true);
       expect(warningCodes.has("unreferenced-asset")).toBe(true);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped),
   );
 });

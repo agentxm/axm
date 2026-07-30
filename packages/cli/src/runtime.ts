@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
+import * as References from "effect/References";
 import { pathToFileURL } from "node:url";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
@@ -23,6 +24,7 @@ import {
   verboseFlag,
   debugFlag,
   quietFlag,
+  verbosityToLogLevel,
 } from "@agentxm/client-core/unstable/cli-flags";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
@@ -112,17 +114,27 @@ export const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthMiddlewareWrapped
 export const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
   RegistryUrlLayer,
-  AuthLoginInteractionLive,
+  // AuthLoginInteractionLive spawns platform commands via ChildProcessSpawner,
+  // provided by NodeServices (memoized with the merged instance above).
+  Layer.provide(AuthLoginInteractionLive, NodeServices.layer),
   Logger.layer([], { mergeWithExisting: false }),
 );
 
 export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer);
 
+/**
+ * Verbosity-driven logging: the logger set stays binary (consolePretty only at
+ * `--debug`), while the minimum log level tracks the full verbosity ladder via
+ * `verbosityToLogLevel` (quiet→Warn, normal→Info, verbose→Debug, debug→Trace).
+ */
 const debugLoggerLayer = Layer.unwrap(
   Effect.map(Verbosity, (v) =>
-    Logger.layer(v.isAtLeast("debug") ? [Logger.consolePretty()] : [], {
-      mergeWithExisting: false,
-    }),
+    Layer.mergeAll(
+      Logger.layer(v.isAtLeast("debug") ? [Logger.consolePretty()] : [], {
+        mergeWithExisting: false,
+      }),
+      Layer.succeed(References.MinimumLogLevel, verbosityToLogLevel(v.level)),
+    ),
   ),
 );
 

@@ -1,7 +1,7 @@
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach } from "vitest";
@@ -31,7 +31,7 @@ const skillTrust = (
   immutableRevision: "tree-abc",
 });
 
-describe("canonical observation", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("canonical observation", (it) => {
   let root: string;
 
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe("canonical observation", () => {
 
       expect(observed.status).toBe("usable");
       expect(observed.path).toBe(canonical);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("does not reuse canonical content without a trusted content identity", () =>
@@ -77,7 +77,7 @@ describe("canonical observation", () => {
         path: canonical,
       });
       expect(observed.contentIdentity).toBeDefined();
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("rejects same-name canonical content after the configured locator changes", () =>
@@ -93,7 +93,7 @@ describe("canonical observation", () => {
       });
 
       expect(observed.status).toBe("wrong-origin");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("does not reuse a trusted Registry version outside desired constraints", () =>
@@ -130,7 +130,7 @@ describe("canonical observation", () => {
       });
 
       expect(observed.status).toBe("wrong-origin");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("distinguishes corrupt and incomplete packages", () =>
@@ -187,7 +187,7 @@ describe("canonical observation", () => {
           trust,
         })).status,
       ).toBe("incomplete");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("reports local edits against the trusted content identity", () =>
@@ -205,7 +205,7 @@ describe("canonical observation", () => {
       });
 
       expect(observed.status).toBe("locally-modified");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("includes behavior-bearing command frontmatter in content identity", () =>
@@ -266,6 +266,6 @@ describe("canonical observation", () => {
           trust,
         })).status,
       ).toBe("locally-modified");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 });

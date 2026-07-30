@@ -9,7 +9,7 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as nodeFs from "node:fs";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
+import { describe, expect, it, afterEach, beforeEach, layer } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -166,7 +166,7 @@ describe("notificationMessage", () => {
 // readCacheFromPath (effectful)
 // =============================================================================
 
-describe("readCacheFromPath", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("readCacheFromPath", (it) => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -182,7 +182,7 @@ describe("readCacheFromPath", () => {
       const cachePath = nodePath.join(tempDir, "update-check.json");
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns Some for a fresh cache file", () =>
@@ -196,7 +196,7 @@ describe("readCacheFromPath", () => {
       if (Option.isSome(result)) {
         expect(result.value.latestVersion).toBe("0.2.0");
       }
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None for a stale cache file (older than 60 minutes)", () =>
@@ -207,7 +207,7 @@ describe("readCacheFromPath", () => {
 
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None when checkedAt is not a date", () =>
@@ -220,7 +220,7 @@ describe("readCacheFromPath", () => {
 
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None for invalid JSON", () =>
@@ -230,7 +230,7 @@ describe("readCacheFromPath", () => {
 
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None for JSON with wrong schema", () =>
@@ -240,7 +240,7 @@ describe("readCacheFromPath", () => {
 
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None for empty file", () =>
@@ -250,7 +250,7 @@ describe("readCacheFromPath", () => {
 
       const result = yield* readCacheFromPath(cachePath);
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 });
 
@@ -258,7 +258,7 @@ describe("readCacheFromPath", () => {
 // writeCacheToPath (effectful)
 // =============================================================================
 
-describe("writeCacheToPath", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("writeCacheToPath", (it) => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -278,7 +278,7 @@ describe("writeCacheToPath", () => {
       const parsed: unknown = JSON.parse(content);
       expect(parsed).toHaveProperty("latestVersion", "0.3.0");
       expect(parsed).toHaveProperty("checkedAt");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("creates parent directories if needed", () =>
@@ -287,7 +287,7 @@ describe("writeCacheToPath", () => {
       yield* writeCacheToPath(cachePath, "0.3.0");
 
       expect(nodeFs.existsSync(cachePath)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("written cache is readable", () =>
@@ -300,7 +300,7 @@ describe("writeCacheToPath", () => {
       if (Option.isSome(result)) {
         expect(result.value.latestVersion).toBe("0.5.0");
       }
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 });
 
@@ -308,7 +308,7 @@ describe("writeCacheToPath", () => {
 // isUpdateAvailableFromPath (effectful)
 // =============================================================================
 
-describe("isUpdateAvailableFromPath", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("isUpdateAvailableFromPath", (it) => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -331,7 +331,7 @@ describe("isUpdateAvailableFromPath", () => {
         expect(result.value.current).toBe("0.2.0");
         expect(result.value.latest).toBe("0.3.0");
       }
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None when local version is same", () =>
@@ -342,7 +342,7 @@ describe("isUpdateAvailableFromPath", () => {
 
       const result = yield* isUpdateAvailableFromPath(cachePath, "0.3.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None when local version is newer", () =>
@@ -353,7 +353,7 @@ describe("isUpdateAvailableFromPath", () => {
 
       const result = yield* isUpdateAvailableFromPath(cachePath, "1.0.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None when cache is missing", () =>
@@ -361,7 +361,7 @@ describe("isUpdateAvailableFromPath", () => {
       const cachePath = nodePath.join(tempDir, "nonexistent.json");
       const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None when cache is stale", () =>
@@ -372,7 +372,7 @@ describe("isUpdateAvailableFromPath", () => {
 
       const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("returns None for invalid version strings", () =>
@@ -383,7 +383,7 @@ describe("isUpdateAvailableFromPath", () => {
 
       const result = yield* isUpdateAvailableFromPath(cachePath, "0.2.0");
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 });
 

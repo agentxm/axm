@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { computeIntegrity } from "../utils/index.js";
+import { computeIntegrity, writeFileAtomic } from "../utils/index.js";
 
 export const ARCHIVE_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 export const ARCHIVE_CACHE_MAX_AGE = Duration.days(90);
@@ -90,6 +90,9 @@ export interface ArchiveCacheEnvironment {
   readonly xdgCacheHome?: string;
 }
 
+// Load-bearing only for direct callers of `resolveArchiveCacheRootPure`, which
+// accept arbitrary strings. The Config path below cannot deliver "" — Config
+// treats empty env values as missing (effect beta.95).
 const nonEmpty = (value: string | undefined): string | undefined =>
   value === undefined || value.length === 0 ? undefined : value;
 
@@ -255,36 +258,15 @@ export const makeArchiveCache = (
         .pipe(
           Effect.mapError((cause) => cacheError(`Failed to create archive cache: ${root}`, cause)),
         );
-      const tempPath = yield* fs
-        .makeTempFile({
-          directory: root,
-          prefix: ".archive-",
-          suffix: ".tmp",
-        })
-        .pipe(
-          Effect.mapError((cause) => cacheError("Failed to create archive cache temp file", cause)),
-        );
-      const tempDirectory = path.dirname(tempPath);
-      yield* Effect.ensuring(
-        Effect.gen(function* () {
-          yield* fs
-            .writeFile(tempPath, archive)
-            .pipe(
-              Effect.mapError((cause) =>
-                cacheError("Failed to write archive cache temp file", cause),
-              ),
-            );
-          yield* fs.remove(entryPath).pipe(Effect.ignore);
-          yield* fs
-            .rename(tempPath, entryPath)
-            .pipe(
-              Effect.mapError((cause) =>
-                cacheError(`Failed to commit cache entry: ${entryPath}`, cause),
-              ),
-            );
-        }),
-        fs.remove(tempDirectory, { recursive: true }).pipe(Effect.ignore),
-      );
+      yield* writeFileAtomic(fs, {
+        targetPath: entryPath,
+        content: archive,
+        removeTargetBeforeRename: true,
+        mapError: (failure) =>
+          failure.step === "rename"
+            ? cacheError(`Failed to commit cache entry: ${entryPath}`, failure.cause)
+            : cacheError("Failed to write archive cache temp file", failure.cause),
+      });
       if (writeOptions.prune !== false) yield* prune();
     });
 

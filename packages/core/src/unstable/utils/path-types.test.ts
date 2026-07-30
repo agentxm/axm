@@ -1,6 +1,6 @@
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -12,7 +12,7 @@ import {
   makeWorkspaceRelativePath,
 } from "./path-types.js";
 
-describe("path-types", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("path-types", (it) => {
   it.effect("brands absolute paths after resolving them", () =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
@@ -20,7 +20,7 @@ describe("path-types", () => {
 
       expect(nodePath.isAbsolute(result)).toBe(true);
       expect(result.endsWith("relative-dir")).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("brands non-absolute paths as relative paths", () =>
@@ -30,7 +30,7 @@ describe("path-types", () => {
 
       expect(Option.isSome(result)).toBe(true);
       expect(Option.getOrNull(result)).toBe(nodePath.normalize("nested/file.md"));
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("rejects absolute paths as relative paths", () =>
@@ -39,7 +39,7 @@ describe("path-types", () => {
       const result = makeRelativePath(path, nodePath.join(process.cwd(), "file.md"));
 
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it("rejects relative paths as absolute paths", () => {
@@ -64,7 +64,7 @@ describe("path-types", () => {
       );
 
       expect(Option.getOrNull(result)).toBe(".claude/skills/a");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("rejects workspace-relative paths that escape root", () =>
@@ -77,6 +77,6 @@ describe("path-types", () => {
       );
 
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 });

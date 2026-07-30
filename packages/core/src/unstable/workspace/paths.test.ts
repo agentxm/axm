@@ -52,6 +52,22 @@ describe("paths", () => {
         ),
       ),
     );
+
+    // Pins the beta.95 Config semantics: an empty AXM_USER_HOME is missing,
+    // not a home-directory override of "".
+    it.effect("falls back to os.homedir when AXM_USER_HOME is empty", () =>
+      Effect.gen(function* () {
+        const result = yield* getUserScopeDir();
+        expect(result).toBe(path.join(os.homedir(), ".axm"));
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            NodeServices.layer,
+            ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: "" } })),
+          ),
+        ),
+      ),
+    );
   });
 
   describe("getProjectDir", () => {

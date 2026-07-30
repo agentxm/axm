@@ -9,10 +9,11 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { CliOutput, Command } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
-import { rootCommand } from "./app.js";
+import { cliConfigLayer, rootCommand } from "./app.js";
 import { baseLayer } from "./runtime.js";
 
 export const TEST_VERSION = "0.0.0-test";
@@ -36,7 +37,7 @@ export const captureHelpDoc = (
     };
 
     yield* Command.runWith(rootCommand, { version: TEST_VERSION })([...path, "--help"]).pipe(
-      Effect.provide(baseLayer),
+      Effect.provide(Layer.mergeAll(baseLayer, cliConfigLayer)),
       Effect.provideService(CliOutput.Formatter, formatter),
     );
 

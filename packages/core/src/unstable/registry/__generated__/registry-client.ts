@@ -12,6 +12,7 @@ import type { SchemaError } from "effect/Schema";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { DateTimeUtcSchema } from "../../date-time.js";
+import * as Sse from "effect/unstable/encoding/Sse";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
@@ -671,6 +672,8 @@ export const ExtensionFqn = Schema.String.check(
     },
   ),
 );
+export type DebugStreamEventJsonString = string;
+export const DebugStreamEventJsonString = Schema.String;
 export type ProblemDetails = {
   readonly type: string;
   readonly title: string;
@@ -2228,6 +2231,39 @@ export type SearchSearchExtensions200 = SearchResponse;
 export const SearchSearchExtensions200 = SearchResponse;
 export type SearchSearchExtensions400 = ProblemDetails | DecodeErrorResponse;
 export const SearchSearchExtensions400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
+export type DebugDebugStreamParams = {
+  readonly count?: string | null;
+  readonly failAfter?: string | null;
+};
+export const DebugDebugStreamParams = Schema.Struct({
+  count: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ description: "Number of events to emit (0–100, default 3)." }),
+      Schema.Null,
+    ]),
+  ),
+  failAfter: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "Emit this many events, then terminate the stream with a typed DebugStreamInterrupted failure. Used to exercise client mid-stream failure decoding.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+});
+export type DebugDebugStream200Sse = {
+  readonly id?: string | undefined;
+  readonly event: string;
+  readonly data: DebugStreamEventJsonString;
+};
+export const DebugDebugStream200Sse = Schema.Struct({
+  id: Schema.optional(Schema.String),
+  event: Schema.String,
+  data: DebugStreamEventJsonString,
+});
+export type DebugDebugStream400 = DecodeErrorResponse;
+export const DebugDebugStream400 = DecodeErrorResponse;
 
 export interface OperationConfig {
   /**
@@ -2296,6 +2332,35 @@ export const make = (
             )
         : (request) => Effect.flatMap(httpClient.execute(request), withOptionalResponse);
     };
+  const sseRequest =
+    <Type, DecodingServices>(
+      schema: Schema.Codec<
+        { readonly event: string; readonly id?: string | undefined; readonly data: Type },
+        {
+          readonly id?: string | undefined;
+          readonly event?: string | undefined;
+          readonly data: string;
+        },
+        DecodingServices,
+        never
+      >,
+    ) =>
+    (
+      request: HttpClientRequest.HttpClientRequest,
+    ): Stream.Stream<
+      { readonly event: string; readonly id: string | undefined; readonly data: Type },
+      HttpClientError.HttpClientError | SchemaError | Sse.Retry,
+      DecodingServices
+    > =>
+      HttpClient.filterStatusOk(httpClient)
+        .execute(request)
+        .pipe(
+          Effect.map((response) => response.stream),
+          Stream.unwrap,
+          Stream.decodeText(),
+          Stream.pipeThroughChannel(Sse.decodeSchema(schema)),
+          Stream.map((event) => ({ event: event.event, id: event.id, data: event.data })),
+        );
   const binaryRequest = (
     request: HttpClientRequest.HttpClientRequest,
   ): Stream.Stream<Uint8Array, HttpClientError.HttpClientError> =>
@@ -2813,6 +2878,27 @@ export const make = (
             orElse: unexpectedStatus,
           }),
         ),
+      ),
+    DebugDebugStream: (options) =>
+      HttpClientRequest.get(`/v1/debug/stream`).pipe(
+        HttpClientRequest.setUrlParams({
+          count: options?.params?.["count"] as any,
+          failAfter: options?.params?.["failAfter"] as any,
+        }),
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "400": decodeError("DebugDebugStream400", DebugDebugStream400),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    DebugDebugStreamSse: (options) =>
+      HttpClientRequest.get(`/v1/debug/stream`).pipe(
+        HttpClientRequest.setUrlParams({
+          count: options?.params?.["count"] as any,
+          failAfter: options?.params?.["failAfter"] as any,
+        }),
+        sseRequest(DebugDebugStream200Sse),
       ),
   };
 };
@@ -3444,6 +3530,36 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"SearchSearchExtensions400", typeof SearchSearchExtensions400.Type>
+  >;
+  /**
+   * Experimental diagnostic endpoint. Emits a finite server-sent event stream of sequenced JSON events, optionally terminating with a typed mid-stream failure. Intended for client streaming conformance checks; not a stable product surface.
+   */
+  readonly DebugDebugStream: <Config extends OperationConfig>(
+    options:
+      | {
+          readonly params?: typeof DebugDebugStreamParams.Encoded | undefined;
+          readonly config?: Config | undefined;
+        }
+      | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<void, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"DebugDebugStream400", typeof DebugDebugStream400.Type>
+  >;
+  /**
+   * Experimental diagnostic endpoint. Emits a finite server-sent event stream of sequenced JSON events, optionally terminating with a typed mid-stream failure. Intended for client streaming conformance checks; not a stable product surface.
+   */
+  readonly DebugDebugStreamSse: (
+    options: { readonly params?: typeof DebugDebugStreamParams.Encoded | undefined } | undefined,
+  ) => Stream.Stream<
+    {
+      readonly event: string;
+      readonly id: string | undefined;
+      readonly data: (typeof DebugDebugStream200Sse.Type)["data"];
+    },
+    HttpClientError.HttpClientError | SchemaError | Sse.Retry,
+    typeof DebugDebugStream200Sse.DecodingServices
   >;
 }
 

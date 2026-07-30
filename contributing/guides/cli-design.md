@@ -474,10 +474,12 @@ Registered once at the root:
 - `--debug`
 - `--quiet` / `-q`
 
-`--log-level` is not an axm global flag. Effect CLI currently bakes it in
-automatically; AXM removes it from `GlobalFlag.BuiltIns` before command
-construction. The canonical upstream history is
-[Effect-TS/effect#6370](https://github.com/Effect-TS/effect/issues/6370).
+`--log-level` and `--completions` are not axm global flags. Effect CLI enables
+every built-in by default; AXM opts into the built-ins it keeps by providing
+`CliConfig.layer({ builtIns: [GlobalFlag.Help, GlobalFlag.Version, GlobalFlag.Wizard] })`
+in the layer stack the CLI program runs with (see `run` in
+`packages/cli/src/app.ts`). Logger severity is driven by the verbosity flags
+instead of `--log-level`.
 
 ### Per-Command Flag Semantics
 

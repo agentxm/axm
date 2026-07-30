@@ -1,7 +1,7 @@
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -27,7 +27,7 @@ const writePack = (
   );
 };
 
-describe("desired workspace state graph", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("desired workspace state graph", (it) => {
   let root: string;
 
   beforeEach(() => {
@@ -76,7 +76,7 @@ describe("desired workspace state graph", () => {
       expect(
         graph.nodes.filter((node) => node.origins.some((origin) => origin.type === "pack")),
       ).toHaveLength(8);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("retains multiple pack constraints and rejects an empty intersection", () =>
@@ -110,7 +110,7 @@ describe("desired workspace state graph", () => {
           }),
         ]),
       );
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("rejects a three-way conflict even when every pair intersects", () =>
@@ -146,7 +146,7 @@ describe("desired workspace state graph", () => {
           }),
         ]),
       );
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("treats a missing authoritative pack manifest as unknown desired state", () =>
@@ -167,7 +167,7 @@ describe("desired workspace state graph", () => {
           pack: "@acme/packs/missing",
         }),
       ]);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("keeps a disabled direct declaration active when a pack still requires it", () =>
@@ -194,7 +194,7 @@ describe("desired workspace state graph", () => {
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
       expect(review?.enabled).toBe(true);
       expect(review?.origins.map((origin) => origin.type)).toEqual(["settings", "pack"]);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("merges workspace authorship with a pack dependency for the same package", () =>
@@ -223,7 +223,7 @@ describe("desired workspace state graph", () => {
       expect(review?.identity).toBe("workspace:@acme/skills/review");
       expect(review?.constraints).toEqual(["^1.0.0"]);
       expect(review?.origins.map((origin) => origin.type)).toEqual(["settings", "pack"]);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("rejects different owners competing for one simple-name projection", () =>
@@ -255,7 +255,7 @@ describe("desired workspace state graph", () => {
           }),
         ]),
       );
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
   it.effect("rejects a canonical pack manifest whose identity differs from settings", () =>
@@ -290,6 +290,6 @@ describe("desired workspace state graph", () => {
           pack: "@acme/packs/expected",
         }),
       ]);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 });

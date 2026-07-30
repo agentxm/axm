@@ -41,6 +41,7 @@ import {
   toExtensionTypePlural,
 } from "../extensions/common.js";
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
+import { writeFileAtomic } from "../utils/index.js";
 import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import type { DiscoverPackagesResponse, DiscoveryExtensionResult } from "./discover-schema.js";
 import { purlMatch } from "../packaging/purl-match.js";
@@ -562,82 +563,36 @@ export const createLocalRegistryClient = (
                 versions: [args.metadata],
               } satisfies ExtensionIndex);
 
-          const archiveTempPath = yield* fs
-            .makeTempFile({
-              directory: dir,
-              prefix: `.${args.version}.archive-`,
-              suffix: ".tmp",
-            })
-            .pipe(
-              Effect.mapError((cause) =>
-                errRegistryPublishRejected({
-                  message: "Registry archive temp file could not be created",
-                  cause,
-                }),
-              ),
-            );
-          const archiveTempDir = path.dirname(archiveTempPath);
-          yield* Effect.ensuring(
-            Effect.gen(function* () {
-              yield* fs.writeFile(archiveTempPath, args.archive).pipe(
-                Effect.mapError((cause) =>
-                  errRegistryPublishRejected({
-                    message: `Registry archive temp file could not be written: ${archiveTempPath}`,
-                    cause,
-                  }),
-                ),
-              );
-              yield* removeBestEffort(fs, archivePath);
-              yield* fs.rename(archiveTempPath, archivePath).pipe(
-                Effect.mapError((cause) =>
-                  errRegistryPublishRejected({
+          yield* writeFileAtomic(fs, {
+            targetPath: archivePath,
+            content: args.archive,
+            removeTargetBeforeRename: true,
+            mapError: (failure) =>
+              failure.step === "rename"
+                ? errRegistryPublishRejected({
                     message: `Registry archive could not be committed: ${archivePath}`,
-                    cause,
+                    cause: failure.cause,
+                  })
+                : errRegistryPublishRejected({
+                    message: `Registry archive temp file could not be written: ${failure.tempPath}`,
+                    cause: failure.cause,
                   }),
-                ),
-              );
-            }),
-            fs.remove(archiveTempDir, { recursive: true }).pipe(Effect.ignore),
-          );
+          });
 
-          const indexTempPath = yield* fs
-            .makeTempFile({
-              directory: dir,
-              prefix: ".index-",
-              suffix: ".tmp",
-            })
-            .pipe(
-              Effect.mapError((cause) =>
-                errRegistryPublishRejected({
-                  message: "Registry index temp file could not be created",
-                  cause,
-                }),
-              ),
-            );
-          const indexTempDir = path.dirname(indexTempPath);
-          yield* Effect.ensuring(
-            Effect.gen(function* () {
-              yield* fs
-                .writeFileString(indexTempPath, `${encodeExtensionIndexToJsonString(nextIndex)}\n`)
-                .pipe(
-                  Effect.mapError((cause) =>
-                    errRegistryPublishRejected({
-                      message: `Registry index temp file could not be written: ${indexTempPath}`,
-                      cause,
-                    }),
-                  ),
-                );
-              yield* fs.rename(indexTempPath, indexPath).pipe(
-                Effect.mapError((cause) =>
-                  errRegistryPublishRejected({
+          yield* writeFileAtomic(fs, {
+            targetPath: indexPath,
+            content: `${encodeExtensionIndexToJsonString(nextIndex)}\n`,
+            mapError: (failure) =>
+              failure.step === "rename"
+                ? errRegistryPublishRejected({
                     message: `Registry index could not be committed: ${indexPath}`,
-                    cause,
+                    cause: failure.cause,
+                  })
+                : errRegistryPublishRejected({
+                    message: `Registry index temp file could not be written: ${failure.tempPath}`,
+                    cause: failure.cause,
                   }),
-                ),
-              );
-            }),
-            fs.remove(indexTempDir, { recursive: true }).pipe(Effect.ignore),
-          );
+          });
 
           return { published: true } as const;
         }),

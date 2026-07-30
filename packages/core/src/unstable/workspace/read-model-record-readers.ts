@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import type { InstallableExtensionType } from "../extensions/index.js";
 import { createDefaultSettings } from "../settings/index.js";
 import { expandGlob } from "../utils/index.js";
@@ -218,25 +218,9 @@ export const makeReadModelRecordReaders = (args: {
   ): Effect.Effect<ReadonlyArray<string>, AppError> =>
     type === "pack"
       ? Effect.succeed([])
-      : args.getDesiredStateGraph().pipe(
-          Effect.flatMap((graph) =>
-            graph.complete
-              ? Effect.succeed(desiredPackMemberNames(graph, type))
-              : Effect.fail(
-                  makeAppError({
-                    code: "conflict",
-                    detail:
-                      "The desired extension graph is incomplete, so pack membership cannot be determined safely.",
-                    suggestions: [
-                      {
-                        description: "Repair or reinstall the configured packs, then retry.",
-                        cmd: "axm sync",
-                      },
-                    ],
-                  }),
-                ),
-          ),
-        );
+      : args
+          .getDesiredStateGraph()
+          .pipe(Effect.map((graph) => desiredPackMemberNames(graph, type)));
 
   const packMemberToImplicit = (
     type: WorkspaceManagedExtensionType,

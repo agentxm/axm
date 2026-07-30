@@ -395,8 +395,10 @@ export const KnowledgeManagerLive = Layer.effect(
 
     return {
       type: "knowledge",
-      validateTrustTransition: ({ ref }) =>
-        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       refreshCatalog: () => writeIndex().pipe(Effect.asVoid),
       isInstalled: ({ target }: { readonly target: KnowledgeExtensionTarget }) =>
         isObservedInstalled(ws, "knowledge", target.name),

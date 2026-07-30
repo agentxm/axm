@@ -579,14 +579,37 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
  * Resolved extension map: FQN keys to exact version strings.
  * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
  */
-export const ResolvedExtensionSchema = Schema.Struct({
+const LegacyResolvedRegistryExtensionSchema = Schema.Struct({
   version: VersionSchema,
   publisherBindingId: Schema.NonEmptyString,
-}).annotate({
+});
+
+const ResolvedRegistryExtensionSchema = Schema.Struct({
+  source: Schema.Literal("registry"),
+  version: VersionSchema,
+  publisherBindingId: Schema.NonEmptyString,
+  integrity: Schema.String,
+});
+
+const ResolvedWorkspaceExtensionSchema = Schema.Struct({
+  source: Schema.Literal("workspace"),
+  version: VersionSchema,
+  sourceIdentity: Schema.String,
+  contentIdentity: SourceHashSchema,
+});
+
+export const ResolvedExtensionSchema = Schema.Union([
+  ResolvedRegistryExtensionSchema,
+  ResolvedWorkspaceExtensionSchema,
+  LegacyResolvedRegistryExtensionSchema,
+]).annotate({
   identifier: "ResolvedExtension",
   title: "Resolved Extension",
-  description: "Resolved dependency version and immutable publisher epoch.",
+  description:
+    "Last successful pack-member resolution from a workspace or Registry authority. Legacy Registry receipts remain readable.",
 });
+
+export type ResolvedExtension = Schema.Schema.Type<typeof ResolvedExtensionSchema>;
 
 export const ResolvedExtensionMapSchema = Schema.Record(
   ExtensionFqnSchema,

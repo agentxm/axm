@@ -69,7 +69,7 @@ import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
-import type { WorkspaceTrustState } from "../trust/index.js";
+import type { PackTrustManifest, WorkspaceTrustState } from "../trust/index.js";
 import type { SourceHash } from "../extensions/index.js";
 
 // ---------------------------------------------------------------------------
@@ -204,6 +204,8 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   }) => Effect.Effect<void, AppError, never>;
   readonly validateTrustTransition?: (args: {
     readonly ref: TRef;
+    readonly allowSourceTransition?: boolean;
+    readonly allowDowngrade?: boolean;
   }) => Effect.Effect<void, AppError, never>;
   readonly getLastMaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
@@ -561,6 +563,7 @@ export interface WorkspaceMutationsService {
   readonly refreshPackContentIdentity: (
     name: string,
     contentIdentity: SourceHash,
+    manifest?: PackTrustManifest,
   ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a pack entry in settings only (no lockfile). Serialized by semaphore. */
   readonly setPackEntry: (name: string, entry: PackEntry) => Effect.Effect<void, AppError>;

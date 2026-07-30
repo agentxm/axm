@@ -118,6 +118,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
 
   const step = buildNewExtensionStep(manager, {
     ref,
+    target: { type: "subagent", name: args.name },
     versionRange: Option.none(),
     label: fqn,
     message: `Created subagent ${fqn}`,

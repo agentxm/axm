@@ -169,10 +169,18 @@ const artifactForJson = (
 };
 
 export const PlanResolutionResultSchema = Schema.Struct({
-  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const).annotate({
+  outcome: Schema.Literals([
+    "previewed",
+    "cancelled",
+    "applied",
+    "partial",
+    "failed",
+    "no-op",
+  ] as const).annotate({
     identifier: "PlanOutcome",
     title: "Plan Outcome",
-    description: "Final outcome of a plan resolution: previewed, cancelled, applied, or no-op.",
+    description:
+      "Final outcome of a plan resolution: previewed, cancelled, applied, partial, failed, or no-op.",
   }),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
@@ -394,7 +402,13 @@ export const toPlanResolutionResult = (
       const warningCount = steps.reduce((total, step) => total + (step.warnings?.length ?? 0), 0);
       const description = planDescription(resolution);
       const outcome =
-        appliedCount === 0 && failedCount === 0 && blockedCount === 0 ? "no-op" : "applied";
+        failedCount > 0 || blockedCount > 0
+          ? appliedCount > 0
+            ? "partial"
+            : "failed"
+          : appliedCount > 0
+            ? "applied"
+            : "no-op";
 
       return {
         outcome,
@@ -430,15 +444,19 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(planResolutionToSummary(resolution, {})),
     });
+    const result = toPlanResolutionResult(resolution, {
+      verbose: verbosity.isAtLeast("verbose"),
+      debug: verbosity.level === "debug",
+    });
     return yield* renderer.result(
       {
-        result: toPlanResolutionResult(resolution, {
-          verbose: verbosity.isAtLeast("verbose"),
-          debug: verbosity.level === "debug",
-        }),
+        result,
       },
       PlanResolutionDocumentSchema,
-      options,
+      {
+        ...options,
+        ok: result.outcome !== "failed" && result.outcome !== "partial",
+      },
     );
   });
 

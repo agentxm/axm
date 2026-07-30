@@ -5,7 +5,7 @@ import type { TelemetryProperties } from "../telemetry/client.js";
 // Bounded vocabularies
 // ---------------------------------------------------------------------------
 
-export type CommandOutcome = "applied" | "previewed" | "no-op" | "cancelled";
+export type CommandOutcome = "applied" | "previewed" | "no-op" | "cancelled" | "partial" | "failed";
 
 /**
  * What a command acted on, for telemetry and JSON output. Derived from the

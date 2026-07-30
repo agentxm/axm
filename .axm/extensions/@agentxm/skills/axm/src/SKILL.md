@@ -64,6 +64,8 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 | Explicitly return authorship to a source  | `axm demote <fqn> <source>`               |
 | Add an extension to a pack                | `axm packs add <pack> <extension>`        |
 | Remove an extension from a pack           | `axm packs remove <pack> <extension>`     |
+| Inspect desired and resolved pack state   | `axm packs show <pack>`                   |
+| Preview authored-pack trust recovery      | `axm packs repair <pack> --preview`       |
 | Unpack a pack into individual entries     | `axm packs unpack <pack>`                 |
 | Publish all authored workspace extensions | `axm publish [--on-existing verify]`      |
 | Publish selected extensions               | `axm publish <fqn...>`                    |
@@ -85,12 +87,20 @@ Navigate unfamiliar commands with `--help`. Use `axm help` for topic-level guida
 
 ### Workspace state
 
-| Task                                           | Command          |
-| ---------------------------------------------- | ---------------- |
-| Reconcile desired and observed workspace state | `axm sync`       |
-| Lint workspace (read-only)                     | `axm lint`       |
-| Reconcile workspace configuration              | `axm lint --fix` |
-| Remove unmanaged extension artifacts           | `axm prune`      |
+| Task                                  | Command                                     |
+| ------------------------------------- | ------------------------------------------- |
+| Reconcile the entire workspace        | `axm sync --dry-run` then `axm sync`        |
+| Reconcile one root or extension type  | `axm sync <fqn>` / `axm sync --type <type>` |
+| Inspect local reconciliation blockers | `axm status`                                |
+| Lint workspace (read-only)            | `axm lint`                                  |
+| Reconcile workspace configuration     | `axm lint --fix`                            |
+| Remove unmanaged extension artifacts  | `axm prune`                                 |
+
+For workspace-authored pack edits, use `axm packs add`, `remove`, or `version`
+when possible. If direct metadata or dependency edits produce trust drift,
+inspect with `axm packs repair <pack> --preview`; accept only after reviewing
+the classified changes. Configured workspace members satisfy pack dependencies
+before Registry lookup, and `packs add` records a caret constraint by default.
 
 ### Auth
 

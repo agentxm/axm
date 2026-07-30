@@ -43,7 +43,24 @@
         "immutableRevision": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "publisherBindingId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "integrity": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "contentIdentity": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        "contentIdentity": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "packManifest": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "owner": { "type": "string" },
+                "name": { "type": "string" },
+                "version": { "type": "string" },
+                "dependencies": { "type": "object", "additionalProperties": { "type": "string" } },
+                "metadataIdentity": { "type": "string" }
+              },
+              "required": ["owner", "name", "version", "dependencies", "metadataIdentity"],
+              "additionalProperties": false
+            },
+            { "type": "null" }
+          ]
+        }
       },
       "required": ["extensionType", "name", "authority", "sourceIdentity"],
       "additionalProperties": false,

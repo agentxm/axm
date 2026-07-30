@@ -29,7 +29,14 @@ const OperationPlanStepSchema = Schema.Struct({
 });
 
 export const OperationPlanFields = {
-  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const),
+  outcome: Schema.Literals([
+    "previewed",
+    "cancelled",
+    "applied",
+    "partial",
+    "failed",
+    "no-op",
+  ] as const),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
@@ -68,7 +75,13 @@ export const makeOperationPlan = (args: {
   const blockedCount = args.steps.filter((step) => step.status === "blocked").length;
   const outcome =
     args.outcome ??
-    (appliedCount === 0 && failedCount === 0 && blockedCount === 0 ? "no-op" : "applied");
+    (failedCount > 0 || blockedCount > 0
+      ? appliedCount > 0
+        ? "partial"
+        : "failed"
+      : appliedCount > 0
+        ? "applied"
+        : "no-op");
 
   return {
     outcome,

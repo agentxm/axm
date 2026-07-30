@@ -18,6 +18,16 @@ export const TrustAuthoritySchema = Schema.Literals([
 
 export type TrustAuthority = Schema.Schema.Type<typeof TrustAuthoritySchema>;
 
+export const PackTrustManifestSchema = Schema.Struct({
+  owner: Schema.String,
+  name: Schema.String,
+  version: Schema.String,
+  dependencies: Schema.Record(Schema.String, Schema.String),
+  metadataIdentity: Schema.String,
+});
+
+export type PackTrustManifest = Schema.Schema.Type<typeof PackTrustManifestSchema>;
+
 export const ExtensionTrustRecordSchema = Schema.Struct({
   extensionType: ExtensionTypeSchema,
   name: Schema.String,
@@ -29,6 +39,7 @@ export const ExtensionTrustRecordSchema = Schema.Struct({
   publisherBindingId: Schema.optional(Schema.String),
   integrity: Schema.optional(Schema.String),
   contentIdentity: Schema.optional(Schema.String),
+  packManifest: Schema.optional(PackTrustManifestSchema),
 }).annotate({
   identifier: "ExtensionTrustRecord",
   title: "Extension Trust Record",

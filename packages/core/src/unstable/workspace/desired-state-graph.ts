@@ -22,6 +22,7 @@ export type DesiredExtensionOrigin =
       readonly type: "settings";
       readonly source: string;
       readonly enabled: boolean;
+      readonly constraint?: string;
     }
   | {
       readonly type: "pack";
@@ -239,6 +240,7 @@ export const buildDesiredStateGraph = ({
             type: "settings",
             source: entry.source,
             enabled: entry.enabled,
+            ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
           },
         });
       }
@@ -278,6 +280,7 @@ export const buildDesiredStateGraph = ({
           type: "settings",
           source: entry.source,
           enabled: true,
+          ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
         },
       });
 

@@ -113,6 +113,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
         concurrency: 1,
         steps: [
           buildNewExtensionStep(manager, {
+            target: { type: "knowledge", name },
             ref: {
               type: "knowledge",
               refType: "workspace",

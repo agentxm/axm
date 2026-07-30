@@ -26,6 +26,7 @@ import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
 } from "../test-helpers.js";
+import { computePackageContentHashSync } from "../test-stubs.js";
 import {
   AXM_SKILL_JSON,
   AXM_SKILL_MD,
@@ -145,7 +146,7 @@ describe("setup.handler", () => {
           expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(true);
 
           const settings = readJson(path.join(axmDir, "settings.json"));
-          expect(settings.skills?.["axm"]).toBe("@agentxm/skills/axm");
+          expect(settings.skills?.["axm"]).toBe("workspace:@agentxm/skills/axm");
           expect(installCalls).toEqual([
             { scope: "project", yes: false, force: false, preview: false },
           ]);
@@ -397,6 +398,9 @@ describe("setup.handler", () => {
           expect(axmLockEntry.owner).toBe("@agentxm");
           expect(axmLockEntry.name).toBe("axm");
           expect(axmLockEntry.version).toBe(AXM_SKILL_VERSION);
+          expect(axmLockEntry.sourceHash).toBe(
+            computePackageContentHashSync(path.dirname(path.dirname(skillMdPath))),
+          );
           expect(axmLockEntry).not.toHaveProperty("agents");
         }),
       );
@@ -591,7 +595,7 @@ describe("setup.handler", () => {
             expect(fs.existsSync(projectSettingsPath)).toBe(false);
 
             const settings = readJson(userSettingsPath);
-            expect(settings.skills?.["axm"]).toBe("@agentxm/skills/axm");
+            expect(settings.skills?.["axm"]).toBe("workspace:@agentxm/skills/axm");
             expect(installCalls).toEqual([
               { scope: "user", yes: false, force: false, preview: false },
             ]);

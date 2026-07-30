@@ -255,6 +255,60 @@ const extensionShowFamily = defineResultFamily({
   commandCoverage: ["packages/cli/src/root/shared/extension-show.test.ts"],
 });
 
+const packShowFamily = defineResultFamily({
+  id: "pack-show",
+  schemaNames: ["PackShowResultSchema"],
+  requiredTopLevelKeys: [
+    "pack",
+    "sourceAuthority",
+    "canonicalPath",
+    "manifestVersion",
+    "trustStatus",
+    "canonicalStatus",
+    "desiredDependencies",
+    "resolvedDependencies",
+    "drift",
+    "recoveryAction",
+  ],
+  scenarios: ["trusted pack", "drifted workspace pack", "unresolved dependencies"],
+  rationale: "Pack inspection joins desired, trusted, canonical, and receipt state.",
+  commandCoverage: ["packages/cli/src/root/packs/show.test.ts"],
+});
+
+const packRepairFamily = defineResultFamily({
+  id: "pack-repair",
+  schemaNames: ["PackRepairResultSchema"],
+  requiredTopLevelKeys: [
+    "pack",
+    "authority",
+    "canonicalPath",
+    "previousContentIdentity",
+    "currentContentIdentity",
+    "changes",
+    "confirmation",
+    "result",
+    "recoveryAction",
+  ],
+  scenarios: ["current", "previewed", "requires confirmation", "repaired"],
+  rationale: "Pack repair reports the classified trust-baseline transition.",
+  commandCoverage: ["packages/cli/src/root/packs/repair.test.ts"],
+});
+
+const workspaceStatusFamily = defineResultFamily({
+  id: "workspace-status",
+  schemaNames: ["WorkspaceStatusSchema"],
+  requiredTopLevelKeys: [
+    "healthy",
+    "desiredGraphComplete",
+    "scope",
+    "problems",
+    "blockedOperations",
+  ],
+  scenarios: ["healthy workspace", "blocking local problems"],
+  rationale: "Workspace status reports local reconciliation health and supported recovery actions.",
+  commandCoverage: ["packages/cli/src/root/status.test.ts"],
+});
+
 const helpTopicFamily = defineResultFamily({
   id: "help-topic",
   schemaNames: ["HelpIndexResultSchema", "HelpTopicResultSchema"],
@@ -535,6 +589,9 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
     "axm skills show",
     "axm subagents show",
   ]),
+  ...rowsFor(packShowFamily, ["axm packs show"]),
+  ...rowsFor(packRepairFamily, ["axm packs repair"]),
+  ...rowsFor(workspaceStatusFamily, ["axm status"]),
   ...rowsFor(helpTopicFamily, ["axm help"]),
   ...rowsFor(hooksInfoFamily, ["axm hooks info"]),
   ...rowsFor(knowledgeLintFamily, ["axm knowledge lint"]),

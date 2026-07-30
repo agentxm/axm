@@ -356,7 +356,7 @@ describe("commands disable.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.commands?.["my-cmd"]).toEqual({
-            source: "@acme/commands/my-cmd@>=1.0.0 <2.0.0-0",
+            source: "@acme/commands/my-cmd@^1.0.0",
             enabled: false,
           });
         }),

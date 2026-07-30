@@ -5,7 +5,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
+import YAML from "yaml";
 
+import {
+  computePackageContentHashSync,
+  writeTrustFromWorkspaceLockfile,
+} from "../../test-stubs.js";
 import {
   at,
   expectRecord,
@@ -56,6 +61,7 @@ const writeManifest = (root: string, type: ManifestPlural, name: string, version
       type: extType,
       name,
       version,
+      ...(type === "packs" ? { dependencies: {} } : {}),
     }),
   );
   const settingsPath = path.join(root, ".axm", "settings.json");
@@ -66,6 +72,34 @@ const writeManifest = (root: string, type: ManifestPlural, name: string, version
     [name]: `workspace:@test/${type}/${name}`,
   };
   fs.writeFileSync(settingsPath, JSON.stringify(settings));
+  if (type === "packs") {
+    const lockfilePath = path.join(root, ".axm", "axm-lock.yaml");
+    const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
+    const packs = expectRecord(lockfile["packs"] ?? {});
+    const updatedPacks = {
+      ...packs,
+      [name]: {
+        type: "workspace",
+        owner: "@test",
+        extensionType: "pack",
+        name,
+        version,
+        sourceHash: computePackageContentHashSync(dir),
+        installedAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+        resolvedSubagents: {},
+        resolvedFiles: {},
+        resolvedRules: {},
+        resolvedHooks: {},
+        resolvedKnowledge: {},
+      },
+    };
+    fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
+    writeTrustFromWorkspaceLockfile(path.join(root, ".axm"));
+  }
   return path.join(dir, filename);
 };
 

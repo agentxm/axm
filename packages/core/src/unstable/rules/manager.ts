@@ -502,8 +502,10 @@ export const RuleManagerLive = Layer.effect(
 
     return {
       type: "rule",
-      validateTrustTransition: ({ ref }) =>
-        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: ({ target }: { readonly target: RuleExtensionTarget }) =>
         isObservedInstalled(ws, "rule", target.name).pipe(
           Effect.withSpan("RuleManager.isInstalled"),

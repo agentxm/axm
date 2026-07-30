@@ -254,6 +254,30 @@ describe("packs uninstall handler", () => {
       );
     });
 
+    it.effect("accepts a fully qualified pack name", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        settingsPacks: { "my-pack": "@acme/packs/my-pack" },
+        lockfilePacks: {
+          "my-pack": makePackLockEntry("@acme", "my-pack"),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("@acme/packs/my-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
+
+          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockContent);
+          expect(lockfile.packs?.["my-pack"]).toBeUndefined();
+        }),
+      );
+    });
+
     it.effect("errors when pack is not installed", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));

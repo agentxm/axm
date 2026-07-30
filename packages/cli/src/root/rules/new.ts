@@ -125,6 +125,7 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
         concurrency: 1,
         steps: [
           buildNewExtensionStep(manager, {
+            target: { type: "rule", name },
             ref: {
               type: "rule",
               refType: "workspace",

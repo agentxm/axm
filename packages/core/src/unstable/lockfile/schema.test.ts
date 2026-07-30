@@ -1130,6 +1130,40 @@ describe("lockfile schema", () => {
       expect(result.resolvedSubagents).toEqual({});
     });
 
+    it("preserves discriminated Registry receipt fields", () => {
+      const input = {
+        type: "registry",
+        owner: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        integrity: "sha512-pack",
+        sourceName: "default",
+        publisherBindingId: "hbnd_pack",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {
+          "@acme/skills/code-review": {
+            source: "registry",
+            version: "1.2.0",
+            publisherBindingId: "hbnd_skill",
+            integrity: "sha512-skill",
+          },
+        },
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+        resolvedSubagents: {},
+      };
+
+      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
+
+      expect(result.resolvedSkills["@acme/skills/code-review"]).toEqual({
+        source: "registry",
+        version: "1.2.0",
+        publisherBindingId: "hbnd_skill",
+        integrity: "sha512-skill",
+      });
+    });
+
     it("accepts a workspace pack lock entry", () => {
       const input = {
         type: "workspace",

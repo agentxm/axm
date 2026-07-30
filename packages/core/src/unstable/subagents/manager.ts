@@ -564,8 +564,10 @@ export const SubagentManagerLive = Layer.effect(
 
     return {
       type: "subagent",
-      validateTrustTransition: ({ ref }) =>
-        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: Effect.fn("SubagentManager.isInstalled")(function* ({
         target,
       }: {

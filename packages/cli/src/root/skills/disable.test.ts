@@ -344,7 +344,7 @@ describe("disable.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["code-review"]).toEqual({
-            source: "@acme/skills/code-review@>=1.0.0 <2.0.0-0",
+            source: "@acme/skills/code-review@^1.0.0",
             enabled: false,
           });
         }),

@@ -132,6 +132,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   const step = buildNewExtensionStep(manager, {
     ref,
+    target: { type: "skill", name: args.name },
     versionRange: Option.none(),
     label: fqn,
     message: `Created skill ${fqn}`,

@@ -26,6 +26,7 @@ export type {
   PackLockEntry,
   PacksLockMap,
   RegistryPackLockEntryArgs,
+  ResolvedExtension,
   ResolvedExtensionMap,
   RegistryPackLockEntry,
   WorkspacePackLockEntry,

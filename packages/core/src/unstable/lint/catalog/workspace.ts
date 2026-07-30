@@ -10,8 +10,9 @@
  * | --------------------------------------- | -------- | ----------- |
  * | `workspace/initialized`                 | error    | —           |
  * | `workspace/settings-schema-valid`       | error    | —           |
- | `workspace/settings-keys-recognized`    | error    | —           |
+ * | `workspace/settings-keys-recognized`    | error    | —           |
  * | `workspace/lockfile-valid`              | error    | autofixing  |
+ * | `workspace/desired-state-reconcilable`  | error    | —           |
  * | `workspace/agents-recognized`           | error    | —           |
  * | `workspace/agents-detected-declared`    | warning  | —           |
  * | `workspace/skills-declarations-valid`   | error    | —           |
@@ -64,6 +65,7 @@ import { mcpServerNoSecretLiteralRule } from "./workspace/mcps-no-secret-literal
 import { mcpServerTransportExclusivityRule } from "./workspace/mcps-transport-exclusivity.js";
 import { mcpServerAgentDriftRule } from "./workspace/mcps-agent-drift.js";
 import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
+import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
@@ -82,6 +84,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
   lockfileValidRule,
+  desiredStateReconcilableRule,
   agentsRecognizedRule,
   agentsDetectedDeclaredRule,
   instructionsSourcePresentRule,

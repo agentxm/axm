@@ -161,6 +161,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
 
   const step = buildNewExtensionStep(manager, {
     ref,
+    target: { type: "command", name: args.name },
     versionRange: Option.none(),
     label: fqn,
     message: `Created command ${fqn}`,

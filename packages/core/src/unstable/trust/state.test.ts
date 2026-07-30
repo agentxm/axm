@@ -138,7 +138,14 @@ describe("workspace trust state", () => {
 
       expect(trustedRegistryVersionForRef(epochState, same)).toBe("1.2.3");
       expect(trustedRegistryVersionForRef(epochState, differentSource)).toBeUndefined();
-      yield* validateRefTrustTransition(epochState, differentSource);
+      const error = yield* validateRefTrustTransition(epochState, differentSource).pipe(
+        Effect.flip,
+      );
+      expect(error.code).toBe("conflict");
+
+      yield* validateRefTrustTransition(epochState, differentSource, {
+        allowSourceTransition: true,
+      });
     }),
   );
 

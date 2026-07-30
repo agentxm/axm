@@ -8,14 +8,17 @@ import * as Option from "effect/Option";
 import {
   buildInstallOperation,
   buildMaterializeOperation,
+  buildNewExtensionStep,
   buildUninstallOperation,
   formatPackageUrlParts,
   toLabelWithCompanions,
   toStepKey,
 } from "./operations.js";
+import { makeAppError } from "../app-error/index.js";
+import { computeSourceHash } from "./rendered-files.js";
 import { exactVersion, extensionName, handle, packageUrl } from "../test-helpers.js";
 import type { ExtensionManager } from "../workspace/service-interface.js";
-import type { RegistrySkillRef, SkillExtensionRef } from "../skills/refs.js";
+import type { RegistrySkillRef, SkillExtensionRef, WorkspaceSkillRef } from "../skills/refs.js";
 
 describe("formatPackageUrlParts", () => {
   it("formats type and name", () => {
@@ -187,6 +190,137 @@ describe("buildInstallOperation", () => {
     expect(result.error.detail).toContain("Cannot install over workspace-sourced skill");
     expect(materializeInstall).not.toHaveBeenCalled();
   });
+});
+
+describe("buildNewExtensionStep", () => {
+  const workspaceRef = (): WorkspaceSkillRef => {
+    const name = extensionName("review");
+    return {
+      type: "skill",
+      refType: "workspace",
+      source: {
+        type: "workspace",
+        owner: handle("@acme"),
+        extensionType: "skill",
+        name,
+      },
+      owner: handle("@acme"),
+      name,
+      version: exactVersion("1.0.0"),
+      scope: "project",
+      location: "file:///workspace/.axm/extensions/@acme/skills/review",
+      sourceHash: computeSourceHash("review"),
+      skill: { name, description: Option.none(), metadata: Option.none() },
+    };
+  };
+
+  it("preflights materializability before scaffolding", async () => {
+    const scaffold = vi.fn(() => Effect.void);
+    const manager = {
+      type: "skill",
+      isInstalled: () => Effect.succeed(false),
+      materializeInstall: () => Effect.void,
+      listMaterializable: () =>
+        Effect.fail(makeAppError({ code: "conflict", detail: "invalid pack" })),
+      materializeUninstall: () => Effect.void,
+      upsertSettingsEntry: () => Effect.void,
+      removeSettingsEntry: () => Effect.void,
+      upsertLockfileEntry: () => Effect.void,
+      removeLockfileEntry: () => Effect.void,
+    } satisfies ExtensionManager<SkillExtensionRef>;
+    const step = buildNewExtensionStep(manager, {
+      target: { type: "skill", name: "review" },
+      ref: workspaceRef(),
+      versionRange: Option.none(),
+      scaffold: Effect.suspend(scaffold),
+      markAuthored: Effect.void,
+      message: "Created review",
+    });
+    if (step.readiness === "error") throw new Error(step.errorMessage);
+
+    await Effect.runPromise(Effect.flip(step.run));
+
+    expect(scaffold).not.toHaveBeenCalled();
+  });
+
+  it.each(["scaffold", "mark-authored", "resolve", "materialize", "commit"] as const)(
+    "rolls back every authoritative surface when %s fails",
+    async (failureAt) => {
+      const state = {
+        canonical: false,
+        settings: false,
+        trust: false,
+        lock: false,
+        projection: false,
+      };
+      let listCalls = 0;
+      const fail = () => Effect.fail(makeAppError({ code: "internal", detail: failureAt }));
+      const manager = {
+        type: "skill",
+        isInstalled: () => Effect.succeed(false),
+        listMaterializable: () => {
+          listCalls += 1;
+          if (listCalls === 2 && failureAt === "resolve") return fail();
+          return Effect.succeed(listCalls === 1 ? [] : [workspaceRef()]);
+        },
+        materializeInstall: () =>
+          Effect.gen(function* () {
+            state.projection = true;
+            if (failureAt === "materialize") return yield* fail();
+          }),
+        materializeUninstall: () =>
+          Effect.sync(() => {
+            state.canonical = false;
+            state.projection = false;
+          }),
+        upsertSettingsEntry: () =>
+          Effect.gen(function* () {
+            state.settings = true;
+            state.trust = true;
+            state.lock = true;
+            if (failureAt === "commit") return yield* fail();
+          }),
+        removeSettingsEntry: () =>
+          Effect.sync(() => {
+            state.settings = false;
+          }),
+        upsertLockfileEntry: () => Effect.void,
+        removeLockfileEntry: () =>
+          Effect.sync(() => {
+            state.lock = false;
+          }),
+        removeTrustEntry: () =>
+          Effect.sync(() => {
+            state.trust = false;
+          }),
+      } satisfies ExtensionManager<SkillExtensionRef>;
+      const step = buildNewExtensionStep(manager, {
+        target: { type: "skill", name: "review" },
+        ref: workspaceRef(),
+        versionRange: Option.none(),
+        scaffold: Effect.gen(function* () {
+          state.canonical = true;
+          if (failureAt === "scaffold") return yield* fail();
+        }),
+        markAuthored: Effect.gen(function* () {
+          state.settings = true;
+          if (failureAt === "mark-authored") return yield* fail();
+        }),
+        message: "Created review",
+      });
+      if (step.readiness === "error") throw new Error(step.errorMessage);
+
+      await Effect.runPromise(Effect.flip(step.run));
+
+      expect(state).toEqual({
+        canonical: false,
+        settings: false,
+        trust: false,
+        lock: false,
+        projection: false,
+      });
+    },
+  );
 });
 
 describe("buildMaterializeOperation", () => {

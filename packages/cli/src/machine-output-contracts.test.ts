@@ -42,9 +42,12 @@ import { KnowledgeOpenQueryResultSchema } from "./root/knowledge/open.js";
 import { KnowledgeSearchQueryResultSchema } from "./root/knowledge/search.js";
 import { LintFixDocumentSchema, LintResultDocumentSchema } from "./root/lint/handler.js";
 import { OutdatedDocumentSchema } from "./root/outdated/handler.js";
+import { PackRepairResultSchema } from "./root/packs/repair.js";
+import { PackShowResultSchema } from "./root/packs/show.js";
 import { InstructionsStatusOutputSchema } from "./root/rules/instructions.js";
 import { SetupDocumentSchema } from "./root/setup.js";
 import { ExtensionShowResultSchema } from "./root/shared/extension-show.js";
+import { WorkspaceStatusSchema } from "./root/status.js";
 import { UpgradeDocumentSchema } from "./root/upgrade/handler.js";
 import { ViewDocumentSchema, ViewFieldValueSchema } from "./root/view/handler.js";
 
@@ -76,6 +79,8 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   LoginNoOpDocumentSchema,
   LogoutDocumentSchema,
   OutdatedDocumentSchema,
+  PackRepairResultSchema,
+  PackShowResultSchema,
   PlanResolutionDocumentSchema,
   PublishResultSchema,
   RevokeTokenDocumentSchema,
@@ -86,6 +91,7 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   ViewDocumentSchema,
   ViewFieldValueSchema,
   WhoamiDocumentSchema,
+  WorkspaceStatusSchema,
 };
 
 describe("machine-output contract register", () => {

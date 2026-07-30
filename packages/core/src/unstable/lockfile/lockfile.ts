@@ -207,9 +207,12 @@ const persistTrustPatch = (axmDir: string, seed: Lockfile, base: Lockfile, next:
     const baseRecords = trustStateFromLockfile(base).records;
     const nextRecords = trustStateFromLockfile(next).records;
     const changedRecords = Object.fromEntries(
-      Object.entries(nextRecords).filter(
-        ([key, record]) => JSON.stringify(baseRecords[key]) !== JSON.stringify(record),
-      ),
+      Object.entries(nextRecords)
+        .filter(([key, record]) => JSON.stringify(baseRecords[key]) !== JSON.stringify(record))
+        .map(([key, record]) => {
+          const packManifest = current.records[key]?.packManifest;
+          return [key, packManifest === undefined ? record : { ...record, packManifest }];
+        }),
     );
     yield* writeWorkspaceTrustState(axmDir, {
       ...current,

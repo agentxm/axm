@@ -17,6 +17,7 @@ import {
   type SpinnerHandle,
   type SpinnerOptions,
   type SuccessOptions,
+  type ResultOptions,
   type TableView,
   type TaskLogConfig,
   type TaskLogGroupHandle,
@@ -482,7 +483,7 @@ const makeTestRendererService = (
     result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
-      options?: SuccessOptions,
+      options?: ResultOptions,
     ) =>
       Effect.sync(() => {
         if (

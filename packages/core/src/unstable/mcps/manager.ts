@@ -280,8 +280,10 @@ export const McpServerManagerLive = Layer.effect(
 
     return {
       type: "mcp-server",
-      validateTrustTransition: ({ ref }) =>
-        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: Effect.fn("McpServerManager.isInstalled")(function* ({
         target,
       }: {

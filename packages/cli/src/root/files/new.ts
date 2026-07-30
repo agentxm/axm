@@ -184,6 +184,7 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
         steps: [
           buildNewExtensionStep(manager, {
             ref,
+            target: { type: "files", name },
             versionRange: Option.none(),
             label: fqn,
             message: `Created ${fqn}`,

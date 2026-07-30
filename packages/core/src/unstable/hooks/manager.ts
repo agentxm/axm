@@ -876,8 +876,10 @@ export const HookManagerLive = Layer.effect(
 
     return {
       type: "hook",
-      validateTrustTransition: ({ ref }) =>
-        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: ({ target }: { readonly target: HookExtensionTarget }) =>
         isObservedInstalled(ws, "hook", target.name).pipe(
           Effect.withSpan("HookManager.isInstalled"),

@@ -260,8 +260,10 @@ export const SkillManagerLive = Layer.effect(
 
     return {
       type: "skill",
-      validateTrustTransition: ({ ref }) =>
-        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: Effect.fn("SkillManager.isInstalled")(function* ({
         target,
       }: {

@@ -145,7 +145,7 @@ describe("toPlanResolutionResult", () => {
     };
 
     expect(toPlanResolutionResult(resolution)).toEqual({
-      outcome: "applied",
+      outcome: "failed",
       planName: "Publish pack",
       planDescription: "Publish @acme/packs/frontend-tools",
       totalSteps: 2,
@@ -169,6 +169,53 @@ describe("toPlanResolutionResult", () => {
           code: "conflict",
         },
       ],
+    });
+  });
+
+  it("maps mixed committed and failed steps to partial with committed artifacts", () => {
+    const resolution: ExecutedPlan = {
+      _tag: "ExecutedPlan",
+      name: "Create extensions",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              label: "Create review",
+              result: {
+                result: "success",
+                message: "created",
+                artifact: {
+                  path: ".axm/extensions/@acme/skills/review",
+                  scope: "project",
+                  change: "created",
+                },
+              },
+            },
+            {
+              label: "Create release",
+              result: {
+                result: "error",
+                message: "write failed",
+                error: makeAppError({ code: "internal", detail: "write failed" }),
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = toPlanResolutionResult(resolution);
+    expect(result.outcome).toBe("partial");
+    expect(result.appliedCount).toBe(1);
+    expect(result.failedCount).toBe(1);
+    expect(result.steps[0]).toMatchObject({
+      status: "applied",
+      artifact: {
+        path: ".axm/extensions/@acme/skills/review",
+        change: "created",
+      },
     });
   });
 
@@ -681,7 +728,7 @@ describe("planResolutionToSummary", () => {
       sourceKind: "registry",
     });
 
-    expect(summary.outcome).toBe("applied");
+    expect(summary.outcome).toBe("failed");
     expect(summary.failedCount).toBe(1);
     expect(summary.blockedCount).toBe(1);
     expect(summary.appliedCount).toBeUndefined();

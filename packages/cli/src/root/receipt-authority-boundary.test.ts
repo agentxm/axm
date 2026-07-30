@@ -50,6 +50,7 @@ const allowedReceiptReaders = [
   "packages/cli/src/root/knowledge/inspect.ts",
   "packages/cli/src/root/mcps/list.ts",
   "packages/cli/src/root/packs/list.ts",
+  "packages/cli/src/root/packs/show.ts",
   "packages/cli/src/root/rules/list.ts",
   "packages/cli/src/root/skills/list.ts",
 
@@ -78,7 +79,10 @@ const allowedReceiptReaders = [
 const mutationReceiptReaders: ReadonlySet<string> = new Set(
   allowedReceiptReaders.filter(
     (file) =>
-      !file.endsWith("/list.ts") && !file.endsWith("/prune.ts") && !file.endsWith("/inspect.ts"),
+      !file.endsWith("/list.ts") &&
+      !file.endsWith("/show.ts") &&
+      !file.endsWith("/prune.ts") &&
+      !file.endsWith("/inspect.ts"),
   ),
 );
 

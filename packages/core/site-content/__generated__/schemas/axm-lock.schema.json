@@ -108,15 +108,44 @@
       ]
     },
     "ResolvedExtension": {
-      "type": "object",
-      "properties": {
-        "version": { "$ref": "#/definitions/Version" },
-        "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
-      },
-      "required": ["version", "publisherBindingId"],
-      "additionalProperties": false,
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "source": { "type": "string", "enum": ["registry"] },
+            "version": { "$ref": "#/definitions/Version" },
+            "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] },
+            "integrity": { "type": "string" }
+          },
+          "required": ["source", "version", "publisherBindingId", "integrity"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "source": { "type": "string", "enum": ["workspace"] },
+            "version": { "$ref": "#/definitions/Version" },
+            "sourceIdentity": { "type": "string" },
+            "contentIdentity": {
+              "type": "string",
+              "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+            }
+          },
+          "required": ["source", "version", "sourceIdentity", "contentIdentity"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": { "$ref": "#/definitions/Version" },
+            "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
+          },
+          "required": ["version", "publisherBindingId"],
+          "additionalProperties": false
+        }
+      ],
       "title": "Resolved Extension",
-      "description": "Resolved dependency version and immutable publisher epoch."
+      "description": "Last successful pack-member resolution from a workspace or Registry authority. Legacy Registry receipts remain readable."
     },
     "RegistryPackLockEntry": {
       "type": "object",

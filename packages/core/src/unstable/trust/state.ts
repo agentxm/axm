@@ -21,6 +21,7 @@ import {
   type ExtensionTrustRecord,
   type WorkspaceTrustState,
 } from "./schema.js";
+import * as semver from "semver";
 
 type LeafLockEntry =
   | SkillLockEntry
@@ -96,11 +97,44 @@ export const trustedRegistryVersionForRef = (
 export const validateRefTrustTransition = (
   state: WorkspaceTrustState,
   ref: ExtensionRef,
+  options: {
+    readonly allowSourceTransition?: boolean;
+    readonly allowDowngrade?: boolean;
+  } = {},
 ): Effect.Effect<void, AppError> => {
-  if (ref.refType !== "registry") return Effect.void;
   const name = refName(ref);
   const record = state.records[trustRecordKey(ref.type, name)];
+  const proposedAuthority = ref.source.type;
+  const proposedIdentity =
+    ref.refType === "registry"
+      ? registryRefIdentity(ref)
+      : ref.refType === "workspace"
+        ? `workspace:${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`
+        : printSourceParams(ref.source);
+  const recordedIdentity =
+    record?.authority === "local" && record.sourceIdentity.startsWith("local:")
+      ? record.sourceIdentity.slice("local:".length)
+      : record?.sourceIdentity;
   if (
+    record !== undefined &&
+    options.allowSourceTransition !== true &&
+    (record.authority !== proposedAuthority || recordedIdentity !== proposedIdentity)
+  ) {
+    return Effect.fail(
+      makeAppError({
+        code: "conflict",
+        detail: `Source authority would change for ${ref.type} "${name}" from ${record.authority}:${record.sourceIdentity} to ${proposedAuthority}:${proposedIdentity}.`,
+        suggestions: [
+          {
+            description:
+              "Install the new source explicitly after verifying the authority transition.",
+          },
+        ],
+      }),
+    );
+  }
+  if (
+    ref.refType === "registry" &&
     record?.authority === "registry" &&
     record.sourceIdentity === registryRefIdentity(ref) &&
     record.publisherBindingId !== undefined &&
@@ -114,6 +148,26 @@ export const validateRefTrustTransition = (
           {
             description:
               "Verify the new publisher identity, then remove and reinstall the extension explicitly.",
+          },
+        ],
+      }),
+    );
+  }
+  const proposedVersion =
+    ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined;
+  if (
+    options.allowDowngrade !== true &&
+    record?.resolvedVersion !== undefined &&
+    proposedVersion !== undefined &&
+    semver.gt(record.resolvedVersion, proposedVersion)
+  ) {
+    return Effect.fail(
+      makeAppError({
+        code: "conflict",
+        detail: `Version downgrade refused for ${ref.type} "${name}": ${record.resolvedVersion} -> ${proposedVersion}.`,
+        suggestions: [
+          {
+            description: "Reinstall the exact older version explicitly with `--force`.",
           },
         ],
       }),

@@ -23,6 +23,9 @@ import type * as Option from "effect/Option";
 import type { InstructionsGitignoreStatus, InstructionsStatus } from "../agents/instructions.js";
 import type { ExtensionType } from "../extensions/common.js";
 import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
+import type { AppError } from "../app-error/index.js";
+import type { DesiredStateGraph } from "../workspace/desired-state-graph.js";
+import type { CanonicalObservation } from "../workspace/canonical-observation.js";
 
 // -----------------------------------------------------------------------------
 // FileAccessError — shared by per-extension file accessors
@@ -344,6 +347,11 @@ export interface WorkspaceRuleContext {
    * when it is absent.
    */
   readonly installedExtensions?: WorkspaceInstalledExtensionAccessor;
+  /** Deterministic desired-state preflight used by local reconciliation-health rules. */
+  readonly health?: {
+    readonly desiredState: Effect.Effect<DesiredStateGraph, AppError>;
+    readonly canonicalObservations?: Effect.Effect<ReadonlyArray<CanonicalObservation>, AppError>;
+  };
   readonly displayRoot: string;
 }
 

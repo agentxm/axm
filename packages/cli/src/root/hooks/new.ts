@@ -222,6 +222,7 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
 
   const step: PlannedJobStep = buildNewExtensionStep(manager, {
     ref,
+    target: { type: "hook", name: args.name },
     versionRange: Option.none(),
     label: fqn,
     message: `Created hook ${fqn}`,

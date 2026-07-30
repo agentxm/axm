@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { count } from "../cli-renderer/index.js";
 import type { ExtensionRef, Handle, ExtensionName, ExtensionType } from "../extensions/index.js";
-import { formatFqn, parseFqnOrThrow } from "../extensions/index.js";
+import { formatFqn, parseFqnOrThrow, toExtensionTypePlural } from "../extensions/index.js";
 import type { ResolvedExtensionMap } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "../sources/index.js";
@@ -11,14 +11,25 @@ import type { PackRef } from "./refs.js";
 import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
 import type * as Duration from "effect/Duration";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
+import * as semver from "semver";
 
-type ResolvedDependency<T extends ExtensionType = ExtensionType> = {
+/** Every extension type a pack can depend on — packs cannot nest. */
+type SupportedPackDependencyType = Exclude<ExtensionType, "pack">;
+
+type PackDependencyRef = Extract<ExtensionRef, { readonly refType: "registry" | "workspace" }>;
+
+type ResolvedDependency = {
   readonly owner: Handle;
-  readonly type: T;
+  readonly type: SupportedPackDependencyType;
   readonly name: ExtensionName;
-  readonly ref: Extract<ExtensionRef, { readonly refType: "registry"; readonly type: T }>;
-  readonly source: RegistrySource;
+  readonly ref: PackDependencyRef;
 };
+
+export type WorkspacePackDependencyResolver = (args: {
+  readonly owner: Handle;
+  readonly type: SupportedPackDependencyType;
+  readonly name: ExtensionName;
+}) => Effect.Effect<Option.Option<ExtensionRef>, AppError>;
 
 export interface ResolvedPackDependencies {
   readonly resolvedSkills: ResolvedExtensionMap;
@@ -31,9 +42,6 @@ export interface ResolvedPackDependencies {
   readonly resolvedKnowledge: ResolvedExtensionMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
-
-/** Every extension type a pack can depend on — packs cannot nest. */
-type SupportedPackDependencyType = Exclude<ExtensionType, "pack">;
 
 const registrySourceForDependency = (
   pack: PackRef,
@@ -56,15 +64,16 @@ const registrySourceForDependency = (
   });
 };
 
-const resolveDependencyRef = <T extends ExtensionType>(
+const resolveDependencyRef = (
   pack: PackRef,
-  expectedType: T,
+  expectedType: SupportedPackDependencyType,
   fqn: string,
   constraint: VersionRange,
   sources: SourceHostProvidersService,
   minimumReleaseAge?: Option.Option<Duration.Duration>,
   sourceOverride?: RegistrySource,
-): Effect.Effect<ResolvedDependency<T>, AppError> =>
+  workspaceResolver?: WorkspacePackDependencyResolver,
+): Effect.Effect<ResolvedDependency, AppError> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
     if (parsed.type !== expectedType) {
@@ -72,6 +81,40 @@ const resolveDependencyRef = <T extends ExtensionType>(
         code: "usage",
         detail: `Pack dependency type mismatch for expected ${expectedType}`,
       });
+    }
+
+    if (workspaceResolver !== undefined) {
+      const workspace = yield* workspaceResolver({
+        owner: parsed.owner,
+        type: expectedType,
+        name: parsed.name,
+      });
+      if (Option.isSome(workspace)) {
+        const candidate = workspace.value;
+        if (
+          candidate.type !== expectedType ||
+          candidate.refType !== "workspace" ||
+          candidate.owner !== parsed.owner ||
+          candidate.name !== parsed.name
+        ) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Configured workspace authority does not match pack dependency ${fqn}`,
+          });
+        }
+        if (!semver.satisfies(candidate.version, constraint)) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Workspace dependency ${fqn}@${candidate.version} does not satisfy ${constraint}`,
+          });
+        }
+        return {
+          owner: parsed.owner,
+          type: expectedType,
+          name: parsed.name,
+          ref: candidate,
+        };
+      }
     }
 
     const source = yield* registrySourceForDependency(pack, parsed.owner, sourceOverride);
@@ -86,9 +129,7 @@ const resolveDependencyRef = <T extends ExtensionType>(
     );
 
     const matchingRef = matches.find(
-      (
-        candidate,
-      ): candidate is Extract<ExtensionRef, { readonly refType: "registry"; readonly type: T }> =>
+      (candidate): candidate is Extract<ExtensionRef, { readonly refType: "registry" }> =>
         candidate.type === expectedType &&
         candidate.refType === "registry" &&
         candidate.owner === parsed.owner &&
@@ -107,31 +148,41 @@ const resolveDependencyRef = <T extends ExtensionType>(
       type: expectedType,
       name: parsed.name,
       ref: matchingRef,
-      source,
     };
   });
 
-const toResolvedMap = <T extends ExtensionType>(
-  dependencies: ReadonlyArray<ResolvedDependency<T>>,
-): ResolvedExtensionMap =>
+const toResolvedMap = (dependencies: ReadonlyArray<ResolvedDependency>): ResolvedExtensionMap =>
   Object.fromEntries(
-    dependencies.map((dependency) => [
-      formatFqn(dependency),
-      {
-        version: dependency.ref.version,
-        publisherBindingId: dependency.ref.publisherBindingId,
-      },
-    ]),
+    dependencies.map((dependency) => {
+      const ref = dependency.ref;
+      return [
+        formatFqn(dependency),
+        ref.refType === "registry"
+          ? {
+              source: "registry" as const,
+              version: ref.version,
+              publisherBindingId: ref.publisherBindingId,
+              integrity: Option.getOrElse(ref.integrity, () => ""),
+            }
+          : {
+              source: "workspace" as const,
+              version: ref.version,
+              sourceIdentity: `workspace:${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
+              contentIdentity: ref.sourceHash,
+            },
+      ];
+    }),
   );
 
-const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
+const resolveDependencyGroup = (
   pack: PackRef,
   dependencies: ReadonlyArray<readonly [string, VersionRange]>,
-  expectedType: T,
+  expectedType: SupportedPackDependencyType,
   sources: SourceHostProvidersService,
   minimumReleaseAge?: Option.Option<Duration.Duration>,
   sourceOverride?: RegistrySource,
-): Effect.Effect<ReadonlyArray<ResolvedDependency<T>>, AppError> =>
+  workspaceResolver?: WorkspacePackDependencyResolver,
+): Effect.Effect<ReadonlyArray<ResolvedDependency>, AppError> =>
   Effect.forEach(
     dependencies,
     ([fqn, constraint]) =>
@@ -143,6 +194,7 @@ const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
         sources,
         minimumReleaseAge,
         sourceOverride,
+        workspaceResolver,
       ),
     { concurrency: "unbounded" },
   );
@@ -183,6 +235,7 @@ export const resolvePackDependencies = (
   sources: SourceHostProvidersService,
   minimumReleaseAge?: Option.Option<Duration.Duration>,
   sourceOverride?: RegistrySource,
+  workspaceResolver?: WorkspacePackDependencyResolver,
 ): Effect.Effect<ResolvedPackDependencies, AppError> =>
   Effect.gen(function* () {
     const dependencies = partitionDependencies(pack.pack.dependencies);
@@ -201,6 +254,7 @@ export const resolvePackDependencies = (
         sources,
         minimumReleaseAge,
         sourceOverride,
+        workspaceResolver,
       );
 
     const resolvedSkills = yield* resolveGroup("skill");

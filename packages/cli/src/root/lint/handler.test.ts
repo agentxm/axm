@@ -305,6 +305,10 @@ describe("axm lint handler", () => {
             description: "Install configured missing content",
             cmd: "axm install demo",
           },
+          {
+            description: "Run suggested lint follow-up",
+            cmd: "axm status",
+          },
         ]);
         expect(logs.message.some((message) => message.includes("axm install demo"))).toBe(false);
         // Rule lines always present

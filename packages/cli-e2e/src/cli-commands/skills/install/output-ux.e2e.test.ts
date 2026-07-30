@@ -139,9 +139,12 @@ describe("axm skills install output UX", () => {
         cwd: temp.path,
       });
 
-      const bundledUninstall = await runCli(["skills", "uninstall", "axm", "--yes"], {
-        cwd: temp.path,
-      });
+      const bundledUninstall = await runCli(
+        ["skills", "uninstall", "axm", "--yes", "--keep-source"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(bundledUninstall.exitCode).toBe(0);
 
       const initialInstall = await runCli(

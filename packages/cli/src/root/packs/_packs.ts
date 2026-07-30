@@ -7,6 +7,8 @@ import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { packsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { removeCommand } from "./remove.js";
+import { repairCommand } from "./repair.js";
+import { showCommand } from "./show.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { unpackCommand } from "./unpack/command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
@@ -49,6 +51,8 @@ export const packsCommand = Command.make("packs").pipe(
     newCommand,
     addCommand,
     removeCommand,
+    repairCommand,
+    showCommand,
     publishCommand,
     unpackCommand,
     packsVersionCommand,

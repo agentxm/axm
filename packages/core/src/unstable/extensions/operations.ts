@@ -137,6 +137,7 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
 export interface NewExtensionOperationArgs<
   TRef extends ExtensionRef,
 > extends InstallOperationArgs<TRef> {
+  readonly target: ExtensionTargetFor<TRef>;
   readonly scaffold: Effect.Effect<unknown, AppError, never>;
   readonly markAuthored: Effect.Effect<void, AppError, never>;
   readonly message: string;
@@ -178,7 +179,11 @@ const runInstallOperation = <TRef extends ExtensionRef>(
     const installedBefore =
       args.installedBefore === undefined ? false : yield* args.installedBefore;
     if (manager.validateTrustTransition !== undefined) {
-      yield* manager.validateTrustTransition({ ref: args.ref });
+      yield* manager.validateTrustTransition({
+        ref: args.ref,
+        allowSourceTransition: true,
+        allowDowngrade: args.force === true,
+      });
     }
     yield* manager.materializeInstall({
       ref: args.ref,
@@ -241,33 +246,48 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
   args: NewExtensionOperationArgs<TRef>,
 ): PlannedJobStep => {
-  const target = targetFromRef(args.ref);
+  const target = args.target;
   const companionPkgs = args.ref.refType === "registry" ? args.ref.packages : [];
 
   return {
     key: toStepKey(target),
     label: args.label ?? toLabelWithCompanions(target, companionPkgs),
     readiness: "ready",
-    run: Effect.gen(function* () {
-      yield* args.scaffold;
-      yield* args.markAuthored;
-      const materializable = yield* manager.listMaterializable();
-      const ref = materializable.find(
-        (candidate) => toStepKey(targetFromRef(candidate)) === toStepKey(target),
-      );
-      if (ref === undefined) {
-        return yield* makeAppError({
-          code: "not_found",
-          detail: `Newly scaffolded ${target.type} "${target.name}" could not be resolved from its workspace source`,
-        });
-      }
-      const result = yield* runInstallOperation(manager, { ...args, ref });
-      return {
-        ...result,
-        result: "success" as const,
-        message: args.message,
-      } satisfies JobStepResult;
-    }),
+    run: manager.listMaterializable().pipe(
+      Effect.andThen(
+        Effect.gen(function* () {
+          yield* args.scaffold;
+          yield* args.markAuthored;
+          const materializable = yield* manager.listMaterializable();
+          const ref = materializable.find(
+            (candidate) => toStepKey(targetFromRef(candidate)) === toStepKey(target),
+          );
+          if (ref === undefined) {
+            return yield* makeAppError({
+              code: "not_found",
+              detail: `Newly scaffolded ${target.type} "${target.name}" could not be resolved from its workspace source`,
+            });
+          }
+          const result = yield* runInstallOperation(manager, { ...args, ref });
+          return {
+            ...result,
+            result: "success" as const,
+            message: args.message,
+          } satisfies JobStepResult;
+        }),
+      ),
+      Effect.catch((error) =>
+        Effect.gen(function* () {
+          yield* manager.materializeUninstall({ target }).pipe(Effect.catch(() => Effect.void));
+          yield* manager.removeLockfileEntry({ target }).pipe(Effect.catch(() => Effect.void));
+          yield* manager.removeSettingsEntry({ target }).pipe(Effect.catch(() => Effect.void));
+          if (manager.removeTrustEntry !== undefined) {
+            yield* manager.removeTrustEntry({ target }).pipe(Effect.catch(() => Effect.void));
+          }
+          return yield* error;
+        }),
+      ),
+    ),
   } satisfies PlannedJobStep;
 };
 
@@ -277,6 +297,8 @@ export const buildNewExtensionStep = <TRef extends ExtensionRef>(
 
 export interface MaterializeOperationArgs<TRef extends ExtensionRef> {
   readonly ref: TRef;
+  /** Optional transition-rich label used by reconciliation previews. */
+  readonly label?: string;
   /** Reacquire canonical content before projecting it. */
   readonly force?: boolean;
   readonly buildArtifact?: () => Effect.Effect<JobStepArtifact, AppError, never>;
@@ -288,6 +310,13 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
   args: MaterializeOperationArgs<TRef>,
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
+    if (manager.validateTrustTransition !== undefined) {
+      yield* manager.validateTrustTransition({
+        ref: args.ref,
+        allowSourceTransition: false,
+        allowDowngrade: false,
+      });
+    }
     yield* manager.materializeInstall({
       ref: args.ref,
       ...(args.force === undefined ? {} : { force: args.force }),
@@ -314,7 +343,7 @@ export const buildMaterializeOperation = <TRef extends ExtensionRef>(
 
   return {
     key: toStepKey(target),
-    label: toLabelWithCompanions(target, companionPkgs),
+    label: args.label ?? toLabelWithCompanions(target, companionPkgs),
     readiness: "ready",
     run: runMaterializeOperation(manager, args),
   } satisfies PlannedJobStep;

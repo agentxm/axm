@@ -155,6 +155,10 @@ export interface SuccessOptions extends SuggestionOptions {
   readonly summary?: string;
 }
 
+export interface ResultOptions extends SuccessOptions {
+  readonly ok?: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // CliRenderer service
 // ---------------------------------------------------------------------------
@@ -233,7 +237,7 @@ export class CliRenderer extends ServiceMap.Service<
     readonly result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
-      options?: SuccessOptions,
+      options?: ResultOptions,
     ) => Effect.Effect<boolean, never, S["EncodingServices"]>;
 
     // Both modes (stdout)

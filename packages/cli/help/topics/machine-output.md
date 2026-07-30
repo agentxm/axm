@@ -25,6 +25,11 @@ The payload schema supplies the top-level keys after `ok`:
 | Publish       | `mode`, optional `selection`, and `results[]`                 |
 | Suggestions   | Optional top-level `suggestions[]` beside the primary payload |
 
+Mutation-plan outcomes are `no-op`, `applied`, `partial`, `failed`,
+`cancelled`, or `previewed`. `ok` is `false` for `failed` and `partial`; those
+outcomes also use the documented nonzero exit contract. Inspect the step
+counts and committed artifacts when recovering a partial result.
+
 `axm view <ref> <field> --json` deliberately uses `value` for a selected scalar
 or array. `axm token --json` and `axm token create --json` deliberately return
 the requested token under `data`; do not log or forward that document.

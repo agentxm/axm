@@ -10,6 +10,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as semver from "semver";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
@@ -73,6 +74,29 @@ const createPackManifest = (
   const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
   const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
   const packs = expectRecord(lockfile["packs"] ?? {});
+  const skills = expectRecord(lockfile["skills"] ?? {});
+  const updatedSkills: Record<string, unknown> = { ...skills };
+  const dependencies = expectRecord(normalizedManifest.dependencies);
+  for (const [fqn, constraint] of Object.entries(dependencies)) {
+    const match = /^(@[^/]+)\/skills\/([^/]+)$/.exec(fqn);
+    const version =
+      typeof constraint === "string" ? semver.minVersion(constraint)?.version : undefined;
+    if (match === null || version === undefined) continue;
+    const owner = match[1];
+    const skillName = match[2];
+    if (owner === undefined || skillName === undefined) continue;
+    updatedSkills[skillName] = {
+      type: "registry",
+      owner,
+      name: skillName,
+      resolvedVersion: version,
+      integrity: `sha512-${skillName}`,
+      sourceName: "default",
+      publisherBindingId: `hbnd_${skillName}`,
+      installedAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    };
+  }
   const updatedPacks = {
     ...packs,
     [name]: {
@@ -94,7 +118,10 @@ const createPackManifest = (
       resolvedKnowledge: {},
     },
   };
-  fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
+  fs.writeFileSync(
+    lockfilePath,
+    YAML.stringify({ ...lockfile, skills: updatedSkills, packs: updatedPacks }),
+  );
   writeTrustFromWorkspaceLockfile(path.join(tempDir, ".axm"));
   return packDir;
 };

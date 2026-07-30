@@ -255,19 +255,6 @@ export const trustedCanonicalObservation = ({
 > =>
   Effect.gen(function* () {
     const graph = yield* workspace.getDesiredStateGraph();
-    if (!graph.complete) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail:
-          "The desired extension graph is incomplete, so canonical content cannot be reused safely.",
-        suggestions: [
-          {
-            description: "Repair or reinstall the configured packs, then retry.",
-            cmd: "axm sync",
-          },
-        ],
-      });
-    }
     const desired = graph.nodes.find((node) => node.type === type && node.name === name);
     if (desired === undefined) return Option.none();
 

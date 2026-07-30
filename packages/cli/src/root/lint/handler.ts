@@ -98,6 +98,7 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
+  observeCanonicalExtension,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
 import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
@@ -1527,6 +1528,31 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   );
   const skillContexts = buildSkillRuleContexts(view);
   const packContexts = buildPackRuleContexts(view);
+  const ws = yield* WorkspaceMutations;
+  const canonicalObservations = Effect.gen(function* () {
+    const graph = yield* ws.getDesiredStateGraph();
+    const trust = yield* ws.getTrustState();
+    return yield* Effect.forEach(
+      graph.nodes,
+      (node) =>
+        observeCanonicalExtension({
+          baseDir: ws.baseDir,
+          desired: node,
+          trust: trust.records[`${node.type}:${node.name}`],
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        ),
+      { concurrency: 16 },
+    );
+  });
+  const workspaceHealthContext = {
+    ...workspaceContext,
+    health: {
+      desiredState: ws.getDesiredStateGraph(),
+      canonicalObservations,
+    },
+  };
 
   // -- Evaluate --
   const evaluations = yield* evaluateAllCatalogs({
@@ -1540,7 +1566,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       rule: view.ruleContexts,
       hook: view.hookContexts,
       knowledge: view.knowledgeContexts,
-      workspace: [workspaceContext],
+      workspace: [workspaceHealthContext],
     },
     config,
   });

@@ -141,6 +141,10 @@ describe("JSON-mode channel contract (--json)", () => {
             2,
           ),
         );
+        fs.rmSync(path.join(temp.path, ".claude", "skills", "axm"), {
+          recursive: true,
+          force: true,
+        });
 
         const result = await runCli(["sync", "--non-interactive", "--json"], {
           cwd: temp.path,
@@ -149,10 +153,11 @@ describe("JSON-mode channel contract (--json)", () => {
 
         expect(isRecord(stdoutDocument)).toBe(true);
         if (!isRecord(stdoutDocument)) return;
-        expect(stdoutDocument["ok"]).toBe(true);
+        expect(stdoutDocument["ok"]).toBe(false);
         const plan = stdoutDocument["result"];
         expect(isRecord(plan)).toBe(true);
         if (!isRecord(plan)) return;
+        expect(plan["outcome"]).toBe("partial");
         expect(plan["failedCount"]).toBe(1);
         expect(Number(plan["appliedCount"])).toBeGreaterThan(0);
       } finally {

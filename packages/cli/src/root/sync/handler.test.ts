@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
@@ -70,6 +71,21 @@ const writeCommandExtension = (baseDir: string, name: string) => {
   fs.writeFileSync(
     path.join(commandDir, "src", `${name}.md`),
     `---\nname: ${name}\ndescription: Test command\n---\n\n# ${name}\n`,
+  );
+};
+
+const writeSkillExtension = (baseDir: string, name: string) => {
+  const skillDir = path.join(baseDir, ".axm", "extensions", "@acme", "skills", name);
+  writeJson(path.join(skillDir, "skill.json"), {
+    owner: "@acme",
+    type: "skill",
+    name,
+    version: "1.0.0",
+  });
+  fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(skillDir, "src", "SKILL.md"),
+    `---\nname: ${name}\ndescription: Test skill\n---\n\n# ${name}\n`,
   );
 };
 
@@ -520,7 +536,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("renders settings-owned on-disk extensions while ignoring stale lockfile sources", () =>
+  it.effect("refuses an unattended source-authority change from stale lock state", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = path.join(tempDir, ".axm");
@@ -559,19 +575,16 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ dryRun: false, force: false }));
 
-      const renderedSkill = path.join(tempDir, ".claude", "skills", "review", "SKILL.md");
-      const universalSkill = path.join(tempDir, ".agents", "skills", "review", "SKILL.md");
-      expect(fs.existsSync(renderedSkill)).toBe(true);
-      expect(fs.readFileSync(renderedSkill, "utf-8")).toContain("# Review");
-      expect(fs.existsSync(universalSkill)).toBe(true);
-      expect(fs.readFileSync(universalSkill, "utf-8")).toContain("# Review");
-
-      rendererState.results.length = 0;
-      yield* provide(handleSync({ dryRun: false, force: false }));
-      expectNoOpPlanResult(rendererState.results[0]?.data, {
-        planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
-      });
+      const payload = expectRecord(rendererState.results[0]?.data);
+      const result = expectRecord(property(payload, "result"));
+      expect(property(result, "outcome")).toBe("failed");
+      expect(property(result, "failedCount")).toBe(1);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review", "SKILL.md"))).toBe(
+        false,
+      );
+      expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "review", "SKILL.md"))).toBe(
+        false,
+      );
     }),
   );
 
@@ -619,6 +632,80 @@ describe("root sync handler", () => {
       const renderedCommand = path.join(tempDir, ".claude", "commands", "review.md");
       expect(fs.existsSync(renderedCommand)).toBe(true);
       expect(fs.readFileSync(renderedCommand, "utf-8")).toContain("# review");
+    }),
+  );
+
+  it.effect("syncs only the requested extension FQN", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        skills: {
+          review: "workspace:@acme/skills/review",
+        },
+        commands: {
+          release: "workspace:@acme/commands/release",
+        },
+      });
+      writeSkillExtension(tempDir, "review");
+      writeCommandExtension(tempDir, "release");
+
+      yield* provide(
+        handleSync({
+          target: Option.some("@acme/commands/release"),
+          dryRun: false,
+          force: false,
+        }),
+      );
+
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync @acme/commands/release",
+        totalSteps: 1,
+      });
+      const steps = planResultSteps(result);
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
+        status: "applied",
+      });
+      expect(property(expectRecord(steps[0]), "label")).toContain(
+        "previous source=none; proposed source=workspace:@acme/commands/release",
+      );
+      expect(property(expectRecord(steps[0]), "label")).toContain(
+        "previous version=none; proposed version=1.0.0",
+      );
+      expect(property(expectRecord(steps[0]), "label")).toContain("downgrade=no");
+      expect(fs.existsSync(path.join(tempDir, ".claude", "commands", "release.md"))).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(false);
+    }),
+  );
+
+  it.effect("syncs only extensions of the requested type", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        skills: {
+          review: "workspace:@acme/skills/review",
+        },
+        commands: {
+          release: "workspace:@acme/commands/release",
+        },
+      });
+      writeSkillExtension(tempDir, "review");
+      writeCommandExtension(tempDir, "release");
+
+      yield* provide(
+        handleSync({
+          type: Option.some("skill"),
+          dryRun: false,
+          force: false,
+        }),
+      );
+
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review", "SKILL.md"))).toBe(
+        true,
+      );
+      expect(fs.existsSync(path.join(tempDir, ".claude", "commands", "release.md"))).toBe(false);
     }),
   );
 

@@ -17,6 +17,7 @@ export {
 
 // Extension ref types
 export type { RegistryPackRef, WorkspacePackRef, PackRef } from "./refs.js";
+export { packTrustManifest } from "./trust-manifest.js";
 
 // Manager
 export { PackManager, PackManagerLive } from "./manager.js";

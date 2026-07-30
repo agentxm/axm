@@ -73,8 +73,24 @@ export const JsonSuccessEnvelopeSchema = Schema.StructWithRest(
 });
 export type JsonSuccessEnvelope = typeof JsonSuccessEnvelopeSchema.Type;
 
+export const JsonOperationFailureEnvelopeSchema = Schema.StructWithRest(
+  Schema.Struct({
+    ok: Schema.Literal(false),
+    summary: Schema.optional(Schema.String),
+    suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)],
+).annotate({
+  identifier: "JsonOperationFailureEnvelope",
+  title: "JSON Operation Failure Envelope",
+  description:
+    "Structured result for an operation that completed its plan but reported failed or partial work.",
+});
+export type JsonOperationFailureEnvelope = typeof JsonOperationFailureEnvelopeSchema.Type;
+
 export const JsonEnvelopeSchema = Schema.Union([
   JsonSuccessEnvelopeSchema,
+  JsonOperationFailureEnvelopeSchema,
   JsonErrorEnvelopeSchema,
 ]).annotate({
   identifier: "JsonEnvelope",
@@ -103,10 +119,11 @@ const ensureNoReservedPayloadKeys = (payload: Record<string, unknown>): void => 
 
 export const makeJsonSuccessEnvelope = (args?: {
   readonly payload?: unknown;
+  readonly ok?: boolean;
   readonly summary?: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
-}): JsonSuccessEnvelope => ({
-  ok: true,
+}): JsonSuccessEnvelope | JsonOperationFailureEnvelope => ({
+  ok: args?.ok === false ? false : true,
   ...(() => {
     const payload = ensurePayloadObject(args?.payload);
     ensureNoReservedPayloadKeys(payload);

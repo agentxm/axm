@@ -23,7 +23,7 @@ import { newPack, PackManager } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
-import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
@@ -38,7 +38,6 @@ export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<Handle>;
   readonly yes: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
 }
 
@@ -104,6 +103,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   const step = buildNewExtensionStep(manager, {
     ref,
+    target: { type: "pack", owner, name: args.name },
     versionRange: Option.none(),
     label: fqn,
     message: `Created pack ${fqn}`,
@@ -169,18 +169,16 @@ const newConfig = {
     Flag.optional,
   ),
   yes: yesFlag.pipe(Flag.withDescription("Create the pack without confirmation")),
-  force: forceFlag.pipe(Flag.withDescription("Overwrite if a pack with this name already exists")),
   preview: previewFlag.pipe(
     Flag.withDescription("Show what files would be created without creating them"),
   ),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, force, preview }) =>
+export const newCommand = Command.make("new", newConfig, ({ name, owner, yes, preview }) =>
   handlePacksNew({
     name: decodeExtensionNameSync(name),
     owner: Option.map(owner, (s) => normalizeHandle(s.startsWith("@") ? s : `@${s}`)),
     yes,
-    force,
     preview,
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withAuthRuntime("packs new")),
 ).pipe(

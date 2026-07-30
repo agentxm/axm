@@ -11,6 +11,46 @@ interface ValidateDesiredPackTrustArgs {
   readonly trust: WorkspaceTrustState;
 }
 
+const normalizedPackIdentity = (identity: string): string =>
+  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+
+const isPackProblem = (
+  problem: DesiredStateProblem,
+): problem is Extract<DesiredStateProblem, { readonly pack: string }> =>
+  problem.type.startsWith("pack-");
+
+const withoutUntrustedPackOrigins = (
+  graph: DesiredStateGraph,
+  invalidPacks: ReadonlySet<string>,
+): DesiredStateGraph["nodes"] =>
+  graph.nodes.flatMap((node) => {
+    if (node.type === "pack") return [node];
+    const origins = node.origins.filter(
+      (origin) => origin.type !== "pack" || !invalidPacks.has(normalizedPackIdentity(origin.pack)),
+    );
+    if (origins.length === 0) return [];
+    const settingsOrigin = origins.find((origin) => origin.type === "settings");
+    const packOrigin = origins.find((origin) => origin.type === "pack");
+    const constraints = origins.flatMap((origin) =>
+      origin.constraint === undefined ? [] : [origin.constraint],
+    );
+    return [
+      {
+        ...node,
+        source:
+          settingsOrigin?.source ??
+          (packOrigin === undefined
+            ? node.source
+            : `${packOrigin.source}@${packOrigin.constraint}`),
+        enabled: origins.some(
+          (origin) => origin.type === "pack" || (origin.type === "settings" && origin.enabled),
+        ),
+        constraints,
+        origins,
+      },
+    ];
+  });
+
 /**
  * Prevent configured pack manifests from contributing desired leaf nodes until
  * their source identity and canonical content match an authoritative trust
@@ -28,6 +68,11 @@ export const validateDesiredPackTrust = ({
 > =>
   Effect.gen(function* () {
     const problems: DesiredStateProblem[] = [];
+    const invalidPacks = new Set(
+      graph.problems.flatMap((problem) =>
+        isPackProblem(problem) ? [normalizedPackIdentity(problem.pack)] : [],
+      ),
+    );
     for (const node of graph.nodes) {
       if (node.type !== "pack") continue;
       const record = trust.records[trustRecordKey("pack", node.name)];
@@ -41,6 +86,7 @@ export const validateDesiredPackTrust = ({
           pack: node.identity,
           detail: "The configured pack has no matching source and content-identity trust baseline.",
         });
+        invalidPacks.add(normalizedPackIdentity(node.identity));
         continue;
       }
 
@@ -56,12 +102,14 @@ export const validateDesiredPackTrust = ({
           ...(observation.path === undefined ? {} : { path: observation.path }),
           status: observation.status,
         });
+        invalidPacks.add(normalizedPackIdentity(node.identity));
       }
     }
 
     return {
       ...graph,
       complete: graph.complete && problems.length === 0,
+      nodes: withoutUntrustedPackOrigins(graph, invalidPacks),
       problems: [...graph.problems, ...problems],
     };
   });

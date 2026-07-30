@@ -286,7 +286,7 @@ describe("subagents disable.handler", () => {
 
         const entry = subagents["pack-subagent"] as { source: string; enabled: boolean };
         expect(entry.enabled).toBe(false);
-        expect(entry.source).toBe("@acme/subagents/pack-subagent@>=1.0.0 <2.0.0-0");
+        expect(entry.source).toBe("@acme/subagents/pack-subagent@^1.0.0");
       }),
     );
   });

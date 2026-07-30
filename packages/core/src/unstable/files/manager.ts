@@ -499,8 +499,10 @@ export const FilesManagerLive = Layer.effect(
 
     return {
       type: "files",
-      validateTrustTransition: ({ ref }) =>
-        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: ({ target }: { readonly target: FilesExtensionTarget }) =>
         isObservedInstalled(ws, "files", target.name).pipe(
           Effect.withSpan("FilesManager.isInstalled"),

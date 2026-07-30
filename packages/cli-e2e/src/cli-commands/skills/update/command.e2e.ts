@@ -15,7 +15,7 @@ const setupWorkspaceWithoutBundledSkill = async (cwd: string): Promise<void> => 
   const setup = await runCli(["setup", "--yes", "--non-interactive"], { cwd });
   expect(setup.exitCode).toBe(0);
 
-  const uninstall = await runCli(["skills", "uninstall", "axm", "--yes"], { cwd });
+  const uninstall = await runCli(["skills", "uninstall", "axm", "--yes", "--keep-source"], { cwd });
   expect(uninstall.exitCode).toBe(0);
 };
 

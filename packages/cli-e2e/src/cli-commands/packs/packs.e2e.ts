@@ -288,6 +288,96 @@ describe("axm packs add/remove", () => {
       temp.cleanup();
     }
   });
+
+  it("records workspace and Registry dependencies in one pack receipt", async () => {
+    const { temp, registryDir, settingsPath, readLock, cleanup } = setupWorkspaceWithRegistry();
+    try {
+      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+      await publishRegistrySkill(registryDir.path, "registry-member");
+      const registrySkill = await runCli(
+        ["skills", "install", "@test/skills/registry-member", "--yes"],
+        { cwd: temp.path },
+      );
+      expect(registrySkill.exitCode, registrySkill.stderr).toBe(0);
+
+      const workspaceSkill = await runCli(
+        [
+          "skills",
+          "new",
+          "workspace-member",
+          "--owner",
+          "@test",
+          "--agent",
+          "claude-code",
+          "--yes",
+        ],
+        { cwd: temp.path },
+      );
+      expect(workspaceSkill.exitCode, workspaceSkill.stderr).toBe(0);
+      const pack = await runCli(["packs", "new", "mixed-pack", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(pack.exitCode, pack.stderr).toBe(0);
+
+      const addWorkspace = await runCli(
+        ["packs", "add", "mixed-pack", "@test/skills/workspace-member", "--yes"],
+        {
+          cwd: temp.path,
+          env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
+        },
+      );
+      expect(addWorkspace.exitCode, addWorkspace.stderr).toBe(0);
+
+      const addRegistry = await runCli(
+        ["packs", "add", "mixed-pack", "@test/skills/registry-member", "--yes"],
+        { cwd: temp.path },
+      );
+      expect(addRegistry.exitCode, addRegistry.stderr).toBe(0);
+
+      const receipt = readLock().packs["mixed-pack"].resolvedSkills;
+      expect(receipt["@test/skills/workspace-member"]).toMatchObject({
+        source: "workspace",
+        version: "0.0.1",
+        sourceIdentity: "workspace:@test/skills/workspace-member",
+      });
+      expect(receipt["@test/skills/workspace-member"].contentIdentity).toMatch(/^[a-f0-9]{64}$/);
+      expect(receipt["@test/skills/registry-member"]).toMatchObject({
+        source: "registry",
+        version: "0.0.1",
+        publisherBindingId: expect.stringMatching(/^hbnd_/),
+        integrity: expect.stringMatching(/^sha512-/),
+      });
+
+      const unrelated = await runCli(["packs", "new", "drifted-pack", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(unrelated.exitCode, unrelated.stderr).toBe(0);
+      const driftedManifestPath = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "packs",
+        "drifted-pack",
+        "pack.json",
+      );
+      const driftedManifest = JSON.parse(fs.readFileSync(driftedManifestPath, "utf-8"));
+      driftedManifest.description = "Changed outside AXM";
+      fs.writeFileSync(driftedManifestPath, JSON.stringify(driftedManifest, null, 2));
+
+      const show = await runCli(["packs", "show", "mixed-pack", "--json"], {
+        cwd: temp.path,
+      });
+      expect(show.exitCode, show.stderr).toBe(0);
+      const shown = JSON.parse(show.stdout);
+      expect(shown.pack).toBe("@test/packs/mixed-pack");
+      expect(shown.desiredDependencies).toHaveLength(2);
+      expect(shown.resolvedDependencies).toHaveLength(2);
+    } finally {
+      cleanup();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -683,8 +773,10 @@ describe("axm packs install", () => {
       const packEntry = lock.packs["subagent-pack"];
       expect(packEntry.resolvedSubagents).toEqual({
         "@test/subagents/dep-subagent": {
+          source: "registry",
           version: "1.0.0",
           publisherBindingId: expect.stringMatching(/^hbnd_/),
+          integrity: expect.stringMatching(/^sha512-/),
         },
       });
       expect(lock.subagents["dep-subagent"]).toBeDefined();

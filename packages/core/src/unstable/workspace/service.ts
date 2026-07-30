@@ -27,6 +27,8 @@ import {
   LOCKFILE_NAME,
   LOCKFILE_VERSION,
   commitLockfileSnapshotUpdate,
+  type ResolvedExtension,
+  type ResolvedExtensionMap,
   type FilesLockMap,
   type HooksLockMap,
   type KnowledgeLockMap,
@@ -45,9 +47,12 @@ import {
   ConfigurableAgentIdSchema,
   decodeExtensionNameSync,
   formatFqn,
+  parseExtensionFqnParts,
   parseRegistrySourcePatternParts,
   type SourceHash,
+  SourceHashSchema,
 } from "../extensions/index.js";
+import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { type AppError, BC, makeAppError } from "../app-error/index.js";
 import {
   type CommandEntry,
@@ -85,6 +90,7 @@ import {
   trustRecordKey,
   trustStateFromLockfile,
   writeWorkspaceTrustState,
+  type PackTrustManifest,
   type WorkspaceTrustState,
 } from "../trust/index.js";
 
@@ -93,6 +99,7 @@ import { getAxmDir } from "./paths.js";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as semver from "semver";
 import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 import {
   makeWorkspaceReadModel,
@@ -543,6 +550,106 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         cachedSources = merged;
         return merged;
       }).pipe(Effect.withSpan("WorkspaceMutations.getConfiguredSources"));
+
+    const resolvePackReceipt = (
+      manifest: PackTrustManifest,
+      trust: WorkspaceTrustState,
+    ): Effect.Effect<
+      {
+        readonly resolvedSkills: ResolvedExtensionMap;
+        readonly resolvedCommands: ResolvedExtensionMap;
+        readonly resolvedMcpServers: ResolvedExtensionMap;
+        readonly resolvedSubagents: ResolvedExtensionMap;
+        readonly resolvedFiles: ResolvedExtensionMap;
+        readonly resolvedRules: ResolvedExtensionMap;
+        readonly resolvedHooks: ResolvedExtensionMap;
+        readonly resolvedKnowledge: ResolvedExtensionMap;
+      },
+      AppError
+    > =>
+      Effect.gen(function* () {
+        const groups: Record<
+          Exclude<InstallableExtensionType, "pack">,
+          Record<string, ResolvedExtension>
+        > = {
+          skill: {},
+          command: {},
+          "mcp-server": {},
+          subagent: {},
+          files: {},
+          rule: {},
+          hook: {},
+          knowledge: {},
+        };
+        for (const [fqn, constraint] of Object.entries(manifest.dependencies)) {
+          const parsed = parseExtensionFqnParts(fqn);
+          if (parsed === undefined || parsed.type === "pack") {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Invalid pack dependency identity: ${fqn}`,
+            });
+          }
+          const record = trust.records[trustRecordKey(parsed.type, parsed.name)];
+          if (
+            record === undefined ||
+            record.resolvedVersion === undefined ||
+            !semver.satisfies(record.resolvedVersion, constraint)
+          ) {
+            return yield* makeAppError({
+              code: "conflict",
+              detail: `Pack dependency ${fqn} requires ${constraint}, but trusted workspace state has ${record?.resolvedVersion ?? "no resolved version"}.`,
+            });
+          }
+          const version = decodeVersionSync(record.resolvedVersion);
+          if (record.authority === "workspace" && record.contentIdentity !== undefined) {
+            const contentIdentity = yield* Schema.decodeUnknownEffect(SourceHashSchema)(
+              record.contentIdentity,
+            ).pipe(
+              Effect.mapError((cause) =>
+                makeAppError({
+                  code: "validation",
+                  detail: `Trusted content identity for ${fqn} is invalid`,
+                  cause,
+                }),
+              ),
+            );
+            groups[parsed.type][fqn] = {
+              source: "workspace",
+              version,
+              sourceIdentity: record.sourceIdentity,
+              contentIdentity,
+            };
+            continue;
+          }
+          if (
+            record.authority === "registry" &&
+            record.publisherBindingId !== undefined &&
+            record.integrity !== undefined
+          ) {
+            groups[parsed.type][fqn] = {
+              source: "registry",
+              version,
+              publisherBindingId: record.publisherBindingId,
+              integrity: record.integrity,
+            };
+            continue;
+          }
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Pack dependency ${fqn} has unsupported trusted authority ${record.authority}.`,
+          });
+        }
+        return {
+          resolvedSkills: groups.skill,
+          resolvedCommands: groups.command,
+          resolvedMcpServers: groups["mcp-server"],
+          resolvedSubagents: groups.subagent,
+          resolvedFiles: groups.files,
+          resolvedRules: groups.rule,
+          resolvedHooks: groups.hook,
+          resolvedKnowledge: groups.knowledge,
+        };
+      });
 
     return {
       scope: options.scope,
@@ -1658,7 +1765,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setPack")),
 
-      refreshPackContentIdentity: (name: string, contentIdentity: SourceHash) =>
+      refreshPackContentIdentity: (
+        name: string,
+        contentIdentity: SourceHash,
+        manifest?: PackTrustManifest,
+      ) =>
         withMutex(
           Effect.gen(function* () {
             const trust = yield* readAuthoritativeTrustState();
@@ -1671,16 +1782,66 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 recover: "Only workspace-authored packs can be edited in place.",
               });
             }
-            yield* writeWorkspaceTrustState(workspaceDir, {
+            const nextTrust = {
               ...trust,
               records: {
                 ...trust.records,
-                [key]: { ...record, contentIdentity },
+                [key]: {
+                  ...record,
+                  contentIdentity,
+                  ...(manifest === undefined ? {} : { packManifest: manifest }),
+                },
               },
-            }).pipe(
+            };
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentPack = currentLockfile.packs?.[name];
+            const receipt =
+              manifest === undefined ? undefined : yield* resolvePackReceipt(manifest, trust);
+            if (
+              manifest !== undefined &&
+              (currentPack === undefined || currentPack.type !== "workspace")
+            ) {
+              return yield* makeAppError({
+                code: "conflict",
+                detail: `Workspace pack "${name}" has no matching workspace receipt`,
+              });
+            }
+            const updatedLockfile =
+              manifest === undefined || receipt === undefined || currentPack === undefined
+                ? currentLockfile
+                : {
+                    ...currentLockfile,
+                    packs: {
+                      ...currentLockfile.packs,
+                      [name]: {
+                        ...currentPack,
+                        version: decodeVersionSync(manifest.version),
+                        sourceHash: contentIdentity,
+                        ...receipt,
+                      },
+                    },
+                  };
+            yield* writeWorkspaceTrustState(workspaceDir, nextTrust).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
             );
+            if (updatedLockfile !== currentLockfile) {
+              yield* commitLockfileSnapshotUpdate(
+                workspaceDir,
+                currentLockfile,
+                updatedLockfile,
+              ).pipe(
+                Effect.provide(fsLayer),
+                Effect.catch((error) =>
+                  writeWorkspaceTrustState(workspaceDir, trust).pipe(
+                    Effect.provideService(FileSystem.FileSystem, fs),
+                    Effect.provideService(Path.Path, path),
+                    Effect.catch(() => Effect.void),
+                    Effect.andThen(Effect.fail(error)),
+                  ),
+                ),
+              );
+            }
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.refreshPackContentIdentity")),
 

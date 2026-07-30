@@ -11,7 +11,10 @@ AXM keeps four kinds of state separate:
 - **Receipt** — `.axm/axm-lock.yaml` records successful resolution and
   materialization history.
 
-`axm sync` reconciles desired and observed state using the trust baseline. It
+`axm sync` performs workspace-wide reconciliation of desired and observed state
+using the trust baseline. Use `axm sync <fqn>` for one root and required pack
+members, or `axm sync --type <type>` to limit reconciliation by extension type.
+Run `axm sync --dry-run` before a workspace-wide apply. Sync
 does not treat receipt rows as declarations or proof of installation. Missing,
 stale, or malformed receipt history does not create install, update, uninstall,
 prune, or repair work.
@@ -32,7 +35,9 @@ canonical package.
 - Edit desired intent through AXM commands or `.axm/settings.json`.
 - Do not hand-edit `.axm/trust.json` or `.axm/axm-lock.yaml`.
 - Check `.axm/` into source control.
-- Use `axm sync --preview --json` to inspect the same plan apply would run.
+- Use `axm sync --dry-run --json` to inspect the same plan apply would run.
+- Use `axm status` to inspect deterministic local blockers.
+- Use `axm packs repair <name-or-fqn> --preview` for authored-pack trust drift.
 - Use `axm lint` for read-only diagnostics and `axm lint --fix` to reconcile.
 
 If a v3 workspace has no `trust.json`, AXM migrates available security fields

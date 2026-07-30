@@ -109,9 +109,17 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             detail: "Cannot uninstall packs while the desired pack graph is incomplete",
           });
         }
-        const isGlob = args.name.includes("*");
+        const requested = parseExtensionFqnParts(args.name);
+        if (requested !== undefined && requested.type !== "pack") {
+          return yield* makeAppError({
+            code: "validation",
+            detail: `Expected a pack identity, received ${args.name}`,
+          });
+        }
+        const requestedName = requested?.name ?? args.name;
+        const isGlob = requestedName.includes("*");
         const packNames = expandGlob(
-          args.name,
+          requestedName,
           graph.nodes.filter((node) => node.type === "pack").map((node) => node.name),
         );
 
@@ -121,7 +129,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         }
 
         // For literal names not in lockfile, still build a target
-        const names = packNames.length > 0 ? packNames : [args.name];
+        const names = packNames.length > 0 ? packNames : [requestedName];
 
         return { packNames: names, isGlob, earlyExit: false };
       });

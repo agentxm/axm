@@ -12,6 +12,12 @@ Run `axm help pack-schema` to print the raw JSON Schema.
 
 Run `axm packs new <name>` to scaffold a managed pack. Use `axm packs add <pack> <extension>` and `axm packs remove <pack> <extension>` to edit dependencies when possible.
 
+Use `axm packs show <name-or-fqn>` to compare desired membership with the last
+successful resolution receipt. If an intentional edit causes trust drift, run
+`axm packs repair <name-or-fqn> --preview`, review the classified changes, and
+then use `--accept-current`. Repair works from workspace state and canonical
+content without Registry access. Never edit `.axm/trust.json` or the receipt.
+
 Run `axm packs publish <pack>` to release a new version. Install with `axm packs install @owner/packs/<name>`.
 
 ## Pack dependencies
@@ -20,12 +26,20 @@ Bundle extensions by defining the pack dependencies in `pack.json`. Each key use
 
 ```
 "dependencies": {
-  "@acme/skills/brick-building": "*",
+  "@acme/skills/brick-building": "^1.2.3",
   "@acme/subagents/brick-layer": "^1.0.0"
 }
 ```
 
-Use `"*"` to indicate the latest version (recommended) unless there is a specific reason to constrain it.
+`axm packs add` writes a caret range from the member's resolved version. This
+accepts compatible releases while preserving the version intent observed when
+the member was added. A manually authored `"*"` remains valid, but is not the
+generated default.
+
+Resolution prefers a matching configured and trusted workspace package. If
+that workspace version does not satisfy the constraint, AXM fails without
+falling back to the Registry. Registry resolution is used only when there is no
+matching configured workspace authority.
 
 Configured pack manifests expand desired state across skills, commands, MCP
 servers, subagents, context files, rules, hooks, and knowledge bundles. AXM
@@ -63,4 +77,5 @@ See the individual help topics for each extension type for more details.
 ## Where to go next
 
 - `axm packs --help` — full pack subcommand surface
+- `axm status` — local reconciliation blockers and recovery actions
 - `axm help workspace-state` — desired graph, trust, receipts, and retention

@@ -180,11 +180,26 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   // Step 3: Resolve versioned managed extensions of every non-pack type from
   // desired intent and authoritative trust. Receipt history is not consulted.
   const graph = yield* ws.getDesiredStateGraph();
-  if (!graph.complete) {
+  const packFqn = formatFqn({
+    owner: packOwner,
+    type: "pack",
+    name: decodeExtensionNameSync(args.pack),
+  });
+  const targetPackProblems = graph.problems.filter(
+    (problem) =>
+      "pack" in problem && (problem.pack === packFqn || problem.pack === `workspace:${packFqn}`),
+  );
+  if (targetPackProblems.length > 0) {
     return yield* makeAppError({
       code: "conflict",
-      detail: "Cannot add dependencies while the desired extension graph is incomplete.",
-      recover: "Repair or reinstall the configured packs, then retry.",
+      detail: `Cannot add dependencies while pack ${packFqn} is invalid.`,
+      recover: "Inspect the pack drift, then explicitly accept or restore the current content.",
+      suggestions: [
+        {
+          description: "Preview pack repair",
+          cmd: `axm packs repair ${packFqn} --preview`,
+        },
+      ],
     });
   }
   const installedNames = new Set(

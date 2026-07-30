@@ -15,6 +15,7 @@ import {
   type SpinnerHandle,
   type SpinnerOptions,
   type SuccessOptions,
+  type ResultOptions,
   type TableView,
   type TreePayload,
   type TaskLogConfig,
@@ -65,14 +66,18 @@ const emitSuggestions = (
     { concurrency: 1 },
   ).pipe(Effect.asVoid);
 
-const makeSuccessEnvelope = (data: unknown, options: SuccessOptions | undefined) => {
+const makeResultEnvelope = (data: unknown, options: ResultOptions | undefined) => {
   const summary = options?.summary;
   return makeJsonSuccessEnvelope({
     payload: data,
+    ...(options?.ok === undefined ? {} : { ok: options.ok }),
     ...(summary !== undefined ? { summary } : {}),
     suggestions: normalizeSuggestions(options?.suggestions, options),
   });
 };
+
+const makeSuccessEnvelope = (data: unknown, options: SuccessOptions | undefined) =>
+  makeResultEnvelope(data, options);
 
 // ---------------------------------------------------------------------------
 // Noop handles for machine mode
@@ -377,7 +382,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
               suggestions: _suggestions,
               summary: _summary,
               ...data
-            }) => makeSuccessEnvelope(data, payload),
+            }) => makeResultEnvelope(data, payload),
           ),
           Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
           Effect.as(true),
@@ -390,10 +395,10 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
-      options?: SuccessOptions,
+      options?: ResultOptions,
     ) =>
       encodeJson(data, schema).pipe(
-        Effect.map((encoded) => makeSuccessEnvelope(encoded, options)),
+        Effect.map((encoded) => makeResultEnvelope(encoded, options)),
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
         Effect.as(true),
       ),

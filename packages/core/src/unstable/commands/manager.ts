@@ -362,8 +362,10 @@ export const CommandManagerLive = Layer.effect(
 
     return {
       type: "command",
-      validateTrustTransition: ({ ref }) =>
-        ws.getTrustState().pipe(Effect.flatMap((state) => validateRefTrustTransition(state, ref))),
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: Effect.fn("CommandManager.isInstalled")(function* ({
         target,
       }: {

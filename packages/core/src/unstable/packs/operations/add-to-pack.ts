@@ -20,6 +20,7 @@ import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { trustRecordKey } from "../../trust/index.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
+import { packTrustManifest } from "../trust-manifest.js";
 import { packManifestArtifact } from "./artifact.js";
 import { hashContent } from "./hash-content.js";
 
@@ -71,7 +72,8 @@ export const addToPack: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const { packName, packOwner, additions, manifestHash } = op.args;
     const trust = yield* ws.getTrustState();
-    if (trust.records[trustRecordKey("pack", packName)]?.authority !== "workspace") {
+    const trustRecord = trust.records[trustRecordKey("pack", packName)];
+    if (trustRecord?.authority !== "workspace") {
       return yield* makeAppError({
         code: "conflict",
         detail: `Pack "${packName}" is not an authored workspace pack`,
@@ -88,7 +90,6 @@ export const addToPack: OperationHandler<
     // 2. Read current manifest
     const packDir = computePackPaths(path.join, base, packOwner, packName);
     const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
-
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -107,6 +108,20 @@ export const addToPack: OperationHandler<
         code: "conflict",
         detail: `Pack manifest is stale — it was modified since the plan was created`,
         suggestions: [{ description: "Re-run the command to create a fresh plan" }],
+      });
+    }
+    const trustedCurrentHash = yield* computePackageContentHash(packDir.canonicalPath);
+    if (trustRecord.contentIdentity !== trustedCurrentHash) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Pack "${packName}" differs from its trusted baseline`,
+        recover: "Inspect and resolve the pack drift before editing membership.",
+        suggestions: [
+          {
+            description: "Preview pack repair",
+            cmd: `axm packs repair ${packName} --preview`,
+          },
+        ],
       });
     }
 
@@ -147,19 +162,45 @@ export const addToPack: OperationHandler<
       version: manifest.version,
       dependencies,
     };
-
-    // 5. Write updated manifest
-    yield* fs.writeFileString(manifestPath, JSON.stringify(updatedManifest, null, 2) + "\n").pipe(
-      Effect.mapError((e) =>
+    const validatedUpdatedManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
+      updatedManifest,
+    ).pipe(
+      Effect.mapError((cause) =>
         makeAppError({
-          code: "internal",
-          detail: `Failed to write pack manifest: ${manifestPath}`,
-          cause: e,
+          code: "validation",
+          detail: `Updated pack manifest is invalid: ${manifestPath}`,
+          cause,
         }),
       ),
     );
-    const sourceHash = yield* computePackageContentHash(packDir.canonicalPath);
-    yield* ws.refreshPackContentIdentity(packName, sourceHash);
+
+    // 5. Write updated manifest
+    yield* Effect.gen(function* () {
+      yield* fs
+        .writeFileString(manifestPath, JSON.stringify(validatedUpdatedManifest, null, 2) + "\n")
+        .pipe(
+          Effect.mapError((e) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to write pack manifest: ${manifestPath}`,
+              cause: e,
+            }),
+          ),
+        );
+      const sourceHash = yield* computePackageContentHash(packDir.canonicalPath);
+      yield* ws.refreshPackContentIdentity(
+        packName,
+        sourceHash,
+        packTrustManifest(validatedUpdatedManifest),
+      );
+    }).pipe(
+      Effect.catch((error) =>
+        fs.writeFileString(manifestPath, manifestContent).pipe(
+          Effect.catch(() => Effect.void),
+          Effect.andThen(Effect.fail(error)),
+        ),
+      ),
+    );
 
     return {
       result: "success",

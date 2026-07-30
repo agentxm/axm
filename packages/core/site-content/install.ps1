@@ -139,7 +139,23 @@ try {
     if ($matchedHashes.Count -ne 1) {
         throw "SHA256SUMS must contain exactly one entry for $artifact."
     }
-    $actualHash = (Get-FileHash -LiteralPath $tempBinary -Algorithm SHA256).Hash.ToLowerInvariant()
+    # Hash via .NET directly: cmdlet auto-loading is unreliable in minimal
+    # environments (no PSModulePath/ProgramFiles), where Get-FileHash can fail
+    # to resolve even though the session is otherwise functional.
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $binaryStream = [IO.File]::OpenRead($tempBinary)
+        try {
+            $hashBytes = $sha256.ComputeHash($binaryStream)
+        }
+        finally {
+            $binaryStream.Dispose()
+        }
+    }
+    finally {
+        $sha256.Dispose()
+    }
+    $actualHash = ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
     if ($actualHash -ne $matchedHashes[0]) {
         throw "Checksum mismatch for $artifact; the existing AXM was not changed."
     }

@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { writeFileAtomic } from "../utils/index.js";
 import {
   TRUST_STATE_FILENAME,
   WorkspaceTrustStateSchema,
@@ -112,7 +113,6 @@ export const writeWorkspaceTrustState = (axmDir: string, state: WorkspaceTrustSt
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const trustPath = path.join(axmDir, TRUST_STATE_FILENAME);
-    const tempPath = `${trustPath}.${typeof process === "object" ? process.pid : "x"}.tmp`;
     yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -123,27 +123,18 @@ export const writeWorkspaceTrustState = (axmDir: string, state: WorkspaceTrustSt
       ),
     );
     const content = yield* encodeWorkspaceTrustState(state);
-    const current = yield* fs.readFileString(trustPath).pipe(Effect.option);
-    if (Option.isSome(current) && current.value === content) return;
-
-    yield* Effect.gen(function* () {
-      yield* fs.writeFileString(tempPath, content).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to write workspace trust state temp file at ${tempPath}`,
-            cause,
-          }),
-        ),
-      );
-      yield* fs.rename(tempPath, trustPath).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to atomically replace workspace trust state at ${trustPath}`,
-            cause,
-          }),
-        ),
-      );
-    }).pipe(Effect.ensuring(fs.remove(tempPath, { force: true }).pipe(Effect.ignore)));
+    yield* writeFileAtomic(fs, {
+      targetPath: trustPath,
+      content,
+      skipIfUnchanged: "ignore-read-errors",
+      mapError: (failure) =>
+        makeAppError({
+          code: "internal",
+          detail:
+            failure.step === "rename"
+              ? `Failed to atomically replace workspace trust state at ${trustPath}`
+              : `Failed to write workspace trust state temp file at ${failure.tempPath}`,
+          cause: failure.cause,
+        }),
+    });
   });

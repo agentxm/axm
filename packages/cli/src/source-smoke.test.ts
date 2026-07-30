@@ -58,6 +58,7 @@ describe("axm source smoke", () => {
     for (const flag of [
       "--help",
       "--version",
+      "--wizard",
       "--non-interactive",
       "--verbose",
       "--debug",

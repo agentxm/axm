@@ -166,6 +166,11 @@ export const materializeCapabilityTargetedBuild = (args: {
       // slot, so a mid-build failure never leaves a partial build that later
       // reads as complete (poisoned cache), and concurrent builders never
       // observe an incomplete buildPath. The temp is removed on any failure.
+      //
+      // Deliberately not `writeFileAtomic` (utils/atomic-write.ts): that helper
+      // replaces a single file, while this publishes a whole rendered directory
+      // and must treat losing the rename race to a concurrent builder of the
+      // same content-addressed slot as a benign win.
       const tempPath = `${buildPath}.${process.pid}.tmp`;
       yield* Effect.gen(function* () {
         yield* fs.remove(tempPath, { recursive: true }).pipe(Effect.ignore);

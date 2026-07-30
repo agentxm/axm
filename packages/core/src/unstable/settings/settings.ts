@@ -10,6 +10,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
+import { writeFileAtomic } from "../utils/index.js";
 import {
   SETTINGS_KEY_ORDER,
   SETTINGS_KNOWN_KEYS,
@@ -146,25 +147,17 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     // Write to a temp file then atomically rename into place, so an interrupted
     // write can never truncate or corrupt the user's existing settings file.
     // The temp file is removed on any failure or interruption.
-    const tempPath = `${settingsPath}.${process.pid}.tmp`;
-    yield* Effect.gen(function* () {
-      yield* fs.writeFileString(tempPath, content).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to write settings temp file: ${tempPath}`,
-            cause: error,
-          }),
-        ),
-      );
-      yield* fs.rename(tempPath, settingsPath).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to atomically replace settings file: ${settingsPath}`,
-            cause: error,
-          }),
-        ),
-      );
-    }).pipe(Effect.ensuring(fs.remove(tempPath).pipe(Effect.ignore)));
+    yield* writeFileAtomic(fs, {
+      targetPath: settingsPath,
+      content,
+      mapError: (failure) =>
+        makeAppError({
+          code: "internal",
+          detail:
+            failure.step === "rename"
+              ? `Failed to atomically replace settings file: ${settingsPath}`
+              : `Failed to write settings temp file: ${failure.tempPath}`,
+          cause: failure.cause,
+        }),
+    });
   });

@@ -8,6 +8,20 @@ import type { VersionEntry } from "./schema.js";
 export const DEFAULT_MINIMUM_RELEASE_AGE = "24h";
 export const DEFAULT_MINIMUM_RELEASE_AGE_DURATION = Duration.hours(24);
 
+/**
+ * Documented exception: hand-rolled parser for the compact duration grammar
+ * (`24h`, `30d`, `500ms`).
+ *
+ * Effect v4 has no `Duration.decode`; the closest constructors are
+ * `Duration.fromInput` / `Duration.fromInputUnsafe`, and the `Duration.Input`
+ * string form only accepts space-separated long-unit strings ("30 days"), so
+ * the compact grammar is not expressible upstream. `durationPattern` and
+ * `parseMinimumReleaseAge` therefore stay as a thin syntax adapter over the
+ * `Duration` constructors (`Duration.millis` / `seconds` / `minutes` /
+ * `hours` / `days`).
+ *
+ * Removal condition: upstream `Duration` accepting the compact unit grammar.
+ */
 const durationPattern = /^(\d+)(ms|s|m|h|d)$/;
 
 export const parseMinimumReleaseAge = (value: string): Option.Option<Duration.Duration> => {
@@ -35,6 +49,9 @@ export const parseMinimumReleaseAge = (value: string): Option.Option<Duration.Du
       return Option.some(Duration.days(amount));
   }
 
+  // Unreachable at runtime, but `unit` is typed `string` (a regex capture),
+  // so the switch is not statically exhaustive and the compiler (TS2366)
+  // requires this ending return.
   return Option.none();
 };
 

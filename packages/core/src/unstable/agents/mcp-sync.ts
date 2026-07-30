@@ -4,11 +4,15 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import * as ChildProcess from "effect/unstable/process/ChildProcess";
+import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import { parse, type ParseError } from "jsonc-parser";
 import {
   AGENTS_BY_ID,
@@ -167,55 +171,74 @@ const checkExecutableAvailable = (
 const unsupportedExecutableReason = (command: string): string =>
   `${command} CLI executable is unavailable on ${process.platform}; install ${command} and ensure it is on PATH`;
 
+const collectStreamText = <E>(stream: Stream.Stream<Uint8Array, E>): Effect.Effect<string, E> =>
+  Effect.gen(function* () {
+    const chunks = yield* Stream.runCollect(stream);
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const bytes = new Uint8Array(totalLength);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    return new TextDecoder("utf-8").decode(bytes);
+  });
+
 export const runCliInvocation = (
   invocation: CliInvocation,
-): Effect.Effect<CliInvocationResult, AppError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const { spawn } = await import("node:child_process");
-
-      return new Promise<CliInvocationResult>((resolve, reject) => {
-        const child = spawn(invocation.command, [...invocation.args], {
+): Effect.Effect<CliInvocationResult, AppError, ChildProcessSpawner.ChildProcessSpawner> =>
+  Effect.gen(function* () {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    return yield* Effect.gen(function* () {
+      const handle = yield* spawner.spawn(
+        ChildProcess.make(invocation.command, invocation.args, {
           cwd: invocation.cwd,
-          stdio: ["ignore", "pipe", "pipe"],
-        });
-
-        const timeout = setTimeout(() => {
-          child.kill("SIGTERM");
-          resolve({
+          stdin: "ignore",
+          // Scope close terminates the child with SIGTERM; escalate to
+          // SIGKILL so an unresponsive CLI cannot stall the timeout path.
+          forceKillAfter: Duration.seconds(2),
+        }),
+      );
+      const collected = yield* Effect.all(
+        {
+          stdout: collectStreamText(handle.stdout),
+          stderr: collectStreamText(handle.stderr),
+          exitCode: handle.exitCode.pipe(
+            Effect.map((code) => Number(code)),
+            // A signal-terminated child reports no exit code; preserve the
+            // previous `code ?? 1` convention instead of failing.
+            Effect.catch(() => Effect.succeed(1)),
+          ),
+        },
+        { concurrency: "unbounded" },
+      );
+      return {
+        exitCode: collected.exitCode,
+        stdout: redactSecrets(collected.stdout.trim()),
+        stderr: redactSecrets(collected.stderr.trim()),
+      };
+    }).pipe(
+      Effect.scoped,
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to execute MCP CLI command: ${invocation.command}`,
+          cause: error,
+        }),
+      ),
+      Effect.timeoutOrElse({
+        duration: Duration.millis(invocation.timeoutMs),
+        orElse: () =>
+          Effect.succeed({
             // 124 follows the Unix `timeout(1)` convention; not an `ExitCode`.
             exitCode: 124,
             stdout: "",
             stderr: `Command timed out after ${invocation.timeoutMs}ms`,
-          });
-        }, invocation.timeoutMs);
-
-        let stdout = "";
-        let stderr = "";
-        child.stdout.on("data", (chunk) => {
-          stdout += String(chunk);
-        });
-        child.stderr.on("data", (chunk) => {
-          stderr += String(chunk);
-        });
-
-        child.once("error", reject);
-        child.once("close", (code) => {
-          clearTimeout(timeout);
-          resolve({
-            exitCode: code ?? 1,
-            stdout: redactSecrets(stdout.trim()),
-            stderr: redactSecrets(stderr.trim()),
-          });
-        });
-      });
-    },
-    catch: (error) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to execute MCP CLI command: ${invocation.command}`,
-        cause: error,
+          }),
       }),
+    );
   });
 
 const decodeJsonConfig = (
@@ -728,7 +751,11 @@ const fallbackOutcome = (
 export const addMcpServerMixed = (
   strategy: MixedStrategyConfig,
   args: AddMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     const platformOutcome = ensurePlatformSupported(
       strategy.cliAdd[0] ?? "cli",
@@ -784,7 +811,11 @@ export const addMcpServerMixed = (
 export const removeMcpServerMixed = (
   strategy: MixedStrategyConfig,
   args: RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     const platformOutcome = ensurePlatformSupported(
       strategy.cliRemove[0] ?? "cli",
@@ -856,7 +887,11 @@ export interface ConfigFirstStrategy {
 const verifyConfigFirst = (
   strategy: ConfigFirstStrategy,
   args: AddMcpServerArgs | RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     if (strategy.verifyCommand === undefined || strategy.verifyCommand.length === 0) {
       return { _tag: "success" } as const;
@@ -897,7 +932,11 @@ const verifyConfigFirst = (
 export const addMcpServerConfigFirst = (
   strategy: ConfigFirstStrategy,
   args: AddMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     yield* upsertJsonConfigServer(
       strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
@@ -910,7 +949,11 @@ export const addMcpServerConfigFirst = (
 export const removeMcpServerConfigFirst = (
   strategy: ConfigFirstStrategy,
   args: RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     yield* removeJsonConfigServer(
       strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),

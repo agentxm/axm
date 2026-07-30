@@ -3025,6 +3025,128 @@
         "description": "Returns viewer-visible, available, non-yanked extensions using predictable textual relevance by default. Supports structured type, owner, package, license, lifecycle, visibility, and sort filters.",
         "summary": "Search extensions"
       }
+    },
+    "/v1/debug/stream": {
+      "get": {
+        "tags": ["Debug"],
+        "operationId": "Debug.debugStream",
+        "parameters": [
+          {
+            "name": "count",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                { "type": "string", "description": "Number of events to emit (0–100, default 3)." },
+                { "type": "null" }
+              ]
+            },
+            "required": false
+          },
+          {
+            "name": "failAfter",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Emit this many events, then terminate the stream with a typed DebugStreamInterrupted failure. Used to exercise client mid-stream failure decoding."
+                },
+                { "type": "null" }
+              ]
+            },
+            "required": false
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "event": { "type": "string" },
+                    "data": { "$ref": "#/components/schemas/DebugStreamEventJsonString" }
+                  },
+                  "required": ["id", "event", "data"],
+                  "additionalProperties": false
+                },
+                "x-effect-stream": {
+                  "encoding": "sse",
+                  "causeSchema": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "_tag": { "type": "string", "enum": ["Fail"] },
+                            "error": {
+                              "type": "object",
+                              "properties": {
+                                "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
+                                "after": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        { "type": "number" },
+                                        { "type": "string", "enum": ["NaN"] },
+                                        { "type": "string", "enum": ["Infinity"] },
+                                        { "type": "string", "enum": ["-Infinity"] }
+                                      ]
+                                    },
+                                    { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                                  ]
+                                }
+                              },
+                              "required": ["_tag", "after"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": ["_tag", "error"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "_tag": { "type": "string", "enum": ["Die"] },
+                            "defect": {}
+                          },
+                          "required": ["_tag", "defect"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "_tag": { "type": "string", "enum": ["Interrupt"] },
+                            "fiberId": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                          },
+                          "required": ["_tag", "fiberId"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "errorSchema": { "$ref": "#/components/schemas/DebugStreamInterrupted" },
+                  "failureEvent": "effect/httpapi/stream/failure"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
+              }
+            }
+          }
+        },
+        "description": "Experimental diagnostic endpoint. Emits a finite server-sent event stream of sequenced JSON events, optionally terminating with a typed mid-stream failure. Intended for client streaming conformance checks; not a stable product surface.",
+        "summary": "Diagnostic SSE stream"
+      }
     }
   },
   "components": {
@@ -4363,6 +4485,43 @@
         "additionalProperties": false,
         "title": "Search Response",
         "description": "A page of extensions matching the search query."
+      },
+      "DebugStreamEvent": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["NaN"] },
+              { "type": "string", "enum": ["Infinity"] },
+              { "type": "string", "enum": ["-Infinity"] }
+            ]
+          },
+          "message": { "type": "string" }
+        },
+        "required": ["sequence", "message"],
+        "additionalProperties": false
+      },
+      "DebugStreamEventJsonString": {
+        "type": "string",
+        "contentSchema": { "$ref": "#/components/schemas/DebugStreamEvent" },
+        "contentMediaType": "application/json"
+      },
+      "DebugStreamInterrupted": {
+        "type": "object",
+        "properties": {
+          "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
+          "after": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["NaN"] },
+              { "type": "string", "enum": ["Infinity"] },
+              { "type": "string", "enum": ["-Infinity"] }
+            ]
+          }
+        },
+        "required": ["_tag", "after"],
+        "additionalProperties": false
       }
     },
     "securitySchemes": { "bearer": { "type": "http", "scheme": "Bearer" } }
@@ -4377,7 +4536,8 @@
     { "name": "Libraries" },
     { "name": "Discovery" },
     { "name": "Health" },
-    { "name": "Search" }
+    { "name": "Search" },
+    { "name": "Debug" }
   ],
   "servers": [
     { "url": "http://localhost:4300", "description": "Local dev" },

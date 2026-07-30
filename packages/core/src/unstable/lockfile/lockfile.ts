@@ -10,7 +10,6 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Clock from "effect/Clock";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -25,6 +24,7 @@ import {
   trustStateFromLockfile,
   writeWorkspaceTrustState,
 } from "../trust/index.js";
+import { writeFileAtomic, type AtomicWriteFailure } from "../utils/index.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema, lockfileRestEntries } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -39,6 +39,9 @@ import { LOCKFILE_VERSION, type Lockfile, LockfileSchema, lockfileRestEntries } 
 export const LOCKFILE_NAME = "axm-lock.yaml";
 
 const LOCKFILE_LOCK_NAME = `${LOCKFILE_NAME}.lock`;
+// Matches temp files produced by `writeFileAtomic` for the lockfile target
+// (`<target>.tmp.<unique>`), so the stale-temp sweep stays in sync with the
+// shared helper's naming scheme.
 const TEMP_PREFIX = `${LOCKFILE_NAME}.tmp.`;
 const STALE_LOCK_TIMEOUT = Duration.seconds(30);
 const LOCK_RETRY_DELAY = "25 millis";
@@ -62,16 +65,6 @@ const lockfilePathFor = (path: Path.Path, axmDir: string): string =>
 
 const lockfileLockPathFor = (path: Path.Path, axmDir: string): string =>
   path.join(axmDir, LOCKFILE_LOCK_NAME);
-
-const makeTempPath = (path: Path.Path, axmDir: string): Effect.Effect<string> =>
-  Clock.currentTimeMillis.pipe(
-    Effect.map((nowMillis) =>
-      path.join(
-        axmDir,
-        `${TEMP_PREFIX}${nowMillis.toString(36)}.${Math.random().toString(36).slice(2, 8)}`,
-      ),
-    ),
-  );
 
 const inProcessSemaphoreFor = (key: string): Semaphore.Semaphore => {
   const existing = lockSemaphores.get(key);
@@ -364,62 +357,36 @@ const withLockfileLock = <A, E, R>(
     );
   });
 
+const lockfileWriteErrorDetail = (lockfilePath: string, failure: AtomicWriteFailure): string => {
+  switch (failure.step) {
+    case "check-target":
+      return `Failed to check lockfile at ${lockfilePath}`;
+    case "read-target":
+      return `Failed to read lockfile at ${lockfilePath}`;
+    case "write-temp":
+      return `Failed to write lockfile temp file at ${failure.tempPath}`;
+    case "rename":
+      return `Failed to atomically replace lockfile at ${lockfilePath}`;
+  }
+};
+
 const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const lockfilePath = lockfilePathFor(path, axmDir);
-    const tempPath = yield* makeTempPath(path, axmDir);
-
     const yamlContent = yield* encodeLockfileYaml(lockfile);
-    const exists = yield* fs.exists(lockfilePath).pipe(
-      Effect.mapError((error) =>
+    yield* writeFileAtomic(fs, {
+      targetPath: lockfilePath,
+      content: yamlContent,
+      skipIfUnchanged: "fail-on-read-error",
+      mapError: (failure) =>
         makeAppError({
           code: "internal",
-          detail: `Failed to check lockfile at ${lockfilePath}`,
-          cause: error,
+          detail: lockfileWriteErrorDetail(lockfilePath, failure),
+          cause: failure.cause,
         }),
-      ),
-    );
-    if (exists) {
-      const currentContent = yield* fs.readFileString(lockfilePath).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to read lockfile at ${lockfilePath}`,
-            cause: error,
-          }),
-        ),
-      );
-      if (currentContent === yamlContent) return;
-    }
-
-    yield* Effect.scoped(
-      Effect.gen(function* () {
-        yield* Effect.acquireRelease(
-          fs.writeFileString(tempPath, yamlContent).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to write lockfile temp file at ${tempPath}`,
-                cause: error,
-              }),
-            ),
-          ),
-          () => removeFileBestEffort(tempPath),
-        );
-
-        yield* fs.rename(tempPath, lockfilePath).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to atomically replace lockfile at ${lockfilePath}`,
-              cause: error,
-            }),
-          ),
-        );
-      }),
-    );
+    });
   });
 
 // -----------------------------------------------------------------------------

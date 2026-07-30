@@ -960,6 +960,11 @@ const handleScript = (
         }
 
         const targetDirectory = path.dirname(targetPath);
+        // Deliberately not `writeFileAtomic` (@agentxm/client-core utils): the
+        // upgrade transaction keeps the temp binary as a standalone artifact
+        // between write and rename so it can be chmod'ed, executed to verify
+        // the exact version, and swapped in only after a restorable backup
+        // exists. Collapsing write+rename into one step would weaken rollback.
         const tempPath = yield* fs.makeTempFile({
           directory: targetDirectory,
           prefix: ".axm-upgrade-",

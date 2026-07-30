@@ -5,7 +5,7 @@
  * `agent-mcp-config(agentId)` (origin: "agent") origin tags.
  */
 
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
@@ -47,7 +47,7 @@ const runScanner = (
     return { occurrences, warnings: yield* Ref.get(ref) };
   });
 
-describe("mcp-config scanner", () => {
+layer(Path.layer, { excludeTestServices: true })("mcp-config scanner", (it) => {
   it.effect("emits no occurrences when no .mcp.json exists at any surface", () =>
     Effect.gen(function* () {
       const { occurrences, warnings } = yield* runScanner({
@@ -57,7 +57,7 @@ describe("mcp-config scanner", () => {
       });
       expect(occurrences).toEqual([]);
       expect(warnings).toEqual([]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits one occurrence per server in workspace .mcp.json", () =>
@@ -90,7 +90,7 @@ describe("mcp-config scanner", () => {
         expect("agentId" in o).toBe(false);
         expect(o.contentLocation).toBe("/ws/.mcp.json");
       }
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits agent-mcp-config occurrences for per-agent mcp.json files", () =>
@@ -117,7 +117,7 @@ describe("mcp-config scanner", () => {
       expect(cursorMcp).toHaveLength(1);
       expect(cursorMcp[0]?.name).toBe("cursor-srv");
       expect(cursorMcp[0]?.contentLocation).toBe("/ws/.cursor/mcp.json");
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits a Claude agent occurrence for the universal project .mcp.json target", () =>
@@ -146,7 +146,7 @@ describe("mcp-config scanner", () => {
       expect(claudeMcp).toHaveLength(1);
       expect(claudeMcp[0]?.name).toBe("claude-srv");
       expect(claudeMcp[0]?.contentLocation).toBe("/ws/.mcp.json");
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("workspace and agent occurrences for the same server name are distinct entries", () =>
@@ -178,7 +178,7 @@ describe("mcp-config scanner", () => {
       expect(origins).toEqual(["agent", "workspace"]);
       // Distinct contentLocations.
       expect(new Set(shared.map((o) => o.contentLocation)).size).toBe(2);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect(
@@ -197,7 +197,7 @@ describe("mcp-config scanner", () => {
           (w) => w.code === "scanner-parse" && w.path === "/ws/.mcp.json",
         );
         expect(parseWarnings).toHaveLength(1);
-      }).pipe(Effect.provide(Path.layer)),
+      }),
   );
 
   it.effect("ignores configs without mcpServers field", () =>
@@ -210,6 +210,6 @@ describe("mcp-config scanner", () => {
         },
       });
       expect(occurrences).toEqual([]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 });

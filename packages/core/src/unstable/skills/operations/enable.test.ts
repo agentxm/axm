@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, layer } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -174,7 +174,7 @@ const makeRegistryLockEntry = (_agents: string[]): SkillLockEntry =>
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("enableSkill", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -211,9 +211,7 @@ describe("enableSkill", () => {
     it.effect("creates agent symlinks from existing canonical directory", () =>
       Effect.gen(function* () {
         const { axmDir, base, canonicalDir } = setupWorkspace();
-        const contentIdentity = yield* computeSkillSourceHash(canonicalDir).pipe(
-          Effect.provide(NodeServices.layer),
-        );
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir);
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -246,9 +244,7 @@ describe("enableSkill", () => {
         const { axmDir, base, canonicalDir } = setupWorkspace({
           agents: ["claude-code", "cursor"],
         });
-        const contentIdentity = yield* computeSkillSourceHash(canonicalDir).pipe(
-          Effect.provide(NodeServices.layer),
-        );
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir);
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -274,9 +270,7 @@ describe("enableSkill", () => {
     it.effect("leaves the shared lock entry unchanged", () =>
       Effect.gen(function* () {
         const { axmDir, canonicalDir } = setupWorkspace();
-        const contentIdentity = yield* computeSkillSourceHash(canonicalDir).pipe(
-          Effect.provide(NodeServices.layer),
-        );
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir);
         const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
 
         yield* enableSkill(makeOp()).pipe(
@@ -300,9 +294,7 @@ describe("enableSkill", () => {
     it.effect("calls updateSkillEntry to set enabled: true", () =>
       Effect.gen(function* () {
         const { axmDir, canonicalDir } = setupWorkspace();
-        const contentIdentity = yield* computeSkillSourceHash(canonicalDir).pipe(
-          Effect.provide(NodeServices.layer),
-        );
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir);
         const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
 
         yield* enableSkill(makeOp()).pipe(
@@ -374,9 +366,7 @@ describe("enableSkill", () => {
         const registrySrcDir = path.join(registryCanonical, "src");
         fs.mkdirSync(registrySrcDir, { recursive: true });
         fs.writeFileSync(path.join(registrySrcDir, "SKILL.md"), "# my-skill");
-        const contentIdentity = yield* computePackageContentHash(registryCanonical).pipe(
-          Effect.provide(NodeServices.layer),
-        );
+        const contentIdentity = yield* computePackageContentHash(registryCanonical);
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(

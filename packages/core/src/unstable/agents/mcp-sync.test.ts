@@ -69,7 +69,9 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
-  it.effect("returns timeout outcome for long-running command", () =>
+  // `it.live`: the invocation timeout runs on Effect's clock, which the
+  // TestClock provided by `it.effect` never advances.
+  it.live("returns timeout outcome for long-running command", () =>
     withNode(
       Effect.gen(function* () {
         const result = yield* runCliInvocation({

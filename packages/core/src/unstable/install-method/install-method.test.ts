@@ -9,7 +9,7 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as nodeFs from "node:fs";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
+import { describe, expect, afterEach, beforeEach, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -34,7 +34,7 @@ const baseInputs: InstallMethodInputs = {
 // Priority 1: Script install
 // -----------------------------------------------------------------------------
 
-describe("InstallMethod", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) => {
   describe("Priority 1: Script install", () => {
     it.effect("detects script install when execPath is in ~/.axm/bin/", () =>
       Effect.gen(function* () {
@@ -47,7 +47,7 @@ describe("InstallMethod", () => {
         if (result._tag === "Script") {
           expect(result.execPath).toBe("/Users/testuser/.axm/bin/bun");
         }
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("detects script install with nested path in ~/.axm/bin/", () =>
@@ -58,7 +58,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("detects script install on Windows with USERPROFILE dotfile layout", () =>
@@ -70,7 +70,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("returns unknown for legacy Windows AppData layout", () =>
@@ -82,7 +82,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("script takes priority over homebrew signals", () =>
@@ -95,7 +95,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
   });
 
@@ -118,7 +118,7 @@ describe("InstallMethod", () => {
         if (result._tag === "Homebrew") {
           expect(result.execPath).toBe("/opt/homebrew/Cellar/axm/1.0.0/bin/bun");
         }
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("homebrew takes priority over npm signals", () =>
@@ -130,7 +130,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Homebrew");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
   });
 
@@ -150,7 +150,7 @@ describe("InstallMethod", () => {
         if (result._tag === "Unknown") {
           expect(result.reason).toBe("ambiguous");
         }
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("detects npm, pnpm, and Yarn Classic from explicit manager evidence", () =>
@@ -174,7 +174,7 @@ describe("InstallMethod", () => {
         if (yarn._tag === "Yarn") expect(yarn.supported).toBe(true);
         expect(modernYarn._tag).toBe("Yarn");
         if (modernYarn._tag === "Yarn") expect(modernYarn.supported).toBe(false);
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("detects unambiguous pnpm and Yarn layouts", () =>
@@ -190,7 +190,7 @@ describe("InstallMethod", () => {
         });
         expect(pnpm._tag).toBe("Pnpm");
         expect(yarn._tag).toBe("Yarn");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
   });
 
@@ -223,7 +223,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("reads install-meta.json and returns homebrew method", () =>
@@ -239,7 +239,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Homebrew");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("reads install-meta.json and returns npm method", () =>
@@ -255,7 +255,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Npm");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("uses the executable path recorded by script metadata", () =>
@@ -283,7 +283,7 @@ describe("InstallMethod", () => {
           expect(result.execPath).toBe(installedExecutable);
           expect(result.managerOwnedExecutable).toBe(installedExecutable);
         }
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("reads pnpm and Yarn metadata", () =>
@@ -320,7 +320,7 @@ describe("InstallMethod", () => {
         });
         expect(yarn._tag).toBe("Yarn");
         if (yarn._tag === "Yarn") expect(yarn.supported).toBe(false);
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("treats path and metadata disagreement as conflicting", () =>
@@ -344,7 +344,7 @@ describe("InstallMethod", () => {
           expect(result.reason).toBe("conflicting");
           expect(result.detectionSource).toBe("conflicting");
         }
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("returns unknown for invalid JSON in install-meta.json", () =>
@@ -360,7 +360,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
 
     it.effect("returns unknown for install-meta.json with unknown method", () =>
@@ -376,7 +376,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
   });
 
@@ -394,7 +394,7 @@ describe("InstallMethod", () => {
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
     );
   });
 

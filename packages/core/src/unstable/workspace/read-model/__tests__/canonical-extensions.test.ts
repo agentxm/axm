@@ -9,7 +9,7 @@
  * modules map these into subject-specific origin unions.
  */
 
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
@@ -52,7 +52,7 @@ const sortByContent = (
 ): ReadonlyArray<CanonicalExtensionOccurrence> =>
   [...occurrences].sort((a, b) => a.contentLocation.localeCompare(b.contentLocation));
 
-describe("canonical-extensions scanner", () => {
+layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner", (it) => {
   it.effect("emits no occurrences when .axm/extensions is absent", () =>
     Effect.gen(function* () {
       const { occurrences, warnings } = yield* runScanner({
@@ -62,7 +62,7 @@ describe("canonical-extensions scanner", () => {
       });
       expect(occurrences).toEqual([]);
       expect(warnings).toEqual([]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits one canonical-axm occurrence per <owner>/<type>/<name>/src", () =>
@@ -100,7 +100,7 @@ describe("canonical-extensions scanner", () => {
         owner: "@owner",
         contentLocation: "/ws/.axm/extensions/@owner/skills/some-skill/src",
       });
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits one external-axm occurrence per external/<type>/<name>", () =>
@@ -122,7 +122,7 @@ describe("canonical-extensions scanner", () => {
         { type: "mcp-server", name: "external-mcp", owner: null },
         { type: "skill", name: "external-skill", owner: null },
       ]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits canonical and external occurrences for the same name as distinct entries", () =>
@@ -142,7 +142,7 @@ describe("canonical-extensions scanner", () => {
       expect(sorted.map((o) => o.origin).sort()).toEqual(["canonical-axm", "external-axm"]);
       // Distinct contentLocations → distinct entries.
       expect(new Set(sorted.map((o) => o.contentLocation)).size).toBe(2);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("ignores non-extension type segments under canonical owners", () =>
@@ -160,7 +160,7 @@ describe("canonical-extensions scanner", () => {
       });
       expect(occurrences).toHaveLength(1);
       expect(occurrences[0]?.type).toBe("skill");
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("covers every extension type under one owner", () =>
@@ -184,7 +184,7 @@ describe("canonical-extensions scanner", () => {
       expect(occurrences).toHaveLength(extensionTypes.length);
       const observedTypes = new Set(occurrences.map((o) => o.type));
       expect(observedTypes.size).toBe(extensionTypes.length);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("does not leak FileSystem | Path requirement to callers", () =>
@@ -214,7 +214,7 @@ describe("canonical-extensions scanner", () => {
         diagnostics: diag,
       });
       expect(occurrences).toHaveLength(1);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("scope is stamped onto every occurrence", () =>
@@ -238,7 +238,7 @@ describe("canonical-extensions scanner", () => {
       // Even though the file is at project, the scanner stamps whatever scope
       // its deps record specifies. Phase 9 picks the right scope per call.
       expect(occurrences.every((o) => o.scope === "user")).toBe(true);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 });
 

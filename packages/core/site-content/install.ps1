@@ -123,21 +123,24 @@ try {
         $ProgressPreference = $progress
     }
 
-    $matches = @()
+    # Note: do not name the accumulator $matches - PowerShell variable names
+    # are case-insensitive and the -match operator overwrites the automatic
+    # $Matches variable, turning the array into a hashtable mid-loop.
+    $matchedHashes = @()
     foreach ($line in (Get-Content -LiteralPath $tempManifest)) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
         if ($line -notmatch '^(?<hash>[0-9a-f]{64})  (?<name>[A-Za-z0-9._-]+)$') {
             throw 'SHA256SUMS contains a malformed entry.'
         }
         if ($Matches.name -eq $artifact) {
-            $matches += $Matches.hash
+            $matchedHashes += $Matches.hash
         }
     }
-    if ($matches.Count -ne 1) {
+    if ($matchedHashes.Count -ne 1) {
         throw "SHA256SUMS must contain exactly one entry for $artifact."
     }
     $actualHash = (Get-FileHash -LiteralPath $tempBinary -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actualHash -ne $matches[0]) {
+    if ($actualHash -ne $matchedHashes[0]) {
         throw "Checksum mismatch for $artifact; the existing AXM was not changed."
     }
 

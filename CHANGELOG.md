@@ -1,3 +1,18 @@
+## 0.24.2 (2026-07-30)
+
+### 🩹 Fixes
+
+- Compute the Windows installer's SHA-256 verification through .NET ([82e6ec48](https://github.com/agentxm/axm/commit/82e6ec48))
+  (`System.Security.Cryptography.SHA256`) instead of the `Get-FileHash`
+  cmdlet, which can fail to resolve in minimal PowerShell environments
+  without `PSModulePath`/`ProgramFiles`. Completes the checksum-verified
+  install path introduced alongside `SHA256SUMS` release assets.
+
+### ❤️ Thank You
+
+- Claude Fable 5
+- Craig Smitham
+
 ## 0.24.1 (2026-07-30)
 
 ### 🩹 Fixes

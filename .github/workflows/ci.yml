@@ -85,6 +85,38 @@ jobs:
       - name: Verify formatting
         run: pnpm run format:check
 
+  extension-lint:
+    name: AXM extension lint
+    needs: classify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
+      - name: Lint bundled AXM skill
+        run: |
+          { pnpm --silent axm:local lint --json --non-interactive 2>/dev/null || true; } |
+            jq -e '
+              [
+                .result.findings[]
+                | select(.severity == "error")
+                | select(
+                    ((.path // "") + " " + (.displayRoot // ""))
+                    | contains(".axm/extensions/@agentxm/skills/axm")
+                  )
+              ] as $errors
+              | if ($errors | length) == 0 then
+                  "Bundled AXM skill passed lint"
+                else
+                  $errors, error("Bundled AXM skill has lint errors")
+                end
+            '
+
   documentation:
     name: Documentation integrity
     needs: classify
@@ -316,6 +348,7 @@ jobs:
     needs:
       - classify
       - format
+      - extension-lint
       - documentation
       - workflow-validation
       - image

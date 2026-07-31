@@ -1,12 +1,25 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   releaseTagFromVersion,
   releaseVersionFromTag,
+  readSkillCliVersion,
+  stampSkillCliVersion,
   validateReleaseTag,
+  writeSkillVersion,
 } from "./release-shared.js";
+
+const temporaryDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 describe("release tag helpers", () => {
   it("validates release tags through the root target", () => {
@@ -100,5 +113,23 @@ describe("release tag helpers", () => {
     expect(validateReleaseTag(tag)).toBe(tag);
     expect(releaseVersionFromTag(tag)).toBe("1.2.3-beta.1+build.7");
     expect(releaseTagFromVersion("1.2.3-beta.1+build.7")).toBe(tag);
+  });
+});
+
+describe("bundled skill release stamps", () => {
+  it("updates the skill manifest and CLI version frontmatter", () => {
+    const directory = mkdtempSync(join(tmpdir(), "axm-release-skill-"));
+    temporaryDirectories.push(directory);
+    const manifestPath = join(directory, "skill.json");
+    const documentPath = join(directory, "SKILL.md");
+
+    writeFileSync(manifestPath, '{\n  "name": "axm",\n  "version": "0.2.8"\n}\n', "utf8");
+    writeFileSync(documentPath, '---\nname: axm\ncli-version: "0.2.8"\n---\n\n# AXM\n', "utf8");
+
+    writeSkillVersion("0.24.9", manifestPath);
+    stampSkillCliVersion("0.24.9", documentPath);
+
+    expect(readFileSync(manifestPath, "utf8")).toContain('"version": "0.24.9"');
+    expect(readSkillCliVersion(documentPath)).toBe("0.24.9");
   });
 });

@@ -143,6 +143,94 @@ jobs:
           HOMEBREW_TAP_DIR=../homebrew-tap \
           pnpm exec nx run axm:update-homebrew-formula --outputStyle=static -- "${{ steps.release_meta.outputs.version }}"
 
+  skill-publish:
+    name: Publish AXM Skill
+    needs: release
+    if: ${{ needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout released tree
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - name: Download released AXM binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-assets
+          gh release download "${{ needs.release.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern axm-linux-x64 \
+            --dir release-assets
+          chmod +x release-assets/axm-linux-x64
+
+      - name: Publish bundled AXM skill
+        env:
+          AXM_TOKEN: ${{ secrets.AXM_REGISTRY_TOKEN }}
+        run: |
+          release-assets/axm-linux-x64 skills publish @agentxm/skills/axm \
+            --registry-url https://registry.agentxm.ai \
+            --skip-existing \
+            --yes \
+            --non-interactive \
+            --json
+
+  skill-verify:
+    name: Verify AXM Skill Install
+    needs:
+      - release
+      - skill-publish
+    if: ${{ needs.skill-publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download released AXM binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-assets
+          gh release download "${{ needs.release.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern axm-linux-x64 \
+            --dir release-assets
+          chmod +x release-assets/axm-linux-x64
+
+      - name: Verify clean-workspace skill resolution
+        env:
+          AXM_EXPECTED_VERSION: ${{ needs.release.outputs.version }}
+          AXM_REGISTRY_URL: https://registry.agentxm.ai
+        run: |
+          set -euo pipefail
+          axm_binary="$GITHUB_WORKSPACE/release-assets/axm-linux-x64"
+          verification_root="$(mktemp -d)"
+          trap 'rm -rf "$verification_root"' EXIT
+
+          for attempt in 1 2 3 4 5; do
+            workspace="$verification_root/attempt-$attempt"
+            mkdir -p "$workspace"
+            cd "$workspace"
+
+            if "$axm_binary" setup --agent claude-code --yes --non-interactive; then
+              actual_version="$(
+                "$axm_binary" skills show axm --json |
+                  jq -r '.result.item.version'
+              )"
+              skill_document=".axm/extensions/@agentxm/skills/axm/src/SKILL.md"
+
+              if [[ "$actual_version" == "$AXM_EXPECTED_VERSION" ]] &&
+                grep -Fq "cli-version: \"$AXM_EXPECTED_VERSION\"" "$skill_document"; then
+                echo "Verified @agentxm/skills/axm@$AXM_EXPECTED_VERSION"
+                exit 0
+              fi
+            fi
+
+            echo "Skill version has not propagated yet (attempt $attempt/5)."
+            sleep 10
+          done
+
+          echo "Expected @agentxm/skills/axm@$AXM_EXPECTED_VERSION from the production registry."
+          exit 1
+
   install-verify:
     name: Installer Verification - ${{ matrix.os }} - ${{ matrix.mode }}
     needs: release

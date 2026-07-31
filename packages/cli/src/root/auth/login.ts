@@ -11,6 +11,7 @@ import {
   runDeviceLogin,
   runLoopbackLogin,
   selectLoginStrategy,
+  type LoginStrategyEnvironment,
   type LoopbackCallbackRejected,
   type LoopbackLoginFallback,
   type RunDeviceLoginOptions,
@@ -55,6 +56,7 @@ const LoginNoOpSuggestions = [
 
 interface LoginInteractions {
   readonly confirmRelogin?: (message: string) => Effect.Effect<boolean, PromptCancelled | AppError>;
+  readonly loginStrategyEnvironment?: LoginStrategyEnvironment;
   readonly runLoopbackLogin?: (
     registryUrl: string,
     options?: RunLoopbackLoginOptions,
@@ -185,7 +187,11 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
     }
   }
 
-  const strategy = selectLoginStrategy(options, yield* loginStrategyEnvironment);
+  const strategyEnvironment =
+    interactions?.loginStrategyEnvironment === undefined
+      ? yield* loginStrategyEnvironment
+      : interactions.loginStrategyEnvironment;
+  const strategy = selectLoginStrategy(options, strategyEnvironment);
   const performDeviceLogin = interactions?.runDeviceLogin ?? runDeviceLogin;
   const performLoopbackLogin = interactions?.runLoopbackLogin ?? runLoopbackLogin;
   const requestedScopeOptions = options.scopes.length === 0 ? {} : { scopes: options.scopes };

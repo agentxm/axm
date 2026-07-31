@@ -98,9 +98,12 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
 
+      - name: Build CLI dependencies
+        run: pnpm exec nx run cli:build --outputStyle=static
+
       - name: Lint bundled AXM skill
         run: |
-          { pnpm --silent axm:local lint --json --non-interactive 2>/dev/null || true; } |
+          { pnpm --silent axm:local lint --json --quiet --non-interactive 2>/dev/null || true; } |
             jq -e '
               [
                 .result.findings[]
@@ -197,7 +200,7 @@ jobs:
           release_subject="release: ${HEAD_REF#release/}"
           if [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
             [[ "$HEAD_REF" =~ ^release/cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] &&
-            [[ "$(git show --no-patch --format=%s "$HEAD_SHA")" == "$release_subject" ]]; then
+            git log --format=%s "main..$HEAD_SHA" | grep --fixed-strings --line-regexp --quiet -- "$release_subject"; then
             release_preparation=true
           fi
           scripts/container-environment.sh ci bash -lc \

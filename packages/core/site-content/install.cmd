@@ -10,10 +10,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if defined AXM_INSTALL_PS1_PATH (
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%AXM_INSTALL_PS1_PATH%"
-  exit /b %errorlevel%
-)
+if not defined AXM_INSTALL_PS1_PATH goto download_installer
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%AXM_INSTALL_PS1_PATH%"
+exit /b %errorlevel%
+
+:download_installer
 
 set "INSTALLER_PATH=%TEMP%\axm-install-%RANDOM%-%RANDOM%.ps1"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri 'https://axm.sh/install.ps1' -OutFile '%INSTALLER_PATH%'"

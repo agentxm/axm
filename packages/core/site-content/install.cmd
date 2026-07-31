@@ -12,6 +12,7 @@ if errorlevel 1 (
 
 if not defined AXM_INSTALL_PS1_PATH goto download_installer
 
+set "AXM_INSTALL_ENTRYPOINT=cmd"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%AXM_INSTALL_PS1_PATH%"
 exit /b %errorlevel%
 
@@ -24,6 +25,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
+set "AXM_INSTALL_ENTRYPOINT=cmd"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%INSTALLER_PATH%"
 set "INSTALL_EXIT=%errorlevel%"
 del /q "%INSTALLER_PATH%" >nul 2>&1

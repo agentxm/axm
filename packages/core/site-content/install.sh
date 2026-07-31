@@ -6,6 +6,10 @@ set -eu
 USER_HOME="${AXM_USER_HOME:-$HOME}"
 DATA_DIR="${AXM_INSTALL_DATA_DIR:-$USER_HOME/.axm}"
 INSTALL_DIR="${AXM_INSTALL_DIR:-$DATA_DIR/bin}"
+case "$INSTALL_DIR" in
+  /*) ;;
+  *) INSTALL_DIR="$(pwd)/${INSTALL_DIR#./}" ;;
+esac
 BINARY_NAME="axm"
 GITHUB_REPO="${AXM_INSTALL_GITHUB_REPO:-agentxm/axm}"
 TARGET="${INSTALL_DIR}/${BINARY_NAME}"
@@ -200,14 +204,30 @@ install_transactionally() {
 }
 
 verify_path() {
-  if command -v "$BINARY_NAME" >/dev/null 2>&1; then
-    path_version="$("$BINARY_NAME" --version 2>/dev/null || true)"
+  path_command="$(command -v "$BINARY_NAME" 2>/dev/null || true)"
+  if [ "$path_command" = "$TARGET" ]; then
+    path_version="$("$path_command" --version 2>/dev/null || true)"
+    if [ "$path_version" = "$TARGET_VERSION" ]; then
+      return
+    fi
+    echo "Warning: AXM on PATH reports ${path_version:-no version}; installed path reports ${TARGET_VERSION}." >&2
+  elif [ -n "$path_command" ]; then
+    path_version="$("$path_command" --version 2>/dev/null || true)"
     if [ "$path_version" != "$TARGET_VERSION" ]; then
       echo "Warning: AXM on PATH reports ${path_version:-no version}; installed path reports ${TARGET_VERSION}." >&2
+    else
+      echo "Warning: AXM on PATH resolves to ${path_command}, not ${TARGET}." >&2
     fi
   else
-    echo "AXM is not on PATH. Add ${INSTALL_DIR} and open a new terminal."
+    echo "AXM is not on PATH."
   fi
+
+  echo "Use AXM in this shell:"
+  printf '  export PATH="%s:$PATH"\n' "$INSTALL_DIR"
+  echo "For future shells, add that export to ~/.profile, ~/.bashrc, or ~/.zshrc, then open a new terminal."
+  echo "Verify the installed executable:"
+  printf '  "%s" --version\n' "$TARGET"
+  echo "Automation and non-interactive shells may not load profile changes; set PATH explicitly or use the absolute executable path above."
 }
 
 main() {

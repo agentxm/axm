@@ -178,7 +178,7 @@ The axm binary is not on your PATH. The fix depends on how you installed it.
 export PATH="$HOME/.axm/bin:$PATH"
 ```
 
-Add this line to your shell profile (`~/.bashrc`, `~/.zshrc`, or `~/.profile`) to make it permanent.
+Add this line to your shell profile (`~/.profile`, `~/.bashrc`, or `~/.zshrc`), then open a new terminal.
 
 **Native Install (Windows PowerShell):**
 
@@ -186,15 +186,20 @@ Add this line to your shell profile (`~/.bashrc`, `~/.zshrc`, or `~/.profile`) t
 $env:Path = "$env:USERPROFILE\.axm\bin;" + $env:Path
 ```
 
-To make it permanent, add `%USERPROFILE%\.axm\bin` to your system PATH via Settings > System > Environment Variables.
+To make it permanent, add `%USERPROFILE%\.axm\bin` to your User PATH via Settings > System > Environment Variables, then open a new terminal.
 
 **Native Install (Windows CMD):**
 
 ```cmd
-set PATH=%USERPROFILE%\.axm\bin;%PATH%
+set "PATH=%USERPROFILE%\.axm\bin;%PATH%"
 ```
 
-To make it permanent, add `%USERPROFILE%\.axm\bin` to your system PATH via Settings > System > Environment Variables.
+To make it permanent, add `%USERPROFILE%\.axm\bin` to your User PATH via Settings > System > Environment Variables, then open a new terminal.
+
+The native installer prints these commands using the resolved install
+directory, including custom paths, plus an absolute command for verifying the
+installed executable. Automation and non-interactive shells may not load
+profile changes, so set PATH explicitly or use that absolute path.
 
 **Homebrew:**
 

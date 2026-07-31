@@ -186,34 +186,59 @@ const expectCommandSuccess = (
   );
 };
 
+interface InstallEnvOptions {
+  readonly baseUrl?: string;
+  readonly version?: string;
+  readonly installDir?: string;
+  readonly includeInstallDirOnPath?: boolean;
+}
+
 const createBashEnv = (
   tempPath: string,
-  baseUrl = installBaseUrl,
-  version = expectedVersion,
-): Readonly<Record<string, string>> => ({
-  HOME: tempPath,
-  AXM_USER_HOME: tempPath,
-  PATH: `${path.join(tempPath, ".axm", "bin")}${pathSeparator}${process.env["PATH"] ?? ""}`,
-  AXM_INSTALL_BASE_URL: baseUrl,
-  AXM_UPGRADE_GITHUB_API_URL: serverContext.apiBaseUrl,
-  npm_config_user_agent: "",
-  ...(version === undefined ? {} : { AXM_INSTALL_VERSION: version }),
-});
+  options: InstallEnvOptions = {},
+): Readonly<Record<string, string>> => {
+  const installDir = options.installDir ?? path.join(tempPath, ".axm", "bin");
+  const basePath = process.env["PATH"] ?? "";
+  const version = options.version ?? expectedVersion;
+
+  return {
+    HOME: tempPath,
+    AXM_USER_HOME: tempPath,
+    PATH:
+      options.includeInstallDirOnPath === false
+        ? basePath
+        : `${installDir}${pathSeparator}${basePath}`,
+    AXM_INSTALL_BASE_URL: options.baseUrl ?? installBaseUrl,
+    AXM_UPGRADE_GITHUB_API_URL: serverContext.apiBaseUrl,
+    npm_config_user_agent: "",
+    ...(options.installDir === undefined ? {} : { AXM_INSTALL_DIR: options.installDir }),
+    ...(version === undefined ? {} : { AXM_INSTALL_VERSION: version }),
+  };
+};
 
 const createWindowsEnv = (
   tempPath: string,
-  baseUrl = installBaseUrl,
-  version = expectedVersion,
-): Readonly<Record<string, string>> => ({
-  USERPROFILE: tempPath,
-  AXM_USER_HOME: tempPath,
-  PATH: `${path.join(tempPath, ".axm", "bin")}${pathSeparator}${process.env["PATH"] ?? ""}`,
-  AXM_INSTALL_BASE_URL: baseUrl,
-  AXM_INSTALL_PS1_PATH: path.join(repoRoot, "install.ps1"),
-  AXM_UPGRADE_GITHUB_API_URL: serverContext.apiBaseUrl,
-  npm_config_user_agent: "",
-  ...(version === undefined ? {} : { AXM_INSTALL_VERSION: version }),
-});
+  options: InstallEnvOptions = {},
+): Readonly<Record<string, string>> => {
+  const installDir = options.installDir ?? path.join(tempPath, ".axm", "bin");
+  const basePath = process.env["PATH"] ?? "";
+  const version = options.version ?? expectedVersion;
+
+  return {
+    USERPROFILE: tempPath,
+    AXM_USER_HOME: tempPath,
+    PATH:
+      options.includeInstallDirOnPath === false
+        ? basePath
+        : `${installDir}${pathSeparator}${basePath}`,
+    AXM_INSTALL_BASE_URL: options.baseUrl ?? installBaseUrl,
+    AXM_INSTALL_PS1_PATH: path.join(repoRoot, "install.ps1"),
+    AXM_UPGRADE_GITHUB_API_URL: serverContext.apiBaseUrl,
+    npm_config_user_agent: "",
+    ...(options.installDir === undefined ? {} : { AXM_INSTALL_DIR: options.installDir }),
+    ...(version === undefined ? {} : { AXM_INSTALL_VERSION: version }),
+  };
+};
 
 const verifyInstalledBinary = async (binaryPath: string) => {
   const runBinary = createBinaryRunner(binaryPath);
@@ -355,6 +380,7 @@ describe("install script verification", () => {
         expectCommandSuccess("install.sh", result);
         expect(getOutput(result)).toContain("Detected platform:");
         expect(getOutput(result)).toContain("Installed AXM");
+        expect(getOutput(result)).not.toContain("Use AXM in this shell:");
 
         const installedBinary = path.join(temp.path, ".axm", "bin", "axm");
         await verifyInstalledBinary(installedBinary);
@@ -377,6 +403,7 @@ describe("install script verification", () => {
         expectCommandSuccess("install.ps1", result);
         expect(getOutput(result)).toContain("Detected platform: windows-x64");
         expect(getOutput(result)).toContain("Installed AXM");
+        expect(getOutput(result)).not.toContain("Use AXM in this shell:");
 
         const installedBinary = path.join(temp.path, ".axm", "bin", "axm.exe");
         await verifyInstalledBinary(installedBinary);
@@ -393,11 +420,79 @@ describe("install script verification", () => {
 
       expectCommandSuccess("install.cmd", result);
       expect(getOutput(result)).toContain("Installed AXM");
+      expect(getOutput(result)).not.toContain("Use AXM in this shell:");
 
       const installedBinary = path.join(temp.path, ".axm", "bin", "axm.exe");
       await verifyInstalledBinary(installedBinary);
       verifyInstallMeta(path.join(temp.path, ".axm", "install-meta.json"));
       await verifyUpgradeModes(installedBinary, createWindowsEnv(temp.path));
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it(`prints actionable PATH guidance for ${installMode}`, async () => {
+    const temp = createTempDir("axm path guidance ");
+    const installDir = path.join(temp.path, "custom bin");
+    const profilePath = path.join(temp.path, ".profile");
+    const profileContent = "# Existing profile content\n";
+    fs.writeFileSync(profilePath, profileContent);
+
+    try {
+      const options = { installDir, includeInstallDirOnPath: false } satisfies InstallEnvOptions;
+      const result =
+        installMode === "bash"
+          ? await runCommand("sh", [path.join(repoRoot, "install.sh")], {
+              cwd: repoRoot,
+              env: createBashEnv(temp.path, options),
+            })
+          : installMode === "powershell"
+            ? await runCommand(
+                "powershell",
+                ["-ExecutionPolicy", "Bypass", "-File", path.join(repoRoot, "install.ps1")],
+                {
+                  cwd: repoRoot,
+                  env: createWindowsEnv(temp.path, options),
+                },
+              )
+            : await runCommand("cmd", ["/c", path.join(repoRoot, "install.cmd")], {
+                cwd: repoRoot,
+                env: createWindowsEnv(temp.path, options),
+              });
+
+      expectCommandSuccess(`PATH guidance for ${installMode}`, result);
+      const output = getOutput(result);
+      const installedBinary = path.join(
+        installDir,
+        process.platform === "win32" ? "axm.exe" : "axm",
+      );
+
+      expect(output).toContain(`Installed AXM ${fixtureVersion} to ${installedBinary}`);
+      expect(output).toContain("Use AXM in this shell:");
+      expect(output).toContain("open a new terminal");
+      expect(output).toContain("Verify the installed executable:");
+      expect(output).toContain(
+        "Automation and non-interactive shells may not load profile changes; set PATH explicitly or use the absolute executable path above.",
+      );
+
+      if (installMode === "bash") {
+        expect(output).toContain(`export PATH="${installDir}:$PATH"`);
+        expect(output).toContain(
+          "add that export to ~/.profile, ~/.bashrc, or ~/.zshrc, then open a new terminal",
+        );
+        expect(output).toContain(`"${installedBinary}" --version`);
+      } else if (installMode === "powershell") {
+        expect(output).toContain(`$env:Path = "${installDir};" + $env:Path`);
+        expect(output).toContain(`add "${installDir}" to your User PATH, then open a new terminal`);
+        expect(output).toContain(`& "${installedBinary}" --version`);
+      } else {
+        expect(output).toContain(`set "PATH=${installDir};%PATH%"`);
+        expect(output).toContain(`add "${installDir}" to your User PATH, then open a new terminal`);
+        expect(output).toContain(`"${installedBinary}" --version`);
+      }
+
+      expect(fs.readFileSync(profilePath, "utf-8")).toBe(profileContent);
+      await verifyInstalledBinary(installedBinary);
     } finally {
       temp.cleanup();
     }
@@ -432,7 +527,7 @@ describe("install script verification", () => {
         installMode === "bash"
           ? await runCommand("sh", [path.join(repoRoot, "install.sh")], {
               cwd: repoRoot,
-              env: createBashEnv(temp.path, badBaseUrl, version),
+              env: createBashEnv(temp.path, { baseUrl: badBaseUrl, version }),
             })
           : installMode === "powershell"
             ? await runCommand(
@@ -440,12 +535,12 @@ describe("install script verification", () => {
                 ["-ExecutionPolicy", "Bypass", "-File", path.join(repoRoot, "install.ps1")],
                 {
                   cwd: repoRoot,
-                  env: createWindowsEnv(temp.path, badBaseUrl, version),
+                  env: createWindowsEnv(temp.path, { baseUrl: badBaseUrl, version }),
                 },
               )
             : await runCommand("cmd", ["/c", path.join(repoRoot, "install.cmd")], {
                 cwd: repoRoot,
-                env: createWindowsEnv(temp.path, badBaseUrl, version),
+                env: createWindowsEnv(temp.path, { baseUrl: badBaseUrl, version }),
               });
 
       expect(result.exitCode).not.toBe(0);

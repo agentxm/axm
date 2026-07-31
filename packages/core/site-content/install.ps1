@@ -5,6 +5,7 @@ $githubRepo = if ($env:AXM_INSTALL_GITHUB_REPO) { $env:AXM_INSTALL_GITHUB_REPO }
 $userHome = if ($env:AXM_USER_HOME) { $env:AXM_USER_HOME } else { $env:USERPROFILE }
 $dataDir = if ($env:AXM_INSTALL_DATA_DIR) { $env:AXM_INSTALL_DATA_DIR } else { Join-Path $userHome '.axm' }
 $installDir = if ($env:AXM_INSTALL_DIR) { $env:AXM_INSTALL_DIR } else { Join-Path $dataDir 'bin' }
+$installDir = [IO.Path]::GetFullPath($installDir)
 $target = Join-Path $installDir 'axm.exe'
 $lockPath = "$target.upgrade.lock"
 $targetVersion = $env:AXM_INSTALL_VERSION
@@ -84,6 +85,25 @@ function Get-AxmVersion {
         throw "AXM at $Path did not execute successfully."
     }
     return ([string]$output).Trim()
+}
+
+function Write-PathGuidance {
+    Write-Host 'Use AXM in this shell:'
+    if ($env:AXM_INSTALL_ENTRYPOINT -eq 'cmd') {
+        Write-Host ('  set "PATH={0};%PATH%"' -f $installDir)
+    }
+    else {
+        Write-Host ('  $env:Path = "{0};" + $env:Path' -f $installDir)
+    }
+    Write-Host ('For future shells, add "{0}" to your User PATH, then open a new terminal.' -f $installDir)
+    Write-Host 'Verify the installed executable:'
+    if ($env:AXM_INSTALL_ENTRYPOINT -eq 'cmd') {
+        Write-Host ('  "{0}" --version' -f $target)
+    }
+    else {
+        Write-Host ('  & "{0}" --version' -f $target)
+    }
+    Write-Host 'Automation and non-interactive shells may not load profile changes; set PATH explicitly or use the absolute executable path above.'
 }
 
 try {
@@ -196,15 +216,27 @@ try {
     $committed = $true
     Write-Host "Installed AXM $targetVersion to $target"
 
-    $pathCommand = Get-Command axm -ErrorAction SilentlyContinue
-    if ($pathCommand) {
-        $pathVersion = (& axm --version 2>$null)
-        if ([string]$pathVersion -ne $targetVersion) {
-            Write-Warning "AXM on PATH reports $pathVersion; installed path reports $targetVersion."
+    $pathCommand = Get-Command axm -CommandType Application -ErrorAction SilentlyContinue
+    $pathMatchesTarget = $pathCommand -and
+        [string]::Equals(
+            [IO.Path]::GetFullPath($pathCommand.Source),
+            [IO.Path]::GetFullPath($target),
+            [StringComparison]::OrdinalIgnoreCase
+        )
+    if (-not $pathMatchesTarget) {
+        if ($pathCommand) {
+            $pathVersion = (& $pathCommand.Source --version 2>$null)
+            if ([string]$pathVersion -ne $targetVersion) {
+                Write-Warning "AXM on PATH reports $pathVersion; installed path reports $targetVersion."
+            }
+            else {
+                Write-Warning "AXM on PATH resolves to $($pathCommand.Source), not $target."
+            }
         }
-    }
-    else {
-        Write-Host "AXM is not on PATH. Add $installDir and open a new terminal."
+        else {
+            Write-Host 'AXM is not on PATH.'
+        }
+        Write-PathGuidance
     }
 }
 catch {

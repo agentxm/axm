@@ -159,6 +159,9 @@ const resultFrom = (state: ReturnType<typeof TestMachineRenderer.make>["state"])
   return expectRecord(property(document, "result"));
 };
 
+const okFrom = (state: ReturnType<typeof TestMachineRenderer.make>["state"]): boolean | undefined =>
+  state.results[0]?.ok;
+
 const makeHumanHarness = (
   method: InstallMethodType,
   flags: { readonly quiet?: boolean; readonly verbose?: boolean } = {},
@@ -563,6 +566,7 @@ describe("delegated upgrades", () => {
         resultStatus: "already-up-to-date",
         blockedCount: 0,
       });
+      expect(okFrom(current.renderer)).toBe(true);
       expect(currentProcess.calls).toEqual([]);
 
       const newer = semver.inc(TARGET_VERSION, "major") ?? "999.0.0";
@@ -578,6 +582,7 @@ describe("delegated upgrades", () => {
         resultStatus: "downgrade-refused",
         blockedCount: 1,
       });
+      expect(okFrom(refused.renderer)).toBe(false);
       expect(refusedProcess.calls).toEqual([]);
 
       const yarnProcess = makeSubprocess();
@@ -595,6 +600,7 @@ describe("delegated upgrades", () => {
         blockedCount: 1,
         installMethod: "yarn",
       });
+      expect(okFrom(yarn.renderer)).toBe(false);
       expect(yarnProcess.calls).toEqual([]);
     }),
   );

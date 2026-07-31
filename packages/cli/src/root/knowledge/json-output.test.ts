@@ -95,6 +95,7 @@ describe("knowledge JSON output", () => {
         // instead of writing a second JSON error envelope.
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({ valid: false });
+        expect(rendererState.results[0]?.ok).toBe(false);
         expect(Exit.isFailure(exit)).toBe(true);
         if (Exit.isFailure(exit)) {
           expect(isEffectCliExit(Cause.squash(exit.cause))).toBe(true);
@@ -115,6 +116,7 @@ describe("knowledge JSON output", () => {
         expect(Exit.isSuccess(exit)).toBe(true);
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({ valid: true, diagnostics: [] });
+        expect(rendererState.results[0]?.ok).toBe(true);
       }),
     );
   });

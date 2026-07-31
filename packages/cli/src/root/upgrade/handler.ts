@@ -1518,6 +1518,7 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   if (
     yield* renderer.result({ result: machineResult }, UpgradeDocumentSchema, {
       suggestions: upgradeSuggestions(result),
+      ok: machineResult.failedCount === 0 && machineResult.blockedCount === 0,
     })
   ) {
     return;

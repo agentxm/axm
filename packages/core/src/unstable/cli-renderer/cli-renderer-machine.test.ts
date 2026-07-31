@@ -452,7 +452,7 @@ describe("MachineRenderer", () => {
       }),
     );
 
-    it.effect("writes a flat success envelope to stdout", () =>
+    it.effect("writes a result success envelope to stdout", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -464,13 +464,15 @@ describe("MachineRenderer", () => {
         const parsed = parseStdout();
         expect(parsed[0]).toEqual({
           ok: true,
-          items: [{ name: "my-skill" }],
-          count: 1,
+          result: {
+            items: [{ name: "my-skill" }],
+            count: 1,
+          },
         });
       }),
     );
 
-    it.effect("includes summary and suggestions in the flat envelope without stderr events", () =>
+    it.effect("includes summary and suggestions beside the result without stderr events", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -490,8 +492,10 @@ describe("MachineRenderer", () => {
         expect(stderrWrites).toHaveLength(0);
         expect(parseStdout()[0]).toEqual({
           ok: true,
-          items: [{ name: "my-command" }],
-          count: 1,
+          result: {
+            items: [{ name: "my-command" }],
+            count: 1,
+          },
           summary: "Created command @acme/commands/my-command",
           suggestions: [
             { description: "Edit the file", cmd: "axm edit" },
@@ -516,8 +520,10 @@ describe("MachineRenderer", () => {
 
         expect(parseStdout()[0]).toEqual({
           ok: true,
-          items: [],
-          count: 0,
+          result: {
+            items: [],
+            count: 0,
+          },
         });
       }),
     );
@@ -553,7 +559,10 @@ describe("MachineRenderer", () => {
         );
         expect(stdoutWrites).toHaveLength(1);
         const parsed = parseStdout();
-        expect(parsed[0]).toEqual({ ok: true, name: "my-skill", version: "1.0.0" });
+        expect(parsed[0]).toEqual({
+          ok: true,
+          result: { name: "my-skill", version: "1.0.0" },
+        });
       }),
     );
 
@@ -599,7 +608,7 @@ describe("MachineRenderer", () => {
         expect(stderrWrites).toHaveLength(0);
         expect(parseStdout()[0]).toEqual({
           ok: true,
-          x: 1,
+          result: { x: 1 },
           suggestions: [
             { description: "Inspect state", cmd: "axm skills list" },
             { description: "Undo", cmd: "axm skills uninstall example" },

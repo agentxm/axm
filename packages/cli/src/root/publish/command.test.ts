@@ -580,6 +580,7 @@ describe("root publish", () => {
           const review = itemNamed(items, "review");
           expect(property(review, "action")).toBe("error");
           expect(property(review, "status")).toBe("failed");
+          expect(at(rendererState.results, 1).ok).toBe(false);
           const deploy = itemNamed(items, "deploy");
           expect(property(deploy, "status")).toBe("success");
 

@@ -89,10 +89,12 @@ describe("axm setup", () => {
         const result = JSON.parse(status.stdout);
         expect(result).toMatchObject({
           ok: false,
-          healthy: false,
-          desiredGraphComplete: true,
+          result: {
+            healthy: false,
+            desiredGraphComplete: true,
+          },
         });
-        expect(result.problems).toEqual(
+        expect(result.result.problems).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
               identity: "@agentxm/skills/axm",

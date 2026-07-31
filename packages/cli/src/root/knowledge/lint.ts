@@ -112,7 +112,7 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
   const diagnostics = flattenDiagnostics(bundles);
   const errors = diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   const result = { valid: errors.length === 0, diagnostics };
-  if (!(yield* renderer.result(result, KnowledgeLintQueryResultSchema))) {
+  if (!(yield* renderer.result(result, KnowledgeLintQueryResultSchema, { ok: result.valid }))) {
     if (diagnostics.length === 0) {
       yield* renderer.success(
         `Knowledge validation passed for ${bundles.length} bundle${bundles.length === 1 ? "" : "s"}`,

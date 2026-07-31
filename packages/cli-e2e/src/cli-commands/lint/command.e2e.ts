@@ -66,6 +66,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(result.exitCode).toBe(1);
 
         const doc = JSON.parse(result.stdout);
+        expect(doc.ok).toBe(false);
         const findings = doc?.result?.findings ?? [];
         const ruleIds: Array<string> = findings.map((f: { ruleId: string }) => f.ruleId);
         expect(ruleIds).toContain("workspace/skills-lockfile-aligned");
@@ -98,7 +99,9 @@ describe("axm lint (e2e, Phase 7)", () => {
 
         const result = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(result.exitCode).toBe(1);
-        const findings = JSON.parse(result.stdout)?.result?.findings ?? [];
+        const doc = JSON.parse(result.stdout);
+        expect(doc.ok).toBe(false);
+        const findings = doc?.result?.findings ?? [];
         const ruleIds: Array<string> = findings.map((f: { ruleId: string }) => f.ruleId);
         expect(ruleIds).toContain("workspace/lockfile-valid");
       } finally {

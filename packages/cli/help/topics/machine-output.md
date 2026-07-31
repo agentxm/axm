@@ -6,7 +6,7 @@ line (NDJSON) on stderr. Human text never shares the machine stdout channel.
 
 ## Success documents
 
-Ordinary command results use a flat success envelope:
+Since AXM CLI 0.25.0, every ordinary command result uses the same envelope:
 
 ```json
 {
@@ -15,24 +15,22 @@ Ordinary command results use a flat success envelope:
 }
 ```
 
-The payload schema supplies the top-level keys after `ok`:
+The command-specific payload always lives under `result`. Collections put
+`items[]`, counts, and cursors inside `result`; queries put their resource
+fields inside `result`; mutations put their outcome and steps inside `result`.
+Only optional `summary` and `suggestions[]` may sit beside it.
 
-| Command class | Primary keys and nesting                                      |
-| ------------- | ------------------------------------------------------------- |
-| Mutation plan | `result.outcome`, plan counts, and `result.steps[]`           |
-| Single query  | Usually `data` or a purpose-built named resource key          |
-| Collection    | `items[]`, `count`, and command-specific counts or cursors    |
-| Publish       | `mode`, optional `selection`, and `results[]`                 |
-| Suggestions   | Optional top-level `suggestions[]` beside the primary payload |
+This is a versioned breaking change from 0.24.x, where payloads could appear
+under `data`, `value`, `items`, or other command-specific top-level keys.
 
 Mutation-plan outcomes are `no-op`, `applied`, `partial`, `failed`,
-`cancelled`, or `previewed`. `ok` is `false` for `failed` and `partial`; those
-outcomes also use the documented nonzero exit contract. Inspect the step
-counts and committed artifacts when recovering a partial result.
+`cancelled`, or `previewed`. For every ordinary result, `ok` is `true` exactly
+when the process exits 0 and `false` when it exits nonzero. Inspect step counts
+and committed artifacts when recovering a partial result.
 
-`axm view <ref> <field> --json` deliberately uses `value` for a selected scalar
-or array. `axm token --json` and `axm token create --json` deliberately return
-the requested token under `data`; do not log or forward that document.
+`axm view <ref> <field> --json` places the selected scalar or array directly
+under `result`. Token commands also place their command payload under `result`;
+do not log or forward token result documents.
 
 Built-in formatter documents are the two success-envelope exceptions:
 
@@ -70,8 +68,8 @@ response bodies, causes, stacks, URLs, suggestions, and telemetry.
 
 - Parse the entire stdout buffer once; ordinary `--json` is not a result stream.
 - Parse each non-empty stderr line independently as JSON.
-- Branch on `ok` for ordinary results and errors, or `type` for built-in help
-  and version documents.
-- Branch on the process exit code as documented by `axm help exit-codes`.
+- Branch on `ok` or the process exit code for ordinary results and errors; they
+  agree. Branch on `type` for built-in help and version documents.
+- Read every ordinary command payload from `result`.
 
 Future streaming results require a separate explicit mode and contract.

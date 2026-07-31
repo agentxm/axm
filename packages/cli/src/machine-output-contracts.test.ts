@@ -127,12 +127,20 @@ describe("machine-output contract register", () => {
       expect(["immediate", "progress"]).toContain(row.family.liveness);
       expect(row.family.livenessCoverage.length).toBeGreaterThan(0);
       expect(row.family.schemaNames.length).toBeGreaterThan(0);
+      expect(row.family.requiredEnvelopeKeys.length).toBeGreaterThan(0);
       expect(row.family.requiredTopLevelKeys.length).toBeGreaterThan(0);
       expect(row.family.scenarios.length).toBeGreaterThan(0);
       expect(row.family.rationale).not.toBe("");
       expect(row.family.centralizedCoverage.length).toBeGreaterThan(0);
       expect(row.family.documentation.length).toBeGreaterThan(0);
       expect(row.helpSchemaName).toBe("JsonHelpDocSchema");
+    }
+  });
+
+  it("uses one result envelope key for every ordinary structured command", () => {
+    for (const row of MACHINE_OUTPUT_CONTRACT_ROWS) {
+      if (row.family.outputClass !== "structured-result") continue;
+      expect(row.family.requiredEnvelopeKeys, row.path).toStrictEqual(["ok", "result"]);
     }
   });
 

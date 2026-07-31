@@ -309,7 +309,7 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
       /^Upgrading AXM to /,
     ]);
     const lockedDocument = parseJsonObject(lockedResult.stdout);
-    expect(lockedDocument["ok"]).toBe(true);
+    expect(lockedDocument["ok"]).toBe(false);
     const blockedResult = expectJsonObject(lockedDocument["result"]);
     expect(blockedResult["resultStatus"]).toBe("manual-action-required");
     expect(blockedResult["blockedCount"]).toBe(1);

@@ -59,6 +59,28 @@ describe("JsonEnvelopeSchema", () => {
     });
 
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual(envelope);
+    expect(envelope).toMatchObject({
+      ok: true,
+      result: { name: "code-reviewer" },
+    });
+  });
+
+  it("keeps an existing result payload at the one documented envelope key", () => {
+    expect(makeJsonSuccessEnvelope({ payload: { result: { outcome: "applied" } } })).toEqual({
+      ok: true,
+      result: { outcome: "applied" },
+    });
+  });
+
+  it("places scalar payloads at the same result envelope key", () => {
+    expect(makeJsonSuccessEnvelope({ payload: "1.2.3" })).toEqual({
+      ok: true,
+      result: "1.2.3",
+    });
+    expect(makeJsonSuccessEnvelope({ payload: null })).toEqual({
+      ok: true,
+      result: null,
+    });
   });
 
   it("emits the documented AppError envelope shape", () => {

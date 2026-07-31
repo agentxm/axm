@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-07-30
-version: 0.4.0
+last-reviewed: 2026-07-31
+version: 0.5.0
 description: CLI renderer design for human output, machine JSON contracts, and stderr diagnostics
 depends-on:
   - ../../AGENTS.md
@@ -276,51 +276,48 @@ Some commands are intentionally pipe-friendly in text mode, like `auth token`.
 
 Use a top-level object for every command result.
 
-Machine mode wraps every ordinary successful payload in a flat success
-envelope. Built-in `--help --json` and `--version --json` are the deliberate
-formatter-owned exceptions and use their `type: "help"` / `type: "version"`
-schemas:
+Since CLI 0.25.0, machine mode wraps every ordinary payload under the single
+top-level `result` key. Built-in `--help --json` and `--version --json` are the
+deliberate formatter-owned exceptions and use their `type: "help"` /
+`type: "version"` schemas:
 
 ```json
 {
   "ok": true,
-  "items": [
-    {
-      "name": "@acme/skills/code-review",
-      "source": "registry",
-      "scope": "project",
-      "enabled": true
-    }
-  ],
-  "count": 1
+  "result": {
+    "items": [
+      {
+        "name": "@acme/skills/code-review",
+        "source": "registry",
+        "scope": "project",
+        "enabled": true
+      }
+    ],
+    "count": 1
+  }
 }
 ```
 
-Why an object, even for lists:
+This is a versioned breaking change from 0.24.x, which flattened payload-schema
+keys into the envelope and therefore exposed command-specific top-level keys.
 
-- metadata can be added without replacing the top-level type
-- consumers do not need out-of-band knowledge to interpret the payload
+Why one payload key:
 
-Recommended top-level fields:
-
-- exactly one primary payload key:
-  - `data` for single resources
-  - `items` for collections
-  - `result` for operation summaries
-- optional metadata:
-  - `count`
-  - `warnings`
-  - `nextCursor`
-  - `generatedAt`
+- consumers always read `.result`
+- command payload schemas can evolve without competing for envelope keys
+- objects, collections, and scalars share one routing contract
 
 Reserved top-level fields:
 
 - `ok`
+- `result`
 - `summary`
 - `suggestions`
 
-Payload schemas must not define reserved fields. Avoid top-level `type` for
-successful command results unless it adds real domain meaning.
+The renderer unwraps a payload schema whose only field is `result` for
+compatibility with operation-document schemas; all other schema-encoded values
+become the value of the envelope's `result`. Avoid a payload-level `type`
+unless it adds real domain meaning.
 
 Advisory follow-up tasks use suggestions. When a result needs suggestions, add
 them to the same flat envelope:
@@ -378,7 +375,9 @@ JSON errors use a fixed envelope:
 
 Rules:
 
-- use `ok: false` for error routing
+- for every ordinary result, `ok` is `true` exactly when the process exits 0
+  and `false` when it exits nonzero
+- use `ok: false` for error routing and nonzero operation results
 - include `code`; this is the stable agent-facing discriminator
 - include `title` and `detail`; `detail` is user-facing prose
 - include `suggestions` for structured follow-up tasks when useful

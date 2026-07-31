@@ -371,9 +371,9 @@ describe("axm packs add/remove", () => {
       });
       expect(show.exitCode, show.stderr).toBe(0);
       const shown = JSON.parse(show.stdout);
-      expect(shown.pack).toBe("@test/packs/mixed-pack");
-      expect(shown.desiredDependencies).toHaveLength(2);
-      expect(shown.resolvedDependencies).toHaveLength(2);
+      expect(shown.result.pack).toBe("@test/packs/mixed-pack");
+      expect(shown.result.desiredDependencies).toHaveLength(2);
+      expect(shown.result.resolvedDependencies).toHaveLength(2);
     } finally {
       cleanup();
     }
@@ -464,7 +464,7 @@ describe("axm packs publish", () => {
         },
       );
       expect(result.exitCode).toBe(0);
-      expect(JSON.parse(result.stdout).results).toEqual([]);
+      expect(JSON.parse(result.stdout).result.results).toEqual([]);
     } finally {
       cleanup();
     }

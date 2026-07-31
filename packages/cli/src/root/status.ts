@@ -204,6 +204,7 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
     ];
   });
   const problems = [...graphProblems, ...canonicalProblems, ...projectionProblems];
+  const hasBlockingProblems = problems.some((problem) => problem.blocking);
   const result = {
     healthy: problems.length === 0,
     desiredGraphComplete: graph.complete,
@@ -212,7 +213,7 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
     blockedOperations:
       problems.length === 0 ? [] : ["global sync", "destructive pack reconciliation"],
   };
-  if (!(yield* renderer.result(result, WorkspaceStatusSchema, { ok: result.healthy }))) {
+  if (!(yield* renderer.result(result, WorkspaceStatusSchema, { ok: !hasBlockingProblems }))) {
     if (problems.length === 0) {
       yield* renderer.success("Workspace health is current");
     } else {
@@ -228,7 +229,7 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
       );
     }
   }
-  if (problems.some((problem) => problem.blocking)) {
+  if (hasBlockingProblems) {
     return yield* Effect.die(effectCliExit(ExitCode.Issues));
   }
 });

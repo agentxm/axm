@@ -140,13 +140,11 @@ describe("view handler", () => {
 
         expect(rendererState.results[0]?.data).toEqual(
           expect.objectContaining({
-            data: expect.objectContaining({
-              handle: "@test/skills/code-review",
-              latest: {
-                version: "1.2.3",
-                published: DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
-              },
-            }),
+            handle: "@test/skills/code-review",
+            latest: {
+              version: "1.2.3",
+              published: DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
+            },
           }),
         );
         expectNoPlanEnvelope(rendererState.results[0]?.data);
@@ -169,9 +167,7 @@ describe("view handler", () => {
 
         expect(rendererState.results[0]?.data).toEqual(
           expect.objectContaining({
-            data: expect.objectContaining({
-              install: "axm skills install @test/skills/code-review",
-            }),
+            install: "axm skills install @test/skills/code-review",
           }),
         );
       }),
@@ -195,9 +191,7 @@ describe("view handler", () => {
 
         expect(rendererState.results[0]?.data).toEqual(
           expect.objectContaining({
-            data: expect.objectContaining({
-              install: "axm rules install @test/rules/house-style",
-            }),
+            install: "axm rules install @test/rules/house-style",
           }),
         );
       }),
@@ -223,13 +217,11 @@ describe("view handler", () => {
 
         expect(ctx.rendererState.results[0]?.data).toEqual(
           expect.objectContaining({
-            data: expect.objectContaining({
-              handle: "@test/skills/code-review",
-              latest: {
-                version: "1.2.3",
-                published: DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
-              },
-            }),
+            handle: "@test/skills/code-review",
+            latest: {
+              version: "1.2.3",
+              published: DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
+            },
           }),
         );
       }),

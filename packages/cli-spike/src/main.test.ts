@@ -247,7 +247,7 @@ describe("axm-spike source smoke", () => {
   it("emits the published items document for pets list", async () => {
     const result = await runSpike(["pets", "list", "--json"]);
     const parsed = JSON.parse(result.stdout);
-    const output = decodePetsListOutput(parsed);
+    const output = decodePetsListOutput(parsed.result);
 
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
@@ -258,7 +258,7 @@ describe("axm-spike source smoke", () => {
   it("emits the published document for outputs raw", async () => {
     const result = await runSpike(["outputs", "raw", "--json"]);
     const parsed = JSON.parse(result.stdout);
-    const output = decodeOutputsRaw(parsed);
+    const output = decodeOutputsRaw(parsed.result);
 
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
@@ -268,7 +268,7 @@ describe("axm-spike source smoke", () => {
   it("emits the published document for outputs detail", async () => {
     const result = await runSpike(["outputs", "detail", "--json"]);
     const parsed = JSON.parse(result.stdout);
-    const output = decodeOutputsDetail(parsed);
+    const output = decodeOutputsDetail(parsed.result);
 
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
@@ -279,7 +279,7 @@ describe("axm-spike source smoke", () => {
   it("emits the published document for outputs table", async () => {
     const result = await runSpike(["outputs", "table", "--json"]);
     const parsed = JSON.parse(result.stdout);
-    const output = decodeOutputsTable(parsed);
+    const output = decodeOutputsTable(parsed.result);
 
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
@@ -290,7 +290,7 @@ describe("axm-spike source smoke", () => {
   it("emits the stable stream document for outputs result", async () => {
     const result = await runSpike(["outputs", "result", "--stream", "--json"]);
     const parsed = JSON.parse(result.stdout);
-    const output = decodeOutputsResult(parsed);
+    const output = decodeOutputsResult(parsed.result);
 
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });
@@ -305,7 +305,7 @@ describe("axm-spike source smoke", () => {
   it("emits the recursive document for outputs tree", async () => {
     const result = await runSpike(["outputs", "tree", "--json"]);
     const parsed = JSON.parse(result.stdout);
-    const output = decodeOutputsTree(parsed);
+    const output = decodeOutputsTree(parsed.result);
 
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(parsed).toMatchObject({ ok: true });

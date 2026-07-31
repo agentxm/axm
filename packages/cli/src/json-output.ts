@@ -591,17 +591,19 @@ export const emitPublishResult = <TCommand extends string>(
     const renderer = yield* CliRenderer;
     const browserSuggestions = publishBrowserSuggestions(result);
     const suggestions = [...(options?.suggestions ?? []), ...browserSuggestions];
+    const summary = publishResultToSummary(result);
     const renderOptions = {
       ...(options?.summary === undefined ? {} : { summary: options.summary }),
       ...(suggestions.length === 0 ? {} : { suggestions }),
       ...(options?.withoutSuggestions === undefined
         ? {}
         : { withoutSuggestions: options.withoutSuggestions }),
+      ok: summary.failedCount === 0,
     };
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({
       ...existingSemanticProperties,
-      ...summarizeCommandOutcome(publishResultToSummary(result)),
+      ...summarizeCommandOutcome(summary),
     });
     const emitted = yield* renderer.result(result, PublishResultSchema, renderOptions);
     if (!emitted) {

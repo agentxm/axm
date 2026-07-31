@@ -460,6 +460,7 @@ describe("axm lint handler", () => {
             }),
           },
         });
+        expect(rendererState.results[0]?.ok).toBe(false);
         expect(planResultSteps(result)).toEqual([
           expect.objectContaining({ status: "applied" }),
           expect.objectContaining({ status: "applied" }),

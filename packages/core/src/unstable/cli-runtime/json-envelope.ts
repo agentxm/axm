@@ -15,8 +15,6 @@ import {
 } from "../app-error/index.js";
 import { SuggestedActionSchema, type SuggestedAction } from "./suggested-action.js";
 
-const ReservedSuccessEnvelopeKeys = new Set(["ok", "summary", "suggestions"]);
-
 export const JsonErrorEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
   code: AppErrorCodeSchema,
@@ -59,28 +57,24 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
 });
 export type JsonErrorEnvelope = typeof JsonErrorEnvelopeSchema.Type;
 
-export const JsonSuccessEnvelopeSchema = Schema.StructWithRest(
-  Schema.Struct({
-    ok: Schema.Literal(true),
-    summary: Schema.optional(Schema.String),
-    suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
-  }),
-  [Schema.Record(Schema.String, Schema.Unknown)],
-).annotate({
+export const JsonSuccessEnvelopeSchema = Schema.Struct({
+  ok: Schema.Literal(true),
+  result: Schema.Unknown,
+  summary: Schema.optional(Schema.String),
+  suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
+}).annotate({
   identifier: "JsonSuccessEnvelope",
   title: "JSON Success Envelope",
   description: "Structured JSON success envelope for machine-readable CLI output.",
 });
 export type JsonSuccessEnvelope = typeof JsonSuccessEnvelopeSchema.Type;
 
-export const JsonOperationFailureEnvelopeSchema = Schema.StructWithRest(
-  Schema.Struct({
-    ok: Schema.Literal(false),
-    summary: Schema.optional(Schema.String),
-    suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
-  }),
-  [Schema.Record(Schema.String, Schema.Unknown)],
-).annotate({
+export const JsonOperationFailureEnvelopeSchema = Schema.Struct({
+  ok: Schema.Literal(false),
+  result: Schema.Unknown,
+  summary: Schema.optional(Schema.String),
+  suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
+}).annotate({
   identifier: "JsonOperationFailureEnvelope",
   title: "JSON Operation Failure Envelope",
   description:
@@ -99,22 +93,17 @@ export const JsonEnvelopeSchema = Schema.Union([
 });
 export type JsonEnvelope = typeof JsonEnvelopeSchema.Type;
 
-const ensurePayloadObject = (payload: unknown): Record<string, unknown> => {
-  if (payload === undefined) {
-    return {};
+const normalizeResult = (payload: unknown): unknown => {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    !Array.isArray(payload) &&
+    Object.keys(payload).length === 1 &&
+    Object.hasOwn(payload, "result")
+  ) {
+    return Reflect.get(payload, "result");
   }
-  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
-    return { value: payload };
-  }
-  return Object.fromEntries(Object.entries(payload));
-};
-
-const ensureNoReservedPayloadKeys = (payload: Record<string, unknown>): void => {
-  for (const key of Object.keys(payload)) {
-    if (ReservedSuccessEnvelopeKeys.has(key)) {
-      throw new Error(`JSON success payload cannot include reserved key: ${key}`);
-    }
-  }
+  return payload === undefined ? {} : payload;
 };
 
 export const makeJsonSuccessEnvelope = (args?: {
@@ -124,11 +113,7 @@ export const makeJsonSuccessEnvelope = (args?: {
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }): JsonSuccessEnvelope | JsonOperationFailureEnvelope => ({
   ok: args?.ok === false ? false : true,
-  ...(() => {
-    const payload = ensurePayloadObject(args?.payload);
-    ensureNoReservedPayloadKeys(payload);
-    return payload;
-  })(),
+  result: normalizeResult(args?.payload),
   ...(args?.summary !== undefined ? { summary: redactSensitiveText(args.summary) } : {}),
   ...(args?.suggestions !== undefined && args.suggestions.length > 0
     ? { suggestions: args.suggestions.map((suggestion) => redactSuggestedAction(suggestion)) }

@@ -65,7 +65,7 @@ describe("structured output (--json)", () => {
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
         ok: true,
-        data: { token: "test-json-token" },
+        result: { data: { token: "test-json-token" } },
       });
     } finally {
       temp.cleanup();
@@ -148,7 +148,7 @@ describe("structured output (--json)", () => {
       expect(result.exitCode).toBe(0);
       expect(parseJson(result.stdout)).toEqual({
         ok: true,
-        data: { token: "ci-json-token" },
+        result: { data: { token: "ci-json-token" } },
       });
     } finally {
       temp.cleanup();

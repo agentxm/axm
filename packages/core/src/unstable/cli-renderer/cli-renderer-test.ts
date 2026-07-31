@@ -50,7 +50,11 @@ export interface TestRendererState {
     def: unknown;
     title?: string;
   }>;
-  readonly results: Array<{ data: unknown; schema: Option.Option<Schema.Top> }>;
+  readonly results: Array<{
+    data: unknown;
+    schema: Option.Option<Schema.Top>;
+    ok?: boolean;
+  }>;
   readonly markdown: Array<string>;
   readonly spinnerMessages: Array<string>;
   readonly notes: Array<{ message: string; title?: string }>;
@@ -496,6 +500,7 @@ const makeTestRendererService = (
         state.results.push({
           data,
           schema: Option.some(schema),
+          ...(options?.ok === undefined ? {} : { ok: options.ok }),
         });
         return resultReturnValue;
       }),

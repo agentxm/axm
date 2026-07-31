@@ -23,6 +23,7 @@ export interface MachineOutputFamily {
   readonly liveness: LivenessClass;
   readonly livenessCoverage: ReadonlyArray<string>;
   readonly schemaNames: ReadonlyArray<string>;
+  readonly requiredEnvelopeKeys: ReadonlyArray<string>;
   readonly requiredTopLevelKeys: ReadonlyArray<string>;
   readonly optionalTopLevelKeys: ReadonlyArray<string>;
   readonly scenarios: ReadonlyArray<string>;
@@ -45,6 +46,7 @@ const helpFamily = {
   liveness: "immediate",
   livenessCoverage: ["packages/cli/src/formatter.test.ts"],
   schemaNames: ["JsonHelpDocSchema"],
+  requiredEnvelopeKeys: ["type", "name", "usage"],
   requiredTopLevelKeys: ["type", "name", "usage"],
   optionalTopLevelKeys: ["summary", "arguments", "flags", "subcommands", "examples", "learnMore"],
   scenarios: ["group invoked without a subcommand", "explicit --help on every command path"],
@@ -67,6 +69,7 @@ const planFamily = {
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   schemaNames: ["PlanResolutionDocumentSchema"],
+  requiredEnvelopeKeys: ["ok", "result"],
   requiredTopLevelKeys: ["ok", "result"],
   optionalTopLevelKeys: ["summary", "suggestions"],
   scenarios: ["applied", "previewed", "cancelled", "no-op", "partial failure"],
@@ -89,6 +92,7 @@ const publishFamily = {
     "packages/cli-e2e/src/cli-commands/skills/publish/publish.e2e.ts",
   ],
   schemaNames: ["PublishResultSchema"],
+  requiredEnvelopeKeys: ["ok", "result"],
   requiredTopLevelKeys: ["ok", "mode", "results"],
   optionalTopLevelKeys: ["selection", "summary", "suggestions"],
   scenarios: ["preview", "apply", "no-op", "partial failure"],
@@ -120,6 +124,7 @@ const defineResultFamily = (input: {
   liveness: input.liveness ?? "progress",
   livenessCoverage: input.livenessCoverage ?? input.commandCoverage,
   schemaNames: input.schemaNames,
+  requiredEnvelopeKeys: ["ok", "result"],
   requiredTopLevelKeys: ["ok", ...input.requiredTopLevelKeys],
   optionalTopLevelKeys: ["summary", "suggestions", ...(input.optionalTopLevelKeys ?? [])],
   scenarios: input.scenarios,
@@ -654,6 +659,7 @@ export const FORMATTER_VERSION_CONTRACT = {
     liveness: "immediate",
     livenessCoverage: ["packages/cli/src/formatter.test.ts"],
     schemaNames: ["JsonVersionDocSchema"],
+    requiredEnvelopeKeys: ["type", "name", "version"],
     requiredTopLevelKeys: ["type", "name", "version"],
     optionalTopLevelKeys: [],
     scenarios: ["explicit --version"],

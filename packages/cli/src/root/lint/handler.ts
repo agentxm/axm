@@ -1103,6 +1103,7 @@ export type LintFixDocument = typeof LintFixDocumentSchema.Type;
 const emitJsonDocument = (
   doc: LintJsonDocument,
   fixResolution: Option.Option<typeof PlanResolutionResultSchema.Type>,
+  ok: boolean,
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
@@ -1110,9 +1111,10 @@ const emitJsonDocument = (
       return yield* renderer.result(
         { result: { ...doc, plan: fixResolution.value } },
         LintFixDocumentSchema,
+        { ok },
       );
     }
-    return yield* renderer.result({ result: doc }, LintResultDocumentSchema);
+    return yield* renderer.result({ result: doc }, LintResultDocumentSchema, { ok });
   });
 
 const emitHumanOutput = (args: {
@@ -1600,6 +1602,16 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     fixResolution = Option.some(toPlanResolutionResult(executed));
   }
 
+  // -- Resolve the semantic outcome before emitting the machine document so
+  // its `ok` field and the eventual process exit code cannot disagree. --
+  const category = summary.exitCategory;
+  const outcome = resolveLintExitCategory({ category, strict: args.strict });
+  const fixFailed = Option.match(fixSummary, {
+    onNone: () => false,
+    onSome: (s) => s.failed > 0,
+  });
+  const ok = outcome !== "fail" && !fixFailed;
+
   // -- Emit output --
   const handledByMachine = yield* emitJsonDocument(
     toLintJsonDocument({
@@ -1607,6 +1619,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       ...(Option.isSome(fixSummary) ? { fixSummary: fixSummary.value } : {}),
     }),
     fixResolution,
+    ok,
   );
   if (!handledByMachine) {
     yield* emitHumanOutput({
@@ -1621,12 +1634,6 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   // for any remaining failed operations; otherwise the category is the
   // pre-fix summary (consistent with "axm lint --fix" surfacing original
   // issues, even if all were resolved).
-  const category = summary.exitCategory;
-  const outcome = resolveLintExitCategory({ category, strict: args.strict });
-  const fixFailed = Option.match(fixSummary, {
-    onNone: () => false,
-    onSome: (s) => s.failed > 0,
-  });
   if (outcome === "fail" || fixFailed) {
     return yield* Effect.die(effectCliExit(ExitCode.Issues));
   }

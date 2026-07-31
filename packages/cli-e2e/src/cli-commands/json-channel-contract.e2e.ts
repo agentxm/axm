@@ -49,6 +49,7 @@ describe("JSON-mode channel contract (--json)", () => {
       expect(isRecord(stdoutDocument)).toBe(true);
       if (isRecord(stdoutDocument)) {
         expect(stdoutDocument["ok"]).toBe(true);
+        expect(stdoutDocument).toHaveProperty("result");
       }
     });
   });
@@ -67,6 +68,7 @@ describe("JSON-mode channel contract (--json)", () => {
         expect(isRecord(stdoutDocument)).toBe(true);
         if (isRecord(stdoutDocument)) {
           expect(stdoutDocument["ok"]).toBe(true);
+          expect(stdoutDocument).toHaveProperty("result");
         }
       } finally {
         temp.cleanup();

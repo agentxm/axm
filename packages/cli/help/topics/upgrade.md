@@ -53,7 +53,7 @@ $env:AXM_INSTALL_VERSION='0.23.0'; irm https://axm.sh/install.ps1 | iex
 | `recommendedCommand` | A safe next command AXM did not execute, or `null`                                                                                                                          |
 | `delegatedCommand`   | Deprecated compatibility field; do not use it to infer execution                                                                                                            |
 
-Operational attention outcomes remain `ok: true` but carry a failed or blocked
-plan step and exit 1. Release lookup, network, validation, and unexpected
+Operational attention outcomes carry a failed or blocked plan step, report
+`ok: false`, and exit 1. Release lookup, network, validation, and unexpected
 transaction failures use the normal `ok: false` error envelope and canonical
 exit codes documented by `axm help exit-codes`.

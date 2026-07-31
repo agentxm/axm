@@ -45,16 +45,14 @@ const ViewVersionSchema = Schema.Struct({
 });
 
 const ViewDocumentFields = {
-  data: Schema.Struct({
-    handle: Schema.String,
-    owner: Schema.String,
-    type: Schema.String,
-    name: Schema.String,
-    description: Schema.optional(Schema.String),
-    latest: Schema.optional(ViewVersionSchema),
-    versions: Schema.Array(ViewVersionSchema),
-    install: Schema.String,
-  }),
+  handle: Schema.String,
+  owner: Schema.String,
+  type: Schema.String,
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  latest: Schema.optional(ViewVersionSchema),
+  versions: Schema.Array(ViewVersionSchema),
+  install: Schema.String,
 } satisfies Schema.Struct.Fields;
 export const ViewDocumentSchema = Schema.Struct(ViewDocumentFields);
 export type ViewDocument = typeof ViewDocumentSchema.Type;
@@ -62,7 +60,7 @@ export type ViewDocument = typeof ViewDocumentSchema.Type;
 export const ViewFieldValueSchema = Schema.Union([Schema.String, Schema.Array(Schema.String)]);
 export type ViewFieldValue = typeof ViewFieldValueSchema.Type;
 
-type ViewDocumentData = Schema.Struct.Type<typeof ViewDocumentFields>["data"];
+type ViewDocumentData = Schema.Struct.Type<typeof ViewDocumentFields>;
 
 interface ViewTableRow {
   readonly field: string;
@@ -349,7 +347,7 @@ const handleResolvedView = (args: {
       return;
     }
 
-    if (yield* renderer.result({ data }, ViewDocumentSchema)) {
+    if (yield* renderer.result(data, ViewDocumentSchema)) {
       return;
     }
 

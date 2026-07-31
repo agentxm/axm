@@ -41,18 +41,21 @@ describe("axm skills list", () => {
       expect(textResult.stderr).toContain("1 installed");
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout)).toMatchObject({
-        count: 1,
-        configuredCount: 0,
-        implicitCount: 0,
-        installedCount: 1,
-        unmanagedCount: 1,
-        ignoredCount: 0,
-        items: [
-          {
-            name: "native-only",
-            classification: { kind: "lifecycle", lifecycle: "unmanaged" },
-          },
-        ],
+        ok: true,
+        result: {
+          count: 1,
+          configuredCount: 0,
+          implicitCount: 0,
+          installedCount: 1,
+          unmanagedCount: 1,
+          ignoredCount: 0,
+          items: [
+            {
+              name: "native-only",
+              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
+            },
+          ],
+        },
       });
     } finally {
       userHome.cleanup();
@@ -116,22 +119,27 @@ describe("axm skills list", () => {
       expect(normal.exitCode).toBe(0);
       expect(JSON.parse(normal.stdout)).not.toEqual(
         expect.objectContaining({
-          items: expect.arrayContaining([expect.objectContaining({ name: "old-skill" })]),
+          result: expect.objectContaining({
+            items: expect.arrayContaining([expect.objectContaining({ name: "old-skill" })]),
+          }),
         }),
       );
       expect(included.exitCode).toBe(0);
       expect(JSON.parse(included.stdout)).toEqual(
         expect.objectContaining({
-          ignoredCount: 1,
-          items: expect.arrayContaining([
-            expect.objectContaining({
-              name: "old-skill",
-              classification: expect.objectContaining({
-                kind: "ignored",
-                matchedBy: ["*-skill", "old-*"],
+          ok: true,
+          result: expect.objectContaining({
+            ignoredCount: 1,
+            items: expect.arrayContaining([
+              expect.objectContaining({
+                name: "old-skill",
+                classification: expect.objectContaining({
+                  kind: "ignored",
+                  matchedBy: ["*-skill", "old-*"],
+                }),
               }),
-            }),
-          ]),
+            ]),
+          }),
         }),
       );
     } finally {

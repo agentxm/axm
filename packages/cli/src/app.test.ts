@@ -88,12 +88,23 @@ describe("root command help", () => {
 
 describe("root command parser output", () => {
   let stdoutWrites: Array<string>;
+  let stderrWrites: Array<string>;
+  let consoleErrorWrites: Array<string>;
 
   beforeEach(() => {
     stdoutWrites = [];
+    stderrWrites = [];
+    consoleErrorWrites = [];
     vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
       stdoutWrites.push(String(args[0]));
       return true;
+    });
+    vi.spyOn(process.stderr, "write").mockImplementation((...args: Array<unknown>) => {
+      stderrWrites.push(String(args[0]));
+      return true;
+    });
+    vi.spyOn(console, "error").mockImplementation((...args: ReadonlyArray<unknown>) => {
+      consoleErrorWrites.push(args.map(String).join(" "));
     });
     vi.spyOn(process, "exit").mockImplementation((code) => {
       throw new ExitCalled(typeof code === "number" ? code : 0);
@@ -102,6 +113,29 @@ describe("root command parser output", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("rejects an unknown flag with exit 2 across every registered command", async () => {
+    const files = await Effect.runPromise(collectHelpFiles());
+    const unknownFlag = "--definitely-unknown";
+
+    for (const command of files.keys()) {
+      stdoutWrites.length = 0;
+      stderrWrites.length = 0;
+      consoleErrorWrites.length = 0;
+      const commandArgs = command.split(" ").slice(1);
+
+      await expect(
+        run([...commandArgs, unknownFlag, "--non-interactive"]),
+        command,
+      ).rejects.toMatchObject({
+        code: ExitCode.Usage,
+      });
+      expect(stdoutWrites, command).toEqual([]);
+      expect([...stderrWrites, ...consoleErrorWrites].join("\n"), command).toContain(
+        `Unrecognized flag: ${unknownFlag}`,
+      );
+    }
   });
 
   it("emits one JSON usage envelope for missing required flags", async () => {

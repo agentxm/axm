@@ -1,3 +1,13 @@
+## 0.24.7 (2026-07-31)
+
+### 🩹 Fixes
+
+- Improve native installers with actionable PATH guidance and reliable cmd.exe failure propagation.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.6 (2026-07-31)
 
 ### 🩹 Fixes

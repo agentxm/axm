@@ -65,11 +65,20 @@ for (const cacheVolume of ["CI_PNPM_CACHE_VOLUME", "CI_NX_CACHE_VOLUME"]) {
     `docker volume create "$${cacheVolume}"`,
     `container launcher must create the scoped ${cacheVolume} cache`,
   );
-  requireText(
-    containerLauncher,
-    `--volume "$${cacheVolume}:`,
-    `container launcher must mount the scoped ${cacheVolume} cache`,
-  );
+}
+
+requireText(
+  containerLauncher,
+  '--volume "$CI_PNPM_CACHE_VOLUME:/tmp/axm-home/.local/share/pnpm/store"',
+  "container launcher must mount the scoped pnpm cache at the pnpm store",
+);
+requireText(
+  containerLauncher,
+  '--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx/cache"',
+  "container launcher must persist only the Nx result cache",
+);
+if (containerLauncher.includes('--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx" \\\n')) {
+  errors.push("container launcher must not persist transient Nx workspace data");
 }
 
 for (const scopeInput of ['"axm|', "$(uname -m)", "$CI_IMAGE", "pnpm-lock.yaml"]) {

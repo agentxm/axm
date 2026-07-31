@@ -115,6 +115,25 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
       }),
     );
 
+    it.effect("prefers the launched script executable over inherited package-manager state", () =>
+      Effect.gen(function* () {
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          execPath: "C:\\tools\\bun.exe",
+          invocationPaths: ["C:\\Users\\testuser\\.axm\\bin\\axm.exe"],
+          homeDir: "C:\\Users\\testuser",
+          platform: "win32",
+          packageManager: "pnpm",
+          packageManagerVersion: "10.14.0",
+        });
+        expect(result._tag).toBe("Script");
+        if (result._tag === "Script") {
+          expect(result.detectionSource).toBe("executable-path");
+          expect(result.execPath).toBe("C:\\Users\\testuser\\.axm\\bin\\axm.exe");
+        }
+      }),
+    );
+
     it.effect("matches canonical script paths when home uses an alias", () =>
       Effect.gen(function* () {
         const parent = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "install-method-alias-"));
@@ -407,7 +426,32 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
       }),
     );
 
-    it.effect("treats path and metadata disagreement as conflicting", () =>
+    it.effect("treats executable path and metadata disagreement as conflicting", () =>
+      Effect.gen(function* () {
+        const executable = nodePath.join(tempDir, ".axm", "bin", "axm");
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "npm",
+            installedAt: "2026-01-15T08:30:00.000Z",
+          }),
+        );
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: executable,
+        });
+        expect(result._tag).toBe("Unknown");
+        if (result._tag === "Unknown") {
+          expect(result.reason).toBe("conflicting");
+          expect(result.detectionSource).toBe("conflicting");
+        }
+      }),
+    );
+
+    it.effect("treats package-manager and metadata disagreement as conflicting", () =>
       Effect.gen(function* () {
         const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
         nodeFs.writeFileSync(

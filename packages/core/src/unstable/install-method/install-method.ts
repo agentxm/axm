@@ -307,14 +307,14 @@ export const detectFromInputs = (inputs: InstallMethodInputs) =>
         ? methodFromName(meta.value.method, inputs, "install-metadata", meta.value)
         : null;
 
-    const strong = direct ?? manager;
-    if (direct !== null && manager !== null && methodName(direct) !== methodName(manager)) {
-      return conflicting([...(direct.evidence ?? []), ...(manager.evidence ?? [])]);
+    if (direct !== null && metaMethod !== null && methodName(direct) !== methodName(metaMethod)) {
+      return conflicting([...(direct.evidence ?? []), ...(metaMethod.evidence ?? [])]);
     }
-    if (strong !== null && metaMethod !== null && methodName(strong) !== methodName(metaMethod)) {
-      return conflicting([...(strong.evidence ?? []), ...(metaMethod.evidence ?? [])]);
+    if (direct !== null) return direct;
+    if (manager !== null && metaMethod !== null && methodName(manager) !== methodName(metaMethod)) {
+      return conflicting([...(manager.evidence ?? []), ...(metaMethod.evidence ?? [])]);
     }
-    if (strong !== null) return strong;
+    if (manager !== null) return manager;
     if (metaMethod !== null) return metaMethod;
 
     if (normalizedPath(inputs.importMetaUrl).includes("node_modules")) {

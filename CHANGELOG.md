@@ -1,3 +1,14 @@
+## 0.24.5 (2026-07-31)
+
+### 🩹 Fixes
+
+- Isolate authored-drift E2E workspaces and transient Nx invocation state from
+  shared agent and CI runner state.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.4 (2026-07-31)
 
 ### 🩹 Fixes

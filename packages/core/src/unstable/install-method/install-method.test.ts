@@ -28,6 +28,7 @@ const baseInputs: InstallMethodInputs = {
   execPath: "/usr/local/bin/bun",
   importMetaUrl: "file:///usr/local/lib/axm/src/main.ts",
   homeDir: "/Users/testuser",
+  platform: "darwin",
 };
 
 // -----------------------------------------------------------------------------
@@ -67,9 +68,49 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
           ...baseInputs,
           execPath: "C:\\Users\\testuser\\.axm\\bin\\axm.exe",
           homeDir: "C:\\Users\\testuser",
+          platform: "win32",
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Script");
+      }),
+    );
+
+    it.effect("matches Windows script paths case-insensitively", () =>
+      Effect.gen(function* () {
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          execPath: "C:\\USERS\\TESTUSER\\.AXM\\BIN\\AXM.EXE",
+          homeDir: "c:\\users\\testuser",
+          platform: "win32",
+        });
+        expect(result._tag).toBe("Script");
+      }),
+    );
+
+    it.effect("matches canonical script paths when home uses an alias", () =>
+      Effect.gen(function* () {
+        const parent = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "install-method-alias-"));
+        const realHome = nodePath.join(parent, "real-home");
+        const aliasedHome = nodePath.join(parent, "aliased-home");
+        const executable = nodePath.join(realHome, ".axm", "bin", "axm");
+        nodeFs.mkdirSync(nodePath.dirname(executable), { recursive: true });
+        nodeFs.writeFileSync(executable, "");
+        nodeFs.symlinkSync(realHome, aliasedHome, "dir");
+
+        try {
+          const result = yield* detectFromInputs({
+            ...baseInputs,
+            execPath: executable,
+            homeDir: aliasedHome,
+            platform: "linux",
+          });
+          expect(result._tag).toBe("Script");
+          if (result._tag === "Script") {
+            expect(result.detectionSource).toBe("resolved-executable-path");
+          }
+        } finally {
+          nodeFs.rmSync(parent, { recursive: true, force: true });
+        }
       }),
     );
 
@@ -226,6 +267,21 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
       }),
     );
 
+    it.effect("reads PowerShell 5.1 UTF-8 BOM install metadata", () =>
+      Effect.gen(function* () {
+        const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+        nodeFs.writeFileSync(metaPath, `\uFEFF${JSON.stringify({ method: "script" })}`);
+
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          homeDir: tempDir,
+          execPath: "/some/other/bin/bun",
+          importMetaUrl: "file:///some/other/path/main.ts",
+        });
+        expect(result._tag).toBe("Script");
+      }),
+    );
+
     it.effect("reads install-meta.json and returns homebrew method", () =>
       Effect.gen(function* () {
         const metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
@@ -360,6 +416,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
+        if (result._tag === "Unknown") {
+          expect(result.evidence).toContain("install-metadata:invalid");
+        }
       }),
     );
 
@@ -376,6 +435,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
+        if (result._tag === "Unknown") {
+          expect(result.evidence).toContain("install-metadata:invalid");
+        }
       }),
     );
   });
@@ -394,6 +456,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
         };
         const result = yield* detectFromInputs(inputs);
         expect(result._tag).toBe("Unknown");
+        if (result._tag === "Unknown") {
+          expect(result.evidence).toContain("install-metadata:missing");
+        }
       }),
     );
   });

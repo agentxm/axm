@@ -184,12 +184,13 @@ try {
 
     $metaPath = Join-Path $dataDir 'install-meta.json'
     $metaTemp = Join-Path $dataDir (".install-meta-{0}.tmp" -f [Guid]::NewGuid().ToString('N'))
-    @{
+    $metaJson = @{
         schemaVersion = 2
         method = 'script'
         installedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
         executablePath = $target
-    } | ConvertTo-Json | Set-Content -LiteralPath $metaTemp -Encoding UTF8
+    } | ConvertTo-Json
+    [IO.File]::WriteAllText($metaTemp, $metaJson, [Text.UTF8Encoding]::new($false))
     Move-Item -LiteralPath $metaTemp -Destination $metaPath -Force
 
     $committed = $true

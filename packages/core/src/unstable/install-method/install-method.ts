@@ -107,12 +107,21 @@ export interface InstallMethodInputs {
   readonly execPath: string;
   readonly importMetaUrl: string;
   readonly homeDir: string;
+  readonly platform: string;
   readonly packageManager?: "npm" | "pnpm" | "yarn";
   readonly packageManagerVersion?: string;
   readonly managerOwnedExecutable?: string;
 }
 
 const normalizedPath = (value: string): string => value.replace(/\\/gu, "/");
+
+const comparablePath = (value: string, platform: string): string => {
+  const normalized = normalizedPath(value).replace(/\/+$/u, "");
+  return platform === "win32" ? normalized.toLowerCase() : normalized;
+};
+
+const isWithinDirectory = (value: string, directory: string, platform: string): boolean =>
+  comparablePath(value, platform).startsWith(`${comparablePath(directory, platform)}/`);
 
 const managerMajor = (version: string | undefined): number | undefined => {
   if (version === undefined) return undefined;
@@ -190,14 +199,22 @@ const methodFromManagerEvidence = (inputs: InstallMethodInputs): InstallMethodTy
 const directMethod = (
   inputs: InstallMethodInputs,
   realExecPath: string,
+  scriptBinPath: string,
+  realScriptBinPath: string,
 ): InstallMethodType | null => {
-  const executable = normalizedPath(inputs.execPath);
-  const home = normalizedPath(inputs.homeDir);
-  if (executable.startsWith(`${home}/.axm/bin/`)) {
+  if (isWithinDirectory(inputs.execPath, scriptBinPath, inputs.platform)) {
     return new Script({
       execPath: inputs.execPath,
       detectionSource: "executable-path",
       evidence: [`executable:${inputs.execPath}`],
+      confidence: "high",
+    });
+  }
+  if (isWithinDirectory(realExecPath, realScriptBinPath, inputs.platform)) {
+    return new Script({
+      execPath: realExecPath,
+      detectionSource: "resolved-executable-path",
+      evidence: [`resolved-executable:${realExecPath}`],
       confidence: "high",
     });
   }
@@ -213,16 +230,25 @@ const directMethod = (
   return null;
 };
 
+type InstallMetaRead =
+  | { readonly status: "found"; readonly value: DetectionMeta }
+  | { readonly status: "missing" | "unreadable" | "invalid" };
+
+const withoutUtf8Bom = (value: string): string =>
+  value.startsWith("\uFEFF") ? value.slice(1) : value;
+
 const readInstallMeta = (fs: FileSystem.FileSystem, metaPath: string) =>
   Effect.gen(function* () {
-    if (!(yield* fs.exists(metaPath).pipe(Effect.catch(() => Effect.succeed(false))))) {
-      return Option.none<DetectionMeta>();
-    }
+    const exists = yield* fs.exists(metaPath).pipe(Effect.option);
+    if (Option.isNone(exists)) return { status: "unreadable" } satisfies InstallMetaRead;
+    if (!exists.value) return { status: "missing" } satisfies InstallMetaRead;
+
     const content = yield* fs.readFileString(metaPath).pipe(Effect.option);
-    if (Option.isNone(content)) return Option.none<DetectionMeta>();
-    return yield* decodeInstallMetaFromJsonString(content.value).pipe(
-      Effect.map(Option.some),
-      Effect.catch(() => Effect.succeed(Option.none<DetectionMeta>())),
+    if (Option.isNone(content)) return { status: "unreadable" } satisfies InstallMetaRead;
+
+    return yield* decodeInstallMetaFromJsonString(withoutUtf8Bom(content.value)).pipe(
+      Effect.map((value) => ({ status: "found", value }) satisfies InstallMetaRead),
+      Effect.catch(() => Effect.succeed({ status: "invalid" } satisfies InstallMetaRead)),
     );
   });
 
@@ -241,16 +267,19 @@ export const detectFromInputs = (inputs: InstallMethodInputs) =>
     const realExecPath = yield* fs
       .realPath(inputs.execPath)
       .pipe(Effect.catch(() => Effect.succeed(inputs.execPath)));
-    const direct = directMethod(inputs, realExecPath);
+    const userScopeDir = resolveUserScopeDirPure(path.join, inputs.homeDir);
+    const scriptBinPath = path.join(userScopeDir, "bin");
+    const realScriptBinPath = yield* fs
+      .realPath(scriptBinPath)
+      .pipe(Effect.catch(() => Effect.succeed(scriptBinPath)));
+    const direct = directMethod(inputs, realExecPath, scriptBinPath, realScriptBinPath);
     const manager = methodFromManagerEvidence(inputs);
-    const metaPath = path.join(
-      resolveUserScopeDirPure(path.join, inputs.homeDir),
-      "install-meta.json",
-    );
+    const metaPath = path.join(userScopeDir, "install-meta.json");
     const meta = yield* readInstallMeta(fs, metaPath);
-    const metaMethod = Option.isSome(meta)
-      ? methodFromName(meta.value.method, inputs, "install-metadata", meta.value)
-      : null;
+    const metaMethod =
+      meta.status === "found"
+        ? methodFromName(meta.value.method, inputs, "install-metadata", meta.value)
+        : null;
 
     const strong = direct ?? manager;
     if (direct !== null && manager !== null && methodName(direct) !== methodName(manager)) {
@@ -266,24 +295,30 @@ export const detectFromInputs = (inputs: InstallMethodInputs) =>
       return new Unknown({
         reason: "ambiguous",
         detectionSource: "module-url",
-        evidence: [`module-url:${inputs.importMetaUrl}`],
+        evidence: [
+          `module-url:${inputs.importMetaUrl}`,
+          "executable-path:miss",
+          `install-metadata:${meta.status}`,
+        ],
         confidence: "low",
       });
     }
     return new Unknown({
       reason: "unknown",
       detectionSource: "unknown",
-      evidence: [],
+      evidence: ["executable-path:miss", `install-metadata:${meta.status}`],
       confidence: "low",
     });
   });
 
 const selectHomeDir = (
   platform: string,
+  axmUserHome: Option.Option<string>,
   home: Option.Option<string>,
   userProfile: Option.Option<string>,
   homePath: Option.Option<string>,
 ): string => {
+  if (Option.isSome(axmUserHome)) return axmUserHome.value;
   if (platform === "win32") {
     if (Option.isSome(userProfile)) return userProfile.value;
     if (Option.isSome(home)) return home.value;
@@ -315,6 +350,7 @@ export const InstallMethodLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
     const platform = yield* Effect.sync(() => process.platform);
+    const axmUserHome = yield* envOption("AXM_USER_HOME");
     const home = yield* envOption("HOME");
     const userProfile = yield* envOption("USERPROFILE");
     const homePath = yield* envOption("HOMEPATH");
@@ -322,7 +358,8 @@ export const InstallMethodLive = Layer.effect(
     const inputs: InstallMethodInputs = {
       execPath: process.execPath,
       importMetaUrl: import.meta.url,
-      homeDir: selectHomeDir(platform, home, userProfile, homePath),
+      homeDir: selectHomeDir(platform, axmUserHome, home, userProfile, homePath),
+      platform,
       ...parseUserAgent(userAgent),
     };
     return {

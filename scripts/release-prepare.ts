@@ -104,6 +104,7 @@ const prepareReleaseArtifacts = async () => {
   } else {
     writeSkillVersion(version);
     stampSkillCliVersion(version);
+    run("pnpm", ["exec", "nx", "run", "cli:generate:bundled-axm-skill", "--outputStyle=static"]);
     run("pnpm", [
       "axm:local",
       "skills",

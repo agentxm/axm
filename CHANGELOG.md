@@ -1,3 +1,13 @@
+## 0.24.9 (2026-07-31)
+
+### 🩹 Fixes
+
+- Release the bundled AXM skill in lockstep with the CLI.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.8 (2026-07-31)
 
 ### 🩹 Fixes

@@ -43,10 +43,13 @@ describe("axm lint (e2e, Phase 7)", () => {
       const temp = createTempDir();
       try {
         const env = { HOME: temp.path, AXM_USER_HOME: temp.path };
-        const setup = await runCli(["setup", "--yes", "--non-interactive"], {
-          cwd: temp.path,
-          env,
-        });
+        const setup = await runCli(
+          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          {
+            cwd: temp.path,
+            env,
+          },
+        );
         expect(setup.exitCode).toBe(0);
 
         const scaffold = await runCli(

@@ -8,7 +8,7 @@ import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-e
 import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
-import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import { planResolutionToSummary, toPlanResolutionResult } from "../../json-output.js";
 import {
   InstallCommandCommandWorkflowActions,
   type InstallCommandHandlerArgs,
@@ -49,6 +49,7 @@ import {
   mergePlanResolution,
   runFilesWorkspaceGeneratorPhase,
 } from "../files/workspace-generator-phase.js";
+import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
 
 export interface RootInstallFlags {
   readonly yes: boolean;
@@ -196,7 +197,20 @@ const runLocatorInstallIntent = (source: string, args: RootInstallFlags) =>
     }
 
     for (const item of successful) {
-      yield* emitPlanResolutionResult("install", item.resolution);
+      const result = toPlanResolutionResult(item.resolution);
+      yield* emitAppliedPlanOutcome({
+        command: "install",
+        headline:
+          result.outcome === "no-op"
+            ? unchangedPlanHeadline(
+                item.resolution,
+                `${item.type} extensions are already up to date`,
+              )
+            : `Installed ${item.type} extensions from ${source}`,
+        resolution: item.resolution,
+        reportInstallationCoverage: item.type !== "knowledge",
+        suggestions: [{ description: "Inspect workspace status", cmd: "axm status" }],
+      });
     }
   });
 
@@ -233,6 +247,16 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
             }),
           ),
         );
-        yield* emitPlanResolutionResult("install", outputResolution);
+        const result = toPlanResolutionResult(outputResolution);
+        yield* emitAppliedPlanOutcome({
+          command: "install",
+          headline:
+            result.outcome === "no-op"
+              ? unchangedPlanHeadline(outputResolution, `${intent.type} is already up to date`)
+              : `Installed ${intent.type} ${source}`,
+          resolution: outputResolution,
+          reportInstallationCoverage: intent.type !== "knowledge",
+          suggestions: [{ description: "Inspect workspace status", cmd: "axm status" }],
+        });
       }),
   });

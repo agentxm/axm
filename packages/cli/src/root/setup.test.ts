@@ -181,6 +181,54 @@ describe("setup.handler", () => {
       },
     );
 
+    it.effect("offers agent remediation when an initialized workspace has no agents", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project" });
+          yield* handleSetup({ scope: "project" });
+
+          expect(rendererState.logs).toContainEqual({
+            _tag: "warn",
+            message:
+              "No coding-agent targets are configured. Run `axm agents add --detected` to materialize installed extensions.",
+          });
+          expect(rendererState.logs).toContainEqual({
+            _tag: "success",
+            message: "Workspace already initialized with no coding agents",
+          });
+          expect(rendererState.suggestions).toContainEqual({
+            description: "Detect and configure active coding agents",
+            cmd: "axm agents add --detected",
+          });
+        }),
+      );
+    });
+
+    it.effect("does not auto-select a detected retired agent during setup", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+      fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project" });
+
+          expect(readJson(path.join(tempDir, ".axm", "settings.json")).agents).toEqual([]);
+          expect(rendererState.logs).toContainEqual(
+            expect.objectContaining({
+              _tag: "warn",
+              message: expect.stringContaining("was not selected automatically"),
+            }),
+          );
+        }),
+      );
+    });
+
     it.effect("emits initialized status in machine output", () => {
       const { provide, installCalls, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },

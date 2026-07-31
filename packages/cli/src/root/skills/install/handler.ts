@@ -109,6 +109,7 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
           ? unchangedPlanHeadline(resolution, "No skills installed.")
           : appliedInstallHeadline(resolution, args.source.value),
       resolution,
+      reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect installed skills", cmd: "axm skills list" }],
     });
   });

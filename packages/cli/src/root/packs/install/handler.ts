@@ -54,6 +54,7 @@ export const handleInstallPack = (args: PackInstallHandlerArgs, flags: InstallPa
           ? unchangedPlanHeadline(resolution, "No packs installed.")
           : "Installed pack " + args.source.value,
       resolution,
+      reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect installed packs", cmd: "axm packs list" }],
     });
   });

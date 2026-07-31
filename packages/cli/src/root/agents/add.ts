@@ -31,7 +31,7 @@ import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
-import { lifecycleWarning } from "./lifecycle.js";
+import { isRetiredAgent, lifecycleWarning } from "./lifecycle.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { dedupe, validateAgentIds } from "./shared.js";
 
@@ -256,15 +256,36 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
     ? yield* detectAgents(ws.baseDir).pipe(Effect.map((agents) => agents.map((agent) => agent.id)))
     : [];
   const detectedConfigurable = yield* validateAgentIds(detected);
-  const agentIds = dedupe([...requested, ...detectedConfigurable]).filter(
-    (id) => !configuredSet.has(id),
+  const requestedSet = new Set(requested);
+  const retiredDetected = detectedConfigurable.filter(
+    (id) => isRetiredAgent(id) && !requestedSet.has(id),
   );
+  const autoDetected = detectedConfigurable.filter(
+    (id) => !isRetiredAgent(id) || requestedSet.has(id),
+  );
+  for (const agentId of retiredDetected) {
+    yield* renderer.warn(
+      `${lifecycleWarning(agentId) ?? `${agentId} is retired.`} It was not added automatically; run \`axm agents add ${agentId}\` to opt in.`,
+    );
+  }
+  const agentIds = dedupe([...requested, ...autoDetected]).filter((id) => !configuredSet.has(id));
 
   if (agentIds.length === 0) {
     yield* emitNoOpOutcome("agents.add", {
       planName: "Add coding agents",
       planDescription: "Configure coding agents and materialize installed extensions",
-      message: "All requested agents are already configured",
+      message:
+        retiredDetected.length > 0 && requested.length === 0
+          ? "No active detected agents to configure"
+          : "All requested agents are already configured",
+      ...(retiredDetected.length === 0
+        ? {}
+        : {
+            suggestions: retiredDetected.map((agentId) => ({
+              description: `Explicitly configure retired agent ${agentId}.`,
+              cmd: `axm agents add ${agentId}`,
+            })),
+          }),
     });
     return;
   }

@@ -61,6 +61,7 @@ export const handleInstallMcpServer = (
           ? unchangedPlanHeadline(resolution, "No MCP servers installed.")
           : "Installed MCP server " + args.source.value,
       resolution,
+      reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect MCP servers", cmd: "axm mcps list" }],
     });
   });

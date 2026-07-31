@@ -24,6 +24,9 @@ const ACTIVE: AgentLifecycle = { state: "active" };
 export const agentLifecycle = (id: string): AgentLifecycle =>
   isCatalogAgentId(id) ? AGENTS_BY_ID[id].lifecycle : ACTIVE;
 
+/** Whether an agent must only be configured through an explicit user choice. */
+export const isRetiredAgent = (id: string): boolean => agentLifecycle(id).state === "retired";
+
 /** Table cell for the lifecycle column. Active agents render blank, not "active". */
 export const lifecycleCell = (id: string): string => {
   const lifecycle = agentLifecycle(id);

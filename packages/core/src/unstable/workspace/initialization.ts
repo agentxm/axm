@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
+import { AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
 import { detectAgents } from "../agents/index.js";
 import { AGENTS } from "../agents/registry.js";
 import {
@@ -58,7 +59,6 @@ const POPULAR_AGENT_IDS = [
   "codex",
   "cursor",
   "github-copilot-cli",
-  "gemini-cli",
   "opencode",
 ] as const;
 const INSTRUCTION_SOURCE_CANDIDATES = [
@@ -74,6 +74,9 @@ const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
 const isKnownConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
   isKnownAgentId(id) && isConfigurableAgentId(id);
+
+const isAutoSelectableAgent = (agent: AgentDescriptor): boolean =>
+  agent.id === "universal" || AGENTS_BY_ID[agent.id].lifecycle.state !== "retired";
 
 const allAgentDescriptors = (
   preferredIds: ReadonlyArray<string>,
@@ -315,13 +318,20 @@ const selectSetupAgents = (args: {
         }),
       ),
     );
-    const detectedIds = Array.map(detectedAgents, (agent) => agent.id);
+    const autoSelectableAgents = detectedAgents.filter(isAutoSelectableAgent);
+    const retiredDetectedAgents = detectedAgents.filter((agent) => !isAutoSelectableAgent(agent));
+    const detectedIds = Array.map(autoSelectableAgents, (agent) => agent.id);
     yield* renderer.info(
-      `Scanned this repo and your machine - found ${String(detectedIds.length)} agents.`,
+      `Scanned this repo and your machine - found ${String(detectedAgents.length)} agents.`,
     );
+    for (const agent of retiredDetectedAgents) {
+      yield* renderer.warn(
+        `${agent.name} is retired and was not selected automatically. To opt in, run \`axm setup --agent ${agent.id}\`.`,
+      );
+    }
     yield* renderer.info(SETUP_PHASES);
 
-    if (nonInteractive || args.options.yes === true) return detectedAgents;
+    if (nonInteractive || args.options.yes === true) return autoSelectableAgents;
 
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const configuredIds = args.existingSettings.agents ?? [];

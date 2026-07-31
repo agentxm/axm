@@ -317,6 +317,7 @@ const renderSetupBranding = (renderer: ServiceMap.Service.Shape<typeof CliRender
 const setupSuggestions = (args: {
   readonly status: "initialized" | "already-initialized" | "preview";
   readonly agentCount: number;
+  readonly scope: WorkspaceScope;
   readonly telemetryEnabled: boolean;
 }): ReadonlyArray<SuggestedAction> => {
   if (args.status === "preview") {
@@ -328,7 +329,12 @@ const setupSuggestions = (args: {
     { description: "Inspect installed skills", cmd: "axm skills list" },
   ];
 
-  if (args.agentCount > 0) {
+  if (args.agentCount === 0) {
+    suggestions.unshift({
+      description: "Detect and configure active coding agents",
+      cmd: `axm agents add --detected${args.scope === "user" ? " --scope user" : ""}`,
+    });
+  } else {
     suggestions.push({ description: "Discover recommended extensions", cmd: "axm discover" });
   }
 
@@ -352,11 +358,11 @@ const setupMessage = (args: {
   if (!args.initialized) {
     return args.agentCount > 0
       ? `Workspace already initialized with agents: ${args.agentNames}`
-      : "Workspace already initialized";
+      : "Workspace already initialized with no coding agents";
   }
   return args.agentCount > 0
     ? `Initialized with agents: ${args.agentNames}`
-    : "Workspace initialized";
+    : "Workspace initialized with no coding agents";
 };
 
 const setupStepStatus = (args: {
@@ -518,7 +524,16 @@ const setupPlanFields = (args: {
     });
   }
 
+  if (args.agentIds.length === 0 && args.status !== "preview") {
+    steps.push({
+      label: "Agent materialization",
+      status: "warning",
+      message: `No coding-agent targets are configured. Run \`axm agents add --detected${args.scope === "user" ? " --scope user" : ""}\` to materialize installed extensions.`,
+    });
+  }
+
   const readyCount = steps.filter((step) => step.status === "ready").length;
+  const warningCount = steps.filter((step) => step.status === "warning").length;
   const appliedCount = steps.filter((step) => step.status === "applied").length;
   const blockedCount = steps.filter((step) => step.status === "blocked").length;
   const failedCount = steps.filter((step) => step.status === "failed").length;
@@ -530,7 +545,7 @@ const setupPlanFields = (args: {
     message: args.message,
     totalSteps: steps.length,
     readyCount,
-    warningCount: 0,
+    warningCount,
     errorCount: 0,
     appliedCount,
     failedCount,
@@ -612,6 +627,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const suggestions = setupSuggestions({
     status,
     agentCount: allAgents.length,
+    scope: location.scope,
     telemetryEnabled,
   });
   const message = setupMessage({
@@ -654,6 +670,11 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     return;
   }
 
+  if (allAgents.length === 0 && status !== "preview") {
+    yield* renderer.warn(
+      `No coding-agent targets are configured. Run \`axm agents add --detected${location.scope === "user" ? " --scope user" : ""}\` to materialize installed extensions.`,
+    );
+  }
   yield* renderer.success(message);
 
   const verbosity = yield* Verbosity;

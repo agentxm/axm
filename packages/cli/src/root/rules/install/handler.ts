@@ -33,6 +33,7 @@ export const handleInstallRule = (
           ? unchangedPlanHeadline(resolution, "No rules installed.")
           : "Installed rule " + args.source,
       resolution,
+      reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect installed rules", cmd: "axm rules list" }],
     });
   });

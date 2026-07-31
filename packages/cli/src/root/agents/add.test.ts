@@ -7,7 +7,10 @@ import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import YAML from "yaml";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import {
+  AgentExecutableResolver,
+  CodingAgentRepositoryLive,
+} from "@agentxm/client-core/unstable/agents";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
@@ -188,6 +191,9 @@ describe("agents add.handler", () => {
       context.fullLayer,
       emptyManagersLayer,
       CodingAgentRepositoryLive,
+      Layer.succeed(AgentExecutableResolver, {
+        exists: () => Effect.succeed(false),
+      }),
     );
 
     return {
@@ -195,6 +201,15 @@ describe("agents add.handler", () => {
       logs: context.logs,
       rendererState: context.rendererState,
     };
+  };
+
+  const readConfiguredAgents = (): ReadonlyArray<string> => {
+    const settings: { readonly agents?: unknown } = JSON.parse(
+      fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+    );
+    return Array.isArray(settings.agents)
+      ? settings.agents.filter((agent): agent is string => typeof agent === "string")
+      : [];
   };
 
   it.effect("surfaces permission suggestions in the human renderer", () => {
@@ -352,6 +367,55 @@ describe("agents add.handler", () => {
 
         expect(rendererState.logs).toEqual([{ _tag: "success", message: "Configured 1 agent" }]);
         expect(rendererState.suggestions).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("does not auto-add a detected retired agent", () => {
+    const { provide, rendererState } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+    fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsAdd({
+          ids: [],
+          detected: true,
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(readConfiguredAgents()).toEqual([]);
+        expect(rendererState.logs).toContainEqual(
+          expect.objectContaining({
+            _tag: "warn",
+            message: expect.stringContaining("was not added automatically"),
+          }),
+        );
+        expect(rendererState.logs).toContainEqual({
+          _tag: "success",
+          message: "No active detected agents to configure",
+        });
+      }),
+    );
+  });
+
+  it.effect("allows an explicit retired agent to be configured", () => {
+    const { provide } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsAdd({
+          ids: ["gemini-cli"],
+          detected: false,
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(readConfiguredAgents()).toEqual(["gemini-cli"]);
       }),
     );
   });

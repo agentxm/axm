@@ -466,8 +466,11 @@ describe("install script verification", () => {
         installDir,
         process.platform === "win32" ? "axm.exe" : "axm",
       );
+      const outputInstalledBinary =
+        process.platform === "win32" ? fs.realpathSync.native(installedBinary) : installedBinary;
+      const outputInstallDir = path.dirname(outputInstalledBinary);
 
-      expect(output).toContain(`Installed AXM ${fixtureVersion} to ${installedBinary}`);
+      expect(output).toContain(`Installed AXM ${fixtureVersion} to ${outputInstalledBinary}`);
       expect(output).toContain("Use AXM in this shell:");
       expect(output).toContain("open a new terminal");
       expect(output).toContain("Verify the installed executable:");
@@ -476,19 +479,23 @@ describe("install script verification", () => {
       );
 
       if (installMode === "bash") {
-        expect(output).toContain(`export PATH="${installDir}:$PATH"`);
+        expect(output).toContain(`export PATH="${outputInstallDir}:$PATH"`);
         expect(output).toContain(
           "add that export to ~/.profile, ~/.bashrc, or ~/.zshrc, then open a new terminal",
         );
-        expect(output).toContain(`"${installedBinary}" --version`);
+        expect(output).toContain(`"${outputInstalledBinary}" --version`);
       } else if (installMode === "powershell") {
-        expect(output).toContain(`$env:Path = "${installDir};" + $env:Path`);
-        expect(output).toContain(`add "${installDir}" to your User PATH, then open a new terminal`);
-        expect(output).toContain(`& "${installedBinary}" --version`);
+        expect(output).toContain(`$env:Path = "${outputInstallDir};" + $env:Path`);
+        expect(output).toContain(
+          `add "${outputInstallDir}" to your User PATH, then open a new terminal`,
+        );
+        expect(output).toContain(`& "${outputInstalledBinary}" --version`);
       } else {
-        expect(output).toContain(`set "PATH=${installDir};%PATH%"`);
-        expect(output).toContain(`add "${installDir}" to your User PATH, then open a new terminal`);
-        expect(output).toContain(`"${installedBinary}" --version`);
+        expect(output).toContain(`set "PATH=${outputInstallDir};%PATH%"`);
+        expect(output).toContain(
+          `add "${outputInstallDir}" to your User PATH, then open a new terminal`,
+        );
+        expect(output).toContain(`"${outputInstalledBinary}" --version`);
       }
 
       expect(fs.readFileSync(profilePath, "utf-8")).toBe(profileContent);

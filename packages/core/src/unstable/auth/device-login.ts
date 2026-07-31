@@ -9,6 +9,7 @@ import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as Layer from "effect/Layer";
 
+import { makeAppError } from "../app-error/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { normalizeHandle } from "../extensions/handle.js";
 
@@ -101,6 +102,7 @@ export interface RunDeviceLoginOptions {
 const presentDeviceFlow = (
   verificationUri: string,
   userCode: string,
+  expiresInSeconds: number,
   options: RunDeviceLoginOptions,
 ) =>
   Effect.gen(function* () {
@@ -112,13 +114,23 @@ const presentDeviceFlow = (
     if (shouldOpenBrowser) {
       const openedBrowser = yield* interaction.openBrowser(verificationUri);
       if (openedBrowser) {
-        yield* renderer.step("Opening browser to complete device authorization...");
+        yield* renderer.info("Opening your browser to complete device authorization.");
       }
     }
 
-    const clipboardHint = copiedToClipboard ? " (copied to clipboard)" : "";
-    yield* renderer.step(`Visit: ${verificationUri}${clipboardHint}`);
-    yield* renderer.step(`Code: ${userCode}`);
+    const expiry =
+      expiresInSeconds % 60 === 0
+        ? `${expiresInSeconds / 60} ${expiresInSeconds === 60 ? "minute" : "minutes"}`
+        : `${expiresInSeconds} seconds`;
+    yield* renderer.instruction("Sign in to AgentXM.ai with a one-time code");
+    yield* renderer.instruction(`1. Open this URL:\n   ${verificationUri}`);
+    if (copiedToClipboard) {
+      yield* renderer.info("The sign-in URL was copied to your clipboard.");
+    }
+    yield* renderer.instruction(`2. If prompted, enter:\n   ${userCode}`);
+    yield* renderer.instruction(`This code expires in ${expiry}.`);
+    yield* renderer.instruction("Only continue if you started this sign-in with AXM.");
+    yield* renderer.instruction("If a website or another person gave you this code, cancel.");
   });
 
 export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>
@@ -141,13 +153,52 @@ export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptio
       { successMessage: `Started device authorization for ${registryHost}` },
     );
 
-    yield* presentDeviceFlow(deviceFlow.verification_uri, deviceFlow.user_code, options);
+    const verificationUri = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
+    yield* presentDeviceFlow(verificationUri, deviceFlow.user_code, deviceFlow.expires_in, options);
 
-    const token = yield* renderer.withSpinner(
-      `Waiting for device authorization on ${registryHost}`,
-      () => authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval),
-      { successMessage: `Authorized device on ${registryHost}` },
-    );
+    const token = yield* renderer
+      .withSpinner(
+        "Waiting for authorization…",
+        () => authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval),
+        { successMessage: `Authorized device on ${registryHost}` },
+      )
+      .pipe(
+        Effect.mapError((error) =>
+          error._tag !== "AppError"
+            ? error
+            : error.detail === "Login code expired"
+              ? makeAppError({
+                  code: "auth",
+                  detail: `This sign-in code expired after ${
+                    deviceFlow.expires_in % 60 === 0
+                      ? `${deviceFlow.expires_in / 60} ${
+                          deviceFlow.expires_in === 60 ? "minute" : "minutes"
+                        }`
+                      : `${deviceFlow.expires_in} seconds`
+                  }. Run \`axm login --device-code\` to request a new code.`,
+                  suggestions: [
+                    {
+                      description: "Request a new device sign-in code.",
+                      cmd: "axm login --device-code",
+                    },
+                  ],
+                  cause: error,
+                })
+              : error.detail === "Login was denied or cancelled"
+                ? makeAppError({
+                    code: "auth",
+                    detail: "Sign-in was cancelled. No credentials were changed.",
+                    suggestions: [
+                      {
+                        description: "Try signing in again.",
+                        cmd: "axm login --device-code",
+                      },
+                    ],
+                    cause: error,
+                  })
+                : error,
+        ),
+      );
 
     const handle = yield* renderer.withSpinner(
       `Saving credentials for ${registryHost}`,

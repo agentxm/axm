@@ -170,6 +170,11 @@ export class CliRenderer extends ServiceMap.Service<
     readonly intro: (title: string) => Effect.Effect<void>;
     readonly outro: (message: string) => Effect.Effect<void>;
     readonly message: (message: string) => Effect.Effect<void>;
+    /**
+     * Authentication or other interactive instructions required to complete
+     * the current operation. These remain visible in quiet and machine modes.
+     */
+    readonly instruction: (message: string) => Effect.Effect<void>;
     /** Raw human-facing diagnostic content written to stderr. */
     readonly diagnostic: (content: string) => Effect.Effect<void>;
     /** Human-facing table written to stderr without machine-output framing. */

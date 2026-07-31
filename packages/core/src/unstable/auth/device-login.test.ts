@@ -21,6 +21,8 @@ const makeLayers = (opts?: {
   readonly browserOpens?: boolean;
   readonly getMeFails?: boolean;
   readonly machine?: boolean;
+  readonly omitCompleteUri?: boolean;
+  readonly deviceCodeExpired?: boolean;
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
   const rendererLayer = renderer.layer;
@@ -36,16 +38,22 @@ const makeLayers = (opts?: {
         device_code: "dc-123",
         user_code: "ABCD-1234",
         verification_uri: "https://auth.agentxm.ai/device",
-        verification_uri_complete: "https://auth.agentxm.ai/device?code=ABCD-1234",
+        ...(opts?.omitCompleteUri
+          ? {}
+          : {
+              verification_uri_complete: "https://auth.agentxm.ai/device?code=ABCD-1234",
+            }),
         interval: 5,
         expires_in: 600,
       }),
     pollDeviceToken: () =>
-      Effect.succeed({
-        access_token: "axm_ses_new",
-        refresh_token: "axm_ref_new",
-        expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
-      }),
+      opts?.deviceCodeExpired
+        ? Effect.fail(makeAppError({ code: "auth", detail: "Login code expired" }))
+        : Effect.succeed({
+            access_token: "axm_ses_new",
+            refresh_token: "axm_ref_new",
+            expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
+          }),
     getMe: (_accessToken: string) =>
       opts?.getMeFails
         ? Effect.fail(
@@ -80,17 +88,25 @@ const makeLayers = (opts?: {
 };
 
 describe("runDeviceLogin", () => {
-  it.effect("opens the static URL and copies the URL when requested", () => {
+  it.effect("opens and copies the complete verification URL when requested", () => {
     const { layer, logs, rendererState, interactionState } = makeLayers({ browserOpens: true });
 
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(interactionState.copyToClipboardCalls).toEqual(["https://auth.agentxm.ai/device"]);
-        expect(interactionState.openBrowserCalls).toEqual(["https://auth.agentxm.ai/device"]);
-        expect(logs.step).toContain("Opening browser to complete device authorization...");
-        expect(logs.step).toContain("Visit: https://auth.agentxm.ai/device (copied to clipboard)");
-        expect(logs.step).toContain("Code: ABCD-1234");
+        expect(interactionState.copyToClipboardCalls).toEqual([
+          "https://auth.agentxm.ai/device?code=ABCD-1234",
+        ]);
+        expect(interactionState.openBrowserCalls).toEqual([
+          "https://auth.agentxm.ai/device?code=ABCD-1234",
+        ]);
+        expect(logs.info).toContain("Opening your browser to complete device authorization.");
+        expect(logs.info).toContain(
+          "1. Open this URL:\n   https://auth.agentxm.ai/device?code=ABCD-1234",
+        );
+        expect(logs.info).toContain("2. If prompted, enter:\n   ABCD-1234");
+        expect(logs.info).toContain("This code expires in 10 minutes.");
+        expect(logs.info).toContain("Only continue if you started this sign-in with AXM.");
         expect(logs.success).toContain("Logged in to registry.agentxm.ai as @alice.");
         expect(rendererState.suggestions).toEqual([
           { description: "Check active account", cmd: "axm whoami" },
@@ -107,10 +123,40 @@ describe("runDeviceLogin", () => {
       Effect.provide(layer),
       Effect.map(() => {
         expect(interactionState.openBrowserCalls).toEqual([]);
-        expect(logs.step).toContain("Visit: https://auth.agentxm.ai/device (copied to clipboard)");
-        expect(logs.step).toContain("Code: ABCD-1234");
+        expect(logs.info).toContain(
+          "1. Open this URL:\n   https://auth.agentxm.ai/device?code=ABCD-1234",
+        );
+        expect(logs.info).toContain("2. If prompted, enter:\n   ABCD-1234");
       }),
     );
+  });
+
+  it.effect("falls back to the base verification URL when a complete URL is unavailable", () => {
+    const { layer, logs, interactionState } = makeLayers({ omitCompleteUri: true });
+
+    return runDeviceLogin(REGISTRY_URL, { openBrowser: false }).pipe(
+      Effect.provide(layer),
+      Effect.map(() => {
+        expect(interactionState.copyToClipboardCalls).toEqual(["https://auth.agentxm.ai/device"]);
+        expect(logs.info).toContain("1. Open this URL:\n   https://auth.agentxm.ai/device");
+        expect(logs.info).toContain("2. If prompted, enter:\n   ABCD-1234");
+      }),
+    );
+  });
+
+  it.effect("reports server-derived expiry and does not save credentials", () => {
+    const { layer } = makeLayers({ deviceCodeExpired: true });
+
+    return Effect.gen(function* () {
+      const error = yield* Effect.flip(runDeviceLogin(REGISTRY_URL, { openBrowser: false }));
+      expect(error).toMatchObject({
+        detail:
+          "This sign-in code expired after 10 minutes. Run `axm login --device-code` to request a new code.",
+      });
+
+      const store = yield* CredentialStore;
+      expect((yield* store.load(REGISTRY_URL))._tag).toBe("None");
+    }).pipe(Effect.provide(layer));
   });
 
   it.effect("emits structured login result in machine mode", () => {
@@ -214,9 +260,11 @@ describe("runDeviceLogin", () => {
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(logs.step).toContain("Visit: https://auth.agentxm.ai/device");
-        expect(logs.step).toContain("Code: ABCD-1234");
-        expect(logs.step.some((m) => m.includes("copied to clipboard"))).toBe(false);
+        expect(logs.info).toContain(
+          "1. Open this URL:\n   https://auth.agentxm.ai/device?code=ABCD-1234",
+        );
+        expect(logs.info).toContain("2. If prompted, enter:\n   ABCD-1234");
+        expect(logs.info.some((m) => m.includes("copied to your clipboard"))).toBe(false);
       }),
     );
   });

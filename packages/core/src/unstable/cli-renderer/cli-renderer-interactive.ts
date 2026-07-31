@@ -405,6 +405,7 @@ export const InteractiveRenderer = (options?: {
     outro: (message) =>
       outputPolicy.colors ? chrome.outro(message) : plainLine(chrome.Symbols.outro, message),
     message: (message) => renderLogLine(outputPolicy, "message", message),
+    instruction: writeStderrLine,
     diagnostic: (content) => (outputPolicy.quiet ? Effect.void : writeStderrLine(content)),
     diagnosticTable: <T extends object>(
       items: ReadonlyArray<T>,

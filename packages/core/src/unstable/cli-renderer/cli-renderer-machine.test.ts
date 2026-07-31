@@ -61,6 +61,26 @@ const parseStdout = () => stdoutWrites.map((line) => JSON.parse(line.trim()));
 
 describe("MachineRenderer", () => {
   describe("chrome methods keep advisory narration silent", () => {
+    it.effect("emits required instructions as ANSI-free structured stderr in quiet mode", () =>
+      Effect.gen(function* () {
+        yield* runQuiet(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.instruction("Open https://example.com and enter ABCD-1234");
+          }),
+        );
+
+        expect(stdoutWrites).toEqual([]);
+        expect(parseStderrEvents()).toEqual([
+          {
+            type: "instruction",
+            message: "Open https://example.com and enter ABCD-1234",
+          },
+        ]);
+        expect(stderrWrites.join("")).not.toContain("\u001b[");
+      }),
+    );
+
     it.effect("info is silent", () =>
       Effect.gen(function* () {
         yield* run(

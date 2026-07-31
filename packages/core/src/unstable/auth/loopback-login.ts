@@ -17,11 +17,7 @@ import { AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 import { DeviceLoginInteraction } from "./device-login.js";
 import { emitLoginSuccess } from "./login-output.js";
-import {
-  LoopbackCallbackRejected,
-  LoopbackLoginFallback,
-  startLoopbackServer,
-} from "./loopback-server.js";
+import { LoopbackCallbackRejected, startLoopbackServer } from "./loopback-server.js";
 import type { NormalizedTokenResponse } from "./oauth-contract.js";
 
 const UNKNOWN_HANDLE = normalizeHandle("@unknown");
@@ -78,50 +74,54 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
     const challenge = makePkceChallenge(verifier);
     const state = makeOAuthState();
     const server = yield* startLoopbackServer();
-    const authorizeUrl = authClient.buildAuthorizeUrl({
-      challenge,
-      expiresAt: DateTime.addDuration(yield* DateTime.now, LOOPBACK_TIMEOUT),
-      state,
-      redirectUri: server.redirectUri,
-      ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
-    });
-
-    const openedBrowser = yield* interaction.openBrowser(authorizeUrl);
-    if (!openedBrowser) {
-      yield* server.close;
-      return yield* new LoopbackLoginFallback({
-        reason: "browser_unavailable",
-        message: "Could not open the system browser.",
+    yield* Effect.gen(function* () {
+      const authorizeUrl = authClient.buildAuthorizeUrl({
+        challenge,
+        expiresAt: DateTime.addDuration(yield* DateTime.now, LOOPBACK_TIMEOUT),
+        state,
+        redirectUri: server.redirectUri,
+        ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
       });
-    }
 
-    yield* renderer.step("Opening browser to sign in...");
+      yield* renderer.instruction(`Starting local sign-in server on ${server.redirectUri}.`);
+      yield* renderer.instruction(
+        `If the browser does not open, visit:\n\n${authorizeUrl}\n\nOn a remote or headless machine, run \`axm login --device-code\`.`,
+      );
+      const openedBrowser = yield* interaction.openBrowser(authorizeUrl);
+      if (openedBrowser) {
+        yield* renderer.info("Opening your browser to authorize AXM.");
+      } else {
+        yield* renderer.instruction(
+          "Could not open the system browser. Use the authorization URL above to continue.",
+        );
+      }
 
-    const callback = yield* renderer.withSpinner(
-      `Waiting for browser authorization on ${registryHost}`,
-      () => server.awaitCallback(state, Duration.toMillis(LOOPBACK_TIMEOUT)),
-      { successMessage: `Received browser authorization on ${registryHost}` },
-    );
-    const expectedIssuer = authClient.getAuthorizationIssuer();
-    if (callback.iss !== expectedIssuer) {
-      return yield* new LoopbackCallbackRejected({
-        reason: "invalid_callback",
-        message: "Authorization callback issuer did not match.",
-      });
-    }
+      const callback = yield* renderer.withSpinner(
+        "Waiting for authorization… (expires in 5 minutes)",
+        () => server.awaitCallback(state, Duration.toMillis(LOOPBACK_TIMEOUT)),
+        { successMessage: `Received browser authorization on ${registryHost}` },
+      );
+      const expectedIssuer = authClient.getAuthorizationIssuer();
+      if (callback.iss !== expectedIssuer) {
+        return yield* new LoopbackCallbackRejected({
+          reason: "invalid_callback",
+          message: "Authorization callback issuer did not match.",
+        });
+      }
 
-    const handle = yield* renderer.withSpinner(
-      `Completing sign-in to ${registryHost}`,
-      () =>
-        Effect.gen(function* () {
-          const token = yield* authClient.exchangePkceCode({
-            code: callback.code,
-            verifier,
-            redirectUri: server.redirectUri,
-          });
-          return yield* persistLoginCredentials(registryUrl, token);
-        }),
-      { successMessage: `Completed sign-in to ${registryHost}` },
-    );
-    yield* emitLoginSuccess(registryUrl, handle);
+      const handle = yield* renderer.withSpinner(
+        `Completing sign-in to ${registryHost}`,
+        () =>
+          Effect.gen(function* () {
+            const token = yield* authClient.exchangePkceCode({
+              code: callback.code,
+              verifier,
+              redirectUri: server.redirectUri,
+            });
+            return yield* persistLoginCredentials(registryUrl, token);
+          }),
+        { successMessage: `Completed sign-in to ${registryHost}` },
+      );
+      yield* emitLoginSuccess(registryUrl, handle);
+    }).pipe(Effect.ensuring(server.close));
   });

@@ -204,14 +204,15 @@ usage to your account:
 
 ```bash
 axm login                   # Sign in to the default registry
+axm login --device-code     # Sign in from SSH or a headless machine
 axm whoami                  # Show the current identity
 axm logout
 axm token                   # Print the current token (for scripting)
 ```
 
-`axm login` opens the browser for the default loopback PKCE flow. Use
-`axm login --device-code` or `axm login --no-browser` for SSH/headless
-environments.
+`axm login` starts a local loopback PKCE flow, prints a manual authorization
+URL, and then tries to open your browser. SSH, CI, and Codespaces automatically
+use device-code sign-in; pass `--device-code` to select that flow explicitly.
 
 ## Supported agents
 

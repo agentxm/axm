@@ -241,6 +241,7 @@ export const MachineRenderer = (options?: {
     intro: () => Effect.void,
     outro: () => Effect.void,
     message: () => Effect.void,
+    instruction: (message) => emitStderrEvent({ type: "instruction", message }),
     diagnostic: () => Effect.void,
     diagnosticTable: <T extends object>(
       _items: ReadonlyArray<T>,

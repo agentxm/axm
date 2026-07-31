@@ -25,7 +25,11 @@ import {
   type SuggestedAction,
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { errAuthRequired, type AppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  errAuthRequired,
+  makeAppError,
+  type AppError,
+} from "@agentxm/client-core/unstable/app-error";
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { envOption } from "@agentxm/client-core/unstable/utils";
 import { withAuthRuntime } from "../../runtime.js";
@@ -102,14 +106,17 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   const json = yield* jsonFlag;
   const jsonMode = Option.getOrElse(json, () => false);
 
-  if (!credStore.allowsPersistedCredentials) {
-    return yield* makePersistedCredentialsUnsupportedError();
-  }
-
-  // Step 1: Reject non-interactive mode
+  // Step 1: Reject non-interactive mode before credential-storage policy so
+  // automation receives the login-specific recovery message.
   const nonInteractive = yield* isNonInteractive;
   if (nonInteractive) {
-    return yield* errAuthRequired("Login requires an interactive terminal");
+    return yield* errAuthRequired(
+      "Interactive login cannot run with --non-interactive. Set AXM_TOKEN to an existing token for automated environments.",
+    );
+  }
+
+  if (!credStore.allowsPersistedCredentials) {
+    return yield* makePersistedCredentialsUnsupportedError();
   }
 
   // Step 2: Check existing auth — validate token against the server
@@ -173,6 +180,8 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
           return;
         }
       }
+    } else if (!jsonMode) {
+      yield* renderer.info("Your saved credentials are no longer valid. Starting a new sign-in…");
     }
   }
 
@@ -182,11 +191,13 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   const requestedScopeOptions = options.scopes.length === 0 ? {} : { scopes: options.scopes };
 
   if (strategy === "device-code") {
-    if (!options.deviceCode && !options.noBrowser && !jsonMode) {
-      yield* renderer.info("No browser available in this environment; using device code fallback.");
+    if (!options.deviceCode && !options.noBrowser) {
+      yield* renderer.instruction(
+        "This environment appears to be remote or headless; using device-code sign-in.",
+      );
     }
     yield* performDeviceLogin(registryUrl, {
-      openBrowser: options.deviceCode && !options.noBrowser,
+      openBrowser: false,
       ...requestedScopeOptions,
     });
     return;
@@ -196,31 +207,64 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
     ...requestedScopeOptions,
   }).pipe(
     Effect.catchTag("LoopbackLoginFallback", (error) =>
-      Effect.gen(function* () {
-        if (!jsonMode) {
-          yield* renderer.info(`${error.message} Using device code fallback.`);
-        }
-        yield* performDeviceLogin(registryUrl, {
-          openBrowser: false,
-          ...requestedScopeOptions,
-        });
-      }),
+      error.reason === "bind_failed"
+        ? Effect.gen(function* () {
+            yield* renderer.instruction(
+              "Could not start a local callback server; using device-code sign-in instead.",
+            );
+            yield* performDeviceLogin(registryUrl, {
+              openBrowser: false,
+              ...requestedScopeOptions,
+            });
+          })
+        : Effect.fail(
+            makeAppError({
+              code: "auth",
+              detail: "Browser sign-in expired after 5 minutes. No credentials were changed.",
+              suggestions: [
+                { description: "Try browser sign-in again.", cmd: "axm login" },
+                {
+                  description: "Use device-code sign-in on a remote or headless machine.",
+                  cmd: "axm login --device-code",
+                },
+              ],
+              cause: error,
+            }),
+          ),
     ),
     Effect.catchTag("LoopbackCallbackRejected", (error) =>
-      Effect.fail(errAuthRequired(error.message)),
+      Effect.fail(
+        error.reason === "access_denied"
+          ? makeAppError({
+              code: "auth",
+              detail: "Sign-in was cancelled. No credentials were changed.",
+              suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
+              cause: error,
+            })
+          : makeAppError({
+              code: "auth",
+              detail:
+                "The authorization callback was invalid and sign-in could not be completed. Run `axm login` to try again.",
+              suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
+              cause: error,
+            }),
+      ),
     ),
   );
 }, Effect.asVoid);
 
 const loginConfig = {
   yes: yesFlag.pipe(
-    Flag.withDescription("Skip the browser-open confirmation and launch immediately"),
+    Flag.withDescription("Log in again without prompting when already authenticated"),
   ),
   deviceCode: Flag.boolean("device-code").pipe(
-    Flag.withDescription("Use the device-code fallback instead of loopback browser login"),
+    Flag.withDescription(
+      "Use OAuth device-code sign-in; recommended for SSH and headless environments",
+    ),
   ),
   noBrowser: Flag.boolean("no-browser").pipe(
     Flag.withDescription("Do not open a browser; use device-code fallback"),
+    Flag.withHidden,
   ),
   scope: Flag.string("scope").pipe(
     Flag.withDescription("Registry scope to request; repeatable"),
@@ -237,13 +281,7 @@ export const loginCommand = Command.make(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),
   Command.withExamples([
-    { command: "axm auth login", description: "Sign in to the default registry" },
-    { command: "axm login", description: "Same command via shortcut" },
-    { command: "axm auth login --yes", description: "Skip the browser confirmation" },
-    {
-      command: "axm auth login --scope extensions:publish:version",
-      description: "Request a specific registry scope",
-    },
-    { command: "axm auth login --device-code", description: "Sign in with device code fallback" },
+    { command: "axm login", description: "Sign in with a local browser" },
+    { command: "axm login --device-code", description: "Sign in from SSH or a headless machine" },
   ]),
 );

@@ -12,6 +12,7 @@ import {
   AuthClientTest,
   AuthLoginInteractionTest,
   type MeResponse,
+  LoopbackCallbackRejected,
   LoopbackLoginFallback,
   RegistryUrl,
   CredentialStore,
@@ -27,6 +28,23 @@ import { handleLogin } from "./login.js";
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ALICE = normalizeHandle("@alice");
 const UNKNOWN = normalizeHandle("@unknown");
+
+const withBrowserCapableEnvironment = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.suspend(() => {
+    const previousDisplay = process.env["DISPLAY"];
+    process.env["DISPLAY"] = ":0";
+    return effect.pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (previousDisplay === undefined) {
+            delete process.env["DISPLAY"];
+          } else {
+            process.env["DISPLAY"] = previousDisplay;
+          }
+        }),
+      ),
+    );
+  });
 
 const makeLayers = (opts?: {
   nonInteractive?: boolean;
@@ -198,7 +216,102 @@ describe("auth login handler", () => {
     );
   });
 
-  it.effect("omits environment fallback prose in machine JSON mode", () => {
+  it.effect("does not launch a browser for explicit device-code login", () => {
+    const { provide } = makeLayers();
+    const openBrowserOptions: Array<boolean | undefined> = [];
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin(
+          { yes: false, deviceCode: true, noBrowser: false, scopes: [] },
+          {
+            runDeviceLogin: (_registryUrl, options) => {
+              openBrowserOptions.push(options?.openBrowser);
+              return Effect.void;
+            },
+          },
+        );
+
+        expect(openBrowserOptions).toEqual([false]);
+      }),
+    );
+  });
+
+  it.effect("does not fall back to device code after loopback timeout", () => {
+    const { provide } = makeLayers();
+    let deviceLoginCalls = 0;
+
+    return withBrowserCapableEnvironment(
+      provide(
+        Effect.gen(function* () {
+          const error = yield* Effect.flip(
+            handleLogin(
+              { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+              {
+                runLoopbackLogin: () =>
+                  Effect.fail(
+                    new LoopbackLoginFallback({
+                      reason: "timeout",
+                      message: "Timed out waiting for the browser callback.",
+                    }),
+                  ),
+                runDeviceLogin: () => {
+                  deviceLoginCalls += 1;
+                  return Effect.void;
+                },
+              },
+            ),
+          );
+
+          expect(error).toMatchObject({
+            detail: "Browser sign-in expired after 5 minutes. No credentials were changed.",
+          });
+          if (error._tag !== "AppError") {
+            throw new Error("Expected an AppError");
+          }
+          expect(error.suggestions).toEqual([
+            { description: "Try browser sign-in again.", cmd: "axm login" },
+            {
+              description: "Use device-code sign-in on a remote or headless machine.",
+              cmd: "axm login --device-code",
+            },
+          ]);
+          expect(deviceLoginCalls).toBe(0);
+        }),
+      ),
+    );
+  });
+
+  it.effect("maps denied loopback authorization to a stable cancellation message", () => {
+    const { provide } = makeLayers();
+
+    return withBrowserCapableEnvironment(
+      provide(
+        Effect.gen(function* () {
+          const error = yield* Effect.flip(
+            handleLogin(
+              { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+              {
+                runLoopbackLogin: () =>
+                  Effect.fail(
+                    new LoopbackCallbackRejected({
+                      reason: "access_denied",
+                      message: "Authorization failed: access_denied.",
+                    }),
+                  ),
+              },
+            ),
+          );
+
+          expect(error).toMatchObject({
+            detail: "Sign-in was cancelled. No credentials were changed.",
+          });
+        }),
+      ),
+    );
+  });
+
+  it.effect("explains automatic headless selection in machine mode", () => {
     const previousCi = process.env["CI"];
     process.env["CI"] = "1";
     const { provide, rendererState } = makeLayers({ machine: true, json: true });
@@ -207,7 +320,13 @@ describe("auth login handler", () => {
       Effect.gen(function* () {
         yield* handleLogin({ yes: false, deviceCode: false, noBrowser: false, scopes: [] });
 
-        expect(rendererState.logs.filter((log) => log._tag === "info")).toEqual([]);
+        const instructions = rendererState.logs
+          .filter((log) => log._tag === "info")
+          .map((log) => log.message);
+        expect(instructions).toContain("Sign in to AgentXM.ai with a one-time code");
+        expect(instructions).toContain(
+          "This environment appears to be remote or headless; using device-code sign-in.",
+        );
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Log in to AXM registry",
         });
@@ -241,56 +360,71 @@ describe("auth login handler", () => {
     );
   });
 
-  it.effect("omits loopback fallback prose in machine JSON mode", () => {
-    const { provide, rendererState } = makeLayers({ machine: true, json: true });
+  it.effect(
+    "emits required device instructions after loopback bind fallback in machine mode",
+    () => {
+      const { provide, rendererState } = makeLayers({ machine: true, json: true });
 
-    return provide(
-      Effect.gen(function* () {
-        yield* handleLogin(
-          { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
-          {
-            runLoopbackLogin: () =>
-              Effect.fail(
-                new LoopbackLoginFallback({
-                  reason: "bind_failed",
-                  message: "Loopback port unavailable.",
-                }),
-              ),
-          },
-        );
-
-        expect(rendererState.logs.filter((log) => log._tag === "info")).toEqual([]);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Log in to AXM registry",
-        });
-        expect(result).toMatchObject({
-          steps: [
-            {
-              label: "Registry credentials",
-              status: "applied",
-              artifact: {
-                path: "registry.agentxm.ai",
-                scope: "user",
-                change: "created",
+      return withBrowserCapableEnvironment(
+        provide(
+          Effect.gen(function* () {
+            yield* handleLogin(
+              { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+              {
+                runLoopbackLogin: () =>
+                  Effect.fail(
+                    new LoopbackLoginFallback({
+                      reason: "bind_failed",
+                      message: "Loopback port unavailable.",
+                    }),
+                  ),
               },
-            },
-          ],
-          status: "logged-in",
-          registryHost: "registry.agentxm.ai",
-          handle: ALICE,
-        });
-      }),
-    );
-  });
+            );
+
+            const instructions = rendererState.logs
+              .filter((log) => log._tag === "info")
+              .map((log) => log.message);
+            expect(instructions).toContain("Sign in to AgentXM.ai with a one-time code");
+            expect(instructions).toContain(
+              "Could not start a local callback server; using device-code sign-in instead.",
+            );
+            const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+              planName: "Log in to AXM registry",
+            });
+            expect(result).toMatchObject({
+              steps: [
+                {
+                  label: "Registry credentials",
+                  status: "applied",
+                  artifact: {
+                    path: "registry.agentxm.ai",
+                    scope: "user",
+                    change: "created",
+                  },
+                },
+              ],
+              status: "logged-in",
+              registryHost: "registry.agentxm.ai",
+              handle: ALICE,
+            });
+          }),
+        ),
+      );
+    },
+  );
 
   it.effect("displays URL and code for manual entry", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false, deviceCode: true, noBrowser: false, scopes: [] });
-        const steps = rendererState.logs.filter((l) => l._tag === "step").map((l) => l.message);
-        expect(steps.some((m) => m.includes("https://auth.agentxm.ai/device"))).toBe(true);
-        expect(steps.some((m) => m.includes("ABCD-1234"))).toBe(true);
+        const instructions = rendererState.logs
+          .filter((log) => log._tag === "info")
+          .map((log) => log.message);
+        expect(
+          instructions.some((message) => message.includes("https://auth.agentxm.ai/device")),
+        ).toBe(true);
+        expect(instructions.some((message) => message.includes("ABCD-1234"))).toBe(true);
       }),
     );
   });
@@ -445,6 +579,10 @@ describe("auth login handler", () => {
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
           ),
         ).toBe(false);
+        expect(rendererState.logs).toContainEqual({
+          _tag: "info",
+          message: "Your saved credentials are no longer valid. Starting a new sign-in…",
+        });
       }),
     );
   });

@@ -195,6 +195,10 @@ const makeTestRendererService = (
       Effect.sync(() => {
         state.logs.push({ _tag: "message", message });
       }),
+    instruction: (message: string) =>
+      Effect.sync(() => {
+        state.logs.push({ _tag: "info", message });
+      }),
     diagnostic: (content: string) =>
       Effect.sync(() => {
         state.diagnostics.push(content);

@@ -100,7 +100,7 @@ jobs:
 
       - name: Lint bundled AXM skill
         run: |
-          { pnpm --silent axm:local lint --json --non-interactive 2>/dev/null || true; } |
+          { pnpm --silent axm:local lint --json --quiet --non-interactive 2>/dev/null || true; } |
             jq -e '
               [
                 .result.findings[]

@@ -279,7 +279,7 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
   expect(jsonDocument["ok"]).toBe(true);
   const currentResult = expectJsonObject(jsonDocument["result"]);
   expect(currentResult["resultStatus"]).toBe("already-up-to-date");
-  expect(currentResult["installMethod"]).toBe("script");
+  expect(currentResult["installMethod"], JSON.stringify(currentResult)).toBe("script");
   expect(currentResult["blockedCount"]).toBe(0);
   expect(currentResult["failedCount"]).toBe(0);
 

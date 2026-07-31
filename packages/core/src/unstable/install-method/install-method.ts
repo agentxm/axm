@@ -105,6 +105,7 @@ export class InstallMethod extends ServiceMap.Service<InstallMethod, InstallMeth
 
 export interface InstallMethodInputs {
   readonly execPath: string;
+  readonly invocationPaths?: ReadonlyArray<string>;
   readonly importMetaUrl: string;
   readonly homeDir: string;
   readonly platform: string;
@@ -115,8 +116,16 @@ export interface InstallMethodInputs {
 
 const normalizedPath = (value: string): string => value.replace(/\\/gu, "/");
 
+const withoutWindowsNamespace = (value: string): string => {
+  const lower = value.toLowerCase();
+  if (lower.startsWith("//?/unc/")) return `//${value.slice(8)}`;
+  return lower.startsWith("//?/") ? value.slice(4) : value;
+};
+
 const comparablePath = (value: string, platform: string): string => {
-  const normalized = normalizedPath(value).replace(/\/+$/u, "");
+  const normalized = (
+    platform === "win32" ? withoutWindowsNamespace(normalizedPath(value)) : normalizedPath(value)
+  ).replace(/\/+$/u, "");
   return platform === "win32" ? normalized.toLowerCase() : normalized;
 };
 
@@ -198,34 +207,45 @@ const methodFromManagerEvidence = (inputs: InstallMethodInputs): InstallMethodTy
 
 const directMethod = (
   inputs: InstallMethodInputs,
-  realExecPath: string,
+  executablePaths: ReadonlyArray<{
+    readonly path: string;
+    readonly realPath: string;
+  }>,
   scriptBinPath: string,
   realScriptBinPath: string,
 ): InstallMethodType | null => {
-  if (isWithinDirectory(inputs.execPath, scriptBinPath, inputs.platform)) {
-    return new Script({
-      execPath: inputs.execPath,
-      detectionSource: "executable-path",
-      evidence: [`executable:${inputs.execPath}`],
-      confidence: "high",
-    });
+  for (const executable of executablePaths) {
+    if (isWithinDirectory(executable.path, scriptBinPath, inputs.platform)) {
+      return new Script({
+        execPath: executable.path,
+        detectionSource: "executable-path",
+        evidence: [`executable:${executable.path}`],
+        confidence: "high",
+      });
+    }
   }
-  if (isWithinDirectory(realExecPath, realScriptBinPath, inputs.platform)) {
-    return new Script({
-      execPath: realExecPath,
-      detectionSource: "resolved-executable-path",
-      evidence: [`resolved-executable:${realExecPath}`],
-      confidence: "high",
-    });
+
+  for (const executable of executablePaths) {
+    if (isWithinDirectory(executable.realPath, realScriptBinPath, inputs.platform)) {
+      return new Script({
+        execPath: executable.realPath,
+        detectionSource: "resolved-executable-path",
+        evidence: [`resolved-executable:${executable.realPath}`],
+        confidence: "high",
+      });
+    }
   }
-  if (normalizedPath(realExecPath).includes("/Cellar/")) {
-    return new Homebrew({
-      execPath: realExecPath,
-      detectionSource:
-        realExecPath === inputs.execPath ? "executable-path" : "resolved-executable-path",
-      evidence: [`resolved-executable:${realExecPath}`],
-      confidence: "high",
-    });
+
+  for (const executable of executablePaths) {
+    if (normalizedPath(executable.realPath).includes("/Cellar/")) {
+      return new Homebrew({
+        execPath: executable.realPath,
+        detectionSource:
+          executable.realPath === executable.path ? "executable-path" : "resolved-executable-path",
+        evidence: [`resolved-executable:${executable.realPath}`],
+        confidence: "high",
+      });
+    }
   }
   return null;
 };
@@ -264,15 +284,21 @@ export const detectFromInputs = (inputs: InstallMethodInputs) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const realExecPath = yield* fs
-      .realPath(inputs.execPath)
-      .pipe(Effect.catch(() => Effect.succeed(inputs.execPath)));
+    const distinctExecutablePaths = [inputs.execPath, ...(inputs.invocationPaths ?? [])].filter(
+      (value, index, values) => values.indexOf(value) === index,
+    );
+    const executablePaths = yield* Effect.forEach(distinctExecutablePaths, (execPath) =>
+      fs.realPath(execPath).pipe(
+        Effect.catch(() => Effect.succeed(execPath)),
+        Effect.map((realPath) => ({ path: execPath, realPath })),
+      ),
+    );
     const userScopeDir = resolveUserScopeDirPure(path.join, inputs.homeDir);
     const scriptBinPath = path.join(userScopeDir, "bin");
     const realScriptBinPath = yield* fs
       .realPath(scriptBinPath)
       .pipe(Effect.catch(() => Effect.succeed(scriptBinPath)));
-    const direct = directMethod(inputs, realExecPath, scriptBinPath, realScriptBinPath);
+    const direct = directMethod(inputs, executablePaths, scriptBinPath, realScriptBinPath);
     const manager = methodFromManagerEvidence(inputs);
     const metaPath = path.join(userScopeDir, "install-meta.json");
     const meta = yield* readInstallMeta(fs, metaPath);
@@ -355,8 +381,11 @@ export const InstallMethodLive = Layer.effect(
     const userProfile = yield* envOption("USERPROFILE");
     const homePath = yield* envOption("HOMEPATH");
     const userAgent = yield* envOption("npm_config_user_agent");
+    const argvExecutable = process.argv[0];
     const inputs: InstallMethodInputs = {
       execPath: process.execPath,
+      invocationPaths:
+        argvExecutable === undefined ? [process.argv0] : [process.argv0, argvExecutable],
       importMetaUrl: import.meta.url,
       homeDir: selectHomeDir(platform, axmUserHome, home, userProfile, homePath),
       platform,

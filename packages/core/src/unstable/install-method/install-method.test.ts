@@ -87,6 +87,34 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
       }),
     );
 
+    it.effect("matches extended-length Windows executable paths", () =>
+      Effect.gen(function* () {
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          execPath: "\\\\?\\C:\\Users\\testuser\\.axm\\bin\\axm.exe",
+          homeDir: "C:\\Users\\testuser",
+          platform: "win32",
+        });
+        expect(result._tag).toBe("Script");
+      }),
+    );
+
+    it.effect("uses the launched executable when the runtime path differs", () =>
+      Effect.gen(function* () {
+        const result = yield* detectFromInputs({
+          ...baseInputs,
+          execPath: "C:\\tools\\bun.exe",
+          invocationPaths: ["C:\\Users\\testuser\\.axm\\bin\\axm.exe"],
+          homeDir: "C:\\Users\\testuser",
+          platform: "win32",
+        });
+        expect(result._tag).toBe("Script");
+        if (result._tag === "Script") {
+          expect(result.execPath).toBe("C:\\Users\\testuser\\.axm\\bin\\axm.exe");
+        }
+      }),
+    );
+
     it.effect("matches canonical script paths when home uses an alias", () =>
       Effect.gen(function* () {
         const parent = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "install-method-alias-"));

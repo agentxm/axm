@@ -67,8 +67,10 @@ describe("axm setup", () => {
     it("reports authored workspace changes as one successful advisory JSON result", async () => {
       const temp = createTempDir();
       try {
+        const env = { HOME: temp.path, AXM_USER_HOME: temp.path };
         const setup = await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
+          env,
         });
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
         const bundledSkillPath = path.join(
@@ -83,7 +85,7 @@ describe("axm setup", () => {
         );
         fs.appendFileSync(bundledSkillPath, "\nLocal drift\n");
 
-        const status = await runCli(["status", "--json"], { cwd: temp.path });
+        const status = await runCli(["status", "--json"], { cwd: temp.path, env });
 
         expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
         const result = JSON.parse(status.stdout);

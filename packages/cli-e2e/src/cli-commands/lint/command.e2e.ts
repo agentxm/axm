@@ -42,14 +42,16 @@ describe("axm lint (e2e, Phase 7)", () => {
     it("treats unpublished edits as non-blocking and recommends publish", async () => {
       const temp = createTempDir();
       try {
+        const env = { HOME: temp.path, AXM_USER_HOME: temp.path };
         const setup = await runCli(["setup", "--yes", "--non-interactive"], {
           cwd: temp.path,
+          env,
         });
         expect(setup.exitCode).toBe(0);
 
         const scaffold = await runCli(
           ["skills", "new", "draft-skill", "--owner", "@test", "--yes"],
-          { cwd: temp.path },
+          { cwd: temp.path, env },
         );
         expect(scaffold.exitCode).toBe(0);
 
@@ -65,7 +67,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         );
         fs.appendFileSync(skillPath, "\n## Author edit\n\nUnpublished working content.\n");
 
-        const status = await runCli(["status", "--json"], { cwd: temp.path });
+        const status = await runCli(["status", "--json"], { cwd: temp.path, env });
         expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
         const statusDocument = JSON.parse(status.stdout);
         expect(statusDocument.ok).toBe(true);
@@ -86,7 +88,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(statusProblem.detail).toContain("preserves the authored content");
         expect(statusProblem.detail).not.toContain("sync");
 
-        const lint = await runCli(["lint", "--json"], { cwd: temp.path });
+        const lint = await runCli(["lint", "--json"], { cwd: temp.path, env });
         expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
         const lintDocument = JSON.parse(lint.stdout);
         expect(lintDocument.ok).toBe(true);

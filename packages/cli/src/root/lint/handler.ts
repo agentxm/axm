@@ -1542,6 +1542,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
           desired: node,
           trust: trust.records[`${node.type}:${node.name}`],
         }).pipe(
+          Effect.map((observation) => ({ desired: node, observation })),
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         ),

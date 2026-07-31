@@ -64,7 +64,7 @@ describe("axm setup", () => {
       }
     });
 
-    it("reports blocking workspace health as one nonzero JSON result", async () => {
+    it("reports authored workspace changes as one successful advisory JSON result", async () => {
       const temp = createTempDir();
       try {
         const setup = await runCli(["setup", "--yes", "--non-interactive"], {
@@ -85,20 +85,22 @@ describe("axm setup", () => {
 
         const status = await runCli(["status", "--json"], { cwd: temp.path });
 
-        expect(status.exitCode).not.toBe(0);
+        expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
         const result = JSON.parse(status.stdout);
         expect(result).toMatchObject({
-          ok: false,
+          ok: true,
           result: {
             healthy: false,
             desiredGraphComplete: true,
+            blockedOperations: [],
           },
         });
         expect(result.result.problems).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
               identity: "@agentxm/skills/axm",
-              blocking: true,
+              blocking: false,
+              recoveryAction: "axm publish @agentxm/skills/axm",
             }),
           ]),
         );

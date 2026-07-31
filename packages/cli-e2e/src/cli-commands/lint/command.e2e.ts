@@ -38,6 +38,80 @@ const seedSkillSource = (root: string, name: string): void => {
 };
 
 describe("axm lint (e2e, Phase 7)", () => {
+  describe("workspace-authored canonical changes", () => {
+    it("treats unpublished edits as non-blocking and recommends publish", async () => {
+      const temp = createTempDir();
+      try {
+        const setup = await runCli(["setup", "--yes", "--non-interactive"], {
+          cwd: temp.path,
+        });
+        expect(setup.exitCode).toBe(0);
+
+        const scaffold = await runCli(
+          ["skills", "new", "draft-skill", "--owner", "@test", "--yes"],
+          { cwd: temp.path },
+        );
+        expect(scaffold.exitCode).toBe(0);
+
+        const skillPath = path.join(
+          temp.path,
+          ".axm",
+          "extensions",
+          "@test",
+          "skills",
+          "draft-skill",
+          "src",
+          "SKILL.md",
+        );
+        fs.appendFileSync(skillPath, "\n## Author edit\n\nUnpublished working content.\n");
+
+        const status = await runCli(["status", "--json"], { cwd: temp.path });
+        expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
+        const statusDocument = JSON.parse(status.stdout);
+        expect(statusDocument.ok).toBe(true);
+        const statusProblem = statusDocument.result.problems.find(
+          (problem: { code: string; identity: string }) =>
+            problem.code === "canonical-locally-modified" &&
+            problem.identity === "@test/skills/draft-skill",
+        );
+        expect(statusProblem).toEqual(
+          expect.objectContaining({
+            blocking: false,
+            recoveryAction: "axm publish @test/skills/draft-skill",
+            detail: expect.stringContaining(
+              "modified since its last recorded authoring/publish baseline",
+            ),
+          }),
+        );
+        expect(statusProblem.detail).toContain("preserves the authored content");
+        expect(statusProblem.detail).not.toContain("sync");
+
+        const lint = await runCli(["lint", "--json"], { cwd: temp.path });
+        expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
+        const lintDocument = JSON.parse(lint.stdout);
+        expect(lintDocument.ok).toBe(true);
+        const lintFinding = lintDocument.result.findings.find(
+          (finding: { message: string; ruleId: string }) =>
+            finding.ruleId === "workspace/authored-content-unpublished" &&
+            finding.message.includes("draft-skill"),
+        );
+        expect(lintFinding).toEqual(
+          expect.objectContaining({
+            severity: "warning",
+            message: expect.stringContaining(
+              "modified since its last recorded authoring/publish baseline",
+            ),
+          }),
+        );
+        expect(lintFinding.message).toContain("axm publish @test/skills/draft-skill");
+        expect(lintFinding.message).toContain("preserves the authored content");
+        expect(lintFinding.message).not.toContain("axm sync");
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
   describe("Task 7.6 — stale artifacts + missing lockfile", () => {
     it("reports error findings for a declared-but-uninstalled skill", async () => {
       const temp = createTempDir();

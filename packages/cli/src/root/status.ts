@@ -5,10 +5,13 @@ import { ExitCode } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import { effectCliExit, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
+import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
   observeCanonicalExtension,
+  type CanonicalObservation,
+  type DesiredExtensionNode,
 } from "@agentxm/client-core/unstable/workspace";
 import { withRuntime, withWorkspace } from "../runtime.js";
 
@@ -30,6 +33,48 @@ export const WorkspaceStatusSchema = Schema.Struct({
 });
 
 type WorkspaceHealthProblem = Schema.Schema.Type<typeof WorkspaceHealthProblemSchema>;
+
+export const canonicalHealthProblem = (
+  node: DesiredExtensionNode,
+  observation: CanonicalObservation,
+): WorkspaceHealthProblem | undefined => {
+  if (observation.status === "usable" || observation.status === "not-applicable") {
+    return undefined;
+  }
+  const identity = node.identity.replace(/^workspace:/, "");
+  const pathDetail = observation.path === undefined ? "" : ` at ${observation.path}`;
+  if (observation.status === "locally-modified" && isWorkspaceSourceLocator(node.source)) {
+    return {
+      code: "canonical-locally-modified",
+      extensionType: node.type,
+      identity,
+      detail: `Canonical content was modified since its last recorded authoring/publish baseline${pathDetail}. Publishing preserves the authored content.`,
+      blocking: false,
+      recoveryAction: `axm publish ${identity}`,
+    };
+  }
+  if (observation.status === "locally-modified") {
+    return {
+      code: "canonical-locally-modified",
+      extensionType: node.type,
+      identity,
+      detail: `Canonical content differs from its trusted source baseline${pathDetail}. Applying sync restores trusted source content and discards these local modifications.`,
+      blocking: true,
+      recoveryAction:
+        node.type === "pack"
+          ? `axm packs repair ${identity} --preview`
+          : `axm sync ${identity} --dry-run`,
+    };
+  }
+  return {
+    code: `canonical-${observation.status}`,
+    extensionType: node.type,
+    identity,
+    detail: `Canonical content is ${observation.status}${pathDetail}`,
+    blocking: true,
+    recoveryAction: observation.status === "wrong-origin" ? null : `axm sync ${identity} --dry-run`,
+  };
+};
 
 const HealthTable = {
   columns: {
@@ -134,24 +179,10 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
   );
   const canonicalProblems: ReadonlyArray<WorkspaceHealthProblem> = observations.flatMap(
     ({ node, observation }) => {
-      if (observation.status === "usable" || observation.status === "not-applicable") return [];
       const identity = node.identity.replace(/^workspace:/, "");
       if (node.type === "pack" && graphPackProblems.has(identity)) return [];
-      return [
-        {
-          code: `canonical-${observation.status}`,
-          extensionType: node.type,
-          identity,
-          detail: `Canonical content is ${observation.status}${observation.path === undefined ? "" : ` at ${observation.path}`}`,
-          blocking: true,
-          recoveryAction:
-            node.type === "pack" && observation.status === "locally-modified"
-              ? `axm packs repair ${identity} --preview`
-              : observation.status === "wrong-origin"
-                ? null
-                : `axm sync ${identity} --dry-run`,
-        },
-      ];
+      const problem = canonicalHealthProblem(node, observation);
+      return problem === undefined ? [] : [problem];
     },
   );
   const inventories = yield* Effect.forEach(
@@ -204,14 +235,17 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
     ];
   });
   const problems = [...graphProblems, ...canonicalProblems, ...projectionProblems];
-  const hasBlockingProblems = problems.some((problem) => problem.blocking);
+  const blockingCount = problems.filter((problem) => problem.blocking).length;
+  const advisoryCount = problems.length - blockingCount;
+  const hasBlockingProblems = blockingCount > 0;
   const result = {
     healthy: problems.length === 0,
     desiredGraphComplete: graph.complete,
     scope: ws.scope,
     problems,
-    blockedOperations:
-      problems.length === 0 ? [] : ["global sync", "destructive pack reconciliation"],
+    blockedOperations: hasBlockingProblems
+      ? ["global sync", "destructive pack reconciliation"]
+      : [],
   };
   if (!(yield* renderer.result(result, WorkspaceStatusSchema, { ok: !hasBlockingProblems }))) {
     if (problems.length === 0) {
@@ -225,7 +259,16 @@ export const handleStatus = Effect.fn("Status.handle")(function* () {
           recovery: problem.recoveryAction ?? "",
         })),
         HealthTable,
-        `${problems.length} blocking workspace ${problems.length === 1 ? "problem" : "problems"}`,
+        [
+          blockingCount === 0
+            ? undefined
+            : `${blockingCount} blocking workspace ${blockingCount === 1 ? "problem" : "problems"}`,
+          advisoryCount === 0
+            ? undefined
+            : `${advisoryCount} workspace ${advisoryCount === 1 ? "advisory" : "advisories"}`,
+        ]
+          .filter((part) => part !== undefined)
+          .join(", "),
       );
     }
   }

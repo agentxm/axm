@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
+import { isWorkspaceSourceLocator } from "../../../sources/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 
@@ -48,7 +49,7 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
       const observations = yield* Effect.result(context.health.canonicalObservations);
       if (Result.isFailure(observations)) return graphFindings;
       const observationFindings = observations.success.flatMap(
-        (observation): ReadonlyArray<AdvisoryFinding> => {
+        ({ desired, observation }): ReadonlyArray<AdvisoryFinding> => {
           if (
             observation.status === "usable" ||
             observation.status === "not-applicable" ||
@@ -56,17 +57,26 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
           ) {
             return [];
           }
-          const identity = `${observation.type} '${observation.name}'`;
+          const identity = desired.identity.replace(/^workspace:/, "");
+          const label = `${observation.type} '${identity}'`;
+          if (
+            observation.status === "locally-modified" &&
+            isWorkspaceSourceLocator(desired.source)
+          ) {
+            return [];
+          }
           const recovery =
             observation.type === "pack" && observation.status === "locally-modified"
               ? ` Run \`axm packs repair ${observation.name} --preview\` to inspect the supported recovery.`
-              : " Run `axm status` to inspect the blocking local state.";
+              : observation.status === "locally-modified"
+                ? ` Review \`axm sync ${identity} --dry-run\`; applying sync restores trusted source content and discards these local modifications.`
+                : " Run `axm status` to inspect the blocking local state.";
           return [
             {
               kind: "advisory",
               ruleId: RULE_ID,
               severity: "error",
-              message: `${identity} has canonical state ${observation.status}.${recovery}`,
+              message: `${label} has canonical state ${observation.status}.${recovery}`,
               location: { file: observation.path ?? ".axm/settings.json" },
             },
           ];

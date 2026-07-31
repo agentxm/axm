@@ -24,7 +24,7 @@ import type { InstructionsGitignoreStatus, InstructionsStatus } from "../agents/
 import type { ExtensionType } from "../extensions/common.js";
 import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
 import type { AppError } from "../app-error/index.js";
-import type { DesiredStateGraph } from "../workspace/desired-state-graph.js";
+import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import type { CanonicalObservation } from "../workspace/canonical-observation.js";
 
 // -----------------------------------------------------------------------------
@@ -350,7 +350,13 @@ export interface WorkspaceRuleContext {
   /** Deterministic desired-state preflight used by local reconciliation-health rules. */
   readonly health?: {
     readonly desiredState: Effect.Effect<DesiredStateGraph, AppError>;
-    readonly canonicalObservations?: Effect.Effect<ReadonlyArray<CanonicalObservation>, AppError>;
+    readonly canonicalObservations?: Effect.Effect<
+      ReadonlyArray<{
+        readonly desired: DesiredExtensionNode;
+        readonly observation: CanonicalObservation;
+      }>,
+      AppError
+    >;
   };
   readonly displayRoot: string;
 }

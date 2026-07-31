@@ -61,6 +61,7 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "workspace/settings-keys-recognized",
   "workspace/lockfile-valid",
   "workspace/desired-state-reconcilable",
+  "workspace/authored-content-unpublished",
   "workspace/agents-recognized",
   "workspace/agents-detected-declared",
   "workspace/instructions-source-present",

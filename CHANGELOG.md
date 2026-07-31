@@ -1,3 +1,13 @@
+## 0.24.6 (2026-07-31)
+
+### 🩹 Fixes
+
+- Recognize Windows script installations when the runtime reports alternate executable paths or inherits package-manager environment state.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.5 (2026-07-31)
 
 ### 🩹 Fixes

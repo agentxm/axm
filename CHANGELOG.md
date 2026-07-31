@@ -1,3 +1,13 @@
+## 0.24.4 (2026-07-31)
+
+### 🩹 Fixes
+
+- Make login strategy tests deterministic in CI.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.3 (2026-07-31)
 
 ### 🚀 Features

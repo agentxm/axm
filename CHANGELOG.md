@@ -1,3 +1,22 @@
+## 0.24.3 (2026-07-31)
+
+### 🚀 Features
+
+- Standardize machine-readable command payloads under result and align ok with exit status.
+- Make login transparent and recoverable across browser, headless, device-code, quiet, and machine-readable flows.
+
+### 🩹 Fixes
+
+- Preserve absolute paths in lint findings outside the workspace root.
+- Treat workspace-authored edits as publishable advisories while preserving trusted-source drift blockers.
+- Report coding-agent install coverage, remediate zero-agent workspaces, and keep retired agents opt-in.
+- Keep user-scope agent discovery and instruction sync out of home-directory and cloud-storage traversal.
+- Detect Windows script installations across canonical path spellings and PowerShell metadata encodings.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.2 (2026-07-30)
 
 ### 🩹 Fixes

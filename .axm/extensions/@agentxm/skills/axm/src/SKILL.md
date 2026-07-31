@@ -11,7 +11,7 @@ invocable: true
 
 **MUST follow these rules:**
 
-0. **Read appropriate help topic**: Execute `!axm help --help` now to see list of available help topics. Refer to appropriate topic(s) if there is not clear guidance for task in this document.
+0. **Read appropriate help topic**: Execute `!axm help` now to see the full list of available help topics. Refer to appropriate topic(s) if there is not clear guidance for task in this document.
 1. **Choose right output mode**: `--json` for one complete machine-readable
    stdout document plus signal-only NDJSON diagnostics on stderr. Text mode may
    use stdout for primary human data and stderr for diagnostics.

@@ -1,8 +1,6 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import { detectAgents } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -79,34 +77,6 @@ const materializationArtifact = (
   })),
 });
 
-const collectWorkspacePathSet = (
-  baseDir: string,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-): Effect.Effect<Set<string>> =>
-  Effect.gen(function* () {
-    const paths = new Set<string>();
-    const visit = (absolutePath: string): Effect.Effect<void> =>
-      Effect.gen(function* () {
-        const relativePath = path.relative(baseDir, absolutePath);
-        if (relativePath.length > 0) {
-          paths.add(relativePath);
-        }
-        const linkTarget = yield* fs.readLink(absolutePath).pipe(Effect.option);
-        if (Option.isSome(linkTarget)) return;
-        const stat = yield* fs.stat(absolutePath).pipe(Effect.option);
-        if (Option.isNone(stat) || stat.value.type !== "Directory") return;
-        const entries = yield* fs
-          .readDirectory(absolutePath)
-          .pipe(Effect.catch(() => Effect.succeed([])));
-        for (const entry of entries) {
-          yield* visit(path.join(absolutePath, entry));
-        }
-      });
-    yield* visit(baseDir);
-    return paths;
-  });
-
 const targetMatchesAgents = (
   targetAgents: ReadonlyArray<string> | undefined,
   agentIds: ReadonlyArray<string>,
@@ -126,28 +96,16 @@ const aggregateArtifactChange = (
   return "unchanged";
 };
 
-const adjustMaterializationArtifact = (
+const filterMaterializationArtifact = (
   artifact: JobStepArtifact,
   agentIds: ReadonlyArray<string>,
-  beforePaths: ReadonlySet<string>,
 ): JobStepArtifact => {
-  if (artifact.change === "unchanged") {
-    return artifact;
-  }
   if (artifact.targets === undefined || artifact.targets.length === 0) {
     return artifact;
   }
-  const targets = artifact.targets
-    .filter((target) => targetMatchesAgents(target.agentIds, agentIds))
-    .map((target) => {
-      const change: JobStepArtifact["change"] = beforePaths.has(target.path)
-        ? "updated"
-        : "created";
-      return {
-        ...target,
-        change,
-      };
-    });
+  const targets = artifact.targets.filter((target) =>
+    targetMatchesAgents(target.agentIds, agentIds),
+  );
   if (targets.length === 0) {
     return artifact;
   }
@@ -163,8 +121,6 @@ const adjustMaterializationArtifact = (
 
 const attachMaterializationArtifact = (
   ws: WorkspaceMutationsService,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
   agentIds: ReadonlyArray<string>,
   step: PlannedJobStep,
 ): PlannedJobStep => {
@@ -172,13 +128,12 @@ const attachMaterializationArtifact = (
   return {
     ...step,
     run: Effect.gen(function* () {
-      const beforePaths = yield* collectWorkspacePathSet(ws.baseDir, fs, path);
       const result = yield* step.run;
       if (result.result === "error") return result;
       if (result.artifact !== undefined) {
         return {
           ...result,
-          artifact: adjustMaterializationArtifact(result.artifact, agentIds, beforePaths),
+          artifact: filterMaterializationArtifact(result.artifact, agentIds),
         };
       }
       return {
@@ -235,8 +190,6 @@ const summarizeExecutedArtifacts = (plan: ExecutedPlan): string | undefined => {
 export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAddArgs) {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
 
   if (args.ids.length === 0 && !args.detected) {
     return yield* makeAppError({
@@ -253,7 +206,12 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
   const configured = yield* ws.getConfiguredAgents();
   const configuredSet = new Set(configured);
   const detected = args.detected
-    ? yield* detectAgents(ws.baseDir).pipe(Effect.map((agents) => agents.map((agent) => agent.id)))
+    ? yield* renderer.withSpinner(
+        "Detecting coding agents",
+        () =>
+          detectAgents(ws.baseDir).pipe(Effect.map((agents) => agents.map((agent) => agent.id))),
+        { successMessage: "Detected coding agents" },
+      )
     : [];
   const detectedConfigurable = yield* validateAgentIds(detected);
   const requestedSet = new Set(requested);
@@ -297,9 +255,13 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
     if (warning !== undefined) yield* renderer.warn(warning);
   }
 
-  const materialize = yield* collectMaterializeSteps();
+  const materialize = yield* renderer.withSpinner(
+    "Resolving installed extension materialization",
+    () => collectMaterializeSteps(),
+    { successMessage: "Resolved installed extension materialization" },
+  );
   const materializeSteps = materialize.steps.map((step) =>
-    attachMaterializationArtifact(ws, fs, path, agentIds, step),
+    attachMaterializationArtifact(ws, agentIds, step),
   );
   const plan = makePlan(agentIds, [
     ...agentIds.map((agentId) => addAgentStep(ws, agentId)),

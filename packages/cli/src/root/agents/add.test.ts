@@ -227,6 +227,12 @@ describe("agents add.handler", () => {
         });
 
         expect(rendererState.suggestions).toEqual([cursorSuggestion]);
+        expect(rendererState.spinnerMessages).toEqual(
+          expect.arrayContaining([
+            "Resolving installed extension materialization",
+            "Resolved installed extension materialization",
+          ]),
+        );
       }),
     );
   });

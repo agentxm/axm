@@ -156,6 +156,7 @@ export const handleInstructionsStatus = Effect.fn("Rules.instructions.status")(f
   const configuredAgents = yield* ws.getConfiguredAgents();
   const status = yield* getInstructionsStatus({
     workspaceRoot: ws.baseDir,
+    scope: ws.scope,
     configuredAgents,
     config: config.value,
   });

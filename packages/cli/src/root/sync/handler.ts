@@ -1059,6 +1059,7 @@ const collectInstructionOperations = Effect.fn("Sync.collectInstructionOperation
   const resolvedConfig = resolveInstructionsConfig(config.value);
   const status = yield* getInstructionsStatus({
     workspaceRoot: ws.baseDir,
+    scope: ws.scope,
     configuredAgents,
     config: resolvedConfig,
   });

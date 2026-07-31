@@ -12,6 +12,7 @@ import { isGitManaged } from "../git/detect.js";
 import { type InstructionsConfig } from "../settings/index.js";
 import { createSymlink } from "../utils/create-symlink.js";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
+import type { WorkspaceScope } from "../workspace/scope.js";
 import { AGENTS } from "./registry.js";
 import type { AgentDescriptor, AgentId, AgentInstructionsDescriptor } from "./types.js";
 
@@ -173,8 +174,17 @@ const readDirSafe = (dir: string) =>
     return yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed(empty)));
   });
 
-export const findInstructionRoots = (workspaceRoot: string, fileName: string) =>
+export const findInstructionRoots = (
+  workspaceRoot: string,
+  fileName: string,
+  scope: WorkspaceScope,
+) =>
   Effect.gen(function* () {
+    // A user workspace is the home directory for storage purposes, not a
+    // project tree. Recursing from it can enter cloud-backed mounts and
+    // hydrate files that have nothing to do with agent configuration.
+    if (scope === "user") return [workspaceRoot];
+
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const visit = (
@@ -333,13 +343,14 @@ const inspectTarget = (args: {
 
 export const getInstructionsStatus = (args: {
   readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly config: ResolvedInstructionsConfig;
   readonly symlinkSupported?: boolean;
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName);
+    const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName, args.scope);
     const symlinkSupported =
       args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
     const items = yield* Effect.forEach(
@@ -663,6 +674,7 @@ export const syncInstructionsGitignore = (args: {
 
 export const syncInstructions = (args: {
   readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly config: ResolvedInstructionsConfig;
   readonly force: boolean;
@@ -671,7 +683,7 @@ export const syncInstructions = (args: {
 }): Effect.Effect<InstructionsSyncResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName);
+    const roots = yield* findInstructionRoots(args.workspaceRoot, args.config.fileName, args.scope);
     const symlinkSupported =
       args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
     const writtenNested = yield* Effect.forEach(
@@ -723,6 +735,7 @@ export const syncInstructions = (args: {
     });
     const status = yield* getInstructionsStatus({
       workspaceRoot: args.workspaceRoot,
+      scope: args.scope,
       configuredAgents: args.configuredAgents,
       config: args.config,
       symlinkSupported,

@@ -92,6 +92,7 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
     Option.isSome(instructionsConfig) && instructionsConfig.value !== false
       ? yield* getInstructionsStatus({
           workspaceRoot: ws.baseDir,
+          scope: ws.scope,
           configuredAgents: configured,
           config: resolveInstructionsConfig(instructionsConfig.value),
         }).pipe(

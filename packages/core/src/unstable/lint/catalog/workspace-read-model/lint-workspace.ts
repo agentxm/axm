@@ -191,6 +191,7 @@ export const buildLintWorkspace = (
       instructions: makeInstructionAccessor({
         platform: args.platform,
         workspaceRoot: args.workspaceRoot,
+        scope: args.scope,
         readModel,
       }),
       // The projection already read every installed manifest; hand the same
@@ -208,6 +209,7 @@ const makeInstructionAccessor = (args: {
     readonly path: Path.Path;
   };
   readonly workspaceRoot: string;
+  readonly scope: "project" | "user";
   readonly readModel: WorkspaceReadModel;
 }): WorkspaceInstructionAccessor => {
   const platformLayer = Layer.mergeAll(
@@ -242,6 +244,7 @@ const makeInstructionAccessor = (args: {
       if (Option.isNone(loaded)) return Option.none();
       const status = yield* getInstructionsStatus({
         workspaceRoot: args.workspaceRoot,
+        scope: args.scope,
         configuredAgents: loaded.value.configuredAgents,
         config: loaded.value.config,
       }).pipe(Effect.provide(platformLayer));

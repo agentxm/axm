@@ -80,6 +80,30 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("keeps user-scope instruction discovery at the home root", () =>
+    run(
+      Effect.gen(function* () {
+        const cloudRoot = path.join(tempDir, "Library", "CloudStorage", "provider", "project");
+        fs.mkdirSync(cloudRoot, { recursive: true });
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# User\n");
+        fs.writeFileSync(path.join(cloudRoot, "AGENTS.md"), "# Cloud project\n");
+
+        const status = yield* getInstructionsStatus({
+          workspaceRoot: tempDir,
+          scope: "user",
+          configuredAgents: ["codex"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+          symlinkSupported: true,
+        });
+
+        expect(status.roots).toEqual([tempDir]);
+        expect(status.items.map((item) => item.sourceFile)).toEqual([
+          path.join(tempDir, "AGENTS.md"),
+        ]);
+      }),
+    ),
+  );
+
   it.effect("syncs configured own-file agents from AGENTS.md as symlinks", () =>
     run(
       Effect.gen(function* () {
@@ -88,6 +112,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code", "gemini-cli", "codex"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -122,6 +147,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -151,6 +177,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -171,6 +198,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -195,6 +223,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: nested,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -214,6 +243,7 @@ describe("agent instructions", () => {
 
         yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code", "gemini-cli"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           force: false,
@@ -225,6 +255,7 @@ describe("agent instructions", () => {
 
         const secondResult = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code", "gemini-cli"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           force: false,
@@ -254,6 +285,7 @@ describe("agent instructions", () => {
 
         yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["gemini-cli"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           force: false,
@@ -261,6 +293,7 @@ describe("agent instructions", () => {
         });
         const status = yield* getInstructionsStatus({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["gemini-cli"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
         });
@@ -278,6 +311,7 @@ describe("agent instructions", () => {
 
         const status = yield* getInstructionsStatus({
           workspaceRoot: tempDir,
+          scope: "project",
           // cursor: agents-md plus a secondary native rules directory.
           // roo: rules-dir, which AXM resolves to the unwritten adapter path.
           // codex: agents-md with no secondary directory.
@@ -331,6 +365,7 @@ describe("agent instructions", () => {
 
         yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -342,6 +377,7 @@ describe("agent instructions", () => {
 
         yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           force: false,

@@ -410,6 +410,7 @@ const applyProjectSetup = (args: {
     });
     yield* syncInstructions({
       workspaceRoot: args.workspaceRoot,
+      scope: "project",
       configuredAgents: args.settings.agents ?? [],
       config: {
         fileName: args.sourceFileName,

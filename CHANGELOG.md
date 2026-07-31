@@ -1,3 +1,13 @@
+## 0.24.8 (2026-07-31)
+
+### 🩹 Fixes
+
+- Normalize Windows installer path aliases in release verification.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.7 (2026-07-31)
 
 ### 🩹 Fixes

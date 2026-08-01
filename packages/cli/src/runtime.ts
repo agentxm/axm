@@ -1,5 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -96,7 +98,20 @@ const RegistryUrlLayer = Layer.orDie(
   ),
 );
 
-const PlatformLayer = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
+export const withAxmUserAgent = (httpClient: HttpClient.HttpClient, version: string) =>
+  httpClient.pipe(
+    HttpClient.mapRequest(HttpClientRequest.setHeader("user-agent", `axm-cli/${version}`)),
+  );
+
+const AxmHttpClientLayer = Layer.provide(
+  Layer.effect(
+    HttpClient.HttpClient,
+    Effect.map(HttpClient.HttpClient, (httpClient) => withAxmUserAgent(httpClient, loadVersion())),
+  ),
+  FetchHttpClient.layer,
+);
+
+const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
 const RegistryRuntimeLayer = Layer.mergeAll(PlatformLayer, RegistryUrlLayer);
 
 const AuthServicesLayer = Layer.provideMerge(

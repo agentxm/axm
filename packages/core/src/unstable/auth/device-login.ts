@@ -110,7 +110,7 @@ const presentDeviceFlow = (
     const interaction = yield* DeviceLoginInteraction;
 
     const shouldOpenBrowser = options.openBrowser ?? true;
-    const copiedToClipboard = yield* interaction.copyToClipboard(verificationUri);
+    const copiedToClipboard = yield* interaction.copyToClipboard(userCode);
     if (shouldOpenBrowser) {
       const openedBrowser = yield* interaction.openBrowser(verificationUri);
       if (openedBrowser) {
@@ -123,14 +123,21 @@ const presentDeviceFlow = (
         ? `${expiresInSeconds / 60} ${expiresInSeconds === 60 ? "minute" : "minutes"}`
         : `${expiresInSeconds} seconds`;
     yield* renderer.instruction("Sign in to AgentXM.ai with a one-time code");
-    yield* renderer.instruction(`1. Open this URL:\n   ${verificationUri}`);
+    yield* renderer.suggestions([
+      {
+        description: "Open the AXM device authorization page",
+        url: verificationUri,
+      },
+    ]);
     if (copiedToClipboard) {
-      yield* renderer.info("The sign-in URL was copied to your clipboard.");
+      yield* renderer.info("The one-time code was copied to your clipboard.");
     }
-    yield* renderer.instruction(`2. If prompted, enter:\n   ${userCode}`);
+    yield* renderer.instruction(`One-time code:\n\n   ${userCode}`);
     yield* renderer.instruction(`This code expires in ${expiry}.`);
     yield* renderer.instruction("Only continue if you started this sign-in with AXM.");
-    yield* renderer.instruction("If a website or another person gave you this code, cancel.");
+    yield* renderer.instruction(
+      "Never enter a code that another person or website gave you. If that happened, cancel.",
+    );
   });
 
 export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>
@@ -153,8 +160,12 @@ export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptio
       { successMessage: `Started device authorization for ${registryHost}` },
     );
 
-    const verificationUri = deviceFlow.verification_uri_complete ?? deviceFlow.verification_uri;
-    yield* presentDeviceFlow(verificationUri, deviceFlow.user_code, deviceFlow.expires_in, options);
+    yield* presentDeviceFlow(
+      deviceFlow.verification_uri,
+      deviceFlow.user_code,
+      deviceFlow.expires_in,
+      options,
+    );
 
     const token = yield* renderer
       .withSpinner(

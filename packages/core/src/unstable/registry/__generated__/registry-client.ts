@@ -96,6 +96,10 @@ export const DeviceCodeResponse = Schema.Struct({
   title: "Device Code Response",
   description: "Response from the OAuth device authorization endpoint (RFC 8628).",
 });
+export type DeviceCodeOAuthError = { readonly error: "invalid_client" | "invalid_scope" };
+export const DeviceCodeOAuthError = Schema.Struct({
+  error: Schema.Literals(["invalid_client", "invalid_scope"]),
+}).annotate({ title: "Device Code OAuth Error" });
 export type PublishDetails = {
   readonly retryable: boolean;
   readonly retryAfterSeconds?: number;
@@ -1248,8 +1252,8 @@ export const AuthIssueDeviceCodeRequestFormUrlEncoded = Schema.Struct({
 });
 export type AuthIssueDeviceCode200 = DeviceCodeResponse;
 export const AuthIssueDeviceCode200 = DeviceCodeResponse;
-export type AuthIssueDeviceCode400 = DecodeErrorResponse;
-export const AuthIssueDeviceCode400 = DecodeErrorResponse;
+export type AuthIssueDeviceCode400 = DeviceCodeOAuthError | DecodeErrorResponse;
+export const AuthIssueDeviceCode400 = Schema.Union([DeviceCodeOAuthError, DecodeErrorResponse]);
 export type AuthIssueDeviceCode500 = ProblemDetails;
 export const AuthIssueDeviceCode500 = ProblemDetails;
 export type AuthExchangeTokenRequestFormUrlEncoded = {

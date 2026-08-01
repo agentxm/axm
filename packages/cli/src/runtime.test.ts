@@ -2,8 +2,12 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
+import * as Effect from "effect/Effect";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { resolveBuiltInRegistryLocation } from "./runtime.js";
+import { resolveBuiltInRegistryLocation, withAxmUserAgent } from "./runtime.js";
 
 describe("resolveBuiltInRegistryLocation", () => {
   it("prefers AXM_REGISTRY_LOCATION when set to a remote URL", () => {
@@ -38,5 +42,24 @@ describe("resolveBuiltInRegistryLocation", () => {
     );
 
     expect(location).toBe("https://registry.example.test/");
+  });
+});
+
+describe("withAxmUserAgent", () => {
+  it("adds the CLI name and version to every request", async () => {
+    let observedUserAgent: string | undefined;
+    const client = withAxmUserAgent(
+      HttpClient.make((request) =>
+        Effect.sync(() => {
+          observedUserAgent = request.headers["user-agent"];
+          return HttpClientResponse.fromWeb(request, new Response(null, { status: 204 }));
+        }),
+      ),
+      "1.2.3",
+    );
+
+    await Effect.runPromise(client.execute(HttpClientRequest.get("https://registry.example.test")));
+
+    expect(observedUserAgent).toBe("axm-cli/1.2.3");
   });
 });

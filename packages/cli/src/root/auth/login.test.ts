@@ -384,7 +384,7 @@ describe("auth login handler", () => {
     },
   );
 
-  it.effect("displays URL and code for manual entry", () => {
+  it.effect("displays the stable URL and code separately for manual entry", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
@@ -392,10 +392,12 @@ describe("auth login handler", () => {
         const instructions = rendererState.logs
           .filter((log) => log._tag === "info")
           .map((log) => log.message);
-        expect(
-          instructions.some((message) => message.includes("https://auth.agentxm.ai/device")),
-        ).toBe(true);
+        expect(rendererState.suggestions).toContainEqual({
+          description: "Open the AXM device authorization page",
+          url: "https://auth.agentxm.ai/device",
+        });
         expect(instructions.some((message) => message.includes("ABCD-1234"))).toBe(true);
+        expect(JSON.stringify(rendererState)).not.toContain("?code=ABCD-1234");
       }),
     );
   });

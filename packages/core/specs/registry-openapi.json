@@ -48,8 +48,11 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "DeviceCodeOAuthError | DecodeErrorResponse",
             "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceCodeOAuthError" }
+              },
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponse" }
               }
@@ -3238,6 +3241,15 @@
         "additionalProperties": false,
         "title": "Device Code Response",
         "description": "Response from the OAuth device authorization endpoint (RFC 8628)."
+      },
+      "DeviceCodeOAuthError": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "enum": ["invalid_client", "invalid_scope"] }
+        },
+        "required": ["error"],
+        "additionalProperties": false,
+        "title": "Device Code OAuth Error"
       },
       "PublishDetails": {
         "type": "object",

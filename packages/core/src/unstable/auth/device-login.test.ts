@@ -88,27 +88,32 @@ const makeLayers = (opts?: {
 };
 
 describe("runDeviceLogin", () => {
-  it.effect("opens and copies the complete verification URL when requested", () => {
+  it.effect("opens the stable verification URL and copies only the one-time code", () => {
     const { layer, logs, rendererState, interactionState } = makeLayers({ browserOpens: true });
 
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(interactionState.copyToClipboardCalls).toEqual([
-          "https://auth.agentxm.ai/device?code=ABCD-1234",
-        ]);
-        expect(interactionState.openBrowserCalls).toEqual([
-          "https://auth.agentxm.ai/device?code=ABCD-1234",
-        ]);
+        expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
+        expect(interactionState.openBrowserCalls).toEqual(["https://auth.agentxm.ai/device"]);
         expect(logs.info).toContain("Opening your browser to complete device authorization.");
-        expect(logs.info).toContain(
-          "1. Open this URL:\n   https://auth.agentxm.ai/device?code=ABCD-1234",
-        );
-        expect(logs.info).toContain("2. If prompted, enter:\n   ABCD-1234");
+        expect(logs.info).toContain("One-time code:\n\n   ABCD-1234");
         expect(logs.info).toContain("This code expires in 10 minutes.");
         expect(logs.info).toContain("Only continue if you started this sign-in with AXM.");
+        expect(logs.info).toContain(
+          "Never enter a code that another person or website gave you. If that happened, cancel.",
+        );
+        expect(rendererState.suggestions).toContainEqual({
+          description: "Open the AXM device authorization page",
+          url: "https://auth.agentxm.ai/device",
+        });
+        expect(JSON.stringify(rendererState)).not.toContain("?code=ABCD-1234");
         expect(logs.success).toContain("Logged in to registry.agentxm.ai as @alice.");
         expect(rendererState.suggestions).toEqual([
+          {
+            description: "Open the AXM device authorization page",
+            url: "https://auth.agentxm.ai/device",
+          },
           { description: "Check active account", cmd: "axm whoami" },
           { description: "Create an API token", cmd: "axm token create --name <name>" },
         ]);
@@ -123,10 +128,8 @@ describe("runDeviceLogin", () => {
       Effect.provide(layer),
       Effect.map(() => {
         expect(interactionState.openBrowserCalls).toEqual([]);
-        expect(logs.info).toContain(
-          "1. Open this URL:\n   https://auth.agentxm.ai/device?code=ABCD-1234",
-        );
-        expect(logs.info).toContain("2. If prompted, enter:\n   ABCD-1234");
+        expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
+        expect(logs.info).toContain("One-time code:\n\n   ABCD-1234");
       }),
     );
   });
@@ -137,9 +140,8 @@ describe("runDeviceLogin", () => {
     return runDeviceLogin(REGISTRY_URL, { openBrowser: false }).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(interactionState.copyToClipboardCalls).toEqual(["https://auth.agentxm.ai/device"]);
-        expect(logs.info).toContain("1. Open this URL:\n   https://auth.agentxm.ai/device");
-        expect(logs.info).toContain("2. If prompted, enter:\n   ABCD-1234");
+        expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
+        expect(logs.info).toContain("One-time code:\n\n   ABCD-1234");
       }),
     );
   });
@@ -166,6 +168,11 @@ describe("runDeviceLogin", () => {
       Effect.provide(layer),
       Effect.map(() => {
         expect(logs.success).toEqual([]);
+        expect(logs.info).toContain("One-time code:\n\n   ABCD-1234");
+        expect(rendererState.suggestions).toContainEqual({
+          description: "Open the AXM device authorization page",
+          url: "https://auth.agentxm.ai/device",
+        });
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
             outcome: "applied",
@@ -189,6 +196,10 @@ describe("runDeviceLogin", () => {
           },
         });
         expect(rendererState.suggestions).toEqual([
+          {
+            description: "Open the AXM device authorization page",
+            url: "https://auth.agentxm.ai/device",
+          },
           { description: "Check active account", cmd: "axm whoami" },
           { description: "Create an API token", cmd: "axm token create --name <name>" },
         ]);
@@ -260,10 +271,7 @@ describe("runDeviceLogin", () => {
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(logs.info).toContain(
-          "1. Open this URL:\n   https://auth.agentxm.ai/device?code=ABCD-1234",
-        );
-        expect(logs.info).toContain("2. If prompted, enter:\n   ABCD-1234");
+        expect(logs.info).toContain("One-time code:\n\n   ABCD-1234");
         expect(logs.info.some((m) => m.includes("copied to your clipboard"))).toBe(false);
       }),
     );

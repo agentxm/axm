@@ -1,3 +1,13 @@
+## 0.24.10 (2026-08-01)
+
+### 🩹 Fixes
+
+- Harden device-code login and client identification.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.9 (2026-07-31)
 
 ### 🩹 Fixes

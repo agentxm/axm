@@ -115,7 +115,7 @@ describe("CredentialStore", () => {
         const result = yield* store
           .save(registryUrl, normalizeHandle("@alice"), credentials)
           .pipe(Effect.catchTag("AppError", (error) => Effect.succeed(error.code)));
-        expect(result).toBe("auth");
+        expect(result).toBe("auth_required");
       }).pipe(Effect.provide(layer));
     });
 
@@ -185,8 +185,8 @@ describe("CredentialStore", () => {
       expect(canUsePersistedCredentials({ ...baseEnv, isCI: true })).toBe(false);
     });
 
-    it("disables persisted credentials in containers", () => {
-      expect(canUsePersistedCredentials({ ...baseEnv, isContainer: true })).toBe(false);
+    it("allows restricted-file credentials in containers for agent sessions", () => {
+      expect(canUsePersistedCredentials({ ...baseEnv, isContainer: true })).toBe(true);
     });
   });
 });

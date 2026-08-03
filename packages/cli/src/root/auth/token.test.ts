@@ -97,7 +97,7 @@ describe("auth token handler", () => {
     else delete process.env["AXM_TOKEN"];
   });
 
-  it.effect("fails with AUTH_LOGIN_REQUIRED when no token", () => {
+  it.effect("fails with auth_required when no token", () => {
     const { provide } = makeLayers();
     return provide(
       Effect.gen(function* () {
@@ -110,12 +110,12 @@ describe("auth token handler", () => {
             }),
           ),
         );
-        expect(result).toMatchObject({ error: true, code: "auth" });
+        expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
     );
   });
 
-  it.effect("fails with auth when persisted credentials are disabled", () => {
+  it.effect("fails with auth_required when persisted credentials are disabled", () => {
     const { provide } = makeLayers({ allowsPersistedCredentials: false });
     return provide(
       Effect.gen(function* () {
@@ -130,8 +130,8 @@ describe("auth token handler", () => {
         );
         expect(result).toMatchObject({
           error: true,
-          code: "auth",
-          guidance: "Set the AXM_TOKEN environment variable for non-interactive auth.",
+          code: "auth_required",
+          guidance: "Set AXM_TOKEN or AXM_TOKEN_FILE for non-interactive authentication.",
         });
       }),
     );

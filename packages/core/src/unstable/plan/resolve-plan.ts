@@ -168,6 +168,9 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* (
       _tag: "PreviewedPlan",
       name: augmentedPlan.name,
       description: augmentedPlan.description,
+      ...(augmentedPlan.preconditions === undefined
+        ? {}
+        : { preconditions: augmentedPlan.preconditions }),
       jobs: augmentedPlan.jobs,
     } satisfies PreviewedPlan;
   }

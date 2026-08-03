@@ -95,11 +95,24 @@ describe("compiled binary smoke", () => {
   });
 
   it("exits non-zero for auth token without credentials", async () => {
-    const result = await runBinary(["auth", "token"]);
+    const temp = createTempDir();
 
-    expect(result.exitCode).toBe(4);
-    expect(getOutput(result)).toContain("(auth)");
-    expect(getOutput(result)).toContain("Set the AXM_TOKEN environment variable");
+    try {
+      const result = await runBinary(["auth", "token"], {
+        env: {
+          AXM_TOKEN: "",
+          AXM_TOKEN_FILE: "",
+          HOME: temp.path,
+          USERPROFILE: temp.path,
+        },
+      });
+
+      expect(result.exitCode).toBe(13);
+      expect(getOutput(result)).toContain("(auth_required)");
+      expect(getOutput(result)).toContain("axm login --device-code --json");
+    } finally {
+      temp.cleanup();
+    }
   });
 
   it("exits non-zero with an explicit init instruction for skills disable in an uninitialized workspace", async () => {

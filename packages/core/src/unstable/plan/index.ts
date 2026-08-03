@@ -19,7 +19,7 @@
  */
 
 // Plan types
-export { ArtifactChangeSchema } from "./plan.js";
+export { ArtifactChangeSchema, OperationPreconditionSchema } from "./plan.js";
 export type {
   ArtifactChange,
   CancelledPlan,
@@ -32,6 +32,7 @@ export type {
   JobStepArtifactTarget,
   JobStepResult,
   Operation,
+  OperationPrecondition,
   Plan,
   PlanResolution,
   PlanSection,

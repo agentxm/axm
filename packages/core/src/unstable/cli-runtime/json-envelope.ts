@@ -49,6 +49,16 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
       ),
     }),
   ),
+  blockedOn: Schema.optional(Schema.Literal("human")),
+  action: Schema.optional(
+    Schema.Struct({
+      kind: Schema.Literal("open-url"),
+      url: Schema.String,
+      code: Schema.optional(Schema.String),
+      expiresAt: Schema.optional(Schema.String),
+      resume: Schema.optional(Schema.String),
+    }),
+  ),
   suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
 }).annotate({
   identifier: "JsonErrorEnvelope",
@@ -126,6 +136,8 @@ export const makeJsonErrorEnvelope = (args: {
   readonly detail: string;
   readonly cause?: ReadonlyArray<SerializedErrorCause>;
   readonly metadata?: AppErrorMetadata;
+  readonly blockedOn?: "human";
+  readonly action?: AppError["action"];
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }): JsonErrorEnvelope => {
   const secrets = collectSensitiveStrings(args.metadata);
@@ -148,6 +160,8 @@ export const makeJsonErrorEnvelope = (args: {
     ...(args.metadata !== undefined
       ? { metadata: redactAppErrorMetadata(args.metadata, secrets) }
       : {}),
+    ...(args.blockedOn !== undefined ? { blockedOn: args.blockedOn } : {}),
+    ...(args.action !== undefined ? { action: args.action } : {}),
     ...(args.suggestions !== undefined && args.suggestions.length > 0
       ? {
           suggestions: args.suggestions.map((suggestion) =>
@@ -173,6 +187,8 @@ export const makeJsonErrorEnvelopeFromAppError = (
         secrets,
       }),
       ...(error.metadata !== undefined ? { metadata: error.metadata } : {}),
+      ...(error.blockedOn !== undefined ? { blockedOn: error.blockedOn } : {}),
+      ...(error.action !== undefined ? { action: error.action } : {}),
       suggestions: effectiveSuggestionsFor(error),
     });
   })();

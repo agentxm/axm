@@ -8,6 +8,8 @@ import {
   RegistryUrl,
   CredentialStore,
   makePersistedCredentialsUnsupportedError,
+  initiateDeviceLogin,
+  resumeDeviceLogin,
   runDeviceLogin,
   runLoopbackLogin,
   selectLoginStrategy,
@@ -15,6 +17,8 @@ import {
   type LoopbackCallbackRejected,
   type LoopbackLoginFallback,
   type RunDeviceLoginOptions,
+  type DeviceLoginPendingResult,
+  type ResumeDeviceLoginOptions,
   type RunLoopbackLoginOptions,
 } from "@agentxm/client-core/unstable/auth";
 import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
@@ -65,6 +69,14 @@ interface LoginInteractions {
     registryUrl: string,
     options?: RunDeviceLoginOptions,
   ) => Effect.Effect<void, AppError>;
+  readonly initiateDeviceLogin?: (
+    registryUrl: string,
+    options?: RunDeviceLoginOptions,
+  ) => Effect.Effect<DeviceLoginPendingResult, AppError>;
+  readonly resumeDeviceLogin?: (
+    registryUrl: string,
+    options?: ResumeDeviceLoginOptions,
+  ) => Effect.Effect<void, AppError>;
 }
 
 const confirmRelogin = (message: string) =>
@@ -97,6 +109,8 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
     readonly yes: boolean;
     readonly deviceCode: boolean;
     readonly noBrowser: boolean;
+    readonly wait?: boolean;
+    readonly timeoutSeconds?: number;
     readonly scopes: ReadonlyArray<string>;
   },
   interactions?: LoginInteractions,
@@ -108,17 +122,31 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
   const json = yield* jsonFlag;
   const jsonMode = Option.getOrElse(json, () => false);
 
-  // Step 1: Reject non-interactive mode before credential-storage policy so
-  // automation receives the login-specific recovery message.
   const nonInteractive = yield* isNonInteractive;
-  if (nonInteractive) {
-    return yield* errAuthRequired(
-      "Interactive login cannot run with --non-interactive. Set AXM_TOKEN to an existing token for automated environments.",
-    );
+  if (options.wait && (options.deviceCode || options.noBrowser)) {
+    return yield* makeAppError({
+      code: "usage",
+      detail:
+        "--wait resumes an existing device sign-in and cannot be combined with --device-code or --no-browser.",
+    });
+  }
+  if (!options.wait && options.timeoutSeconds !== undefined) {
+    return yield* makeAppError({
+      code: "usage",
+      detail: "--timeout requires --wait.",
+    });
   }
 
   if (!credStore.allowsPersistedCredentials) {
     return yield* makePersistedCredentialsUnsupportedError();
+  }
+
+  if (options.wait) {
+    const performResumeDeviceLogin = interactions?.resumeDeviceLogin ?? resumeDeviceLogin;
+    yield* performResumeDeviceLogin(registryUrl, {
+      ...(options.timeoutSeconds === undefined ? {} : { timeoutSeconds: options.timeoutSeconds }),
+    });
+    return;
   }
 
   // Step 2: Check existing auth — validate token against the server
@@ -161,6 +189,15 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
         }
       }
 
+      if (nonInteractive) {
+        if (!jsonMode) {
+          yield* renderer.success(`Already logged in to ${registryHost} as ${noOpResult.handle}.`, {
+            suggestions: LoginNoOpSuggestions,
+          });
+        }
+        return;
+      }
+
       if (!jsonMode) {
         yield* renderer.info(`Already logged in as ${meResult.value.userHandle}.`);
       }
@@ -191,8 +228,9 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
     interactions?.loginStrategyEnvironment === undefined
       ? yield* loginStrategyEnvironment
       : interactions.loginStrategyEnvironment;
-  const strategy = selectLoginStrategy(options, strategyEnvironment);
+  const strategy = selectLoginStrategy({ ...options, nonInteractive }, strategyEnvironment);
   const performDeviceLogin = interactions?.runDeviceLogin ?? runDeviceLogin;
+  const performInitiateDeviceLogin = interactions?.initiateDeviceLogin ?? initiateDeviceLogin;
   const performLoopbackLogin = interactions?.runLoopbackLogin ?? runLoopbackLogin;
   const requestedScopeOptions = options.scopes.length === 0 ? {} : { scopes: options.scopes };
 
@@ -202,11 +240,24 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
         "This environment appears to be remote or headless; using device-code sign-in.",
       );
     }
-    yield* performDeviceLogin(registryUrl, {
-      openBrowser: false,
-      ...requestedScopeOptions,
-    });
+    if (nonInteractive) {
+      yield* performInitiateDeviceLogin(registryUrl, {
+        openBrowser: false,
+        ...requestedScopeOptions,
+      });
+    } else {
+      yield* performDeviceLogin(registryUrl, {
+        openBrowser: false,
+        ...requestedScopeOptions,
+      });
+    }
     return;
+  }
+
+  if (nonInteractive) {
+    return yield* errAuthRequired(
+      "Loopback browser sign-in requires an interactive terminal. Use device-code sign-in instead.",
+    );
   }
 
   yield* performLoopbackLogin(registryUrl, {
@@ -272,6 +323,13 @@ const loginConfig = {
     Flag.withDescription("Do not open a browser; use device-code fallback"),
     Flag.withHidden,
   ),
+  wait: Flag.boolean("wait").pipe(
+    Flag.withDescription("Resume and wait for a pending device sign-in"),
+  ),
+  timeout: Flag.integer("timeout").pipe(
+    Flag.withDescription("Maximum seconds to wait for device approval"),
+    Flag.optional,
+  ),
   scope: Flag.string("scope").pipe(
     Flag.withDescription("Registry scope to request; repeatable"),
     Flag.atLeast(0),
@@ -281,13 +339,24 @@ const loginConfig = {
 export const loginCommand = Command.make(
   "login",
   loginConfig,
-  ({ yes, deviceCode, noBrowser, scope }) =>
-    handleLogin({ yes, deviceCode, noBrowser, scopes: scope }).pipe(withAuthRuntime("auth login")),
+  ({ yes, deviceCode, noBrowser, wait, timeout, scope }) =>
+    handleLogin({
+      yes,
+      deviceCode,
+      noBrowser,
+      wait,
+      ...Option.match(timeout, {
+        onNone: () => ({}),
+        onSome: (timeoutSeconds) => ({ timeoutSeconds }),
+      }),
+      scopes: scope,
+    }).pipe(withAuthRuntime("auth login")),
 ).pipe(
   withArgvTracking(loginConfig),
   Command.withDescription("Sign in to a registry"),
   Command.withExamples([
     { command: "axm login", description: "Sign in with a local browser" },
     { command: "axm login --device-code", description: "Sign in from SSH or a headless machine" },
+    { command: "axm login --wait", description: "Resume a pending device sign-in" },
   ]),
 );

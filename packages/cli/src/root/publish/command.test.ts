@@ -28,6 +28,7 @@ import { emitPublishResult } from "../../json-output.js";
 import {
   aggregatePublishFailure,
   handleRootPublish,
+  publishAuthenticationPreconditions,
   type RootPublishHandlerArgs,
   PUBLISHABLE_TYPES,
   isPublishableType,
@@ -114,6 +115,37 @@ describe("root publish", () => {
       "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
     );
   };
+
+  it("reports authentication as a human-blocked preview precondition only when needed", () => {
+    expect(
+      publishAuthenticationPreconditions({
+        preview: true,
+        remoteRegistry: true,
+        authenticated: false,
+        hasPublishCandidates: true,
+      }),
+    ).toEqual([
+      {
+        id: "authentication",
+        label: "Registry authentication",
+        status: "unmet",
+        detail:
+          "Publishing requires human authorization before apply; authenticate before preparing a release workflow.",
+        blockedOn: "human",
+        command: "axm login --device-code --json",
+      },
+    ]);
+
+    expect(
+      [
+        { preview: false, remoteRegistry: true, authenticated: false },
+        { preview: true, remoteRegistry: false, authenticated: false },
+        { preview: true, remoteRegistry: true, authenticated: true },
+      ].map((options) =>
+        publishAuthenticationPreconditions({ ...options, hasPublishCandidates: true }),
+      ),
+    ).toEqual([[], [], []]);
+  });
 
   describe("human output", () => {
     it.effect("renders the published FQN and version after a successful apply", () => {

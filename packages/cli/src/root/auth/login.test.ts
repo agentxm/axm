@@ -17,6 +17,7 @@ import {
   RegistryUrl,
   CredentialStore,
   CredentialStoreTest,
+  PendingDeviceLoginStoreTest,
 } from "@agentxm/client-core/unstable/auth";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
@@ -115,6 +116,7 @@ const makeLayers = (opts?: {
     interactionLayer,
     flagsLayer,
     credStoreLayer,
+    PendingDeviceLoginStoreTest(),
     authClientLayer,
     registryUrlLayer,
   );
@@ -127,17 +129,57 @@ const makeLayers = (opts?: {
 };
 
 describe("auth login handler", () => {
-  it.effect("rejects in non-interactive mode", () => {
-    const { provide } = makeLayers({ nonInteractive: true });
+  it.effect("starts a non-blocking device flow in non-interactive mode", () => {
+    const { provide, rendererState } = makeLayers({
+      nonInteractive: true,
+      machine: true,
+      json: true,
+    });
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleLogin({
+        yield* handleLogin({
           yes: false,
-          deviceCode: true,
+          deviceCode: false,
           noBrowser: false,
           scopes: [],
-        }).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })));
-        expect(result).toMatchObject({ error: true, code: "auth" });
+        });
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: {
+            status: "pending-human",
+            verificationUri: "https://auth.agentxm.ai/device",
+            userCode: "ABCD-1234",
+            resume: "axm login --wait --json",
+          },
+        });
+      }),
+    );
+  });
+
+  it.effect("skips the relogin prompt for a valid non-interactive session", () => {
+    const { provide, rendererState } = makeLayers({
+      nonInteractive: true,
+      machine: true,
+      json: true,
+      existingCredentials: true,
+    });
+    let promptCalls = 0;
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin(
+          { yes: false, deviceCode: false, noBrowser: false, scopes: [] },
+          {
+            confirmRelogin: () => {
+              promptCalls += 1;
+              return Effect.succeed(true);
+            },
+          },
+        );
+        expect(promptCalls).toBe(0);
+        const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+          planName: "Log in to AXM registry",
+          totalSteps: 1,
+        });
+        expect(result).toMatchObject({ status: "already-logged-in", handle: ALICE });
       }),
     );
   });
@@ -152,7 +194,7 @@ describe("auth login handler", () => {
           noBrowser: false,
           scopes: [],
         }).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })));
-        expect(result).toMatchObject({ error: true, code: "auth" });
+        expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
     );
   });
@@ -595,6 +637,7 @@ describe("auth login handler", () => {
       interactionLayer2,
       TestFlagsLayer({ nonInteractive: false }),
       CredentialStoreTest(),
+      PendingDeviceLoginStoreTest(),
       authClientLayer,
       Layer.succeed(RegistryUrl, REGISTRY_URL),
     );

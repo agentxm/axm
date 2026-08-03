@@ -21,7 +21,10 @@ import type {
   PlanResolution,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { ArtifactChangeSchema } from "@agentxm/client-core/unstable/plan";
+import {
+  ArtifactChangeSchema,
+  OperationPreconditionSchema,
+} from "@agentxm/client-core/unstable/plan";
 import {
   redactSensitiveText,
   serializeErrorCauseChain,
@@ -193,6 +196,7 @@ export const PlanResolutionResultSchema = Schema.Struct({
   appliedCount: Schema.Number,
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
+  preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
   steps: Schema.Array(StepSchema),
 }).annotate({
   identifier: "PlanResolutionResult",
@@ -271,6 +275,7 @@ const PublishResultItemSchema = Schema.Struct({
 
 export const PublishResultSchema = Schema.Struct({
   mode: PublishModeSchema,
+  preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
   selection: Schema.optional(
     Schema.Struct({
       mode: Schema.Literals(["authored", "all", "explicit", "filtered-explicit"] as const),
@@ -313,6 +318,14 @@ const renderHumanPublishResult = (
   Effect.gen(function* () {
     const verbosity = yield* Verbosity;
     if (verbosity.level === "quiet") return;
+
+    for (const precondition of result.preconditions ?? []) {
+      if (precondition.status === "unmet") {
+        yield* renderer.warn(
+          `${precondition.label}: ${precondition.detail ?? "Required before apply"}`,
+        );
+      }
+    }
 
     const published = result.results.filter(
       (item) => item.action === "publish" && item.status === "success",
@@ -507,6 +520,9 @@ export const toPlanResolutionResult = (
         appliedCount: 0,
         failedCount: 0,
         blockedCount: 0,
+        ...(resolution.preconditions === undefined
+          ? {}
+          : { preconditions: resolution.preconditions }),
         steps,
       };
     }
@@ -539,6 +555,9 @@ export const toPlanResolutionResult = (
         appliedCount,
         failedCount,
         blockedCount,
+        ...(resolution.preconditions === undefined
+          ? {}
+          : { preconditions: resolution.preconditions }),
         steps,
       };
     }

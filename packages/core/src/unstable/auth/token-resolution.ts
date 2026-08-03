@@ -3,13 +3,15 @@
  *
  * Resolves authentication tokens from multiple sources in priority order:
  * 1. AXM_TOKEN environment variable
- * 2. --token flag (per-command, passed as parameter)
- * 3. Credential store lookup by registry URL
+ * 2. AXM_TOKEN_FILE
+ * 3. --token flag (per-command, passed as parameter)
+ * 4. Credential store lookup by registry URL
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import { envOption } from "../utils/index.js";
 
@@ -21,6 +23,7 @@ import type { NormalizedTokenResponse } from "./oauth-contract.js";
 import {
   CredentialStoreTokenSource,
   EnvVarTokenSource,
+  FileTokenSource,
   FlagTokenSource,
   type StoredCredentials,
   type TokenSource,
@@ -119,13 +122,14 @@ export const refreshStoredToken = (tokenSource: CredentialStoreTokenSource) =>
   });
 
 /**
- * Resolve a token from ambient sources only (env var and flag).
+ * Resolve a token from ambient sources only (env var, file, and flag).
  *
  * Does not access the credential store.
  *
  * Precedence:
  * 1. AXM_TOKEN env var
- * 2. --token flag (passed as `flagToken` parameter)
+ * 2. AXM_TOKEN_FILE
+ * 3. --token flag (passed as `flagToken` parameter)
  */
 export const resolveAmbientToken = (flagToken?: string) =>
   Effect.gen(function* () {
@@ -133,6 +137,37 @@ export const resolveAmbientToken = (flagToken?: string) =>
     const envToken = Option.getOrUndefined(envTokenOpt);
     if (envToken !== undefined && envToken.length > 0) {
       return Option.some<TokenSource>(new EnvVarTokenSource({ token: envToken }));
+    }
+    const tokenFileOpt = yield* envOption("AXM_TOKEN_FILE");
+    if (Option.isSome(tokenFileOpt) && tokenFileOpt.value.length > 0) {
+      const maybeFs = yield* Effect.serviceOption(FileSystem.FileSystem);
+      if (Option.isNone(maybeFs)) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: "AXM_TOKEN_FILE cannot be read in this runtime.",
+        });
+      }
+      const fs = maybeFs.value;
+      const token = yield* fs.readFileString(tokenFileOpt.value).pipe(
+        Effect.map((content) => content.trim()),
+        Effect.mapError((error) =>
+          makeAppError({
+            code: "auth",
+            detail: `Could not read AXM_TOKEN_FILE at ${tokenFileOpt.value}.`,
+            suggestions: [
+              { description: "Check that AXM_TOKEN_FILE names a readable token file." },
+            ],
+            cause: error,
+          }),
+        ),
+      );
+      if (token.length === 0) {
+        return yield* makeAppError({
+          code: "validation",
+          detail: `AXM_TOKEN_FILE at ${tokenFileOpt.value} is empty.`,
+        });
+      }
+      return Option.some<TokenSource>(new FileTokenSource({ token, path: tokenFileOpt.value }));
     }
     if (flagToken !== undefined && flagToken.length > 0) {
       return Option.some<TokenSource>(new FlagTokenSource({ token: flagToken }));
@@ -170,8 +205,9 @@ export const resolveRequestToken = (
  *
  * Precedence:
  * 1. AXM_TOKEN env var
- * 2. --token flag (passed as `flagToken` parameter)
- * 3. CredentialStore lookup by registry URL
+ * 2. AXM_TOKEN_FILE
+ * 3. --token flag (passed as `flagToken` parameter)
+ * 4. CredentialStore lookup by registry URL
  *
  * Returns the stored token as-is without proactive refresh. Callers should
  * handle 401 responses from the server (e.g., prompt re-login). The auth
@@ -193,7 +229,7 @@ export const resolveToken = (
 /**
  * Resolve a token and fail with the correct auth policy error when none is available.
  *
- * In CI/container environments, persisted credentials are disabled by policy, so
+ * In CI environments, persisted credentials are disabled by policy, so
  * callers should surface the auth policy error instead of suggesting `axm login`.
  */
 export const resolveRequiredToken = (

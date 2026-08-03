@@ -78,6 +78,11 @@ export class FlagTokenSource extends Data.TaggedClass("Flag")<{
   readonly token: string;
 }> {}
 
+export class FileTokenSource extends Data.TaggedClass("File")<{
+  readonly token: string;
+  readonly path: string;
+}> {}
+
 export class CredentialStoreTokenSource extends Data.TaggedClass("CredentialStore")<{
   readonly token: string;
   readonly refresh_token: string;
@@ -85,7 +90,8 @@ export class CredentialStoreTokenSource extends Data.TaggedClass("CredentialStor
   readonly registryUrl: string;
 }> {}
 
-export type TokenSource = EnvVarTokenSource | FlagTokenSource | CredentialStoreTokenSource;
+export type TokenSource =
+  EnvVarTokenSource | FileTokenSource | FlagTokenSource | CredentialStoreTokenSource;
 
 // -----------------------------------------------------------------------------
 // Stored Credentials (returned from CredentialStore.load)

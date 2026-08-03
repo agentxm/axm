@@ -101,12 +101,12 @@ describe("structured output (--json)", () => {
           env: { AXM_TOKEN: "" },
         });
 
-        expect(result.exitCode).toBe(4);
+        expect(result.exitCode).toBe(13);
         expect(parseJson(result.stdout)).toMatchObject({
           ok: false,
-          code: "auth",
+          code: "auth_required",
         });
-        expect(result.stderr).toContain("Set the AXM_TOKEN environment variable");
+        expect(result.stderr).toContain("axm login --device-code --json");
       } finally {
         temp.cleanup();
       }

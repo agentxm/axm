@@ -5,7 +5,10 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 import * as Layer from "effect/Layer";
 
@@ -17,6 +20,7 @@ import { AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 import { emitLoginSuccess } from "./login-output.js";
 import type { NormalizedTokenResponse } from "./oauth-contract.js";
+import { PendingDeviceLoginStore, type PendingDeviceLogin } from "./pending-device-login-store.js";
 
 // -----------------------------------------------------------------------------
 // DeviceLoginInteraction service — platform integration abstraction
@@ -95,9 +99,40 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
   });
 
 export interface RunDeviceLoginOptions {
+  readonly emitPendingResult?: boolean;
   readonly openBrowser?: boolean;
   readonly scopes?: ReadonlyArray<string>;
 }
+
+export interface ResumeDeviceLoginOptions {
+  readonly timeoutSeconds?: number;
+}
+
+const DeviceLoginActionSchema = Schema.Struct({
+  kind: Schema.Literal("open-url"),
+  url: Schema.String,
+  code: Schema.String,
+  expiresAt: Schema.String,
+  resume: Schema.String,
+});
+
+export const DeviceLoginPendingResultSchema = Schema.Struct({
+  status: Schema.Literal("pending-human"),
+  blockedOn: Schema.Literal("human"),
+  registryHost: Schema.String,
+  verificationUri: Schema.String,
+  userCode: Schema.String,
+  expiresAt: Schema.String,
+  interval: Schema.Number,
+  resume: Schema.String,
+  action: DeviceLoginActionSchema,
+});
+
+export type DeviceLoginPendingResult = typeof DeviceLoginPendingResultSchema.Type;
+
+const DeviceLoginPendingDocumentSchema = Schema.Struct({
+  result: DeviceLoginPendingResultSchema,
+});
 
 const presentDeviceFlow = (
   verificationUri: string,
@@ -140,15 +175,96 @@ const presentDeviceFlow = (
     );
   });
 
-export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>
+const makePendingResult = (pending: PendingDeviceLogin): DeviceLoginPendingResult => {
+  const registryHost = new URL(pending.registryUrl).host;
+  const expiresAt = DateTime.formatIso(pending.expiresAt);
+  const resume = "axm login --wait --json";
+  return {
+    status: "pending-human",
+    blockedOn: "human",
+    registryHost,
+    verificationUri: pending.verificationUri,
+    userCode: pending.userCode,
+    expiresAt,
+    interval: pending.interval,
+    resume,
+    action: {
+      kind: "open-url",
+      url: pending.verificationUri,
+      code: pending.userCode,
+      expiresAt,
+      resume,
+    },
+  };
+};
+
+const emitPendingDeviceLogin = (pending: PendingDeviceLogin, options: RunDeviceLoginOptions) =>
+  Effect.gen(function* () {
+    const renderer = yield* CliRenderer;
+    const result = makePendingResult(pending);
+    const suggestions = [
+      {
+        description: "Open the AXM device authorization page",
+        url: pending.verificationUri,
+      },
+      {
+        description: "Resume after approval",
+        cmd: "axm login --wait --json",
+      },
+    ];
+    if (
+      yield* renderer.result({ result }, DeviceLoginPendingDocumentSchema, {
+        suggestions,
+      })
+    ) {
+      return result;
+    }
+    yield* presentDeviceFlow(
+      pending.verificationUri,
+      pending.userCode,
+      Math.max(
+        0,
+        Math.ceil(
+          (DateTime.toEpochMillis(pending.expiresAt) -
+            DateTime.toEpochMillis(yield* DateTime.now)) /
+            1000,
+        ),
+      ),
+      options,
+    );
+    yield* renderer.success("Device sign-in is waiting for approval.", { suggestions });
+    return result;
+  });
+
+export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
+    const pendingStore = yield* PendingDeviceLoginStore;
     const renderer = yield* CliRenderer;
     const registryHost = new URL(registryUrl).host;
 
     if (!credStore.allowsPersistedCredentials) {
       return yield* makePersistedCredentialsUnsupportedError();
+    }
+
+    const existing = yield* pendingStore.load();
+    if (Option.isSome(existing)) {
+      const expired = yield* DateTime.isPast(existing.value.expiresAt);
+      if (expired || existing.value.registryUrl === registryUrl) {
+        yield* pendingStore.clear();
+      } else {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: `A device sign-in for ${new URL(existing.value.registryUrl).host} is already pending.`,
+          suggestions: [
+            {
+              description: "Finish the pending sign-in before starting another.",
+              cmd: "axm login --wait --json",
+            },
+          ],
+        });
+      }
     }
 
     const deviceFlow = yield* renderer.withSpinner(
@@ -160,57 +276,154 @@ export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptio
       { successMessage: `Started device authorization for ${registryHost}` },
     );
 
-    yield* presentDeviceFlow(
-      deviceFlow.verification_uri,
-      deviceFlow.user_code,
-      deviceFlow.expires_in,
-      options,
-    );
+    const pending: PendingDeviceLogin = {
+      version: 1,
+      registryUrl,
+      deviceCode: deviceFlow.device_code,
+      userCode: deviceFlow.user_code,
+      verificationUri: deviceFlow.verification_uri,
+      interval: deviceFlow.interval,
+      expiresAt: DateTime.add(yield* DateTime.now, { seconds: deviceFlow.expires_in }),
+    };
+    yield* pendingStore.save(pending);
+    if (options.emitPendingResult === false) {
+      yield* presentDeviceFlow(
+        pending.verificationUri,
+        pending.userCode,
+        deviceFlow.expires_in,
+        options,
+      );
+      return makePendingResult(pending);
+    }
+    return yield* emitPendingDeviceLogin(pending, options);
+  });
 
-    const token = yield* renderer
-      .withSpinner(
-        "Waiting for authorization…",
-        () => authClient.pollDeviceToken(deviceFlow.device_code, deviceFlow.interval),
-        { successMessage: `Authorized device on ${registryHost}` },
-      )
-      .pipe(
-        Effect.mapError((error) =>
-          error._tag !== "AppError"
-            ? error
-            : error.detail === "Login code expired"
-              ? makeAppError({
-                  code: "auth",
-                  detail: `This sign-in code expired after ${
-                    deviceFlow.expires_in % 60 === 0
-                      ? `${deviceFlow.expires_in / 60} ${
-                          deviceFlow.expires_in === 60 ? "minute" : "minutes"
-                        }`
-                      : `${deviceFlow.expires_in} seconds`
-                  }. Run \`axm login --device-code\` to request a new code.`,
-                  suggestions: [
-                    {
-                      description: "Request a new device sign-in code.",
-                      cmd: "axm login --device-code",
-                    },
-                  ],
-                  cause: error,
-                })
-              : error.detail === "Login was denied or cancelled"
-                ? makeAppError({
-                    code: "auth",
-                    detail: "Sign-in was cancelled. No credentials were changed.",
+const pendingLoginNotFound = () =>
+  makeAppError({
+    code: "not_found",
+    detail: "No pending device sign-in was found.",
+    suggestions: [
+      {
+        description: "Start a device sign-in first.",
+        cmd: "axm login --device-code --json",
+      },
+    ],
+  });
+
+export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLoginOptions = {}) =>
+  Effect.gen(function* () {
+    const authClient = yield* AuthClient;
+    const credStore = yield* CredentialStore;
+    const pendingStore = yield* PendingDeviceLoginStore;
+    const renderer = yield* CliRenderer;
+    const registryHost = new URL(registryUrl).host;
+
+    if (!credStore.allowsPersistedCredentials) {
+      return yield* makePersistedCredentialsUnsupportedError();
+    }
+
+    const loaded = yield* pendingStore.load();
+    if (Option.isNone(loaded)) return yield* pendingLoginNotFound();
+    const pending = loaded.value;
+    if (pending.registryUrl !== registryUrl) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `The pending sign-in belongs to ${new URL(pending.registryUrl).host}, not ${registryHost}.`,
+        suggestions: [
+          {
+            description: "Resume with the registry that started the sign-in.",
+            cmd: "axm login --wait --registry <url> --json",
+          },
+        ],
+      });
+    }
+
+    if (yield* DateTime.isPast(pending.expiresAt)) {
+      yield* pendingStore.clear();
+      return yield* makeAppError({
+        code: "auth_expired",
+        detail: "The pending device sign-in expired. No credentials were changed.",
+        suggestions: [
+          {
+            description: "Request a new device sign-in code.",
+            cmd: "axm login --device-code --json",
+          },
+        ],
+      });
+    }
+
+    const polling = authClient.pollDeviceToken(pending.deviceCode, pending.interval);
+    const boundedPolling =
+      options.timeoutSeconds === undefined
+        ? polling
+        : polling.pipe(
+            Effect.timeoutOrElse({
+              duration: Duration.seconds(options.timeoutSeconds),
+              orElse: () =>
+                Effect.fail(
+                  makeAppError({
+                    code: "timeout",
+                    detail: `Device sign-in did not complete within ${options.timeoutSeconds} seconds. The pending flow is still available.`,
                     suggestions: [
                       {
-                        description: "Try signing in again.",
-                        cmd: "axm login --device-code",
+                        description: "Resume waiting after approval.",
+                        cmd: "axm login --wait --json",
+                      },
+                    ],
+                  }),
+                ),
+            }),
+          );
+
+    const token = yield* renderer
+      .withSpinner("Waiting for authorization…", () => boundedPolling, {
+        successMessage: `Authorized device on ${registryHost}`,
+      })
+      .pipe(
+        Effect.catchTag("AppError", (error) => {
+          if (error.detail === "Login code expired") {
+            return pendingStore.clear().pipe(
+              Effect.flatMap(() =>
+                Effect.fail(
+                  makeAppError({
+                    code: "auth_expired",
+                    detail: "The pending device sign-in expired. No credentials were changed.",
+                    suggestions: [
+                      {
+                        description: "Request a new device sign-in code.",
+                        cmd: "axm login --device-code --json",
                       },
                     ],
                     cause: error,
-                  })
-                : error,
-        ),
+                  }),
+                ),
+              ),
+            );
+          }
+          if (error.detail === "Login was denied or cancelled") {
+            return pendingStore.clear().pipe(
+              Effect.flatMap(() =>
+                Effect.fail(
+                  makeAppError({
+                    code: "auth_denied",
+                    detail: "Device sign-in was denied or cancelled. No credentials were changed.",
+                    suggestions: [
+                      {
+                        description: "Start a new device sign-in when ready.",
+                        cmd: "axm login --device-code --json",
+                      },
+                    ],
+                    cause: error,
+                  }),
+                ),
+              ),
+            );
+          }
+          return Effect.fail(error);
+        }),
       );
 
+    yield* pendingStore.clear();
     const handle = yield* renderer.withSpinner(
       `Saving credentials for ${registryHost}`,
       () => persistLoginCredentials(registryUrl, token),
@@ -218,4 +431,10 @@ export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptio
     );
 
     yield* emitLoginSuccess(registryUrl, handle);
+  });
+
+export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>
+  Effect.gen(function* () {
+    yield* initiateDeviceLogin(registryUrl, { ...options, emitPendingResult: false });
+    yield* resumeDeviceLogin(registryUrl);
   });

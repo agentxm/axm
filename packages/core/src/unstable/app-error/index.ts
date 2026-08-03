@@ -11,6 +11,7 @@ export {
   exitCodeFor,
   makeAppError,
   type AppErrorClass,
+  type AppErrorAction,
   type AppErrorMetadata,
   type AppErrorCode,
 } from "./app-error.js";

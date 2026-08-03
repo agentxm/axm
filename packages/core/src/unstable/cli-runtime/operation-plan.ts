@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { ArtifactChangeSchema } from "../plan/plan.js";
+import { ArtifactChangeSchema, OperationPreconditionSchema } from "../plan/plan.js";
 
 const OperationPlanStepStatusSchema = Schema.Literals([
   "ready",
@@ -47,6 +47,7 @@ export const OperationPlanFields = {
   appliedCount: Schema.Number,
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
+  preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
   steps: Schema.Array(OperationPlanStepSchema),
 } satisfies Schema.Struct.Fields;
 
@@ -62,6 +63,7 @@ export const makeOperationPlan = (args: {
   readonly message?: string;
   readonly steps: ReadonlyArray<OperationPlanStep>;
   readonly outcome?: OperationPlan["outcome"];
+  readonly preconditions?: OperationPlan["preconditions"];
 }): OperationPlan => {
   const readyCount = args.steps.filter((step) => step.status === "ready").length;
   const warningStatusCount = args.steps.filter((step) => step.status === "warning").length;
@@ -95,6 +97,7 @@ export const makeOperationPlan = (args: {
     appliedCount,
     failedCount,
     blockedCount,
+    ...(args.preconditions === undefined ? {} : { preconditions: args.preconditions }),
     steps: [...args.steps],
   };
 };

@@ -13,17 +13,34 @@ export const BC = {
 
 export const errAuthRequired = (message = "Authentication required", cause?: unknown) =>
   makeAppError({
-    code: "auth",
+    code: "auth_required",
     detail: message,
-    suggestions: [BC.run("axm login", "Sign in, or set the AXM_TOKEN environment variable.")],
+    blockedOn: "human",
+    suggestions: [
+      BC.run(
+        "axm login --device-code --json",
+        "Start a non-blocking device sign-in and ask a person to approve it.",
+      ),
+      {
+        description: "Create a personal access token in AgentXM.ai.",
+        url: "https://agentxm.ai/u/settings/tokens",
+      },
+    ],
     cause,
   });
 
 export const errAuthTokenRequired = (cause?: unknown) =>
   makeAppError({
-    code: "auth",
+    code: "auth_required",
     detail: "No authentication token is available.",
-    suggestions: [BC.do("Set the AXM_TOKEN environment variable for non-interactive auth.")],
+    blockedOn: "human",
+    suggestions: [
+      BC.do("Set AXM_TOKEN or AXM_TOKEN_FILE for non-interactive authentication."),
+      {
+        description: "Create a personal access token in AgentXM.ai.",
+        url: "https://agentxm.ai/u/settings/tokens",
+      },
+    ],
     cause,
   });
 

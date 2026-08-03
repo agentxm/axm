@@ -30,6 +30,31 @@ cli-version: "0.24.10"
    - `pack/*` → `axm help packs`
    - workspace/config findings → `axm help settings`
 4. **Do not auto-resolve unmanaged extensions**: For `workspace/<plural-type>-managed` findings (e.g., `workspace/skills-managed`), group related unmanaged items, then present adopt/copy/ignore/prune choices with a recommended option using the signals in the topic help.
+5. **Preflight registry identity before publish or install work**: Run
+   `axm whoami --json` before preparing a publish or registry install. Treat exit
+   `13` (`auth_required`) as an expected probe result, but propagate every other
+   unexpected nonzero exit. Portable wrappers:
+
+   ```sh
+   identity="$(axm whoami --json)" || {
+     status=$?
+     [ "$status" -eq 13 ] || exit "$status"
+   }
+   ```
+
+   ```powershell
+   $identity = axm whoami --json
+   if ($LASTEXITCODE -notin 0, 13) { exit $LASTEXITCODE }
+   ```
+
+   When a publish requires authentication, run
+   `axm login --device-code --json`, present `result.action.url` and
+   `result.action.code` to the human, then run `axm login --wait --json` and
+   repeat the identity probe. Never print, paste, or request a personal access
+   token in the transcript. For a token supplied out of band, prefer
+   `AXM_TOKEN_FILE`; `AXM_TOKEN` remains supported but is easier to leak through
+   process environments. Public extension installs may proceed while signed
+   out; the probe only establishes that private registry access is unavailable.
 
 ### CLI Introspection
 
@@ -105,7 +130,10 @@ before Registry lookup, and `packs add` records a caret constraint by default.
 
 ### Auth
 
-| Task                          | Command                            |
-| ----------------------------- | ---------------------------------- |
-| Sign in / out / identity      | `axm <login\|logout\|whoami>`      |
-| Manage granular access tokens | `axm token [create\|list\|revoke]` |
+| Task                             | Command                            |
+| -------------------------------- | ---------------------------------- |
+| Probe identity                   | `axm whoami --json`                |
+| Start nonblocking device sign-in | `axm login --device-code --json`   |
+| Resume pending device sign-in    | `axm login --wait --json`          |
+| Sign out                         | `axm logout`                       |
+| Manage granular access tokens    | `axm token [create\|list\|revoke]` |

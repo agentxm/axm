@@ -15,3 +15,7 @@
 | 10   | Unexpected internal error. Likely a bug — please report it.                                                                                                                             |
 | 11   | Service is responsive but temporarily unable to serve.                                                                                                                                  |
 | 12   | Quota, storage, or plan limit exhausted.                                                                                                                                                |
+| 13   | Progress is waiting on a person to complete an action.                                                                                                                                  |
+| 14   | A pending authentication flow expired.                                                                                                                                                  |
+| 15   | A person denied or cancelled a pending authentication flow.                                                                                                                             |
+| 16   | A bounded operation did not complete before its caller-selected deadline.                                                                                                               |

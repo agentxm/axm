@@ -45,6 +45,7 @@ import {
   AuthLoginInteractionLive,
   AuthMiddlewareLive,
   CredentialStoreLive,
+  PendingDeviceLoginStoreLive,
   RegistryUrl,
 } from "@agentxm/client-core/unstable/auth";
 import { InstallCommandCommandWorkflowActionsLive } from "./root/commands/install/command-actions.js";
@@ -115,7 +116,7 @@ const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
 const RegistryRuntimeLayer = Layer.mergeAll(PlatformLayer, RegistryUrlLayer);
 
 const AuthServicesLayer = Layer.provideMerge(
-  Layer.mergeAll(CredentialStoreLive, AuthClientLive),
+  Layer.mergeAll(CredentialStoreLive, PendingDeviceLoginStoreLive, AuthClientLive),
   RegistryRuntimeLayer,
 );
 

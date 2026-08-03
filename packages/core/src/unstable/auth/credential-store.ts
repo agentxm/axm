@@ -4,8 +4,8 @@
  * Tier 1: OS keychain (@napi-rs/keyring)
  * Tier 2: Restricted-permission file (~/.config/axm/credentials.json)
  *
- * CI and container environments are token-only by policy. They do not persist
- * credentials and should use AXM_TOKEN instead.
+ * CI environments are token-only by policy. Containers use the restricted
+ * file tier so agent sessions can complete resumable device authorization.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -376,8 +376,7 @@ export const detectEnvironment = Effect.gen(function* () {
 export const selectTier = (env: EnvironmentInfo): StorageTier =>
   env.isContainer || env.isCI || env.isSSH ? "restricted-file" : "keychain";
 
-export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean =>
-  !env.isContainer && !env.isCI;
+export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean => !env.isCI;
 
 export const makePersistedCredentialsUnsupportedError = () => errAuthTokenRequired();
 

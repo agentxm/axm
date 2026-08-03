@@ -42,7 +42,11 @@ import {
   type ExtensionType,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import type { JobStepResult, Plan } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepResult,
+  OperationPrecondition,
+  Plan,
+} from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CompanionPackageSchema } from "@agentxm/client-core/unstable/package-urls";
 import {
@@ -235,6 +239,29 @@ export interface RootPublishHandlerArgs {
   readonly includeDependencies: boolean;
   readonly includeDependency: ReadonlyArray<string>;
 }
+
+export const publishAuthenticationPreconditions = (options: {
+  readonly preview: boolean;
+  readonly remoteRegistry: boolean;
+  readonly authenticated: boolean;
+  readonly hasPublishCandidates: boolean;
+}): ReadonlyArray<OperationPrecondition> =>
+  options.preview &&
+  options.remoteRegistry &&
+  !options.authenticated &&
+  options.hasPublishCandidates
+    ? [
+        {
+          id: "authentication",
+          label: "Registry authentication",
+          status: "unmet",
+          detail:
+            "Publishing requires human authorization before apply; authenticate before preparing a release workflow.",
+          blockedOn: "human",
+          command: "axm login --device-code --json",
+        },
+      ]
+    : [];
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -963,10 +990,6 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const preflightErrors = decoded.flatMap((result) =>
     Result.isFailure(result) ? [result.failure] : [],
   );
-  const isRemoteRegistry =
-    registry.url.startsWith("https://") || registry.url.startsWith("http://");
-  const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
-  const publishConcurrency = isRemoteRegistry && Option.isNone(storedToken) ? 1 : 4;
   const selectionOutput = {
     mode: selection.mode,
     scope: args.scope,
@@ -983,12 +1006,26 @@ const runPublish = Effect.fn("Publish.run")(function* (
     return;
   }
 
+  const isRemoteRegistry =
+    registry.url.startsWith("https://") || registry.url.startsWith("http://");
+  const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
+  const authenticationPreconditions = publishAuthenticationPreconditions({
+    preview: args.preview,
+    remoteRegistry: isRemoteRegistry,
+    authenticated: Option.isSome(storedToken),
+    hasPublishCandidates: candidates.some((candidate) => candidate.action === "publish"),
+  });
+  const publishConcurrency = isRemoteRegistry && Option.isNone(storedToken) ? 1 : 4;
+
   const plan: Plan = {
     _tag: "Plan",
     name: "Publish extensions",
     description: Option.some(
       `Publish ${candidates.length} extensions to registry "${registry.name}"`,
     ),
+    ...(authenticationPreconditions.length === 0
+      ? {}
+      : { preconditions: authenticationPreconditions }),
     jobs: [
       {
         concurrency: publishConcurrency,
@@ -1086,6 +1123,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
   }
   yield* emitPublishResult("publish", {
     mode: args.preview ? "preview" : "apply",
+    ...(authenticationPreconditions.length === 0
+      ? {}
+      : { preconditions: authenticationPreconditions }),
     selection: selectionOutput,
     results,
   });

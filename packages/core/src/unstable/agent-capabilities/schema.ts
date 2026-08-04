@@ -835,6 +835,8 @@ export const McpRemoteDialectSchema = Schema.Struct({
   typeField: Schema.NullOr(McpTypeFieldSchema),
   urlKey: McpUrlKeyMapSchema,
   headersKey: Schema.NullOr(Schema.NonEmptyString),
+  bearerTokenEnvKey: Schema.optionalKey(Schema.NullOr(Schema.NonEmptyString)),
+  envHeadersKey: Schema.optionalKey(Schema.NullOr(Schema.NonEmptyString)),
 }).annotate({
   identifier: "McpRemoteDialect",
   title: "MCP Remote Dialect",
@@ -851,7 +853,6 @@ export const McpConfigSchema = Schema.Struct({
   targets: Schema.Array(McpConfigTargetSchema),
   stdio: Schema.NullOr(McpStdioDialectSchema),
   remote: Schema.NullOr(McpRemoteDialectSchema),
-  transform: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
   identifier: "McpConfig",
   title: "MCP Config",

@@ -14,7 +14,7 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { getHome } from "../agents/constants.js";
 import { isPathSafe } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
-import { stringifyToml } from "../toml/index.js";
+import { stringifyToml, stringifyTomlKey } from "../toml/index.js";
 import { deleteYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
 import type { McpConfigTarget, McpServersKey } from "../agent-capabilities/index.js";
 import type { ArtifactChange } from "../plan/plan.js";
@@ -273,11 +273,14 @@ const upsertToml = (args: {
   readonly entry: Readonly<Record<string, unknown>>;
 }): string => {
   const trimmed = stripManagedTomlBlock(args.raw, args.serverName);
+  const parentHeader = `[${stringifyTomlKey(args.serversKey)}]`;
   const block = stringifyToml({
-    [args.serversKey]: {
-      [args.serverName]: args.entry,
-    },
-  });
+    [args.serversKey]: { [args.serverName]: args.entry },
+  })
+    .split("\n")
+    .filter((line) => line !== parentHeader)
+    .join("\n")
+    .trim();
   const prefix = trimmed.length > 0 ? `${trimmed}\n\n` : "";
   return `${prefix}${managedTomlStart(args.serverName)}\n${block}\n${managedTomlEnd(args.serverName)}\n`;
 };
@@ -289,7 +292,11 @@ const removeToml = (args: {
   readonly nativeEnabled: boolean;
 }): string => {
   if (args.disableOnly && args.nativeEnabled) {
-    return args.raw.replace(/^enabled = true$/m, "enabled = false");
+    const start = managedTomlStart(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const end = managedTomlEnd(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return args.raw.replace(new RegExp(`${start}[\\s\\S]*?${end}`), (block) =>
+      block.replace(/^enabled = true$/m, "enabled = false"),
+    );
   }
   const stripped = stripManagedTomlBlock(args.raw, args.serverName);
   return stripped.length > 0 ? `${stripped}\n` : "";

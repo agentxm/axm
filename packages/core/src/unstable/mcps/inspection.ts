@@ -19,7 +19,7 @@ import {
 } from "../agent-capabilities/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { McpServerEntry } from "../settings/index.js";
-import { parseTomlValue, stringifyToml, stringifyTomlKey } from "../toml/index.js";
+import { parseTomlValue, stringifyTomlKey } from "../toml/index.js";
 import { managedYamlNames as readManagedYamlNames, readYamlEntry } from "../yaml/index.js";
 import { resolveAgentMcpConfigTargetPath } from "./config-writer.js";
 import { isAxmManagedMcpEntry } from "./metadata.js";
@@ -169,12 +169,6 @@ const managedTomlBlock = (raw: string, serverName: string): Option.Option<string
   return Option.some(raw.slice(blockStart, endIndex).trim());
 };
 
-const expectedTomlBlock = (
-  serversKey: string,
-  serverName: string,
-  entry: Readonly<Record<string, unknown>>,
-): string => stringifyToml({ [serversKey]: { [serverName]: entry } }).trim();
-
 const tableHeader = (serversKey: string, serverName: string, suffix?: string): string =>
   `[${stringifyTomlKey(serversKey)}.${stringifyTomlKey(serverName)}${suffix === undefined ? "" : `.${stringifyTomlKey(suffix)}`}]`;
 
@@ -243,15 +237,12 @@ const inspectActual = (args: {
       const actualBlock = managedTomlBlock(raw.value, args.serverName);
       if (Option.isNone(actualBlock)) return { status: "absent", fields: [] };
       if (args.expected._tag !== "projected") return { status: "drift", fields: ["transport"] };
-      const expectedBlock = expectedTomlBlock(
-        args.serversKey,
-        args.serverName,
-        args.expected.entry,
-      );
       const actual = parseTomlEntry(actualBlock.value, args.serversKey, args.serverName);
-      return actualBlock.value === expectedBlock
-        ? { status: "match", fields: [], actual }
-        : { status: "drift", fields: ["entry"], actual };
+      const drift = diffAgentEntry(args.expected, actual);
+      if (drift._tag === "match") return { status: "match", fields: [], actual };
+      if (drift._tag === "unmanaged") return { status: "unmanaged", fields: [], actual };
+      if (drift._tag === "drift") return { status: "drift", fields: drift.fields, actual };
+      return { status: "absent", fields: [] };
     }
 
     const actual =

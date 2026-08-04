@@ -107,7 +107,6 @@ export const kiroCliAgent = {
               },
               headersKey: null,
             },
-            transform: null,
           },
         },
       },

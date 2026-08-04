@@ -105,7 +105,6 @@ export const crushAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

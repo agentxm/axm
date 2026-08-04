@@ -276,6 +276,7 @@
     "@types/semver": "catalog:",
     "@types/spdx-expression-parse": "4.0.0",
     "@typescript/native": "catalog:",
+    "smol-toml": "catalog:",
     "swagger2openapi": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

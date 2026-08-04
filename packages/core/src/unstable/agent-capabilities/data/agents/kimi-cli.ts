@@ -105,7 +105,6 @@ export const kimiCliAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

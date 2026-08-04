@@ -79,7 +79,6 @@ export const hermesAgent = {
               urlKey: { "streamable-http": "url" },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

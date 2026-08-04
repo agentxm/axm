@@ -111,7 +111,6 @@ export const codebuddyAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

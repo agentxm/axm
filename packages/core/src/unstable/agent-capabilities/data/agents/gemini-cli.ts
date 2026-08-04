@@ -82,7 +82,7 @@ export const geminiCliAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio"],
+        transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "braced",
           defaults: true,
@@ -90,7 +90,7 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-03",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -112,8 +112,14 @@ export const geminiCliAgent = {
               command: "split",
               envKey: "env",
             },
-            remote: null,
-            transform: null,
+            remote: {
+              typeField: null,
+              urlKey: {
+                "streamable-http": "httpUrl",
+                sse: "url",
+              },
+              headersKey: "headers",
+            },
           },
         },
       },

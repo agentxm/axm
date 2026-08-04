@@ -108,7 +108,6 @@ export const opencodeAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

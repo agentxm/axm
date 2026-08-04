@@ -654,7 +654,6 @@ describe("agent capability derivation", () => {
                   ],
                   stdio: { typeField: null, command: "split", envKey: null },
                   remote: null,
-                  transform: null,
                 },
               },
             },

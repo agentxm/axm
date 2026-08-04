@@ -120,7 +120,6 @@ export const antigravityAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

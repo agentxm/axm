@@ -26,6 +26,7 @@ catalog:
   gray-matter: ^4.0.3
   husky: ^9.1.7
   jsonc-parser: ^3.3.1
+  smol-toml: ^1.6.1
   lint-staged: ^17.0.8
   nx: 23.1.0
   packageurl-js: ^2.0.1

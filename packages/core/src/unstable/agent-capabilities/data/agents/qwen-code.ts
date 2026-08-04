@@ -108,7 +108,6 @@ export const qwenCodeAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

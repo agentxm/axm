@@ -112,7 +112,6 @@ export const devinAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

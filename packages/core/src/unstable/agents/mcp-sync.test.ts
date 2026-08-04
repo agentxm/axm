@@ -524,6 +524,9 @@ describe("mcp-sync helpers", () => {
               expect(remoteOutcome).toEqual({
                 _tag: "success",
                 targets: [{ path: "~/.hermes/config.yaml", change: "updated" }],
+                warnings: [
+                  "headers.Authorization: cannot project environment reference ${STRIPE_TOKEN} for this agent",
+                ],
               });
 
               const fs = yield* FileSystem.FileSystem;
@@ -540,8 +543,8 @@ describe("mcp-sync helpers", () => {
                 "x-axm": { managed: true, source: "inline" },
                 enabled: true,
                 url: "https://mcp.stripe.com",
-                headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
               });
+              expect(readYamlEntry(raw, "mcp_servers", "stripe")).not.toHaveProperty("headers");
 
               const disableOutcome = yield* removeMcpServerFromManifest("hermes", {
                 workspaceRoot,

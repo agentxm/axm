@@ -37,6 +37,10 @@ canonical package.
 - Check `.axm/` into source control.
 - Use `axm sync --dry-run --json` to inspect the same plan apply would run.
 - Use `axm status` to inspect deterministic local blockers.
+- After intentionally relocating a workspace-authored extension, use the exact
+  `axm sync <fqn> --accept-authority-change` command reported by `axm status` to
+  re-anchor its trust record. This never authorizes Registry or cross-authority
+  transitions.
 - Use `axm packs repair <name-or-fqn> --preview` for authored-pack trust drift.
 - Use `axm lint` for read-only diagnostics and `axm lint --fix` to reconcile.
 

@@ -299,6 +299,8 @@ export interface MaterializeOperationArgs<TRef extends ExtensionRef> {
   readonly ref: TRef;
   /** Optional transition-rich label used by reconciliation previews. */
   readonly label?: string;
+  /** Explicitly permit a workspace-authored relocation during reconciliation. */
+  readonly allowWorkspaceSourceTransition?: boolean;
   /** Reacquire canonical content before projecting it. */
   readonly force?: boolean;
   readonly buildArtifact?: () => Effect.Effect<JobStepArtifact, AppError, never>;
@@ -314,6 +316,7 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
       yield* manager.validateTrustTransition({
         ref: args.ref,
         allowSourceTransition: false,
+        allowWorkspaceSourceTransition: args.allowWorkspaceSourceTransition === true,
         allowDowngrade: false,
       });
     }

@@ -27,13 +27,19 @@ const syncConfig = {
   force: Flag.boolean("force").pipe(
     Flag.withDescription("Overwrite drifted managed MCP server agent configs"),
   ),
+  acceptAuthorityChange: Flag.boolean("accept-authority-change").pipe(
+    Flag.withDescription("Re-anchor one relocated workspace-authored extension"),
+  ),
 } as const;
 
 export const syncCommand = Command.make(
   "sync",
   syncConfig,
-  ({ target, type, scope, dryRun, force }) =>
-    handleSync({ target, type, dryRun, force }).pipe(withWorkspace(scope), withRuntime("sync")),
+  ({ target, type, scope, dryRun, force, acceptAuthorityChange }) =>
+    handleSync({ target, type, dryRun, force, acceptAuthorityChange }).pipe(
+      withWorkspace(scope),
+      withRuntime("sync"),
+    ),
 ).pipe(
   withArgvTracking(syncConfig),
   Command.withDescription("Materialize configured workspace files"),
@@ -57,6 +63,10 @@ export const syncCommand = Command.make(
     {
       command: "axm sync --force",
       description: "Overwrite drifted managed MCP server agent configs",
+    },
+    {
+      command: "axm sync @acme/mcps/context --accept-authority-change",
+      description: "Re-anchor a relocated workspace-authored extension",
     },
     {
       command: "axm sync --scope user",

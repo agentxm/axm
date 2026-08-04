@@ -104,6 +104,7 @@ export interface HandleSyncArgs {
   readonly type?: Option.Option<Exclude<ExtensionType, "pack">>;
   readonly dryRun: boolean;
   readonly force: boolean;
+  readonly acceptAuthorityChange?: boolean;
 }
 
 const PLAN_NAME = "Sync workspace";
@@ -339,6 +340,7 @@ const buildMcpServerSyncOperation = ({
   renderer,
   agentRepo,
   force,
+  allowWorkspaceSourceTransition,
   transitionLabel,
   manager,
 }: {
@@ -349,6 +351,7 @@ const buildMcpServerSyncOperation = ({
   readonly renderer: ServiceMap.Service.Shape<typeof CliRenderer>;
   readonly agentRepo: CodingAgentRepositoryService;
   readonly force: boolean;
+  readonly allowWorkspaceSourceTransition: boolean;
   readonly transitionLabel: string;
   readonly manager: ServiceMap.Service.Shape<typeof McpServerManager>;
 }): PlannedJobStep => {
@@ -358,6 +361,7 @@ const buildMcpServerSyncOperation = ({
       yield* manager.validateTrustTransition({
         ref,
         allowSourceTransition: false,
+        allowWorkspaceSourceTransition,
         allowDowngrade: false,
       });
     }
@@ -366,6 +370,7 @@ const buildMcpServerSyncOperation = ({
       args: {
         ref,
         force,
+        allowWorkspaceSourceTransition,
         versionRange: Option.none(),
         skipSettings: Option.some(true),
       },
@@ -572,6 +577,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   readonly force: boolean;
   readonly selection: SyncSelection;
   readonly retainedOnly?: boolean;
+  readonly acceptAuthorityChange?: boolean;
 }) {
   const skillManager = yield* SkillManager;
   const commandManager = yield* CommandManager;
@@ -662,10 +668,15 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           }
           return yield* resolveDesiredExtensionRef(node, observation.status);
         });
+        const allowWorkspaceSourceTransition =
+          args?.acceptAuthorityChange === true &&
+          ref.refType === "workspace" &&
+          trust?.authority === "workspace";
         return {
           ref,
           force,
           materialize,
+          allowWorkspaceSourceTransition,
           transitionLabel: [
             node.name,
             `previous source=${
@@ -694,6 +705,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     readonly ref: TRef;
     readonly force: boolean;
     readonly materialize: boolean;
+    readonly allowWorkspaceSourceTransition: boolean;
     readonly transitionLabel: string;
   };
   const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
@@ -711,6 +723,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
+          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -719,6 +732,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
+          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -727,6 +741,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
+          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -735,6 +750,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
+          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -743,6 +759,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
+          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -751,6 +768,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
+          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -759,6 +777,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
+          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -767,6 +786,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           ref: item.ref,
           force: item.force,
           materialize: item.materialize,
+          allowWorkspaceSourceTransition: item.allowWorkspaceSourceTransition,
           transitionLabel: item.transitionLabel,
         });
         break;
@@ -842,10 +862,16 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
         outcomes.some((outcome) => outcome._tag === "success" && outcome.targets !== undefined),
       ),
     ));
-  const skillMaterializeStep = ({ ref, force, transitionLabel }: Reconciled<SkillExtensionRef>) =>
+  const skillMaterializeStep = ({
+    ref,
+    force,
+    allowWorkspaceSourceTransition,
+    transitionLabel,
+  }: Reconciled<SkillExtensionRef>) =>
     buildMaterializeOperation(skillManager, {
       ref,
       force,
+      allowWorkspaceSourceTransition,
       label: transitionLabel,
       message: `Synced skill ${ref.skill.name}`,
       buildArtifact: () => skillSyncArtifact({ ref, agentRepo, fs, path, ws }),
@@ -853,11 +879,13 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const commandMaterializeStep = ({
     ref,
     force,
+    allowWorkspaceSourceTransition,
     transitionLabel,
   }: Reconciled<CommandExtensionRef>) =>
     buildMaterializeOperation(commandManager, {
       ref,
       force,
+      allowWorkspaceSourceTransition,
       label: transitionLabel,
       message: `Synced command ${ref.command.name}`,
       buildArtifact: () => commandSyncArtifact({ ref, ws }),
@@ -865,11 +893,13 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const subagentMaterializeStep = ({
     ref,
     force,
+    allowWorkspaceSourceTransition,
     transitionLabel,
   }: Reconciled<SubagentExtensionRef>) =>
     buildMaterializeOperation(subagentManager, {
       ref,
       force,
+      allowWorkspaceSourceTransition,
       label: transitionLabel,
       message: `Synced subagent ${ref.subagent.name}`,
       buildArtifact: () => subagentSyncArtifact({ ref, ws }),
@@ -877,11 +907,13 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const knowledgeMaterializeStep = ({
     ref,
     force,
+    allowWorkspaceSourceTransition,
     transitionLabel,
   }: Reconciled<KnowledgeExtensionRef>) =>
     buildMaterializeOperation(knowledgeManager, {
       ref,
       force,
+      allowWorkspaceSourceTransition,
       label: transitionLabel,
       message: `Synced knowledge ${ref.knowledge.name}`,
     });
@@ -893,7 +925,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       ...commandRefs.filter(({ materialize }) => materialize).map(commandMaterializeStep),
       ...mcpServerRefs
         .filter(({ materialize }) => materialize)
-        .map(({ ref, force, transitionLabel }) =>
+        .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
           buildMcpServerSyncOperation({
             ref,
             fs,
@@ -902,6 +934,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
             renderer,
             agentRepo,
             force,
+            allowWorkspaceSourceTransition,
             transitionLabel,
             manager: mcpServerManager,
           }),
@@ -921,18 +954,33 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
       ...fileRefs
         .filter(({ materialize }) => materialize)
-        .map(({ ref, force, transitionLabel }) =>
-          buildMaterializeOperation(fileManager, { ref, force, label: transitionLabel }),
+        .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
+          buildMaterializeOperation(fileManager, {
+            ref,
+            force,
+            allowWorkspaceSourceTransition,
+            label: transitionLabel,
+          }),
         ),
       ...ruleRefs
         .filter(({ materialize }) => materialize)
-        .map(({ ref, force, transitionLabel }) =>
-          buildMaterializeOperation(ruleManager, { ref, force, label: transitionLabel }),
+        .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
+          buildMaterializeOperation(ruleManager, {
+            ref,
+            force,
+            allowWorkspaceSourceTransition,
+            label: transitionLabel,
+          }),
         ),
       ...hookRefs
         .filter(({ materialize }) => materialize)
-        .map(({ ref, force, transitionLabel }) =>
-          buildMaterializeOperation(hookManager, { ref, force, label: transitionLabel }),
+        .map(({ ref, force, allowWorkspaceSourceTransition, transitionLabel }) =>
+          buildMaterializeOperation(hookManager, {
+            ref,
+            force,
+            allowWorkspaceSourceTransition,
+            label: transitionLabel,
+          }),
         ),
       ...knowledgeRefs.filter(({ materialize }) => materialize).map(knowledgeMaterializeStep),
     ] satisfies ReadonlyArray<PlannedJobStep>,
@@ -1254,6 +1302,18 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
   const renderer = yield* CliRenderer;
   const target = args.target ?? Option.none<string>();
   const type = args.type ?? Option.none<Exclude<ExtensionType, "pack">>();
+  if (args.acceptAuthorityChange === true && Option.isNone(target)) {
+    return yield* makeAppError({
+      code: "usage",
+      detail: "--accept-authority-change requires one extension FQN",
+      suggestions: [
+        {
+          description: "Inspect the exact recovery command for the affected extension",
+          cmd: "axm status",
+        },
+      ],
+    });
+  }
   const selection = { target, type };
   const scoped = Option.isSome(target) || Option.isSome(type);
   const scopeLabel = Option.isSome(target)
@@ -1270,6 +1330,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
         const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({
           force: args.force,
           selection,
+          acceptAuthorityChange: args.acceptAuthorityChange === true,
         });
         const workspaceGeneratorStep = scoped
           ? Option.none<PlannedJobStep>()

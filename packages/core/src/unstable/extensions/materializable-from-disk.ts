@@ -194,7 +194,7 @@ export const configuredPacksToDiskRefs = (
   configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<PackRef>, AppError> =>
   Effect.forEach(
-    Object.entries(configured),
+    enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
       isWorkspaceSourceLocator(entry.source)
         ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "pack").pipe(

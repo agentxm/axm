@@ -83,8 +83,7 @@ export interface SubjectPolicy<
   readonly declaredName: (entry: TDeclaredEntry<TDeclared>) => string;
 
   /**
-   * Activation state derived from a declared entry. For subjects without an
-   * `enabled` flag (mcp-server, pack), return `"enabled"` unconditionally.
+   * Activation state derived from a declared entry.
    */
   readonly declaredActivation: (entry: TDeclaredEntry<TDeclared>) => ActivationState;
 

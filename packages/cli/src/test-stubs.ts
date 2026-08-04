@@ -428,7 +428,9 @@ export const computePackageContentHashSync = (packageDir: string): string => {
     }
   };
   visit(packageDir);
-  files.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  files.sort((left, right) =>
+    left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
+  );
   const hash = crypto.createHash("sha256");
   for (const file of files) {
     hash.update(file.relativePath);

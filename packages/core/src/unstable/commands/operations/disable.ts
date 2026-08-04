@@ -31,12 +31,6 @@ const commandDisableArtifact = (
   };
 };
 
-const settingsOnlyCommandArtifact = (scope: JobStepArtifact["scope"]): JobStepArtifact => ({
-  path: ".axm/settings.json",
-  scope,
-  change: "updated",
-});
-
 // -----------------------------------------------------------------------------
 // Operation types
 // -----------------------------------------------------------------------------
@@ -83,26 +77,9 @@ export const disableCommand: OperationHandler<
         detail: "Cannot disable the command while pack-derived desired state is unresolved.",
       });
     }
-    const desiredNode = desired.nodes.find(
+    const desiredNodeBeforeDisable = desired.nodes.find(
       (node) => node.type === "command" && node.name === op.args.commandName,
     );
-    const stillRequiredByPack =
-      desiredNode?.origins.some((origin) => origin.type === "pack") ?? false;
-
-    if (!stillRequiredByPack) {
-      yield* Effect.forEach(
-        configuredAgents,
-        (agent) =>
-          agent
-            .removeCommand({
-              workspaceRoot: base,
-              scope: "project",
-              commandName: op.args.commandName,
-            })
-            .pipe(Effect.catch(() => Effect.void)),
-        { concurrency: "unbounded" },
-      );
-    }
 
     // Update settings to mark as disabled
     // For configured commands: update existing entry
@@ -118,23 +95,32 @@ export const disableCommand: OperationHandler<
           enabled: false,
         }))
         .pipe(Effect.catch(() => Effect.void));
-    } else if (desiredNode !== undefined) {
-      // Preserve a direct disabled preference without deactivating a member
-      // that is still required by a configured pack.
+    } else if (desiredNodeBeforeDisable !== undefined) {
       yield* ws
         .setCommandEntry(op.args.commandName, {
-          source: desiredNode.source,
+          source: desiredNodeBeforeDisable.source,
           enabled: false,
         })
         .pipe(Effect.catch(() => Effect.void));
     }
 
-    const artifact = stillRequiredByPack
-      ? settingsOnlyCommandArtifact(ws.scope)
-      : commandDisableArtifact(
-          ws.scope,
-          configuredAgents.map((agent) => agent.id),
-        );
+    yield* Effect.forEach(
+      configuredAgents,
+      (agent) =>
+        agent
+          .removeCommand({
+            workspaceRoot: base,
+            scope: "project",
+            commandName: op.args.commandName,
+          })
+          .pipe(Effect.catch(() => Effect.void)),
+      { concurrency: "unbounded" },
+    );
+
+    const artifact = commandDisableArtifact(
+      ws.scope,
+      configuredAgents.map((agent) => agent.id),
+    );
 
     return {
       result: "success",

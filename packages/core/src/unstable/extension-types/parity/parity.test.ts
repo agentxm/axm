@@ -78,6 +78,7 @@ const CHECKS: Record<ObligationId, ((type: CatalogExtensionType) => boolean) | n
   "6.1-e2e-install-row": null,
   "7.1-help-topic": null,
   "8.6-entity-key": null,
+  "8.7-lifecycle-verbs": null,
 };
 
 const coreObligations = obligationsVerifiedBy(TIER);

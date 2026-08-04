@@ -571,6 +571,7 @@ const isObservedMaterializationCurrent = (
 export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* (args?: {
   readonly force: boolean;
   readonly selection: SyncSelection;
+  readonly retainedOnly?: boolean;
 }) {
   const skillManager = yield* SkillManager;
   const commandManager = yield* CommandManager;
@@ -635,21 +636,36 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           node,
           configuredAgents,
         );
-        const force =
+        const materialize =
           (args?.force ?? false) || observation.status !== "usable" || !materializationCurrent;
-        const ref =
-          observation.status === "usable" && trust !== undefined
-            ? yield* trustedCanonicalRef({
-                baseDir: ws.baseDir,
-                scope: ws.scope,
-                desired: node,
-                trust,
-              })
-            : yield* resolveDesiredExtensionRef(node, observation.status);
+        const force = args?.retainedOnly === true ? false : materialize;
+        const ref = yield* Effect.gen(function* () {
+          if (observation.status === "usable" && trust !== undefined) {
+            return yield* trustedCanonicalRef({
+              baseDir: ws.baseDir,
+              scope: ws.scope,
+              desired: node,
+              trust,
+            });
+          }
+          if (args?.retainedOnly === true) {
+            return yield* makeAppError({
+              code: "conflict",
+              detail: `Cannot rematerialize retained ${node.type} ${node.name}: canonical content is ${observation.status}`,
+              suggestions: [
+                {
+                  description: "Refresh the pack and its retained members",
+                  cmd: "axm packs update --yes",
+                },
+              ],
+            });
+          }
+          return yield* resolveDesiredExtensionRef(node, observation.status);
+        });
         return {
           ref,
           force,
-          materialize: force,
+          materialize,
           transitionLabel: [
             node.name,
             `previous source=${

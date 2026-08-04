@@ -107,6 +107,7 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
 
       for (const [name, entry] of Object.entries(packs)) {
         const source = typeof entry === "string" ? entry : entry.source;
+        const enabled = typeof entry === "string" || entry.enabled !== false;
         if (source.startsWith("workspace:")) continue;
         const parsed = parseRegistryPackSource(source);
         const owner = Option.isSome(parsed)
@@ -135,6 +136,8 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
           order: declarations.length,
           origin: "settings",
         });
+
+        if (!enabled) continue;
 
         const packDir = computePackPaths(
           env.path.join,

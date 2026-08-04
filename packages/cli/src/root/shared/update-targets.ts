@@ -2,6 +2,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
 import { enabledConfiguredEntries } from "@agentxm/client-core/unstable/extensions";
 import type { IdentifierResourceType } from "@agentxm/client-core/unstable/source-resolution";
+import type { ContainerType, ExtensionType } from "@agentxm/client-core/unstable/extensions";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import {
   SourceHostProviders,
@@ -18,11 +19,11 @@ import { emitNoOpOutcome } from "./no-op-output.js";
 export type UpdateTargetEntry = readonly [name: string, source: string];
 
 /**
- * Every catalog type an update selector can name. Packs are excluded for the
- * same reason identifier resolution excludes them: they are containers, not
- * a per-type installed inventory.
+ * Every non-container type an update selector can name. Container placement
+ * uses its own desired-root inventory and update planner, so a future
+ * container type inherits that routing without another type-name exemption.
  */
-export type UpdateTargetResource = IdentifierResourceType;
+export type UpdateTargetResource = Exclude<ExtensionType, ContainerType> & IdentifierResourceType;
 
 /**
  * The repeated name-filter flag every `<type> update` accepts. Groups that

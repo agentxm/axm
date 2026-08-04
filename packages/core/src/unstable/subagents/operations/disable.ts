@@ -79,48 +79,13 @@ export const disableSubagent: OperationHandler<
         detail: "Cannot disable the subagent while pack-derived desired state is unresolved.",
       });
     }
-    const desired = graph.nodes.find(
+    const desiredBeforeDisable = graph.nodes.find(
       (node) => node.type === "subagent" && node.name === op.args.subagentName,
     );
-    const stillRequiredByPack = desired?.origins.some((origin) => origin.type === "pack") ?? false;
 
-    const renderedFiles: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
-    const configuredAgents = yield* agentRepo.getConfiguredAgents();
-
-    if (!stillRequiredByPack) {
-      yield* Effect.forEach(
-        configuredAgents,
-        (agent) =>
-          agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
-            Effect.provide(fsPathLayer),
-            Effect.flatMap((resolved) =>
-              resolved._tag === "supported"
-                ? findManagedSubagentFiles(resolved.dir, sanitizeName(op.args.subagentName)).pipe(
-                    Effect.provide(fsPathLayer),
-                    Effect.flatMap((managedPaths) => {
-                      renderedFiles[agent.id] = managedPaths.map((filePath) => ({
-                        path: path.relative(ws.baseDir, filePath),
-                      }));
-                      return agent.removeSubagent({
-                        workspaceRoot: ws.baseDir,
-                        scope: "project",
-                        subagentName: op.args.subagentName,
-                        renderedFilePaths: managedPaths.map((filePath) =>
-                          decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
-                        ),
-                      });
-                    }),
-                  )
-                : Effect.void,
-            ),
-          ),
-        { concurrency: "unbounded" },
-      );
-    }
-
-    // State mutation: implicit promotion or configured toggle
     if (isImplicit) {
-      const source = desired?.source ?? Option.getOrElse(installed.source, () => undefined);
+      const source =
+        desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
       if (source === undefined) {
         return yield* makeAppError({
           code: "internal",
@@ -133,11 +98,42 @@ export const disableSubagent: OperationHandler<
         enabled: false,
       });
     } else {
-      // Configured subagent — toggle enabled flag
       yield* ws
-        .updateSubagentEntry(op.args.subagentName, (e) => ({ ...e, enabled: false }))
+        .updateSubagentEntry(op.args.subagentName, (entry) => ({ ...entry, enabled: false }))
         .pipe(Effect.catch(() => Effect.void));
     }
+
+    const renderedFiles: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
+    const configuredAgents = yield* agentRepo.getConfiguredAgents();
+
+    yield* Effect.forEach(
+      configuredAgents,
+      (agent) =>
+        agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
+          Effect.provide(fsPathLayer),
+          Effect.flatMap((resolved) =>
+            resolved._tag === "supported"
+              ? findManagedSubagentFiles(resolved.dir, sanitizeName(op.args.subagentName)).pipe(
+                  Effect.provide(fsPathLayer),
+                  Effect.flatMap((managedPaths) => {
+                    renderedFiles[agent.id] = managedPaths.map((filePath) => ({
+                      path: path.relative(ws.baseDir, filePath),
+                    }));
+                    return agent.removeSubagent({
+                      workspaceRoot: ws.baseDir,
+                      scope: "project",
+                      subagentName: op.args.subagentName,
+                      renderedFilePaths: managedPaths.map((filePath) =>
+                        decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
+                      ),
+                    });
+                  }),
+                )
+              : Effect.void,
+          ),
+        ),
+      { concurrency: "unbounded" },
+    );
 
     return {
       result: "success",

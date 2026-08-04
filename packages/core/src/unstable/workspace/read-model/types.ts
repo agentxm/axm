@@ -49,8 +49,7 @@ export interface ExtensionKey<TType extends ExtensionType = ExtensionType> {
 /**
  * Activation state on installed rows for subjects that support it.
  *
- * For subjects without an `enabled` flag (mcp-server, pack), the projection
- * row supplies `enabled` by policy.
+ * Subjects without a configurable activation flag use `enabled` by policy.
  */
 export type ActivationState = "enabled" | "disabled";
 

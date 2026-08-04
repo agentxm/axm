@@ -69,6 +69,7 @@ const allowedReceiptReaders = [
   "packages/cli/src/root/hooks/new.ts",
   "packages/cli/src/root/hooks/uninstall/command-actions.ts",
   "packages/cli/src/root/mcps/uninstall/command-actions.ts",
+  "packages/cli/src/root/packs/activation.ts",
   "packages/cli/src/root/skills/install/command-actions.ts",
   "packages/cli/src/root/skills/uninstall/command-actions.ts",
   "packages/cli/src/root/skills/update/handler.ts",

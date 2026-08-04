@@ -48,6 +48,24 @@ origins. A missing or invalid configured manifest makes that desired subtree
 unknown and blocks destructive cleanup. Removing a pack retains members still
 required directly or by another pack.
 
+## Lifecycle
+
+Packs support the same lifecycle verbs as other extension types:
+
+- `axm packs update [--preview]` re-resolves every enabled pack's configured
+  version constraint and reconciles additions, removals, and shared members.
+- `axm packs disable <name> [--preview]` keeps the settings entry, lock data,
+  trust baseline, and canonical packages, but removes projections contributed
+  only by that pack.
+- `axm packs enable <name> [--preview]` restores the pack and its exclusive
+  members from retained trusted content without advancing locked versions.
+
+Direct intent has precedence over membership: an explicit member
+`enabled: false` stays disabled even when an enabled pack requires it. A direct
+enabled declaration or another enabled pack keeps a shared member active when
+one pack is disabled. Preview, list, sync, and JSON output expose the relevant
+origins so this precedence is visible.
+
 ## No transitive dependencies
 
 Packs may not depend on other extension packs. A pack's dependency graph is exactly the extensions it lists.

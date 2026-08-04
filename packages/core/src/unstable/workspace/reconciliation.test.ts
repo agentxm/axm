@@ -190,7 +190,7 @@ describe("reconciliation", () => {
           skills: {
             tool: { source: "workspace:@acme/skills/tool", enabled: true },
           },
-          packs: { toolkit: { source: "workspace:@acme/packs/toolkit" } },
+          packs: { toolkit: { source: "workspace:@acme/packs/toolkit", enabled: true } },
         };
         const snapshot = yield* buildReconciliationSnapshot({
           baseDir: tempDir,
@@ -232,7 +232,7 @@ describe("reconciliation", () => {
           configuredOwner: Option.some(handle("@acme")),
           agents: ["claude-code"],
           settings: {
-            packs: { toolkit: { source: "workspace:@acme/packs/toolkit" } },
+            packs: { toolkit: { source: "workspace:@acme/packs/toolkit", enabled: true } },
           },
         });
 

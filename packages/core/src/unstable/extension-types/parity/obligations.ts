@@ -34,6 +34,7 @@ export const OBLIGATION_IDS = [
   "6.1-e2e-install-row",
   "7.1-help-topic",
   "8.6-entity-key",
+  "8.7-lifecycle-verbs",
 ] as const;
 
 /** @experimental This API is unstable and may change without notice. */
@@ -95,6 +96,13 @@ export const PARITY_OBLIGATIONS = {
     description:
       "The CLI renderer registers a list entity keyed by the type id, so table and JSON " +
       "rendering is uniform across types.",
+    verifiedBy: "cli-test",
+  },
+  "8.7-lifecycle-verbs": {
+    id: "8.7-lifecycle-verbs",
+    description:
+      "The CLI type group registers update, enable, and disable lifecycle verbs, with " +
+      "container-placement types free to route those verbs through container-specific planners.",
     verifiedBy: "cli-test",
   },
 } as const satisfies Record<ObligationId, ObligationDef>;

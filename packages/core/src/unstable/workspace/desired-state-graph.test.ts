@@ -55,7 +55,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
         baseDir: root,
         settings: {
           packs: {
-            complete: { source: "@acme/packs/complete" },
+            complete: { source: "@acme/packs/complete", enabled: true },
           },
         },
       });
@@ -92,8 +92,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
         baseDir: root,
         settings: {
           packs: {
-            one: { source: "@acme/packs/one" },
-            two: { source: "@acme/packs/two" },
+            one: { source: "@acme/packs/one", enabled: true },
+            two: { source: "@acme/packs/two", enabled: true },
           },
         },
       });
@@ -129,9 +129,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
         baseDir: root,
         settings: {
           packs: {
-            one: { source: "@acme/packs/one" },
-            two: { source: "@acme/packs/two" },
-            three: { source: "@acme/packs/three" },
+            one: { source: "@acme/packs/one", enabled: true },
+            two: { source: "@acme/packs/two", enabled: true },
+            three: { source: "@acme/packs/three", enabled: true },
           },
         },
       });
@@ -155,7 +155,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
         baseDir: root,
         settings: {
           packs: {
-            missing: { source: "@acme/packs/missing" },
+            missing: { source: "@acme/packs/missing", enabled: true },
           },
         },
       });
@@ -170,7 +170,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
     }),
   );
 
-  it.effect("keeps a disabled direct declaration active when a pack still requires it", () =>
+  it.effect("lets an explicit member disable override an enabled pack requirement", () =>
     Effect.gen(function* () {
       writePack(root, "@acme", "reviewers", {
         "@acme/skills/review": "^1.0.0",
@@ -186,14 +186,109 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
             },
           },
           packs: {
-            reviewers: { source: "@acme/packs/reviewers" },
+            reviewers: { source: "@acme/packs/reviewers", enabled: true },
+          },
+        },
+      });
+
+      const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
+      // AXM-1268: explicit user intent wins over pack membership.
+      expect(review?.enabled).toBe(false);
+      expect(review?.origins.map((origin) => origin.type)).toEqual(["settings", "pack"]);
+    }),
+  );
+
+  it.effect("keeps a member active when another enabled pack still requires it", () =>
+    Effect.gen(function* () {
+      writePack(root, "@acme", "reviewers", {
+        "@acme/skills/review": "^1.0.0",
+      });
+      writePack(root, "@acme", "maintainers", {
+        "@acme/skills/review": "^1.0.0",
+      });
+
+      const graph = yield* buildDesiredStateGraph({
+        baseDir: root,
+        settings: {
+          packs: {
+            reviewers: { source: "@acme/packs/reviewers", enabled: false },
+            maintainers: { source: "@acme/packs/maintainers", enabled: true },
           },
         },
       });
 
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
       expect(review?.enabled).toBe(true);
-      expect(review?.origins.map((origin) => origin.type)).toEqual(["settings", "pack"]);
+      expect(review?.origins).toEqual([
+        expect.objectContaining({ type: "pack", pack: "@acme/packs/maintainers" }),
+      ]);
+    }),
+  );
+
+  it.effect("keeps a directly enabled member active when its pack is disabled", () =>
+    Effect.gen(function* () {
+      writePack(root, "@acme", "reviewers", {
+        "@acme/skills/review": "^1.0.0",
+      });
+
+      const graph = yield* buildDesiredStateGraph({
+        baseDir: root,
+        settings: {
+          skills: {
+            review: { source: "@acme/skills/review@^1.0.0", enabled: true },
+          },
+          packs: {
+            reviewers: { source: "@acme/packs/reviewers", enabled: false },
+          },
+        },
+      });
+
+      const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
+      expect(review?.enabled).toBe(true);
+      expect(review?.origins).toEqual([
+        expect.objectContaining({ type: "settings", enabled: true }),
+      ]);
+    }),
+  );
+
+  it.effect("keeps a disabled pack and canonical content while omitting its dependencies", () =>
+    Effect.gen(function* () {
+      writePack(root, "@acme", "reviewers", {
+        "@acme/skills/review": "^1.0.0",
+      });
+
+      const graph = yield* buildDesiredStateGraph({
+        baseDir: root,
+        settings: {
+          packs: {
+            reviewers: { source: "@acme/packs/reviewers", enabled: false },
+          },
+        },
+      });
+
+      expect(graph.complete).toBe(true);
+      expect(graph.nodes).toEqual([
+        expect.objectContaining({ type: "pack", name: "reviewers", enabled: false }),
+      ]);
+    }),
+  );
+
+  it.effect("does not require a disabled pack manifest", () =>
+    Effect.gen(function* () {
+      const graph = yield* buildDesiredStateGraph({
+        baseDir: root,
+        settings: {
+          packs: {
+            missing: { source: "@acme/packs/missing", enabled: false },
+          },
+        },
+      });
+
+      expect(graph.complete).toBe(true);
+      expect(graph.problems).toEqual([]);
+      expect(graph.nodes).toEqual([
+        expect.objectContaining({ type: "pack", name: "missing", enabled: false }),
+      ]);
     }),
   );
 
@@ -213,7 +308,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
             },
           },
           packs: {
-            reviewers: { source: "workspace:@acme/packs/reviewers" },
+            reviewers: { source: "workspace:@acme/packs/reviewers", enabled: true },
           },
         },
       });
@@ -239,8 +334,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
         baseDir: root,
         settings: {
           packs: {
-            one: { source: "@one/packs/one" },
-            two: { source: "@two/packs/two" },
+            one: { source: "@one/packs/one", enabled: true },
+            two: { source: "@two/packs/two", enabled: true },
           },
         },
       });
@@ -278,7 +373,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
         baseDir: root,
         settings: {
           packs: {
-            expected: { source: "@acme/packs/expected" },
+            expected: { source: "@acme/packs/expected", enabled: true },
           },
         },
       });

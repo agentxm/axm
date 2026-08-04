@@ -16,6 +16,7 @@ import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-sc
 import { computePackPaths } from "../packs/paths.js";
 import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "../sources/index.js";
+import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 
 export type DesiredExtensionOrigin =
   | {
@@ -274,15 +275,17 @@ export const buildDesiredStateGraph = ({
           ? `workspace:${identity.fqn}`
           : identity.fqn,
         source: entry.source,
-        enabled: true,
+        enabled: entry.enabled !== false,
         ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
         origin: {
           type: "settings",
           source: entry.source,
-          enabled: true,
+          enabled: entry.enabled !== false,
           ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
         },
       });
+
+      if (entry.enabled === false) continue;
 
       const manifestPath = path.join(
         computePackPaths(path.join, baseDir, identity.owner, identity.name).canonicalPath,
@@ -371,17 +374,18 @@ export const buildDesiredStateGraph = ({
         continue;
       }
 
+      const origins = [...existing.origins, candidate.origin];
       nodes.set(key, {
         ...existing,
         source: existing.origins.some((origin) => origin.type === "settings")
           ? existing.source
           : candidate.source,
-        enabled: existing.enabled || candidate.enabled,
+        enabled: isDesiredExtensionActive(origins),
         constraints:
           candidate.constraint === undefined || existing.constraints.includes(candidate.constraint)
             ? existing.constraints
             : [...existing.constraints, candidate.constraint],
-        origins: [...existing.origins, candidate.origin],
+        origins,
       });
     }
 

@@ -414,6 +414,9 @@ export type PerAgentType = TypesWhere<"placement", "per-agent">;
 /** Extension types materialized into workspace-owned locations. */
 export type WorkspaceType = TypesWhere<"placement", "workspace">;
 
+/** Extension types that coordinate other extensions instead of projecting directly. */
+export type ContainerType = TypesWhere<"placement", "container">;
+
 /** Registry-distributed non-container extension types. */
 export type RegistryType = PerAgentType | WorkspaceType;
 
@@ -443,6 +446,10 @@ export const PER_AGENT_EXTENSION_TYPES: ReadonlyArray<PerAgentType> = extensionT
 
 export const WORKSPACE_EXTENSION_TYPES: ReadonlyArray<WorkspaceType> = extensionTypes.filter(
   (type): type is WorkspaceType => EXTENSION_TYPE_TABLE[type].placement === "workspace",
+);
+
+export const CONTAINER_EXTENSION_TYPES: ReadonlyArray<ContainerType> = extensionTypes.filter(
+  (type): type is ContainerType => EXTENSION_TYPE_TABLE[type].placement === "container",
 );
 
 export const REGISTRY_EXTENSION_TYPES: ReadonlyArray<RegistryType> = extensionTypes.filter(

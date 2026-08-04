@@ -16,7 +16,7 @@ import {
   getInstructionsStatus,
   pruneManagedMcpServersForAgent,
   resolveInstructionsConfig,
-  syncInlineMcpServerToAgent,
+  syncInlineMcpServerToAgents,
   syncInstructionTarget,
   syncInstructionsGitignore,
   type CodingAgentRepositoryService,
@@ -444,21 +444,19 @@ const buildInlineMcpServerSyncOperation = ({
         }),
       } satisfies JobStepResult;
     }
-    const outcomes = yield* Effect.forEach(
-      agentIds,
-      (agentId) =>
-        syncInlineMcpServerToAgent(agentId, {
-          workspaceRoot: ws.baseDir,
-          serverName: name,
-          entry,
-          scope: ws.scope,
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-          Effect.map((outcome) => ({ agentId, outcome })),
-        ),
-      { concurrency: "unbounded" },
+    const batchOutcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+      workspaceRoot: ws.baseDir,
+      serverName: name,
+      entry,
+      scope: ws.scope,
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
     );
+    const outcomes = agentIds.flatMap((agentId, index) => {
+      const outcome = batchOutcomes[index];
+      return outcome === undefined ? [] : [{ agentId, outcome }];
+    });
     const warningDetails = outcomes.flatMap(({ agentId, outcome }) => {
       if (outcome._tag === "success") {
         return (outcome.warnings ?? []).map((warning) => `${agentId}: ${warning}`);

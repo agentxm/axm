@@ -55,25 +55,32 @@ export const crushAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Crush now prefers executable crushrc configuration. AXM targets the deprecated-but-still-supported JSON configuration because the generic writer cannot safely author shell configuration.",
         docs: [],
-        sources: ["https://github.com/charmbracelet/crush"],
+        sources: [
+          "https://github.com/charmbracelet/crush",
+          "https://github.com/charmbracelet/crush/blob/main/schema.json",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
-          variables: "braced",
-          defaults: true,
+          variables: "none",
+          defaults: false,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcp",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "disabled", enabled: false, disabled: true },
+              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "project",
@@ -87,17 +94,28 @@ export const crushAgent = {
               },
             ],
             stdio: {
-              typeField: null,
-              command: "array",
+              typeField: { required: null, accepted: [null] },
+              command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",

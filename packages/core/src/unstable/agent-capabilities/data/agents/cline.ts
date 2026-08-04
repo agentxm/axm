@@ -61,7 +61,7 @@ export const clineAgent = {
         notes:
           "Cline supports MCP in both the extension and CLI. The CLI MCP config is ~/.cline/mcp.json; extension config is exposed through the MCP settings UI. Entries use the community-standard mcpServers shape with a streamableHttp remote discriminator plus Cline-specific disabled and autoApprove fields.",
         docs: [],
-        sources: ["https://docs.cline.bot/mcp/configuring-mcp-servers"],
+        sources: ["https://docs.cline.bot/mcp/mcp-overview"],
         scopes: ["user"],
         standardsCompliance: "full",
         convention: "universal",
@@ -73,11 +73,14 @@ export const clineAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-24",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "disabled", enabled: false, disabled: true },
+              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "user",
@@ -86,17 +89,28 @@ export const clineAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "streamableHttp",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "streamableHttp",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "streamableHttp",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",

@@ -4,7 +4,14 @@ import * as Option from "effect/Option";
 import type { WorkspaceRuleContext } from "../../context.js";
 import { mcpServerAgentDriftRule } from "./mcps-agent-drift.js";
 
-const makeContext = (): WorkspaceRuleContext =>
+const makeContext = (
+  args: {
+    readonly activation?: "enabled" | "disabled";
+    readonly agentIds?: ReadonlyArray<string>;
+    readonly actualAgentId?: string;
+    readonly actualConfig?: Readonly<Record<string, unknown>>;
+  } = {},
+): WorkspaceRuleContext =>
   // Assertion needed: this rule only reads the MCP server installed cell.
   ({
     workspace: {
@@ -12,7 +19,7 @@ const makeContext = (): WorkspaceRuleContext =>
         installed: Effect.succeed([
           {
             key: { scope: "project", type: "mcp-server", name: "demo" },
-            activation: "enabled",
+            activation: args.activation ?? "enabled",
             installationOrigin: {
               _tag: "direct",
               declared: {
@@ -29,14 +36,19 @@ const makeContext = (): WorkspaceRuleContext =>
             actual: [
               {
                 key: { scope: "project", type: "mcp-server", name: "demo" },
-                origin: { _tag: "agent-mcp-config", agentId: "claude-code" },
+                origin: {
+                  _tag: "agent-mcp-config",
+                  agentId: args.actualAgentId ?? "claude-code",
+                },
                 contentRoot: null,
                 configFile: ".mcp.json",
-                config: {
-                  "x-axm": { managed: true, source: "inline" },
-                  type: "stdio",
-                  command: "python",
-                },
+                config:
+                  args.actualConfig ??
+                  ({
+                    "x-axm": { managed: true, source: "inline" },
+                    type: "stdio",
+                    command: "python",
+                  } satisfies Readonly<Record<string, unknown>>),
               },
             ],
             providingPacks: [],
@@ -44,7 +56,7 @@ const makeContext = (): WorkspaceRuleContext =>
         ]),
       },
       state: {
-        settings: Effect.succeed(Option.some({ agents: ["claude-code"] })),
+        settings: Effect.succeed(Option.some({ agents: args.agentIds ?? ["claude-code"] })),
       },
     },
     subject: { root: "/tmp/project", scope: "project" },
@@ -77,6 +89,67 @@ describe("workspace/mcps-agent-drift", () => {
           },
         },
       ]);
+    }),
+  );
+
+  it.effect("reports a Copilot projection that another shared-file reader rejects", () =>
+    Effect.gen(function* () {
+      const findings = yield* mcpServerAgentDriftRule.check(
+        makeContext({
+          agentIds: ["claude-code", "github-copilot-cli"],
+          actualAgentId: "github-copilot-cli",
+          actualConfig: {
+            "x-axm": { managed: true, source: "inline" },
+            type: "local",
+            command: "node",
+            args: ["server.js"],
+          },
+        }),
+      );
+
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.message).toContain("github-copilot-cli");
+      expect(findings[0]?.message).toContain("type");
+    }),
+  );
+
+  it.effect("reports drift for disabled MCP rows", () =>
+    Effect.gen(function* () {
+      const findings = yield* mcpServerAgentDriftRule.check(
+        makeContext({ activation: "disabled" }),
+      );
+
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.ruleId).toBe("workspace/mcps-agent-drift");
+    }),
+  );
+
+  it.effect("renders an absolute config path relative to the workspace root", () =>
+    Effect.gen(function* () {
+      const context = makeContext();
+      const installed = yield* context.workspace.mcpServers.installed;
+      const row = installed[0];
+      if (row === undefined) throw new Error("Expected installed MCP row");
+      const findings = yield* mcpServerAgentDriftRule.check({
+        ...context,
+        workspace: {
+          ...context.workspace,
+          mcpServers: {
+            ...context.workspace.mcpServers,
+            installed: Effect.succeed([
+              {
+                ...row,
+                actual: row.actual.map((actual) => ({
+                  ...actual,
+                  configFile: "/tmp/project/.mcp.json",
+                })),
+              },
+            ]),
+          },
+        },
+      });
+
+      expect(findings[0]?.location).toEqual({ file: ".mcp.json" });
     }),
   );
 });

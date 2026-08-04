@@ -66,7 +66,7 @@ export const windsurfAgent = {
         notes: null,
         docs: [],
         sources: ["https://docs.devin.ai/desktop/cascade/mcp"],
-        scopes: ["user", "project"],
+        scopes: ["user"],
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
@@ -77,11 +77,14 @@ export const windsurfAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "user",
@@ -90,12 +93,12 @@ export const windsurfAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "serverUrl",
               },

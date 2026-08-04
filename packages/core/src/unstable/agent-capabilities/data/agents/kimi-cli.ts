@@ -58,10 +58,10 @@ export const kimiCliAgent = {
         notes: null,
         docs: [],
         sources: ["https://moonshotai.github.io/kimi-cli/en/customization/mcp.html"],
-        scopes: ["user", "project"],
+        scopes: ["user"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio", "http", "sse"],
+        transports: ["stdio", "http"],
         mcpEnvExpansion: {
           variables: "none",
           defaults: false,
@@ -69,39 +69,30 @@ export const kimiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "user",
                 path: "~/.kimi/mcp.json",
                 format: "json",
               },
-              {
-                scope: "project",
-                path: ".kimi/mcp.json",
-                format: "json",
-              },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "http",
-                },
-              },
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
-                sse: "url",
               },
               headersKey: "headers",
             },

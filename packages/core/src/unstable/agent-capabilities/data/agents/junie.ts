@@ -71,11 +71,14 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -89,12 +92,12 @@ export const junieAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
                 sse: "url",

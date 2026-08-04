@@ -34,6 +34,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/configured-but-not-installed", severity: "error" },
   { id: "workspace/mcps-transport-exclusivity", severity: "warning" },
   { id: "workspace/mcps-no-secret-literal", severity: "warning" },
+  { id: "workspace/mcps-shared-target-compatible", severity: "error" },
   { id: "workspace/mcps-agent-drift", severity: "warning" },
   { id: "workspace/mcps-agent-orphaned", severity: "warning" },
   // Lockfile aligned (configured).

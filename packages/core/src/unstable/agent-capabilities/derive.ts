@@ -133,6 +133,21 @@ const deriveRootDir = (agent: Agent): string | undefined =>
 const detectionMarkerKey = (marker: AgentDetectionMarker): string =>
   marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
 
+const mcpTargetKey = (target: McpConfigTarget): string => `${target.scope}:${target.path}`;
+
+const sharedMcpWriterTargetKeys = (() => {
+  const counts = new Map<string, number>();
+  for (const agent of AGENTS) {
+    const writer = agent.capabilities["mcp-server"].axm.writer;
+    if (writer === null) continue;
+    for (const target of writer.config.targets) {
+      const key = mcpTargetKey(target);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return new Set([...counts.entries()].flatMap(([key, count]) => (count > 1 ? [key] : [])));
+})();
+
 const fileMarker = (path: string): AgentDetectionMarker => ({
   kind: "file",
   path,
@@ -182,7 +197,12 @@ const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection =
 
   const mcp = agent.capabilities["mcp-server"];
   if (mcp.axm.writer !== null) {
-    appendFileMarkers(markersByScope, mcp.axm.writer.config.targets);
+    appendFileMarkers(
+      markersByScope,
+      mcp.axm.writer.config.targets.filter(
+        (target) => !sharedMcpWriterTargetKeys.has(mcpTargetKey(target)),
+      ),
+    );
   }
 
   for (const capability of Object.values(agent.capabilities)) {

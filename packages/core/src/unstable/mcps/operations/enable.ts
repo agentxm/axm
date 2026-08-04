@@ -8,7 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CodingAgentRepository, syncInlineMcpServerToAgent } from "../../agents/index.js";
+import { CodingAgentRepository, syncInlineMcpServerToAgents } from "../../agents/index.js";
 import type { McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { normalizeHandle, parseExtensionFqnParts } from "../../extensions/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
@@ -79,19 +79,14 @@ export const enableMcpServer = (
 
     if (entry.source === "inline") {
       const agentIds = yield* ws.getConfiguredAgents();
-      const outcomes = yield* Effect.forEach(
-        agentIds,
-        (agentId) =>
-          syncInlineMcpServerToAgent(agentId, {
-            workspaceRoot: ws.baseDir,
-            serverName: op.args.serverName,
-            entry: { ...entry, enabled: true },
-            scope: ws.scope,
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          ),
-        { concurrency: "unbounded" },
+      const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+        workspaceRoot: ws.baseDir,
+        serverName: op.args.serverName,
+        entry: { ...entry, enabled: true },
+        scope: ws.scope,
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
       );
       const warnings = formatAgentSyncWarnings(op.args.serverName, outcomes);
       const agentOutcomes = agentIds.flatMap((agentId, index) => {

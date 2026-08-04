@@ -72,11 +72,14 @@ export const codebuddyAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -91,19 +94,39 @@ export const codebuddyAgent = {
             ],
             stdio: {
               typeField: {
-                name: "type",
-                value: "stdio",
+                required: {
+                  name: "type",
+                  value: "stdio",
+                },
+                accepted: [
+                  {
+                    name: "type",
+                    value: "stdio",
+                  },
+                  null,
+                ],
               },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",

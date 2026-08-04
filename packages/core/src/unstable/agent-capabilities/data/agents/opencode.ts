@@ -57,9 +57,10 @@ export const opencodeAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "OpenCode V2 stores server definitions beneath mcp.servers; the native configuration is valid but requires a nested-map writer.",
         docs: [],
-        sources: ["https://opencode.ai/docs/mcp-servers/", "https://opencode.ai/docs/config/"],
+        sources: ["https://opencode.ai/v2/docs/mcp-servers", "https://opencode.ai/v2/docs/config"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -70,46 +71,11 @@ export const opencodeAgent = {
         },
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: {
-          config: {
-            serversKey: "mcp",
-            nativeEnabled: true,
-            targets: [
-              {
-                scope: "project",
-                path: "opencode.jsonc",
-                format: "jsonc",
-              },
-              {
-                scope: "user",
-                path: "~/.config/opencode/opencode.json",
-                format: "json",
-              },
-            ],
-            stdio: {
-              typeField: {
-                name: "type",
-                value: "local",
-              },
-              command: "array",
-              envKey: "environment",
-            },
-            remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "remote",
-                },
-              },
-              urlKey: {
-                "streamable-http": "url",
-              },
-              headersKey: "headers",
-            },
-          },
-        },
+        status: "unsupported",
+        lastVerified: "2026-08-04",
+        writer: null,
+        reason:
+          "OpenCode V2 nests MCP server definitions under mcp.servers. AXM's generic MCP writer currently supports only a single keyed server-map level and would write the obsolete shape.",
       },
     },
     subagent: {

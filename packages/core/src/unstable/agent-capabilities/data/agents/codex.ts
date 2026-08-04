@@ -96,7 +96,7 @@ export const codexAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://learn.chatgpt.com/docs/extend/mcp"],
+        sources: ["https://developers.openai.com/codex/mcp/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -108,11 +108,14 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcp_servers",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
+            },
             targets: [
               {
                 scope: "project",
@@ -126,12 +129,12 @@ export const codexAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
               },

@@ -5,7 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
-  syncInlineMcpServerToAgent,
+  syncInlineMcpServerToAgents,
   type McpServerSyncTarget,
 } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
@@ -207,19 +207,14 @@ const syncStep = (
       return { result: "success", message: `${name} is not configured` } satisfies JobStepResult;
     }
     const agentIds = yield* ws.getConfiguredAgents();
-    const outcomes = yield* Effect.forEach(
-      agentIds,
-      (agentId) =>
-        syncInlineMcpServerToAgent(agentId, {
-          workspaceRoot: ws.baseDir,
-          serverName: name,
-          entry,
-          scope: ws.scope,
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        ),
-      { concurrency: "unbounded" },
+    const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+      workspaceRoot: ws.baseDir,
+      serverName: name,
+      entry,
+      scope: ws.scope,
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
     );
     const warningDetails = outcomes.flatMap((outcome, index) => {
       const agentId = agentIds[index] ?? "unknown";

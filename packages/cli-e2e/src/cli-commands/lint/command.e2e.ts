@@ -37,6 +37,17 @@ const seedSkillSource = (root: string, name: string): void => {
   );
 };
 
+const sharedMcpPairs = [
+  {
+    label: "Claude Code and GitHub Copilot CLI",
+    agents: ["claude-code", "github-copilot-cli"],
+  },
+  {
+    label: "Claude Code and CodeBuddy",
+    agents: ["claude-code", "codebuddy"],
+  },
+] as const;
+
 describe("axm lint (e2e, Phase 7)", () => {
   describe("workspace-authored canonical changes", () => {
     it("treats unpublished edits as non-blocking and recommends publish", async () => {
@@ -243,6 +254,85 @@ describe("axm lint (e2e, Phase 7)", () => {
         sourceRoot.cleanup();
       }
     });
+  });
+
+  describe("shared MCP target convergence", () => {
+    it.each(sharedMcpPairs)(
+      "converges the shared .mcp.json representation for $label",
+      async ({ agents }) => {
+        const temp = createTempDir("axm-shared-mcp-lint-");
+        try {
+          const env = { HOME: temp.path, AXM_USER_HOME: temp.path };
+          const setup = await runCli(
+            ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+            { cwd: temp.path, env },
+          );
+          expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+
+          const settingsPath = path.join(temp.path, ".axm", "settings.json");
+          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          settings.agents = [...agents];
+          settings.mcpServers = {
+            demo: {
+              enabled: true,
+              command: "node",
+              args: ["server.js"],
+              env: {},
+            },
+          };
+          writeJson(settingsPath, settings);
+
+          const mcpPath = path.join(temp.path, ".mcp.json");
+          writeJson(mcpPath, {
+            mcpServers: {
+              demo: {
+                "x-axm": { managed: true, source: "inline" },
+                type: "local",
+                enabled: false,
+                command: "node",
+                args: ["server.js"],
+              },
+            },
+          });
+
+          const before = await runCli(["lint", "--json"], { cwd: temp.path, env });
+          const beforeFindings = JSON.parse(before.stdout)?.result?.findings ?? [];
+          const beforeSharedFinding = beforeFindings.find(
+            (finding: { ruleId: string }) =>
+              finding.ruleId === "workspace/mcps-agent-drift" ||
+              finding.ruleId === "workspace/mcps-shared-target-compatible",
+          );
+          expect(beforeSharedFinding).toBeDefined();
+          expect(beforeSharedFinding.path).toBe("./.mcp.json");
+
+          const firstFix = await runCli(["lint", "--fix"], { cwd: temp.path, env });
+          expect(firstFix.stdout + firstFix.stderr).toMatch(/Applied \d+/);
+
+          const firstConfigText = fs.readFileSync(mcpPath, "utf-8");
+          const firstConfig = JSON.parse(firstConfigText);
+          const demo = firstConfig.mcpServers.demo;
+          expect(demo.type).toBe("stdio");
+          expect(demo).not.toHaveProperty("enabled");
+          expect(demo).not.toHaveProperty("disabled");
+
+          const secondFix = await runCli(["lint", "--fix"], { cwd: temp.path, env });
+          expect(secondFix.exitCode, `${secondFix.stderr}\n${secondFix.stdout}`).toBe(0);
+          expect(fs.readFileSync(mcpPath, "utf-8")).toBe(firstConfigText);
+
+          const after = await runCli(["lint", "--json"], { cwd: temp.path, env });
+          const afterFindings = JSON.parse(after.stdout)?.result?.findings ?? [];
+          const sharedMcpFindings = afterFindings.filter(
+            (finding: { ruleId: string }) =>
+              finding.ruleId === "workspace/mcps-agent-drift" ||
+              finding.ruleId === "workspace/mcps-shared-target-compatible",
+          );
+          expect(sharedMcpFindings).toEqual([]);
+          expect(after.exitCode, `${after.stderr}\n${after.stdout}`).toBe(0);
+        } finally {
+          temp.cleanup();
+        }
+      },
+    );
   });
 
   describe("Task 7.8 — --scope user", () => {

@@ -18,6 +18,7 @@ import {
   listCapabilities,
   toNativeAgent,
 } from "./index.js";
+import type { AgentId } from "./index.js";
 import type { Agent } from "./schema.js";
 const unsupportedCapability = {
   native: {
@@ -260,8 +261,6 @@ describe("agent capability derivation", () => {
       "junie",
       "kilo",
       "kiro-cli",
-      "mistral-vibe",
-      "opencode",
       "pochi",
       "qoder",
       "qwen-code",
@@ -608,6 +607,19 @@ describe("agent capability derivation", () => {
     expect(deriveAgentDescriptor(baseAgent).rootDir).toBe(".sample");
     expect(deriveAgentDescriptor(baseAgent).detection).toEqual(sampleRootDetection);
   });
+  it("does not treat a shared MCP target as agent-specific detection evidence", () => {
+    const projectFileMarkers = (agentId: AgentId) =>
+      deriveAgentDescriptor(agentById(agentId)).detection.project.markers.flatMap((marker) =>
+        marker.kind === "file" ? [marker.path] : [],
+      );
+
+    for (const agentId of ["codebuddy", "command-code", "qoder"] as const) {
+      expect(projectFileMarkers(agentId)).not.toContain(".mcp.json");
+    }
+    for (const agentId of ["claude-code", "github-copilot-cli"] as const) {
+      expect(projectFileMarkers(agentId)).toContain(".mcp.json");
+    }
+  });
   it("derives detection from rootDir, config files, and authored markers", () => {
     expect(
       deriveAgentDescriptor({
@@ -647,12 +659,19 @@ describe("agent capability derivation", () => {
               writer: {
                 config: {
                   serversKey: "mcpServers",
-                  nativeEnabled: true,
+                  activationField: {
+                    required: { name: "enabled", enabled: true, disabled: false },
+                    accepted: [{ name: "enabled", enabled: true, disabled: false }],
+                  },
                   targets: [
                     { scope: "project", path: ".sample/settings.json", format: "json" },
                     { scope: "user", path: "~/.sample/settings.json", format: "json" },
                   ],
-                  stdio: { typeField: null, command: "split", envKey: null },
+                  stdio: {
+                    typeField: { required: null, accepted: [null] },
+                    command: "split",
+                    envKey: null,
+                  },
                   remote: null,
                 },
               },

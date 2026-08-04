@@ -99,11 +99,14 @@ export const githubCopilotCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "user",
@@ -118,19 +121,42 @@ export const githubCopilotCliAgent = {
             ],
             stdio: {
               typeField: {
-                name: "type",
-                value: "local",
+                required: {
+                  name: "type",
+                  value: "stdio",
+                },
+                accepted: [
+                  {
+                    name: "type",
+                    value: "stdio",
+                  },
+                  {
+                    name: "type",
+                    value: "local",
+                  },
+                ],
               },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",

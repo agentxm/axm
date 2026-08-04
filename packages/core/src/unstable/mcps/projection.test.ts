@@ -69,11 +69,22 @@ describe("MCP projection", () => {
       stdio: null,
       remote: {
         typeField: {
-          name: "type",
-          value: {
-            "streamable-http": "http",
-            sse: "sse",
+          required: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+              sse: "sse",
+            },
           },
+          accepted: [
+            {
+              name: "type",
+              value: {
+                "streamable-http": "http",
+                sse: "sse",
+              },
+            },
+          ],
         },
         urlKey: {
           "streamable-http": "url",
@@ -81,7 +92,10 @@ describe("MCP projection", () => {
         },
         headersKey: "headers",
       },
-      nativeEnabled: true,
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
     });
 
     expect(projected).toEqual({
@@ -109,17 +123,30 @@ describe("MCP projection", () => {
       stdio: null,
       remote: {
         typeField: {
-          name: "type",
-          value: {
-            "streamable-http": "http",
+          required: {
+            name: "type",
+            value: {
+              "streamable-http": "http",
+            },
           },
+          accepted: [
+            {
+              name: "type",
+              value: {
+                "streamable-http": "http",
+              },
+            },
+          ],
         },
         urlKey: {
           "streamable-http": "url",
         },
         headersKey: "headers",
       },
-      nativeEnabled: true,
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
     });
 
     expect(projected).toEqual({
@@ -139,12 +166,15 @@ describe("MCP projection", () => {
         env: {},
       },
       stdio: {
-        typeField: null,
+        typeField: { required: null, accepted: [null] },
         command: "split",
         envKey: "env",
       },
       remote: null,
-      nativeEnabled: true,
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
     });
 
     expect(projected).toEqual({
@@ -170,7 +200,7 @@ describe("MCP projection", () => {
       },
       stdio: null,
       remote: {
-        typeField: null,
+        typeField: { required: null, accepted: [null] },
         urlKey: {
           "streamable-http": "url",
         },
@@ -178,7 +208,10 @@ describe("MCP projection", () => {
         bearerTokenEnvKey: "bearer_token_env_var",
         envHeadersKey: "env_http_headers",
       },
-      nativeEnabled: true,
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
       envExpansion: {
         variables: "none",
         defaults: false,
@@ -211,11 +244,14 @@ describe("MCP projection", () => {
       },
       stdio: null,
       remote: {
-        typeField: null,
+        typeField: { required: null, accepted: [null] },
         urlKey: { "streamable-http": "url" },
         headersKey: "headers",
       },
-      nativeEnabled: true,
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
       envExpansion: {
         variables: "none",
         defaults: false,
@@ -251,7 +287,7 @@ describe("MCP projection", () => {
       },
       stdio: writer.config.stdio,
       remote: writer.config.remote,
-      nativeEnabled: writer.config.nativeEnabled,
+      activationField: writer.config.activationField,
       envExpansion: capability.native.mcpEnvExpansion,
     });
 
@@ -278,14 +314,25 @@ describe("MCP projection", () => {
       },
       stdio: {
         typeField: {
-          name: "type",
-          value: "stdio",
+          required: {
+            name: "type",
+            value: "stdio",
+          },
+          accepted: [
+            {
+              name: "type",
+              value: "stdio",
+            },
+          ],
         },
         command: "split",
         envKey: "env",
       },
       remote: null,
-      nativeEnabled: true,
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
     });
 
     expect(projected).toEqual({
@@ -314,14 +361,25 @@ describe("MCP projection", () => {
       },
       stdio: {
         typeField: {
-          name: "type",
-          value: "stdio",
+          required: {
+            name: "type",
+            value: "stdio",
+          },
+          accepted: [
+            {
+              name: "type",
+              value: "stdio",
+            },
+          ],
         },
         command: "split",
         envKey: "env",
       },
       remote: null,
-      nativeEnabled: true,
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
     });
 
     expect(

@@ -729,6 +729,10 @@ describe("installMcpServer", () => {
           makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
         ).pipe(Effect.provide(withServices(axmDir, undefined, mockAgentRepo)));
 
+        expect(result.result).toBe("success");
+        if (result.result !== "success") {
+          throw new Error(result.message);
+        }
         expect(result.artifact).toEqual(
           expect.objectContaining({
             change: "created",
@@ -845,6 +849,9 @@ describe("installMcpServer", () => {
         ).pipe(Effect.provide(withServices(axmDir, undefined, mockAgentRepo)));
 
         expect(result.result).toBe("success");
+        if (result.result !== "success") {
+          throw new Error(result.message);
+        }
         expect(result.message).toContain("canonical=success");
         expect(result.message).toContain("agent-sync=green");
         expect(result.artifact).toEqual(

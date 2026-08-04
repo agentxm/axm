@@ -105,26 +105,6 @@ const extensionIndexResponse = {
 };
 
 /**
- * Standard extension list response body.
- */
-const extensionListResponse = {
-  extensions: [
-    {
-      name: "test-skill",
-      owner: "@acme",
-      type: "skill",
-      latestVersion: "1.0.0",
-    },
-    {
-      name: "another-skill",
-      owner: "@acme",
-      type: "skill",
-      latestVersion: "2.0.0",
-    },
-  ],
-};
-
-/**
  * Standard publish success response body.
  */
 const publishSuccessResponse = {

@@ -1,3 +1,13 @@
+## 0.24.14 (2026-08-04)
+
+### 🩹 Fixes
+
+- Add complete pack enable, disable, and update lifecycle parity
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.13 (2026-08-04)
 
 ### 🩹 Fixes

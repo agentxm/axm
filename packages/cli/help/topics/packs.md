@@ -20,6 +20,11 @@ content without Registry access. Never edit `.axm/trust.json` or the receipt.
 
 Run `axm packs publish <pack>` to release a new version. Install with `axm packs install @owner/packs/<name>`.
 
+When publishing an authored pack, AXM publishes any included workspace-authored
+dependencies first, then publishes the pack. Existing dependency versions are
+verified instead of republished, so retrying a partially completed publication
+is safe.
+
 ## Pack dependencies
 
 Bundle extensions by defining the pack dependencies in `pack.json`. Each key uses the same fully qualified form as the extension directories (`<@owner>/<type>/<name>`, with the plural type segment):
@@ -47,6 +52,13 @@ keeps owner, type, locator, and constraints when combining direct and pack
 origins. A missing or invalid configured manifest makes that desired subtree
 unknown and blocks destructive cleanup. Removing a pack retains members still
 required directly or by another pack.
+
+At publication time, the Registry requires every dependency to identify a
+public, active extension with at least one installable version satisfying the
+declared range. Private dependencies are rejected even when the pack is
+private. A deprecated dependency remains resolvable but produces a warning.
+Publication failures name each unavailable dependency and the corrective action
+needed before the pack can be released.
 
 ## Lifecycle
 

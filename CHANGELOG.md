@@ -1,3 +1,13 @@
+## 0.24.11 (2026-08-04)
+
+### 🩹 Fixes
+
+- Add resumable, machine-readable device login for non-interactive AXM workflows.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.10 (2026-08-01)
 
 ### 🩹 Fixes

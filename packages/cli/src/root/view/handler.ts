@@ -307,26 +307,31 @@ const handleResolvedView = (args: {
     const renderer = yield* CliRenderer;
     const client = yield* createRegistryClient(args.targetRegistry.registryUrl);
     const subject = `${args.handle} from ${args.targetRegistry.registryName}`;
-    const indexOption = yield* renderer.withSpinner(
+    const index = yield* renderer.withSpinner(
       `Loading ${subject}`,
-      () => client.getExtensionIndex(args.parts),
+      () =>
+        client.getExtensionIndex(args.parts).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () =>
+                makeAppError({
+                  code: "not_found",
+                  detail: `Extension ${args.handle} not found on registry "${args.targetRegistry.registryName}".`,
+                  suggestions: [
+                    {
+                      description: "Sign in if this extension is private.",
+                      cmd: "axm login",
+                    },
+                  ],
+                }),
+              onSome: Effect.succeed,
+            }),
+          ),
+        ),
       { successMessage: `Loaded ${subject}` },
     );
 
-    if (Option.isNone(indexOption)) {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: `Extension ${args.handle} not found on registry "${args.targetRegistry.registryName}".`,
-        suggestions: [
-          {
-            description: "Sign in if this extension is private.",
-            cmd: "axm login",
-          },
-        ],
-      });
-    }
-
-    const data = toDocumentData(indexOption.value);
+    const data = toDocumentData(index);
 
     if (Option.isSome(args.field)) {
       const field = args.field.value;

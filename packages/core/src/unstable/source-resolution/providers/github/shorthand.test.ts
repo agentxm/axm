@@ -51,6 +51,17 @@ describe("shorthand", () => {
       }),
     );
 
+    it.effect("keeps raw @owner AXM layout segments in the subpath", () =>
+      Effect.gen(function* () {
+        const result = yield* parseShorthand(
+          "github:agentxm/community//.axm/extensions/@community/mcps/linear",
+        );
+
+        expect(Option.getOrNull(result.subPath)).toBe(".axm/extensions/@community/mcps/linear");
+        expect(Option.isNone(result.ref)).toBe(true);
+      }),
+    );
+
     it.effect("treats single-slash extra segments as namespace, not subpath", () =>
       Effect.gen(function* () {
         const result = yield* parseShorthand("github:acme/widgets/src");

@@ -244,4 +244,35 @@ describe("view handler", () => {
       }),
     );
   });
+
+  for (const testCase of [
+    { label: "default output", options: {} },
+    { label: "JSON output", options: { machine: true } },
+    { label: "verbose output", options: { flags: { verbose: true } } },
+  ]) {
+    it.effect(
+      `does not report a successful load for a missing extension in ${testCase.label}`,
+      () => {
+        const { provide, rendererState } = makeWorkspaceHandlerTestContext(testCase.options);
+
+        return provide(
+          Effect.gen(function* () {
+            const error = yield* handleView({
+              handle: "@test/skills/missing",
+              field: Option.none(),
+              registry: Option.some("local"),
+            }).pipe(Effect.flip);
+
+            expect(getAppError(error).code).toBe("not_found");
+            expect(rendererState.spinnerMessages).toContain(
+              "Loading @test/skills/missing from local",
+            );
+            expect(rendererState.spinnerMessages).not.toContain(
+              "Loaded @test/skills/missing from local",
+            );
+          }),
+        );
+      },
+    );
+  }
 });

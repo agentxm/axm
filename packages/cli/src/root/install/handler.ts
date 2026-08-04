@@ -129,19 +129,19 @@ const runRegistryInstallIntent = (
     }
   });
 
-const isNotFoundAppError = (error: unknown): error is AppError =>
+const isLocatorNoMatchAppError = (error: unknown): error is AppError =>
   typeof error === "object" &&
   error !== null &&
   "_tag" in error &&
   error._tag === "AppError" &&
   "code" in error &&
-  error.code === "not_found";
+  (error.code === "not_found" || error.code === "usage");
 
 const runLocatorWorkflow = <A, E, R>(type: RootInstallableType, effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
     Effect.map((resolution) => Option.some({ type, resolution })),
     Effect.catch((error) =>
-      isNotFoundAppError(error)
+      isLocatorNoMatchAppError(error)
         ? Effect.succeed(
             Option.none<{ readonly type: RootInstallableType; readonly resolution: A }>(),
           )
@@ -192,7 +192,8 @@ const runLocatorInstallIntent = (source: string, args: RootInstallFlags) =>
     if (successful.length === 0) {
       return yield* makeAppError({
         code: "not_found",
-        detail: "No installable extensions found in source",
+        detail:
+          "No locator-discoverable extensions found in source (supported: skills, commands, files, rules, hooks, knowledge, and subagents)",
       });
     }
 

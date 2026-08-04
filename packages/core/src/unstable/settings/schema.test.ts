@@ -11,6 +11,7 @@ import {
   CommandsMapSchema,
   FilesEntrySchema,
   FilesMapSchema,
+  KnowledgeConfigSchema,
   McpServersMapSchema,
   McpServerEntryObjectSchema,
   McpServerEntrySchema,
@@ -123,7 +124,10 @@ describe("Settings schema", () => {
         mcpServersConfig: { ignore: ["test-*"] },
         filesConfig: { ignore: ["vendor-*"] },
         hooksConfig: { ignore: ["experimental-*"] },
-        knowledgeConfig: { ignore: ["scratch-*"] },
+        knowledgeConfig: {
+          ignore: ["scratch-*"],
+          directory: "docs/agent-knowledge",
+        },
       };
       const decoded = Schema.decodeUnknownSync(SettingsSchema)(input);
       const encoded = Schema.encodeSync(SettingsSchema)(decoded);
@@ -141,6 +145,18 @@ describe("Settings schema", () => {
       expect(decoded.filesConfig?.ignore).toEqual(["vendor-*"]);
       expect(decoded.hooksConfig?.ignore).toEqual(["experimental-*"]);
       expect(decoded.knowledgeConfig?.ignore).toEqual(["scratch-*"]);
+    });
+
+    it("accepts an empty Knowledge config so the workspace can resolve the default directory", () => {
+      expect(Schema.decodeUnknownSync(KnowledgeConfigSchema)({})).toEqual({});
+    });
+
+    it("accepts a custom Knowledge projection directory", () => {
+      const result = Schema.decodeUnknownSync(SettingsSchema)({
+        knowledgeConfig: { directory: "docs/agent-knowledge" },
+      });
+
+      expect(result.knowledgeConfig?.directory).toBe("docs/agent-knowledge");
     });
 
     it("accepts workspace vars and context entries with scalar inputs", () => {

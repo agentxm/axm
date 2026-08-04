@@ -13,7 +13,12 @@ import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 import YAML from "yaml";
-import { LockfileSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
+import {
+  LockfileSchema,
+  type KnowledgeLockEntry,
+  type Lockfile,
+  type SkillLockEntry,
+} from "./schema.js";
 import {
   applyLockfileUpdates,
   commitLockfileSnapshotUpdate,
@@ -475,6 +480,30 @@ describe("lockfile", () => {
 
           const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
           expect(Object.keys(result.skills).sort()).toEqual(["alpha", "beta"]);
+        }),
+      ),
+    );
+
+    it.effect("commits Knowledge map snapshot diffs", () =>
+      withContext(
+        Effect.gen(function* () {
+          const base: Lockfile = { lockfileVersion: 3, skills: {} };
+          const knowledgeEntry: KnowledgeLockEntry = {
+            type: "local",
+            path: "knowledge/platform",
+            installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+          };
+          yield* writeLockfile(axmDir, base);
+          yield* commitLockfileSnapshotUpdate(axmDir, base, {
+            ...base,
+            knowledge: { platform: knowledgeEntry },
+          });
+
+          const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(result.knowledge).toEqual({
+            platform: expect.objectContaining({ type: "local", path: "knowledge/platform" }),
+          });
         }),
       ),
     );

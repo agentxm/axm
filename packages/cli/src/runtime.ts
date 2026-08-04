@@ -55,6 +55,7 @@ import { UninstallFilesCommandWorkflowActionsLive } from "./root/files/uninstall
 import { InstallHookCommandWorkflowActionsLive } from "./root/hooks/install/command-actions.js";
 import { UninstallHookCommandWorkflowActionsLive } from "./root/hooks/uninstall/command-actions.js";
 import { InstallKnowledgeCommandWorkflowActionsLive } from "./root/knowledge/install/command-actions.js";
+import { UninstallKnowledgeCommandWorkflowActionsLive } from "./root/knowledge/uninstall/command-actions.js";
 import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/install/command-actions.js";
 import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/uninstall/command-actions.js";
 import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
@@ -280,7 +281,10 @@ const makeWorkspaceProgramLayer = (
     SubagentManagerLive,
   );
   const knowledgeLayer = Layer.provideMerge(
-    InstallKnowledgeCommandWorkflowActionsLive,
+    Layer.mergeAll(
+      InstallKnowledgeCommandWorkflowActionsLive,
+      UninstallKnowledgeCommandWorkflowActionsLive,
+    ),
     KnowledgeManagerLive,
   );
   const packsLayer = Layer.provideMerge(

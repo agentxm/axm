@@ -609,11 +609,17 @@
           "description": "Installed knowledge bundle names AXM should leave unmanaged.",
           "examples": [["local-*", "legacy-helper"]],
           "items": { "type": "string" }
+        },
+        "directory": {
+          "type": "string",
+          "description": "Workspace-relative directory where AXM projects enabled Knowledge bundles.",
+          "default": ".agents/knowledge",
+          "examples": [".agents/knowledge", "docs/agent-knowledge"]
         }
       },
       "additionalProperties": false,
       "title": "Knowledge Config",
-      "description": "Feature-level configuration for knowledge bundles."
+      "description": "Feature-level configuration and agent-facing projection settings for knowledge bundles."
     },
     "SubagentEntry": {
       "anyOf": [
@@ -954,7 +960,7 @@
         },
         "knowledgeConfig": {
           "anyOf": [{ "$ref": "#/definitions/KnowledgeConfig" }],
-          "description": "Feature-level options for knowledge bundle management."
+          "description": "Feature-level and projection options for knowledge bundle management."
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],

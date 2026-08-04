@@ -26,8 +26,8 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   rules: "How AXM propagates one workspace instruction file to every configured agent.",
   "rule-schema": "JSON Schema for a rule extension manifest.",
   hooks: "How hook extensions run on agent lifecycle events and how AXM installs and manages them.",
+  knowledge: "How AXM validates, projects, and synchronizes Knowledge bundles.",
   "hook-schema": "JSON Schema for a hook extension manifest.",
-  knowledge: "How Open Knowledge Format bundles work and how AXM installs and searches them.",
   "knowledge-schema": "JSON Schema for an Open Knowledge Format bundle manifest.",
   settings: "What AXM tracks in the .axm/settings.json workspace state file.",
   "workspace-state":

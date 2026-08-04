@@ -122,6 +122,8 @@ const emptySubagentManager = {
 const emptyKnowledgeManager = {
   type: "knowledge",
   refreshCatalog: () => Effect.void,
+  sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
+  install: () => Effect.void,
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
   listMaterializable: () => Effect.succeed([]),

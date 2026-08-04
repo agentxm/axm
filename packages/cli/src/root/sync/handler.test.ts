@@ -32,7 +32,11 @@ import {
   planResultSteps,
   property,
 } from "../../test-helpers.js";
-import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
+import {
+  computePackageContentHashSync,
+  writeKnowledgeExtension,
+  writeWorkspaceFiles,
+} from "../../test-stubs.js";
 import { handleSync } from "./handler.js";
 
 const writeJson = (filePath: string, value: unknown) => {
@@ -87,6 +91,23 @@ const writeSkillExtension = (baseDir: string, name: string) => {
     path.join(skillDir, "src", "SKILL.md"),
     `---\nname: ${name}\ndescription: Test skill\n---\n\n# ${name}\n`,
   );
+};
+
+const writeLocalKnowledgePackage = (root: string, name: string, marker: string) => {
+  writeJson(path.join(root, "knowledge.json"), {
+    owner: "@acme",
+    type: "knowledge",
+    name,
+    version: "1.0.0",
+    format: { name: "okf", version: "0.2" },
+    bundleRoot: "src",
+  });
+  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "src", "index.md"),
+    `---\nokf_version: "0.2"\n---\n# ${marker}\n`,
+  );
+  fs.writeFileSync(path.join(root, "src", "concept.md"), `---\ntype: concept\n---\n# ${marker}\n`);
 };
 
 const writeMcpServerExtension = (baseDir: string, name: string) => {
@@ -717,19 +738,79 @@ describe("root sync handler", () => {
     Effect.gen(function* () {
       const { provide } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
+      writeKnowledgeExtension(axmDir, "handbook");
       writeWorkspaceFiles(axmDir, {
         agents: [],
         knowledge: {
           handbook: "workspace:@acme/knowledge/handbook",
         },
+        lockfileKnowledge: {
+          handbook: {
+            type: "workspace",
+            owner: "@acme",
+            extensionType: "knowledge",
+            name: "handbook",
+            version: "1.0.0",
+            sourceHash: computePackageContentHashSync(
+              path.join(axmDir, "extensions", "@acme", "knowledge", "handbook"),
+            ),
+            installedAt: "2026-08-04T00:00:00.000Z",
+            updatedAt: "2026-08-04T00:00:00.000Z",
+          },
+        },
       });
-      writeKnowledgeExtension(axmDir, "handbook");
 
       yield* provide(handleSync({ dryRun: false, force: false }));
 
-      const index = path.join(axmDir, "knowledge", "index.md");
+      const index = path.join(tempDir, ".agents", "knowledge", "index.md");
       expect(fs.existsSync(index)).toBe(true);
-      expect(fs.readFileSync(index, "utf-8")).toContain("[handbook]");
+      expect(fs.readFileSync(index, "utf-8")).toContain("[@acme/handbook]");
+      expect(
+        fs.existsSync(path.join(tempDir, ".agents", "knowledge", "@acme", "handbook", "index.md")),
+      ).toBe(true);
+    }),
+  );
+
+  it.effect("restores Knowledge from locked state without resolving the configured source", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeLocalKnowledgePackage(path.join(tempDir, "locked-source"), "handbook", "Locked");
+      writeLocalKnowledgePackage(path.join(tempDir, "newer-source"), "handbook", "Newer");
+      writeWorkspaceFiles(axmDir, {
+        agents: [],
+        knowledge: {
+          handbook: { source: "./newer-source", enabled: true },
+        },
+        lockfileKnowledge: {
+          handbook: {
+            type: "local",
+            path: "locked-source",
+            installedAt: "2026-08-04T00:00:00.000Z",
+            updatedAt: "2026-08-04T00:00:00.000Z",
+          },
+        },
+        writeTrustFromLockfile: true,
+      });
+      const settingsBefore = fs.readFileSync(path.join(axmDir, "settings.json"), "utf8");
+      const lockfileBefore = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8");
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      expect(
+        fs.readFileSync(
+          path.join(tempDir, ".agents", "knowledge", "@acme", "handbook", "concept.md"),
+          "utf8",
+        ),
+      ).toContain("# Locked");
+      expect(
+        fs.readFileSync(
+          path.join(tempDir, ".agents", "knowledge", "@acme", "handbook", "concept.md"),
+          "utf8",
+        ),
+      ).not.toContain("# Newer");
+      expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(settingsBefore);
+      expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(lockfileBefore);
     }),
   );
 

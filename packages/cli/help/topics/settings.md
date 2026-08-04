@@ -41,7 +41,22 @@ as `enabled: false`. A workspace-authored package uses the intrinsic source
 }
 ```
 
-Feature config lives under `rulesConfig`, `skillsConfig`, `commandsConfig`, `subagentsConfig`, `packsConfig`, and `mcpServersConfig`.
+Feature config lives under `rulesConfig`, `skillsConfig`, `commandsConfig`,
+`filesConfig`, `hooksConfig`, `knowledgeConfig`, `subagentsConfig`, `packsConfig`,
+and `mcpServersConfig`.
+
+`knowledgeConfig.directory` selects the agent-facing Knowledge projection root
+relative to the active project or user scope. It defaults to
+`.agents/knowledge`. AXM rejects absolute paths, scope escapes, the scope root,
+and paths that overlap `.axm`.
+
+```jsonc
+{
+  "knowledgeConfig": {
+    "directory": "docs/agent-knowledge",
+  },
+}
+```
 
 `lint` configures workspace-only severity overrides for `axm lint`.
 

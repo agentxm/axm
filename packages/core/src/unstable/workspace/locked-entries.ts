@@ -18,6 +18,7 @@ import type {
   FilesLockEntry,
   HookLockEntry,
   KnowledgeLockEntry,
+  KnowledgeLockMap,
   McpServerLockEntry,
   RuleLockEntry,
   SkillLockEntry,
@@ -66,6 +67,11 @@ export const getLockedEntries = (
   ws: WorkspaceMutationsService,
   type: CatalogExtensionType,
 ): Effect.Effect<AnyLockMap, AppError> => lockedEntryReaders[type](ws);
+
+/** Read the Knowledge lock map through the workspace receipt boundary. */
+export const getKnowledgeLockEntries = (
+  ws: WorkspaceMutationsService,
+): Effect.Effect<KnowledgeLockMap, AppError> => ws.getLockedKnowledge();
 
 /** Resolved version for a lock entry, when its source arm carries one. */
 export const lockEntryVersion = (entry: AnyLockEntry): string | null => {

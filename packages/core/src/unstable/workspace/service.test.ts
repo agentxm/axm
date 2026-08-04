@@ -118,6 +118,37 @@ describe("WorkspaceMutationsService", () => {
     );
   });
 
+  describe("Knowledge projection config", () => {
+    it.effect("resolves the default directory relative to the active scope root", () =>
+      Effect.gen(function* () {
+        const ws = yield* getService({ scope: "project" });
+        const config = yield* ws.getKnowledgeProjectionConfig();
+
+        expect(config).toEqual({
+          directory: ".agents/knowledge",
+          dir: path.join(fs.realpathSync(projectDir), ".agents", "knowledge"),
+        });
+      }),
+    );
+
+    it.effect("resolves a custom configured directory", () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(
+          path.join(projectDir, ".axm", "settings.json"),
+          JSON.stringify({
+            agents: ["claude-code"],
+            knowledgeConfig: { directory: "docs/agent-knowledge" },
+          }),
+        );
+
+        const ws = yield* getService({ scope: "project" });
+        const config = yield* ws.getKnowledgeProjectionConfig();
+
+        expect(config.dir).toBe(path.join(fs.realpathSync(projectDir), "docs", "agent-knowledge"));
+      }),
+    );
+  });
+
   describe("removeTrustRecord", () => {
     it.effect("retires only the explicitly uninstalled identity", () =>
       Effect.gen(function* () {

@@ -1382,10 +1382,18 @@ export const KnowledgeConfigSchema = Schema.Struct({
       examples: [["local-*", "legacy-helper"]],
     }),
   ),
+  directory: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "Workspace-relative directory where AXM projects enabled Knowledge bundles.",
+      default: ".agents/knowledge",
+      examples: [".agents/knowledge", "docs/agent-knowledge"],
+    }),
+  ),
 }).annotate({
   identifier: "KnowledgeConfig",
   title: "Knowledge Config",
-  description: "Feature-level configuration for knowledge bundles.",
+  description:
+    "Feature-level configuration and agent-facing projection settings for knowledge bundles.",
 });
 
 /** @experimental */
@@ -1468,8 +1476,8 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - rules: Desired rules by name to source string
  * - hooks: Desired hooks by name to source string
  * - hooksConfig: Feature-level configuration for hooks
- * - knowledge: Desired knowledge bundles by name to source string
- * - knowledgeConfig: Feature-level configuration for knowledge bundles
+ * - knowledge: Desired Open Knowledge Format bundles by name to source string
+ * - knowledgeConfig: Agent-facing Knowledge projection options
  * - subagents: Desired subagents by name to version specifier
  * - subagentsConfig: Feature-level configuration for subagents
  * - packs: Desired packs by name to version specifier
@@ -1583,7 +1591,7 @@ const SettingsBaseSchema = Schema.Struct({
   ),
   knowledgeConfig: Schema.optionalKey(
     Schema.Union([KnowledgeConfigSchema]).annotate({
-      description: "Feature-level options for knowledge bundle management.",
+      description: "Feature-level and projection options for knowledge bundle management.",
     }),
   ),
   subagents: Schema.optionalKey(

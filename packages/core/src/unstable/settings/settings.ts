@@ -73,8 +73,9 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const isEmptySettingsConfig = (key: string, value: unknown): boolean => {
   if (!settingsConfigKeys.has(key) || !isRecord(value)) return false;
   if (key === "rulesConfig") return value["instructions"] === undefined;
-  const ignore = value["ignore"];
-  return ignore === undefined || (Array.isArray(ignore) && ignore.length === 0);
+  return Object.values(value).every(
+    (field) => field === undefined || (Array.isArray(field) && field.length === 0),
+  );
 };
 
 const orderSettingsRecord = (

@@ -46,12 +46,16 @@ export const ArtifactChangeSchema = Schema.Literals([
 
 export type ArtifactChange = typeof ArtifactChangeSchema.Type;
 
+export const ArtifactMechanismSchema = Schema.Literals(["symlink", "copy"] as const);
+export type ArtifactMechanism = typeof ArtifactMechanismSchema.Type;
+
 export interface JobStepArtifact {
   readonly path: string;
   readonly scope: "project" | "user";
   readonly agents?: ReadonlyArray<string>;
   readonly version?: string;
   readonly change: ArtifactChange;
+  readonly mechanism?: ArtifactMechanism;
   readonly previousVersion?: string;
   readonly fileCount?: number;
   readonly targets?: ReadonlyArray<JobStepArtifactTarget>;

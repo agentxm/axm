@@ -23,6 +23,7 @@ import type {
 } from "@agentxm/client-core/unstable/plan";
 import {
   ArtifactChangeSchema,
+  ArtifactMechanismSchema,
   OperationPreconditionSchema,
 } from "@agentxm/client-core/unstable/plan";
 import {
@@ -85,6 +86,7 @@ const StepArtifactSchema = Schema.Struct({
   agents: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.optional(Schema.String),
   change: ArtifactChangeSchema,
+  mechanism: Schema.optional(ArtifactMechanismSchema),
   previousVersion: Schema.optional(Schema.String),
   fileCount: Schema.optional(Schema.Number),
   targets: Schema.optional(Schema.Array(StepArtifactTargetSchema)),

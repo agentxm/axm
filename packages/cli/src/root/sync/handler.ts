@@ -625,6 +625,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
       (node) =>
         node.enabled &&
         node.type !== "pack" &&
+        (isScoped || node.type !== "knowledge") &&
         !(node.type === "mcp-server" && node.source === "inline"),
     ),
     (node) =>
@@ -987,12 +988,14 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
 
 const makeSyncPlan = ({
   materializeSteps,
+  knowledgeStep,
   workspaceGeneratorStep,
   trustMigrationStep,
   name = PLAN_NAME,
   description = PLAN_DESCRIPTION,
 }: {
   readonly materializeSteps: ReadonlyArray<PlannedJobStep>;
+  readonly knowledgeStep: Option.Option<PlannedJobStep>;
   readonly workspaceGeneratorStep: Option.Option<PlannedJobStep>;
   readonly trustMigrationStep: Option.Option<PlannedJobStep>;
   readonly name?: string;
@@ -1005,6 +1008,9 @@ const makeSyncPlan = ({
     ...(materializeSteps.length > 0
       ? [{ concurrency: "unbounded" as const, steps: materializeSteps }]
       : []),
+    ...(Option.isSome(knowledgeStep)
+      ? [{ concurrency: 1 as const, steps: [knowledgeStep.value] }]
+      : []),
     ...(Option.isSome(workspaceGeneratorStep)
       ? [{ concurrency: 1 as const, steps: [workspaceGeneratorStep.value] }]
       : []),
@@ -1012,6 +1018,51 @@ const makeSyncPlan = ({
       ? [{ concurrency: 1 as const, steps: [trustMigrationStep.value] }]
       : []),
   ],
+});
+
+const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* () {
+  const manager = yield* KnowledgeManager;
+  const ws = yield* WorkspaceMutations;
+  const preview = yield* manager.sync({ dryRun: true });
+  if (!preview.changed && preview.warnings.length === 0) return Option.none<PlannedJobStep>();
+  const config = yield* ws.getKnowledgeProjectionConfig();
+  const details = preview.artifacts
+    .filter((artifact) => artifact.change !== "unchanged")
+    .map(
+      (artifact) =>
+        `${artifact.change} ${artifact.path}${artifact.mechanism === undefined ? "" : ` (${artifact.mechanism})`}`,
+    );
+  const message = [...details, ...preview.warnings].join("; ");
+  return Option.some({
+    key: "knowledge:projection",
+    label: "Knowledge projections",
+    readiness: "ready",
+    ...(message.length === 0 ? {} : { message }),
+    run: manager.sync({ dryRun: false }).pipe(
+      Effect.map((result): JobStepResult => {
+        const mechanism = result.artifacts.find(
+          (artifact) => artifact.mechanism !== undefined,
+        )?.mechanism;
+        return {
+          result: "success",
+          message: result.changed
+            ? "Reconciled Knowledge projections"
+            : "Knowledge projections already current",
+          ...(result.warnings.length === 0 ? {} : { warnings: result.warnings }),
+          artifact: {
+            path: config.directory,
+            scope: ws.scope,
+            change: result.changed ? "updated" : "unchanged",
+            ...(mechanism === undefined ? {} : { mechanism }),
+            targets: result.artifacts.map((artifact) => ({
+              path: artifact.path,
+              change: artifact.change,
+            })),
+          },
+        };
+      }),
+    ),
+  } satisfies PlannedJobStep);
 });
 
 const collectTrustMigrationStep = Effect.fn("Sync.collectTrustMigrationStep")(function* () {
@@ -1330,6 +1381,9 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
           selection,
           acceptAuthorityChange: args.acceptAuthorityChange === true,
         });
+        const knowledgeStep = scoped
+          ? Option.none<PlannedJobStep>()
+          : yield* collectKnowledgeStep();
         const workspaceGeneratorStep = scoped
           ? Option.none<PlannedJobStep>()
           : yield* collectWorkspaceGeneratorStep();
@@ -1344,6 +1398,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
         return {
           steps,
           expectedSubagentNames,
+          knowledgeStep,
           workspaceGeneratorStep,
           trustMigrationStep,
           lockfileNeedsRecovery,
@@ -1354,6 +1409,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
   const {
     steps,
     expectedSubagentNames,
+    knowledgeStep,
     workspaceGeneratorStep,
     trustMigrationStep,
     lockfileNeedsRecovery,
@@ -1361,6 +1417,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
 
   if (
     steps.length === 0 &&
+    Option.isNone(knowledgeStep) &&
     Option.isNone(workspaceGeneratorStep) &&
     Option.isNone(trustMigrationStep) &&
     !lockfileNeedsRecovery
@@ -1381,6 +1438,7 @@ export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncAr
 
   const plan = makeSyncPlan({
     materializeSteps: steps,
+    knowledgeStep,
     workspaceGeneratorStep,
     trustMigrationStep,
     name: planName,

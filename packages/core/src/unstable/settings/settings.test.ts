@@ -138,6 +138,7 @@ describe("settings", () => {
             agents: ["claude-code"],
             skills: { commit: { source: "^1.0.0", enabled: true } },
             skillsConfig: { ignore: ["internal-*"] },
+            knowledgeConfig: { directory: "docs/agent-knowledge" },
           };
 
           yield* writeSettings(axmDir, settings);

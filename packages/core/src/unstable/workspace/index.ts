@@ -39,6 +39,7 @@ export {
 export type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 
 export {
+  getKnowledgeLockEntries,
   getLockedEntries,
   lockEntryVersion,
   type AnyLockEntry,

@@ -1,6 +1,8 @@
 # Knowledge
 
-Knowledge bundles live in `./.axm/extensions/<@owner>/knowledge/<name>`.
+Knowledge bundles live canonically in
+`./.axm/extensions/<@owner>/knowledge/<name>` and expose their `src/` roots
+through an agent-facing projection.
 
 A knowledge bundle is portable reference material — architecture notes, domain
 vocabulary, runbooks — packaged as a tree of Markdown concept documents. Unlike
@@ -121,8 +123,37 @@ axm knowledge update --preview
 axm knowledge uninstall platform
 ```
 
-Nothing is written into agent settings or instruction files — a bundle changes
-what an agent _can_ look up, not how it behaves by default.
+## Agent-facing projection
+
+Enabled bundles are projected by manifest identity under
+`.agents/knowledge/@owner/name` by default. AXM prefers relative directory
+symlinks and falls back to managed copies when symlinks are unavailable. The
+aggregate `.agents/knowledge/index.md` lists enabled bundles deterministically,
+and a managed instruction-file region directs agents to that index while
+identifying Knowledge content as untrusted reference material.
+
+`.agents/knowledge` is an AXM convention rather than a native agent discovery
+directory. Set `knowledgeConfig.directory` in `.axm/settings.json` to choose
+another path relative to the active project or user scope:
+
+```jsonc
+{
+  "knowledgeConfig": {
+    "directory": "docs/agent-knowledge",
+  },
+}
+```
+
+The path must remain inside the active scope and must not overlap `.axm`.
+Changing it and running `axm sync` builds and verifies the new projection before
+removing AXM-managed artifacts from the old location. Unknown files are
+preserved.
+
+`axm sync` restores missing canonical content from exact locked registry
+versions or pinned git trees, treats local and workspace sources as
+authoritative, and reconciles the projection without advancing versions. Use
+`axm sync --dry-run` to preview creates, updates, removals, and the selected
+symlink or copy mechanism.
 
 ## Discovery
 

@@ -1,3 +1,13 @@
+## 0.24.15 (2026-08-04)
+
+### 🩹 Fixes
+
+- Publish included pack dependencies before the pack and verify existing versions on retry.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.14 (2026-08-04)
 
 ### 🩹 Fixes

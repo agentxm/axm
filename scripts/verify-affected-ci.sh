@@ -21,6 +21,23 @@ capture_nx_cache_result() {
   NX_CACHE_RESULT=$(grep -oE '[0-9]+/[0-9]+ hit \([0-9]+%\)' "$log_file" | tail -1 || true)
 }
 
+validate_restored_nx_cache() {
+  if [[ "${AXM_EXPECT_NX_CACHE_HIT:-false}" != "true" ]]; then
+    record_skipped_phase "Validate restored Nx cache" "The Actions cache was not an exact hit."
+    return
+  fi
+
+  if [[ -n "$NX_CACHE_RESULT" && "$NX_CACHE_RESULT" != 0/* ]]; then
+    append_phase_result "Validate restored Nx cache" "Passed" "0m 00s"
+    return
+  fi
+
+  append_phase_result "Validate restored Nx cache" "Failed" "0m 00s"
+  printf '%s\n' \
+    '::error title=Restored Nx cache was unusable::An exact Actions cache hit produced no Nx task hits. Preserve the database-backed Nx cache metadata with the task artifacts.'
+  return 1
+}
+
 finalize_summary() {
   if [[ -n "$NX_CACHE_RESULT" ]]; then
     printf '\n**Nx affected cache:** %s\n' "$NX_CACHE_RESULT" >>"$SUMMARY_FILE"
@@ -88,6 +105,7 @@ run_phase "Validate generated artifacts" "" pnpm run generate:check
 run_phase "Validate workspace synchronization" "" pnpm exec nx sync:check
 run_phase "Verify affected project graph" "$NX_LOG_FILE" \
   pnpm exec nx affected -t lint typecheck build test e2e --batch --nxBail --outputStyle=static
+validate_restored_nx_cache
 run_phase "Verify repository scripts" "" \
   pnpm exec nx run-many \
   -t scripts-lint scripts-typecheck scripts-test verify-e2e-boundaries \

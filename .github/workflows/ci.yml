@@ -206,13 +206,13 @@ jobs:
         with:
           path: ${{ runner.temp }}/axm-ci-cache/nx
           key: >-
-            axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-${{
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{
             hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-${{
             github.event.pull_request.head.sha }}
           restore-keys: |
-            axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-
-            axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-
-            axm-ci-nx-v1-${{ runner.os }}-${{ runner.arch }}-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Determine release verification mode
         id: release-mode
@@ -238,6 +238,7 @@ jobs:
           AXM_CI_PHASE_SUMMARY_FILE: test-results/ci-verification-summary.md
           AXM_CONTAINER_NX_PARALLEL: "3"
           AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
+          AXM_EXPECT_NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}
           AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
         run: scripts/container-environment.sh ci scripts/verify-affected-ci.sh
 

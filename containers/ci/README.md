@@ -33,10 +33,14 @@ digest-pinned image, and the lockfile contents. Pull-request jobs run only on
 ephemeral GitHub-hosted runners, so untrusted changes cannot read or write the
 persistent trusted-runner caches. The PR workflow restores separate,
 branch-scoped GitHub Actions caches into host directories and bind-mounts them
-into the container. Nx saves use commit-specific immutable keys and can restore
-compatible entries from an earlier commit on the same branch. `node_modules`
-remains an anonymous volume and is never persisted across runs. For recovery or
-cache rotation, operators may set `AXM_CI_PNPM_CACHE_VOLUME` and
+into the container. The Nx cache includes task artifacts and the
+database-backed metadata Nx uses to recognize their provenance; the launcher
+does not disable Nx's unknown-cache safety check. Nx saves use commit-specific
+immutable keys and can restore compatible entries from an earlier commit on
+the same branch. An exact Actions cache restore that yields no Nx task hits
+fails verification instead of silently rerunning the workspace. `node_modules`
+remains an anonymous volume and is never persisted across runs. For recovery
+or cache rotation, operators may set `AXM_CI_PNPM_CACHE_VOLUME` and
 `AXM_CI_NX_CACHE_VOLUME` to another Docker volume name or absolute bind-mount
 path.
 

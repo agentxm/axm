@@ -23,7 +23,7 @@ CI_CACHE_SCOPE=$(
   volume_key "axm|$(uname -m)|$CI_IMAGE|$(cksum <"$ROOT/pnpm-lock.yaml")"
 )
 CI_PNPM_CACHE_VOLUME=${AXM_CI_PNPM_CACHE_VOLUME:-axm-ci-pnpm-$CI_CACHE_SCOPE}
-CI_NX_CACHE_VOLUME=${AXM_CI_NX_CACHE_VOLUME:-axm-ci-nx-$CI_CACHE_SCOPE}
+CI_NX_CACHE_VOLUME=${AXM_CI_NX_CACHE_VOLUME:-axm-ci-nx-v2-$CI_CACHE_SCOPE}
 
 usage() {
   cat <<'EOF'
@@ -106,6 +106,7 @@ run_ci() {
     --env AXM_HOST_GID="$gid" \
     --env AXM_DEPS_DIRS="$ROOT/node_modules" \
     --env AXM_CI_PHASE_SUMMARY_FILE="${AXM_CI_PHASE_SUMMARY_FILE:-}" \
+    --env AXM_EXPECT_NX_CACHE_HIT="${AXM_EXPECT_NX_CACHE_HIT:-false}" \
     --env AXM_RELEASE_PREPARATION="${AXM_RELEASE_PREPARATION:-false}" \
     --env HOME=/tmp/axm-home \
     --env MISE_STATE_DIR=/tmp/axm-home/.local/state/mise \
@@ -118,7 +119,7 @@ run_ci() {
     --volume "$ROOT/node_modules" \
     --volume "$GIT_COMMON_DIR:$GIT_COMMON_DIR" \
     --volume "$CI_PNPM_CACHE_VOLUME:/tmp/axm-home/.local/share/pnpm/store" \
-    --volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx/cache" \
+    --volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx" \
     --workdir "$ROOT" \
     --pull missing \
     "$CI_IMAGE" \

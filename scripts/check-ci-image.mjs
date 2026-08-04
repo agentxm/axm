@@ -62,6 +62,7 @@ for (const variable of [
   "AXM_HOST_GID",
   "AXM_DEPS_DIRS",
   "AXM_CI_PHASE_SUMMARY_FILE",
+  "AXM_EXPECT_NX_CACHE_HIT",
   "AXM_RELEASE_PREPARATION",
 ]) {
   requireText(
@@ -86,11 +87,16 @@ requireText(
 );
 requireText(
   containerLauncher,
-  '--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx/cache"',
-  "container launcher must persist only the Nx result cache",
+  '--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx"',
+  "container launcher must persist Nx task artifacts with their database metadata",
 );
-if (containerLauncher.includes('--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx" \\\n')) {
-  errors.push("container launcher must not persist transient Nx workspace data");
+if (containerLauncher.includes('--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx/cache"')) {
+  errors.push(
+    "container launcher must not separate Nx task artifacts from their database metadata",
+  );
+}
+if (containerLauncher.includes("NX_REJECT_UNKNOWN_LOCAL_CACHE")) {
+  errors.push("container launcher must not bypass Nx cache provenance checks");
 }
 
 for (const text of [
@@ -102,6 +108,7 @@ for (const text of [
   "hashFiles('containers/ci/CI_IMAGE')",
   'AXM_CONTAINER_NX_PARALLEL: "3"',
   'AXM_CONTAINER_VITEST_MAX_WORKERS: "2"',
+  "AXM_EXPECT_NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}",
   "scripts/verify-affected-ci.sh",
   "if: always()",
   '>> "$GITHUB_STEP_SUMMARY"',
@@ -113,7 +120,7 @@ for (const text of [
 }
 
 if (
-  !/key:\s*>-\s+axm-ci-nx-v1-[\s\S]{0,500}github\.event\.pull_request\.head\.sha\s*\}\}\s+restore-keys:/u.test(
+  !/key:\s*>-\s+axm-ci-nx-v2-[\s\S]{0,500}github\.event\.pull_request\.head\.sha\s*\}\}\s+restore-keys:/u.test(
     ciWorkflow,
   )
 ) {
@@ -130,6 +137,8 @@ for (const text of [
   'run_phase "Validate workspace synchronization"',
   "nx affected -t lint typecheck build test e2e",
   "-t scripts-lint scripts-typecheck scripts-test verify-e2e-boundaries",
+  "validate_restored_nx_cache",
+  "An exact Actions cache hit produced no Nx task hits",
 ]) {
   requireText(affectedCiRunner, text, `affected CI runner is missing ${text}`);
 }

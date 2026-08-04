@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-07-18
-version: 0.2.0
+last-reviewed: 2026-08-04
+version: 0.2.1
 description: Choosing and using AXM's native, development-container, and repository-owned
   Linux CI environments.
 depends-on:
@@ -49,7 +49,10 @@ ephemeral home and anonymous root `node_modules` volume; Docker removes both
 with the CI container. Its pnpm and Nx stores default to scoped Docker volumes.
 An absolute `AXM_CI_PNPM_CACHE_VOLUME` or `AXM_CI_NX_CACHE_VOLUME` override is
 instead treated as a bind mount; hosted PR verification uses this to restore
-the stores independently through GitHub Actions. Development uses the
+the stores independently through GitHub Actions. The Nx volume retains both
+task artifacts and Nx's database-backed provenance metadata so a new ephemeral
+runner can safely recognize restored entries; unknown-cache checks remain
+enabled. Development uses the
 `axm-dev-home` identity volume and a checksum-suffixed dependency volume for the
 current worktree. The image entrypoint maps its non-root user to the host
 UID/GID, keeping Linux bind mounts writable while preventing container installs

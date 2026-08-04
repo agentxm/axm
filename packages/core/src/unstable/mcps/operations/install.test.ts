@@ -700,6 +700,60 @@ describe("installMcpServer", () => {
       getUnknownConfiguredAgentIds: getUnknownConfiguredAgentIdsMock,
     };
 
+    it.effect("reports configured agents and deduplicated materialization targets", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+
+        getUnknownConfiguredAgentIdsMock.mockReturnValue(Effect.succeed([]));
+        getConfiguredAgentsMock.mockReturnValue(
+          Effect.succeed([
+            stubAgent(
+              "claude-code",
+              Effect.succeed({
+                _tag: "success",
+                targets: [{ path: ".mcp.json", change: "created" }],
+              }),
+            ),
+            stubAgent(
+              "codex",
+              Effect.succeed({
+                _tag: "success",
+                targets: [{ path: ".mcp.json", change: "updated" }],
+              }),
+            ),
+          ]),
+        );
+
+        const result = yield* installMcpServer(
+          makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
+        ).pipe(Effect.provide(withServices(axmDir, undefined, mockAgentRepo)));
+
+        expect(result.result).toBe("success");
+        if (result.result !== "success") {
+          throw new Error(result.message);
+        }
+        expect(result.artifact).toEqual(
+          expect.objectContaining({
+            change: "created",
+            fileCount: 3,
+            targets: [
+              expect.objectContaining({
+                path: ".axm/extensions/@community/mcps/my-server",
+                change: "created",
+              }),
+              { path: ".axm (config/lockfile)", change: "created" },
+              {
+                path: ".mcp.json",
+                change: "created",
+                agentIds: ["claude-code", "codex"],
+              },
+            ],
+          }),
+        );
+      }),
+    );
+
     it.effect("fails in strict mode when unknown configured agents exist", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
@@ -795,8 +849,20 @@ describe("installMcpServer", () => {
         ).pipe(Effect.provide(withServices(axmDir, undefined, mockAgentRepo)));
 
         expect(result.result).toBe("success");
+        if (result.result !== "success") {
+          throw new Error(result.message);
+        }
         expect(result.message).toContain("canonical=success");
         expect(result.message).toContain("agent-sync=green");
+        expect(result.artifact).toEqual(
+          expect.objectContaining({
+            fileCount: 2,
+            targets: [
+              expect.objectContaining({ path: ".axm/extensions/@community/mcps/my-server" }),
+              expect.objectContaining({ path: ".axm (config/lockfile)" }),
+            ],
+          }),
+        );
       }),
     );
 

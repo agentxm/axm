@@ -177,6 +177,12 @@ describe("HTTP registry transport", () => {
       expect(record?.authorization).toBe(`Bearer ${TOKEN}`);
       expect(record?.byteLength).toBeGreaterThan(0);
 
+      expect(registry.requests).toContainEqual({
+        method: "GET",
+        path: `/v1/owners/${OWNER}`,
+        status: 200,
+      });
+
       // The upload really went over the remote transport, at the versioned
       // path — not through a file:// shortcut.
       expect(registry.requests).toContainEqual({

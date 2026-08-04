@@ -45,6 +45,12 @@ import {
   type McpServerManifest,
   McpServerManifestSchema,
 } from "../manifest-schema.js";
+import {
+  agentConfigTargets,
+  mcpServerArtifact,
+  mcpSettingsTarget,
+  mcpSourceTarget,
+} from "./artifact.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -443,6 +449,7 @@ interface AgentSyncSummary {
   readonly status: "green" | "degraded";
   readonly details: ReadonlyArray<string>;
   readonly warnings: ReadonlyArray<string>;
+  readonly outcomes: ReadonlyArray<AgentOutcome>;
 }
 
 const formatAgentSyncWarning = (
@@ -481,6 +488,7 @@ const summarizeAgentSync = (
     status: degraded ? "degraded" : "green",
     details,
     warnings,
+    outcomes,
   };
 };
 
@@ -753,6 +761,17 @@ export const installMcpServer: (
       onNone: () => agentSync.warnings,
       onSome: (warning) => [warning, ...agentSync.warnings],
     });
+    const change = currentEntry === undefined ? "created" : "updated";
+    const agentOutcomes = agentSync.outcomes.flatMap(({ agentId, outcome }) =>
+      outcome._tag === "success" || outcome._tag === "fallback"
+        ? [
+            {
+              agentId,
+              ...(outcome.targets === undefined ? {} : { targets: outcome.targets }),
+            },
+          ]
+        : [],
+    );
 
     return {
       result: "success",
@@ -760,5 +779,15 @@ export const installMcpServer: (
         `Installed ${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
         warnings,
       ),
+      artifact: mcpServerArtifact({
+        lockEntry,
+        scope: ws.scope,
+        change,
+        targets: [
+          ...(ref.refType === "registry" ? [mcpSourceTarget(lockEntry, change)] : []),
+          mcpSettingsTarget(change),
+          ...agentConfigTargets(agentOutcomes),
+        ],
+      }),
     } satisfies JobStepResult;
   });

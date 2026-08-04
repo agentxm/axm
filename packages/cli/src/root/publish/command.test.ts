@@ -29,6 +29,7 @@ import {
   aggregatePublishFailure,
   handleRootPublish,
   publishAuthenticationPreconditions,
+  validatePublishOwners,
   type RootPublishHandlerArgs,
   PUBLISHABLE_TYPES,
   isPublishableType,
@@ -146,6 +147,34 @@ describe("root publish", () => {
       ),
     ).toEqual([[], [], []]);
   });
+
+  it.effect(
+    "validates each unique publish owner and links missing owners to organization creation",
+    () =>
+      Effect.gen(function* () {
+        const checked: Array<string> = [];
+        const client = {
+          ownerExists: (owner: ReturnType<typeof handle>) => {
+            checked.push(owner);
+            return Effect.succeed({ exists: owner !== "@missing" });
+          },
+        };
+
+        const error = yield* Effect.flip(
+          validatePublishOwners([handle("@acme"), handle("@acme"), handle("@missing")], client),
+        );
+
+        expect(checked.sort()).toEqual(["@acme", "@missing"]);
+        expect(error.code).toBe("not_found");
+        expect(error.detail).toContain("@missing");
+        expect(error.suggestions).toEqual([
+          {
+            description: "Create the organization in AgentXM before publishing.",
+            url: "https://agentxm.ai/orgs/new",
+          },
+        ]);
+      }),
+  );
 
   describe("human output", () => {
     it.effect("renders the published FQN and version after a successful apply", () => {

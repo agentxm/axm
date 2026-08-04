@@ -105,26 +105,6 @@ const extensionIndexResponse = {
 };
 
 /**
- * Standard extension list response body.
- */
-const extensionListResponse = {
-  extensions: [
-    {
-      name: "test-skill",
-      owner: "@acme",
-      type: "skill",
-      latestVersion: "1.0.0",
-    },
-    {
-      name: "another-skill",
-      owner: "@acme",
-      type: "skill",
-      latestVersion: "2.0.0",
-    },
-  ],
-};
-
-/**
  * Standard publish success response body.
  */
 const publishSuccessResponse = {
@@ -377,27 +357,43 @@ describe("getExtensionsByScope", () => {
 // =============================================================================
 
 describe("ownerExists", () => {
-  it.effect("returns exists:true when owner has extensions", () =>
+  it.effect("returns exists:true for an owner", () =>
     Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(
-        () => new Response(JSON.stringify(extensionListResponse), { status: 200 }),
-      );
+      let requestedUrl = "";
+      const httpClient = makeMockHttpClient((request) => {
+        requestedUrl = request.url;
+        return new Response(JSON.stringify({ displayName: "Acme" }), { status: 200 });
+      });
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.ownerExists(registryOwner);
 
       expect(result.exists).toBe(true);
+      expect(requestedUrl).toBe(`${BASE_URL}/v1/owners/@acme`);
     }),
   );
 
-  it.effect("returns exists:false when owner has no extensions", () =>
+  it.effect("returns exists:true for an owner with no extensions", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
-        () => new Response(JSON.stringify({ extensions: [] }), { status: 200 }),
+        () => new Response(JSON.stringify({ displayName: "Empty Owner" }), { status: 200 }),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.ownerExists(handle("@empty"));
+
+      expect(result.exists).toBe(true);
+    }),
+  );
+
+  it.effect("returns exists:false when the owner endpoint returns 404", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(404, "owner_not_found", "Owner not found"),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.ownerExists(handle("@missing"));
 
       expect(result.exists).toBe(false);
     }),
@@ -417,7 +413,7 @@ describe("ownerExists", () => {
   it.effect("fails with REGISTRY_REMOTE_INVALID_RESPONSE on invalid schema", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
-        () => new Response(JSON.stringify({ not: "extensions" }), { status: 200 }),
+        () => new Response(JSON.stringify({ not: "displayName" }), { status: 200 }),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 

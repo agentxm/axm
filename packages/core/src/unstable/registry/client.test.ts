@@ -1383,6 +1383,13 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
   describe("RemoteRegistryClient", () => {
     const stubHttpClient = HttpClient.make((request) =>
       Effect.sync(() => {
+        if (request.url.endsWith("/v1/owners/@test")) {
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(JSON.stringify({ displayName: "Test Owner" }), { status: 200 }),
+          );
+        }
+
         if (request.url.endsWith("/v1/extensions/@test")) {
           return HttpClientResponse.fromWeb(
             request,
@@ -1459,7 +1466,7 @@ layer(NodeServices.layer, { excludeTestServices: true })((it) => {
       }),
     );
 
-    it.effect("ownerExists succeeds via remote list semantics", () =>
+    it.effect("ownerExists succeeds via the remote owner endpoint", () =>
       Effect.gen(function* () {
         const result = yield* client.ownerExists(handle("@test"));
         expect(result).toEqual({ exists: true });

@@ -64,6 +64,7 @@ import {
 import {
   createRegistryClient,
   type ExtensionVisibility,
+  type RegistryClient,
   type VersionEntry,
 } from "@agentxm/client-core/unstable/registry";
 import { isWorkspaceSourceLocator, type SourceType } from "@agentxm/client-core/unstable/sources";
@@ -262,6 +263,32 @@ export const publishAuthenticationPreconditions = (options: {
         },
       ]
     : [];
+
+export const validatePublishOwners = (
+  owners: ReadonlyArray<Handle>,
+  client: Pick<RegistryClient, "ownerExists">,
+): Effect.Effect<void, AppError> =>
+  Effect.forEach(
+    [...new Set(owners)],
+    (owner) =>
+      client.ownerExists(owner).pipe(
+        Effect.flatMap(({ exists }) =>
+          exists
+            ? Effect.void
+            : makeAppError({
+                code: "not_found",
+                detail: `Publish owner ${owner} does not exist.`,
+                suggestions: [
+                  {
+                    description: "Create the organization in AgentXM before publishing.",
+                    url: "https://agentxm.ai/orgs/new",
+                  },
+                ],
+              }),
+        ),
+      ),
+    { concurrency: 4, discard: true },
+  );
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -966,6 +993,15 @@ const runPublish = Effect.fn("Publish.run")(function* (
       Effect.gen(function* () {
         const catalog = yield* catalogEntries();
         const selection = yield* selectEntries(catalog, args);
+        const isRemoteRegistry =
+          registry.url.startsWith("https://") || registry.url.startsWith("http://");
+        if (isRemoteRegistry && selection.entries.length > 0) {
+          const client = yield* createRegistryClient(registry.url);
+          yield* validatePublishOwners(
+            selection.entries.map((entry) => entry.owner),
+            client,
+          );
+        }
         const decoded = yield* Effect.forEach(
           selection.entries,
           (entry) =>

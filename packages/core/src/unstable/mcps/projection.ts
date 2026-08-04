@@ -313,9 +313,13 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
   }
   if (args.entry.url !== undefined) {
     if (args.remote === null) {
+      const headerRecovery =
+        Object.keys(args.entry.headers ?? {}).length === 0
+          ? ""
+          : ' Preserve required headers by appending `--header "Header:${ENV_VAR}"` to the shim command and pass `ENV_VAR` with `--env ENV_VAR`.';
       return {
         _tag: "unsupported",
-        reason: "agent does not support inline remote MCP servers",
+        reason: `this agent cannot project inline URL entries; use the supported stdio shim instead: \`axm mcps add ${args.serverName} --command "npx -y mcp-remote ${args.entry.url}"\`.${headerRecovery}`,
       };
     }
     const projected = projectInlineRemote({

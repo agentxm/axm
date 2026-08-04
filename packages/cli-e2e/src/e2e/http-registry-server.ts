@@ -21,6 +21,8 @@ import * as http from "node:http";
 const PUBLISH_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)$/;
 const ARCHIVE_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)\/([^/]+)\/archive$/;
 const INDEX_PATH = /^\/v1\/extensions\/(@[^/]+)\/([^/]+)\/([^/]+)$/;
+const OWNER_PATH = /^\/v1\/owners\/(@[^/]+)$/;
+const TEST_OWNER = "@test";
 
 const TYPE_BY_PLURAL: Readonly<Record<string, string>> = {
   skills: "skill",
@@ -186,6 +188,17 @@ export const startHttpRegistry = async (): Promise<HttpRegistry> => {
 
       if (request.method !== "GET" && request.method !== "HEAD") {
         sendProblem(response, 405, `Unsupported method ${request.method ?? "unknown"}`);
+        return;
+      }
+
+      const ownerMatch = OWNER_PATH.exec(pathname);
+      if (ownerMatch !== null) {
+        const [, owner = ""] = ownerMatch;
+        if (owner !== TEST_OWNER) {
+          sendProblem(response, 404, `No owner ${owner}`);
+          return;
+        }
+        sendJson(response, 200, { displayName: "Test Owner" });
         return;
       }
 

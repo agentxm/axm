@@ -422,10 +422,8 @@ export const createRemoteRegistryClient = (
   // ownerExists
   // ---------------------------------------------------------------------------
   const ownerExists = (owner: Handle): Effect.Effect<OwnerExistsResponse, AppError> =>
-    client.ExtensionsListByOwner(owner, undefined).pipe(
-      Effect.map(
-        (response) => ({ exists: response.extensions.length > 0 }) satisfies OwnerExistsResponse,
-      ),
+    client.OwnersGetOwner(owner, undefined).pipe(
+      Effect.as({ exists: true } satisfies OwnerExistsResponse),
       Effect.catch((e) => {
         // 404 → not found
         if (hasTagSuffix(e, "404")) {

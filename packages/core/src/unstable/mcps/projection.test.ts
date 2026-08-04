@@ -128,6 +128,32 @@ describe("MCP projection", () => {
     });
   });
 
+  it("explains the inline-only remote limitation and stdio shim recovery", () => {
+    const projected = projectExpectedEntry({
+      serverName: "demo",
+      entry: {
+        source: "inline",
+        url: "https://example.test/mcp",
+        headers: { Authorization: "Bearer ${TOKEN}" },
+        enabled: true,
+        env: {},
+      },
+      stdio: {
+        typeField: null,
+        command: "split",
+        envKey: "env",
+      },
+      remote: null,
+      nativeEnabled: true,
+    });
+
+    expect(projected).toEqual({
+      _tag: "unsupported",
+      reason:
+        'this agent cannot project inline URL entries; use the supported stdio shim instead: `axm mcps add demo --command "npx -y mcp-remote https://example.test/mcp"`. Preserve required headers by appending `--header "Header:${ENV_VAR}"` to the shim command and pass `ENV_VAR` with `--env ENV_VAR`.',
+    });
+  });
+
   it("projects Codex secret-backed headers through environment fields", () => {
     const projected = projectExpectedEntry({
       serverName: "demo",

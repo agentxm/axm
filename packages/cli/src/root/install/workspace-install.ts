@@ -436,7 +436,7 @@ const collectPackPlans = () =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallPackCommandWorkflowActions;
     const configured = yield* ws.getConfiguredPackEntries();
-    const entries = Object.entries(configured);
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,

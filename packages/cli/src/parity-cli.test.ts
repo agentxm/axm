@@ -19,7 +19,11 @@ import {
   type CatalogExtensionType,
   type ObligationId,
 } from "@agentxm/client-core/unstable/extension-types";
-import { toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions";
+import {
+  extensionTypes,
+  toExtensionTypePlural,
+  type ExtensionType,
+} from "@agentxm/client-core/unstable/extensions";
 import * as EffectRecord from "effect/Record";
 import { describe, expect, it } from "vitest";
 
@@ -31,6 +35,17 @@ import "./app.js";
 const TIER = "cli-test";
 
 const topicNames: ReadonlySet<string> = new Set(HELP_TOPIC_NAMES);
+
+const hasLifecycleVerbs = (type: ExtensionType): boolean => {
+  const plural = toExtensionTypePlural(type);
+  const source = fs.readFileSync(
+    new URL(`./root/${plural}/_${plural}.ts`, import.meta.url),
+    "utf8",
+  );
+  return ["enableCommand", "disableCommand", "updateCommand"].every((name) =>
+    source.includes(name),
+  );
+};
 
 /**
  * Obligation checks, keyed by id. Each returns `true` when the type meets the
@@ -45,6 +60,7 @@ const CHECKS: Record<ObligationId, ((type: CatalogExtensionType) => boolean) | n
   "6.1-e2e-install-row": null,
   "7.1-help-topic": (type) => topicNames.has(toExtensionTypePlural(type)),
   "8.6-entity-key": (type) => getEntityView(type) !== undefined,
+  "8.7-lifecycle-verbs": hasLifecycleVerbs,
 };
 
 const cliObligations = obligationsVerifiedBy(TIER);
@@ -82,6 +98,10 @@ describe("extension type parity (cli tier)", () => {
 
   it("matches the exemption ledger exactly", () => {
     expect(observedFailures()).toStrictEqual(exemptedObligations(TIER));
+  });
+
+  it("registers lifecycle verbs for every extension type, including containers", () => {
+    expect(extensionTypes.filter((type) => !hasLifecycleVerbs(type))).toStrictEqual([]);
   });
 
   it("names no extension type in its own source", () => {

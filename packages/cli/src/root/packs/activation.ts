@@ -1,0 +1,405 @@
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
+import type * as Scope from "effect/Scope";
+import { Argument, Command, Flag } from "effect/unstable/cli";
+
+import {
+  CodingAgentRepository,
+  DefaultCodingAgentRepository,
+} from "@agentxm/client-core/unstable/agents";
+import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { RenderedFilePathSchema, sanitizeName } from "@agentxm/client-core/unstable/extensions";
+import { CommandManager } from "@agentxm/client-core/unstable/commands";
+import { FilesManager } from "@agentxm/client-core/unstable/files";
+import { HookManager } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
+import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
+import {
+  previewOrApplyPlan,
+  type JobStepResult,
+  type Plan,
+} from "@agentxm/client-core/unstable/plan";
+import { RuleManager } from "@agentxm/client-core/unstable/rules";
+import { SkillManager } from "@agentxm/client-core/unstable/skills";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+import {
+  findManagedSubagentFiles,
+  isDesiredExtensionActive,
+  WorkspaceMutations,
+  type DesiredExtensionNode,
+} from "@agentxm/client-core/unstable/workspace";
+
+import { scopeFlag } from "../../cli-flags.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
+import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { collectMaterializeSteps } from "../sync/handler.js";
+
+const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
+
+const normalizedPackIdentity = (identity: string): string =>
+  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+
+const packContributesTo = (node: DesiredExtensionNode, packIdentity: string): boolean =>
+  node.origins.some(
+    (origin) => origin.type === "pack" && normalizedPackIdentity(origin.pack) === packIdentity,
+  );
+
+const remainsActiveWithoutPack = (node: DesiredExtensionNode, packIdentity: string): boolean =>
+  isDesiredExtensionActive(
+    node.origins.filter(
+      (origin) => origin.type !== "pack" || normalizedPackIdentity(origin.pack) !== packIdentity,
+    ),
+  );
+
+const retainedPackMembers = Effect.fn("PacksActivation.retainedPackMembers")(function* (
+  name: string,
+) {
+  const ws = yield* WorkspaceMutations;
+  const locked = yield* ws
+    .getLockedPack(name)
+    .pipe(Effect.catch(() => Effect.succeed(Option.none())));
+  return Option.match(locked, {
+    onNone: () => [],
+    onSome: (entry) => [
+      ...Object.keys(entry.resolvedSkills).map((member) => `skill: ${member}`),
+      ...Object.keys(entry.resolvedCommands).map((member) => `command: ${member}`),
+      ...Object.keys(entry.resolvedMcpServers).map((member) => `mcp-server: ${member}`),
+      ...Object.keys(entry.resolvedSubagents).map((member) => `subagent: ${member}`),
+      ...Object.keys(entry.resolvedFiles ?? {}).map((member) => `files: ${member}`),
+      ...Object.keys(entry.resolvedRules ?? {}).map((member) => `rule: ${member}`),
+      ...Object.keys(entry.resolvedHooks ?? {}).map((member) => `hook: ${member}`),
+      ...Object.keys(entry.resolvedKnowledge ?? {}).map((member) => `knowledge: ${member}`),
+    ],
+  });
+});
+
+const dematerializeNode = Effect.fn("PacksActivation.dematerializeNode")(function* (
+  node: DesiredExtensionNode,
+) {
+  const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const agentRepo = yield* CodingAgentRepository;
+  const fsPathLayer = Layer.merge(
+    Layer.succeed(FileSystem.FileSystem, fs),
+    Layer.succeed(Path.Path, path),
+  );
+
+  switch (node.type) {
+    case "skill": {
+      const agents = yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
+        Effect.provideService(WorkspaceMutations, ws),
+      );
+      yield* Effect.forEach(
+        agents,
+        (agent) =>
+          agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+            Effect.provide(fsPathLayer),
+            Effect.flatMap((outcome) =>
+              outcome._tag === "supported"
+                ? fs
+                    .remove(path.join(path.normalize(outcome.dir), sanitizeName(node.name)), {
+                      recursive: true,
+                    })
+                    .pipe(Effect.catch(() => Effect.void))
+                : Effect.void,
+            ),
+          ),
+        { concurrency: "unbounded" },
+      );
+      return;
+    }
+    case "command": {
+      const agents = yield* agentRepo.getConfiguredAgents();
+      yield* Effect.forEach(
+        agents,
+        (agent) =>
+          agent
+            .removeCommand({
+              workspaceRoot: ws.baseDir,
+              scope: ws.scope,
+              commandName: node.name,
+            })
+            .pipe(Effect.catch(() => Effect.void)),
+        { concurrency: "unbounded" },
+      );
+      return;
+    }
+    case "mcp-server": {
+      const agents = yield* agentRepo.getConfiguredAgents();
+      yield* Effect.forEach(
+        agents,
+        (agent) =>
+          agent
+            .removeMcpServer({
+              workspaceRoot: ws.baseDir,
+              scope: ws.scope,
+              serverName: node.name,
+              disableOnly: true,
+            })
+            .pipe(Effect.catch(() => Effect.void)),
+        { concurrency: "unbounded" },
+      );
+      return;
+    }
+    case "subagent": {
+      const agents = yield* agentRepo.getConfiguredAgents();
+      yield* Effect.forEach(
+        agents,
+        (agent) =>
+          agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
+            Effect.provide(fsPathLayer),
+            Effect.flatMap((resolved) =>
+              resolved._tag === "supported"
+                ? findManagedSubagentFiles(resolved.dir, sanitizeName(node.name)).pipe(
+                    Effect.provide(fsPathLayer),
+                    Effect.flatMap((managedPaths) =>
+                      agent.removeSubagent({
+                        workspaceRoot: ws.baseDir,
+                        scope: ws.scope,
+                        subagentName: node.name,
+                        renderedFilePaths: managedPaths.map((filePath) =>
+                          decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
+                        ),
+                      }),
+                    ),
+                  )
+                : Effect.void,
+            ),
+          ),
+        { concurrency: "unbounded" },
+      );
+      return;
+    }
+    case "files": {
+      const manager = yield* FilesManager;
+      yield* manager.materializeUninstall({
+        target: { type: "files", name: node.name },
+        preserveSource: true,
+      });
+      return;
+    }
+    case "rule": {
+      const manager = yield* RuleManager;
+      yield* manager.materializeUninstall({
+        target: { type: "rule", name: node.name },
+        preserveSource: true,
+      });
+      return;
+    }
+    case "hook": {
+      const manager = yield* HookManager;
+      yield* manager.materializeUninstall({
+        target: { type: "hook", name: node.name },
+        preserveSource: true,
+      });
+      return;
+    }
+    case "knowledge":
+    case "pack":
+      return;
+  }
+});
+
+const runMaterializeSteps = Effect.fn("PacksActivation.runMaterializeSteps")(function* (
+  packIdentity: string,
+) {
+  const ws = yield* WorkspaceMutations;
+  const graph = yield* ws.getDesiredStateGraph();
+  const hasMembers = graph.nodes.some(
+    (node) => node.type !== "pack" && packContributesTo(node, packIdentity),
+  );
+  if (!hasMembers) return;
+  const { steps } = yield* collectMaterializeSteps({
+    force: false,
+    retainedOnly: true,
+    selection: { target: Option.some(packIdentity), type: Option.none() },
+  });
+  yield* Effect.forEach(
+    steps,
+    (step) =>
+      step.readiness === "error"
+        ? makeAppError({
+            code: "conflict",
+            detail: step.errorMessage,
+          })
+        : step.run.pipe(Effect.asVoid),
+    { concurrency: 1 },
+  );
+});
+
+interface PackActivationArgs {
+  readonly name: string;
+  readonly enabled: boolean;
+  readonly yes: boolean;
+  readonly force: boolean;
+  readonly preview: boolean;
+}
+
+export const handlePackActivation = Effect.fn("PacksActivation.handle")(function* (
+  args: PackActivationArgs,
+) {
+  const ws = yield* WorkspaceMutations;
+  const runServices = yield* Effect.context<
+    | Scope.Scope
+    | CliRenderer
+    | SourceHostProviders
+    | WorkspaceMutations
+    | CodingAgentRepository
+    | CommandManager
+    | FileSystem.FileSystem
+    | FilesManager
+    | HookManager
+    | KnowledgeManager
+    | McpServerManager
+    | Path.Path
+    | RuleManager
+    | SkillManager
+    | SubagentManager
+  >();
+  const entries = yield* ws.getConfiguredPackEntries();
+  const entry = entries[args.name];
+  const verb = args.enabled ? "enable" : "disable";
+  const titleVerb = args.enabled ? "Enable" : "Disable";
+
+  if (entry === undefined) {
+    return yield* makeAppError({
+      code: "not_found",
+      detail: `Pack "${args.name}" is not configured`,
+      suggestions: [{ description: "Inspect installed packs", cmd: "axm packs list" }],
+    });
+  }
+  if (entry.enabled === args.enabled) {
+    yield* emitNoOpOutcome(`packs.${verb}`, {
+      planName: `${titleVerb} pack`,
+      planDescription: `${titleVerb} ${args.name}`,
+      message: `Pack "${args.name}" is already ${args.enabled ? "enabled" : "disabled"}`,
+    });
+    return;
+  }
+
+  const graph = yield* ws.getDesiredStateGraph();
+  if (!graph.complete) {
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Cannot ${verb} the pack while desired state is unresolved`,
+      suggestions: [{ description: "Inspect workspace blockers", cmd: "axm status" }],
+    });
+  }
+  const packNode = graph.nodes.find((node) => node.type === "pack" && node.name === args.name);
+  if (packNode === undefined) {
+    return yield* makeAppError({ code: "not_found", detail: `Pack "${args.name}" was not found` });
+  }
+  const packIdentity = normalizedPackIdentity(packNode.identity);
+  const affected = graph.nodes.filter(
+    (node) =>
+      node.type !== "pack" &&
+      node.enabled &&
+      packContributesTo(node, packIdentity) &&
+      !remainsActiveWithoutPack(node, packIdentity),
+  );
+  const previewItems = args.enabled
+    ? yield* retainedPackMembers(args.name)
+    : affected.map((node) => `${node.type}: ${node.name}`);
+
+  const plan: Plan = {
+    _tag: "Plan",
+    name: `${titleVerb} pack`,
+    description: Option.some(`${titleVerb} ${packIdentity} without changing locked versions`),
+    sections: [
+      {
+        title: args.enabled
+          ? "Retained dependency resolutions considered for restoration"
+          : "Exclusive dependencies deactivated",
+        items: previewItems.length === 0 ? ["(none)"] : previewItems,
+      },
+    ],
+    jobs: [
+      {
+        concurrency: 1,
+        steps: [
+          {
+            readiness: "ready",
+            label: packIdentity,
+            run: Effect.gen(function* () {
+              yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
+              if (args.enabled) {
+                yield* runMaterializeSteps(packIdentity).pipe(
+                  Effect.catch((error) =>
+                    ws
+                      .setPackEntry(args.name, { ...entry, enabled: false })
+                      .pipe(Effect.andThen(Effect.fail(error))),
+                  ),
+                );
+              } else {
+                yield* Effect.forEach(affected, dematerializeNode, { concurrency: 1 });
+              }
+              return {
+                result: "success",
+                message: `${titleVerb}d ${packIdentity}`,
+                artifact: { path: ".axm/settings.json", scope: ws.scope, change: "updated" },
+              } satisfies JobStepResult;
+            }).pipe(Effect.provide(runServices)),
+          },
+        ],
+      },
+    ],
+  };
+
+  const resolution = yield* previewOrApplyPlan(plan, {
+    yes: args.yes,
+    force: args.force,
+    preview: args.preview,
+    displayApplied: false,
+  });
+  yield* emitAppliedPlanOutcome({
+    command: `packs.${verb}`,
+    headline: `${titleVerb}d pack ${args.name}`,
+    resolution,
+    suggestions: [
+      { description: "Inspect installed packs", cmd: "axm packs list" },
+      { description: "Undo", cmd: `axm packs ${args.enabled ? "disable" : "enable"} ${args.name}` },
+    ],
+  });
+});
+
+const activationConfig = {
+  name: Argument.string("name").pipe(Argument.withDescription("Name of the pack")),
+  scope: scopeFlag.pipe(Flag.withDescription("Use project (default) or user-level configuration")),
+  yes: yesFlag.pipe(Flag.withDescription("Apply without confirmation")),
+  force: forceFlag.pipe(Flag.withDescription("Apply despite plan warnings")),
+  preview: previewFlag.pipe(Flag.withDescription("Show what would change without applying")),
+} as const;
+
+const makeActivationCommand = (enabled: boolean) => {
+  const verb = enabled ? "enable" : "disable";
+  return Command.make(verb, activationConfig, ({ name, scope, yes, force, preview }) =>
+    handlePackActivation({ name, enabled, yes, force, preview }).pipe(
+      withWorkspace(scope),
+      withRuntime(`packs ${verb}`),
+    ),
+  ).pipe(
+    withArgvTracking(activationConfig),
+    Command.withDescription(
+      `${enabled ? "Enable" : "Disable"} a pack without changing locked versions`,
+    ),
+    Command.withExamples([
+      {
+        command: `axm packs ${verb} frontend-tools --preview`,
+        description: `Preview ${verb} effects and dependency provenance`,
+      },
+    ]),
+  );
+};
+
+export const enableCommand = makeActivationCommand(true);
+export const disableCommand = makeActivationCommand(false);

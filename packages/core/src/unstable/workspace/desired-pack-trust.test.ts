@@ -90,6 +90,26 @@ describe("validateDesiredPackTrust", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("does not require trust validation for a disabled pack", () =>
+    Effect.gen(function* () {
+      const { baseDir } = setupCanonicalPack();
+      const disabledGraph: DesiredStateGraph = {
+        ...packGraph,
+        nodes: packGraph.nodes.map((node) => ({ ...node, enabled: false })),
+      };
+      const trust: WorkspaceTrustState = { trustStateVersion: 1, records: {} };
+
+      const validated = yield* validateDesiredPackTrust({
+        baseDir,
+        graph: disabledGraph,
+        trust,
+      });
+
+      expect(validated.complete).toBe(true);
+      expect(validated.problems).toEqual([]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("detects canonical pack manifest modification after trust is established", () =>
     Effect.gen(function* () {
       const { baseDir, canonical } = setupCanonicalPack();

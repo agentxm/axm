@@ -891,7 +891,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
     });
 
@@ -902,7 +902,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
     });
 
@@ -943,7 +943,7 @@ describe("Settings schema", () => {
         },
       });
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
       expect(result.mcpServers).toEqual({
         batcomputer: {
@@ -1250,6 +1250,7 @@ describe("Settings schema", () => {
 
         expect(result).toEqual({
           source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: true,
         });
       });
 
@@ -1260,6 +1261,19 @@ describe("Settings schema", () => {
 
         expect(result).toEqual({
           source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: true,
+        });
+      });
+
+      it("decodes an explicitly disabled object", () => {
+        const result = Schema.decodeUnknownSync(PackEntrySchema)({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: false,
+        });
+
+        expect(result).toEqual({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: false,
         });
       });
 
@@ -1289,8 +1303,20 @@ describe("Settings schema", () => {
       it("encodes an entry to string", () => {
         const result = Schema.encodeSync(PackEntrySchema)({
           source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: true,
         });
         expect(result).toBe("@wayne/packs/utility-belt@^1.0.0");
+      });
+
+      it("preserves an explicit disabled state", () => {
+        const result = Schema.encodeSync(PackEntrySchema)({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: false,
+        });
+        expect(result).toEqual({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: false,
+        });
       });
     });
   });
@@ -1311,7 +1337,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
       expect(result).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
     });
 
@@ -1320,7 +1346,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
       expect(result).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
     });
 

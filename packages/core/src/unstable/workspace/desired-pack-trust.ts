@@ -4,6 +4,7 @@ import * as Path from "effect/Path";
 import { trustRecordKey, type WorkspaceTrustState } from "../trust/index.js";
 import { observeCanonicalExtension } from "./canonical-observation.js";
 import type { DesiredStateGraph, DesiredStateProblem } from "./desired-state-graph.js";
+import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 
 interface ValidateDesiredPackTrustArgs {
   readonly baseDir: string;
@@ -42,9 +43,7 @@ const withoutUntrustedPackOrigins = (
           (packOrigin === undefined
             ? node.source
             : `${packOrigin.source}@${packOrigin.constraint}`),
-        enabled: origins.some(
-          (origin) => origin.type === "pack" || (origin.type === "settings" && origin.enabled),
-        ),
+        enabled: isDesiredExtensionActive(origins),
         constraints,
         origins,
       },
@@ -74,7 +73,7 @@ export const validateDesiredPackTrust = ({
       ),
     );
     for (const node of graph.nodes) {
-      if (node.type !== "pack") continue;
+      if (node.type !== "pack" || !node.enabled) continue;
       const record = trust.records[trustRecordKey("pack", node.name)];
       if (
         record === undefined ||

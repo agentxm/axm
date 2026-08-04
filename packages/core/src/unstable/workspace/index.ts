@@ -62,6 +62,10 @@ export {
   type DesiredStateGraph,
   type DesiredStateProblem,
 } from "./desired-state-graph.js";
+export {
+  isDesiredExtensionActive,
+  type DesiredStateEnabledOrigin,
+} from "./desired-state-enabled.js";
 export { validateDesiredPackTrust } from "./desired-pack-trust.js";
 export {
   observeCanonicalExtension,
@@ -123,6 +127,7 @@ export {
   AXM_MANAGED_MARKER,
   cleanupManagedArtifactsForRemovedAgents,
   cleanupStaleManagedSubagentFiles,
+  findManagedSubagentFiles,
   hasAxmManagedMarker,
   type RemovedAgentArtifactCleanupResult,
   type RenderedFileCleanupResult,

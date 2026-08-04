@@ -176,22 +176,31 @@ export const trustedCanonicalRef = ({
       return yield* invalidTrust(desired, "the canonical location is not applicable");
     }
     const name = yield* decodedName(desired);
-    const resolvedSource = yield* resolveSource(desired.source);
-    const trustedSourceName = trust.sourceName;
-    const source =
-      resolvedSource.type === "registry" && trustedSourceName !== undefined
-        ? yield* Effect.gen(function* () {
-            const ws = yield* WorkspaceMutations;
-            const configured = yield* ws.getConfiguredSourceByName(trustedSourceName);
-            if (Option.isNone(configured) || configured.value.type !== "registry") {
-              return yield* invalidTrust(
-                desired,
-                `the trusted Registry source "${trustedSourceName}" is not configured`,
-              );
-            }
-            return { ...resolvedSource, location: configured.value.location };
-          })
-        : resolvedSource;
+    const source = yield* Effect.gen(function* () {
+      if (trust.authority !== "registry") {
+        return yield* resolveSource(desired.source);
+      }
+      const parsed = parseExtensionFqnParts(trust.sourceIdentity);
+      if (parsed === undefined || parsed.type !== desired.type) {
+        return yield* invalidTrust(desired, "the Registry identity is invalid");
+      }
+      if (trust.sourceName === undefined) {
+        return yield* invalidTrust(desired, "the trusted Registry source name is missing");
+      }
+      const ws = yield* WorkspaceMutations;
+      const configured = yield* ws.getConfiguredSourceByName(trust.sourceName);
+      if (Option.isNone(configured) || configured.value.type !== "registry") {
+        return yield* invalidTrust(
+          desired,
+          `the trusted Registry source "${trust.sourceName}" is not configured`,
+        );
+      }
+      return {
+        type: "registry" as const,
+        location: configured.value.location,
+        owner: Option.some(parsed.owner),
+      };
+    });
 
     const details =
       source.type === "registry"

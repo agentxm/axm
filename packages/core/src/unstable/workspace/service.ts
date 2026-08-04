@@ -1741,9 +1741,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   : fqn;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: PacksMap = currentSettings.packs ?? {};
+            const enabled = currentPacks[name]?.enabled ?? true;
             const updatedSettings = {
               ...currentSettings,
-              packs: { ...currentPacks, [name]: { source } },
+              packs: { ...currentPacks, [name]: { source, enabled } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 

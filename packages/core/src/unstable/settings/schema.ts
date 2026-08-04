@@ -1079,9 +1079,10 @@ export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
  */
 export const PackEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("pack", "packs"),
+  enabled: enabledFieldSchema,
 }).annotate({
   title: "Pack Entry Object",
-  description: "A pack entry with a source.",
+  description: "A pack entry with a source and an optional enabled flag.",
 });
 
 /**
@@ -1091,23 +1092,15 @@ export const PackEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackEntrySchema = compactOrVerboseEntry(
-  PackEntryObjectSchema,
-  Schema.Struct({
-    source: Schema.String,
-  }),
-  {
-    decode: (entry: string | SourceEntryObject): SourceEntry =>
-      typeof entry === "string" ? { source: entry } : { source: entry.source },
-    encode: (entry: SourceEntry): string | SourceEntryObject => entry.source,
-  },
-  {
-    identifier: "PackEntry",
-    title: "Pack Entry",
-    description: "A pack entry: a source string, or an object with a source.",
-    examples: ["@acme/packs/typescript@^1.0.0"],
-  },
-);
+export const PackEntrySchema = compactEnabledEntry(PackEntryObjectSchema, {
+  identifier: "PackEntry",
+  title: "Pack Entry",
+  description: "A pack entry: a source string, or an object with source plus optional flags.",
+  examples: [
+    "@acme/packs/typescript@^1.0.0",
+    { source: "@acme/packs/typescript@^1.0.0", enabled: false },
+  ],
+});
 
 /**
  * Inferred type for PackEntry schema.
@@ -1124,7 +1117,7 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
  * - Lowercase letters, numbers, and hyphens only
  * - Must not start or end with a hyphen
  *
- * Values are pack entries: plain source strings or objects with source.
+ * Values are pack entries: plain source strings or objects with source + enabled.
  *
  * @experimental This API is unstable and may change without notice.
  */

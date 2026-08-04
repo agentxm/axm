@@ -2,6 +2,7 @@ import { Command } from "effect/unstable/cli";
 
 import { packsVersionCommand } from "../shared/version-command.js";
 import { addCommand } from "./add.js";
+import { disableCommand, enableCommand } from "./activation.js";
 import { installCommand } from "./install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
@@ -11,6 +12,7 @@ import { repairCommand } from "./repair.js";
 import { showCommand } from "./show.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { unpackCommand } from "./unpack/command.js";
+import { updateCommand } from "./update.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 
 export const packsCommand = Command.make("packs").pipe(
@@ -46,6 +48,8 @@ export const packsCommand = Command.make("packs").pipe(
   ]),
   Command.withSubcommands([
     listCommand,
+    enableCommand,
+    disableCommand,
     installCommand,
     uninstallCommand,
     newCommand,
@@ -55,6 +59,7 @@ export const packsCommand = Command.make("packs").pipe(
     showCommand,
     publishCommand,
     unpackCommand,
+    updateCommand,
     packsVersionCommand,
   ]),
 );

@@ -699,17 +699,25 @@
                   ]
                 }
               ]
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
+              "default": true
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Pack Entry Object",
-          "description": "A pack entry with a source."
+          "description": "A pack entry with a source and an optional enabled flag."
         }
       ],
       "title": "Pack Entry",
-      "description": "A pack entry: a source string, or an object with a source.",
-      "examples": ["@acme/packs/typescript@^1.0.0"]
+      "description": "A pack entry: a source string, or an object with source plus optional flags.",
+      "examples": [
+        "@acme/packs/typescript@^1.0.0",
+        { "source": "@acme/packs/typescript@^1.0.0", "enabled": false }
+      ]
     },
     "PacksMap": {
       "type": "object",

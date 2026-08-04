@@ -107,7 +107,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     versionRange: Option.none(),
     label: fqn,
     message: `Created pack ${fqn}`,
-    markAuthored: ws.setPackEntry(args.name, { source: `workspace:${fqn}` }),
+    markAuthored: ws.setPackEntry(args.name, { source: `workspace:${fqn}`, enabled: true }),
     buildArtifact: () =>
       Effect.succeed(
         packManifestArtifact({

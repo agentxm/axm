@@ -344,8 +344,8 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   // Cache the installed-packs rollup once per scope; shared across subjects.
   const installedPackMembers: Effect.Effect<ReadonlyArray<PackMemberSets>> = yield* Effect.cached(
     Effect.gen(function* () {
-      const installed = yield* packsApi.installed;
-      return installed.map<PackMemberSets>((row) => {
+      const active = yield* packsApi.active;
+      return active.map<PackMemberSets>((row) => {
         const resolvedSome = Option.match(row.resolved, {
           onNone: () => null,
           onSome: (r) => r.lockEntry,

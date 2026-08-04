@@ -70,10 +70,26 @@ export const disableSkill: OperationHandler<
         detail: "Cannot disable the skill while pack-derived desired state is unresolved.",
       });
     }
-    const desired = graph.nodes.find(
+    const desiredBeforeDisable = graph.nodes.find(
       (node) => node.type === "skill" && node.name === op.args.skillName,
     );
-    const stillRequiredByPack = desired?.origins.some((origin) => origin.type === "pack") ?? false;
+
+    if (isImplicit) {
+      const source =
+        desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
+      if (source === undefined) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: `Cannot determine source for implicit skill "${op.args.skillName}"`,
+          suggestions: [{ description: "Provide a source when disabling this skill" }],
+        });
+      }
+      yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false });
+    } else {
+      yield* ws
+        .updateSkillEntry(op.args.skillName, (entry) => ({ ...entry, enabled: false }))
+        .pipe(Effect.catch(() => Effect.void));
+    }
 
     const sanitizedName = sanitizeName(op.args.skillName);
     const materializationAgents =
@@ -87,41 +103,22 @@ export const disableSkill: OperationHandler<
           Effect.provide(fsPathLayer),
           Effect.flatMap((outcome) =>
             outcome._tag === "supported"
-              ? stillRequiredByPack
-                ? Effect.succeed(Option.none<InstallableSkillTarget>())
-                : Effect.gen(function* () {
-                    const targetDir = path.normalize(outcome.dir);
-                    yield* fs
-                      .remove(path.join(targetDir, sanitizedName), { recursive: true })
-                      .pipe(Effect.catch(() => Effect.void));
-                    return Option.some({
-                      agentId: agent.id,
-                      targetDir,
-                    } satisfies InstallableSkillTarget);
-                  })
+              ? Effect.gen(function* () {
+                  const targetDir = path.normalize(outcome.dir);
+                  yield* fs
+                    .remove(path.join(targetDir, sanitizedName), { recursive: true })
+                    .pipe(Effect.catch(() => Effect.void));
+                  return Option.some({
+                    agentId: agent.id,
+                    targetDir,
+                  } satisfies InstallableSkillTarget);
+                })
               : Effect.succeed(Option.none<InstallableSkillTarget>()),
           ),
         ),
       { concurrency: "unbounded" },
     );
     const installableTargets = Array.getSomes(installableTargetOptions);
-
-    if (isImplicit) {
-      const source = desired?.source ?? Option.getOrElse(installed.source, () => undefined);
-      if (source === undefined) {
-        return yield* makeAppError({
-          code: "internal",
-          detail: `Cannot determine source for implicit skill "${op.args.skillName}"`,
-          suggestions: [{ description: "Provide a source when disabling this skill" }],
-        });
-      }
-      yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false });
-    } else {
-      // Configured skill — toggle enabled flag
-      yield* ws
-        .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: false }))
-        .pipe(Effect.catch(() => Effect.void));
-    }
 
     const artifact = yield* skillArtifactFromTargets({
       targets: installableTargets,

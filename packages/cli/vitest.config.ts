@@ -6,7 +6,7 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   root: projectRoot,
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
     exclude: ["src/**/*.e2e.test.ts"],
     reporters: ["default", "junit"],
     outputFile: { junit: "../../test-results/cli/junit.xml" },

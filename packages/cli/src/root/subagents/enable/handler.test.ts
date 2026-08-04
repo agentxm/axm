@@ -168,7 +168,7 @@ describe("subagents enable.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("settings-only enable (no lock entry)", () => {
-    it.effect("enables a configured-disabled subagent with no lockfile entry", () => {
+    it.effect("refuses to enable a configured-disabled subagent without trusted content", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         subagents: {
@@ -183,8 +183,7 @@ describe("subagents enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableSubagent(defaultArgs("my-agent"));
 
-          expect(logs.success.length).toBeGreaterThan(0);
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
+          expect(logs.success).toEqual([]);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -192,7 +191,10 @@ describe("subagents enable.handler", () => {
             "utf-8",
           );
           const settings = JSON.parse(settingsContent);
-          expect(settings.subagents?.["my-agent"]).toBe("@acme/subagents/my-agent");
+          expect(settings.subagents?.["my-agent"]).toEqual({
+            source: "@acme/subagents/my-agent",
+            enabled: false,
+          });
         }),
       );
     });

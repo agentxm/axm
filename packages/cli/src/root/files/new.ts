@@ -9,6 +9,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
+  computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
   REGISTRY_EXTENSIONS_DIR,
@@ -19,7 +20,7 @@ import {
   FILES_MANIFEST_SCHEMA_URL,
   FilesManager,
   type FilesManifest,
-  type RegistryFilesRef,
+  type WorkspaceFilesRef,
 } from "@agentxm/client-core/unstable/files";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import type {
@@ -160,15 +161,16 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
       },
     ],
   };
-  const ref: RegistryFilesRef = {
+  const ref: WorkspaceFilesRef = {
     type: "files",
-    refType: "registry",
-    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    refType: "workspace",
+    source: { type: "workspace", owner, extensionType: "files", name },
+    scope: ws.scope,
     owner,
     name,
     version,
-    integrity: Option.none(),
-    packages: [],
+    sourceHash: computeSourceHash("scaffold"),
+    location: targetDir,
     file: { name },
   };
 
@@ -182,25 +184,36 @@ export const handleFilesNew = Effect.fn("FilesNew.handle")(function* (args: {
         steps: [
           buildNewExtensionStep(manager, {
             ref,
+            target: { type: "files", name },
             versionRange: Option.none(),
             label: fqn,
             message: `Created ${fqn}`,
             buildArtifact: () =>
               Effect.gen(function* () {
-                const currentLockEntry = yield* ws.getLockedFilesEntry(name);
-                if (Option.isNone(currentLockEntry)) {
-                  return yield* makeAppError({
-                    code: "internal",
-                    detail: `Created files package ${fqn} but could not read its lockfile entry`,
-                    suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
-                  });
-                }
+                const currentLockEntry = yield* ws
+                  .getLockedFilesEntry(name)
+                  .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                 const materialization =
                   manager.getLastMaterialization === undefined
                     ? { agents: [], targets: [] }
                     : yield* manager.getLastMaterialization({
                         target: { type: "files", name },
                       });
+                if (Option.isNone(currentLockEntry)) {
+                  return {
+                    path: targetDir,
+                    scope: ws.scope,
+                    version,
+                    change: "created",
+                    targets: [
+                      { path: targetDir, change: "created" },
+                      ...materialization.targets.map((target) => ({
+                        ...target,
+                        change: "created" as const,
+                      })),
+                    ],
+                  } satisfies JobStepArtifact;
+                }
 
                 return filesNewArtifact({
                   lockEntry: currentLockEntry.value,

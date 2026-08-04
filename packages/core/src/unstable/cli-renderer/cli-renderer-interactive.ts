@@ -266,6 +266,32 @@ const plainTaskLog = (config: TaskLogConfig): Effect.Effect<TaskLogHandle> =>
     } satisfies TaskLogHandle),
   );
 
+const quietSpinnerHandle: SpinnerHandle = {
+  stop: () => Effect.void,
+  update: () => Effect.void,
+  cancel: () => Effect.void,
+  error: () => Effect.void,
+  clear: () => Effect.void,
+};
+
+const quietProgressHandle: ProgressHandle = {
+  ...quietSpinnerHandle,
+  advance: () => Effect.void,
+};
+
+const quietTaskLogGroupHandle: TaskLogGroupHandle = {
+  message: () => Effect.void,
+  error: () => Effect.void,
+  success: () => Effect.void,
+};
+
+const quietTaskLogHandle: TaskLogHandle = {
+  message: () => Effect.void,
+  group: () => Effect.succeed(quietTaskLogGroupHandle),
+  error: () => Effect.void,
+  success: () => Effect.void,
+};
+
 const formatListSummary = (
   entity: string,
   itemCount: number,
@@ -298,9 +324,21 @@ export const InteractiveRenderer = (options?: {
   readonly outputPolicy?: CliOutputPolicy;
 }): Layer.Layer<CliRenderer> => {
   const outputPolicy = options?.outputPolicy ?? resolveCliOutputPolicy();
-  const renderSpinner = outputPolicy.interactiveActivity ? chrome.spinner : plainSpinner;
-  const renderProgress = outputPolicy.interactiveActivity ? chrome.progress : plainProgress;
-  const renderTaskLog = outputPolicy.colors ? chrome.taskLog : plainTaskLog;
+  const renderSpinner = outputPolicy.quiet
+    ? () => Effect.succeed(quietSpinnerHandle)
+    : outputPolicy.interactiveActivity
+      ? chrome.spinner
+      : plainSpinner;
+  const renderProgress = outputPolicy.quiet
+    ? () => Effect.succeed(quietProgressHandle)
+    : outputPolicy.interactiveActivity
+      ? chrome.progress
+      : plainProgress;
+  const renderTaskLog = outputPolicy.quiet
+    ? () => Effect.succeed(quietTaskLogHandle)
+    : outputPolicy.colors
+      ? chrome.taskLog
+      : plainTaskLog;
 
   const liveWithSpinner = <A, E, R>(
     message: string,
@@ -367,6 +405,7 @@ export const InteractiveRenderer = (options?: {
     outro: (message) =>
       outputPolicy.colors ? chrome.outro(message) : plainLine(chrome.Symbols.outro, message),
     message: (message) => renderLogLine(outputPolicy, "message", message),
+    instruction: writeStderrLine,
     diagnostic: (content) => (outputPolicy.quiet ? Effect.void : writeStderrLine(content)),
     diagnosticTable: <T extends object>(
       items: ReadonlyArray<T>,
@@ -536,7 +575,6 @@ export const InteractiveRenderer = (options?: {
 
     // Machine data output
     result: () => Effect.succeed(false),
-    resultStream: () => Effect.succeed(false),
 
     // Both modes
     json: (data) => writeStdoutLine(JSON.stringify(data, null, 2)),

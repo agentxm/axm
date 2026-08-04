@@ -17,5 +17,4 @@ export interface InstallMcpServerCommandIntent {
   readonly versionRange: Option.Option<string>;
   readonly force: boolean;
   readonly env?: Readonly<Record<string, string>>;
-  readonly nonInteractive?: boolean;
 }

@@ -8,7 +8,7 @@
  * Describes the resolved intent to uninstall one or more skills.
  *
  * Produced by `finalizeSkillUninstallIntent` after parsing and glob expansion.
- * Consumed by `buildSkillUninstallPlan`.
+ * Consumed by the skill uninstall command workflow.
  */
 export type UninstallSkillCommandIntent = {
   readonly skillsToUninstall: ReadonlyArray<{ readonly skillName: string }>;

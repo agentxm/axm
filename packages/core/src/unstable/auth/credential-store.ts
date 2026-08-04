@@ -4,8 +4,8 @@
  * Tier 1: OS keychain (@napi-rs/keyring)
  * Tier 2: Restricted-permission file (~/.config/axm/credentials.json)
  *
- * CI and container environments are token-only by policy. They do not persist
- * credentials and should use AXM_TOKEN instead.
+ * CI environments are token-only by policy. Containers use the restricted
+ * file tier so agent sessions can complete resumable device authorization.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -13,6 +13,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
+import type * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -22,7 +23,7 @@ import { errAuthTokenRequired, type AppError, makeAppError } from "../app-error/
 import { isCI } from "../cli-flags/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import { envOption, isContainer, isRoot, isSSH, isWSL } from "../utils/index.js";
-import type { CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
+import type { CredentialEntry, CredentialFile, StorageTier, StoredCredentials } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
 
 const decodeCredentialFileFromJsonString = Schema.decodeUnknownEffect(
@@ -40,7 +41,7 @@ export interface CredentialStoreService {
     credentials: {
       readonly access_token: string;
       readonly refresh_token: string;
-      readonly expires_at: string;
+      readonly expires_at: DateTime.Utc;
     },
   ) => Effect.Effect<void, AppError>;
   readonly load: (registryUrl: string) => Effect.Effect<Option.Option<StoredCredentials>, AppError>;
@@ -375,8 +376,7 @@ export const detectEnvironment = Effect.gen(function* () {
 export const selectTier = (env: EnvironmentInfo): StorageTier =>
   env.isContainer || env.isCI || env.isSSH ? "restricted-file" : "keychain";
 
-export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean =>
-  !env.isContainer && !env.isCI;
+export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean => !env.isCI;
 
 export const makePersistedCredentialsUnsupportedError = () => errAuthTokenRequired();
 
@@ -441,10 +441,7 @@ export const CredentialStoreLive = Layer.effect(
         const file = Option.getOrElse(existing, () => emptyCredentialFile);
 
         const registryEntry = file.registries[registryUrl] ?? { accounts: {} };
-        const updatedAccounts: Record<
-          string,
-          { access_token: string; refresh_token: string; expires_at: string; active: boolean }
-        > = {};
+        const updatedAccounts: Record<string, CredentialEntry> = {};
         for (const [h, entry] of Object.entries(registryEntry.accounts)) {
           if (entry !== undefined) {
             updatedAccounts[h] = { ...entry, active: false };
@@ -543,10 +540,7 @@ export const CredentialStoreTest = (
       persistedCredentialsAllowed
         ? Effect.sync(() => {
             const registryEntry = data.registries[registryUrl] ?? { accounts: {} };
-            const updatedAccounts: Record<
-              string,
-              { access_token: string; refresh_token: string; expires_at: string; active: boolean }
-            > = {};
+            const updatedAccounts: Record<string, CredentialEntry> = {};
             for (const [h, entry] of Object.entries(registryEntry.accounts)) {
               if (entry !== undefined) {
                 updatedAccounts[h] = { ...entry, active: false };

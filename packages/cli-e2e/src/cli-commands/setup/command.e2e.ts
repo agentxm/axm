@@ -29,12 +29,86 @@ describe("axm setup", () => {
         const settingsContent = fs.readFileSync(settingsPath, "utf-8");
         const settings = JSON.parse(settingsContent);
         expect(settings).toHaveProperty("agents");
-        expect(settings.skills?.["axm"]).toBe("@agentxm/skills/axm");
+        expect(settings.skills?.["axm"]).toBe("workspace:@agentxm/skills/axm");
         expect(
           fs.existsSync(
             path.join(axmDir, "extensions", "@agentxm", "skills", "axm", "src", "SKILL.md"),
           ),
         ).toBe(true);
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("supports an offline sync preview immediately after setup", async () => {
+      const temp = createTempDir();
+      try {
+        const setup = await runCli(["setup", "--yes", "--non-interactive"], {
+          cwd: temp.path,
+          env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
+        });
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+        fs.rmSync(path.join(temp.path, ".agents", "skills", "axm"), {
+          recursive: true,
+          force: true,
+        });
+
+        const preview = await runCli(["sync", "--dry-run", "--json"], {
+          cwd: temp.path,
+          env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
+        });
+        expect(preview.exitCode, `${preview.stderr}\n${preview.stdout}`).toBe(0);
+        expect(preview.stdout).toContain("workspace:@agentxm/skills/axm");
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("reports authored workspace changes as one successful advisory JSON result", async () => {
+      const temp = createTempDir();
+      try {
+        const env = { HOME: temp.path, AXM_USER_HOME: temp.path };
+        const setup = await runCli(
+          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          {
+            cwd: temp.path,
+            env,
+          },
+        );
+        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+        const bundledSkillPath = path.join(
+          temp.path,
+          ".axm",
+          "extensions",
+          "@agentxm",
+          "skills",
+          "axm",
+          "src",
+          "SKILL.md",
+        );
+        fs.appendFileSync(bundledSkillPath, "\nLocal drift\n");
+
+        const status = await runCli(["status", "--json"], { cwd: temp.path, env });
+
+        expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
+        const result = JSON.parse(status.stdout);
+        expect(result).toMatchObject({
+          ok: true,
+          result: {
+            healthy: false,
+            desiredGraphComplete: true,
+            blockedOperations: [],
+          },
+        });
+        expect(result.result.problems).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              identity: "@agentxm/skills/axm",
+              blocking: false,
+              recoveryAction: "axm publish @agentxm/skills/axm",
+            }),
+          ]),
+        );
       } finally {
         temp.cleanup();
       }

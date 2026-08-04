@@ -19,8 +19,7 @@ export interface InstallMcpServerFlags {
 
 export interface McpServerInstallHandlerArgs {
   readonly source: Option.Option<string>;
-  readonly env: Option.Option<string>;
-  readonly nonInteractive: boolean;
+  readonly env: ReadonlyArray<string>;
 }
 
 export const handleInstallMcpServer = (
@@ -42,7 +41,6 @@ export const handleInstallMcpServer = (
     const sourceArgs: InstallMcpServerHandlerArgs = {
       source: args.source.value,
       env: args.env,
-      nonInteractive: args.nonInteractive,
     };
     const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, {
       ...flags,
@@ -63,6 +61,7 @@ export const handleInstallMcpServer = (
           ? unchangedPlanHeadline(resolution, "No MCP servers installed.")
           : "Installed MCP server " + args.source.value,
       resolution,
+      reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect MCP servers", cmd: "axm mcps list" }],
     });
   });

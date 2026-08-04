@@ -40,37 +40,32 @@ if [ ! -f "$FORMULA" ]; then
   exit 1
 fi
 
-# Download binaries and compute SHA256s
+# Consume the canonical checksum manifest published with the exact binaries.
 TMPDIR_PATH="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR_PATH"' EXIT
+MANIFEST="${TMPDIR_PATH}/SHA256SUMS"
 
 if [ -n "$RELEASE_ASSET_DIR" ]; then
-  echo "==> Using local release binaries from ${RELEASE_ASSET_DIR}..."
+  echo "==> Using canonical checksums from ${RELEASE_ASSET_DIR}..."
+  bun "${SCRIPT_DIR}/release-checksums.ts" validate "$RELEASE_ASSET_DIR"
+  cp "${RELEASE_ASSET_DIR}/SHA256SUMS" "$MANIFEST"
 else
-  echo "==> Downloading binaries for v${VERSION}..."
+  echo "==> Downloading canonical checksums for v${VERSION}..."
+  curl -fsSL --output "$MANIFEST" "${BASE_URL}/SHA256SUMS" || {
+    echo "Error: Failed to download ${BASE_URL}/SHA256SUMS"
+    exit 1
+  }
 fi
 
 for artifact in $ARTIFACTS; do
-  dest="${TMPDIR_PATH}/${artifact}"
-
   echo "    ${artifact}"
-
-  if [ -n "$RELEASE_ASSET_DIR" ]; then
-    if [ ! -f "${RELEASE_ASSET_DIR}/${artifact}" ]; then
-      echo "Error: Missing local release binary ${RELEASE_ASSET_DIR}/${artifact}"
-      exit 1
-    fi
-    cp "${RELEASE_ASSET_DIR}/${artifact}" "$dest"
-  else
-    url="${BASE_URL}/${artifact}"
-    if ! curl -fsSL --output "$dest" "$url"; then
-      echo "Error: Failed to download ${url}"
-      echo "Ensure the release exists: https://github.com/${GITHUB_REPO}/releases/tag/cli-v${VERSION}"
-      exit 1
-    fi
+  matches="$(awk -v name="$artifact" '$2 == name && $1 ~ /^[0-9a-f]{64}$/ { print $1 }' "$MANIFEST")"
+  count="$(printf '%s\n' "$matches" | awk 'NF { count++ } END { print count+0 }')"
+  if [ "$count" -ne 1 ]; then
+    echo "Error: SHA256SUMS must contain exactly one valid entry for ${artifact}"
+    exit 1
   fi
-
-  sha="$(shasum -a 256 "$dest" | cut -d' ' -f1)"
+  sha="$matches"
   echo "    sha256: ${sha}"
 
   # Write sha to a file keyed by artifact name (avoids bash 4 associative arrays)

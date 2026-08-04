@@ -2,8 +2,8 @@ import type { Agent } from "../../schema.js";
 export const gooseAgent = {
   id: "goose",
   name: "Goose",
-  vendor: "Block",
-  homepage: "https://block.github.io/goose",
+  vendor: "Agentic AI Foundation (AAIF)",
+  homepage: "https://goose-docs.ai",
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".goose",
@@ -15,7 +15,7 @@ export const gooseAgent = {
   docs: [
     {
       label: "Goose documentation",
-      url: "https://block.github.io/goose/docs",
+      url: "https://goose-docs.ai/docs",
     },
   ],
   capabilities: {
@@ -25,15 +25,15 @@ export const gooseAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://block.github.io/goose/docs"],
+        sources: ["https://goose-docs.ai/docs/mcp/skills-mcp/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
-        convention: "vendor",
-        directory: ".goose/skills",
+        convention: "universal",
+        directory: ".agents/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -42,7 +42,7 @@ export const gooseAgent = {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes:
-          "Goose extensions are MCP servers configured through Goose's extension settings. AXM does not currently write Goose's YAML config format.",
+          "Goose Recipes are reusable YAML workflows run with goose run --recipe or scheduled separately; they are not an installable slash-command format.",
         docs: [],
         sources: [],
       },
@@ -58,10 +58,10 @@ export const gooseAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://block.github.io/goose/docs/getting-started/using-extensions"],
+        sources: ["https://goose-docs.ai/docs/getting-started/using-extensions/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
-        convention: "universal",
+        convention: "vendor",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "none",
@@ -70,40 +70,12 @@ export const gooseAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
         reason: "AXM has not implemented a Goose YAML extension config writer.",
       },
     },
     subagent: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
@@ -132,6 +104,20 @@ export const gooseAgent = {
       },
     },
   },
+  instructions: {
+    native: {
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
+    },
+  },
   permissions: {
     native: {
       availability: { via: "native" },
@@ -139,7 +125,7 @@ export const gooseAgent = {
       notes:
         "Goose exposes permission mode, tool permissions, and .gooseignore controls. AXM has not modeled a narrow permission grant writer for Goose.",
       docs: [],
-      sources: ["https://block.github.io/goose/docs/getting-started/using-extensions"],
+      sources: ["https://goose-docs.ai/docs/guides/managing-tools/tool-permissions/"],
       scopes: ["user", "project"],
       mechanism: ["config-file", "ui-only"],
       configFiles: [],
@@ -149,7 +135,7 @@ export const gooseAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-07-22",
       writer: null,
       reason: "AXM has not implemented a Goose permission grant writer.",
     },

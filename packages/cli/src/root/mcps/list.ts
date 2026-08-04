@@ -18,6 +18,7 @@ import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { includeIgnoredFlag, scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
+  augmentInventory,
   inventoryIgnoredBy,
   inventoryState,
   inventorySummary,
@@ -111,7 +112,7 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
             : row.classification.lifecycle === "unmanaged"
               ? "unmanaged"
               : configuredStatus({
-                  enabled: row.activation !== "disabled",
+                  enabled: row.enabled !== false,
                   configuredEntry,
                   inspections,
                 });
@@ -130,18 +131,14 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
     { concurrency: "unbounded" },
   );
   const details = new Map(items.map((item) => [item.name, item]));
-  const output = {
-    ...inventory,
-    items: inventory.items.map((row) => {
-      const item = details.get(row.name);
-      return {
-        ...row,
-        version: item?.version ?? "n/a",
-        transport: item?.transport ?? "auto",
-        status: item?.status ?? "n/a",
-      };
-    }),
-  };
+  const output = augmentInventory(inventory, (row) => {
+    const item = details.get(row.name);
+    return {
+      version: item?.version ?? "n/a",
+      transport: item?.transport ?? "auto",
+      status: item?.status ?? "n/a",
+    };
+  });
 
   if (yield* renderer.result(output, ExtensionInventorySchema)) return;
   if (items.length === 0) {

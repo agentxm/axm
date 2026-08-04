@@ -25,9 +25,9 @@ import {
   type ExtensionType,
 } from "../extensions/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
+import { CompanionPackageSchema } from "../package-urls/index.js";
 import { PackageUrlSchema, type PackageUrlParts } from "../packaging/package-url.js";
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
-import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import { DiscoverPackagesResponseSchema } from "./discover-schema.js";
 import { extensionLifecycleWarnings, pluralizeType, resolveVersionEntry } from "./utils.js";
@@ -40,13 +40,11 @@ import type {
   GetExtensionPackageResponse,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
-  GetLibraryArgs,
   OwnerExistsResponse,
   PublishExtensionArgs,
   PublishExtensionResponse,
   RegistryClient,
   RegistryExtensionManifest,
-  RegistryLibraryDetail,
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
 import {
@@ -67,7 +65,6 @@ import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
   ExtensionsGet200,
   ExtensionsListByOwner200,
-  LibrariesGetLibraryResolution200,
 } from "./__generated__/registry-client.js";
 import type { ArchiveCache } from "./archive-cache.js";
 
@@ -76,7 +73,8 @@ import type { ArchiveCache } from "./archive-cache.js";
 // -----------------------------------------------------------------------------
 
 const decodeExtensionType = Schema.decodeUnknownSync(ExtensionTypeSchema);
-const decodeExtensionIndex = Schema.decodeUnknownSync(ExtensionIndexSchema);
+const decodeExtensionIndex = Schema.decodeUnknownSync(Schema.toType(ExtensionIndexSchema));
+const decodeCompanionPackages = Schema.decodeUnknownSync(Schema.Array(CompanionPackageSchema));
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 
 /**
@@ -88,6 +86,11 @@ const narrowExtensionType = (type: string): ExtensionType => decodeExtensionType
 
 /**
  * Map the generated ExtensionsGet200 response to our domain ExtensionIndex type.
+ *
+ * Validates against the type side of ExtensionIndexSchema, so timestamps the
+ * generated client already decoded to DateTime.Utc flow through without an
+ * encode/re-decode round-trip. Companion packages are the one remaining
+ * wire-form field (versionRange strings), so they decode via the wire schema.
  */
 const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
   decodeExtensionIndex({
@@ -114,32 +117,15 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
       published: v.published,
       integrity: v.integrity,
       dependencies: v.dependencies === null ? undefined : v.dependencies,
-      packages: v.packages === null || v.packages === undefined ? undefined : v.packages,
+      packages:
+        v.packages === null || v.packages === undefined
+          ? undefined
+          : decodeCompanionPackages(v.packages),
       yankedAt: v.yanked_at ?? undefined,
       yankCategory: v.yank_category ?? undefined,
       yankNotice: v.yank_notice ?? undefined,
     })),
   });
-
-const mapToLibraryDetail = (response: LibrariesGetLibraryResolution200): RegistryLibraryDetail => ({
-  libraryId: response.libraryId,
-  reference: response.reference,
-  name: decodeExtensionNameSync(response.name),
-  updatedAt: response.updatedAt,
-  membershipDigest: response.membershipDigest,
-  viewerRelative: response.viewerRelative,
-  members: response.members.map((member) => ({
-    id: member.memberId,
-    libraryId: response.libraryId,
-    extensionId: member.extensionId,
-    extensionOwner: decodeHandleSync(member.owner),
-    extensionType: narrowExtensionType(member.type),
-    extensionName: decodeExtensionNameSync(member.name),
-    resolvedVersion: decodeVersionSync(member.version),
-    addedAt: member.addedAt,
-    publishedAt: member.publishedAt,
-  })),
-});
 
 /**
  * Convert an ExtensionIndex + version constraint to a RegistryExtensionManifest.
@@ -158,9 +144,7 @@ const toRegistryManifest = (
     owner: index.owner,
     type: index.type,
     name: index.name,
-    ...(index.publisherBindingId === undefined
-      ? {}
-      : { publisherBindingId: index.publisherBindingId }),
+    publisherBindingId: index.publisherBindingId,
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
     bugs: Option.fromUndefinedOr(index.bugs),
@@ -262,26 +246,6 @@ export const createRemoteRegistryClient = (
             }),
       ),
     );
-
-  // ---------------------------------------------------------------------------
-  // getLibrary
-  // ---------------------------------------------------------------------------
-  const getLibrary = (
-    args: GetLibraryArgs,
-  ): Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError> =>
-    client.LibrariesGetLibraryResolution(args.owner, args.name, undefined).pipe(
-      Effect.map((response) => Option.some(mapToLibraryDetail(response))),
-      Effect.catch((e) => mapLibraryErrorWithNotFound(e)),
-    );
-
-  const mapLibraryErrorWithNotFound = (
-    e: unknown,
-  ): Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError> => {
-    if (isRegistryClientError("LibrariesGetLibraryResolution404")(e)) {
-      return Effect.succeed(Option.none<RegistryLibraryDetail>());
-    }
-    return Effect.fail(mapDiscoveryError(e, "REGISTRY_REMOTE_DISCOVERY"));
-  };
 
   /**
    * Map all discovery/read errors to AppError.
@@ -458,10 +422,8 @@ export const createRemoteRegistryClient = (
   // ownerExists
   // ---------------------------------------------------------------------------
   const ownerExists = (owner: Handle): Effect.Effect<OwnerExistsResponse, AppError> =>
-    client.ExtensionsListByOwner(owner, undefined).pipe(
-      Effect.map(
-        (response) => ({ exists: response.extensions.length > 0 }) satisfies OwnerExistsResponse,
-      ),
+    client.OwnersGetOwner(owner, undefined).pipe(
+      Effect.as({ exists: true } satisfies OwnerExistsResponse),
       Effect.catch((e) => {
         // 404 → not found
         if (hasTagSuffix(e, "404")) {
@@ -842,7 +804,6 @@ export const createRemoteRegistryClient = (
 
   return {
     getExtensionIndex,
-    getLibrary,
     getExtensionsByScope,
     ownerExists,
     getExtensionPackage,

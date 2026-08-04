@@ -181,7 +181,7 @@ const resolvedFromLockfile = (lockfile: Lockfile): ResolvedSkills => {
 
 const canonicalToActualSkill = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualSkill => {
   const isExternal = occ.origin === "external-axm";
-  // canonical-axm contentLocation = `<root>/.axm/extensions/<owner>/skills/src/<name>`
+  // canonical-axm contentLocation = `<root>/.axm/extensions/<owner>/skills/<name>/src`
   // external-axm   contentLocation = `<root>/.axm/extensions/external/skills/<name>`
   // packageRoot for canonical-axm = parent of `src/<name>/` (= `<owner>/skills/`)
   // packageRoot for external-axm  = `external/skills/`

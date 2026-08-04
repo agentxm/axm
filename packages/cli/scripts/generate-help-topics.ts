@@ -7,6 +7,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { format as formatWithPrettier, resolveConfig as resolvePrettierConfig } from "prettier";
 
+import { stripRegionMarkers } from "./type-enumerations.js";
+
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const TOPICS_DIR = path.join(CLI_ROOT, "help/topics");
 const OUTPUT_PATH = path.join(CLI_ROOT, "src/__generated__/help-topics.ts");
@@ -29,9 +31,12 @@ const topicFiles = fs
   .filter((file) => file.endsWith(".md"))
   .sort((a, b) => a.localeCompare(b));
 
+// Topic sources carry `axm:generated` region markers so the enumeration
+// generator knows what it owns. They are plumbing, not documentation, so they
+// are stripped before the topic reaches a reader.
 const markdownTopics = topicFiles.map((file): HelpTopic => {
   const name = path.basename(file, ".md");
-  const content = fs.readFileSync(path.join(TOPICS_DIR, file), "utf-8");
+  const content = stripRegionMarkers(fs.readFileSync(path.join(TOPICS_DIR, file), "utf-8"));
   return { name, content, kind: "markdown" };
 });
 

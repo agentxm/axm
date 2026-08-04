@@ -1,4 +1,5 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -158,7 +159,7 @@ const makeInlineLockEntry = (
   headers: Readonly<Record<string, string>>,
 ): Effect.Effect<McpServerLockEntry, AppError> =>
   Effect.gen(function* () {
-    const now = new Date();
+    const now = yield* DateTime.now;
     if (Option.isSome(args.command)) {
       const commandParts = splitCommand(args.command.value);
       const command = commandParts[0];
@@ -311,10 +312,7 @@ const makePlan = (name: string, steps: ReadonlyArray<PlannedJobStep>): Plan => (
 
 export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
   if (Option.isNone(args.command) && Option.isNone(args.url)) {
-    return yield* handleInstallMcpServer(
-      { source: Option.some(args.name), env: Option.none(), nonInteractive: true },
-      args,
-    );
+    return yield* handleInstallMcpServer({ source: Option.some(args.name), env: [] }, args);
   }
   if (Option.isSome(args.command) && Option.isSome(args.url)) {
     return yield* makeAppError({
@@ -351,6 +349,7 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
         .setMcpServer({
           name: args.name,
           lockEntry,
+          versionRange: Option.none(),
           env,
           enabled: true,
         })

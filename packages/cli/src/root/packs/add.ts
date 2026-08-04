@@ -9,9 +9,16 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   formatFqn,
   normalizeHandle,
+  parseExtensionFqnParts,
   parseRegistrySourcePatternParts,
   decodeExtensionNameSync,
+  type ExtensionName,
+  type Handle,
 } from "@agentxm/client-core/unstable/extensions";
+import {
+  isCatalogExtensionType,
+  type CatalogExtensionType,
+} from "@agentxm/client-core/unstable/extension-types";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
@@ -22,7 +29,8 @@ import { addToPack } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import {
@@ -54,13 +62,28 @@ const hashContent = (content: string) => crypto.createHash("sha256").update(cont
  */
 const toVersionRange = (version: string): string => `^${version}`;
 
+/** Every type a pack can depend on — packs cannot nest. */
+type PackAddExtensionType = CatalogExtensionType;
+
+/** A versioned installed extension eligible to become a pack dependency. */
+interface PackAddCandidate {
+  readonly type: PackAddExtensionType;
+  /** Workspace projection name. */
+  readonly name: string;
+  readonly owner: Handle;
+  /** Published package name, which may differ from the workspace name. */
+  readonly packageName: ExtensionName;
+  readonly fqn: string;
+  readonly versionRange: string;
+}
+
 export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: PacksAddHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
   // Step 1: Find the pack
-  const configuredPacks = yield* ws.records.getConfiguredPacks();
+  const configuredPacks = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
   const packEntry = configuredPacks[args.pack];
 
   if (packEntry === undefined) {
@@ -154,37 +177,109 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     ),
   );
 
-  // Step 3: Resolve versioned managed skills from lockfile.
-  const lockedSkills = yield* ws.getLockedSkills();
-  const versionedSkills = Object.entries(lockedSkills).filter(
-    ([, entry]) => entry.type === "registry" || entry.type === "workspace",
+  // Step 3: Resolve versioned managed extensions of every non-pack type from
+  // desired intent and authoritative trust. Receipt history is not consulted.
+  const graph = yield* ws.getDesiredStateGraph();
+  const packFqn = formatFqn({
+    owner: packOwner,
+    type: "pack",
+    name: decodeExtensionNameSync(args.pack),
+  });
+  const targetPackProblems = graph.problems.filter(
+    (problem) =>
+      "pack" in problem && (problem.pack === packFqn || problem.pack === `workspace:${packFqn}`),
   );
-  const versionedSkillNames = versionedSkills.map(([name]) => name);
+  if (targetPackProblems.length > 0) {
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Cannot add dependencies while pack ${packFqn} is invalid.`,
+      recover: "Inspect the pack drift, then explicitly accept or restore the current content.",
+      suggestions: [
+        {
+          description: "Preview pack repair",
+          cmd: `axm packs repair ${packFqn} --preview`,
+        },
+      ],
+    });
+  }
+  const installedNames = new Set(
+    graph.nodes.filter((node) => node.type !== "pack").map((node) => node.name),
+  );
+  const trust = yield* ws.getTrustState();
+  const candidates: Array<PackAddCandidate> = [];
+  for (const node of graph.nodes) {
+    if (!isCatalogExtensionType(node.type)) continue;
+    const record = trust.records[trustRecordKey(node.type, node.name)];
+    if (
+      record === undefined ||
+      (record.authority !== "registry" && record.authority !== "workspace") ||
+      record.resolvedVersion === undefined
+    ) {
+      continue;
+    }
+    const trustedIdentity = record.sourceIdentity.startsWith("workspace:")
+      ? record.sourceIdentity.slice("workspace:".length)
+      : record.sourceIdentity;
+    const parsed = parseExtensionFqnParts(trustedIdentity);
+    if (parsed === undefined || parsed.type !== node.type) continue;
+    const desiredIdentity = node.identity.startsWith("workspace:")
+      ? node.identity.slice("workspace:".length)
+      : node.identity;
+    if (desiredIdentity !== trustedIdentity) continue;
+    const packageName = decodeExtensionNameSync(parsed.name);
+    candidates.push({
+      type: node.type,
+      name: node.name,
+      owner: parsed.owner,
+      packageName,
+      fqn: formatFqn({ owner: parsed.owner, type: node.type, name: packageName }),
+      versionRange: toVersionRange(record.resolvedVersion),
+    });
+  }
 
-  // Determine if this is a glob or exact match
+  const requestedFqn = parseExtensionFqnParts(args.extension);
   const isGlob = isGlobPattern(args.extension);
-  const matchedNames = isGlob
-    ? expandGlobs([args.extension], versionedSkillNames)
-    : versionedSkillNames.includes(args.extension)
-      ? [args.extension]
-      : [];
+  const globMatches = isGlob
+    ? expandGlobs([args.extension], [...new Set(candidates.map((candidate) => candidate.name))])
+    : [];
+  const matched = isGlob
+    ? candidates.filter((candidate) => globMatches.includes(candidate.name))
+    : requestedFqn !== undefined
+      ? candidates.filter(
+          (candidate) =>
+            candidate.type === requestedFqn.type &&
+            candidate.owner === requestedFqn.owner &&
+            candidate.packageName === requestedFqn.name,
+        )
+      : candidates.filter((candidate) => candidate.name === args.extension);
 
-  if (matchedNames.length === 0) {
+  // A bare name that exists under more than one type is ambiguous: adding the
+  // wrong one would silently pin an extension the user did not mean.
+  if (!isGlob && requestedFqn === undefined) {
+    const matchedTypes = [...new Set(matched.map((candidate) => candidate.type))];
+    if (matchedTypes.length > 1) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Extension '${args.extension}' is installed as ${matchedTypes.join(", ")}`,
+        recover: "Pass the fully qualified name to choose one.",
+        suggestions: matched.map((candidate) => ({
+          description: `Add the ${candidate.type}`,
+          cmd: `axm packs add ${args.pack} ${candidate.fqn}`,
+        })),
+      });
+    }
+  }
+
+  if (matched.length === 0) {
     if (isGlob) {
       return yield* makeAppError({
         code: "internal",
         detail: `No managed, versioned extensions match '${args.extension}'`,
-        suggestions: [
-          {
-            description: "Inspect installed skills",
-            cmd: "axm skills list",
-          },
-        ],
+        suggestions: [{ description: "Inspect installed extensions", cmd: "axm packs list" }],
       });
     }
 
-    // Check if extension exists but is not registry-sourced
-    if (args.extension in lockedSkills) {
+    if (installedNames.has(args.extension)) {
       return yield* makeAppError({
         code: "internal",
         detail: `Extension '${args.extension}' is not a managed, versioned extension`,
@@ -202,7 +297,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       suggestions: [
         {
           description: "Install the extension first",
-          cmd: "axm skills install <source>",
+          cmd: "axm install <source>",
         },
       ],
     });
@@ -212,29 +307,12 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const currentDependencies = manifest.dependencies;
   const additions: Record<string, string> = {};
 
-  for (const name of matchedNames) {
-    const lockEntry = lockedSkills[name];
-    if (lockEntry === undefined) {
+  for (const candidate of matched) {
+    // Already in the pack — adding again would be a no-op rewrite.
+    if (candidate.fqn in currentDependencies) {
       continue;
     }
-
-    if (lockEntry.type !== "registry" && lockEntry.type !== "workspace") continue;
-
-    const fqn = formatFqn({
-      owner: lockEntry.owner,
-      type: "skill",
-      name: decodeExtensionNameSync(lockEntry.name),
-    });
-    const version = toVersionRange(
-      lockEntry.type === "registry" ? lockEntry.resolvedVersion : lockEntry.version,
-    );
-
-    // Check if already in pack (by FQN)
-    if (fqn in currentDependencies) {
-      continue;
-    }
-
-    additions[fqn] = version;
+    additions[candidate.fqn] = candidate.versionRange;
   }
 
   if (Object.keys(additions).length === 0) {

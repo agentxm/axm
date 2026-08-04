@@ -80,6 +80,30 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("keeps user-scope instruction discovery at the home root", () =>
+    run(
+      Effect.gen(function* () {
+        const cloudRoot = path.join(tempDir, "Library", "CloudStorage", "provider", "project");
+        fs.mkdirSync(cloudRoot, { recursive: true });
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# User\n");
+        fs.writeFileSync(path.join(cloudRoot, "AGENTS.md"), "# Cloud project\n");
+
+        const status = yield* getInstructionsStatus({
+          workspaceRoot: tempDir,
+          scope: "user",
+          configuredAgents: ["codex"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+          symlinkSupported: true,
+        });
+
+        expect(status.roots).toEqual([tempDir]);
+        expect(status.items.map((item) => item.sourceFile)).toEqual([
+          path.join(tempDir, "AGENTS.md"),
+        ]);
+      }),
+    ),
+  );
+
   it.effect("syncs configured own-file agents from AGENTS.md as symlinks", () =>
     run(
       Effect.gen(function* () {
@@ -88,6 +112,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code", "gemini-cli", "codex"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -122,6 +147,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -151,6 +177,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -171,6 +198,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -195,6 +223,7 @@ describe("agent instructions", () => {
 
         const result = yield* syncInstructions({
           workspaceRoot: nested,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -214,6 +243,7 @@ describe("agent instructions", () => {
 
         yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code", "gemini-cli"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           force: false,
@@ -225,6 +255,7 @@ describe("agent instructions", () => {
 
         const secondResult = yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code", "gemini-cli"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           force: false,
@@ -254,6 +285,7 @@ describe("agent instructions", () => {
 
         yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["gemini-cli"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           force: false,
@@ -261,6 +293,7 @@ describe("agent instructions", () => {
         });
         const status = yield* getInstructionsStatus({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["gemini-cli"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
         });
@@ -271,6 +304,59 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("reports native rules directories AXM does not sync", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+
+        const status = yield* getInstructionsStatus({
+          workspaceRoot: tempDir,
+          scope: "project",
+          // cursor: agents-md plus a secondary native rules directory.
+          // roo: rules-dir, which AXM resolves to the unwritten adapter path.
+          // codex: agents-md with no secondary directory.
+          configuredAgents: ["cursor", "roo", "codex"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+        });
+        const detailsById = new Map(status.items.map((item) => [item.agentId, item.details]));
+
+        expect(detailsById.get("cursor")).toBe(
+          "Instruction file is current. Native rules directory .cursor/rules is not synced by AXM.",
+        );
+        expect(detailsById.get("roo")).toBe(
+          "Native rules directory .roo/rules is not yet synced by AXM.",
+        );
+        expect(detailsById.get("codex")).toBe("Instruction file is current.");
+
+        // Reporting is parity work only: the adapter mechanism stays unbuilt, so
+        // rules-dir agents keep reporting unsupported and nothing is written.
+        expect(status.items.find((item) => item.agentId === "roo")?.health).toBe("unsupported");
+        expect(fs.existsSync(path.join(tempDir, ".roo"))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, ".cursor"))).toBe(false);
+      }),
+    ),
+  );
+
+  it("carries every catalog secondary rules directory onto the descriptor", () => {
+    const secondary = Object.values(AGENTS).flatMap((descriptor) => {
+      const instructions = descriptor.instructions;
+      if (instructions === undefined || instructions.kind === "rules-dir") return [];
+      return instructions.rulesDir === undefined ? [] : [[descriptor.id, instructions.rulesDir]];
+    });
+
+    // windsurf's ".devin/rules" is very likely a catalog copy-paste error (Devin
+    // is a different agent). Pinned rather than corrected: fixing it is a
+    // catalog-verification change, and this test makes the value visible now
+    // that status output shows it to users.
+    expect(Object.fromEntries(secondary)).toEqual({
+      antigravity: ".agents/rules",
+      codebuddy: ".codebuddy/rules",
+      cursor: ".cursor/rules",
+      "ibm-bob": ".bob/rules",
+      windsurf: ".devin/rules",
+    });
+  });
+
   it.effect("removes the managed gitignore block when gitignoreAliases is disabled", () =>
     run(
       Effect.gen(function* () {
@@ -279,6 +365,7 @@ describe("agent instructions", () => {
 
         yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: true },
           force: false,
@@ -290,6 +377,7 @@ describe("agent instructions", () => {
 
         yield* syncInstructions({
           workspaceRoot: tempDir,
+          scope: "project",
           configuredAgents: ["claude-code"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           force: false,

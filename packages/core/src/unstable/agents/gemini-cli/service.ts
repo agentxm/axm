@@ -9,6 +9,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { envOption } from "../../utils/index.js";
 import type { CodingAgent } from "../coding-agent.js";
+import { userScopeRefusal } from "../scope-refusal.js";
 import {
   addCommandViaResolve,
   removeCommandViaResolve,
@@ -72,7 +73,11 @@ export const geminiCliCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Gemini CLI does not support user-scope commands",
+          reason: userScopeRefusal({
+            agentId: "gemini-cli",
+            agentName: "Gemini CLI",
+            type: "commands",
+          }),
         } as const;
       }
       return {

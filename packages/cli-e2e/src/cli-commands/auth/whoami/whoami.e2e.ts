@@ -12,8 +12,8 @@ describe("axm whoami", () => {
     const result = await runCli(["whoami"], {
       env: { AXM_TOKEN: "" },
     });
-    expect(result.exitCode).toBe(4);
-    expect(result.stdout + result.stderr).toContain("(auth)");
-    expect(result.stderr).toContain("Set the AXM_TOKEN environment variable");
+    expect(result.exitCode).toBe(13);
+    expect(result.stdout + result.stderr).toContain("(auth_required)");
+    expect(result.stderr).toContain("axm login --device-code --json");
   });
 });

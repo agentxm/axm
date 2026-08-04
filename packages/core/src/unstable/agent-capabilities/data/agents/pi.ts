@@ -2,8 +2,8 @@ import type { Agent } from "../../schema.js";
 export const piAgent = {
   id: "pi",
   name: "Pi",
-  vendor: "Mario Zechner",
-  homepage: "https://github.com/badlogic/pi-mono",
+  vendor: "Earendil Inc",
+  homepage: "https://github.com/earendil-works/pi",
   interfaces: ["cli"],
   family: null,
   rootDir: ".pi",
@@ -15,7 +15,7 @@ export const piAgent = {
   docs: [
     {
       label: "Pi coding agent documentation",
-      url: "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md",
+      url: "https://pi.dev/docs",
     },
   ],
   capabilities: {
@@ -26,7 +26,7 @@ export const piAgent = {
         notes:
           "Skills follow the Agent Skills SKILL.md standard and are invoked via /skill:name. Pi discovers them from .pi/skills and .agents/skills (project, searched up through parent directories) and ~/.pi/agent/skills and ~/.agents/skills (user).\n",
         docs: [],
-        sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+        sources: ["https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -34,7 +34,7 @@ export const piAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -45,13 +45,13 @@ export const piAgent = {
         notes:
           "Custom slash commands are Markdown prompt templates with {{variable}} interpolation, expanded via /templatename. Stored in .pi/prompts (project) or ~/.pi/agent/prompts (user). Prompt templates have no industry spec yet.\n",
         docs: [],
-        sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+        sources: ["https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md"],
         scopes: ["user", "project"],
         directory: ".pi/prompts",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -60,9 +60,9 @@ export const piAgent = {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes:
-          'Pi ships a deliberate "no MCP" core with only four built-in tools (read, write, edit, bash). MCP can only be added by installing or building a TypeScript extension; there is no native MCP server configuration.\n',
+          'Pi ships a deliberate "no MCP" core. Its built-in tools are read, bash, edit, write, grep, find, and ls; MCP can only be added by installing or building a TypeScript extension.\n',
         docs: [],
-        sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+        sources: ["https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md"],
       },
       axm: {
         status: "unsupported",
@@ -88,7 +88,17 @@ export const piAgent = {
               paths: [
                 {
                   scope: "user",
-                  path: "~/.pi/agent/extensions/subagent/",
+                  path: "~/.pi/agent/agents/",
+                  kind: "dir",
+                },
+                {
+                  scope: "project",
+                  path: ".pi/agents/",
+                  kind: "dir",
+                },
+                {
+                  scope: "user",
+                  path: "~/.pi/agent/extensions/subagent/agents/",
                   kind: "dir",
                 },
               ],
@@ -112,7 +122,7 @@ export const piAgent = {
           "Pi has no built-in subagent system by design, but the third-party pi-subagents plugin adds a subagent extension surface. AXM describes and may detect this plugin, but does not install, resolve, or manage it.\n",
         docs: [],
         sources: [
-          "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md",
+          "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md",
           "https://github.com/nicobailon/pi-subagents",
         ],
         scopes: ["user", "project"],
@@ -123,42 +133,6 @@ export const piAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "AGENTS.md and CLAUDE.md context load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
-        docs: [],
-        sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -166,7 +140,7 @@ export const piAgent = {
         notes:
           "Pi extension hooks are in-process TypeScript extension points; this is the core Pi project, not the oh-my-pi fork. AXM models the surface but does not serialize Pi extension hooks yet.",
         docs: [],
-        sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+        sources: ["https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
       },
@@ -178,14 +152,36 @@ export const piAgent = {
       },
     },
   },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "AGENTS.md and CLAUDE.md context load at startup from the global directory (~/.pi/agent), parent directories, and the current directory; all matching files are concatenated.\n",
+      docs: [],
+      sources: ["https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
+    },
+  },
   permissions: {
     native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes:
-        "Pi has no per-call approval prompts and no permission config file. Tools run without confirmation; the philosophy is to run pi in a container or supply a confirmation flow via extension. Tool availability is selected at invocation with --tools and --no-builtin-tools, but this is tool enablement rather than a permission-grant surface.\n",
+        "Pi has no per-tool permission-grant surface. It does provide project trust through defaultProjectTrust in settings.json, ~/.pi/agent/trust.json, /trust, and --approve/--no-approve; that gate controls loading project-local resources rather than individual tool calls.\n",
       docs: [],
-      sources: ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md"],
+      sources: ["https://pi.dev/docs/latest/settings"],
     },
     axm: {
       status: "unsupported",

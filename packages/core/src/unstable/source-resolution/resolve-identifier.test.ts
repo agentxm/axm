@@ -7,20 +7,30 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 
-import { decodeExtensionNameSync, decodeHandleSync } from "../extensions/index.js";
-import type { SkillsLockMap } from "../lockfile/index.js";
-import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../workspace/test-stubs.js";
-import { WorkspaceMutations } from "../workspace/index.js";
-import { resolveIdentifier } from "./resolve-identifier.js";
+import { CATALOG_EXTENSION_TYPES, type CatalogExtensionType } from "../extension-types/schema.js";
+import {
+  decodeExtensionNameSync,
+  decodeHandleSync,
+  toExtensionTypePlural,
+} from "../extensions/index.js";
+import {
+  configuredRow,
+  makeBaseWorkspaceMock,
+  makeRegistrySkillLockEntry,
+  readModelRecordStubs,
+  rowsFor,
+} from "../workspace/test-stubs.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "../workspace/index.js";
+import { resolveIdentifier, resolveInstalledIdentifier } from "./resolve-identifier.js";
 
-const owner = (value: string) => decodeHandleSync(value);
 const name = (value: string) => decodeExtensionNameSync(value);
 
 const provide = (
   effect: ReturnType<typeof resolveIdentifier>,
   options?: {
-    readonly lockedSkills?: () => Effect.Effect<SkillsLockMap>;
+    readonly rows?: WorkspaceMutationsService["records"]["rows"];
     readonly registryDir?: string;
+    readonly getLockedSkills?: WorkspaceMutationsService["getLockedSkills"];
   },
 ) =>
   effect.pipe(
@@ -29,7 +39,10 @@ const provide = (
         Layer.succeed(
           WorkspaceMutations,
           makeBaseWorkspaceMock("/tmp/axm", {
-            getLockedSkills: options?.lockedSkills ?? (() => Effect.succeed({})),
+            ...(options?.rows === undefined ? {} : { rows: options.rows }),
+            ...(options?.getLockedSkills === undefined
+              ? {}
+              : { getLockedSkills: options.getLockedSkills }),
             getRegistrySourceHosts: () =>
               Effect.succeed([
                 {
@@ -52,6 +65,7 @@ const writeRegistrySkill = (registryDir: string, ownerValue: string, nameValue: 
     nodePath.join(dir, "index.json"),
     JSON.stringify({
       owner: ownerValue,
+      publisherBindingId: "hbnd_test",
       type: "skill",
       name: nameValue,
       versions: [
@@ -87,13 +101,15 @@ describe("resolveIdentifier", () => {
           scope: "installed",
         }),
         {
-          lockedSkills: () =>
-            Effect.succeed({
-              localKey: makeRegistrySkillLockEntry({
-                owner: owner("@acme"),
-                name: "code-review",
+          rows: rowsFor({
+            skill: [
+              configuredRow({
+                type: "skill",
+                name: "localKey",
+                source: "@acme/skills/code-review",
               }),
-            }),
+            ],
+          }),
         },
       );
 
@@ -112,17 +128,20 @@ describe("resolveIdentifier", () => {
             scope: "installed",
           }),
           {
-            lockedSkills: () =>
-              Effect.succeed({
-                acmeReview: makeRegistrySkillLockEntry({
-                  owner: owner("@acme"),
-                  name: "code-review",
+            rows: rowsFor({
+              skill: [
+                configuredRow({
+                  type: "skill",
+                  name: "acmeReview",
+                  source: "@acme/skills/code-review",
                 }),
-                otherReview: makeRegistrySkillLockEntry({
-                  owner: owner("@other"),
-                  name: "code-review",
+                configuredRow({
+                  type: "skill",
+                  name: "otherReview",
+                  source: "@other/skills/code-review",
                 }),
-              }),
+              ],
+            }),
           },
         ),
       );
@@ -133,6 +152,38 @@ describe("resolveIdentifier", () => {
         expect(result.failure.detail).toContain("@acme/skills/code-review");
         expect(result.failure.detail).toContain("@other/skills/code-review");
       }
+    }),
+  );
+
+  it.effect("ignores stale receipt identities", () =>
+    Effect.gen(function* () {
+      const resolved = yield* provide(
+        resolveIdentifier({
+          input: "code-review",
+          resourceType: "skill",
+          scope: "installed",
+        }),
+        {
+          rows: rowsFor({
+            skill: [
+              configuredRow({
+                type: "skill",
+                name: "codeReview",
+                source: "@current/skills/code-review",
+              }),
+            ],
+          }),
+          getLockedSkills: () =>
+            Effect.succeed({
+              codeReview: makeRegistrySkillLockEntry({
+                owner: decodeHandleSync("@stale"),
+                name: "code-review",
+              }),
+            }),
+        },
+      );
+
+      expect(resolved.fqn).toBe("@current/skills/code-review");
     }),
   );
 
@@ -164,13 +215,15 @@ describe("resolveIdentifier", () => {
           scope: "both",
         }),
         {
-          lockedSkills: () =>
-            Effect.succeed({
-              codeReview: makeRegistrySkillLockEntry({
-                owner: owner("@installed"),
-                name: "code-review",
+          rows: rowsFor({
+            skill: [
+              configuredRow({
+                type: "skill",
+                name: "codeReview",
+                source: "@installed/skills/code-review",
               }),
-            }),
+            ],
+          }),
         },
       );
 
@@ -197,4 +250,95 @@ describe("resolveIdentifier", () => {
       }
     }),
   );
+});
+
+/**
+ * One desired-row override per catalog type. The `satisfies Record<…>` keeps
+ * identifier resolution exhaustive when a new catalog type is introduced.
+ */
+const desiredOverride = (type: CatalogExtensionType): Partial<WorkspaceMutationsService> => ({
+  records: {
+    ...readModelRecordStubs,
+    rows: rowsFor({
+      [type]: [
+        configuredRow({
+          type,
+          name: "installed",
+          source: `@acme/${toExtensionTypePlural(type)}/shared`,
+        }),
+      ],
+    }),
+  },
+});
+
+const desiredOverrideFor = {
+  skill: desiredOverride("skill"),
+  command: desiredOverride("command"),
+  "mcp-server": desiredOverride("mcp-server"),
+  subagent: desiredOverride("subagent"),
+  files: desiredOverride("files"),
+  rule: desiredOverride("rule"),
+  hook: desiredOverride("hook"),
+  knowledge: desiredOverride("knowledge"),
+} satisfies Record<CatalogExtensionType, Partial<WorkspaceMutationsService>>;
+
+const provideForType = (
+  effect: ReturnType<typeof resolveInstalledIdentifier>,
+  type: CatalogExtensionType,
+) =>
+  effect.pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        Layer.succeed(
+          WorkspaceMutations,
+          makeBaseWorkspaceMock("/tmp/axm", desiredOverrideFor[type]),
+        ),
+        NodeServices.layer,
+      ),
+    ),
+  );
+
+describe("resolveInstalledIdentifier over the catalog", () => {
+  for (const type of CATALOG_EXTENSION_TYPES) {
+    const plural = toExtensionTypePlural(type);
+
+    it.effect(`resolves an installed bare name for ${type}`, () =>
+      Effect.gen(function* () {
+        const resolved = yield* provideForType(
+          resolveInstalledIdentifier({ input: "installed", resourceType: type }),
+          type,
+        );
+
+        expect(resolved.fqn).toBe(`@acme/${plural}/shared`);
+        expect(Option.getOrUndefined(resolved.installedName)).toBe("installed");
+      }),
+    );
+
+    it.effect(`accepts a fully-qualified ${type} identifier`, () =>
+      Effect.gen(function* () {
+        const resolved = yield* provideForType(
+          resolveInstalledIdentifier({
+            input: `@acme/${plural}/shared`,
+            resourceType: type,
+          }),
+          type,
+        );
+
+        expect(resolved.fqn).toBe(`@acme/${plural}/shared`);
+      }),
+    );
+
+    it.effect(`reports an unmatched ${type} name as not found`, () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          provideForType(resolveInstalledIdentifier({ input: "absent", resourceType: type }), type),
+        );
+
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure.code).toBe("not_found");
+        }
+      }),
+    );
+  }
 });

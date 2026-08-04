@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
@@ -113,7 +113,9 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<ParsedSkillUninstallArgs, AppError> =>
       Effect.gen(function* () {
         // Load installed skills for glob expansion
-        const installedSkills = yield* ws.records.getInstalledSkills();
+        const installedSkills = yield* ws.records
+          .rows("skill")
+          .pipe(Effect.map(installedRowsByName));
         const installedNames = Object.keys(installedSkills);
 
         // Expand glob pattern against installed skill names (excludes ignored)
@@ -190,7 +192,9 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
               }
 
               const sanitizedName = sanitizeName(entry.skillName);
-              const lockEntry = yield* ws.getLockedSkill(entry.skillName);
+              const lockEntry = yield* ws
+                .getLockedSkill(entry.skillName)
+                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               const artifact = yield* skillArtifactFromTargets({
                 targets: installableTargets,
                 workspaceRoot: ws.baseDir,

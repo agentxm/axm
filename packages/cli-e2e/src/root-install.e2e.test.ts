@@ -3,23 +3,31 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
+import {
+  EXTENSION_TYPE_MATRIX,
+  type ExtensionTypeMatrixRow,
+  type MatrixExtensionType,
+} from "./__generated__/extension-type-matrix.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
+import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
 
 const OWNER = "@test";
 const PUBLISH_ENV = { AXM_TOKEN: "e2e-test-token" };
 
-type InstallSurface = "skills" | "commands" | "subagents" | "packs" | "mcps";
-type SettingsKey = "skills" | "commands" | "subagents" | "packs" | "mcpServers";
+/**
+ * Install surfaces come from the generated extension-type matrix, so the suite
+ * has a row per extension type whether or not that type is covered yet. A new
+ * type appears here as a new row and has to be answered for — either with a
+ * publisher below or with a ledger row naming the obligation it is missing.
+ */
+type InstallSurface = ExtensionTypeMatrixRow["plural"];
+type SettingsKey = Exclude<InstallSurface, "mcps"> | "mcpServers";
 
-interface InstallCase {
-  readonly label: string;
-  readonly surface: InstallSurface;
-  readonly publishToRegistry: (
-    registryPath: string,
-    name: string,
-    options?: PackPublishOptions,
-  ) => Promise<void>;
-}
+type Publisher = (
+  registryPath: string,
+  name: string,
+  options?: PackPublishOptions,
+) => Promise<void>;
 
 interface PackPublishOptions {
   readonly dependencies?: Record<string, string>;
@@ -77,7 +85,12 @@ const configureWorkspaceEntries = (
 };
 
 const initWorkspace = async (workspacePath: string, registryPath: string) => {
-  await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: workspacePath });
+  const setup = await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: workspacePath });
+  // Assert here rather than letting the next line fail: a setup that died
+  // leaves no settings.json, and the resulting ENOENT surfaces several frames
+  // away with setup's stderr already discarded — which reads like workspace
+  // state corruption rather than the CLI failing to start.
+  expect(setup.exitCode, setup.stderr).toBe(0);
   configureWorkspaceRegistry(workspacePath, registryPath);
 };
 
@@ -163,6 +176,7 @@ const publishMcpServerToRegistry = async (registryPath: string, name: string) =>
           owner: OWNER,
           name,
           type: "mcp-server",
+          publisherBindingId: "hbnd_test",
           versions: [
             {
               version,
@@ -260,6 +274,7 @@ const publishPackToRegistry = async (
           2,
         )}\n`,
       );
+      refreshAuthoredWorkspacePackState(workspace.path, OWNER, name);
     }
 
     const publishResult = await runCli(["packs", "publish", registryFqn("packs", name), "--yes"], {
@@ -271,6 +286,34 @@ const publishPackToRegistry = async (
     workspace.cleanup();
   }
 };
+
+/**
+ * Scaffold-then-publish for the types whose `new` and `publish` verbs need no
+ * per-type arguments beyond the owner. Skills and subagents scaffold per agent
+ * and MCP servers are assembled as a raw archive, so those keep bespoke
+ * publishers above.
+ */
+const publishScaffoldedToRegistry =
+  (surface: InstallSurface) => async (registryPath: string, name: string) => {
+    const workspace = createTempDir();
+
+    try {
+      await initWorkspace(workspace.path, registryPath);
+
+      const createResult = await runCli([surface, "new", name, "--owner", OWNER, "--yes"], {
+        cwd: workspace.path,
+      });
+      expect(createResult.exitCode).toBe(0);
+
+      const publishResult = await runCli(
+        [surface, "publish", registryFqn(surface, name), "--yes"],
+        { cwd: workspace.path, env: PUBLISH_ENV },
+      );
+      expect(publishResult.exitCode).toBe(0);
+    } finally {
+      workspace.cleanup();
+    }
+  };
 
 const readSettings = (workspacePath: string) =>
   JSON.parse(fs.readFileSync(path.join(workspacePath, ".axm", "settings.json"), "utf-8"));
@@ -349,42 +392,66 @@ const expectConfiguredEntriesInstalled = (
   }
 };
 
-const installCases = [
-  {
-    label: "skill",
-    surface: "skills",
-    publishToRegistry: publishSkillToRegistry,
-  },
-  {
-    label: "command",
-    surface: "commands",
-    publishToRegistry: publishCommandToRegistry,
-  },
-  {
-    label: "subagent",
-    surface: "subagents",
-    publishToRegistry: publishSubagentToRegistry,
-  },
-  {
-    label: "MCP server",
-    surface: "mcps",
-    publishToRegistry: publishMcpServerToRegistry,
-  },
-  {
-    label: "pack",
-    surface: "packs",
-    publishToRegistry: publishPackToRegistry,
-  },
-] as const satisfies ReadonlyArray<InstallCase>;
+/**
+ * Publish helper per extension type, or `null` where no publish-then-install
+ * round trip exists yet. Keyed by the generated union, so a new extension type
+ * fails compile here until its coverage is decided; a `null` entry must be
+ * matched by a `6.1-e2e-install-row` ledger row, which the guard tests below
+ * check in both directions.
+ */
+const PUBLISHERS = {
+  skill: publishSkillToRegistry,
+  command: publishCommandToRegistry,
+  subagent: publishSubagentToRegistry,
+  "mcp-server": publishMcpServerToRegistry,
+  pack: publishPackToRegistry,
+  files: publishScaffoldedToRegistry("files"),
+  hook: publishScaffoldedToRegistry("hooks"),
+  knowledge: publishScaffoldedToRegistry("knowledge"),
+  rule: publishScaffoldedToRegistry("rules"),
+} as const satisfies Record<MatrixExtensionType, Publisher | null>;
+
+const installCases = EXTENSION_TYPE_MATRIX.filter((row) => PUBLISHERS[row.type] !== null);
+const uncoveredCases = EXTENSION_TYPE_MATRIX.filter((row) => PUBLISHERS[row.type] === null);
+
+const publisherFor = (row: ExtensionTypeMatrixRow): Publisher => {
+  const publish = PUBLISHERS[row.type];
+  if (publish === null) {
+    throw new Error(`no publisher registered for ${row.type}`);
+  }
+  return publish;
+};
 
 describe("axm install", () => {
+  it("classifies every extension type as covered or ledgered", () => {
+    // A type with neither a publisher nor a ledger row would silently vanish
+    // from this suite.
+    expect(uncoveredCases.filter((row) => row.e2eExemptions.length === 0)).toStrictEqual([]);
+  });
+
+  it("carries no ledger row for a type this suite covers", () => {
+    // The other direction: coverage that lands without clearing its ledger row
+    // leaves stale debt behind.
+    expect(installCases.filter((row) => row.e2eExemptions.length > 0)).toStrictEqual([]);
+  });
+
+  for (const row of uncoveredCases) {
+    it.skip(`installs a published ${row.sentenceLabel} — ${row.e2eExemptions.join(", ")}`, () => {
+      // Skipped until the ledgered obligation clears; the title names it.
+    });
+  }
+
   it.each(installCases)(
-    "matches $surface install output and workspace state for $label registry FQNs",
-    async ({ surface, publishToRegistry }) => {
+    "matches $plural install output and workspace state for $label registry FQNs",
+    async (row) => {
+      const surface = row.plural;
+      const publishToRegistry = publisherFor(row);
       const registryDir = createTempDir("axm-registry-");
       const rootWorkspace = createTempDir();
       const surfaceWorkspace = createTempDir();
-      const name = `root-${surface.slice(0, -1)}`.replace("-mcp-server", "-mcp");
+      // Named from the type rather than a de-pluralized surface, which would
+      // yield "knowledg". The MCP shortening keeps the historical fixture name.
+      const name = `root-${row.type}`.replace("-mcp-server", "-mcp");
 
       try {
         await publishToRegistry(registryDir.path, name);
@@ -428,8 +495,10 @@ describe("axm install", () => {
   );
 
   it.each(installCases)(
-    "installs all configured $label entries for no-arg $surface install",
-    async ({ surface, publishToRegistry }) => {
+    "installs all configured $label entries for no-arg $plural install",
+    async (row) => {
+      const surface = row.plural;
+      const publishToRegistry = publisherFor(row);
       const registryDir = createTempDir("axm-registry-");
       const workspace = createTempDir();
       const names = [

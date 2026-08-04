@@ -130,7 +130,7 @@ describe("actual-occurrence shape", () => {
             },
           },
           axmExtensions: {
-            "@owner/skills/src/some-skill/SKILL.md": "# canonical\n",
+            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
           },
         }),
       );

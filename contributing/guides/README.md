@@ -14,10 +14,15 @@ Each guide is a single markdown file named after its topic:
 - `effect-option.md` — When to use `Option` versus nullable values
 - `effect-v4-quick-ref.md` — Common v3 to v4 API renames and migrations
 - `workspace-read-model.md` — Scoped workspace read model, caching, and test fixtures
+- `workspace-state.md` — Desired, observed, trust, receipt, and reconciliation semantics
+- `workspace-schema-evolution.md` — Settings and lockfile schema changes and decode strictness
 - `testing.md` — Testing orientation and skill references
 - `cli-design.md` — Command design, flags, prompts, and handler conventions
 - `cli-renderer.md` — Renderer boundaries, JSON contracts, and stderr diagnostics
 - `lint-rule-authoring.md` — Authoring lint rules for skills, packs, and workspaces
+- `logging.md` — Structured logging conventions and log levels
+- `agent-capabilities.md` — Grading agent support for each extension capability
+- `extension-type-parity.md` — The extension type table, parity obligations, and the exemption ledger
 - `releasing.md` — Release versioning, prepare/publish flow, and status checks
 - `feature-delivery.md` — Proposal, design, and implementation checks
 - `development-environment.md` — Native and shared-container development and CI

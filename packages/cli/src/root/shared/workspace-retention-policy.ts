@@ -10,7 +10,6 @@ export const makeWorkspaceRetentionPolicy = (
   ws: WorkspaceMutationsService,
 ): UninstallRetentionPolicy => ({
   isRequiredByInstalledPack: (args) => ws.isExtensionRequiredByInstalledPack(args.target),
-  markDependencyRetainedInLockfile: (args) => ws.markDependencyRetainedInLockfile(args.target),
 });
 
 export const makeWorkspaceRetentionPolicyEffect = (): Effect.Effect<

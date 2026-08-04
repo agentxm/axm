@@ -8,13 +8,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { configuredRow, makeBaseWorkspaceMock, rowsFor } from "../../workspace/test-stubs.js";
 import {
   CodingAgentRepository,
   type CodingAgent,
   type CodingAgentRepositoryService,
 } from "../../agents/index.js";
-import type { InstalledSubagent } from "../../workspace/read-model-record-types.js";
 import type { SubagentLockEntry } from "../../lockfile/index.js";
 import { disableSubagent, type DisableSubagentOperation } from "./disable.js";
 
@@ -67,11 +66,6 @@ describe("disableSubagent", () => {
         getConfiguredAgents: () => Effect.succeed([fakeAgent]),
       } as unknown as CodingAgentRepositoryService;
 
-      // Assertion needed: minimal read-model record — only `lifecycle` is read.
-      const installedRecord = {
-        "my-subagent": { lifecycle: "configured" },
-      } as unknown as Record<string, InstalledSubagent>;
-
       // Assertion needed: minimal lock entry — only presence and `type` matter.
       const lockEntry = {
         type: "local",
@@ -79,7 +73,15 @@ describe("disableSubagent", () => {
       } as unknown as SubagentLockEntry;
 
       const wsMock = makeBaseWorkspaceMock(axmDir, {
-        getInstalledSubagents: () => Effect.succeed(installedRecord),
+        rows: rowsFor({
+          subagent: [
+            configuredRow({
+              type: "subagent",
+              name: "my-subagent",
+              source: "@acme/subagents/my-subagent",
+            }),
+          ],
+        }),
         getLockedSubagent: () => Effect.succeed(Option.some(lockEntry)),
       });
 

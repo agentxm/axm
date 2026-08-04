@@ -10,52 +10,76 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { PER_AGENT_EXTENSION_TYPES } from "../extensions/common.js";
 import {
   AGENT_IDS as CATALOG_AGENT_IDS,
   agentById,
   type Agent,
+  type AgentExtensionCapability,
   type AgentId as CatalogAgentId,
+  type LeafExtensionType,
+  type PerAgentType,
 } from "../agent-capabilities/index.js";
 import { isConfigurableAgentId, type AgentId } from "../agents/types.js";
 import type { CapabilityRenderTarget } from "./render.js";
 
-const capabilityKeys = {
+/**
+ * Targeting vocabulary is plural and independent of extension-type ids:
+ * authored manifests say `requires: ["mcp-servers"]`, not `mcp-server`. The
+ * `rules` key comes from the agent's `instructions` slot, which is not a
+ * per-agent capability.
+ */
+export const CAPABILITY_KEYS = {
   skill: "skills",
   command: "commands",
   "mcp-server": "mcp-servers",
   subagent: "subagents",
-  files: "files",
-  rule: "rules",
   hook: "hooks",
-} as const;
+} as const satisfies Record<PerAgentType, string>;
+
+const capabilityKeys = CAPABILITY_KEYS;
+
+/** Targeting key for the `rule` capability, which lives on `agent.instructions`. */
+export const INSTRUCTIONS_CAPABILITY_KEY = "rules";
+
+/**
+ * Targeting key for a leaf extension type, or undefined when the vocabulary has
+ * no name for it. Distinct from `extensionTypeToPlural`: targeting says
+ * `mcp-servers` where the type table says `mcps`.
+ */
+export const capabilityKeyForType = (type: LeafExtensionType): string | undefined => {
+  switch (type) {
+    case "rule":
+      return INSTRUCTIONS_CAPABILITY_KEY;
+    case "files":
+      return undefined;
+    default:
+      return CAPABILITY_KEYS[type];
+  }
+};
 
 const catalogAgentIds = new Set<string>(CATALOG_AGENT_IDS);
 const isCatalogAgentId = (value: string): value is CatalogAgentId => catalogAgentIds.has(value);
 
-const extensionCapabilityGrades = (
-  agent: Agent,
-  type: keyof typeof capabilityKeys,
+type NativeCapability = AgentExtensionCapability["native"];
+
+const capabilityGrades = (
+  native: NativeCapability,
+  extraGrades: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
-  const native = agent.capabilities[type].native;
   if (native.availability.via === "none") return [];
-  const grades = new Set<string>([native.availability.via]);
+  const grades = new Set<string>([native.availability.via, ...extraGrades]);
   if ("standardsCompliance" in native && native.standardsCompliance !== "none") {
     grades.add(native.standardsCompliance);
-  }
-  if (type === "subagent" && agent.permissions.native.availability.via !== "none") {
-    grades.add("permissioned");
   }
   return Array.from(grades).sort();
 };
 
-const extensionCapabilityTokens = (
-  agent: Agent,
-  type: keyof typeof capabilityKeys,
-): Readonly<Record<string, string>> => {
-  const native = agent.capabilities[type].native;
-  if (!("directory" in native)) return {};
-  return { [`dir:${capabilityKeys[type]}`]: native.directory };
-};
+const capabilityDirectoryToken = (
+  capabilityKey: string,
+  native: NativeCapability,
+): Readonly<Record<string, string>> =>
+  "directory" in native ? { [`dir:${capabilityKey}`]: native.directory } : {};
 
 const collectInheritance = (agent: Agent): ReadonlyArray<Agent> => {
   const inherited: Array<Agent> = [];
@@ -102,21 +126,22 @@ export const capabilityRenderTargetForAgentId = (agentId: AgentId): CapabilityRe
   for (const profileAgent of [...inherited].reverse()) {
     applyCatalogTargeting(profileAgent, capabilities, tokens);
   }
-  for (const type of Object.keys(capabilityKeys)) {
-    if (
-      type === "skill" ||
-      type === "command" ||
-      type === "mcp-server" ||
-      type === "subagent" ||
-      type === "files" ||
-      type === "rule" ||
-      type === "hook"
-    ) {
-      const grades = extensionCapabilityGrades(agent, type);
-      if (grades.length > 0) capabilities[capabilityKeys[type]] = grades;
-      Object.assign(tokens, extensionCapabilityTokens(agent, type));
-    }
+  const permissioned = agent.permissions.native.availability.via !== "none";
+  for (const type of PER_AGENT_EXTENSION_TYPES) {
+    const native = agent.capabilities[type].native;
+    const grades = capabilityGrades(
+      native,
+      type === "subagent" && permissioned ? ["permissioned"] : [],
+    );
+    if (grades.length > 0) capabilities[capabilityKeys[type]] = grades;
+    Object.assign(tokens, capabilityDirectoryToken(capabilityKeys[type], native));
   }
+  const instructions = agent.instructions.native;
+  const instructionsGrades = capabilityGrades(instructions, []);
+  if (instructionsGrades.length > 0) {
+    capabilities[INSTRUCTIONS_CAPABILITY_KEY] = instructionsGrades;
+  }
+  Object.assign(tokens, capabilityDirectoryToken(INSTRUCTIONS_CAPABILITY_KEY, instructions));
   applyCatalogTargeting(agent, capabilities, tokens);
 
   return {

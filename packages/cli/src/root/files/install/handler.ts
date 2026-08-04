@@ -45,6 +45,7 @@ export const handleInstallFiles = (
           ? unchangedPlanHeadline(outputResolution, "No files packages installed.")
           : "Installed files package " + args.source,
       resolution: outputResolution,
+      reportInstallationCoverage: true,
       suggestions: [{ description: "Inspect installed files packages", cmd: "axm files list" }],
     });
   });

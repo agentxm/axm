@@ -60,7 +60,7 @@ export const pochiAgent = {
         sources: ["https://docs.getpochi.com/mcp/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
-        convention: "universal",
+        convention: "vendor",
         transports: ["stdio", "http"],
         mcpEnvExpansion: {
           variables: "none",
@@ -69,20 +69,20 @@ export const pochiAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: {
           config: {
-            serversKey: "mcpServers",
+            serversKey: "mcp",
             nativeEnabled: true,
             targets: [
               {
                 scope: "project",
-                path: ".pochi/mcp.jsonc",
+                path: ".pochi/config.jsonc",
                 format: "jsonc",
               },
               {
                 scope: "user",
-                path: "~/.pochi/mcp.jsonc",
+                path: "~/.pochi/config.jsonc",
                 format: "jsonc",
               },
             ],
@@ -92,53 +92,17 @@ export const pochiAgent = {
               envKey: "env",
             },
             remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "http",
-                },
-              },
+              typeField: null,
               urlKey: {
                 "streamable-http": "url",
-                sse: "url",
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
     },
     subagent: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
@@ -165,6 +129,28 @@ export const pochiAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Pochi reads custom-instruction files at the workspace root: README.pochi.md (primary) and AGENTS.md (alternative, treated identically), plus ~/.pochi/README.pochi.md at user scope. AXM manages the universal AGENTS.md.",
+      docs: [],
+      sources: ["https://docs.getpochi.com/rules/"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

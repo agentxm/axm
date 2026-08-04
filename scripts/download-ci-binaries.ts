@@ -3,13 +3,7 @@ import { mkdirSync } from "node:fs";
 import { run } from "./release-command.js";
 import { fail, RELEASE_REPO, requireSuccessfulCiRun } from "./release-shared.js";
 
-const EXPECTED_ASSETS = [
-  "axm-darwin-arm64",
-  "axm-darwin-x64",
-  "axm-linux-arm64",
-  "axm-linux-x64",
-  "axm-windows-x64.exe",
-] as const;
+import { EXPECTED_BINARY_ASSETS } from "./release-checksums.js";
 
 const args = process.argv.slice(2);
 
@@ -28,7 +22,7 @@ const ciRun = requireSuccessfulCiRun(sha);
 
 mkdirSync(outputDir, { recursive: true });
 
-for (const asset of EXPECTED_ASSETS) {
+for (const asset of EXPECTED_BINARY_ASSETS) {
   run("gh", [
     "run",
     "download",

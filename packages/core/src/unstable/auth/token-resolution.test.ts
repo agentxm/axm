@@ -3,6 +3,10 @@
  */
 
 import { describe, it } from "@effect/vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -38,19 +42,25 @@ const makeRuntimeLayer = (
   Layer.mergeAll(
     CredentialStoreTest("restricted-file", credentialData, allowsPersistedCredentials),
     authClientLayer,
+    NodeServices.layer,
   );
 
 describe("resolveToken", () => {
   let origAxmToken: string | undefined;
+  let origAxmTokenFile: string | undefined;
 
   beforeEach(() => {
     origAxmToken = process.env["AXM_TOKEN"];
+    origAxmTokenFile = process.env["AXM_TOKEN_FILE"];
     delete process.env["AXM_TOKEN"];
+    delete process.env["AXM_TOKEN_FILE"];
   });
 
   afterEach(() => {
     if (origAxmToken !== undefined) process.env["AXM_TOKEN"] = origAxmToken;
     else delete process.env["AXM_TOKEN"];
+    if (origAxmTokenFile !== undefined) process.env["AXM_TOKEN_FILE"] = origAxmTokenFile;
+    else delete process.env["AXM_TOKEN_FILE"];
   });
 
   it.effect("returns EnvVar token source when AXM_TOKEN is set", () => {
@@ -76,6 +86,42 @@ describe("resolveToken", () => {
         expect(result.value.token).toBe("axm_ses_flag_token");
       }
     }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("reads and trims AXM_TOKEN_FILE without exposing it as an env token", () => {
+    const directory = mkdtempSync(join(tmpdir(), "axm-token-file-"));
+    const tokenPath = join(directory, "token");
+    writeFileSync(tokenPath, "axm_pat_file_token\n", { mode: 0o600 });
+    process.env["AXM_TOKEN_FILE"] = tokenPath;
+    const layer = makeRuntimeLayer();
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL);
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) {
+        expect(result.value._tag).toBe("File");
+        expect(result.value.token).toBe("axm_pat_file_token");
+      }
+    }).pipe(
+      Effect.ensuring(Effect.sync(() => rmSync(directory, { recursive: true, force: true }))),
+      Effect.provide(layer),
+    );
+  });
+
+  it.effect("keeps AXM_TOKEN ahead of AXM_TOKEN_FILE", () => {
+    const directory = mkdtempSync(join(tmpdir(), "axm-token-file-"));
+    const tokenPath = join(directory, "token");
+    writeFileSync(tokenPath, "axm_pat_file_token\n", { mode: 0o600 });
+    process.env["AXM_TOKEN"] = "axm_pat_env_token";
+    process.env["AXM_TOKEN_FILE"] = tokenPath;
+    const layer = makeRuntimeLayer();
+    return Effect.gen(function* () {
+      const result = yield* resolveToken(REGISTRY_URL);
+      expect(Option.isSome(result)).toBe(true);
+      if (Option.isSome(result)) expect(result.value._tag).toBe("EnvVar");
+    }).pipe(
+      Effect.ensuring(Effect.sync(() => rmSync(directory, { recursive: true, force: true }))),
+      Effect.provide(layer),
+    );
   });
 
   it.effect("returns CredentialStore token source when credentials exist", () => {
@@ -222,25 +268,26 @@ describe("resolveRequiredToken", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_LOGIN_REQUIRED when no token is available locally", () => {
+  it.effect("returns a non-circular human handoff when no token is available", () => {
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
       const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
-      expect(error.code).toBe("auth");
+      expect(error.code).toBe("auth_required");
+      expect(error.blockedOn).toBe("human");
       expect(error.suggestions?.[0]).toEqual({
-        description: "Sign in, or set the AXM_TOKEN environment variable.",
-        cmd: "axm login",
+        description: "Start a non-blocking device sign-in and ask a person to approve it.",
+        cmd: "axm login --device-code --json",
       });
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with auth when persisted credentials are disabled", () => {
+  it.effect("offers token-file recovery when persisted credentials are disabled", () => {
     const layer = makeRuntimeLayer(undefined, AuthClientTest(), false);
     return Effect.gen(function* () {
       const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
-      expect(error.code).toBe("auth");
+      expect(error.code).toBe("auth_required");
       expect(error.suggestions?.[0]?.description).toBe(
-        "Set the AXM_TOKEN environment variable for non-interactive auth.",
+        "Set AXM_TOKEN or AXM_TOKEN_FILE for non-interactive authentication.",
       );
     }).pipe(Effect.provide(layer));
   });

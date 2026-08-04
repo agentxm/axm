@@ -38,8 +38,11 @@ afterEach(() => {
 });
 
 const layer = MachineRenderer();
+const quietLayer = MachineRenderer({ quiet: true });
 
 const run = <A>(effect: Effect.Effect<A, never, CliRenderer>) => Effect.provide(effect, layer);
+const runQuiet = <A>(effect: Effect.Effect<A, never, CliRenderer>) =>
+  Effect.provide(effect, quietLayer);
 
 const parseStderrEvents = () =>
   stderrWrites.map((line) => {
@@ -58,6 +61,26 @@ const parseStdout = () => stdoutWrites.map((line) => JSON.parse(line.trim()));
 
 describe("MachineRenderer", () => {
   describe("chrome methods keep advisory narration silent", () => {
+    it.effect("emits required instructions as ANSI-free structured stderr in quiet mode", () =>
+      Effect.gen(function* () {
+        yield* runQuiet(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            yield* renderer.instruction("Open https://example.com and enter ABCD-1234");
+          }),
+        );
+
+        expect(stdoutWrites).toEqual([]);
+        expect(parseStderrEvents()).toEqual([
+          {
+            type: "instruction",
+            message: "Open https://example.com and enter ABCD-1234",
+          },
+        ]);
+        expect(stderrWrites.join("")).not.toContain("\u001b[");
+      }),
+    );
+
     it.effect("info is silent", () =>
       Effect.gen(function* () {
         yield* run(
@@ -219,6 +242,30 @@ describe("MachineRenderer", () => {
       }),
     );
 
+    it.effect("redacts credentials from diagnostic and suggestion events", () =>
+      Effect.gen(function* () {
+        const secret = "ghp_abcdefghijklmnopqrstuvwxyz123456";
+        yield* run(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            yield* r.error(`Bearer ${secret}`, {
+              suggestions: [
+                {
+                  description: `Retry without ${secret}`,
+                  url: `https://registry.test/retry?token=${secret}`,
+                },
+              ],
+            });
+          }),
+        );
+
+        const serialized = stderrWrites.join("");
+        expect(serialized).not.toContain(secret);
+        expect(serialized).toContain("[REDACTED]");
+        expect(parseStderrEvents()).toHaveLength(2);
+      }),
+    );
+
     it.effect("cancel emits log event when message provided", () =>
       Effect.gen(function* () {
         yield* run(
@@ -270,6 +317,24 @@ describe("MachineRenderer", () => {
           phase: "work",
           percent: 100,
         });
+      }),
+    );
+
+    it.effect("suppresses progress in quiet mode without skipping the work", () =>
+      Effect.gen(function* () {
+        const value = yield* runQuiet(
+          Effect.gen(function* () {
+            const r = yield* CliRenderer;
+            return yield* r.withSpinner(
+              "Resolving @acme/skills/review",
+              () => Effect.succeed("resolved"),
+              { successMessage: "Resolved @acme/skills/review" },
+            );
+          }),
+        );
+
+        expect(value).toBe("resolved");
+        expect(stderrWrites).toEqual([]);
       }),
     );
 
@@ -407,7 +472,7 @@ describe("MachineRenderer", () => {
       }),
     );
 
-    it.effect("writes a flat success envelope to stdout", () =>
+    it.effect("writes a result success envelope to stdout", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -419,13 +484,15 @@ describe("MachineRenderer", () => {
         const parsed = parseStdout();
         expect(parsed[0]).toEqual({
           ok: true,
-          items: [{ name: "my-skill" }],
-          count: 1,
+          result: {
+            items: [{ name: "my-skill" }],
+            count: 1,
+          },
         });
       }),
     );
 
-    it.effect("includes summary and suggestions in the flat envelope without stderr events", () =>
+    it.effect("includes summary and suggestions beside the result without stderr events", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -445,8 +512,10 @@ describe("MachineRenderer", () => {
         expect(stderrWrites).toHaveLength(0);
         expect(parseStdout()[0]).toEqual({
           ok: true,
-          items: [{ name: "my-command" }],
-          count: 1,
+          result: {
+            items: [{ name: "my-command" }],
+            count: 1,
+          },
           summary: "Created command @acme/commands/my-command",
           suggestions: [
             { description: "Edit the file", cmd: "axm edit" },
@@ -471,8 +540,10 @@ describe("MachineRenderer", () => {
 
         expect(parseStdout()[0]).toEqual({
           ok: true,
-          items: [],
-          count: 0,
+          result: {
+            items: [],
+            count: 0,
+          },
         });
       }),
     );
@@ -508,7 +579,10 @@ describe("MachineRenderer", () => {
         );
         expect(stdoutWrites).toHaveLength(1);
         const parsed = parseStdout();
-        expect(parsed[0]).toEqual({ ok: true, name: "my-skill", version: "1.0.0" });
+        expect(parsed[0]).toEqual({
+          ok: true,
+          result: { name: "my-skill", version: "1.0.0" },
+        });
       }),
     );
 
@@ -554,51 +628,12 @@ describe("MachineRenderer", () => {
         expect(stderrWrites).toHaveLength(0);
         expect(parseStdout()[0]).toEqual({
           ok: true,
-          x: 1,
+          result: { x: 1 },
           suggestions: [
             { description: "Inspect state", cmd: "axm skills list" },
             { description: "Undo", cmd: "axm skills uninstall example" },
           ],
         });
-      }),
-    );
-  });
-
-  // -------------------------------------------------------------------------
-  // resultStream() — writes NDJSON to stdout, returns true
-  // -------------------------------------------------------------------------
-
-  describe("resultStream()", () => {
-    it.effect("returns true", () =>
-      Effect.gen(function* () {
-        const result = yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            return yield* r.resultStream(
-              Stream.make({ n: 1 }, { n: 2 }),
-              Schema.Struct({ n: Schema.Number }),
-            );
-          }),
-        );
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("writes each item as NDJSON line to stdout", () =>
-      Effect.gen(function* () {
-        yield* run(
-          Effect.gen(function* () {
-            const r = yield* CliRenderer;
-            yield* r.resultStream(
-              Stream.make({ n: 1 }, { n: 2 }, { n: 3 }),
-              Schema.Struct({ n: Schema.Number }),
-            );
-          }),
-        );
-        // Each item is a separate JSON line
-        expect(stdoutWrites).toHaveLength(3);
-        const items = parseStdout();
-        expect(items).toEqual([{ n: 1 }, { n: 2 }, { n: 3 }]);
       }),
     );
   });

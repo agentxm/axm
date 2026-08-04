@@ -10,7 +10,12 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
+import {
+  computePackageContentHashSync,
+  extensionName,
+  writeWorkspaceFiles,
+} from "../../test-stubs.js";
+import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
 import {
   expectNoOpPlanResult,
   getAppError,
@@ -38,13 +43,14 @@ const initWorkspace = (
     packs: configuredPacks,
     lockfileSkills,
     lockfilePacks: opts?.lockfilePacks,
+    writeTrustFromLockfile: true,
   });
 };
 
-const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
+const makeLockEntry = (_agents: string[] = ["claude-code"], sourceHash?: string) => ({
   type: "local",
   path: "installed",
-  agents,
+  ...(sourceHash === undefined ? {} : { sourceHash }),
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
@@ -116,7 +122,9 @@ describe("enable.handler", () => {
       initWorkspace(
         path.join(tempDir, ".axm"),
         { "my-skill": "local" },
-        { "my-skill": makeLockEntry() },
+        {
+          "my-skill": makeLockEntry(["claude-code"], computeSourceHash("SKILL.md\n# my-skill")),
+        },
       );
 
       return provide(
@@ -172,7 +180,7 @@ describe("enable.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "default",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -200,7 +208,33 @@ describe("enable.handler", () => {
   describe("promoted skill re-enable", () => {
     it.effect("re-enables promoted transitive skill by updating settings", () => {
       const { provide, logs } = makeLayers();
-      // Skill was promoted to direct via disable: bare name key, no lock entry
+      const skillDir = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "@acme",
+        "skills",
+        "code-review",
+        "src",
+      );
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# code-review");
+      const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "starter-pack");
+      fs.mkdirSync(packDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(packDir, "pack.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "starter-pack",
+          version: "1.0.0",
+          dependencies: {
+            "@acme/skills/code-review": "^1.0.0",
+          },
+        }),
+      );
+
+      // Skill was promoted to direct via disable and remains desired through the pack.
       initWorkspace(
         path.join(tempDir, ".axm"),
         {
@@ -209,7 +243,20 @@ describe("enable.handler", () => {
             enabled: false,
           },
         },
-        {},
+        {
+          "code-review": {
+            type: "registry",
+            owner: "@acme",
+            name: "code-review",
+            resolvedVersion: "1.2.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            sourceHash: computePackageContentHashSync(path.dirname(skillDir)),
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
         ["claude-code"],
         {
           packs: { "starter-pack": "@acme/packs/starter-pack" },
@@ -221,9 +268,16 @@ describe("enable.handler", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
               sourceName: "default",
+              publisherBindingId: "hbnd_test",
+              sourceHash: computePackageContentHashSync(packDir),
               installedAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-              resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
+              resolvedSkills: {
+                "@acme/skills/code-review": {
+                  version: "1.2.0",
+                  publisherBindingId: "hbnd_test",
+                },
+              },
               resolvedCommands: {},
               resolvedMcpServers: {},
               resolvedSubagents: {},
@@ -256,7 +310,7 @@ describe("enable.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("settings-only enable (no lock entry)", () => {
-    it.effect("enables a configured-disabled skill with no lockfile entry", () => {
+    it.effect("refuses to enable a configured-disabled skill without trusted content", () => {
       const { provide, logs } = makeLayers();
       // Skill in settings as disabled but not in lockfile
       initWorkspace(
@@ -275,8 +329,7 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(logs.success.length).toBeGreaterThan(0);
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
+          expect(logs.success).toEqual([]);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(
@@ -284,7 +337,10 @@ describe("enable.handler", () => {
             "utf-8",
           );
           const settings = JSON.parse(settingsContent);
-          expect(settings.skills?.["my-skill"]).toBe("@acme/skills/my-skill");
+          expect(settings.skills?.["my-skill"]).toEqual({
+            source: "@acme/skills/my-skill",
+            enabled: false,
+          });
         }),
       );
     });
@@ -300,8 +356,10 @@ describe("enable.handler", () => {
       // Create a disabled skill
       initWorkspace(
         path.join(tempDir, ".axm"),
-        { "my-skill": { source: "local", enabled: false } },
-        { "my-skill": makeLockEntry() },
+        { "my-skill": { source: "./installed", enabled: false } },
+        {
+          "my-skill": makeLockEntry(["claude-code"], computeSourceHash("SKILL.md\n# my-skill")),
+        },
       );
       // Create canonical skill directory
       const canonicalDir = path.join(
@@ -326,7 +384,7 @@ describe("enable.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["my-skill"]).toEqual({
-            source: "local",
+            source: "./installed",
             enabled: false,
           });
 
@@ -351,8 +409,10 @@ describe("enable.handler", () => {
       // Create a disabled skill: { source: "local", enabled: false }
       initWorkspace(
         path.join(tempDir, ".axm"),
-        { "my-skill": { source: "local", enabled: false } },
-        { "my-skill": makeLockEntry() },
+        { "my-skill": { source: "./installed", enabled: false } },
+        {
+          "my-skill": makeLockEntry(["claude-code"], computeSourceHash("SKILL.md\n# my-skill")),
+        },
       );
       // Create canonical skill directory at the new external extensions path
       const canonicalDir = path.join(

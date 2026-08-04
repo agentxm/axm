@@ -9,6 +9,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -26,9 +27,15 @@ import { createRegistryClient, extractZip } from "../../registry/index.js";
 import type { Operation, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
+  trustedRegistryVersionForRef,
+  trustRecordKey,
+  validateRefTrustTransition,
+} from "../../trust/index.js";
+import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
-  computeSourceHash,
+  computePackageContentHash,
+  shouldReuseCanonicalInstall,
 } from "../../extensions/index.js";
 import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
 import { copyExtensionDirectory, validatePathSafety } from "../../extensions/utils.js";
@@ -77,7 +84,10 @@ export type InstallCommandOperation = Operation<"install-command", InstallComman
 // Registry install
 // -----------------------------------------------------------------------------
 
-const installFromRegistry = (ref: RegistryCommandRef) =>
+const installFromRegistry = (
+  ref: RegistryCommandRef,
+  reuse: { readonly force: boolean; readonly lockedVersion: string | undefined },
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -98,7 +108,6 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
       });
     }
 
-    // Empty integrity with existing canonical → skip fetch (synthetic refs from publish)
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -108,7 +117,13 @@ const installFromRegistry = (ref: RegistryCommandRef) =>
         }),
       ),
     );
-    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+    const useExisting = shouldReuseCanonicalInstall({
+      canonicalExists,
+      force: reuse.force,
+      hasIntegrity: Option.isSome(ref.integrity),
+      refVersion: ref.version,
+      lockedVersion: reuse.lockedVersion,
+    });
 
     if (!useExisting) {
       const locationStr =
@@ -287,10 +302,13 @@ const installFromWorkspace = (ref: WorkspaceCommandRef) =>
   });
 
 // --- Materialization dispatcher ---
-const materializeCommand = (ref: CommandExtensionRef) => {
+const materializeCommand = (
+  ref: CommandExtensionRef,
+  reuse: { readonly force: boolean; readonly lockedVersion: string | undefined },
+) => {
   switch (ref.refType) {
     case "registry":
-      return installFromRegistry(ref);
+      return installFromRegistry(ref, reuse);
     case "git-hosted":
       return installFromGitHosted(ref);
     case "local":
@@ -324,10 +342,17 @@ export const installCommand: (
     const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
     const { ref } = op.args;
-    const previousLockEntry = yield* ws.getLockedCommand(ref.command.name);
+    const trustState = yield* ws.getTrustState();
+    yield* validateRefTrustTransition(trustState, ref);
+    const lockedVersion = trustedRegistryVersionForRef(trustState, ref);
+    const previouslyTrusted =
+      trustState.records[trustRecordKey("command", ref.command.name)] !== undefined;
 
     // --- Materialize ---
-    const canonicalPath = yield* materializeCommand(ref);
+    const canonicalPath = yield* materializeCommand(ref, {
+      force: op.args.force,
+      lockedVersion,
+    });
 
     // --- Read command content ---
     const { frontmatter, agentOverrides, body, manifest, contentPath } = yield* readCommandContent(
@@ -384,7 +409,7 @@ export const installCommand: (
     const renderingWarnings = collectRenderingWarningSummaries(outcomes);
 
     // --- Compute source hash ---
-    const sourceHash = computeSourceHash(body);
+    const sourceHash = yield* computePackageContentHash(canonicalPath);
 
     // --- Validate version before building lock entry (registry only) ---
     if (ref.refType === "registry") {
@@ -395,7 +420,7 @@ export const installCommand: (
     }
 
     // --- Build lock entry with agents, sourceHash, renderedFiles ---
-    const now = new Date();
+    const now = yield* DateTime.now;
     const workspaceRelativeLocalSourcePath =
       ref.refType === "local"
         ? makeWorkspaceRelativeSourcePath(path, ws.baseDir, ref.source.path)
@@ -416,7 +441,7 @@ export const installCommand: (
     };
     const artifact = commandInstallArtifact({
       lockEntry,
-      previousLockEntry,
+      previouslyTrusted,
       versionRange: op.args.versionRange,
       canonicalPath,
       fallbackPath: ref.command.name,
@@ -436,8 +461,16 @@ export const installCommand: (
     }
 
     const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
-      ? ws.setCommandLock({ name: ref.command.name, lockEntry })
-      : ws.setCommand({ name: ref.command.name, lockEntry });
+      ? ws.setCommandLock({
+          name: ref.command.name,
+          lockEntry,
+          versionRange: Option.none(),
+        })
+      : ws.setCommand({
+          name: ref.command.name,
+          lockEntry,
+          versionRange: op.args.versionRange,
+        });
     const writeSucceeded = yield* writeEffect.pipe(
       Effect.as(true),
       Effect.tapError((e) => Effect.logWarning("Command write failed", { error: e })),

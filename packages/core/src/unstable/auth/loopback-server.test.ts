@@ -9,10 +9,32 @@ import {
 } from "./loopback-server.js";
 
 const scheduleCallback = (url: string) => {
-  setTimeout(() => {
-    const request = NodeHttp.get(url, (response) => response.resume());
-    request.on("error", () => undefined);
-  }, 10);
+  return new Promise<{
+    readonly statusCode: number | undefined;
+    readonly cacheControl: string | undefined;
+    readonly body: string;
+  }>((resolve, reject) => {
+    setTimeout(() => {
+      const request = NodeHttp.get(url, (response) => {
+        let body = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          body += String(chunk);
+        });
+        response.on("end", () =>
+          resolve({
+            statusCode: response.statusCode,
+            cacheControl:
+              typeof response.headers["cache-control"] === "string"
+                ? response.headers["cache-control"]
+                : undefined,
+            body,
+          }),
+        );
+      });
+      request.on("error", reject);
+    }, 10);
+  });
 };
 
 describe("startLoopbackServer", () => {
@@ -23,15 +45,20 @@ describe("startLoopbackServer", () => {
       callback.searchParams.set("code", "axm_pubac_exact");
       callback.searchParams.set("state", "expected-state");
       callback.searchParams.set("iss", "https://agentxm.ai");
-      scheduleCallback(callback.href);
+      const pageResponse = scheduleCallback(callback.href);
 
       const result = yield* server.awaitCallback("expected-state", 1_000);
+      const response = yield* Effect.promise(() => pageResponse);
 
       expect(result).toEqual({
         code: "axm_pubac_exact",
         state: "expected-state",
         iss: "https://agentxm.ai",
       });
+      expect(response).toMatchObject({ statusCode: 200, cacheControl: "no-store" });
+      expect(response.body).toContain("You’re signed in to AgentXM.ai");
+      expect(response.body).toContain("Return to your terminal to continue");
+      expect(response.body).not.toContain("axm_pubac_exact");
     }),
   );
 
@@ -42,12 +69,16 @@ describe("startLoopbackServer", () => {
       callback.searchParams.set("error", "access_denied");
       callback.searchParams.set("state", "expected-state");
       callback.searchParams.set("iss", "https://agentxm.ai");
-      scheduleCallback(callback.href);
+      const pageResponse = scheduleCallback(callback.href);
 
       const error = yield* Effect.flip(server.awaitCallback("expected-state", 1_000));
+      const response = yield* Effect.promise(() => pageResponse);
 
       expect(error).toBeInstanceOf(LoopbackCallbackRejected);
       expect(error).toMatchObject({ reason: "access_denied" });
+      expect(response).toMatchObject({ statusCode: 400, cacheControl: "no-store" });
+      expect(response.body).toContain("Sign-in was cancelled");
+      expect(response.body).toContain("No credentials were changed");
     }),
   );
 
@@ -58,12 +89,16 @@ describe("startLoopbackServer", () => {
       callback.searchParams.set("code", "axm_pubac_wrong_state");
       callback.searchParams.set("state", "unexpected-state");
       callback.searchParams.set("iss", "https://agentxm.ai");
-      scheduleCallback(callback.href);
+      const pageResponse = scheduleCallback(callback.href);
 
       const error = yield* Effect.flip(server.awaitCallback("expected-state", 1_000));
+      const response = yield* Effect.promise(() => pageResponse);
 
       expect(error).toBeInstanceOf(LoopbackCallbackRejected);
       expect(error).toMatchObject({ reason: "invalid_callback" });
+      expect(response).toMatchObject({ statusCode: 400, cacheControl: "no-store" });
+      expect(response.body).toContain("AXM sign-in could not be completed");
+      expect(response.body).not.toContain("unexpected-state");
     }),
   );
 

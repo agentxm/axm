@@ -1,0 +1,68 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+
+import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import { handleCachePrune, handleCacheStatus, handleCacheVerify } from "./command.js";
+
+describe("cache commands", () => {
+  let tempDir: string;
+  let originalAxmUserHome: string | undefined;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-cache-command-test-"));
+    originalAxmUserHome = process.env["AXM_USER_HOME"];
+    process.env["AXM_USER_HOME"] = tempDir;
+  });
+
+  afterEach(() => {
+    if (originalAxmUserHome === undefined) {
+      delete process.env["AXM_USER_HOME"];
+    } else {
+      process.env["AXM_USER_HOME"] = originalAxmUserHome;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it.effect("reports liveness while loading human-readable status", () => {
+    const { provide, logs, rendererState } = makeWorkspaceHandlerTestContext({
+      wsOptions: { projectRoot: tempDir },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleCacheStatus();
+
+        expect(rendererState.spinnerMessages).toEqual([
+          "Loading archive cache status",
+          "Loaded archive cache status",
+        ]);
+        expect(logs.message.join("")).toContain("Archive cache");
+      }),
+    );
+  });
+
+  it.effect("reports liveness and one machine result for maintenance commands", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({
+      machine: true,
+      wsOptions: { projectRoot: tempDir },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleCacheVerify();
+        yield* handleCachePrune();
+
+        expect(rendererState.spinnerMessages).toEqual([
+          "Verifying archive cache",
+          "Verified archive cache",
+          "Pruning archive cache",
+          "Pruned archive cache",
+        ]);
+        expect(rendererState.results).toHaveLength(2);
+      }),
+    );
+  });
+});

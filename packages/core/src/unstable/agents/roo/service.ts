@@ -9,6 +9,7 @@
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
+import { userScopeRefusal } from "../scope-refusal.js";
 import {
   addCommandViaResolve,
   removeCommandViaResolve,
@@ -57,7 +58,7 @@ export const rooCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Roo Code does not support user-scope commands",
+          reason: userScopeRefusal({ agentId: "roo", agentName: "Roo Code", type: "commands" }),
         } as const;
       }
       return {
@@ -80,7 +81,7 @@ export const rooCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Roo Code does not support user-scope subagents",
+          reason: userScopeRefusal({ agentId: "roo", agentName: "Roo Code", type: "subagents" }),
         } as const;
       }
       // Roo Code uses .roomodes file, not a directory
@@ -96,7 +97,7 @@ export const rooCodingAgent: CodingAgent = {
       if (args.scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Roo Code does not support user-scope subagents",
+          reason: userScopeRefusal({ agentId: "roo", agentName: "Roo Code", type: "subagents" }),
         } as const;
       }
       const roomodesPath = path.resolve(args.workspaceRoot, ROO_ROOMODES_FILE);
@@ -108,7 +109,7 @@ export const rooCodingAgent: CodingAgent = {
       if (args.scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Roo Code does not support user-scope subagents",
+          reason: userScopeRefusal({ agentId: "roo", agentName: "Roo Code", type: "subagents" }),
         } as const;
       }
       const roomodesPath = path.resolve(args.workspaceRoot, ROO_ROOMODES_FILE);

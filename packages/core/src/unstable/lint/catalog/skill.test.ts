@@ -35,6 +35,8 @@ const V1_SKILL_RULES = [
     kind: "advisory",
   },
   { id: "skill/capability-targeting-metadata", severity: "warning", kind: "advisory" },
+  { id: "skill/standalone-declaration-valid", severity: "warning", kind: "advisory" },
+  { id: "skill/recommended-packs-valid", severity: "warning", kind: "advisory" },
 ] as const;
 
 describe("skillRules catalog membership", () => {

@@ -1,3 +1,4 @@
+import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../../app-error/index.js";
@@ -8,7 +9,7 @@ import type { HookExtensionRef } from "../../hooks/index.js";
 import type { KnowledgeExtensionRef } from "../../knowledge/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
 import type { PackRef } from "../../packs/index.js";
-import { parseMinimumReleaseAge, type ReleaseAgePolicy } from "../../registry/index.js";
+import { parseMinimumReleaseAge } from "../../registry/index.js";
 import type { RuleExtensionRef } from "../../rules/index.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
 import type { SkillExtensionRef } from "../../skills/index.js";
@@ -18,23 +19,23 @@ import { isWorkspaceSourceLocator } from "../../sources/index.js";
 import { WorkspaceMutations } from "../service-interface.js";
 import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
 
-const configuredReleaseAgePolicy = (): Effect.Effect<
-  Option.Option<ReleaseAgePolicy>,
+const configuredMinimumReleaseAge = (): Effect.Effect<
+  Option.Option<Duration.Duration>,
   AppError,
   WorkspaceMutations
 > =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
-    const minimumAgeMs = parseMinimumReleaseAge(minimumReleaseAge);
-    if (Option.isNone(minimumAgeMs)) {
+    const configured = yield* ws.getMinimumReleaseAge();
+    const parsed = parseMinimumReleaseAge(configured);
+    if (Option.isNone(parsed)) {
       return yield* makeAppError({
         code: "validation",
-        detail: `Invalid minimumReleaseAge "${minimumReleaseAge}"`,
+        detail: `Invalid minimumReleaseAge "${configured}"`,
         recover: "Use a duration such as 24h, 1440m, or 0s.",
       });
     }
-    return Option.some({ minimumAgeMs: minimumAgeMs.value, now: new Date() });
+    return parsed;
   });
 
 export const resolveConfiguredSkill = (name: string, source: string) =>
@@ -78,7 +79,7 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "skills"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
 
     const refs = yield* providers
       .find(resolvedSource, {
@@ -86,7 +87,7 @@ export const resolveConfiguredSkill = (name: string, source: string) =>
         type: "skill",
         owner: requestedOwner,
         versionRange,
-        releaseAgePolicy,
+        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -166,7 +167,7 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "subagents"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
 
     const refs = yield* providers
       .find(resolvedSource, {
@@ -174,7 +175,7 @@ export const resolveConfiguredSubagent = (name: string, source: string) =>
         type: "subagent",
         owner: requestedOwner,
         versionRange,
-        releaseAgePolicy,
+        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -244,7 +245,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
 
     const providers = yield* SourceHostProviders;
     const versionRange = Option.fromUndefinedOr(parsed.versionRange);
-    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -261,7 +262,7 @@ export const resolveConfiguredCommand = (name: string, source: string) =>
         type: "command",
         owner: Option.some(parsed.owner),
         versionRange,
-        releaseAgePolicy,
+        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -341,7 +342,7 @@ export const resolveConfiguredFiles = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "files"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
 
     const refs = yield* providers
       .find(resolvedSource, {
@@ -349,7 +350,7 @@ export const resolveConfiguredFiles = (name: string, source: string) =>
         type: "files",
         owner: requestedOwner,
         versionRange,
-        releaseAgePolicy,
+        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -431,7 +432,7 @@ export const resolveConfiguredRule = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "rules"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
 
     const refs = yield* providers
       .find(resolvedSource, {
@@ -439,7 +440,7 @@ export const resolveConfiguredRule = (name: string, source: string) =>
         type: "rule",
         owner: requestedOwner,
         versionRange,
-        releaseAgePolicy,
+        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -521,7 +522,7 @@ export const resolveConfiguredHook = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "hooks"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
 
     const refs = yield* providers
       .find(resolvedSource, {
@@ -529,7 +530,7 @@ export const resolveConfiguredHook = (name: string, source: string) =>
         type: "hook",
         owner: requestedOwner,
         versionRange,
-        releaseAgePolicy,
+        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -610,14 +611,14 @@ export const resolveConfiguredKnowledge = (name: string, source: string) =>
       resolvedSource.type === "registry" && parsedPattern?.type === "knowledge"
         ? Option.fromUndefinedOr(parsedPattern.versionRange)
         : Option.none<VersionRange>();
-    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
     const refs = yield* providers
       .find(resolvedSource, {
         names: [name],
         type: "knowledge",
         owner: requestedOwner,
         versionRange,
-        releaseAgePolicy,
+        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -675,7 +676,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
 
     const providers = yield* SourceHostProviders;
     const versionRange = Option.fromUndefinedOr(parsed.versionRange);
-    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -692,7 +693,7 @@ export const resolveConfiguredMcpServer = (name: string, source: string) =>
         type: "mcp-server",
         owner: Option.some(parsed.owner),
         versionRange,
-        releaseAgePolicy,
+        minimumReleaseAge,
       })
       .pipe(
         Effect.map((entries) =>
@@ -762,7 +763,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
 
     const providers = yield* SourceHostProviders;
     const versionRange = Option.fromUndefinedOr(parsed.versionRange);
-    const releaseAgePolicy = yield* configuredReleaseAgePolicy();
+    const minimumReleaseAge = yield* configuredMinimumReleaseAge();
     const resolvedSource = yield* resolveSource(source).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -779,7 +780,7 @@ export const resolveConfiguredPack = (name: string, source: string) =>
         type: "pack",
         owner: Option.some(parsed.owner),
         versionRange,
-        releaseAgePolicy,
+        minimumReleaseAge,
       });
 
     const refs = yield* findWith(resolvedSource).pipe(

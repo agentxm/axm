@@ -1,8 +1,8 @@
 /**
  * Uninstall skill executor — orchestrates per-skill removal pipeline.
  *
- * Pipeline: sanitize name -> read lockfile -> remove agent symlinks (concurrent) ->
- * remove canonical dir -> remove lockfile entry.
+ * Pipeline: resolve desired/observed state -> remove agent artifacts
+ * concurrently -> remove canonical source -> clear settings and receipt.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -23,7 +23,6 @@ import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { removeFromAllCanonicalLocations } from "../../utils/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { existsInAnyCanonicalLocation } from "../disk-check.js";
-import { getSkillFqn, isReferencedByPack } from "../utils.js";
 
 // Operation types
 // -----------------------------------------------------------------------------
@@ -55,10 +54,10 @@ export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkil
  *
  * Reads workspace paths from the WorkspaceMutations service, then orchestrates:
  * 1. Sanitize skill name for filesystem
- * 2. Read lockfile to determine installed agents
+ * 2. Resolve configured and observed state
  * 3. Remove agent symlinks concurrently (skip missing)
  * 4. Remove from all known canonical locations (full uninstall only)
- * 5. Remove or update lockfile entry
+ * 5. Remove or update settings and receipt
  */
 export const uninstallSkill: OperationHandler<
   UninstallSkillOperation,
@@ -76,22 +75,20 @@ export const uninstallSkill: OperationHandler<
 
     const sanitizedName = sanitizeName(op.args.skillName);
 
-    // Read lockfile entry for this skill via WorkspaceMutations
-    const lockEntryOption = yield* ws.getLockedSkill(op.args.skillName).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read lockfile: ${e.message}`,
-          cause: e,
-        }),
-      ),
+    const desired = yield* ws.getDesiredStateGraph();
+    if (!desired.complete) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: "Cannot uninstall the skill while the desired extension graph is incomplete.",
+        recover: "Repair or reinstall the configured packs, then retry.",
+      });
+    }
+    const desiredNode = desired.nodes.find(
+      (node) => node.type === "skill" && node.name === op.args.skillName,
     );
-    const lockEntry = Option.getOrUndefined(lockEntryOption);
-
-    // Determine if skill is installed anywhere (check all known locations)
     const installedOnDisk = yield* existsInAnyCanonicalLocation(fs, path, base, op.args.skillName);
 
-    if (!lockEntry && !installedOnDisk) {
+    if (desiredNode === undefined && !installedOnDisk) {
       return { result: "success", message: "not installed" } satisfies JobStepResult;
     }
 
@@ -199,10 +196,7 @@ export const uninstallSkill: OperationHandler<
       } satisfies JobStepResult;
     }
 
-    // Check if a pack still references this skill
-    const lockedPacks = yield* ws.getLockedPacks().pipe(Effect.catch(() => Effect.succeed({})));
-    const fqn = getSkillFqn(op.args.skillName, lockEntry);
-    const packOwned = fqn !== undefined && isReferencedByPack(fqn, lockedPacks);
+    const packOwned = desiredNode?.origins.some((origin) => origin.type === "pack") ?? false;
 
     if (packOwned) {
       // Pack still references this skill — remove from settings only, keep lockfile + disk

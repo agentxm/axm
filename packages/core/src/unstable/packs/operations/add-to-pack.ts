@@ -12,13 +12,15 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
 import { count } from "../../cli-renderer/index.js";
-import type { Handle } from "../../extensions/index.js";
+import { computePackageContentHash, type Handle } from "../../extensions/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import { trustRecordKey } from "../../trust/index.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
+import { packTrustManifest } from "../trust-manifest.js";
 import { packManifestArtifact } from "./artifact.js";
 import { hashContent } from "./hash-content.js";
 
@@ -68,9 +70,17 @@ export const addToPack: OperationHandler<
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const base = ws.baseDir;
-
     const { packName, packOwner, additions, manifestHash } = op.args;
+    const trust = yield* ws.getTrustState();
+    const trustRecord = trust.records[trustRecordKey("pack", packName)];
+    if (trustRecord?.authority !== "workspace") {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Pack "${packName}" is not an authored workspace pack`,
+        recover: "Only workspace-authored packs can be edited in place.",
+      });
+    }
+    const base = ws.baseDir;
 
     // 1. Short-circuit if nothing to add
     if (Object.keys(additions).length === 0) {
@@ -80,7 +90,6 @@ export const addToPack: OperationHandler<
     // 2. Read current manifest
     const packDir = computePackPaths(path.join, base, packOwner, packName);
     const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
-
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -99,6 +108,20 @@ export const addToPack: OperationHandler<
         code: "conflict",
         detail: `Pack manifest is stale — it was modified since the plan was created`,
         suggestions: [{ description: "Re-run the command to create a fresh plan" }],
+      });
+    }
+    const trustedCurrentHash = yield* computePackageContentHash(packDir.canonicalPath);
+    if (trustRecord.contentIdentity !== trustedCurrentHash) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Pack "${packName}" differs from its trusted baseline`,
+        recover: "Inspect and resolve the pack drift before editing membership.",
+        suggestions: [
+          {
+            description: "Preview pack repair",
+            cmd: `axm packs repair ${packName} --preview`,
+          },
+        ],
       });
     }
 
@@ -139,15 +162,43 @@ export const addToPack: OperationHandler<
       version: manifest.version,
       dependencies,
     };
+    const validatedUpdatedManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
+      updatedManifest,
+    ).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "validation",
+          detail: `Updated pack manifest is invalid: ${manifestPath}`,
+          cause,
+        }),
+      ),
+    );
 
     // 5. Write updated manifest
-    yield* fs.writeFileString(manifestPath, JSON.stringify(updatedManifest, null, 2) + "\n").pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to write pack manifest: ${manifestPath}`,
-          cause: e,
-        }),
+    yield* Effect.gen(function* () {
+      yield* fs
+        .writeFileString(manifestPath, JSON.stringify(validatedUpdatedManifest, null, 2) + "\n")
+        .pipe(
+          Effect.mapError((e) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to write pack manifest: ${manifestPath}`,
+              cause: e,
+            }),
+          ),
+        );
+      const sourceHash = yield* computePackageContentHash(packDir.canonicalPath);
+      yield* ws.refreshPackContentIdentity(
+        packName,
+        sourceHash,
+        packTrustManifest(validatedUpdatedManifest),
+      );
+    }).pipe(
+      Effect.catch((error) =>
+        fs.writeFileString(manifestPath, manifestContent).pipe(
+          Effect.catch(() => Effect.void),
+          Effect.andThen(Effect.fail(error)),
+        ),
       ),
     );
 

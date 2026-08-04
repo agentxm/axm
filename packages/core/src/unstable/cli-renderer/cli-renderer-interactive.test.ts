@@ -68,6 +68,20 @@ const runQuiet = <A, E>(effect: Effect.Effect<A, E, CliRenderer>) =>
   Effect.provide(effect, quietLayer);
 
 describe("InteractiveRenderer", () => {
+  it.effect("keeps required instructions visible in quiet mode", () =>
+    Effect.gen(function* () {
+      yield* runQuiet(
+        Effect.gen(function* () {
+          const renderer = yield* CliRenderer;
+          yield* renderer.instruction("Open https://example.com");
+        }),
+      );
+
+      expect(stderrWrites).toEqual(["Open https://example.com\n"]);
+      expect(stdoutWrites).toEqual([]);
+    }),
+  );
+
   describe("chrome methods", () => {
     it.effect("writes raw diagnostic content only to stderr", () =>
       Effect.gen(function* () {
@@ -483,6 +497,25 @@ describe("InteractiveRenderer", () => {
       }),
     );
 
+    it.effect("suppresses progress in quiet mode without skipping the work", () =>
+      Effect.gen(function* () {
+        const value = yield* runQuiet(
+          Effect.gen(function* () {
+            const renderer = yield* CliRenderer;
+            return yield* renderer.withSpinner(
+              "Resolving @acme/skills/review",
+              () => Effect.succeed("resolved"),
+              { successMessage: "Resolved @acme/skills/review" },
+            );
+          }),
+        );
+
+        expect(value).toBe("resolved");
+        expect(stdoutWrites).toEqual([]);
+        expect(stderrWrites).toEqual([]);
+      }),
+    );
+
     it.effect("writes a table to stdout without the guide prefix", () =>
       Effect.gen(function* () {
         const SkillTable = {
@@ -591,23 +624,6 @@ describe("InteractiveRenderer", () => {
           Effect.gen(function* () {
             const renderer = yield* CliRenderer;
             return yield* renderer.result({ name: "test" }, Schema.Struct({ name: Schema.String }));
-          }),
-        );
-
-        expect(result).toBe(false);
-        expect(stdoutWrites).toHaveLength(0);
-      }),
-    );
-
-    it.effect("resultStream() returns false in interactive mode", () =>
-      Effect.gen(function* () {
-        const result = yield* run(
-          Effect.gen(function* () {
-            const renderer = yield* CliRenderer;
-            return yield* renderer.resultStream(
-              Stream.make({ name: "test" }),
-              Schema.Struct({ name: Schema.String }),
-            );
           }),
         );
 

@@ -69,7 +69,9 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
-  it.effect("returns timeout outcome for long-running command", () =>
+  // `it.live`: the invocation timeout runs on Effect's clock, which the
+  // TestClock provided by `it.effect` never advances.
+  it.live("returns timeout outcome for long-running command", () =>
     withNode(
       Effect.gen(function* () {
         const result = yield* runCliInvocation({
@@ -362,6 +364,75 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
+  it.effect("uses Devin's catalog MCP writer dialect", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-devin-"));
+        try {
+          const outcome = yield* syncInlineMcpServerToAgent("devin", {
+            workspaceRoot,
+            serverName: "sentry",
+            scope: "project",
+            entry: {
+              source: "inline",
+              url: "https://mcp.sentry.dev/sse",
+              headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+              enabled: true,
+              env: {},
+            },
+          });
+
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: ".devin/config.json", change: "created" }],
+          });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/.devin/config.json`);
+          expect(config).toContain('"mcpServers"');
+          expect(config).toContain('"transport": "sse"');
+          expect(config).toContain('"Authorization": "Bearer ${SENTRY_TOKEN}"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("uses Kilo Code's catalog MCP writer dialect", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-kilo-"));
+        try {
+          const outcome = yield* syncInlineMcpServerToAgent("kilo", {
+            workspaceRoot,
+            serverName: "linear",
+            scope: "project",
+            entry: {
+              source: "inline",
+              command: "npx",
+              args: ["-y", "linear-mcp-server"],
+              enabled: true,
+              env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+            },
+          });
+
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: "kilo.jsonc", change: "created" }],
+          });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/kilo.jsonc`);
+          expect(config).toContain('"mcp"');
+          expect(config).toContain('"type": "local"');
+          expect(config).toContain('"command": [');
+          expect(config).toContain('"environment"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("prunes stale AXM-managed MCP servers from agent config", () =>
     withNode(
       Effect.gen(function* () {
@@ -397,7 +468,10 @@ describe("mcp-sync helpers", () => {
             declaredServerNames: new Set(["linear"]),
           });
 
-          expect(outcome).toEqual({ _tag: "success" });
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: `${workspaceRoot}/.mcp.json`, change: "updated" }],
+          });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
           expect(config).toContain('"linear"');
@@ -450,6 +524,9 @@ describe("mcp-sync helpers", () => {
               expect(remoteOutcome).toEqual({
                 _tag: "success",
                 targets: [{ path: "~/.hermes/config.yaml", change: "updated" }],
+                warnings: [
+                  "headers.Authorization: cannot project environment reference ${STRIPE_TOKEN} for this agent",
+                ],
               });
 
               const fs = yield* FileSystem.FileSystem;
@@ -466,8 +543,8 @@ describe("mcp-sync helpers", () => {
                 "x-axm": { managed: true, source: "inline" },
                 enabled: true,
                 url: "https://mcp.stripe.com",
-                headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
               });
+              expect(readYamlEntry(raw, "mcp_servers", "stripe")).not.toHaveProperty("headers");
 
               const disableOutcome = yield* removeMcpServerFromManifest("hermes", {
                 workspaceRoot,
@@ -513,7 +590,10 @@ describe("mcp-sync helpers", () => {
                 scope: "user",
                 declaredServerNames: new Set(["context"]),
               });
-              expect(pruneOutcome).toEqual({ _tag: "success" });
+              expect(pruneOutcome).toEqual({
+                _tag: "success",
+                targets: [{ path: configPath, change: "updated" }],
+              });
               raw = yield* fs.readFileString(configPath);
               expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
                 enabled: false,

@@ -2,7 +2,7 @@ import type { Agent } from "../../schema.js";
 export const dextoAgent = {
   id: "dexto",
   name: "Dexto",
-  vendor: "Dexto",
+  vendor: "Truffle AI",
   homepage: "https://www.dexto.ai",
   interfaces: ["cli"],
   family: null,
@@ -14,8 +14,8 @@ export const dextoAgent = {
   },
   docs: [
     {
-      label: "Dexto",
-      url: "https://www.dexto.ai",
+      label: "Dexto documentation",
+      url: "https://docs.dexto.ai",
     },
   ],
   capabilities: {
@@ -25,7 +25,9 @@ export const dextoAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+        sources: [
+          "https://github.com/truffle-ai/dexto/blob/main/packages/core/src/skills/workspace-skill-source.ts",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -33,7 +35,7 @@ export const dextoAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -53,11 +55,16 @@ export const dextoAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Dexto declares MCP servers under mcpServers in a project agent.yml. The vendor schema adds connectionMode and type fields around the standard server definitions.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.dexto.ai/docs/mcp/overview/"],
+        scopes: ["project"],
+        standardsCompliance: "parity",
+        convention: "vendor",
+        transports: ["stdio", "http", "sse"],
       },
       axm: {
         status: "unsupported",
@@ -66,34 +73,6 @@ export const dextoAgent = {
       },
     },
     subagent: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
@@ -122,13 +101,51 @@ export const dextoAgent = {
       },
     },
   },
-  permissions: {
+  instructions: {
     native: {
       availability: { via: "none" },
       vendorStatus: { state: "active" },
       notes: null,
       docs: [],
       sources: [],
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
+    },
+  },
+  permissions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Dexto permissions use manual or auto-approve mode plus alwaysAllow and alwaysDeny tool policies in agent.yml.",
+      docs: [],
+      sources: ["https://docs.dexto.ai/docs/guides/configuring-dexto/permissions"],
+      scopes: ["project"],
+      mechanism: ["config-file", "cli-flag"],
+      configFiles: [
+        {
+          scope: "project",
+          path: "agent.yml",
+          format: "yaml",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "tool-call",
+        example: "mcp--filesystem--write_file",
+        notes:
+          "toolPolicies.alwaysAllow and toolPolicies.alwaysDeny contain tool identifiers such as read_file, bash_exec, and mcp--server--tool.",
+      },
+      prerequisites: [],
+      cliFlags: [
+        {
+          flag: "--auto-approve",
+          note: "Enables auto-approve mode for the session.",
+        },
+      ],
     },
     axm: {
       status: "unsupported",

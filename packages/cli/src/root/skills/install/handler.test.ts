@@ -51,7 +51,7 @@ const initWorkspace = (
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {} }),
+    YAML.stringify({ lockfileVersion: 3, skills: {} }),
   );
 };
 
@@ -72,6 +72,7 @@ const createRegistrySkill = ({
       name,
       owner,
       type: "skill",
+      publisherBindingId: "hbnd_test",
       versions: [
         {
           version: "1.0.0",
@@ -233,6 +234,7 @@ describe("skills install handler — error propagation", () => {
           requestedOwner: Option.none(),
           resolutionProbes: [],
           all: false,
+          force: false,
         }),
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
@@ -299,7 +301,7 @@ describe("skills install handler — error propagation", () => {
         }).pipe(Effect.flip);
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
-        expect(rendererState.spinnerMessages).toEqual([]);
+        expect(rendererState.spinnerMessages).toEqual(["Resolving extension sources", "Failed"]);
       }),
     );
   });
@@ -389,7 +391,8 @@ describe("skills install handler — error propagation", () => {
           preview: false,
         });
 
-        expect(rendererState.spinnerMessages).toEqual([]);
+        expect(rendererState.spinnerMessages).toContain("Resolving extension sources");
+        expect(rendererState.spinnerMessages).toContain("Resolved extension sources");
         expect(logs.info.some((line) => line.includes("Source:"))).toBe(true);
         expect(logs.info.some((line) => line.includes("Resolution:"))).toBe(true);
       }),

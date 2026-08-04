@@ -17,7 +17,6 @@ import {
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,
-  LibrariesMapSchema,
   SettingsSchema,
   SkillsMapSchema,
   SourceHostConfigSchema,
@@ -39,6 +38,27 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.owner).toBe("@myorg");
+    });
+
+    it("tolerates and retains unknown top-level keys under onExcessProperty error", () => {
+      const input = { telemetry: false, futureKey: { x: 1 } };
+      const result = Schema.decodeUnknownSync(SettingsSchema)(input, {
+        onExcessProperty: "error",
+      });
+
+      expect(result["futureKey"]).toEqual({ x: 1 });
+    });
+
+    it("still rejects unknown keys nested inside entry objects", () => {
+      const input = {
+        skills: {
+          "code-review": { source: "@acme/skills/code-review@^1", futureField: true },
+        },
+      };
+
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)(input, { onExcessProperty: "error" }),
+      ).toThrow();
     });
 
     it("accepts minimumReleaseAge duration strings", () => {
@@ -66,7 +86,6 @@ describe("Settings schema", () => {
         sources: [{ name: "github", type: "github", url: "https://github.com" }],
         agents: ["claude-code", "cursor"],
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
-        libraries: { frontend: "@wayne/libraries/frontend" },
         skillsConfig: { ignore: ["legacy-*"] },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
@@ -76,12 +95,6 @@ describe("Settings schema", () => {
       expect(result.skills).toEqual({
         "grappling-hook": {
           source: "@wayne/skills/grappling-hook@^1.0.0",
-          enabled: true,
-        },
-      });
-      expect(result.libraries).toEqual({
-        frontend: {
-          source: "@wayne/libraries/frontend",
           enabled: true,
         },
       });
@@ -108,11 +121,26 @@ describe("Settings schema", () => {
         subagentsConfig: { ignore: ["draft-*"] },
         packsConfig: { ignore: ["legacy-*"] },
         mcpServersConfig: { ignore: ["test-*"] },
+        filesConfig: { ignore: ["vendor-*"] },
+        hooksConfig: { ignore: ["experimental-*"] },
+        knowledgeConfig: { ignore: ["scratch-*"] },
       };
       const decoded = Schema.decodeUnknownSync(SettingsSchema)(input);
       const encoded = Schema.encodeSync(SettingsSchema)(decoded);
 
       expect(encoded).toEqual(input);
+    });
+
+    it("exposes ignore lists for files, hooks, and knowledge", () => {
+      const decoded = Schema.decodeUnknownSync(SettingsSchema)({
+        filesConfig: { ignore: ["vendor-*"] },
+        hooksConfig: { ignore: ["experimental-*"] },
+        knowledgeConfig: { ignore: ["scratch-*"] },
+      });
+
+      expect(decoded.filesConfig?.ignore).toEqual(["vendor-*"]);
+      expect(decoded.hooksConfig?.ignore).toEqual(["experimental-*"]);
+      expect(decoded.knowledgeConfig?.ignore).toEqual(["scratch-*"]);
     });
 
     it("accepts workspace vars and context entries with scalar inputs", () => {
@@ -592,12 +620,17 @@ describe("Settings schema", () => {
       ).toThrow();
     });
 
-    it("rejects workspace locators for Libraries", () => {
-      expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
-          libraries: { review: "workspace:@acme/libraries/review" },
-        }),
-      ).toThrow();
+    it("carries removed Library workspace state to the read-path guard", () => {
+      // The removed legacy `libraries` key is rejected by the explicit
+      // pre-decode guard on the settings read path; the schema itself carries
+      // unknown top-level keys so writes never discard them.
+      const result = Schema.decodeUnknownSync(SettingsSchema)(
+        {
+          libraries: { review: "@acme/libraries/review" },
+        },
+        { onExcessProperty: "error" },
+      );
+      expect(result["libraries"]).toEqual({ review: "@acme/libraries/review" });
     });
 
     it("rejects authored across all settings entry families under strict validation", () => {
@@ -609,7 +642,6 @@ describe("Settings schema", () => {
         { hooks: { x: { source: "@acme/hooks/x", authored: true } } },
         { subagents: { x: { source: "@acme/subagents/x", authored: true } } },
         { packs: { x: { source: "@acme/packs/x", authored: true } } },
-        { libraries: { x: { source: "@acme/libraries/x", authored: true } } },
         { mcpServers: { x: { source: "@acme/mcps/x", authored: true } } },
       ];
 
@@ -859,7 +891,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
     });
 
@@ -870,7 +902,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
     });
 
@@ -911,7 +943,7 @@ describe("Settings schema", () => {
         },
       });
       expect(result.packs).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
       expect(result.mcpServers).toEqual({
         batcomputer: {
@@ -1218,6 +1250,7 @@ describe("Settings schema", () => {
 
         expect(result).toEqual({
           source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: true,
         });
       });
 
@@ -1228,6 +1261,19 @@ describe("Settings schema", () => {
 
         expect(result).toEqual({
           source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: true,
+        });
+      });
+
+      it("decodes an explicitly disabled object", () => {
+        const result = Schema.decodeUnknownSync(PackEntrySchema)({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: false,
+        });
+
+        expect(result).toEqual({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: false,
         });
       });
 
@@ -1257,8 +1303,20 @@ describe("Settings schema", () => {
       it("encodes an entry to string", () => {
         const result = Schema.encodeSync(PackEntrySchema)({
           source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: true,
         });
         expect(result).toBe("@wayne/packs/utility-belt@^1.0.0");
+      });
+
+      it("preserves an explicit disabled state", () => {
+        const result = Schema.encodeSync(PackEntrySchema)({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: false,
+        });
+        expect(result).toEqual({
+          source: "@wayne/packs/utility-belt@^1.0.0",
+          enabled: false,
+        });
       });
     });
   });
@@ -1279,7 +1337,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
       expect(result).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
     });
 
@@ -1288,7 +1346,7 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
       expect(result).toEqual({
-        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0", enabled: true },
       });
     });
 
@@ -1370,29 +1428,6 @@ describe("Settings schema", () => {
         source: "local:./dev/gadgets/dev-gadget",
         enabled: true,
       });
-    });
-  });
-
-  describe("libraries", () => {
-    it("accepts compact library subscriptions", () => {
-      const result = Schema.decodeUnknownSync(LibrariesMapSchema)({
-        frontend: "@acme/libraries/frontend",
-      });
-
-      expect(result).toEqual({
-        frontend: {
-          source: "@acme/libraries/frontend",
-          enabled: true,
-        },
-      });
-    });
-
-    it("rejects versioned library subscriptions", () => {
-      expect(() =>
-        Schema.decodeUnknownSync(LibrariesMapSchema)({
-          frontend: "@acme/libraries/frontend@1.0.0",
-        }),
-      ).toThrow();
     });
   });
 });

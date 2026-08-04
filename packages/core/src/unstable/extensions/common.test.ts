@@ -14,6 +14,7 @@ import {
   CommonManifestBaseFields,
   ExtensionNameSchema,
   ExtensionTypeSchema,
+  extensionTypes,
   extensionTypeLabels,
   extensionTypePluralLabels,
   extensionTypePluralSentenceLabels,
@@ -640,17 +641,14 @@ describe("common schemas", () => {
   });
 
   describe("ExtensionType", () => {
-    it.each(["skill", "command", "mcp-server", "subagent", "files", "rule", "pack"] as const)(
-      "accepts valid extension type: %s",
-      (type) => {
-        const result = Schema.decodeUnknownResult(ExtensionTypeSchema)(type);
+    it.each(extensionTypes)("accepts valid extension type: %s", (type) => {
+      const result = Schema.decodeUnknownResult(ExtensionTypeSchema)(type);
 
-        expect(Result.isSuccess(result)).toBe(true);
-        if (Result.isSuccess(result)) {
-          expect(result.success).toBe(type);
-        }
-      },
-    );
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isSuccess(result)) {
+        expect(result.success).toBe(type);
+      }
+    });
 
     it("rejects invalid extension type", () => {
       const result = Schema.decodeUnknownResult(ExtensionTypeSchema)("invalid");

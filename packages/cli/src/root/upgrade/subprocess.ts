@@ -13,11 +13,14 @@ export interface CommandResult {
   readonly exitCode: number;
   readonly stdout: string;
   readonly stderr: string;
+  readonly stdoutTruncated?: boolean;
+  readonly stderrTruncated?: boolean;
 }
 
 export interface RunCommandOptions {
   readonly env?: Readonly<Record<string, string>>;
   readonly timeoutMs?: number;
+  readonly redactValues?: ReadonlyArray<string>;
 }
 
 export interface SubprocessService {
@@ -33,6 +36,46 @@ export class Subprocess extends ServiceMap.Service<Subprocess, SubprocessService
 ) {}
 
 const defaultTimeoutMs = 120_000;
+const MAX_RETAINED_OUTPUT_BYTES = 8 * 1024;
+
+const ansiPattern =
+  // eslint-disable-next-line no-control-regex -- intentionally strips terminal control sequences
+  /[\u001B\u009B][[\]()#;?]*(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]+)*)?\u0007|(?:(?:\d{1,4}(?:[;:]\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/gu;
+const controlsPattern =
+  // eslint-disable-next-line no-control-regex -- external process output is untrusted
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/gu;
+const credentialUrlPattern = /(https?:\/\/)([^/\s:@]+):([^/@\s]+)@/giu;
+const bearerPattern = /\b(Bearer\s+)[A-Za-z0-9._~+/-]+=*/giu;
+const authorizationPattern = /\b(authorization|token|api[_-]?key|password)\s*[:=]\s*[^\s]+/giu;
+
+export interface SanitizedOutput {
+  readonly value: string;
+  readonly truncated: boolean;
+}
+
+export const sanitizeExternalOutput = (
+  input: string,
+  redactValues: ReadonlyArray<string>,
+): SanitizedOutput => {
+  let value = input
+    .replace(ansiPattern, "")
+    .replace(controlsPattern, "")
+    .replace(credentialUrlPattern, "$1[REDACTED]@")
+    .replace(bearerPattern, "$1[REDACTED]")
+    .replace(authorizationPattern, "$1=[REDACTED]");
+  for (const secret of redactValues) {
+    if (secret.length > 0) value = value.split(secret).join("[REDACTED]");
+  }
+
+  const encoded = new TextEncoder().encode(value);
+  if (encoded.length <= MAX_RETAINED_OUTPUT_BYTES) {
+    return { value, truncated: false };
+  }
+  value = new TextDecoder("utf-8", { fatal: false }).decode(
+    encoded.slice(0, MAX_RETAINED_OUTPUT_BYTES),
+  );
+  return { value, truncated: true };
+};
 
 const collectBytes = <E>(stream: Stream.Stream<Uint8Array, E>) =>
   Effect.gen(function* () {
@@ -71,10 +114,14 @@ const makeRunCommand =
         { concurrency: "unbounded" },
       );
 
+      const stdout = sanitizeExternalOutput(result.stdout, options?.redactValues ?? []);
+      const stderr = sanitizeExternalOutput(result.stderr, options?.redactValues ?? []);
       return {
         exitCode: Number(result.exitCode),
-        stdout: result.stdout,
-        stderr: result.stderr,
+        stdout: stdout.value,
+        stderr: stderr.value,
+        stdoutTruncated: stdout.truncated,
+        stderrTruncated: stderr.truncated,
       };
     }).pipe(
       Effect.scoped,

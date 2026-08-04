@@ -35,11 +35,16 @@ import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { expectNoOpPlanResult } from "../../../test-helpers.js";
+import {
+  computePackageContentHashSync,
+  writeTrustFromWorkspaceLockfile,
+} from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -60,14 +65,49 @@ const initWorkspace = (
   if (opts?.settingsSkills) settings["skills"] = opts.settingsSkills;
   if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
+  const lockfilePacks: Record<string, unknown> = { ...(opts?.lockfilePacks ?? {}) };
+  for (const [name, value] of Object.entries(lockfilePacks)) {
+    if (typeof value !== "object" || value === null) continue;
+    const owner = Reflect.get(value, "owner");
+    const version = Reflect.get(value, "resolvedVersion");
+    if (typeof owner !== "string" || typeof version !== "string") continue;
+    const dependencyMaps = [
+      Reflect.get(value, "resolvedSkills"),
+      Reflect.get(value, "resolvedCommands"),
+      Reflect.get(value, "resolvedMcpServers"),
+      Reflect.get(value, "resolvedSubagents"),
+    ];
+    const dependencies: Record<string, string> = {};
+    for (const dependencyMap of dependencyMaps) {
+      if (typeof dependencyMap !== "object" || dependencyMap === null) continue;
+      for (const [fqn, resolved] of Object.entries(dependencyMap)) {
+        const resolvedVersion =
+          typeof resolved === "object" && resolved !== null
+            ? Reflect.get(resolved, "version")
+            : null;
+        if (typeof resolvedVersion === "string") dependencies[fqn] = resolvedVersion;
+      }
+    }
+    const packDir = path.join(axmDir, "extensions", owner, "packs", name);
+    fs.mkdirSync(packDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(packDir, "pack.json"),
+      JSON.stringify({ owner, type: "pack", name, version, dependencies }),
+    );
+    lockfilePacks[name] = {
+      ...value,
+      sourceHash: computePackageContentHashSync(packDir),
+    };
+  }
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: opts?.lockfileSkills ?? {},
-      ...(opts?.lockfilePacks ? { packs: opts.lockfilePacks } : {}),
+      ...(Object.keys(lockfilePacks).length === 0 ? {} : { packs: lockfilePacks }),
     }),
   );
+  writeTrustFromWorkspaceLockfile(axmDir);
 };
 
 const defaultArgs = (
@@ -78,14 +118,19 @@ const defaultArgs = (
   ...overrides,
 });
 
+type RawResolvedExtensionMap = Record<
+  string,
+  { readonly version: string; readonly publisherBindingId: string }
+>;
+
 const makePackLockEntry = (
   owner: string,
   name: string,
   overrides?: {
-    resolvedSkills?: Record<string, string>;
-    resolvedCommands?: Record<string, string>;
-    resolvedMcpServers?: Record<string, string>;
-    resolvedSubagents?: Record<string, string>;
+    resolvedSkills?: RawResolvedExtensionMap;
+    resolvedCommands?: RawResolvedExtensionMap;
+    resolvedMcpServers?: RawResolvedExtensionMap;
+    resolvedSubagents?: RawResolvedExtensionMap;
   },
 ) => ({
   type: "registry",
@@ -94,6 +139,7 @@ const makePackLockEntry = (
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
+  publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   resolvedSkills: overrides?.resolvedSkills ?? {},
@@ -156,6 +202,7 @@ describe("packs uninstall handler", () => {
       CommandManagerLive,
       FilesManagerLive,
       HookManagerLive,
+      KnowledgeManagerLive,
       McpServerManagerLive,
       RuleManagerLive,
       SubagentManagerLive,
@@ -207,6 +254,30 @@ describe("packs uninstall handler", () => {
       );
     });
 
+    it.effect("accepts a fully qualified pack name", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        settingsPacks: { "my-pack": "@acme/packs/my-pack" },
+        lockfilePacks: {
+          "my-pack": makePackLockEntry("@acme", "my-pack"),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleUninstallPack(defaultArgs("@acme/packs/my-pack"), {
+            yes: false,
+            force: false,
+            preview: false,
+          });
+
+          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockContent);
+          expect(lockfile.packs?.["my-pack"]).toBeUndefined();
+        }),
+      );
+    });
+
     it.effect("errors when pack is not installed", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
@@ -244,7 +315,12 @@ describe("packs uninstall handler", () => {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack", {
-            resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+            resolvedSkills: {
+              "@acme/skills/skill-a": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
         },
       });
@@ -274,10 +350,20 @@ describe("packs uninstall handler", () => {
         },
         lockfilePacks: {
           "pack-a": makePackLockEntry("@acme", "pack-a", {
-            resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
+            resolvedSkills: {
+              "@acme/skills/shared-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
           "pack-b": makePackLockEntry("@acme", "pack-b", {
-            resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
+            resolvedSkills: {
+              "@acme/skills/shared-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
         },
       });
@@ -306,7 +392,12 @@ describe("packs uninstall handler", () => {
         settingsPacks: { "my-pack": "@acme/packs/my-pack" },
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack", {
-            resolvedSkills: { "@acme/skills/promoted-skill": "1.0.0" },
+            resolvedSkills: {
+              "@acme/skills/promoted-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
         },
       });

@@ -28,6 +28,6 @@ export const validateExactResolvedVersion = (field: string, value: string) =>
 export const validateExactResolvedVersionMap = (field: string, resolvedMap: ResolvedExtensionMap) =>
   Effect.forEach(
     Object.entries(resolvedMap),
-    ([fqn, value]) => validateExactResolvedVersion(`${field}.${fqn}`, value),
+    ([fqn, value]) => validateExactResolvedVersion(`${field}.${fqn}.version`, value.version),
     { concurrency: "unbounded" },
   ).pipe(Effect.asVoid);

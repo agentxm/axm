@@ -95,6 +95,8 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
           ref: {
             type: "mcp-server",
             refType: "registry",
+
+            publisherBindingId: "hbnd_test",
             source: {
               type: "registry",
               location: new URL(liveRegistryUrl),

@@ -63,11 +63,17 @@ const makeWorkspaceMock = (
       args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
     ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
+    settingsSkills?: Readonly<
+      Record<string, { readonly source: string; readonly enabled: boolean }>
+    >;
   },
 ): WorkspaceMutationsService => {
+  const configuredSkills: Record<string, { readonly source: string; readonly enabled: boolean }> = {
+    ...overrides?.settingsSkills,
+  };
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
-    if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, skills: {} };
+    if (!fs.existsSync(lfPath)) return { lockfileVersion: 3, skills: {} };
     return YAML.parse(fs.readFileSync(lfPath, "utf-8"));
   };
   const writeLf = (data: unknown) => {
@@ -77,9 +83,8 @@ const makeWorkspaceMock = (
   const setSkillFn = overrides?.setSkillFn;
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(overrides?.configuredAgents ?? ["claude-code"]),
+    getConfiguredSkillEntries: () => Effect.succeed(configuredSkills),
     getLockedSkills: () => Effect.succeed(readLf().skills ?? {}),
     getLockedSkill: (name: string) =>
       Effect.succeed(Option.fromUndefinedOr(readLf().skills?.[name])),
@@ -111,6 +116,16 @@ const makeWorkspaceMock = (
                 ...lockEntry,
                 updatedAt: new Date().toISOString(),
               };
+              const entry = expectRecord(lockEntry);
+              configuredSkills[name] = {
+                source:
+                  entry["type"] === "registry" &&
+                  typeof entry["owner"] === "string" &&
+                  typeof entry["name"] === "string"
+                    ? `${entry["owner"]}/skills/${entry["name"]}`
+                    : "local:/tmp/source",
+                enabled: true,
+              };
               writeLf(lf);
             },
             catch: (error) =>
@@ -140,7 +155,6 @@ const makeWorkspaceMock = (
                 cause: error,
               }),
           }),
-    getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
 
@@ -151,6 +165,9 @@ const makeServices = (
       args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
     ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
+    settingsSkills?: Readonly<
+      Record<string, { readonly source: string; readonly enabled: boolean }>
+    >;
   },
 ) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
@@ -235,6 +252,9 @@ const withServices = (
       args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
     ) => Effect.Effect<void, AppError>;
     configuredAgents?: ReadonlyArray<string>;
+    settingsSkills?: Readonly<
+      Record<string, { readonly source: string; readonly enabled: boolean }>
+    >;
   },
 ) => makeServices(axmDir, wsOverrides).layer;
 
@@ -248,6 +268,7 @@ const makeOp = (
     owner?: string;
     location?: string;
     version?: Option.Option<string>;
+    integrity?: Option.Option<string>;
     versionRange?: Option.Option<string>;
     gitTreeSha?: Option.Option<string>;
     refSourcePath?: string;
@@ -284,9 +305,10 @@ const makeOp = (
           refType: "registry" as const,
           source,
           owner: handle(overrides.owner ?? "@community"),
+          publisherBindingId: "hbnd_test",
           name: skill.name,
           version: exactVersion(Option.getOrElse(version, () => "1.0.0")),
-          integrity: Option.none(),
+          integrity: overrides.integrity ?? Option.none(),
           packages: [],
         } satisfies RegistrySkillRef;
       case "local":
@@ -505,13 +527,12 @@ describe("installSkill", () => {
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
+        const layer = withServices(axmDir, { configuredAgents: ["claude-code"] });
 
-        yield* installSkill(makeOp({ sourcePath: src })).pipe(
-          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
-        );
+        yield* installSkill(makeOp({ sourcePath: src })).pipe(Effect.provide(layer));
 
         const second = yield* installSkill(makeOp({ sourcePath: src, force: true })).pipe(
-          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+          Effect.provide(layer),
         );
 
         expect(second.result).toBe("success");
@@ -532,15 +553,33 @@ describe("installSkill", () => {
         Effect.gen(function* () {
           const src = setupSource();
           const { axmDir } = setupBase();
+          const layer = withServices(axmDir, { configuredAgents: ["claude-code"] });
 
-          yield* installSkill(makeOp({ sourcePath: src })).pipe(
-            Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+          yield* installSkill(makeOp({ sourcePath: src })).pipe(Effect.provide(layer));
+          const canonical = path.join(
+            path.dirname(axmDir),
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            "my-skill",
+          );
+          const canonicalBefore = yield* computeSkillSourceHash(canonical).pipe(
+            Effect.provide(NodeServices.layer),
           );
           fs.writeFileSync(path.join(src, "prompt.md"), "changed prompt content");
+          const changedSource = yield* computeSkillSourceHash(src).pipe(
+            Effect.provide(NodeServices.layer),
+          );
+          expect(changedSource).not.toBe(canonicalBefore);
 
           const second = yield* installSkill(makeOp({ sourcePath: src, force: true })).pipe(
-            Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code"] })),
+            Effect.provide(layer),
           );
+          const canonicalAfter = yield* computeSkillSourceHash(canonical).pipe(
+            Effect.provide(NodeServices.layer),
+          );
+          expect(canonicalAfter).toBe(changedSource);
 
           expect(second.result).toBe("success");
           if (second.result === "success") {
@@ -768,7 +807,7 @@ describe("installSkill", () => {
         const { axmDir } = setupBase();
 
         // Create an empty lockfile
-        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 
         const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
           Effect.provide(withServices(axmDir)),
@@ -945,7 +984,7 @@ describe("installSkill", () => {
         setupRegistryCanonical(base, "@community");
 
         // Create an empty lockfile
-        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 
         const result = yield* installSkill(
           makeOp({
@@ -978,6 +1017,114 @@ describe("installSkill", () => {
     // Range versions (e.g. "^1.0.0") are now statically prevented by the
     // Version branded type on RegistrySkillRef.version.
     // Schema-level rejection is tested in version-constraints.test.ts.
+  });
+
+  describe("canonical reuse — installed content is workspace-owned", () => {
+    const writeRegistryLock = (axmDir: string, resolvedVersion: string) => {
+      fs.writeFileSync(
+        path.join(axmDir, "axm-lock.yaml"),
+        YAML.stringify({
+          lockfileVersion: 3,
+          skills: {
+            "my-skill": {
+              type: "registry",
+              owner: "@community",
+              name: "my-skill",
+              resolvedVersion,
+              integrity: "sha512-abc",
+              sourceName: "default",
+              publisherBindingId: "hbnd_test",
+              installedAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          },
+        }),
+      );
+    };
+
+    const registryOp = (overrides: { force?: boolean; version?: string } = {}) =>
+      makeOp({
+        source: {
+          type: "registry",
+          location: new URL("file:///tmp/reg"),
+          owner: Option.none(),
+        },
+        owner: "@community",
+        integrity: Option.some("sha512-abc"),
+        version: Option.some(overrides.version ?? "1.0.0"),
+        ...(overrides.force === undefined ? {} : { force: overrides.force }),
+      });
+
+    it.effect(
+      "reuses the existing canonical tree when desired state and trust pin the requested version",
+      () =>
+        Effect.gen(function* () {
+          const { axmDir, base } = setupBase();
+          setupRegistryCanonical(base, "@community");
+          writeRegistryLock(axmDir, "1.0.0");
+
+          // Workspace-owned rewrite of installed content (e.g. a formatter run).
+          const canonical = path.join(
+            base,
+            ".axm",
+            "extensions",
+            "@community",
+            "skills",
+            "my-skill",
+          );
+          fs.writeFileSync(path.join(canonical, "src", "SKILL.md"), "# my-skill\n\nreformatted\n");
+
+          const result = yield* installSkill(registryOp()).pipe(
+            Effect.provide(
+              withServices(axmDir, {
+                settingsSkills: {
+                  "my-skill": {
+                    source: "@community/skills/my-skill",
+                    enabled: true,
+                  },
+                },
+              }),
+            ),
+          );
+
+          expect(result.result).toBe("success");
+          expect(fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf-8")).toContain(
+            "reformatted",
+          );
+        }),
+    );
+
+    it.effect("force re-materializes instead of reusing the canonical tree", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+        writeRegistryLock(axmDir, "1.0.0");
+
+        // No registry is reachable at file:///tmp/reg, so a forced install must
+        // fail by attempting the download rather than silently reusing.
+        const result = yield* installSkill(registryOp({ force: true })).pipe(
+          Effect.provide(withServices(axmDir)),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
+        );
+
+        expect(result.result).toBe("error");
+      }),
+    );
+
+    it.effect("re-materializes when the requested version differs from the locked version", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+        writeRegistryLock(axmDir, "0.9.0");
+
+        const result = yield* installSkill(registryOp({ version: "1.0.0" })).pipe(
+          Effect.provide(withServices(axmDir)),
+          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
+        );
+
+        expect(result.result).toBe("error");
+      }),
+    );
   });
 
   describe("pre-clean from all locations", () => {
@@ -1206,7 +1353,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("symlink-mode install does not populate renderedFiles or sourceHash", () =>
+    it.effect("symlink-mode install records source identity without rendered files", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
@@ -1220,7 +1367,7 @@ describe("installSkill", () => {
         expect(setSkillFn).toHaveBeenCalledOnce();
         const lockEntry = expectRecord(at(setSkillFn.mock.calls, 0)[0].lockEntry);
         expect(lockEntry["renderedFiles"]).toBeUndefined();
-        expect(lockEntry["sourceHash"]).toBeUndefined();
+        expect(lockEntry["sourceHash"]).toEqual(expect.any(String));
         expect(lockEntry).not.toHaveProperty("agents");
         expect(lockEntry["universalArtifact"]).toBeUndefined();
       }),

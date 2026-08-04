@@ -11,6 +11,10 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
+import * as Stream from "effect/Stream";
+import * as ChildProcess from "effect/unstable/process/ChildProcess";
+import type { ChildProcessSpawner as ChildProcessSpawnerService } from "effect/unstable/process/ChildProcessSpawner";
+import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 
 import { DeviceLoginInteraction, type DeviceLoginInteractionService } from "./device-login.js";
 
@@ -30,35 +34,45 @@ export class AuthLoginInteraction extends ServiceMap.Service<
   AuthLoginInteractionService
 >()("@agentxm/client-core/unstable/auth/login-interaction/AuthLoginInteraction") {}
 
-const runCommand = (invocation: CommandInvocation) =>
-  Effect.tryPromise({
-    try: async () => {
-      const { spawn } = await import("node:child_process");
+/**
+ * Best-effort command execution: `true` only when the process exits with code
+ * 0; every failure (spawn, stdin write, signal termination) collapses to
+ * `false`.
+ *
+ * The previous `node:child_process` implementation passed `windowsHide: true`;
+ * `ChildProcess.CommandOptions` has no equivalent, so a transient console
+ * window may appear on Windows.
+ */
+const runCommand = (
+  spawner: ChildProcessSpawnerService["Service"],
+  invocation: CommandInvocation,
+): Effect.Effect<boolean> =>
+  Effect.gen(function* () {
+    const handle = yield* spawner.spawn(
+      ChildProcess.make(invocation.command, invocation.args, {
+        stdin: invocation.stdinText === undefined ? "ignore" : "pipe",
+        stdout: "ignore",
+        stderr: "ignore",
+      }),
+    );
+    if (invocation.stdinText !== undefined) {
+      // Write the payload, then close stdin (the handle's sink ends the pipe
+      // when the stream completes) so clipboard commands finish reading.
+      yield* Stream.run(Stream.make(new TextEncoder().encode(invocation.stdinText)), handle.stdin);
+    }
+    return (yield* handle.exitCode) === 0;
+  }).pipe(
+    Effect.scoped,
+    Effect.catch(() => Effect.succeed(false)),
+  );
 
-      return await new Promise<boolean>((resolve, reject) => {
-        const child = spawn(invocation.command, [...invocation.args], {
-          stdio: ["pipe", "ignore", "ignore"],
-          windowsHide: true,
-        });
-
-        child.on("error", reject);
-        child.on("close", (code) => resolve(code === 0));
-        child.stdin.on("error", () => resolve(false));
-
-        if (invocation.stdinText !== undefined) {
-          child.stdin.end(invocation.stdinText);
-        } else {
-          child.stdin.end();
-        }
-      });
-    },
-    catch: () => false,
-  }).pipe(Effect.catch(() => Effect.succeed(false)));
-
-const tryCommands = (invocations: ReadonlyArray<CommandInvocation>) =>
+const tryCommands = (
+  spawner: ChildProcessSpawnerService["Service"],
+  invocations: ReadonlyArray<CommandInvocation>,
+) =>
   Effect.gen(function* () {
     for (const invocation of invocations) {
-      const succeeded = yield* runCommand(invocation);
+      const succeeded = yield* runCommand(spawner, invocation);
       if (succeeded) {
         return true;
       }
@@ -101,14 +115,25 @@ const clipboardCommands = (text: string): ReadonlyArray<CommandInvocation> => {
   }
 };
 
-const interactionImpl: DeviceLoginInteractionService = {
-  openBrowser: (url) => tryCommands(browserCommands(url)),
-  copyToClipboard: (text) => tryCommands(clipboardCommands(text)),
-};
+const makeInteraction: Effect.Effect<
+  DeviceLoginInteractionService,
+  never,
+  ChildProcessSpawner.ChildProcessSpawner
+> = Effect.gen(function* () {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const impl: DeviceLoginInteractionService = {
+    openBrowser: (url) => tryCommands(spawner, browserCommands(url)),
+    copyToClipboard: (text) => tryCommands(spawner, clipboardCommands(text)),
+  };
+  return impl;
+});
 
 export const AuthLoginInteractionLive = Layer.mergeAll(
-  Layer.succeed(AuthLoginInteraction, interactionImpl satisfies AuthLoginInteractionService),
-  Layer.succeed(DeviceLoginInteraction, interactionImpl),
+  Layer.effect(
+    AuthLoginInteraction,
+    Effect.map(makeInteraction, (impl) => impl satisfies AuthLoginInteractionService),
+  ),
+  Layer.effect(DeviceLoginInteraction, makeInteraction),
 );
 
 export interface AuthLoginInteractionTestState {

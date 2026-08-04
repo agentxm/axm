@@ -17,7 +17,10 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   // Foundation (classification-independent).
   { id: "workspace/initialized", severity: "error" },
   { id: "workspace/settings-schema-valid", severity: "error" },
+  { id: "workspace/settings-keys-recognized", severity: "error" },
   { id: "workspace/lockfile-valid", severity: "error" },
+  { id: "workspace/desired-state-reconcilable", severity: "error" },
+  { id: "workspace/authored-content-unpublished", severity: "warning" },
   { id: "workspace/agents-recognized", severity: "error" },
   { id: "workspace/agents-detected-declared", severity: "warning" },
   // Instruction files.
@@ -29,16 +32,14 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/skills-declarations-valid", severity: "error" },
   { id: "workspace/packs-declarations-valid", severity: "error" },
   { id: "workspace/configured-but-not-installed", severity: "error" },
-  { id: "workspace/mcp-server-transport-exclusivity", severity: "warning" },
-  { id: "workspace/mcp-server-no-secret-literal", severity: "warning" },
-  { id: "workspace/mcp-server-agent-drift", severity: "warning" },
-  { id: "workspace/mcp-server-agent-orphaned", severity: "warning" },
+  { id: "workspace/mcps-transport-exclusivity", severity: "warning" },
+  { id: "workspace/mcps-no-secret-literal", severity: "warning" },
+  { id: "workspace/mcps-agent-drift", severity: "warning" },
+  { id: "workspace/mcps-agent-orphaned", severity: "warning" },
   // Lockfile aligned (configured).
   { id: "workspace/skills-lockfile-aligned", severity: "error" },
   // Integrity intact (configured + implicit).
   { id: "workspace/skills-integrity-valid", severity: "error" },
-  // Deprecated compatibility alias retained through the current major.
-  { id: "workspace/skills-universal-artifact-present", severity: "error" },
   // Artifacts correct (configured + implicit).
   { id: "workspace/skills-artifacts-correct", severity: "error" },
   // Managed — unmanaged class must be empty.
@@ -47,6 +48,7 @@ const EXPECTED: ReadonlyArray<{ readonly id: string; readonly severity: Severity
   { id: "workspace/packs-dependencies-resolved", severity: "error" },
   // Implicit retained by pack.
   { id: "workspace/packs-members-retained", severity: "warning" },
+  { id: "workspace/recommended-packs-retained", severity: "warning" },
 ];
 
 describe("workspaceRules", () => {
@@ -73,11 +75,10 @@ describe("workspaceRules", () => {
       "workspace/lockfile-valid",
       "workspace/instructions-target-current",
       "workspace/instructions-gitignore-current",
-      "workspace/mcp-server-agent-drift",
-      "workspace/mcp-server-agent-orphaned",
+      "workspace/mcps-agent-drift",
+      "workspace/mcps-agent-orphaned",
       "workspace/skills-lockfile-aligned",
       "workspace/skills-integrity-valid",
-      "workspace/skills-universal-artifact-present",
       "workspace/skills-artifacts-correct",
     ]);
   });

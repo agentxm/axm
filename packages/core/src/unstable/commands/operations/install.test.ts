@@ -33,9 +33,11 @@ const makeInstallWorkspaceMock = (
     setCommandFn?: (args: { name: string; lockEntry: unknown }) => Effect.Effect<void, AppError>;
   },
 ) => {
+  const configuredCommands: Record<string, { readonly source: string; readonly enabled: boolean }> =
+    {};
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
-    if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, commands: {} };
+    if (!fs.existsSync(lfPath)) return { lockfileVersion: 3, commands: {} };
     return YAML.parse(fs.readFileSync(lfPath, "utf-8"));
   };
   const writeLf = (data: unknown) => {
@@ -55,6 +57,17 @@ const makeInstallWorkspaceMock = (
               ...expectRecord(args.lockEntry),
               updatedAt: new Date().toISOString(),
             };
+            const entry = expectRecord(args.lockEntry);
+            if (
+              entry["type"] === "registry" &&
+              typeof entry["owner"] === "string" &&
+              typeof entry["name"] === "string"
+            ) {
+              configuredCommands[args.name] = {
+                source: `${entry["owner"]}/commands/${entry["name"]}`,
+                enabled: true,
+              };
+            }
             writeLf(lf);
           },
           catch: (error) =>
@@ -67,6 +80,7 @@ const makeInstallWorkspaceMock = (
 
   return makeWorkspaceMock(axmDir, {
     getConfiguredAgents: () => Effect.succeed([]),
+    getConfiguredCommandEntries: () => Effect.succeed(configuredCommands),
     getLockedCommands: () => Effect.succeed(readLf().commands ?? {}),
     getLockedCommand: (name: string) =>
       Effect.succeed(Option.fromUndefinedOr(readLf().commands?.[name])),
@@ -134,6 +148,8 @@ const makeRegistryRef = (
   return {
     type: "command",
     refType: "registry",
+
+    publisherBindingId: "hbnd_test",
     source: {
       type: "registry",
       location: new URL(overrides.location ?? "file:///tmp/reg"),
@@ -162,6 +178,8 @@ const makeUnsafeRegistryRef = (
   return {
     type: "command",
     refType: "registry",
+
+    publisherBindingId: "hbnd_test",
     source: {
       type: "registry",
       location: new URL(overrides.location ?? "file:///tmp/reg"),
@@ -351,6 +369,7 @@ describe("installCommand", () => {
         expect(setCommandFn).toHaveBeenCalledWith({
           name: "my-command",
           lockEntry: expect.any(Object),
+          versionRange: Option.none(),
         });
       }),
     );
@@ -410,6 +429,7 @@ describe("installCommand", () => {
         expect(setCommandFn).toHaveBeenCalledWith({
           name: "my-command",
           lockEntry: expect.objectContaining({ resolvedVersion: "1.2.3" }),
+          versionRange: Option.none(),
         });
       }),
     );
@@ -526,7 +546,7 @@ describe("installCommand", () => {
       }),
     );
 
-    it.effect("reports unchanged artifact when the command is already installed", () =>
+    it.effect("reports an update when trusted command content is re-rendered", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const canonicalPath = setupRegistryCanonical(base, "@community");
@@ -546,10 +566,10 @@ describe("installCommand", () => {
 
         expect(result.result).toBe("success");
         if (result.result === "success") {
-          expect(result.artifact?.change).toBe("unchanged");
-          expect(result.artifact?.targets?.[0]?.change).toBe("unchanged");
+          expect(result.artifact?.change).toBe("updated");
+          expect(result.artifact?.targets?.[0]?.change).toBe("updated");
         }
-        expect(lockfileAfter).toBe(lockfileBefore);
+        expect(lockfileAfter).not.toBe(lockfileBefore);
       }),
     );
 

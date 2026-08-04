@@ -10,6 +10,7 @@ import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it, vi } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -129,13 +130,13 @@ describe("SubagentManager", () => {
       }).pipe(Effect.provide(makeTestLayer())),
     );
 
-    it.effect("returns true when subagent is in lockfile", () =>
+    it.effect("returns false when only an optional receipt names the subagent", () =>
       Effect.gen(function* () {
         const manager = yield* SubagentManager;
         const result = yield* manager.isInstalled({
           target: { type: "subagent", name: "planner" },
         });
-        expect(result).toBe(true);
+        expect(result).toBe(false);
       }).pipe(
         Effect.provide(
           makeTestLayer({
@@ -145,8 +146,8 @@ describe("SubagentManager", () => {
                   planner: {
                     type: "local",
                     path: decodeRelativePathSync("test"),
-                    installedAt: new Date(),
-                    updatedAt: new Date(),
+                    installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+                    updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
                   },
                 }),
             },
@@ -349,8 +350,8 @@ describe("SubagentManager", () => {
                   Option.some({
                     type: "local",
                     path: decodeRelativePathSync("source/planner"),
-                    installedAt: new Date(),
-                    updatedAt: new Date(),
+                    installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+                    updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
                     sourceHash: "stale-hash",
                   } satisfies SubagentLockEntry),
                 ),
@@ -469,8 +470,8 @@ describe("SubagentManager", () => {
                   Option.some({
                     type: "local",
                     path: decodeRelativePathSync("tmp/source/planner"),
-                    installedAt: new Date(),
-                    updatedAt: new Date(),
+                    installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+                    updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
                   } satisfies SubagentLockEntry),
                 ),
             },

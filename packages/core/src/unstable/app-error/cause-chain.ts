@@ -1,4 +1,5 @@
 import type { AppError, AppErrorCode } from "./app-error.js";
+import { redactSensitiveText, redactSensitiveValue } from "./secret-redaction.js";
 
 export interface SerializedErrorCause {
   readonly _tag: string;
@@ -51,18 +52,18 @@ const structuredObjectMessage = (cause: unknown): string | undefined => {
   return getStringField(cause, "path");
 };
 
-const causeMessage = (cause: unknown): string => {
+const causeMessage = (cause: unknown, secrets: ReadonlyArray<string>): string => {
   if (typeof cause === "string" || typeof cause === "number" || typeof cause === "boolean") {
-    return String(cause);
+    return redactSensitiveText(String(cause), { secrets });
   }
   if (cause === null) return "null";
   if (cause === undefined) return "undefined";
 
   const structuredMessage = structuredObjectMessage(cause);
-  if (structuredMessage !== undefined) return structuredMessage;
+  if (structuredMessage !== undefined) return redactSensitiveText(structuredMessage, { secrets });
 
   try {
-    return JSON.stringify(cause) ?? String(cause);
+    return JSON.stringify(redactSensitiveValue(cause, { secrets })) ?? String(cause);
   } catch {
     return "[unserializable object]";
   }
@@ -75,33 +76,41 @@ const nestedCause = (cause: unknown): unknown => {
 
 const serializeCause = (
   cause: unknown,
-  options: { readonly debug: boolean },
+  options: { readonly debug: boolean; readonly secrets: ReadonlyArray<string> },
 ): SerializedErrorCause => {
   if (isAppError(cause)) {
     return {
       _tag: "AppError",
       code: cause.code,
-      message: cause.detail,
+      message: redactSensitiveText(cause.detail, { secrets: options.secrets }),
     };
   }
 
   if (cause instanceof Error) {
     return {
       _tag: errorTag(cause),
-      message: cause.message.length > 0 ? cause.message : causeMessage(cause),
-      ...(options.debug && cause.stack !== undefined ? { stack: cause.stack } : {}),
+      message:
+        cause.message.length > 0
+          ? redactSensitiveText(cause.message, { secrets: options.secrets })
+          : causeMessage(cause, options.secrets),
+      ...(options.debug && cause.stack !== undefined
+        ? { stack: redactSensitiveText(cause.stack, { secrets: options.secrets }) }
+        : {}),
     };
   }
 
   return {
     _tag: typeof cause === "object" ? objectTag(cause) : typeof cause,
-    message: causeMessage(cause),
+    message: causeMessage(cause, options.secrets),
   };
 };
 
 export const serializeErrorCauseChain = (
   cause: unknown,
-  options: { readonly debug?: boolean } = {},
+  options: {
+    readonly debug?: boolean;
+    readonly secrets?: ReadonlyArray<string>;
+  } = {},
 ): ReadonlyArray<SerializedErrorCause> => {
   if (cause === undefined || cause === null) return [];
 
@@ -109,7 +118,12 @@ export const serializeErrorCauseChain = (
   let current: unknown = cause;
   let depth = 0;
   while (current !== undefined && current !== null && depth < MAX_CAUSE_DEPTH) {
-    chain.push(serializeCause(current, { debug: options.debug === true }));
+    chain.push(
+      serializeCause(current, {
+        debug: options.debug === true,
+        secrets: options.secrets ?? [],
+      }),
+    );
     current = nestedCause(current);
     depth += 1;
   }

@@ -26,7 +26,7 @@ describe("skills copy", () => {
     );
     fs.writeFileSync(
       path.join(tempDir, ".axm", "axm-lock.yaml"),
-      "lockfileVersion: 1\nskills: {}\n",
+      "lockfileVersion: 3\nskills: {}\n",
     );
     const sourceDir = path.join(tempDir, "source", "review");
     fs.mkdirSync(sourceDir, { recursive: true });

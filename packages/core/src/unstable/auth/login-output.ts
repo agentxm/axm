@@ -10,7 +10,7 @@ import {
 } from "../cli-runtime/index.js";
 import type { Handle } from "../extensions/handle.js";
 
-const LoginResultSchema = Schema.Struct({
+export const LoginResultSchema = Schema.Struct({
   ...OperationPlanFields,
   status: Schema.Literal("logged-in"),
   registryHost: Schema.String,
@@ -20,7 +20,9 @@ const LoginResultSchema = Schema.Struct({
 const LoginDocumentFields = {
   result: LoginResultSchema,
 } satisfies Schema.Struct.Fields;
-type LoginResult = typeof LoginResultSchema.Type;
+export const LoginDocumentSchema = Schema.Struct(LoginDocumentFields);
+export type LoginResult = typeof LoginResultSchema.Type;
+export type LoginDocument = typeof LoginDocumentSchema.Type;
 
 const LoginSuccessSuggestions = [
   { description: "Check active account", cmd: "axm whoami" },
@@ -63,7 +65,7 @@ export const emitLoginSuccess = (registryUrl: string, handle: Option.Option<Hand
     });
 
     if (
-      yield* renderer.result({ result }, Schema.Struct(LoginDocumentFields), {
+      yield* renderer.result({ result }, LoginDocumentSchema, {
         suggestions: LoginSuccessSuggestions,
       })
     ) {

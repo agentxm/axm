@@ -30,10 +30,14 @@ describe("isCI", () => {
     }),
   );
 
-  it.effect("returns true when CI is set to any non-empty value", () =>
+  it.effect("returns false for conventional false CI values", () =>
     Effect.gen(function* () {
       process.env["CI"] = "false";
-      expect(yield* isCI).toBe(true);
+      expect(yield* isCI).toBe(false);
+      process.env["CI"] = "";
+      expect(yield* isCI).toBe(false);
+      process.env["CI"] = "0";
+      expect(yield* isCI).toBe(false);
     }),
   );
 });

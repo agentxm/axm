@@ -2,8 +2,8 @@ import type { Agent } from "../../schema.js";
 export const codestudioAgent = {
   id: "codestudio",
   name: "Code Studio",
-  vendor: "Code Studio",
-  homepage: "https://sfcodestudio.com",
+  vendor: "Syncfusion",
+  homepage: "https://www.syncfusion.com/code-studio/",
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".codestudio",
@@ -14,8 +14,8 @@ export const codestudioAgent = {
   },
   docs: [
     {
-      label: "Code Studio service terms",
-      url: "https://downloads.sfcodestudio.com/sla/v1.0/code_studio_sla.pdf",
+      label: "Code Studio documentation",
+      url: "https://help.syncfusion.com/code-studio/welcome-to-code-studio",
     },
   ],
   capabilities: {
@@ -25,7 +25,10 @@ export const codestudioAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+        sources: [
+          "https://www.syncfusion.com/code-studio/features/",
+          "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -33,17 +36,22 @@ export const codestudioAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
     command: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "Code Studio reusable prompt files are stored under .codestudio/prompts.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://www.syncfusion.com/code-studio/features/",
+          "https://github.com/syncfusion/code-studio-library",
+        ],
+        scopes: ["user", "project"],
+        directory: ".codestudio/prompts",
       },
       axm: {
         status: "unsupported",
@@ -53,11 +61,18 @@ export const codestudioAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "Code Studio supports custom stdio and remote HTTP MCP servers.",
         docs: [],
-        sources: [],
+        sources: [
+          "https://www.syncfusion.com/code-studio/features/",
+          "https://help.syncfusion.com/code-studio/reference/configure-properties/mcp/customservers",
+        ],
+        scopes: ["user", "project"],
+        standardsCompliance: "parity",
+        convention: "vendor",
+        transports: ["stdio", "http"],
       },
       axm: {
         status: "unsupported",
@@ -67,39 +82,17 @@ export const codestudioAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "Code Studio custom agents are stored under .codestudio/agents.",
         docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
+        sources: [
+          "https://www.syncfusion.com/code-studio/features/",
+          "https://github.com/syncfusion/code-studio-library",
+        ],
+        scopes: ["user", "project"],
+        directory: ".codestudio/agents",
+        layout: "file",
       },
       axm: {
         status: "unsupported",
@@ -109,17 +102,45 @@ export const codestudioAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Code Studio exposes command-based lifecycle hooks, but its public documentation does not enumerate a stable event and matcher grammar.",
         docs: [],
-        sources: [],
+        sources: ["https://www.syncfusion.com/code-studio/features/"],
+        scopes: ["user", "project"],
+        modeling: "native-unmodeled",
       },
       axm: {
         status: "unsupported",
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Code Studio supports AGENTS.md and its own instruction/rule surfaces; this entry models the universal AGENTS.md surface.",
+      docs: [],
+      sources: [
+        "https://help.syncfusion.com/code-studio/features/globalagent",
+        "https://www.syncfusion.com/code-studio/features/",
+      ],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

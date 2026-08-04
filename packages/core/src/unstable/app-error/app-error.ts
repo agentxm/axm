@@ -10,8 +10,8 @@ import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
  *
  * Reserved ranges:
  * - `0` — success
- * - `1`–`12` — AXM application errors (this enum)
- * - `13`–`127` — reserved for future AXM application errors; do not reuse
+ * - `1`–`16` — AXM application errors (this enum)
+ * - `17`–`127` — reserved for future AXM application errors; do not reuse
  * - `128`+ — POSIX signal convention (e.g., 130 SIGINT, 143 SIGTERM); set
  *   by the runtime's signal handlers, not by `AppError`
  *
@@ -51,6 +51,14 @@ export const ExitCode = {
   Unavailable: 11,
   /** Quota, storage, or plan limit exhausted. Pairs with `AppErrorCode` `quota`. */
   Quota: 12,
+  /** Progress is waiting on a person to complete an action. Pairs with `AppErrorCode` `auth_required`. */
+  AuthRequired: 13,
+  /** A pending authentication flow expired. Pairs with `AppErrorCode` `auth_expired`. */
+  AuthExpired: 14,
+  /** A person denied or cancelled a pending authentication flow. Pairs with `AppErrorCode` `auth_denied`. */
+  AuthDenied: 15,
+  /** A bounded operation did not complete before its caller-selected deadline. Pairs with `AppErrorCode` `timeout`. */
+  Timeout: 16,
 } as const;
 
 export type ExitCode = (typeof ExitCode)[keyof typeof ExitCode];
@@ -79,6 +87,10 @@ const AppErrorCodeByExitName = {
   Internal: "internal",
   Unavailable: "unavailable",
   Quota: "quota",
+  AuthRequired: "auth_required",
+  AuthExpired: "auth_expired",
+  AuthDenied: "auth_denied",
+  Timeout: "timeout",
 } as const satisfies Record<ErrorExitName, string>;
 
 export type AppErrorCode = (typeof AppErrorCodeByExitName)[ErrorExitName];
@@ -101,6 +113,10 @@ export const AppErrorCodes = [
   AppErrorCodeByExitName.Internal,
   AppErrorCodeByExitName.Unavailable,
   AppErrorCodeByExitName.Quota,
+  AppErrorCodeByExitName.AuthRequired,
+  AppErrorCodeByExitName.AuthExpired,
+  AppErrorCodeByExitName.AuthDenied,
+  AppErrorCodeByExitName.Timeout,
 ] as const;
 
 export const AppErrorCodeSchema = Schema.Literals(AppErrorCodes).annotate({
@@ -122,6 +138,10 @@ const ExitCodeByAppErrorCode: Readonly<Record<AppErrorCode, ExitCode>> = {
   internal: ExitCode.Internal,
   unavailable: ExitCode.Unavailable,
   quota: ExitCode.Quota,
+  auth_required: ExitCode.AuthRequired,
+  auth_expired: ExitCode.AuthExpired,
+  auth_denied: ExitCode.AuthDenied,
+  timeout: ExitCode.Timeout,
 };
 
 export const exitCodeFor = (code: AppErrorCode): ExitCode => ExitCodeByAppErrorCode[code];
@@ -140,6 +160,14 @@ export type AppErrorMetadata = {
   };
 };
 
+export type AppErrorAction = {
+  readonly kind: "open-url";
+  readonly url: string;
+  readonly code?: string;
+  readonly expiresAt?: string;
+  readonly resume?: string;
+};
+
 const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
   auth: "Unauthorized",
   forbidden: "Forbidden",
@@ -153,6 +181,10 @@ const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
   internal: "Internal Error",
   usage: "Usage Error",
   issues: "Issues Found",
+  auth_required: "Authentication Required",
+  auth_expired: "Authentication Expired",
+  auth_denied: "Authentication Denied",
+  timeout: "Timed Out",
 };
 
 const DefaultDetailByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
@@ -168,6 +200,10 @@ const DefaultDetailByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
   internal: "An internal error occurred.",
   usage: "The command invocation is invalid.",
   issues: "The command found issues.",
+  auth_required: "Authentication requires approval from a person.",
+  auth_expired: "The pending authentication flow expired.",
+  auth_denied: "The pending authentication flow was denied or cancelled.",
+  timeout: "The operation did not complete before the deadline.",
 };
 
 export const defaultTitleFor = (code: AppErrorCode): string => DefaultTitleByAppErrorCode[code];
@@ -200,6 +236,10 @@ const DefaultSuggestionsByAppErrorCode: Readonly<
   usage: [],
   issues: [],
   quota: [],
+  auth_required: [],
+  auth_expired: [],
+  auth_denied: [],
+  timeout: [],
 };
 
 /** Baseline suggested next actions for an error category. */
@@ -219,6 +259,10 @@ const AppErrorClassByAppErrorCode: Readonly<Record<AppErrorCode, AppErrorClass>>
   validation: "user",
   usage: "user",
   issues: "user",
+  auth_required: "user",
+  auth_expired: "user",
+  auth_denied: "user",
+  timeout: "external",
 };
 
 export const errorClassForAppErrorCode = (code: AppErrorCode): AppErrorClass =>
@@ -240,6 +284,8 @@ export class AppError extends Data.TaggedError("AppError")<{
   readonly title: string;
   readonly detail: string;
   readonly metadata?: AppErrorMetadata;
+  readonly blockedOn?: "human";
+  readonly action?: AppErrorAction;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly cause: unknown;
 }> {}
@@ -249,6 +295,8 @@ export const makeAppError = (args: {
   readonly title?: string;
   readonly detail?: string;
   readonly metadata?: AppErrorMetadata;
+  readonly blockedOn?: "human";
+  readonly action?: AppErrorAction;
   readonly recover?: string;
   readonly cmd?: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
@@ -270,6 +318,8 @@ export const makeAppError = (args: {
     title: args.title ?? defaultTitleFor(args.code),
     detail: args.detail ?? defaultDetailFor(args.code),
     ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
+    ...(args.blockedOn !== undefined ? { blockedOn: args.blockedOn } : {}),
+    ...(args.action !== undefined ? { action: args.action } : {}),
     ...(suggestions.length > 0 ? { suggestions } : {}),
     cause: args.cause,
   });

@@ -7,7 +7,12 @@ export const rooAgent = {
   interfaces: ["ide-extension"],
   family: null,
   rootDir: ".roo",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "retired",
+    since: "2026-05-15",
+    note: "Roo Code shut down its VS Code extension, Cloud, and Router on 2026-05-15 (final release v3.54.0); the RooCodeInc/Roo-Code repo is archived and read-only. The former team pivoted to a separate cloud-agent product, Roomote.",
+    supersededBy: null,
+  },
   detection: {
     project: { markers: [] },
     user: { markers: [] },
@@ -22,7 +27,12 @@ export const rooAgent = {
     skill: {
       native: {
         availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        vendorStatus: {
+          state: "removed",
+          since: "2026-05-15",
+          note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
+          supersededByType: null,
+        },
         notes:
           "Roo Code supports Roo-specific .roo/skills and cross-agent .agents/skills locations, including mode-specific skill directories.",
         docs: [],
@@ -41,7 +51,12 @@ export const rooAgent = {
     command: {
       native: {
         availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        vendorStatus: {
+          state: "removed",
+          since: "2026-05-15",
+          note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
+          supersededByType: null,
+        },
         notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
         docs: [],
         sources: ["https://docs.roocode.com/features/slash-commands"],
@@ -57,14 +72,19 @@ export const rooAgent = {
     "mcp-server": {
       native: {
         availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        vendorStatus: {
+          state: "removed",
+          since: "2026-05-15",
+          note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
+          supersededByType: null,
+        },
         notes: null,
         docs: [],
-        sources: ["https://docs.roocode.com/features/mcp/using-mcp-in-roo"],
+        sources: ["https://roocodeinc.github.io/Roo-Code/features/mcp/using-mcp-in-roo"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio", "http"],
+        transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "braced",
           defaults: false,
@@ -80,7 +100,12 @@ export const rooAgent = {
     subagent: {
       native: {
         availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        vendorStatus: {
+          state: "removed",
+          since: "2026-05-15",
+          note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
+          supersededByType: null,
+        },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
         docs: [],
         sources: ["https://docs.roocode.com/features/custom-modes"],
@@ -94,47 +119,15 @@ export const rooAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella; Roo also loads AGENTS.md when agent rules are enabled.",
-        docs: [],
-        sources: ["https://docs.roocode.com/features/custom-instructions"],
-        scopes: ["user", "project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        kind: "rules-dir",
-        files: ["*.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-        directory: ".roo/rules",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
-        vendorStatus: { state: "active" },
+        vendorStatus: {
+          state: "removed",
+          since: "2026-05-15",
+          note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
+          supersededByType: null,
+        },
         notes: null,
         docs: [],
         sources: [],
@@ -146,10 +139,43 @@ export const rooAgent = {
       },
     },
   },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: {
+        state: "removed",
+        since: "2026-05-15",
+        note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
+        supersededByType: null,
+      },
+      notes:
+        "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella; Roo also loads AGENTS.md when agent rules are enabled.",
+      docs: [],
+      sources: ["https://roocodeinc.github.io/Roo-Code/features/custom-instructions"],
+      scopes: ["user", "project"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      kind: "rules-dir",
+      files: ["*.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+      directory: ".roo/rules",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
+    },
+  },
   permissions: {
     native: {
       availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      vendorStatus: {
+        state: "removed",
+        since: "2026-05-15",
+        note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
+        supersededByType: null,
+      },
       notes:
         "Roo Code exposes auto-approval controls through the extension settings UI, including read, write, command, MCP, browser, and mode-switch approvals. The docs do not describe a stable AXM-writable permission config file for these controls.",
       docs: [],

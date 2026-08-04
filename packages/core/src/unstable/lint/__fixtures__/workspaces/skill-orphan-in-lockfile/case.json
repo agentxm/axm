@@ -8,7 +8,7 @@
       "skills": {}
     },
     "lockfile": {
-      "lockfileVersion": 1,
+      "lockfileVersion": 3,
       "skills": {
         "stale": {
           "type": "registry",
@@ -17,6 +17,8 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
+
+          "publisherBindingId": "hbnd_test",
           "agents": [
             "universal",
             "claude-code"

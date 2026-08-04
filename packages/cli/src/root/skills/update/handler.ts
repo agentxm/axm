@@ -10,28 +10,25 @@ import {
   SourceHostProviders,
 } from "@agentxm/client-core/unstable/source-resolution";
 import * as Array from "effect/Array";
+import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
   parseRegistrySourcePatternParts,
   type ExtensionName,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
 import {
   createRegistryClient,
   filterMatureVersions,
   parseMinimumReleaseAge,
   releaseAgeHoldbackWarning,
-  type ReleaseAgePolicy,
 } from "@agentxm/client-core/unstable/registry";
 import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
@@ -42,7 +39,8 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { LOCKFILE_VERSION } from "@agentxm/client-core/unstable/lockfile";
+import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
+import type { SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -52,10 +50,15 @@ import {
 import { emitPlanResolutionResult } from "../../../json-output.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
+  UPDATE_NAME_FILTER_FLAG,
   allUpdateTargetResolutionsFailed,
   resolveUpdateTargets,
 } from "../../shared/update-targets.js";
-import { LIST_INSTALLED_SKILLS, SKILL_NAME_RULES } from "../../suggested-actions.js";
+import {
+  LIST_INSTALLED_SKILLS,
+  REVIEW_REGISTRY_SOURCES,
+  SKILL_NAME_RULES,
+} from "../../suggested-actions.js";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
@@ -122,8 +125,11 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const renderer = yield* CliRenderer;
 
   // Step 1: Load configured skills and filter to enabled
-  const allSkills = yield* ws.records.getConfiguredSkills();
-  const lockedSkills = yield* ws.getLockedSkills();
+  const allSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
+  const lockedSkills = yield* ws
+    .getLockedSkills()
+    .pipe(Effect.catch(() => Effect.succeed<SkillsLockMap>({})));
+  const trustState = yield* ws.getTrustState();
 
   const disabledSkillEntries: ReadonlyArray<Extract<ResolveResult, { readonly type: "skip" }>> =
     Object.entries(allSkills).flatMap(([name, entry]) =>
@@ -159,7 +165,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     entries: skillEntries,
     source: args.source,
     nameFilters: args.skills,
-    nameFilterFlag: "--skill",
+    nameFilterFlag: UPDATE_NAME_FILTER_FLAG,
     resourceType: "skill",
     resourceLabel: "skill",
     resourceLabelPlural: "skills",
@@ -185,7 +191,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       readonly skillNames: ReadonlyArray<string>;
       readonly owner: Option.Option<Handle>;
       readonly versionRange: Option.Option<string>;
-      readonly releaseAgePolicy?: Option.Option<ReleaseAgePolicy>;
+      readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
     },
   ) =>
     sources
@@ -194,9 +200,9 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         type: "skill",
         owner: options.owner,
         versionRange: options.versionRange,
-        ...(options.releaseAgePolicy === undefined
+        ...(options.minimumReleaseAge === undefined
           ? {}
-          : { releaseAgePolicy: options.releaseAgePolicy }),
+          : { minimumReleaseAge: options.minimumReleaseAge }),
       })
       .pipe(
         Effect.map((refs) =>
@@ -210,7 +216,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     lookupName,
     userConstraint,
     packConstraints,
-    releaseAgePolicy,
+    minimumAge,
     minimumReleaseAge,
   }: {
     readonly source: RegistrySource;
@@ -218,7 +224,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     readonly lookupName: ExtensionName;
     readonly userConstraint: Option.Option<string>;
     readonly packConstraints: ReadonlyArray<PackConstraint>;
-    readonly releaseAgePolicy: ReleaseAgePolicy;
+    readonly minimumAge: Duration.Duration;
     readonly minimumReleaseAge: string;
   }) =>
     Effect.gen(function* () {
@@ -251,9 +257,10 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         });
       }
 
-      const matureVersions = filterMatureVersions(indexOption.value.versions, releaseAgePolicy).map(
-        (entry) => entry.version,
-      );
+      const matureVersions = (yield* filterMatureVersions(
+        indexOption.value.versions,
+        minimumAge,
+      )).map((entry) => entry.version);
       if (matureVersions.length === 0) {
         return Option.none<{
           readonly ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>;
@@ -279,7 +286,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         skillNames: [lookupName],
         owner: Option.some(owner),
         versionRange: Option.some(resolvedVersion.value.resolvedVersion),
-        releaseAgePolicy: Option.some(releaseAgePolicy),
+        minimumReleaseAge: Option.some(minimumAge),
       });
       const exactRef = exactRefs.find(
         (ref): ref is Extract<SkillExtensionRef, { readonly refType: "registry" }> =>
@@ -345,15 +352,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           } satisfies ResolveResult;
         }
         const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
-        const minimumAgeMs = parseMinimumReleaseAge(minimumReleaseAge);
-        if (Option.isNone(minimumAgeMs)) {
+        const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);
+        if (Option.isNone(minimumAge)) {
           return yield* makeAppError({
             code: "validation",
             detail: `Invalid minimumReleaseAge "${minimumReleaseAge}"`,
             recover: "Use a duration such as 24h, 1440m, or 0s.",
           });
         }
-        const releaseAgePolicy = { minimumAgeMs: minimumAgeMs.value, now: new Date() };
         const source = yield* resolveSource(sourceStr);
         const registryPattern = toRegistrySkillPattern(sourceStr);
 
@@ -370,7 +376,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
                 : Option.some(registryPattern.value.versionRange),
             packConstraints:
               packConstraintMap.get(`${registryPattern.value.owner}/skills/${lookupName}`) ?? [],
-            releaseAgePolicy,
+            minimumAge: minimumAge.value,
             minimumReleaseAge,
           });
           if (Option.isSome(registryResolved)) {
@@ -392,7 +398,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           skillNames: [name],
           owner: requestedOwner,
           versionRange: Option.none(),
-          releaseAgePolicy: Option.some(releaseAgePolicy),
+          minimumReleaseAge: Option.some(minimumAge.value),
         });
         const skillRef = namedRefs.find((r) => r.skill.name === name);
 
@@ -440,39 +446,38 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   ) {
     return yield* allUpdateTargetResolutionsFailed({
       resourceLabelPlural: "skill",
-      recover: "List configured sources",
-      cmd: "axm sources list",
+      recover: REVIEW_REGISTRY_SOURCES.description,
+      cmd: REVIEW_REGISTRY_SOURCES.cmd,
     });
   }
   if (resolved.length === 0 && skipped.length === 0) {
     return yield* allUpdateTargetResolutionsFailed({
       resourceLabelPlural: "skill",
-      recover: "List configured sources",
-      cmd: "axm sources list",
+      recover: REVIEW_REGISTRY_SOURCES.description,
+      cmd: REVIEW_REGISTRY_SOURCES.cmd,
     });
   }
 
   const warningsBySkill = new Map<string, ReadonlyArray<string>>();
   for (const item of resolved) {
-    const existing = lockedSkills[item.ref.skill.name];
-    const lockedEpoch = existing?.type === "registry" ? existing.publisherBindingId : undefined;
+    const trusted = trustState.records[trustRecordKey("skill", item.ref.skill.name)];
+    const lockedEpoch = trusted?.authority === "registry" ? trusted.publisherBindingId : undefined;
     const resolvedEpoch = item.ref.refType === "registry" ? item.ref.publisherBindingId : undefined;
     const publisherEpochChanged =
-      existing?.type === "registry" &&
+      trusted?.authority === "registry" &&
       item.ref.refType === "registry" &&
-      lockedEpoch !== resolvedEpoch &&
-      (lockedEpoch !== undefined || resolvedEpoch !== undefined);
+      lockedEpoch !== resolvedEpoch;
     if (publisherEpochChanged && args.yes) {
       return yield* makeAppError({
         code: "validation",
-        detail: `Unattended update refused for ${item.ref.owner}/skills/${item.ref.name}: publisher epoch changed from ${lockedEpoch ?? "legacy-lock"} to ${resolvedEpoch ?? "missing"}`,
+        detail: `Unattended update refused for ${item.ref.owner}/skills/${item.ref.name}: publisher epoch changed from ${lockedEpoch} to ${resolvedEpoch}`,
         recover: "Run the update interactively, verify the publisher change, and confirm the plan.",
       });
     }
 
     const warnings = publisherEpochChanged
       ? [
-          `Publisher identity changed (${lockedEpoch ?? "legacy lock"} → ${resolvedEpoch ?? "missing epoch"}); confirm only if you trust the current publisher`,
+          `Publisher identity changed (${lockedEpoch} → ${resolvedEpoch}); confirm only if you trust the current publisher`,
           ...item.warnings,
         ]
       : item.warnings;
@@ -526,10 +531,9 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     );
 
   // Step 10: Build plan
-  const lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: lockedSkills };
   const rawPlan = buildUpdatePlan(
     ops,
-    lockfile,
+    trustState,
     "Update skills",
     Option.some("Update installed skills"),
     makeRunClosure,
@@ -585,70 +589,30 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   yield* emitPlanResolutionResult("skills.update", resolution);
 });
 
-/**
- * Read installed pack manifests and collect per-skill constraints.
- *
- * Returns a map from skill FQN (e.g., "@acme/skills/code-review") to an array of
- * pack constraints. Silently skips packs whose manifest can't be read.
- */
+/** Collect per-skill constraints from the authoritative desired pack graph. */
 const collectPackConstraints = () =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
-    const base = ws.baseDir;
-
-    // Read lockfile to find installed packs
-    const lockedPacks = yield* ws.getLockedPacks();
-
+    const graph = yield* ws.getDesiredStateGraph();
+    if (!graph.complete) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Cannot update skills while the desired pack graph is incomplete",
+      });
+    }
     const constraintMap = new Map<string, Array<PackConstraint>>();
 
-    // Read each pack's manifest from disk (sequential to avoid data race on constraintMap)
-    yield* Effect.forEach(Object.entries(lockedPacks), ([packName, packEntry]) =>
-      Effect.gen(function* () {
-        const packDir = path.join(
-          base,
-          REGISTRY_EXTENSIONS_DIR,
-          packEntry.owner,
-          "packs",
-          packName,
-        );
-        const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
-
-        const exists = yield* fs
-          .exists(manifestPath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!exists) return;
-
-        const content = yield* fs
-          .readFileString(manifestPath)
-          .pipe(Effect.catch(() => Effect.succeed("")));
-        if (content === "") return;
-
-        const json = yield* Effect.try({
-          try: () => JSON.parse(content),
-          catch: () => ({ _tag: "parse-failed" as const }),
-        }).pipe(
-          Effect.map((value): unknown => value),
-          Effect.option,
-        );
-        if (Option.isNone(json)) return;
-
-        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json.value).pipe(
-          Effect.option,
-        );
-        if (Option.isNone(manifest)) return;
-
-        // Collect skill constraints from pack dependencies.
-        for (const [fqn, constraint] of Object.entries(manifest.value.dependencies)) {
-          if (!fqn.includes("/skills/")) continue;
-          if (typeof constraint !== "string" || constraint === "*" || constraint === "") continue;
-          const existing = constraintMap.get(fqn) ?? [];
-          existing.push({ packName, constraint });
-          constraintMap.set(fqn, existing);
+    for (const node of graph.nodes) {
+      if (node.type !== "skill") continue;
+      for (const origin of node.origins) {
+        if (origin.type !== "pack" || origin.constraint === "*" || origin.constraint === "") {
+          continue;
         }
-      }),
-    );
+        const existing = constraintMap.get(node.identity) ?? [];
+        existing.push({ packName: origin.pack, constraint: origin.constraint });
+        constraintMap.set(node.identity, existing);
+      }
+    }
 
     return constraintMap;
   });

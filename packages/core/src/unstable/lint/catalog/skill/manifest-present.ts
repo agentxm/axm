@@ -11,7 +11,7 @@
  * Native-only via `check` early-return: when `subject.isNative === false`
  * (managed-external skills without a declared manifest), the rule produces
  * no findings. No separate `applies` predicate per
- * `docs/design/lint-engine.md §3`.
+ * `agentxm-internal/docs/design/lint-engine.md §3`.
  *
  * Advisory-only — scaffolding a manifest is a user-authored action.
  *

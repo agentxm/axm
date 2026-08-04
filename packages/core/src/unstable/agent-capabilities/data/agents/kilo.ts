@@ -60,21 +60,60 @@ export const kiloAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://kilo.ai/docs/features/mcp/using-mcp-in-kilo-code"],
+        sources: [
+          "https://kilo.ai/docs/automate/mcp/using-in-cli",
+          "https://kilo.ai/docs/automate/mcp/using-in-kilo-code",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
         transports: ["stdio", "http"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "braced",
           defaults: false,
         },
       },
       axm: {
-        status: "unsupported",
-        lastVerified: "2026-06-06",
-        writer: null,
-        reason: "The current AXM Kilo Code service returns MCP add/remove as unsupported.",
+        status: "supported",
+        lastVerified: "2026-07-24",
+        writer: {
+          config: {
+            serversKey: "mcp",
+            nativeEnabled: true,
+            targets: [
+              {
+                scope: "project",
+                path: "kilo.jsonc",
+                format: "jsonc",
+              },
+              {
+                scope: "user",
+                path: "~/.config/kilo/kilo.json",
+                format: "json",
+              },
+            ],
+            stdio: {
+              typeField: {
+                name: "type",
+                value: "local",
+              },
+              command: "array",
+              envKey: "environment",
+            },
+            remote: {
+              typeField: {
+                name: "type",
+                value: {
+                  "streamable-http": "remote",
+                },
+              },
+              urlKey: {
+                "streamable-http": "url",
+              },
+              headersKey: "headers",
+            },
+          },
+        },
       },
     },
     subagent: {
@@ -87,41 +126,6 @@ export const kiloAgent = {
         scopes: ["user", "project"],
         directory: ".kilo/agents",
         layout: "directory",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://kilo.ai/docs/customize/custom-instructions"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
       },
       axm: {
         status: "supported",
@@ -142,6 +146,27 @@ export const kiloAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://kilo.ai/docs/customize/custom-instructions"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

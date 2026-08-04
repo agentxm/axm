@@ -1,4 +1,5 @@
 import { Command } from "effect/unstable/cli";
+import { makeExtensionShowCommand } from "../shared/extension-show.js";
 
 import { installCommand } from "./install/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
@@ -10,6 +11,12 @@ import { newCommand } from "./new.js";
 import { commandsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { commandsVersionCommand } from "../shared/version-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
+
+const showCommand = makeExtensionShowCommand({
+  type: "command",
+  group: "commands",
+  exampleName: "my-cmd",
+});
 
 export const commandsCommand = Command.make("commands").pipe(
   Command.withDescription("Manage commands"),
@@ -54,6 +61,7 @@ export const commandsCommand = Command.make("commands").pipe(
     installCommand,
     uninstallCommand,
     listCommand,
+    showCommand,
     enableCommand,
     disableCommand,
     updateCommand,

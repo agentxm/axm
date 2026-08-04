@@ -8,6 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { describeSchemaDocument } from "../../describe-document.js";
 import type { AdvisoryFinding, Severity } from "../../rule.js";
 
 export interface ManifestJsonParseFailure {
@@ -36,25 +37,6 @@ export const manifestJsonParseFailureToFinding = (
   kind: "advisory",
   ruleId,
   severity,
-  message: `${describeManifest(file)} contains invalid JSON. Edit \`${input.file}\` and fix the JSON syntax.`,
+  message: `${describeSchemaDocument(file)} contains invalid JSON. Edit \`${input.file}\` and fix the JSON syntax.`,
   location: { file },
 });
-
-const describeManifest = (file: string): string => {
-  switch (file) {
-    case "command.json":
-      return "Command manifest";
-    case "files.json":
-      return "context manifest";
-    case "mcp.json":
-      return "MCP server manifest";
-    case "pack.json":
-      return "Pack manifest";
-    case "skill.json":
-      return "Skill manifest";
-    case "subagent.json":
-      return "Subagent manifest";
-    default:
-      return "Manifest";
-  }
-};

@@ -3,6 +3,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
@@ -46,8 +48,8 @@ describe("lockfile", () => {
     type: "github",
     owner: "example-org",
     repo: "agent-skills",
-    installedAt: new Date("2026-01-28T10:00:00.000Z"),
-    updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+    installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
     ...overrides,
   });
 
@@ -56,7 +58,7 @@ describe("lockfile", () => {
       withContext(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {},
           };
 
@@ -71,7 +73,7 @@ describe("lockfile", () => {
       withContext(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {
               "pr-review": createTestEntry(),
             },
@@ -81,7 +83,7 @@ describe("lockfile", () => {
 
           const content = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
           const parsed = YAML.parse(content);
-          expect(parsed.lockfileVersion).toBe(1);
+          expect(parsed.lockfileVersion).toBe(3);
           expect(parsed.skills["pr-review"]).toBeDefined();
           expect(parsed.skills["pr-review"].type).toBe("github");
           expect(parsed.skills["pr-review"].owner).toBe("example-org");
@@ -96,11 +98,11 @@ describe("lockfile", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(
             path.join(axmDir, "axm-lock.yaml"),
-            YAML.stringify({ lockfileVersion: 1, skills: {} }),
+            YAML.stringify({ lockfileVersion: 3, skills: {} }),
           );
 
           const lockfile: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {
               commit: createTestEntry({
                 owner: "other",
@@ -135,7 +137,7 @@ describe("lockfile", () => {
               : realFs.rename(oldPath, newPath),
         };
         const lockfile: Lockfile = {
-          lockfileVersion: 1,
+          lockfileVersion: 3,
           skills: {
             "pr-review": createTestEntry(),
           },
@@ -157,7 +159,7 @@ describe("lockfile", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml.tmp.old.bad123"), "stale");
           const lockfile: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {
               "pr-review": createTestEntry(),
             },
@@ -174,7 +176,7 @@ describe("lockfile", () => {
       withContext(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {
               "pr-review": createTestEntry(),
             },
@@ -192,7 +194,7 @@ describe("lockfile", () => {
       withContext(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {
               "pr-review": createTestEntry(),
             },
@@ -214,26 +216,81 @@ describe("lockfile", () => {
   });
 
   describe("batched updates", () => {
-    it.effect("rewrites a v2 lockfile to shared-only v3 on the next commit", () =>
+    it.effect("does not delete authoritative trust when receipt history is removed", () =>
       withContext(
         Effect.gen(function* () {
           const base: Lockfile = {
-            lockfileVersion: 2,
+            lockfileVersion: 3,
             skills: {
-              "pr-review": createTestEntry(),
+              review: createTestEntry({ owner: "trusted-org", repo: "trusted-repo" }),
             },
           };
+          yield* writeLockfile(axmDir, base);
+
+          yield* commitLockfileSnapshotUpdate(axmDir, base, {
+            lockfileVersion: 3,
+            skills: {},
+          });
+
+          const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf-8"));
+          expect(trust.records["skill:review"]).toMatchObject({
+            authority: "github",
+            sourceIdentity: "github:trusted-org/trusted-repo",
+          });
+        }),
+      ),
+    );
+
+    it.effect("preserves unknown top-level lockfile keys across a snapshot patch", () =>
+      withContext(
+        Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(
             path.join(axmDir, "axm-lock.yaml"),
-            YAML.stringify(Schema.encodeSync(LockfileSchema)(base)),
+            YAML.stringify({
+              lockfileVersion: 3,
+              skills: {},
+              futureFeature: { alpha: 1, beta: ["x", "y"] },
+            }),
           );
 
-          yield* commitLockfileUpdates(axmDir, base, []);
+          const base: Lockfile = { lockfileVersion: 3, skills: {} };
+          const next: Lockfile = {
+            lockfileVersion: 3,
+            skills: { "pr-review": createTestEntry() },
+          };
+          yield* commitLockfileSnapshotUpdate(axmDir, base, next);
 
-          const migrated = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
-          expect(migrated.lockfileVersion).toBe(3);
-          expect(migrated.skills["pr-review"]).not.toHaveProperty("agents");
+          const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(written.futureFeature).toEqual({ alpha: 1, beta: ["x", "y"] });
+          expect(written.skills["pr-review"]).toBeDefined();
+        }),
+      ),
+    );
+
+    it.effect("preserves unknown top-level lockfile keys across batched updates", () =>
+      withContext(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(axmDir, "axm-lock.yaml"),
+            YAML.stringify({
+              lockfileVersion: 3,
+              skills: {},
+              futureFeature: { alpha: 1 },
+            }),
+          );
+
+          yield* commitLockfileUpdates(axmDir, { lockfileVersion: 3, skills: {} }, [
+            (current) => ({
+              ...current,
+              skills: { ...current.skills, "pr-review": createTestEntry() },
+            }),
+          ]);
+
+          const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
+          expect(written.futureFeature).toEqual({ alpha: 1 });
+          expect(written.skills["pr-review"]).toBeDefined();
         }),
       ),
     );
@@ -245,8 +302,8 @@ describe("lockfile", () => {
             type: "github" as const,
             owner: "example-org",
             repo: "knowledge-repo",
-            installedAt: new Date("2026-01-28T10:00:00.000Z"),
-            updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+            installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
           };
           // On-disk lockfile already carries a knowledge entry.
           const onDisk: Lockfile = {
@@ -278,7 +335,7 @@ describe("lockfile", () => {
 
     it("applies lockfile updates in order without writing", () => {
       const lockfile: Lockfile = {
-        lockfileVersion: 2,
+        lockfileVersion: 3,
         skills: {},
         files: {},
       };
@@ -291,8 +348,8 @@ describe("lockfile", () => {
             baseline: {
               type: "local",
               path: "./files/baseline",
-              installedAt: new Date("2026-01-28T10:00:00.000Z"),
-              updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+              installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+              updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
               resolvedInputs: {},
             },
           },
@@ -321,7 +378,7 @@ describe("lockfile", () => {
       withContext(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
-            lockfileVersion: 2,
+            lockfileVersion: 3,
             skills: {},
             files: {},
           };
@@ -334,8 +391,8 @@ describe("lockfile", () => {
                 baseline: {
                   type: "local",
                   path: "./files/baseline",
-                  installedAt: new Date("2026-01-28T10:00:00.000Z"),
-                  updatedAt: new Date("2026-01-28T10:00:00.000Z"),
+                  installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+                  updatedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
                   resolvedInputs: { projectName: "AgentXM" },
                 },
               },
@@ -352,7 +409,7 @@ describe("lockfile", () => {
       withContext(
         Effect.gen(function* () {
           const staleBase: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {},
           };
 
@@ -392,7 +449,7 @@ describe("lockfile", () => {
       withContext(
         Effect.gen(function* () {
           const base: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {
               base: createTestEntry({ repo: "base" }),
             },
@@ -428,10 +485,14 @@ describe("lockfile", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           const lockPath = path.join(axmDir, "axm-lock.yaml.lock");
           fs.writeFileSync(lockPath, "stale");
-          fs.utimesSync(lockPath, new Date(Date.now() - 60_000), new Date(Date.now() - 60_000));
+          // Age the lock relative to the effect clock, which drives staleness.
+          const staleAt = DateTime.toDateUtc(
+            DateTime.subtractDuration(yield* DateTime.now, Duration.seconds(60)),
+          );
+          fs.utimesSync(lockPath, staleAt, staleAt);
 
           const lockfile: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {},
           };
 
@@ -452,7 +513,7 @@ describe("lockfile", () => {
             fs.writeFileSync(lockPath, "active");
 
             const lockfile: Lockfile = {
-              lockfileVersion: 1,
+              lockfileVersion: 3,
               skills: {
                 "pr-review": createTestEntry(),
               },
@@ -487,11 +548,11 @@ describe("lockfile", () => {
             ref: "main",
             path: "skills/pr-review",
             gitTreeHash: "abc123def456789012345678901234567890",
-            installedAt: new Date("2026-01-28T10:00:00.000Z"),
-            updatedAt: new Date("2026-01-28T12:30:00.000Z"),
+            installedAt: DateTime.makeUnsafe("2026-01-28T10:00:00.000Z"),
+            updatedAt: DateTime.makeUnsafe("2026-01-28T12:30:00.000Z"),
           };
           const lockfile: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {
               "pr-review": entry,
             },
@@ -500,7 +561,7 @@ describe("lockfile", () => {
           yield* writeLockfile(axmDir, lockfile);
           const result = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"));
 
-          expect(result.lockfileVersion).toBe(1);
+          expect(result.lockfileVersion).toBe(3);
           const prReview = result.skills["pr-review"];
           expect(prReview?.type).toBe("github");
           if (prReview?.type === "github") {
@@ -510,8 +571,8 @@ describe("lockfile", () => {
             expect(prReview?.path).toBe(entry.path);
           }
           expect(prReview?.gitTreeHash).toBe(entry.gitTreeHash);
-          expect(prReview?.installedAt).toBe(entry.installedAt.toISOString());
-          expect(prReview?.updatedAt).toBe(entry.updatedAt.toISOString());
+          expect(prReview?.installedAt).toBe(DateTime.formatIso(entry.installedAt));
+          expect(prReview?.updatedAt).toBe(DateTime.formatIso(entry.updatedAt));
         }),
       ),
     );
@@ -520,7 +581,7 @@ describe("lockfile", () => {
       withContext(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
-            lockfileVersion: 1,
+            lockfileVersion: 3,
             skills: {
               "pr-review": createTestEntry({
                 owner: "org",

@@ -14,9 +14,6 @@ import {
 import { registryClientErrorToAppError } from "./translate.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 
-export type ExtensionMaintainer = GeneratedRegistryClient.Maintainer;
-export type ExtensionMaintainerTarget = GeneratedRegistryClient.MaintainerTarget;
-
 export interface RegistryExtensionReference {
   readonly owner: string;
   readonly type: string;
@@ -55,18 +52,6 @@ const mapAdminClientError =
     });
   };
 
-const makeAdminClient = Effect.gen(function* () {
-  const registryUrl = yield* RegistryUrl;
-  const httpClient = yield* HttpClient.HttpClient;
-  const remoteHttpClient = httpClient.pipe(
-    HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)),
-  );
-  return {
-    registryUrl,
-    client: GeneratedRegistryClient.make(remoteHttpClient),
-  };
-});
-
 const makeLifecycleClient = (options?: RegistryLifecycleCallOptions) =>
   Effect.gen(function* () {
     const registryUrl = yield* RegistryUrl;
@@ -91,38 +76,6 @@ const runAdminCall = <A, R>(
   registryUrl: string,
   effect: Effect.Effect<A, unknown, R>,
 ): Effect.Effect<A, AppError, R> => effect.pipe(Effect.mapError(mapAdminClientError(registryUrl)));
-
-export const getExtensionMaintainer = (
-  ref: RegistryExtensionReference,
-): Effect.Effect<ExtensionMaintainer, AppError, HttpClient.HttpClient | RegistryUrl> =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeAdminClient;
-    return yield* runAdminCall(
-      registryUrl,
-      client.MaintainerGetMaintainer(ref.owner, ref.type, ref.name, undefined),
-    );
-  });
-
-export const setExtensionMaintainer = (
-  ref: RegistryExtensionReference,
-  target: ExtensionMaintainerTarget,
-) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeAdminClient;
-    return yield* runAdminCall(
-      registryUrl,
-      client.MaintainerSetMaintainer(ref.owner, ref.type, ref.name, { payload: target }),
-    );
-  });
-
-export const clearExtensionMaintainer = (ref: RegistryExtensionReference) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeAdminClient;
-    return yield* runAdminCall(
-      registryUrl,
-      client.MaintainerClearMaintainer(ref.owner, ref.type, ref.name, undefined),
-    );
-  });
 
 export const yankExtensionVersion = (
   ref: RegistryExtensionVersionReference,

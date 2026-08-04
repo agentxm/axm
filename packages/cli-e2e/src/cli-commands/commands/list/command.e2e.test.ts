@@ -29,30 +29,36 @@ describe("axm commands list inventory", () => {
       expect(normal.exitCode).toBe(0);
       expect(JSON.parse(normal.stdout)).toEqual(
         expect.objectContaining({
-          unmanagedCount: 1,
-          ignoredCount: 0,
-          items: [
-            expect.objectContaining({
-              name: "manual",
-              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
-            }),
-          ],
+          ok: true,
+          result: expect.objectContaining({
+            unmanagedCount: 1,
+            ignoredCount: 0,
+            items: [
+              expect.objectContaining({
+                name: "manual",
+                classification: { kind: "lifecycle", lifecycle: "unmanaged" },
+              }),
+            ],
+          }),
         }),
       );
       expect(included.exitCode).toBe(0);
       expect(JSON.parse(included.stdout)).toEqual(
         expect.objectContaining({
-          unmanagedCount: 1,
-          ignoredCount: 1,
-          items: expect.arrayContaining([
-            expect.objectContaining({
-              name: "local-build",
-              classification: expect.objectContaining({
-                kind: "ignored",
-                matchedBy: ["local-*"],
+          ok: true,
+          result: expect.objectContaining({
+            unmanagedCount: 1,
+            ignoredCount: 1,
+            items: expect.arrayContaining([
+              expect.objectContaining({
+                name: "local-build",
+                classification: expect.objectContaining({
+                  kind: "ignored",
+                  matchedBy: ["local-*"],
+                }),
               }),
-            }),
-          ]),
+            ]),
+          }),
         }),
       );
     } finally {

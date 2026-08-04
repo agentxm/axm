@@ -9,6 +9,7 @@ export type LoginStrategy = "loopback" | "device-code";
 export interface LoginStrategyOptions {
   readonly deviceCode: boolean;
   readonly noBrowser: boolean;
+  readonly nonInteractive: boolean;
 }
 
 export interface LoginStrategyEnvironment {
@@ -37,7 +38,7 @@ export const selectLoginStrategy = (
   options: LoginStrategyOptions,
   env: LoginStrategyEnvironment,
 ): LoginStrategy => {
-  if (options.deviceCode || options.noBrowser) return "device-code";
+  if (options.deviceCode || options.noBrowser || options.nonInteractive) return "device-code";
   if (isSshWithoutDisplay(env)) return "device-code";
   if (isTruthyEnvValue(env.CI)) return "device-code";
   if (isTruthyEnvValue(env.CODESPACES)) return "device-code";

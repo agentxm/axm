@@ -58,8 +58,6 @@ const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
   command: unsupportedCapability,
   "mcp-server": unsupportedCapability,
   subagent: unsupportedCapability,
-  files: unsupportedCapability,
-  rule: unsupportedCapability,
   hook: unsupportedHookCapability,
   ...overrides,
 });
@@ -75,6 +73,7 @@ const makeAgentInput = (overrides: Record<string, unknown> = {}) => ({
   detection: { project: { markers: [] }, user: { markers: [] } },
   docs: [],
   capabilities: makeCapabilitiesInput(),
+  instructions: unsupportedCapability,
   permissions: unsupportedCapability,
   ...overrides,
 });
@@ -214,7 +213,7 @@ describe("agent capability catalog", () => {
       decodeAgent(
         makeAgentInput({
           capabilities: makeCapabilitiesInput({
-            files: {
+            subagent: {
               native: {
                 availability: { via: "native" },
                 vendorStatus: { state: "active" },
@@ -224,9 +223,8 @@ describe("agent capability catalog", () => {
                 scopes: ["project"],
                 standardsCompliance: "full",
                 convention: "vendor",
-                directory: ".sample/context",
-                files: ["NOTES.md"],
-                naming: null,
+                directory: ".sample/agents",
+                layout: "directory",
               },
               axm: {
                 status: "supported",
@@ -269,29 +267,27 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          capabilities: makeCapabilitiesInput({
-            rule: {
-              native: {
-                availability: { via: "native" },
-                vendorStatus: { state: "active" },
-                notes: null,
-                docs: [],
-                sources: ["https://example.com/docs"],
-                scopes: ["project"],
-                standardsCompliance: "full",
-                convention: "universal",
-                kind: "agents-md",
-                files: ["SAMPLE.md"],
-                nestedDiscovery: false,
-                importSyntax: null,
-              },
-              axm: {
-                status: "supported",
-                lastVerified: "2026-05-16",
-                writer: null,
-              },
+          instructions: {
+            native: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "universal",
+              kind: "agents-md",
+              files: ["SAMPLE.md"],
+              nestedDiscovery: false,
+              importSyntax: null,
             },
-          }),
+            axm: {
+              status: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
+          },
         }),
       ),
     ).toThrow("AGENTS.md");
@@ -328,29 +324,27 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          capabilities: makeCapabilitiesInput({
-            rule: {
-              native: {
-                availability: { via: "native" },
-                vendorStatus: { state: "active" },
-                notes: null,
-                docs: [],
-                sources: ["https://example.com/docs"],
-                scopes: ["project"],
-                standardsCompliance: "partial",
-                convention: "vendor",
-                kind: "rules-dir",
-                files: ["RULES.md"],
-                nestedDiscovery: false,
-                importSyntax: null,
-              },
-              axm: {
-                status: "supported",
-                lastVerified: "2026-05-16",
-                writer: null,
-              },
+          instructions: {
+            native: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              scopes: ["project"],
+              standardsCompliance: "partial",
+              convention: "vendor",
+              kind: "rules-dir",
+              files: ["RULES.md"],
+              nestedDiscovery: false,
+              importSyntax: null,
             },
-          }),
+            axm: {
+              status: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
+          },
         }),
       ),
     ).toThrow("directory");
@@ -386,32 +380,30 @@ describe("agent capability catalog", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
-          capabilities: makeCapabilitiesInput({
-            rule: {
-              native: {
-                availability: { via: "native" },
-                vendorStatus: { state: "active" },
-                notes: null,
-                docs: [],
-                sources: ["https://example.com/docs"],
-                scopes: ["project"],
-                standardsCompliance: "full",
-                convention: "universal",
-                kind: "agents-md",
-                files: ["README.md"],
-                nestedDiscovery: true,
-                importSyntax: null,
-              },
-              axm: {
-                status: "supported",
-                lastVerified: "2026-05-16",
-                writer: null,
-              },
+          instructions: {
+            native: {
+              availability: { via: "native" },
+              vendorStatus: { state: "active" },
+              notes: null,
+              docs: [],
+              sources: ["https://example.com/docs"],
+              scopes: ["project"],
+              standardsCompliance: "full",
+              convention: "universal",
+              kind: "agents-md",
+              files: ["README.md"],
+              nestedDiscovery: true,
+              importSyntax: null,
             },
-          }),
+            axm: {
+              status: "supported",
+              lastVerified: "2026-05-16",
+              writer: null,
+            },
+          },
         }),
       ),
-    ).toThrow('["capabilities"]["rule"]["native"]["files"]');
+    ).toThrow('["instructions"]["native"]["files"]');
   });
   it("requires MCP config coverage for declared transports", () => {
     expect(() =>
@@ -440,7 +432,6 @@ describe("agent capability catalog", () => {
                     targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
                     stdio: null,
                     remote: null,
-                    transform: null,
                   },
                 },
               },

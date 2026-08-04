@@ -1,9 +1,29 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { copyFixture, createCliRunner, createTempDir } from "@agentxm/client-e2e-utils";
+import {
+  copyFixture,
+  createCliRunner,
+  createTempDir,
+  type RunCliOptions,
+} from "@agentxm/client-e2e-utils";
 
-export const runCli = createCliRunner(new URL("../../cli/dist/src/main.js", import.meta.url));
+const runBuiltCli = createCliRunner(new URL("../../cli/dist/src/main.js", import.meta.url));
+const isolatedUserHome = createTempDir();
+
+process.once("exit", () => {
+  isolatedUserHome.cleanup();
+});
+
+export const runCli = (args: ReadonlyArray<string>, options: RunCliOptions = {}) =>
+  runBuiltCli(args, {
+    ...options,
+    env: {
+      HOME: isolatedUserHome.path,
+      AXM_USER_HOME: isolatedUserHome.path,
+      ...options.env,
+    },
+  });
 
 export { createTempDir };
 

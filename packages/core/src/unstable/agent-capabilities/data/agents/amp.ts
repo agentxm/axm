@@ -56,10 +56,10 @@ export const ampAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Amp supports always-available MCP servers through the amp.mcpServers settings key, and skill-scoped MCP servers through mcp.json inside a skill directory.",
+          "Amp declares always-available MCP servers under the flat amp.mcpServers settings key in ~/.config/amp/settings.json (user) or .amp/settings.json (workspace, which requires explicit approval), and skill-scoped MCP servers through mcp.json inside a skill directory.",
         docs: [],
-        sources: ["https://ampcode.com/manual#MCP"],
-        scopes: ["user"],
+        sources: ["https://ampcode.com/manual#MCP", "https://ampcode.com/manual#configuration"],
+        scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
@@ -70,9 +70,10 @@ export const ampAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
-        reason: "AXM has not implemented an Amp MCP writer for the amp.mcpServers settings key.",
+        reason:
+          "Amp nests its servers under the flat amp.mcpServers settings key, which McpServersKey cannot express; a writer needs a schema change rather than catalog data.",
       },
     },
     subagent: {
@@ -120,41 +121,6 @@ export const ampAgent = {
         reason: "AXM has not implemented Amp plugin/subagent materialization.",
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://ampcode.com/manual#agentsmd"],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -174,13 +140,63 @@ export const ampAgent = {
       },
     },
   },
-  permissions: {
+  instructions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,
       docs: [],
-      sources: [],
+      sources: ["https://ampcode.com/manual#agentsmd"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: "at-path",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
+    },
+  },
+  permissions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Amp permission rules use the amp.permissions and amp.mcpPermissions settings. Enterprise administrators can enforce the same schema through platform-specific managed-settings.json files.",
+      docs: [],
+      sources: [
+        "https://ampcode.com/news/tool-level-permissions",
+        "https://ampcode.com/news/mcp-permissions",
+        "https://ampcode.com/news/enterprise-managed-settings",
+      ],
+      scopes: ["user", "project"],
+      mechanism: ["config-file"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.config/amp/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".amp/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "tool-call",
+        example: '{"tool":"Bash","matches":{"cmd":"*git commit*"},"action":"ask"}',
+        notes:
+          "amp.permissions rules select a tool, optionally glob-match tool arguments, and apply allow, reject, ask, or delegate.",
+      },
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",

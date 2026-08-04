@@ -10,6 +10,7 @@
 import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 import type { AppError } from "../../app-error/index.js";
+import { CliRenderer } from "../../cli-renderer/index.js";
 import type { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
 import type { Plan, PlanResolution } from "../../plan/plan.js";
 import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
@@ -79,7 +80,12 @@ export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
   flags: { yes: boolean; force: boolean; preview: boolean; displayApplied?: boolean },
 ) =>
   Effect.gen(function* () {
-    const plan = yield* buildInstallCommandPlan(args, actions);
+    const renderer = yield* CliRenderer;
+    const plan = yield* renderer.withSpinner(
+      "Resolving extension sources",
+      () => buildInstallCommandPlan(args, actions),
+      { successMessage: "Resolved extension sources" },
+    );
     return yield* previewOrApplyPlan(plan, flags);
   }).pipe(
     Effect.scoped,

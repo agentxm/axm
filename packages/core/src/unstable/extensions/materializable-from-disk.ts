@@ -2,37 +2,24 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { CommandExtensionRef } from "../commands/refs.js";
-import { COMMAND_MANIFEST_FILENAME, CommandManifestSchema } from "../commands/manifest-schema.js";
-import { REGISTRY_EXTENSIONS_DIR } from "./constants.js";
-import type {
-  ConfiguredExtensionRef,
-  ConfiguredSkill,
-  ConfiguredSubagent,
-} from "../workspace/read-model-record-types.js";
-import { parseRegistrySourceRef } from "./registry-source.js";
+import type { SkillLockEntry } from "../lockfile/index.js";
+import type { ConfiguredRecordRow } from "../workspace/read-model-record-rows.js";
 import type { McpServerExtensionRef } from "../mcps/refs.js";
-import { MCP_SERVER_MANIFEST_FILENAME, McpServerManifestSchema } from "../mcps/manifest-schema.js";
+import type { PackRef } from "../packs/refs.js";
+import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 import {
-  MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
-  SkillManifestSchema,
-} from "../skills/manifest-schema.js";
-import type { SubagentExtensionRef } from "../subagents/refs.js";
-import {
-  MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
-  SubagentManifestSchema,
-} from "../subagents/manifest-schema.js";
-import type { RegistrySource } from "../sources/types.js";
-import type { Handle } from "./handle.js";
-import type { PackRef } from "../packs/refs.js";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
-import { enabledConfiguredEntries } from "./configured-entry.js";
+  lockEntryToSourceParams,
+  printSourceParams,
+  skillLockEntryToRef,
+} from "../sources/index.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
+import type { SubagentExtensionRef } from "../subagents/refs.js";
 import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
+import { enabledConfiguredEntries } from "./configured-entry.js";
 
 interface DiskRefEnv {
   readonly fs: FileSystem.FileSystem;
@@ -40,6 +27,34 @@ interface DiskRefEnv {
   readonly baseDir: string;
   readonly scope: WorkspaceScope;
 }
+
+interface SkillDiskTrustContext {
+  readonly lockEntries: Readonly<Record<string, SkillLockEntry>>;
+  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
+  readonly getConfiguredSourceByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<SourceHostConfig>, AppError>;
+}
+
+const isGitHostedLockEntry = (
+  entry: SkillLockEntry,
+): entry is Exclude<
+  SkillLockEntry,
+  { readonly type: "registry" | "local" | "inline" | "workspace" }
+> => {
+  switch (entry.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+    case "git":
+      return true;
+    case "registry":
+    case "local":
+    case "workspace":
+      return false;
+  }
+};
 
 const resolveWorkspaceFromDisk = (
   env: DiskRefEnv,
@@ -58,384 +73,133 @@ const resolveWorkspaceFromDisk = (
     Effect.provideService(Path.Path, env.path),
   );
 
-const syntheticRegistrySource = (owner: Handle): RegistrySource => ({
-  type: "registry",
-  location: new URL("file:///"),
-  owner: Option.some(owner),
-});
-
-const canonicalExtensionPath = (
-  env: DiskRefEnv,
-  owner: string,
-  kind: "commands" | "mcps" | "skills" | "subagents",
-  name: string,
-) => env.path.join(env.baseDir, REGISTRY_EXTENSIONS_DIR, owner, kind, name);
-
-const resolveRegistryDiskLocation = (
-  env: DiskRefEnv,
-  source: string,
-  expectedKind: "commands" | "mcps" | "skills" | "subagents",
-  settingsName: string,
-) =>
-  Effect.gen(function* () {
-    const parsed = parseRegistrySourceRef(source);
-    if (parsed !== undefined && parsed.type === expectedKind) {
-      return Option.some({
-        owner: parsed.owner,
-        name: parsed.name,
-        dir: canonicalExtensionPath(env, parsed.owner, expectedKind, parsed.name),
-      });
-    }
-
-    const extensionsDir = env.path.join(env.baseDir, REGISTRY_EXTENSIONS_DIR);
-    const exists = yield* env.fs
-      .exists(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) return Option.none();
-
-    const owners = yield* env.fs
-      .readDirectory(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-    const matches = yield* Effect.forEach(
-      owners,
-      (owner) => {
-        if (!owner.startsWith("@")) return Effect.succeed(Option.none());
-        const dir = canonicalExtensionPath(env, owner, expectedKind, settingsName);
-        return env.fs.exists(dir).pipe(
-          Effect.catch(() => Effect.succeed(false)),
-          Effect.map((existsOnDisk) =>
-            existsOnDisk ? Option.some({ owner, name: settingsName, dir }) : Option.none(),
-          ),
-        );
-      },
-      { concurrency: "unbounded" },
-    );
-
-    return matches.find(Option.isSome) ?? Option.none();
-  });
-
-const readManifestJson = (env: DiskRefEnv, manifestPath: string) =>
-  Effect.gen(function* () {
-    const raw = yield* env.fs.readFileString(manifestPath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read manifest at ${manifestPath}`,
-          cause: error,
-        }),
-      ),
-    );
-    return yield* Schema.decodeUnknownEffect(Schema.UnknownFromJsonString)(raw).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Manifest at ${manifestPath} is not valid JSON`,
-          cause: error,
-        }),
-      ),
-    );
-  });
-
 export const configuredSkillsToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredSkill>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
+  trust?: SkillDiskTrustContext,
 ): Effect.Effect<ReadonlyArray<SkillExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
-    ([settingsName, entry]) =>
-      Effect.gen(function* () {
-        if (isWorkspaceSourceLocator(entry.source)) {
-          const ref = yield* resolveWorkspaceFromDisk(env, settingsName, entry.source, "skill");
-          return ref.type === "skill" ? Option.some(ref) : Option.none<SkillExtensionRef>();
-        }
-        const location = yield* resolveRegistryDiskLocation(
-          env,
-          entry.source,
-          "skills",
-          settingsName,
-        );
-        if (Option.isNone(location)) return Option.none<SkillExtensionRef>();
-        const manifestPath = env.path.join(location.value.dir, SKILL_MANIFEST_FILENAME);
-        const manifestExists = yield* env.fs
-          .exists(manifestPath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!manifestExists) return Option.none<SkillExtensionRef>();
-        const json = yield* readManifestJson(env, manifestPath);
-        const manifest = yield* Schema.decodeUnknownEffect(SkillManifestSchema)(json).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "validation",
-              detail: `Skill manifest at ${manifestPath} is invalid`,
-              cause: error,
-            }),
+    ([settingsName, entry]) => {
+      if (isWorkspaceSourceLocator(entry.source)) {
+        return resolveWorkspaceFromDisk(env, settingsName, entry.source, "skill").pipe(
+          Effect.map((ref) =>
+            ref.type === "skill" ? Option.some(ref) : Option.none<SkillExtensionRef>(),
           ),
         );
-        return Option.some({
-          type: "skill",
-          refType: "registry",
-          source: syntheticRegistrySource(manifest.owner),
-          owner: manifest.owner,
-          name: manifest.name,
-          version: manifest.version,
-          integrity: Option.none(),
-          packages: [],
-          skill: {
-            name: manifest.name,
-            description: Option.fromUndefinedOr(manifest.description),
-            metadata: Option.none(),
-          },
-        } satisfies SkillExtensionRef);
-      }),
+      }
+      if (trust === undefined) return Effect.succeed(Option.none<SkillExtensionRef>());
+
+      const lockEntry = trust.lockEntries[settingsName];
+      if (
+        lockEntry === undefined ||
+        !isGitHostedLockEntry(lockEntry) ||
+        printSourceParams(lockEntryToSourceParams(lockEntry)) !== entry.source
+      ) {
+        return Effect.succeed(Option.none<SkillExtensionRef>());
+      }
+
+      const skillFile = env.path.join(
+        env.baseDir,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        settingsName,
+        "SKILL.md",
+      );
+      return env.fs.exists(skillFile).pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to inspect canonical skill content for "${settingsName}"`,
+            cause,
+          }),
+        ),
+        Effect.flatMap((exists) =>
+          exists
+            ? skillLockEntryToRef(settingsName, lockEntry, {
+                baseDir: env.baseDir,
+                path: env.path,
+                scope: env.scope,
+                getConfiguredSources: trust.getConfiguredSources,
+                getConfiguredSourceByName: trust.getConfiguredSourceByName,
+              }).pipe(
+                Effect.map((ref) =>
+                  ref.refType === "git-hosted"
+                    ? Option.some(ref)
+                    : Option.none<SkillExtensionRef>(),
+                ),
+              )
+            : Effect.succeed(Option.none<SkillExtensionRef>()),
+        ),
+      );
+    },
     { concurrency: "unbounded" },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
 
 export const configuredCommandsToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredExtensionRef & { readonly enabled: boolean }>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<CommandExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
-      Effect.gen(function* () {
-        if (isWorkspaceSourceLocator(entry.source)) {
-          const ref = yield* resolveWorkspaceFromDisk(env, settingsName, entry.source, "command");
-          return ref.type === "command" ? Option.some(ref) : Option.none<CommandExtensionRef>();
-        }
-        const location = yield* resolveRegistryDiskLocation(
-          env,
-          entry.source,
-          "commands",
-          settingsName,
-        );
-        if (Option.isNone(location)) return Option.none<CommandExtensionRef>();
-        const manifestPath = env.path.join(location.value.dir, COMMAND_MANIFEST_FILENAME);
-        const manifestExists = yield* env.fs
-          .exists(manifestPath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!manifestExists) return Option.none<CommandExtensionRef>();
-        const json = yield* readManifestJson(env, manifestPath);
-        const manifest = yield* Schema.decodeUnknownEffect(CommandManifestSchema)(json).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "validation",
-              detail: `Command manifest at ${manifestPath} is invalid`,
-              cause: error,
-            }),
-          ),
-        );
-        return Option.some({
-          type: "command",
-          refType: "registry",
-          source: syntheticRegistrySource(manifest.owner),
-          owner: manifest.owner,
-          name: manifest.name,
-          version: manifest.version,
-          integrity: Option.none(),
-          packages: [],
-          command: { name: manifest.name },
-        } satisfies CommandExtensionRef);
-      }),
+      isWorkspaceSourceLocator(entry.source)
+        ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "command").pipe(
+            Effect.map((ref) =>
+              ref.type === "command" ? Option.some(ref) : Option.none<CommandExtensionRef>(),
+            ),
+          )
+        : Effect.succeed(Option.none<CommandExtensionRef>()),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
 
 export const configuredMcpServersToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredExtensionRef>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<McpServerExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
-      Effect.gen(function* () {
-        if (isWorkspaceSourceLocator(entry.source)) {
-          const ref = yield* resolveWorkspaceFromDisk(
-            env,
-            settingsName,
-            entry.source,
-            "mcp-server",
-          );
-          return ref.type === "mcp-server"
-            ? Option.some(ref)
-            : Option.none<McpServerExtensionRef>();
-        }
-        const location = yield* resolveRegistryDiskLocation(
-          env,
-          entry.source,
-          "mcps",
-          settingsName,
-        );
-        if (Option.isNone(location)) return Option.none<McpServerExtensionRef>();
-        const manifestPath = env.path.join(location.value.dir, MCP_SERVER_MANIFEST_FILENAME);
-        const manifestExists = yield* env.fs
-          .exists(manifestPath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!manifestExists) return Option.none<McpServerExtensionRef>();
-        const json = yield* readManifestJson(env, manifestPath);
-        const manifest = yield* Schema.decodeUnknownEffect(McpServerManifestSchema)(json).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "validation",
-              detail: `MCP server manifest at ${manifestPath} is invalid`,
-              cause: error,
-            }),
-          ),
-        );
-        return Option.some({
-          type: "mcp-server",
-          refType: "registry",
-          source: syntheticRegistrySource(manifest.owner),
-          owner: manifest.owner,
-          name: manifest.name,
-          version: manifest.version,
-          integrity: Option.none(),
-          packages: [],
-          server: { name: manifest.name },
-        } satisfies McpServerExtensionRef);
-      }),
+      isWorkspaceSourceLocator(entry.source)
+        ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "mcp-server").pipe(
+            Effect.map((ref) =>
+              ref.type === "mcp-server" ? Option.some(ref) : Option.none<McpServerExtensionRef>(),
+            ),
+          )
+        : Effect.succeed(Option.none<McpServerExtensionRef>()),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
 
 export const configuredSubagentsToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredSubagent>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<SubagentExtensionRef>, AppError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
-      Effect.gen(function* () {
-        if (isWorkspaceSourceLocator(entry.source)) {
-          const ref = yield* resolveWorkspaceFromDisk(env, settingsName, entry.source, "subagent");
-          return ref.type === "subagent" ? Option.some(ref) : Option.none<SubagentExtensionRef>();
-        }
-        const location = yield* resolveRegistryDiskLocation(
-          env,
-          entry.source,
-          "subagents",
-          settingsName,
-        );
-        if (Option.isNone(location)) return Option.none<SubagentExtensionRef>();
-        const manifestPath = env.path.join(location.value.dir, SUBAGENT_MANIFEST_FILENAME);
-        const manifestExists = yield* env.fs
-          .exists(manifestPath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!manifestExists) return Option.none<SubagentExtensionRef>();
-        const json = yield* readManifestJson(env, manifestPath);
-        const manifest = yield* Schema.decodeUnknownEffect(SubagentManifestSchema)(json).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "validation",
-              detail: `Subagent manifest at ${manifestPath} is invalid`,
-              cause: error,
-            }),
-          ),
-        );
-        return Option.some({
-          type: "subagent",
-          refType: "registry",
-          source: syntheticRegistrySource(manifest.owner),
-          owner: manifest.owner,
-          name: manifest.name,
-          version: manifest.version,
-          integrity: Option.none(),
-          packages: [],
-          subagent: {
-            name: manifest.name,
-            description: Option.fromUndefinedOr(manifest.description),
-          },
-        } satisfies SubagentExtensionRef);
-      }),
+      isWorkspaceSourceLocator(entry.source)
+        ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "subagent").pipe(
+            Effect.map((ref) =>
+              ref.type === "subagent" ? Option.some(ref) : Option.none<SubagentExtensionRef>(),
+            ),
+          )
+        : Effect.succeed(Option.none<SubagentExtensionRef>()),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
 
 export const configuredPacksToDiskRefs = (
   env: DiskRefEnv,
-  configured: Readonly<Record<string, ConfiguredExtensionRef>>,
+  configured: Readonly<Record<string, ConfiguredRecordRow>>,
 ): Effect.Effect<ReadonlyArray<PackRef>, AppError> =>
   Effect.forEach(
-    Object.entries(configured),
+    enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
-      Effect.gen(function* () {
-        if (isWorkspaceSourceLocator(entry.source)) {
-          const ref = yield* resolveWorkspaceFromDisk(env, settingsName, entry.source, "pack");
-          return ref.type === "pack" ? Option.some(ref) : Option.none<PackRef>();
-        }
-        const parsed = parseRegistrySourceRef(entry.source);
-        const location =
-          parsed !== undefined && parsed.type === "packs"
-            ? Option.some({
-                owner: parsed.owner,
-                name: parsed.name,
-                dir: env.path.join(
-                  env.baseDir,
-                  REGISTRY_EXTENSIONS_DIR,
-                  parsed.owner,
-                  "packs",
-                  parsed.name,
-                ),
-              })
-            : yield* Effect.gen(function* () {
-                const extensionsDir = env.path.join(env.baseDir, REGISTRY_EXTENSIONS_DIR);
-                const exists = yield* env.fs
-                  .exists(extensionsDir)
-                  .pipe(Effect.catch(() => Effect.succeed(false)));
-                if (!exists) return Option.none<{ owner: string; name: string; dir: string }>();
-                const owners = yield* env.fs
-                  .readDirectory(extensionsDir)
-                  .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-                const matches = yield* Effect.forEach(
-                  owners,
-                  (owner) => {
-                    if (!owner.startsWith("@")) return Effect.succeed(Option.none());
-                    const dir = env.path.join(
-                      env.baseDir,
-                      REGISTRY_EXTENSIONS_DIR,
-                      owner,
-                      "packs",
-                      settingsName,
-                    );
-                    return env.fs.exists(dir).pipe(
-                      Effect.catch(() => Effect.succeed(false)),
-                      Effect.map((existsOnDisk) =>
-                        existsOnDisk
-                          ? Option.some({ owner, name: settingsName, dir })
-                          : Option.none(),
-                      ),
-                    );
-                  },
-                  { concurrency: "unbounded" },
-                );
-                return matches.find(Option.isSome) ?? Option.none();
-              });
-
-        if (Option.isNone(location)) return Option.none<PackRef>();
-        const manifestPath = env.path.join(location.value.dir, PACK_MANIFEST_FILENAME);
-        const manifestExists = yield* env.fs
-          .exists(manifestPath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!manifestExists) return Option.none<PackRef>();
-        const json = yield* readManifestJson(env, manifestPath);
-        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "validation",
-              detail: `Extension pack manifest at ${manifestPath} is invalid`,
-              cause: error,
-            }),
-          ),
-        );
-        return Option.some({
-          type: "pack",
-          refType: "registry",
-          source: syntheticRegistrySource(manifest.owner),
-          owner: manifest.owner,
-          name: manifest.name,
-          version: manifest.version,
-          integrity: Option.none(),
-          packages: [],
-          pack: {
-            name: manifest.name,
-            dependencies: manifest.dependencies,
-          },
-        } satisfies PackRef);
-      }),
+      isWorkspaceSourceLocator(entry.source)
+        ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "pack").pipe(
+            Effect.map((ref) => (ref.type === "pack" ? Option.some(ref) : Option.none<PackRef>())),
+          )
+        : Effect.succeed(Option.none<PackRef>()),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));

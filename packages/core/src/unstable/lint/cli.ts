@@ -37,25 +37,17 @@ import type { LintConfig } from "./config.js";
 import { platformCanonicalLintConfig } from "./config.js";
 import type { Evaluated } from "./evaluate.js";
 import { evaluateContexts } from "./evaluate.js";
-import type {
-  CommandRuleContext,
-  FilesRuleContext,
-  McpServerRuleContext,
-  PackRuleContext,
-  SkillRuleContext,
-  SubagentRuleContext,
-  WorkspaceRuleContext,
-} from "./context.js";
+import type { WorkspaceRuleContext } from "./context.js";
+import type { LintJsonDocument, LintJsonFinding } from "./json-schema.js";
 import type { AutofixingRule, LintFinding, Severity } from "./rule.js";
 import {
-  commandRules,
-  filesRules,
-  mcpServerRules,
-  packRules,
-  skillRules,
-  subagentRules,
-  workspaceRules,
-} from "./catalog/index.js";
+  CATALOG_GROUP_ORDER,
+  DRIFT_DETECTED_GROUPS,
+  LINT_CATALOGS,
+  type CatalogContext,
+  type CatalogGroup,
+  type CatalogRuleContexts,
+} from "./catalog-contexts.js";
 
 // -----------------------------------------------------------------------------
 // Grouping + summary
@@ -71,28 +63,26 @@ import {
  * @experimental This API is unstable and may change without notice.
  */
 export interface RenderedFinding {
-  readonly group: "skill" | "pack" | "command" | "subagent" | "mcp-server" | "files" | "workspace";
+  readonly group: CatalogGroup;
   readonly displayRoot: string;
   readonly path: string;
   readonly finding: LintFinding;
 }
 
 /**
- * Per-group evaluation result. The raw `Evaluated<*>` list is retained so
- * downstream consumers (render, JSON emitter, `collectFixOperations`) can
- * walk evaluations without re-running rules.
+ * Per-group evaluation result, one entry per catalog. The raw `Evaluated<*>`
+ * list is retained so downstream consumers (render, JSON emitter,
+ * `collectFixOperations`) can walk evaluations without re-running rules.
+ *
+ * Every group is required: a catalog that produced no findings still reports
+ * an empty list, so a missing group means a runner bug rather than "nothing to
+ * say".
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface GroupEvaluations {
-  readonly skills: ReadonlyArray<Evaluated<SkillRuleContext>>;
-  readonly packs: ReadonlyArray<Evaluated<PackRuleContext>>;
-  readonly commands?: ReadonlyArray<Evaluated<CommandRuleContext>>;
-  readonly subagents?: ReadonlyArray<Evaluated<SubagentRuleContext>>;
-  readonly mcpServers?: ReadonlyArray<Evaluated<McpServerRuleContext>>;
-  readonly files?: ReadonlyArray<Evaluated<FilesRuleContext>>;
-  readonly workspace: ReadonlyArray<Evaluated<WorkspaceRuleContext>>;
-}
+export type GroupEvaluations = {
+  readonly [K in CatalogGroup]: ReadonlyArray<Evaluated<CatalogContext<K>>>;
+};
 
 /**
  * Aggregate counts across all emitted findings.
@@ -126,39 +116,46 @@ export type LintExitCategory = "clean" | "warnings" | "errors";
 // -----------------------------------------------------------------------------
 
 /**
- * Build the three v1 evaluation groups concurrently.
+ * Evaluate every rule catalog against its contexts, concurrently.
  *
- * The evaluator is a pure `Effect.Effect<ReadonlyArray<Evaluated<C>>>`; this
- * helper simply hands the three catalogs to `Effect.all` with unbounded
- * concurrency so catalog evaluations run in parallel but findings stay in
- * stable catalog order inside each group.
+ * Catalogs run in parallel; findings stay in stable catalog order inside each
+ * group, and groups render in {@link CATALOG_GROUP_ORDER}.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const evaluateAllCatalogs = (args: {
-  readonly skillContexts: ReadonlyArray<SkillRuleContext>;
-  readonly packContexts: ReadonlyArray<PackRuleContext>;
-  readonly commandContexts?: ReadonlyArray<CommandRuleContext>;
-  readonly subagentContexts?: ReadonlyArray<SubagentRuleContext>;
-  readonly mcpServerContexts?: ReadonlyArray<McpServerRuleContext>;
-  readonly fileContexts?: ReadonlyArray<FilesRuleContext>;
-  readonly workspaceContext: WorkspaceRuleContext;
+  readonly contexts: CatalogRuleContexts;
   readonly config: LintConfig;
 }): Effect.Effect<GroupEvaluations> =>
   Effect.gen(function* () {
-    const [skills, packs, commands, subagents, mcpServers, files, workspace] = yield* Effect.all(
-      [
-        evaluateContexts(skillRules, args.skillContexts, args.config),
-        evaluateContexts(packRules, args.packContexts, args.config),
-        evaluateContexts(commandRules, args.commandContexts ?? [], args.config),
-        evaluateContexts(subagentRules, args.subagentContexts ?? [], args.config),
-        evaluateContexts(mcpServerRules, args.mcpServerContexts ?? [], args.config),
-        evaluateContexts(filesRules, args.fileContexts ?? [], args.config),
-        evaluateContexts(workspaceRules, [args.workspaceContext], args.config),
-      ],
-      { concurrency: "unbounded" },
-    );
-    return { skills, packs, commands, subagents, mcpServers, files, workspace };
+    const [skill, pack, command, subagent, mcpServer, files, hook, rule, knowledge, workspace] =
+      yield* Effect.all(
+        [
+          evaluateContexts(LINT_CATALOGS.skill, args.contexts.skill, args.config),
+          evaluateContexts(LINT_CATALOGS.pack, args.contexts.pack, args.config),
+          evaluateContexts(LINT_CATALOGS.command, args.contexts.command, args.config),
+          evaluateContexts(LINT_CATALOGS.subagent, args.contexts.subagent, args.config),
+          evaluateContexts(LINT_CATALOGS["mcp-server"], args.contexts["mcp-server"], args.config),
+          evaluateContexts(LINT_CATALOGS.files, args.contexts.files, args.config),
+          evaluateContexts(LINT_CATALOGS.hook, args.contexts.hook, args.config),
+          evaluateContexts(LINT_CATALOGS.rule, args.contexts.rule, args.config),
+          evaluateContexts(LINT_CATALOGS.knowledge, args.contexts.knowledge, args.config),
+          evaluateContexts(LINT_CATALOGS.workspace, args.contexts.workspace, args.config),
+        ],
+        { concurrency: "unbounded" },
+      );
+    return {
+      skill,
+      pack,
+      command,
+      subagent,
+      "mcp-server": mcpServer,
+      files,
+      hook,
+      rule,
+      knowledge,
+      workspace,
+    };
   });
 
 // -----------------------------------------------------------------------------
@@ -176,14 +173,23 @@ const severityOrder = (s: Severity): number => {
   }
 };
 
-const flattenEvaluated = <C>(
-  group: RenderedFinding["group"],
-  evaluated: ReadonlyArray<Evaluated<C>>,
-  getDisplayRoot: (c: C) => string,
+/**
+ * Every rule context carries a `displayRoot`; that is all rendering needs, so
+ * this reads the structural minimum rather than the per-group context type —
+ * which lets one call site walk the whole {@link GroupEvaluations} record.
+ */
+interface RenderableEvaluated {
+  readonly context: { readonly displayRoot: string };
+  readonly findings: ReadonlyArray<LintFinding>;
+}
+
+const flattenEvaluated = (
+  group: CatalogGroup,
+  evaluated: ReadonlyArray<RenderableEvaluated>,
 ): ReadonlyArray<RenderedFinding> => {
   const out: Array<RenderedFinding> = [];
   for (const entry of evaluated) {
-    const displayRoot = getDisplayRoot(entry.context);
+    const displayRoot = entry.context.displayRoot;
     for (const finding of entry.findings) {
       out.push({
         group,
@@ -197,22 +203,15 @@ const flattenEvaluated = <C>(
 };
 
 /**
- * Flatten a {@link GroupEvaluations} triple into a single `RenderedFinding[]`
+ * Flatten a {@link GroupEvaluations} record into a single `RenderedFinding[]`
  * in stable group-then-catalog order.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const collectRenderedFindings = (
   evaluations: GroupEvaluations,
-): ReadonlyArray<RenderedFinding> => [
-  ...flattenEvaluated("skill", evaluations.skills, (c) => c.displayRoot),
-  ...flattenEvaluated("pack", evaluations.packs, (c) => c.displayRoot),
-  ...flattenEvaluated("command", evaluations.commands ?? [], (c) => c.displayRoot),
-  ...flattenEvaluated("subagent", evaluations.subagents ?? [], (c) => c.displayRoot),
-  ...flattenEvaluated("mcp-server", evaluations.mcpServers ?? [], (c) => c.displayRoot),
-  ...flattenEvaluated("files", evaluations.files ?? [], (c) => c.displayRoot),
-  ...flattenEvaluated("workspace", evaluations.workspace, (c) => c.displayRoot),
-];
+): ReadonlyArray<RenderedFinding> =>
+  CATALOG_GROUP_ORDER.flatMap((group) => flattenEvaluated(group, evaluations[group]));
 
 /**
  * Count findings by severity across every group.
@@ -349,34 +348,17 @@ export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string
   // is called against each catalog's concrete rule type so no assertion
   // is needed to widen the generic parameter.
   const weakened: Array<string> = [];
-  const visitCatalog = (
-    rules:
-      | typeof skillRules
-      | typeof packRules
-      | typeof commandRules
-      | typeof subagentRules
-      | typeof mcpServerRules
-      | typeof filesRules,
-  ): void => {
-    for (const rule of rules) {
+  for (const group of DRIFT_DETECTED_GROUPS) {
+    for (const rule of LINT_CATALOGS[group]) {
       if (rule.severity !== "error") {
         continue;
       }
       const override = overrides[rule.id];
-      if (override === undefined) {
-        continue;
-      }
       if (override === "off" || override === "info" || override === "warn") {
         weakened.push(rule.id);
       }
     }
-  };
-  visitCatalog(skillRules);
-  visitCatalog(packRules);
-  visitCatalog(commandRules);
-  visitCatalog(subagentRules);
-  visitCatalog(mcpServerRules);
-  visitCatalog(filesRules);
+  }
 
   return weakened;
 };
@@ -778,7 +760,7 @@ const coalesceFullDiagnostic = (
         title: `${names.length} ${pluralize(names.length, "skill is", "skills are")} present here but not managed by this workspace.`,
         details: compressDetails(names),
         helps: [
-          "Choose adopt, fork, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
+          "Choose adopt, copy, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
           "Adopt with `axm adopt @owner/skills/<name>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
         ],
         fixable: false,
@@ -818,7 +800,7 @@ const coalesceFullDiagnostic = (
       return {
         severity: first.severity,
         ruleId: first.ruleId,
-        title: "Installed skill sources do not match their lockfile entries.",
+        title: "Skills listed in the lockfile are missing their installed sources.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
         fixable: findings.some((finding) => finding.fixable),
@@ -913,7 +895,7 @@ const coalesceGroupedDiagnostic = (
           8,
         ),
         helps: [
-          "Choose adopt, fork, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
+          "Choose adopt, copy, ignore, or prune for each skill; run `axm help skills` for the decision guide.",
           "Adopt with `axm adopt @owner/skills/<name>`, ignore with `skillsConfig.ignore`, or prune with `axm prune`.",
         ],
         fixable: false,
@@ -953,7 +935,7 @@ const coalesceGroupedDiagnostic = (
       return {
         severity: first.severity,
         ruleId: first.ruleId,
-        title: "Installed skill sources do not match their lockfile entries.",
+        title: "Skills listed in the lockfile are missing their installed sources.",
         details: compressDetails(findings.map(summarizeSkillByDetail)),
         helps: mergedRuleHelps(findings, "Run `axm lint --fix` to reinstall the affected skills."),
         fixable: findings.some((finding) => finding.fixable),
@@ -1477,53 +1459,6 @@ const formatFixSummary = (fix: FixSummary): string => {
 // -----------------------------------------------------------------------------
 // JSON document (task 5.6)
 // -----------------------------------------------------------------------------
-
-/**
- * JSON-renderable finding entry used by the `--json` document.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface LintJsonFinding {
-  readonly group: RenderedFinding["group"];
-  readonly kind: "autofixable" | "advisory";
-  readonly ruleId: string;
-  readonly severity: Severity;
-  readonly message: string;
-  readonly displayRoot: string;
-  readonly path: string;
-  readonly location?: {
-    readonly file: string;
-    readonly line?: number;
-    readonly column?: number;
-  };
-}
-
-/**
- * JSON envelope shape returned under `axm lint --json`.
- *
- * Mirrors the design doc §9 envelope for the CLI and matches the registry
- * publish failure envelope structure (`findings[]`, `displayRoot` per entry,
- * per-finding `path` pre-composed). `--fix` runs add a `fix` summary block.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface LintJsonDocument {
-  readonly findings: ReadonlyArray<LintJsonFinding>;
-  readonly summary: {
-    readonly total: number;
-    readonly errors: number;
-    readonly warnings: number;
-    readonly infos: number;
-    readonly exitCategory: LintExitCategory;
-  };
-  readonly driftBanner: ReadonlyArray<string>;
-  readonly fix?: {
-    readonly attempted: number;
-    readonly applied: number;
-    readonly failed: number;
-    readonly warnings: ReadonlyArray<string>;
-  };
-}
 
 const toJsonFinding = (entry: RenderedFinding): LintJsonFinding => {
   const base = {

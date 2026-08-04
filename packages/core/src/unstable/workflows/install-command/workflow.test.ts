@@ -38,13 +38,21 @@ type TestIntent = { readonly intentName: string };
 const makeMockWorkspace = () => makeBaseWorkspaceMock("/tmp/test/.axm");
 
 const makeTestLayer = () => {
-  const { layer: rendererLayer } = TestRenderer.make();
-  return Layer.mergeAll(
-    NodeServices.layer,
-    rendererLayer,
-    WorkspaceMutations.layer(makeMockWorkspace()),
-    TestFlagsLayer(),
-  );
+  const { layer } = makeTestContext();
+  return layer;
+};
+
+const makeTestContext = () => {
+  const renderer = TestRenderer.make();
+  return {
+    layer: Layer.mergeAll(
+      NodeServices.layer,
+      renderer.layer,
+      WorkspaceMutations.layer(makeMockWorkspace()),
+      TestFlagsLayer(),
+    ),
+    rendererState: renderer.state,
+  };
 };
 
 // -----------------------------------------------------------------------------
@@ -52,6 +60,40 @@ const makeTestLayer = () => {
 // -----------------------------------------------------------------------------
 
 describe("runInstallCommandWorkflow", () => {
+  it.effect("narrates source resolution before building the install plan", () => {
+    const context = makeTestContext();
+    const actions: InstallExtensionCommandWorkflowActions<
+      TestArgs,
+      TestParsed,
+      TestReq,
+      TestRef,
+      TestIntent
+    > = {
+      parseArgs: () => Effect.succeed({ parsedName: "review" }),
+      resolveSourceRequests: () => Effect.succeed([{ source: "@acme/skills/review" }]),
+      discoverRefs: () => Effect.succeed([{ refName: "@acme/skills/review" }]),
+      finalizeIntent: () => Effect.succeed({ intentName: "review" }),
+      buildPlan: () =>
+        Effect.succeed({
+          _tag: "Plan",
+          name: "Install @acme/skills/review",
+          description: Option.none(),
+          jobs: [],
+        }),
+    };
+
+    return Effect.gen(function* () {
+      yield* runInstallCommandWorkflow({ name: "review" }, actions, {
+        yes: true,
+        force: false,
+        preview: false,
+      });
+
+      expect(context.rendererState.spinnerMessages).toContain("Resolving extension sources");
+      expect(context.rendererState.spinnerMessages).toContain("Resolved extension sources");
+    }).pipe(Effect.provide(context.layer));
+  });
+
   it.effect(
     "executes phases in canonical order: parse -> resolveSource -> discover -> finalizeIntent -> buildPlan -> previewOrApplyPlan",
     () =>

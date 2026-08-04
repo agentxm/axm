@@ -39,30 +39,40 @@ export const kodeAgent = {
     },
     command: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Custom slash commands are Markdown files with YAML frontmatter under .kode/commands (project) and ~/.kode/commands (user); legacy .claude/commands is also read. Commands have no industry spec yet.",
         docs: [],
-        sources: [],
+        sources: ["https://github.com/shareAI-lab/Kode-cli/blob/main/docs/custom-commands.md"],
+        scopes: ["user", "project"],
+        directory: ".kode/commands",
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
+        status: "supported",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Kode connects to MCP servers via .mcp.json (mcpServers key) and .mcprc, managed with kode mcp add/list/get/remove; server tools are exposed as mcp__<server>__<tool>. Kode also supports a ws transport that is outside AXM's transport enum.",
         docs: [],
-        sources: [],
+        sources: ["https://github.com/shareAI-lab/Kode-cli/blob/main/docs/mcp.md"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "http", "sse"],
       },
       axm: {
         status: "unsupported",
         lastVerified: null,
         writer: null,
+        reason:
+          "Native MCP config uses .mcp.json (mcpServers key), but the exact writer dialect is not documented; leaving the AXM MCP writer unbuilt pending an AXM product decision.",
       },
     },
     subagent: {
@@ -75,41 +85,6 @@ export const kodeAgent = {
         scopes: ["user", "project"],
         directory: ".kode/agents",
         layout: "directory",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://github.com/shareAI-lab/Kode-Agent"],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
       },
       axm: {
         status: "supported",
@@ -130,6 +105,27 @@ export const kodeAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://github.com/shareAI-lab/Kode-Agent"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
     },
   },
   permissions: {

@@ -1,5 +1,6 @@
-// TODO: (#51) Uses node:fs/node:os/node:path directly. Migrate to @effect/platform
-// test utilities when available.
+// Raw node:fs/node:os/node:path in test setup is the repo-wide convention for
+// temp-dir fixtures; the old #51 migration marker referenced a tracker entry
+// that no longer exists.
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -25,6 +26,7 @@ import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
 } from "../test-helpers.js";
+import { computePackageContentHashSync } from "../test-stubs.js";
 import {
   AXM_SKILL_JSON,
   AXM_SKILL_MD,
@@ -144,7 +146,7 @@ describe("setup.handler", () => {
           expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(true);
 
           const settings = readJson(path.join(axmDir, "settings.json"));
-          expect(settings.skills?.["axm"]).toBe("@agentxm/skills/axm");
+          expect(settings.skills?.["axm"]).toBe("workspace:@agentxm/skills/axm");
           expect(installCalls).toEqual([
             { scope: "project", yes: false, force: false, preview: false },
           ]);
@@ -178,6 +180,54 @@ describe("setup.handler", () => {
         );
       },
     );
+
+    it.effect("offers agent remediation when an initialized workspace has no agents", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project" });
+          yield* handleSetup({ scope: "project" });
+
+          expect(rendererState.logs).toContainEqual({
+            _tag: "warn",
+            message:
+              "No coding-agent targets are configured. Run `axm agents add --detected` to materialize installed extensions.",
+          });
+          expect(rendererState.logs).toContainEqual({
+            _tag: "success",
+            message: "Workspace already initialized with no coding agents",
+          });
+          expect(rendererState.suggestions).toContainEqual({
+            description: "Detect and configure active coding agents",
+            cmd: "axm agents add --detected",
+          });
+        }),
+      );
+    });
+
+    it.effect("does not auto-select a detected retired agent during setup", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+      fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project" });
+
+          expect(readJson(path.join(tempDir, ".axm", "settings.json")).agents).toEqual([]);
+          expect(rendererState.logs).toContainEqual(
+            expect.objectContaining({
+              _tag: "warn",
+              message: expect.stringContaining("was not selected automatically"),
+            }),
+          );
+        }),
+      );
+    });
 
     it.effect("emits initialized status in machine output", () => {
       const { provide, installCalls, rendererState } = makeSetupTestContext({
@@ -391,12 +441,14 @@ describe("setup.handler", () => {
 
           const lockfile = readLockfile(path.join(axmDir, "axm-lock.yaml"));
           const axmLockEntry = expectDefined(lockfile.skills["axm"]);
-          expect(axmLockEntry.type).toBe("registry");
-          if (axmLockEntry.type !== "registry") return;
+          expect(axmLockEntry.type).toBe("workspace");
+          if (axmLockEntry.type !== "workspace") return;
           expect(axmLockEntry.owner).toBe("@agentxm");
           expect(axmLockEntry.name).toBe("axm");
-          expect(axmLockEntry.resolvedVersion).toBe(AXM_SKILL_VERSION);
-          expect(axmLockEntry.sourceName).toBe("default");
+          expect(axmLockEntry.version).toBe(AXM_SKILL_VERSION);
+          expect(axmLockEntry.sourceHash).toBe(
+            computePackageContentHashSync(path.dirname(path.dirname(skillMdPath))),
+          );
           expect(axmLockEntry).not.toHaveProperty("agents");
         }),
       );
@@ -419,7 +471,7 @@ describe("setup.handler", () => {
               owner: normalizeHandle("@myorg"),
             }),
           );
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 
           yield* handleSetup({ scope: "project" });
 
@@ -591,7 +643,7 @@ describe("setup.handler", () => {
             expect(fs.existsSync(projectSettingsPath)).toBe(false);
 
             const settings = readJson(userSettingsPath);
-            expect(settings.skills?.["axm"]).toBe("@agentxm/skills/axm");
+            expect(settings.skills?.["axm"]).toBe("workspace:@agentxm/skills/axm");
             expect(installCalls).toEqual([
               { scope: "user", yes: false, force: false, preview: false },
             ]);
@@ -807,7 +859,7 @@ describe("setup.handler", () => {
           const axmDir = path.join(tempDir, ".axm");
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json {{{");
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: {}\n");
 
           const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");

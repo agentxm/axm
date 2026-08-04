@@ -14,13 +14,13 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import {
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   buildUninstallOperation,
+  parseExtensionFqnParts,
   sanitizeName,
 } from "@agentxm/client-core/unstable/extensions";
 import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
@@ -148,9 +148,8 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
       args: UninstallSubagentHandlerArgs,
     ): Effect.Effect<ParsedSubagentUninstallArgs, AppError> =>
       Effect.gen(function* () {
-        // Load installed subagents for glob expansion
-        const lockedSubagents = yield* ws.getLockedSubagents();
-        const installedNames = Object.keys(lockedSubagents);
+        const rows = yield* ws.records.rows("subagent");
+        const installedNames = [...new Set(rows.map((row) => row.name))];
 
         // Expand glob pattern against installed subagent names
         const subagentNames = expandGlob(args.subagent, installedNames);
@@ -163,13 +162,11 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
         const names =
           subagentNames.length > 0
             ? subagentNames
-            : yield* Effect.gen(function* () {
-                const resolvedName = yield* resolveInstalledIdentifierNameOrInput({
-                  input: args.subagent,
-                  resourceType: "subagent",
-                }).pipe(Effect.provideService(WorkspaceMutations, ws));
-                return lockedSubagents[resolvedName] === undefined ? [] : [resolvedName];
-              });
+            : (() => {
+                const parsed = parseExtensionFqnParts(args.subagent);
+                const resolvedName = parsed?.type === "subagent" ? parsed.name : args.subagent;
+                return installedNames.includes(resolvedName) ? [resolvedName] : [];
+              })();
 
         return { subagents: names } satisfies ParsedSubagentUninstallArgs;
       });
@@ -203,7 +200,9 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
             if (step.readiness !== "ready") return step;
 
             const run = Effect.gen(function* () {
-              const lockEntryOption = yield* ws.getLockedSubagent(entry.subagentName);
+              const lockEntryOption = yield* ws
+                .getLockedSubagent(entry.subagentName)
+                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               const lockEntry = Option.getOrUndefined(lockEntryOption);
               const unchangedArtifact = subagentArtifact({
                 name: entry.subagentName,

@@ -8,7 +8,7 @@ import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-e
 import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
-import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import { planResolutionToSummary, toPlanResolutionResult } from "../../json-output.js";
 import {
   InstallCommandCommandWorkflowActions,
   type InstallCommandHandlerArgs,
@@ -26,11 +26,7 @@ import {
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
 import {
-  InstallLibraryCommandWorkflowActions,
-  type InstallLibraryHandlerArgs,
-} from "../libraries/install/command-actions.js";
-import {
-  makeInstallKnowledgeCommandWorkflowActions,
+  InstallKnowledgeCommandWorkflowActions,
   type InstallKnowledgeHandlerArgs,
 } from "../knowledge/install/command-actions.js";
 import {
@@ -53,12 +49,12 @@ import {
   mergePlanResolution,
   runFilesWorkspaceGeneratorPhase,
 } from "../files/workspace-generator-phase.js";
+import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
 
 export interface RootInstallFlags {
   readonly yes: boolean;
   readonly force: boolean;
   readonly preview: boolean;
-  readonly frozen?: boolean;
 }
 
 export interface RootInstallHandlerArgs extends RootInstallFlags {
@@ -66,7 +62,7 @@ export interface RootInstallHandlerArgs extends RootInstallFlags {
 }
 
 type RegistryExtensionRootInstallIntent = RootInstallIntent & {
-  readonly type: Exclude<RootInstallableType, "library">;
+  readonly type: RootInstallableType;
 };
 
 const runRegistryInstallIntent = (
@@ -113,7 +109,7 @@ const runRegistryInstallIntent = (
         return yield* runInstallCommandWorkflow(hookArgs, actions, args);
       }
       case "knowledge": {
-        const actions = yield* makeInstallKnowledgeCommandWorkflowActions;
+        const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(knowledgeArgs, actions, args);
       }
@@ -133,19 +129,19 @@ const runRegistryInstallIntent = (
     }
   });
 
-const isNotFoundAppError = (error: unknown): error is AppError =>
+const isLocatorNoMatchAppError = (error: unknown): error is AppError =>
   typeof error === "object" &&
   error !== null &&
   "_tag" in error &&
   error._tag === "AppError" &&
   "code" in error &&
-  error.code === "not_found";
+  (error.code === "not_found" || error.code === "usage");
 
 const runLocatorWorkflow = <A, E, R>(type: RootInstallableType, effect: Effect.Effect<A, E, R>) =>
   effect.pipe(
     Effect.map((resolution) => Option.some({ type, resolution })),
     Effect.catch((error) =>
-      isNotFoundAppError(error)
+      isLocatorNoMatchAppError(error)
         ? Effect.succeed(
             Option.none<{ readonly type: RootInstallableType; readonly resolution: A }>(),
           )
@@ -160,7 +156,7 @@ const runLocatorInstallIntent = (source: string, args: RootInstallFlags) =>
     const fileActions = yield* InstallFilesCommandWorkflowActions;
     const ruleActions = yield* InstallRuleCommandWorkflowActions;
     const hookActions = yield* InstallHookCommandWorkflowActions;
-    const knowledgeActions = yield* makeInstallKnowledgeCommandWorkflowActions;
+    const knowledgeActions = yield* InstallKnowledgeCommandWorkflowActions;
     const subagentActions = yield* InstallSubagentCommandWorkflowActions;
 
     const attempts = [
@@ -196,12 +192,26 @@ const runLocatorInstallIntent = (source: string, args: RootInstallFlags) =>
     if (successful.length === 0) {
       return yield* makeAppError({
         code: "not_found",
-        detail: "No installable extensions found in source",
+        detail:
+          "No locator-discoverable extensions found in source (supported: skills, commands, files, rules, hooks, knowledge, and subagents)",
       });
     }
 
     for (const item of successful) {
-      yield* emitPlanResolutionResult("install", item.resolution);
+      const result = toPlanResolutionResult(item.resolution);
+      yield* emitAppliedPlanOutcome({
+        command: "install",
+        headline:
+          result.outcome === "no-op"
+            ? unchangedPlanHeadline(
+                item.resolution,
+                `${item.type} extensions are already up to date`,
+              )
+            : `Installed ${item.type} extensions from ${source}`,
+        resolution: item.resolution,
+        reportInstallationCoverage: item.type !== "knowledge",
+        suggestions: [{ description: "Inspect workspace status", cmd: "axm status" }],
+      });
     }
   });
 
@@ -222,22 +232,9 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
           yield* runLocatorInstallIntent(intent.source, args);
           return;
         }
-        const resolution =
-          intent.type === "library"
-            ? yield* Effect.gen(function* () {
-                const actions = yield* InstallLibraryCommandWorkflowActions;
-                const libraryArgs: InstallLibraryHandlerArgs = {
-                  source: intent.source,
-                  ...(args.frozen === undefined ? {} : { frozen: args.frozen }),
-                };
-                return yield* runInstallCommandWorkflow(libraryArgs, actions, args);
-              })
-            : yield* runRegistryInstallIntent(intent, args);
+        const resolution = yield* runRegistryInstallIntent(intent, args);
         let outputResolution: PlanResolution = resolution;
-        if (
-          !args.preview &&
-          (intent.type === "files" || intent.type === "pack" || intent.type === "library")
-        ) {
+        if (!args.preview && (intent.type === "files" || intent.type === "pack")) {
           const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
             dryRun: false,
           });
@@ -251,6 +248,16 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
             }),
           ),
         );
-        yield* emitPlanResolutionResult("install", outputResolution);
+        const result = toPlanResolutionResult(outputResolution);
+        yield* emitAppliedPlanOutcome({
+          command: "install",
+          headline:
+            result.outcome === "no-op"
+              ? unchangedPlanHeadline(outputResolution, `${intent.type} is already up to date`)
+              : `Installed ${intent.type} ${source}`,
+          resolution: outputResolution,
+          reportInstallationCoverage: intent.type !== "knowledge",
+          suggestions: [{ description: "Inspect workspace status", cmd: "axm status" }],
+        });
       }),
   });

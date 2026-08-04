@@ -89,13 +89,13 @@ export const cursorAgent = {
         convention: "universal",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "braced",
           defaults: false,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -120,7 +120,6 @@ export const cursorAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -143,42 +142,6 @@ export const cursorAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://cursor.com/docs/rules.md"],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        directory: ".cursor/rules",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
@@ -194,8 +157,31 @@ export const cursorAgent = {
         status: "unsupported",
         writer: null,
         lastVerified: "2026-06-06",
-        reason: "AXM has not implemented a Cursor hooks writer.",
+        reason:
+          "Cursor's hooks.json maps each event to a flat command array; AXM's only hook serializer emits grouped command-stdin entries, so a writer needs a new serializer rather than catalog data.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://cursor.com/docs/rules.md"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      directory: ".cursor/rules",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

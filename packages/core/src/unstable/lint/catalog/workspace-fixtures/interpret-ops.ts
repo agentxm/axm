@@ -81,6 +81,7 @@ interface RawRegistrySkillEntry {
   readonly resolvedVersion: string;
   readonly integrity: string;
   readonly sourceName: string;
+  readonly publisherBindingId: string;
   readonly agents: ReadonlyArray<string>;
   readonly installedAt: string;
   readonly updatedAt: string;
@@ -106,12 +107,25 @@ interface RawPackEntry {
   readonly resolvedVersion: string;
   readonly integrity: string;
   readonly sourceName: string;
+  readonly publisherBindingId: string;
   readonly installedAt: string;
   readonly updatedAt: string;
-  readonly resolvedSkills: Record<string, string>;
-  readonly resolvedCommands: Record<string, string>;
-  readonly resolvedMcpServers: Record<string, string>;
-  readonly resolvedSubagents: Record<string, string>;
+  readonly resolvedSkills: Record<
+    string,
+    { readonly version: string; readonly publisherBindingId: string }
+  >;
+  readonly resolvedCommands: Record<
+    string,
+    { readonly version: string; readonly publisherBindingId: string }
+  >;
+  readonly resolvedMcpServers: Record<
+    string,
+    { readonly version: string; readonly publisherBindingId: string }
+  >;
+  readonly resolvedSubagents: Record<
+    string,
+    { readonly version: string; readonly publisherBindingId: string }
+  >;
 }
 
 interface RawLockfile {
@@ -120,6 +134,10 @@ interface RawLockfile {
   commands?: Record<string, unknown>;
   subagents?: Record<string, unknown>;
   mcpServers?: Record<string, unknown>;
+  files?: Record<string, unknown>;
+  rules?: Record<string, unknown>;
+  hooks?: Record<string, unknown>;
+  knowledge?: Record<string, unknown>;
   packs?: Record<string, RawPackEntry>;
 }
 
@@ -128,13 +146,17 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 
 const asLockfile = (doc: unknown): RawLockfile => {
   if (!isRecord(doc) || !("lockfileVersion" in doc)) {
-    return { lockfileVersion: 1, skills: {} };
+    return { lockfileVersion: 3, skills: {} };
   }
   const version = doc["lockfileVersion"];
   const skills = doc["skills"];
   const commands = doc["commands"];
   const subagents = doc["subagents"];
   const mcpServers = doc["mcpServers"];
+  const files = doc["files"];
+  const rules = doc["rules"];
+  const hooks = doc["hooks"];
+  const knowledge = doc["knowledge"];
   const packs = doc["packs"];
   const result: RawLockfile = {
     lockfileVersion: typeof version === "number" ? version : 1,
@@ -142,6 +164,10 @@ const asLockfile = (doc: unknown): RawLockfile => {
     ...(isRecord(commands) ? { commands: { ...commands } } : {}),
     ...(isRecord(subagents) ? { subagents: { ...subagents } } : {}),
     ...(isRecord(mcpServers) ? { mcpServers: { ...mcpServers } } : {}),
+    ...(isRecord(files) ? { files: { ...files } } : {}),
+    ...(isRecord(rules) ? { rules: { ...rules } } : {}),
+    ...(isRecord(hooks) ? { hooks: { ...hooks } } : {}),
+    ...(isRecord(knowledge) ? { knowledge: { ...knowledge } } : {}),
     ...(isRecord(packs) ? { packs: { ...(packs as Record<string, RawPackEntry>) } } : {}),
   };
   return result;
@@ -211,6 +237,7 @@ export const applyInstallSkill = (state: WorkspaceState, intent: InstallSkillInt
       resolvedVersion: parsed.versionRange ?? "0.0.0",
       integrity: "sha512-stub",
       sourceName: "default",
+      publisherBindingId: "hbnd_test",
       agents: ["universal", ...agents.map((a) => a.id)],
       installedAt: FIXED_NOW_ISO,
       updatedAt: FIXED_NOW_ISO,
@@ -355,6 +382,7 @@ export const applyInstallPack = (state: WorkspaceState, intent: InstallPackInten
       resolvedVersion: parsed.versionRange ?? "0.0.0",
       integrity: "sha512-stub",
       sourceName: "default",
+      publisherBindingId: "hbnd_test",
       installedAt: FIXED_NOW_ISO,
       updatedAt: FIXED_NOW_ISO,
       resolvedSkills: {},
@@ -411,6 +439,153 @@ const isInstallPackIntent = (args: unknown): args is InstallPackIntent =>
 const isUninstallPackIntent = (args: unknown): args is UninstallPackIntent =>
   isUninstallSkillIntent(args);
 
+// -----------------------------------------------------------------------------
+// Package-family reducers
+// -----------------------------------------------------------------------------
+
+/**
+ * Lockfile map key and canonical manifest filename for each family whose
+ * install/uninstall the harness models as "lock entry plus a canonical
+ * package probe".
+ *
+ * Per-agent artifact materialization is deliberately not modeled here: no
+ * autofixing rule emits per-agent artifact ops for these families yet, and a
+ * fake artifact tree would make convergence tests pass for the wrong reason.
+ * When such a rule lands, its family gains an artifact arm alongside the skill
+ * one.
+ */
+const PACKAGE_FAMILIES = {
+  "install-subagent": { key: "subagents", plural: "subagents", manifest: "subagent.json" },
+  "uninstall-subagent": { key: "subagents", plural: "subagents", manifest: "subagent.json" },
+  "install-command": { key: "commands", plural: "commands", manifest: "command.json" },
+  "uninstall-command": { key: "commands", plural: "commands", manifest: "command.json" },
+  "install-mcp-server": { key: "mcpServers", plural: "mcps", manifest: "mcp.json" },
+  "uninstall-mcp-server": { key: "mcpServers", plural: "mcps", manifest: "mcp.json" },
+  "install-files": { key: "files", plural: "files", manifest: "files.json" },
+  "uninstall-files": { key: "files", plural: "files", manifest: "files.json" },
+  "install-rule": { key: "rules", plural: "rules", manifest: "rule.json" },
+  "uninstall-rule": { key: "rules", plural: "rules", manifest: "rule.json" },
+  "install-hook": { key: "hooks", plural: "hooks", manifest: "hook.json" },
+  "uninstall-hook": { key: "hooks", plural: "hooks", manifest: "hook.json" },
+  "install-knowledge": { key: "knowledge", plural: "knowledge", manifest: "knowledge.json" },
+  "uninstall-knowledge": { key: "knowledge", plural: "knowledge", manifest: "knowledge.json" },
+} as const;
+
+type PackageFamilyOpName = keyof typeof PACKAGE_FAMILIES;
+type PackageFamily = (typeof PACKAGE_FAMILIES)[PackageFamilyOpName];
+
+const isPackageFamilyOpName = (name: string): name is PackageFamilyOpName =>
+  name in PACKAGE_FAMILIES;
+
+const packageProbe = (family: PackageFamily, owner: string, name: string): string =>
+  `.axm/extensions/${owner}/${family.plural}/${name}/${family.manifest}`;
+
+const familyMap = (lockfile: RawLockfile, key: string): Record<string, unknown> => {
+  const existing = lockfile[key as keyof RawLockfile];
+  return isRecord(existing) ? { ...existing } : {};
+};
+
+const applyInstallPackage = (
+  state: WorkspaceState,
+  family: PackageFamily,
+  intent: { readonly name: string; readonly source: string },
+): void => {
+  const parsed = parseRegistrySourceRef(intent.source);
+  const lockfile = asLockfile(state.lockfile);
+  const entries = familyMap(lockfile, family.key);
+  const owner = parsed?.owner ?? "external";
+  entries[intent.name] =
+    parsed === undefined
+      ? {
+          type: "local",
+          path: intent.source,
+          installedAt: FIXED_NOW_ISO,
+          updatedAt: FIXED_NOW_ISO,
+          sourceHash: "stub-source-hash",
+        }
+      : {
+          type: "registry",
+          owner: parsed.owner,
+          name: parsed.name,
+          resolvedVersion: parsed.versionRange ?? "0.0.0",
+          integrity: "sha512-stub",
+          sourceName: "default",
+          publisherBindingId: "hbnd_test",
+          installedAt: FIXED_NOW_ISO,
+          updatedAt: FIXED_NOW_ISO,
+          sourceHash: "stub-source-hash",
+        };
+  state.lockfile = { ...lockfile, [family.key]: entries };
+  state.existingPaths.add(packageProbe(family, owner, intent.name));
+};
+
+const applyUninstallPackage = (
+  state: WorkspaceState,
+  family: PackageFamily,
+  intent: { readonly name: string },
+): void => {
+  const lockfile = asLockfile(state.lockfile);
+  const entries = familyMap(lockfile, family.key);
+  const entry = entries[intent.name];
+  delete entries[intent.name];
+  state.lockfile = { ...lockfile, [family.key]: entries };
+  const owner = isRecord(entry) && typeof entry["owner"] === "string" ? entry["owner"] : "external";
+  state.existingPaths.delete(packageProbe(family, owner, intent.name));
+};
+
+/**
+ * Activation for a family whose only observable state is the settings entry's
+ * `enabled` flag. Skills and commands additionally materialize agent-dir
+ * artifacts; these families do not.
+ */
+const ACTIVATION_FAMILIES = {
+  "enable-subagent": { key: "subagents", enabled: true },
+  "disable-subagent": { key: "subagents", enabled: false },
+  "enable-files": { key: "files", enabled: true },
+  "disable-files": { key: "files", enabled: false },
+  "enable-rule": { key: "rules", enabled: true },
+  "disable-rule": { key: "rules", enabled: false },
+  "enable-hook": { key: "hooks", enabled: true },
+  "disable-hook": { key: "hooks", enabled: false },
+  "enable-knowledge": { key: "knowledge", enabled: true },
+  "disable-knowledge": { key: "knowledge", enabled: false },
+} as const;
+
+type ActivationOpName = keyof typeof ACTIVATION_FAMILIES;
+
+const isActivationOpName = (name: string): name is ActivationOpName => name in ACTIVATION_FAMILIES;
+
+const applyActivation = (
+  state: WorkspaceState,
+  spec: (typeof ACTIVATION_FAMILIES)[ActivationOpName],
+  intent: { readonly name: string },
+): void => {
+  const settings = asSettings(state.settings);
+  if (settings === undefined) {
+    return;
+  }
+  const map = settings[spec.key as keyof RawSettings];
+  if (!isRecord(map)) {
+    return;
+  }
+  const existing = map[intent.name];
+  const nextEntry = isRecord(existing)
+    ? { ...existing, enabled: spec.enabled }
+    : { source: typeof existing === "string" ? existing : "", enabled: spec.enabled };
+  state.settings = {
+    ...settings,
+    [spec.key]: { ...map, [intent.name]: nextEntry },
+  };
+};
+
+const hasName = (args: unknown): args is { readonly name: string } =>
+  isRecord(args) && typeof args["name"] === "string";
+
+const hasNameAndSource = (
+  args: unknown,
+): args is { readonly name: string; readonly source: string } =>
+  hasName(args) && typeof (args as { source?: unknown }).source === "string";
+
 export const applyOperationIntent = (
   state: WorkspaceState,
   op: Operation<string, unknown>,
@@ -446,18 +621,40 @@ export const applyOperationIntent = (
         applyUninstallPack(state, op.args);
       }
       return;
-    case "install-command":
-    case "uninstall-command":
     case "enable-command":
     case "disable-command":
-    case "install-mcp-server":
-    case "uninstall-mcp-server":
     case "sync-mcp-server-agent":
     case "remove-mcp-server-agent":
-    case "enable-subagent":
-    case "disable-subagent":
-      return;
+    case "sync-instruction-target":
+    case "sync-instructions-gitignore":
+      // A fixture that exercises an autofix must observe its effect; silently
+      // ignoring the op would report the fix as converged without applying it.
+      // These names are part of the canonical vocabulary, so they are reported
+      // as unimplemented rather than unknown — `default` stays reserved for a
+      // name no rule is allowed to emit.
+      throw new Error(
+        `applyOperationIntent: operation '${op.name}' has no fixture interpreter arm yet`,
+      );
     default:
+      if (isPackageFamilyOpName(op.name)) {
+        const family = PACKAGE_FAMILIES[op.name];
+        if (op.name.startsWith("install-")) {
+          if (hasNameAndSource(op.args)) {
+            applyInstallPackage(state, family, op.args);
+          }
+          return;
+        }
+        if (hasName(op.args)) {
+          applyUninstallPackage(state, family, op.args);
+        }
+        return;
+      }
+      if (isActivationOpName(op.name)) {
+        if (hasName(op.args)) {
+          applyActivation(state, ACTIVATION_FAMILIES[op.name], op.args);
+        }
+        return;
+      }
       throw new Error(`applyOperationIntent: unknown operation '${op.name}'`);
   }
 };

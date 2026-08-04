@@ -48,7 +48,6 @@ export { EffectCliExit, effectCliExit, isEffectCliExit } from "./effect-cli-exit
 export { resolveFormatFromArgv, resolveFormat } from "./resolve-format.js";
 export { handleError, classifyError, type ErrorClassification } from "./handle-error.js";
 export { withGracefulShutdown } from "./graceful-shutdown.js";
-export { removeBuiltInFlag } from "./effect-cli-builtins.js";
 export { runCliMain, resolveCliContext, type CliMainContext } from "./run-cli-main.js";
 export { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
 export {

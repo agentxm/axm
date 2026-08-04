@@ -9,9 +9,11 @@
  */
 
 import * as ServiceMap from "effect/Context";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError } from "../app-error/index.js";
@@ -33,7 +35,7 @@ import type {
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
-  computeSourceHash,
+  computePackageContentHash,
   EXTERNAL_EXTENSIONS_DIR,
   REGISTRY_EXTENSIONS_DIR,
   type SourceHash,
@@ -48,6 +50,8 @@ import {
   readCommandContent,
   renderToAgents,
 } from "./operations/shared-command-helpers.js";
+import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
+import { isObservedInstalled } from "../workspace/observed-installed.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -59,20 +63,23 @@ export class CommandManager extends ServiceMap.Service<
 >()("@agentxm/client-core/unstable/commands/manager/CommandManager") {}
 
 // Build lock entry from registry ref
-const buildCommandLockEntry = (ref: RegistryCommandRef, now: Date): CommandLockEntry => ({
+const buildCommandLockEntry = (ref: RegistryCommandRef, now: DateTime.Utc): CommandLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
-  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
+  publisherBindingId: ref.publisherBindingId,
   installedAt: now,
   updatedAt: now,
 });
 
 // Build lock entry for git-hosted refs
-const buildGitHostedCommandLockEntry = (ref: GitHostedCommandRef, now: Date): CommandLockEntry => {
+const buildGitHostedCommandLockEntry = (
+  ref: GitHostedCommandRef,
+  now: DateTime.Utc,
+): CommandLockEntry => {
   const source = ref.source;
   return {
     ...gitSourceLockFields(source, ref.gitTreeSha),
@@ -90,7 +97,7 @@ const localSourceLockPath = (
 
 const buildLocalCommandLockEntry = (
   ref: LocalCommandRef,
-  now: Date,
+  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath?: Option.Option<string>,
 ): CommandLockEntry => ({
   type: "local",
@@ -99,7 +106,10 @@ const buildLocalCommandLockEntry = (
   updatedAt: now,
 });
 
-const buildWorkspaceCommandLockEntry = (ref: WorkspaceCommandRef, now: Date): CommandLockEntry => ({
+const buildWorkspaceCommandLockEntry = (
+  ref: WorkspaceCommandRef,
+  now: DateTime.Utc,
+): CommandLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "command",
@@ -115,7 +125,7 @@ const buildWorkspaceCommandLockEntry = (ref: WorkspaceCommandRef, now: Date): Co
  */
 export const buildLockEntryFromRef = (
   ref: CommandExtensionRef,
-  now: Date,
+  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath?: Option.Option<string>,
 ): CommandLockEntry => {
   switch (ref.refType) {
@@ -171,39 +181,44 @@ export const CommandManagerLive = Layer.effect(
       }
     >();
 
-    const materializeFromRegistry = (ref: RegistryCommandRef) =>
-      provide(
-        materializeRegistryPackage({
-          baseDir,
-          canonicalPath: path.join(
+    const materializeFromRegistry = (ref: RegistryCommandRef, force: boolean) =>
+      Effect.gen(function* () {
+        const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+        return yield* provide(
+          materializeRegistryPackage({
             baseDir,
-            REGISTRY_EXTENSIONS_DIR,
-            ref.owner,
-            "commands",
-            ref.name,
-          ),
-          sourceLocation: ref.source.location,
-          owner: ref.owner,
-          type: "command",
-          name: ref.name,
-          version: ref.version,
-          integrity: ref.integrity,
-          messages: {
-            existsFailureDetail: (canonicalPath) =>
-              `Failed to check if canonical path exists: ${canonicalPath}`,
-            integrityMismatchCode: "internal",
-            integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-            tempDirectoryFailureDetail:
-              "Temporary directory for registry install could not be created",
-            createDirectoryFailureDetail: (canonicalPath) =>
-              `Failed to create canonical directory: ${canonicalPath}`,
-            inspectExtractedFailureDetail: "Extracted directory could not be read",
-            copyEntryFailureCode: "validation",
-            copyEntryFailureDetail: (entry) =>
-              `Failed to copy registry command package entry: ${entry}`,
-          },
-        }),
-      );
+            canonicalPath: path.join(
+              baseDir,
+              REGISTRY_EXTENSIONS_DIR,
+              ref.owner,
+              "commands",
+              ref.name,
+            ),
+            sourceLocation: ref.source.location,
+            owner: ref.owner,
+            type: "command",
+            name: ref.name,
+            version: ref.version,
+            integrity: ref.integrity,
+            force,
+            ...(lockedVersion === undefined ? {} : { lockedVersion }),
+            messages: {
+              existsFailureDetail: (canonicalPath) =>
+                `Failed to check if canonical path exists: ${canonicalPath}`,
+              integrityMismatchCode: "internal",
+              integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+              tempDirectoryFailureDetail:
+                "Temporary directory for registry install could not be created",
+              createDirectoryFailureDetail: (canonicalPath) =>
+                `Failed to create canonical directory: ${canonicalPath}`,
+              inspectExtractedFailureDetail: "Extracted directory could not be read",
+              copyEntryFailureCode: "validation",
+              copyEntryFailureDetail: (entry) =>
+                `Failed to copy registry command package entry: ${entry}`,
+            },
+          }),
+        );
+      });
 
     const materializeFromExternal = (ref: GitHostedCommandRef | LocalCommandRef) =>
       provide(
@@ -217,11 +232,11 @@ export const CommandManagerLive = Layer.effect(
       );
 
     const materializeInstall: ExtensionManager<CommandExtensionRef>["materializeInstall"] =
-      Effect.fn("CommandManager.materializeInstall")(function* ({ ref }) {
+      Effect.fn("CommandManager.materializeInstall")(function* ({ ref, force }) {
         const canonicalPath = yield* Effect.gen(function* () {
           switch (ref.refType) {
             case "registry":
-              return yield* materializeFromRegistry(ref);
+              return yield* materializeFromRegistry(ref, force === true);
             case "git-hosted":
             case "local":
               return yield* materializeFromExternal(ref);
@@ -287,7 +302,7 @@ export const CommandManagerLive = Layer.effect(
           }
         }
         lastInstallState.set(ref.command.name, {
-          sourceHash: computeSourceHash(body),
+          sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
           materialization: {
             agents: [...renderResult.successfulAgents].sort(),
             targets: Array.from(agentIdsByPath.entries())
@@ -347,13 +362,16 @@ export const CommandManagerLive = Layer.effect(
 
     return {
       type: "command",
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       isInstalled: Effect.fn("CommandManager.isInstalled")(function* ({
         target,
       }: {
         readonly target: CommandExtensionTarget;
       }) {
-        const installedCommands = yield* ws.records.getInstalledCommands();
-        if (target.name in installedCommands) {
+        if (yield* isObservedInstalled(ws, "command", target.name)) {
           return true;
         }
 
@@ -366,11 +384,11 @@ export const CommandManagerLive = Layer.effect(
           lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
         ),
       getConfiguredSource: Effect.fn("CommandManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.records.getConfiguredCommands();
+        const configured = yield* ws.getConfiguredCommandEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("CommandManager.listMaterializable")(function* () {
-        const configured = yield* ws.records.getConfiguredCommands();
+        const configured = yield* ws.records.rows("command").pipe(Effect.map(configuredRowsByName));
         return yield* configuredCommandsToDiskRefs(
           { fs, path, baseDir, scope: ws.scope },
           configured,
@@ -380,11 +398,12 @@ export const CommandManagerLive = Layer.effect(
 
       upsertSettingsEntry: Effect.fn("CommandManager.upsertSettingsEntry")(function* ({
         ref,
+        versionRange,
       }: {
         readonly ref: CommandExtensionRef;
         readonly versionRange: Option.Option<string>;
       }) {
-        const now = new Date();
+        const now = yield* DateTime.now;
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
             ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
@@ -413,6 +432,7 @@ export const CommandManagerLive = Layer.effect(
         return yield* ws.setCommand({
           name: ref.command.name,
           lockEntry: sharedLockEntry,
+          versionRange,
         });
       }),
 
@@ -426,7 +446,7 @@ export const CommandManagerLive = Layer.effect(
       }: {
         readonly ref: CommandExtensionRef;
       }) {
-        const now = new Date();
+        const now = yield* DateTime.now;
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
             ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
@@ -455,6 +475,7 @@ export const CommandManagerLive = Layer.effect(
         return yield* ws.setCommandLock({
           name: ref.command.name,
           lockEntry: sharedLockEntry,
+          versionRange: Option.none(),
         });
       }),
 
@@ -462,6 +483,8 @@ export const CommandManagerLive = Layer.effect(
         ws
           .removeCommandLock(target.name)
           .pipe(Effect.withSpan("CommandManager.removeLockfileEntry")),
+      removeTrustEntry: ({ target }: { readonly target: CommandExtensionTarget }) =>
+        ws.removeTrustRecord("command", target.name),
     } satisfies ExtensionManager<CommandExtensionRef>;
   }),
 );

@@ -21,6 +21,7 @@
  */
 
 import type { Issue } from "effect/SchemaIssue";
+import { describeSchemaDocument } from "./describe-document.js";
 import type { AdvisoryFinding, Severity } from "./rule.js";
 
 // -----------------------------------------------------------------------------
@@ -194,18 +195,3 @@ const basename = (file: string): string => {
 };
 
 const isLockfile = (file: string): boolean => basename(file) === "axm-lock.yaml";
-
-const describeSchemaDocument = (file: string): string => {
-  switch (basename(file)) {
-    case "skill.json":
-      return "Skill manifest";
-    case "pack.json":
-      return "Pack manifest";
-    case "settings.json":
-      return "Workspace settings";
-    case "axm-lock.yaml":
-      return "Lockfile";
-    default:
-      return "Document";
-  }
-};

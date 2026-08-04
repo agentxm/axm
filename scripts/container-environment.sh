@@ -118,7 +118,7 @@ run_ci() {
     --volume "$ROOT/node_modules" \
     --volume "$GIT_COMMON_DIR:$GIT_COMMON_DIR" \
     --volume "$CI_PNPM_CACHE_VOLUME:/tmp/axm-home/.local/share/pnpm/store" \
-    --volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx" \
+    --volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx/cache" \
     --workdir "$ROOT" \
     --pull missing \
     "$CI_IMAGE" \

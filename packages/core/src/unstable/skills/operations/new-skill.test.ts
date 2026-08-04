@@ -12,7 +12,7 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { configuredRow, makeBaseWorkspaceMock, rowsFor } from "../../workspace/test-stubs.js";
 import { handle } from "../../test-helpers.js";
 import type { NewSkillOperation } from "./new-skill.js";
 import { newSkill } from "./new-skill.js";
@@ -38,19 +38,16 @@ const makeWorkspaceMock = (
 
   return makeBaseWorkspaceMock(axmDir, {
     getConfiguredOwner: () => Effect.succeed(Option.some(handle(configuredProfile))),
-    getConfiguredSkills: () =>
-      Effect.succeed(
-        Object.fromEntries(
-          Object.entries(configuredSkills).map(([k, v]) => [
-            k,
-            {
-              source: typeof v === "string" ? v : (v?.source ?? ""),
-              enabled: typeof v === "string" ? true : (v?.enabled ?? true),
-              packagingKind: "non-native" as const,
-            },
-          ]),
-        ),
+    rows: rowsFor({
+      skill: Object.entries(configuredSkills).map(([name, value]) =>
+        configuredRow({
+          type: "skill",
+          name,
+          source: typeof value === "string" ? value : (value?.source ?? ""),
+          enabled: typeof value === "string" ? true : (value?.enabled ?? true),
+        }),
       ),
+    }),
     getConfiguredSkillEntries: () =>
       Effect.succeed(
         Object.fromEntries(

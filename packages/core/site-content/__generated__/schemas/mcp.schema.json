@@ -2,6 +2,30 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/McpServerManifest",
   "definitions": {
+    "PublishOptions": {
+      "type": "object",
+      "properties": {
+        "ignore": {
+          "anyOf": [
+            {
+              "type": "array",
+              "allOf": [
+                {
+                  "uniqueItems": true,
+                  "description": "Glob patterns matched against archive-relative POSIX paths. Matching files are left out of the published archive. `*` matches any run of characters, including `/`. A pattern that would drop the manifest is rejected at publish time.",
+                  "examples": [["*.test.ts", "fixtures/*"]]
+                }
+              ],
+              "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "title": "Publish Options",
+      "description": "Options that shape the archive this package publishes."
+    },
     "Handle": {
       "type": "string",
       "allOf": [
@@ -584,6 +608,7 @@
       "type": "object",
       "properties": {
         "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "publish": { "anyOf": [{ "$ref": "#/definitions/PublishOptions" }, { "type": "null" }] },
         "owner": { "$ref": "#/definitions/Handle" },
         "version": { "$ref": "#/definitions/Version" },
         "description": {

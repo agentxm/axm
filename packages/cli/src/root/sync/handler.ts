@@ -9,6 +9,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
+import * as semver from "semver";
 import {
   CodingAgentRepository,
   getInstructionsGitignoreStatus,
@@ -25,18 +26,14 @@ import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import {
   buildMaterializeOperation,
-  configuredCommandsToDiskRefs,
   enabledConfiguredEntries,
-  configuredMcpServersToDiskRefs,
-  configuredSkillsToDiskRefs,
-  configuredSubagentsToDiskRefs,
-  parseRegistrySourceRef,
   isConfiguredEntryEnabled,
   sanitizeName,
+  parseExtensionFqnParts,
   targetFromRef,
-  toLabelWithCompanions,
   toStepKey,
-  type ExtensionTypePlural,
+  type ExtensionRef,
+  type ExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
 import {
   SkillManager,
@@ -50,13 +47,21 @@ import {
 } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
-import { FilesManager, renderWorkspaceGeneratorRegions } from "@agentxm/client-core/unstable/files";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { PackManager } from "@agentxm/client-core/unstable/packs";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
+import {
+  FilesManager,
+  renderWorkspaceGeneratorRegions,
+  type FilesExtensionRef,
+} from "@agentxm/client-core/unstable/files";
+import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
+import {
+  KnowledgeManager,
+  type KnowledgeExtensionRef,
+} from "@agentxm/client-core/unstable/knowledge";
+import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
 import type { CommandExtensionRef } from "@agentxm/client-core/unstable/commands";
 import {
   applyPlan,
+  previewOrApplyPlan,
   resolvePlan,
   type JobStepArtifact,
   type JobStepResult,
@@ -70,40 +75,187 @@ import {
   type SubagentExtensionRef,
 } from "@agentxm/client-core/unstable/subagents";
 import {
+  initializeWorkspaceTrustState,
+  TRUST_STATE_FILENAME,
+} from "@agentxm/client-core/unstable/trust";
+import {
   cleanupStaleManagedSubagentFiles,
   displayPlan,
+  observeCanonicalExtension,
+  resolveConfiguredCommand,
   WorkspaceMutations,
   resolveConfiguredFiles,
   resolveConfiguredHook,
+  resolveConfiguredKnowledge,
+  resolveConfiguredMcpServer,
   resolveConfiguredRule,
+  resolveConfiguredSkill,
+  resolveConfiguredSubagent,
+  trustedCanonicalRef,
+  type CanonicalObservationStatus,
+  type DesiredExtensionNode,
+  type DesiredStateGraph,
 } from "@agentxm/client-core/unstable/workspace";
 import { emitPlanResolutionResult } from "../../json-output.js";
-import { runWorkspaceInstall } from "../install/workspace-install-handler.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 export interface HandleSyncArgs {
+  readonly target?: Option.Option<string>;
+  readonly type?: Option.Option<Exclude<ExtensionType, "pack">>;
   readonly dryRun: boolean;
   readonly force: boolean;
 }
 
 const PLAN_NAME = "Sync workspace";
-const PLAN_DESCRIPTION = "Materialize extensions from settings and on-disk extension content";
-const LIBRARY_SYNC_PLAN_NAME = "Resolve Library subscriptions";
-const LIBRARY_SYNC_PLAN_DESCRIPTION =
-  "Re-resolve configured Libraries before materializing workspace files";
+const PLAN_DESCRIPTION =
+  "Workspace-wide materialization from settings and on-disk extension content";
 
-const dependencyEntries = (
-  dependencies: Readonly<Record<string, unknown>>,
-  type: ExtensionTypePlural,
-) => {
-  const entries: Record<string, { source: string; enabled: boolean; packagingKind: "native" }> = {};
-  for (const fqn of Object.keys(dependencies)) {
-    const parsed = parseRegistrySourceRef(fqn);
-    if (parsed !== undefined && parsed.type === type) {
-      entries[parsed.name] = { source: fqn, enabled: true, packagingKind: "native" };
+const desiredStateProblemText = (graph: DesiredStateGraph): string =>
+  graph.problems
+    .map((problem) => {
+      switch (problem.type) {
+        case "pack-manifest-unavailable":
+          return `${problem.pack}: installed pack manifest is unavailable`;
+        case "pack-manifest-invalid":
+          return `${problem.pack}: installed pack manifest is invalid`;
+        case "pack-identity-mismatch":
+          return `${problem.pack}: ${problem.detail}`;
+        case "pack-trust-unavailable":
+          return `${problem.pack}: ${problem.detail}`;
+        case "pack-canonical-unusable":
+          return `${problem.pack}: canonical pack content is ${problem.status}`;
+        case "projection-collision":
+          return `${problem.extensionType} ${problem.name}: competing identities ${problem.identities.join(", ")}`;
+        case "constraint-conflict":
+          return `${problem.extensionType} ${problem.name}: incompatible constraints ${problem.constraints.join(", ")}`;
+      }
+    })
+    .join("; ");
+
+interface SyncSelection {
+  readonly target: Option.Option<string>;
+  readonly type: Option.Option<Exclude<ExtensionType, "pack">>;
+}
+
+const normalizedIdentity = (identity: string): string =>
+  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+
+const sourceTransitionIdentity = (authority: string, identity: string): string =>
+  identity.startsWith(`${authority}:`) ? identity : `${authority}:${identity}`;
+
+const selectedDesiredNodes = (
+  graph: DesiredStateGraph,
+  selection: SyncSelection,
+): ReadonlyArray<DesiredExtensionNode> => {
+  if (Option.isSome(selection.target)) {
+    const target = selection.target.value;
+    const parsed = parseExtensionFqnParts(target);
+    if (parsed === undefined) return [];
+    if (parsed.type === "pack") {
+      return graph.nodes.filter(
+        (node) =>
+          node.type !== "pack" &&
+          node.origins.some(
+            (origin) => origin.type === "pack" && normalizedIdentity(origin.pack) === target,
+          ),
+      );
     }
+    return graph.nodes.filter(
+      (node) => node.type === parsed.type && normalizedIdentity(node.identity) === target,
+    );
   }
-  return entries;
+  if (Option.isSome(selection.type)) {
+    const type = selection.type.value;
+    return graph.nodes.filter((node) => node.type === type);
+  }
+  return graph.nodes;
+};
+
+const scopedProblems = (
+  graph: DesiredStateGraph,
+  selection: SyncSelection,
+): DesiredStateGraph["problems"] => {
+  if (Option.isNone(selection.target) && Option.isNone(selection.type)) return graph.problems;
+  if (Option.isSome(selection.type)) {
+    const type = selection.type.value;
+    return graph.problems.filter(
+      (problem) =>
+        problem.type.startsWith("pack-") ||
+        ("extensionType" in problem && problem.extensionType === type),
+    );
+  }
+  if (Option.isNone(selection.target)) return graph.problems;
+  const target = selection.target.value;
+  const parsed = parseExtensionFqnParts(target);
+  if (parsed === undefined) return graph.problems;
+  if (parsed.type === "pack") {
+    return graph.problems.filter(
+      (problem) => "pack" in problem && normalizedIdentity(problem.pack) === target,
+    );
+  }
+  return graph.problems.filter(
+    (problem) =>
+      "extensionType" in problem &&
+      problem.extensionType === parsed.type &&
+      problem.name === parsed.name,
+  );
+};
+
+const resolveDesiredExtensionRef = (
+  node: DesiredExtensionNode,
+  canonicalStatus: CanonicalObservationStatus,
+) => {
+  const annotate = <A, R>(effect: Effect.Effect<A, AppError, R>) =>
+    effect.pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: cause.code,
+          detail: `${cause.detail} (canonical status: ${canonicalStatus})`,
+          cause,
+        }),
+      ),
+    );
+  switch (node.type) {
+    case "skill":
+      return annotate(resolveConfiguredSkill(node.name, node.source)).pipe(
+        Effect.map(({ ref }) => ref),
+      );
+    case "command":
+      return annotate(resolveConfiguredCommand(node.name, node.source)).pipe(
+        Effect.map(({ ref }) => ref),
+      );
+    case "mcp-server":
+      return annotate(resolveConfiguredMcpServer(node.name, node.source)).pipe(
+        Effect.map(({ ref }) => ref),
+      );
+    case "subagent":
+      return annotate(resolveConfiguredSubagent(node.name, node.source)).pipe(
+        Effect.map(({ ref }) => ref),
+      );
+    case "files":
+      return annotate(resolveConfiguredFiles(node.name, node.source)).pipe(
+        Effect.map(({ ref }) => ref),
+      );
+    case "rule":
+      return annotate(resolveConfiguredRule(node.name, node.source)).pipe(
+        Effect.map(({ ref }) => ref),
+      );
+    case "hook":
+      return annotate(resolveConfiguredHook(node.name, node.source)).pipe(
+        Effect.map(({ ref }) => ref),
+      );
+    case "knowledge":
+      return annotate(resolveConfiguredKnowledge(node.name, node.source)).pipe(
+        Effect.map(({ ref }) => ref),
+      );
+    case "pack":
+      return Effect.fail(
+        makeAppError({
+          code: "internal",
+          detail: `Pack ${node.identity} is not a projection target`,
+        }),
+      );
+  }
 };
 
 const registryVersion = (
@@ -186,6 +338,9 @@ const buildMcpServerSyncOperation = ({
   ws,
   renderer,
   agentRepo,
+  force,
+  transitionLabel,
+  manager,
 }: {
   readonly ref: McpServerExtensionRef;
   readonly fs: FileSystem.FileSystem;
@@ -193,27 +348,39 @@ const buildMcpServerSyncOperation = ({
   readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
   readonly renderer: ServiceMap.Service.Shape<typeof CliRenderer>;
   readonly agentRepo: CodingAgentRepositoryService;
+  readonly force: boolean;
+  readonly transitionLabel: string;
+  readonly manager: ServiceMap.Service.Shape<typeof McpServerManager>;
 }): PlannedJobStep => {
   const target = targetFromRef(ref);
-  const run = installMcpServer({
-    name: "install-mcp-server",
-    args: {
-      ref,
-      force: false,
-      versionRange: Option.none(),
-      skipSettings: Option.some(true),
-    },
-  }).pipe(
-    Effect.provideService(FileSystem.FileSystem, fs),
-    Effect.provideService(Path.Path, path),
-    Effect.provideService(WorkspaceMutations, ws),
-    Effect.provideService(CliRenderer, renderer),
-    Effect.provideService(CodingAgentRepository, agentRepo),
-  );
+  const run = Effect.gen(function* () {
+    if (manager.validateTrustTransition !== undefined) {
+      yield* manager.validateTrustTransition({
+        ref,
+        allowSourceTransition: false,
+        allowDowngrade: false,
+      });
+    }
+    return yield* installMcpServer({
+      name: "install-mcp-server",
+      args: {
+        ref,
+        force,
+        versionRange: Option.none(),
+        skipSettings: Option.some(true),
+      },
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.provideService(WorkspaceMutations, ws),
+      Effect.provideService(CliRenderer, renderer),
+      Effect.provideService(CodingAgentRepository, agentRepo),
+    );
+  });
 
   return {
     key: toStepKey(target),
-    label: toLabelWithCompanions(target, ref.refType === "registry" ? ref.packages : []),
+    label: transitionLabel,
     readiness: "ready",
     run,
   };
@@ -348,36 +515,63 @@ const buildMcpServerPruneOperation = ({
   ),
 });
 
-const configuredFilesToRefs = (
-  entries: Readonly<Record<string, { readonly source: string; readonly enabled: boolean }>>,
-) =>
-  Effect.forEach(
-    enabledConfiguredEntries(entries),
-    ([name, entry]) =>
-      resolveConfiguredFiles(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
-    { concurrency: "unbounded" },
-  );
-
-const configuredRulesToRefs = (
-  entries: Readonly<Record<string, { readonly source: string; readonly enabled: boolean }>>,
-) =>
-  Effect.forEach(
-    enabledConfiguredEntries(entries),
-    ([name, entry]) => resolveConfiguredRule(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
-    { concurrency: "unbounded" },
-  );
-
-const configuredHooksToRefs = (
-  entries: Readonly<Record<string, { readonly source: string; readonly enabled: boolean }>>,
-) =>
-  Effect.forEach(
-    enabledConfiguredEntries(entries),
-    ([name, entry]) => resolveConfiguredHook(name, entry.source).pipe(Effect.map(({ ref }) => ref)),
-    { concurrency: "unbounded" },
-  );
+const isObservedMaterializationCurrent = (
+  ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
+  node: DesiredExtensionNode,
+  configuredAgents: ReadonlyArray<string>,
+): Effect.Effect<boolean, AppError> =>
+  ws.records
+    .getExtensionInventory(node.type, {
+      includeIgnored: false,
+      ...(configuredAgents.length > 0 &&
+      (node.type === "skill" ||
+        node.type === "command" ||
+        node.type === "mcp-server" ||
+        node.type === "subagent")
+        ? { agents: configuredAgents }
+        : {}),
+    })
+    .pipe(
+      Effect.map((inventory) => {
+        const observed = inventory.items.find(
+          (item) =>
+            item.name === node.name && item.classification.kind === "lifecycle" && item.installed,
+        );
+        if (observed === undefined) return false;
+        if (
+          node.type !== "skill" &&
+          node.type !== "command" &&
+          node.type !== "mcp-server" &&
+          node.type !== "subagent"
+        ) {
+          return true;
+        }
+        const hasProjectionOrigin = (() => {
+          switch (node.type) {
+            case "skill":
+              return observed.origins.includes("agent-skill-dir");
+            case "command":
+              return observed.origins.includes("agent-command-dir");
+            case "subagent":
+              return observed.origins.includes("agent-subagent-dir");
+            case "mcp-server":
+              return (
+                observed.origins.includes("workspace-mcp-config") ||
+                observed.origins.includes("agent-mcp-config")
+              );
+            default:
+              return true;
+          }
+        })();
+        if (!hasProjectionOrigin) return false;
+        return configuredAgents.every((agentId) => observed.agents.includes(agentId));
+      }),
+    );
 
 export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* (args?: {
   readonly force: boolean;
+  readonly selection: SyncSelection;
+  readonly retainedOnly?: boolean;
 }) {
   const skillManager = yield* SkillManager;
   const commandManager = yield* CommandManager;
@@ -386,151 +580,234 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const fileManager = yield* FilesManager;
   const ruleManager = yield* RuleManager;
   const hookManager = yield* HookManager;
-  const packManager = yield* PackManager;
+  const knowledgeManager = yield* KnowledgeManager;
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const env = { fs, path, baseDir: ws.baseDir, scope: ws.scope };
   const configuredMcpServerEntries = yield* ws.getConfiguredMcpServerEntries();
   const configuredAgents = yield* ws.getConfiguredAgents();
+  const desiredState = yield* ws.getDesiredStateGraph();
+  const selection = args?.selection ?? { target: Option.none(), type: Option.none() };
+  const isScoped = Option.isSome(selection.target) || Option.isSome(selection.type);
+  const problems = scopedProblems(desiredState, selection);
+  if (problems.length > 0) {
+    const scopedGraph = { ...desiredState, problems };
+    return yield* makeAppError({
+      code: "conflict",
+      detail: `Cannot reconcile the selected incomplete desired extension graph: ${desiredStateProblemText(scopedGraph)}`,
+      suggestions: [
+        {
+          description: "Inspect and repair the affected workspace pack",
+          cmd: "axm status",
+        },
+      ],
+    });
+  }
+  if (
+    Option.isSome(selection.target) &&
+    selectedDesiredNodes(desiredState, selection).length === 0
+  ) {
+    return yield* makeAppError({
+      code: "not_found",
+      detail: `No desired extension nodes matched ${selection.target.value}`,
+    });
+  }
 
-  const [
-    skillRefs,
-    commandRefs,
-    mcpServerRefs,
-    subagentRefs,
-    fileRefs,
-    ruleRefs,
-    hookRefs,
-    packRefs,
-  ] = yield* Effect.all(
-    [
-      skillManager.listMaterializable(),
-      commandManager.listMaterializable(),
-      mcpServerManager.listMaterializable(),
-      subagentManager.listMaterializable(),
-      fileManager.listMaterializable(),
-      ruleManager.listMaterializable(),
-      hookManager.listMaterializable(),
-      packManager.listMaterializable(),
-    ],
+  const trustState = yield* ws.getTrustState();
+  const reconciled = yield* Effect.forEach(
+    selectedDesiredNodes(desiredState, selection).filter(
+      (node) =>
+        node.enabled &&
+        node.type !== "pack" &&
+        !(node.type === "mcp-server" && node.source === "inline"),
+    ),
+    (node) =>
+      Effect.gen(function* () {
+        const trust = trustState.records[`${node.type}:${node.name}`];
+        const observation = yield* observeCanonicalExtension({
+          baseDir: ws.baseDir,
+          desired: node,
+          trust,
+        });
+        const materializationCurrent = yield* isObservedMaterializationCurrent(
+          ws,
+          node,
+          configuredAgents,
+        );
+        const materialize =
+          (args?.force ?? false) || observation.status !== "usable" || !materializationCurrent;
+        const force = args?.retainedOnly === true ? false : materialize;
+        const ref = yield* Effect.gen(function* () {
+          if (observation.status === "usable" && trust !== undefined) {
+            return yield* trustedCanonicalRef({
+              baseDir: ws.baseDir,
+              scope: ws.scope,
+              desired: node,
+              trust,
+            });
+          }
+          if (args?.retainedOnly === true) {
+            return yield* makeAppError({
+              code: "conflict",
+              detail: `Cannot rematerialize retained ${node.type} ${node.name}: canonical content is ${observation.status}`,
+              suggestions: [
+                {
+                  description: "Refresh the pack and its retained members",
+                  cmd: "axm packs update --yes",
+                },
+              ],
+            });
+          }
+          return yield* resolveDesiredExtensionRef(node, observation.status);
+        });
+        return {
+          ref,
+          force,
+          materialize,
+          transitionLabel: [
+            node.name,
+            `previous source=${
+              trust === undefined
+                ? "none"
+                : sourceTransitionIdentity(trust.authority, trust.sourceIdentity)
+            }`,
+            `proposed source=${sourceTransitionIdentity(ref.source.type, node.identity)}`,
+            `previous version=${trust?.resolvedVersion ?? "none"}`,
+            `proposed version=${ref.refType === "registry" || ref.refType === "workspace" ? ref.version : "unversioned"}`,
+            `reason=${args?.force === true ? "forced" : observation.status !== "usable" ? observation.status : "stale-projection"}`,
+            `downgrade=${
+              trust?.resolvedVersion !== undefined &&
+              (ref.refType === "registry" || ref.refType === "workspace") &&
+              semver.gt(trust.resolvedVersion, ref.version)
+                ? "yes"
+                : "no"
+            }`,
+          ].join("; "),
+        };
+      }),
     { concurrency: "unbounded" },
   );
 
-  const [
-    packSkillRefs,
-    packCommandRefs,
-    packMcpServerRefs,
-    packSubagentRefs,
-    packFileRefs,
-    packRuleRefs,
-    packHookRefs,
-  ] = yield* Effect.all(
-    [
-      configuredSkillsToDiskRefs(
-        env,
-        Object.assign(
-          {},
-          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "skills")),
-        ),
-      ),
-      configuredCommandsToDiskRefs(
-        env,
-        Object.assign(
-          {},
-          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "commands")),
-        ),
-      ),
-      configuredMcpServersToDiskRefs(
-        env,
-        Object.assign(
-          {},
-          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "mcps")),
-        ),
-      ),
-      configuredSubagentsToDiskRefs(
-        env,
-        Object.assign(
-          {},
-          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "subagents")),
-        ),
-      ),
-      configuredFilesToRefs(
-        Object.assign(
-          {},
-          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "files")),
-        ),
-      ),
-      configuredRulesToRefs(
-        Object.assign(
-          {},
-          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "rules")),
-        ),
-      ),
-      configuredHooksToRefs(
-        Object.assign(
-          {},
-          ...packRefs.map((ref) => dependencyEntries(ref.pack.dependencies, "hooks")),
-        ),
-      ),
-    ],
-    { concurrency: "unbounded" },
-  );
+  type Reconciled<TRef extends ExtensionRef> = {
+    readonly ref: TRef;
+    readonly force: boolean;
+    readonly materialize: boolean;
+    readonly transitionLabel: string;
+  };
+  const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
+  const commandRefs: Array<Reconciled<CommandExtensionRef>> = [];
+  const mcpServerRefs: Array<Reconciled<McpServerExtensionRef>> = [];
+  const subagentRefs: Array<Reconciled<SubagentExtensionRef>> = [];
+  const fileRefs: Array<Reconciled<FilesExtensionRef>> = [];
+  const ruleRefs: Array<Reconciled<RuleExtensionRef>> = [];
+  const hookRefs: Array<Reconciled<HookExtensionRef>> = [];
+  const knowledgeRefs: Array<Reconciled<KnowledgeExtensionRef>> = [];
+  for (const item of reconciled) {
+    switch (item.ref.type) {
+      case "skill":
+        skillRefs.push({
+          ref: item.ref,
+          force: item.force,
+          materialize: item.materialize,
+          transitionLabel: item.transitionLabel,
+        });
+        break;
+      case "command":
+        commandRefs.push({
+          ref: item.ref,
+          force: item.force,
+          materialize: item.materialize,
+          transitionLabel: item.transitionLabel,
+        });
+        break;
+      case "mcp-server":
+        mcpServerRefs.push({
+          ref: item.ref,
+          force: item.force,
+          materialize: item.materialize,
+          transitionLabel: item.transitionLabel,
+        });
+        break;
+      case "subagent":
+        subagentRefs.push({
+          ref: item.ref,
+          force: item.force,
+          materialize: item.materialize,
+          transitionLabel: item.transitionLabel,
+        });
+        break;
+      case "files":
+        fileRefs.push({
+          ref: item.ref,
+          force: item.force,
+          materialize: item.materialize,
+          transitionLabel: item.transitionLabel,
+        });
+        break;
+      case "rule":
+        ruleRefs.push({
+          ref: item.ref,
+          force: item.force,
+          materialize: item.materialize,
+          transitionLabel: item.transitionLabel,
+        });
+        break;
+      case "hook":
+        hookRefs.push({
+          ref: item.ref,
+          force: item.force,
+          materialize: item.materialize,
+          transitionLabel: item.transitionLabel,
+        });
+        break;
+      case "knowledge":
+        knowledgeRefs.push({
+          ref: item.ref,
+          force: item.force,
+          materialize: item.materialize,
+          transitionLabel: item.transitionLabel,
+        });
+        break;
+      case "pack":
+        break;
+    }
+  }
 
-  const directSkillNames = new Set(skillRefs.map((ref) => ref.skill.name));
-  const directCommandNames = new Set(commandRefs.map((ref) => ref.command.name));
-  const directMcpServerNames = new Set(mcpServerRefs.map((ref) => ref.server.name));
-  const directSubagentNames = new Set(subagentRefs.map((ref) => ref.subagent.name));
-  const directFilesNames = new Set(fileRefs.map((ref) => ref.file.name));
-  const directRuleNames = new Set(ruleRefs.map((ref) => ref.rule.name));
-  const directHookNames = new Set(hookRefs.map((ref) => ref.hook.name));
-
-  const materializedSubagentRefs = [
-    ...subagentRefs,
-    ...packSubagentRefs.filter((ref) => !directSubagentNames.has(ref.subagent.name)),
-  ];
   const declaredMcpServerNames = new Set([
     ...enabledConfiguredEntries(configuredMcpServerEntries).map(([name]) => name),
-    ...packMcpServerRefs.map((ref) => ref.server.name),
+    ...mcpServerRefs.map(({ ref }) => ref.server.name),
   ]);
-  const skillMaterializeStep = (ref: SkillExtensionRef) =>
-    buildMaterializeOperation(skillManager, {
-      ref,
-      message: `Synced skill ${ref.skill.name}`,
-      buildArtifact: () => skillSyncArtifact({ ref, agentRepo, fs, path, ws }),
-    });
-  const commandMaterializeStep = (ref: CommandExtensionRef) =>
-    buildMaterializeOperation(commandManager, {
-      ref,
-      message: `Synced command ${ref.command.name}`,
-      buildArtifact: () => commandSyncArtifact({ ref, ws }),
-    });
-  const subagentMaterializeStep = (ref: SubagentExtensionRef) =>
-    buildMaterializeOperation(subagentManager, {
-      ref,
-      message: `Synced subagent ${ref.subagent.name}`,
-      buildArtifact: () => subagentSyncArtifact({ ref, ws }),
-    });
-
-  return {
-    expectedSubagentNames: new Set(materializedSubagentRefs.map((ref) => ref.subagent.name)),
-    steps: [
-      ...skillRefs.map(skillMaterializeStep),
-      ...packSkillRefs
-        .filter((ref) => !directSkillNames.has(ref.skill.name))
-        .map(skillMaterializeStep),
-      ...commandRefs.map(commandMaterializeStep),
-      ...packCommandRefs
-        .filter((ref) => !directCommandNames.has(ref.command.name))
-        .map(commandMaterializeStep),
-      ...mcpServerRefs.map((ref) =>
-        buildMcpServerSyncOperation({ ref, fs, path, ws, renderer, agentRepo }),
-      ),
-      ...Object.entries(configuredMcpServerEntries)
-        .filter(([, entry]) => isConfiguredEntryEnabled(entry) && isInlineMcpServerEntry(entry))
-        .map(([name, entry]) =>
+  const inlineMcpServerSteps = yield* Effect.forEach(
+    Object.entries(configuredMcpServerEntries).filter(
+      ([name, entry]) =>
+        isConfiguredEntryEnabled(entry) &&
+        isInlineMcpServerEntry(entry) &&
+        (Option.isNone(selection.type) || selection.type.value === "mcp-server") &&
+        (Option.isNone(selection.target) ||
+          (parseExtensionFqnParts(selection.target.value)?.type === "mcp-server" &&
+            parseExtensionFqnParts(selection.target.value)?.name === name)),
+    ),
+    ([name, entry]) =>
+      Effect.gen(function* () {
+        if (args?.force !== true) {
+          const inspections = yield* inspectMcpServerAcrossAgents({
+            workspaceRoot: ws.baseDir,
+            scope: ws.scope,
+            agentIds: configuredAgents,
+            serverName: name,
+            entry,
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          );
+          const current = inspections.every(
+            (inspection) => inspection.status === "match" || inspection.status === "unsupported",
+          );
+          if (current) return Option.none<PlannedJobStep>();
+        }
+        return Option.some(
           buildInlineMcpServerSyncOperation({
             name,
             entry,
@@ -540,11 +817,97 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
             path,
             ws,
           }),
+        );
+      }),
+    { concurrency: "unbounded" },
+  ).pipe(Effect.map((steps) => steps.flatMap((step) => (Option.isSome(step) ? [step.value] : []))));
+  const needsMcpServerPrune =
+    !isScoped &&
+    configuredAgents.length > 0 &&
+    (yield* Effect.forEach(
+      configuredAgents,
+      (agentId) =>
+        pruneManagedMcpServersForAgent(agentId, {
+          workspaceRoot: ws.baseDir,
+          declaredServerNames: declaredMcpServerNames,
+          scope: ws.scope,
+          dryRun: true,
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
         ),
-      ...packMcpServerRefs
-        .filter((ref) => !directMcpServerNames.has(ref.server.name))
-        .map((ref) => buildMcpServerSyncOperation({ ref, fs, path, ws, renderer, agentRepo })),
-      ...(configuredAgents.length > 0
+      { concurrency: "unbounded" },
+    ).pipe(
+      Effect.map((outcomes) =>
+        outcomes.some((outcome) => outcome._tag === "success" && outcome.targets !== undefined),
+      ),
+    ));
+  const skillMaterializeStep = ({ ref, force, transitionLabel }: Reconciled<SkillExtensionRef>) =>
+    buildMaterializeOperation(skillManager, {
+      ref,
+      force,
+      label: transitionLabel,
+      message: `Synced skill ${ref.skill.name}`,
+      buildArtifact: () => skillSyncArtifact({ ref, agentRepo, fs, path, ws }),
+    });
+  const commandMaterializeStep = ({
+    ref,
+    force,
+    transitionLabel,
+  }: Reconciled<CommandExtensionRef>) =>
+    buildMaterializeOperation(commandManager, {
+      ref,
+      force,
+      label: transitionLabel,
+      message: `Synced command ${ref.command.name}`,
+      buildArtifact: () => commandSyncArtifact({ ref, ws }),
+    });
+  const subagentMaterializeStep = ({
+    ref,
+    force,
+    transitionLabel,
+  }: Reconciled<SubagentExtensionRef>) =>
+    buildMaterializeOperation(subagentManager, {
+      ref,
+      force,
+      label: transitionLabel,
+      message: `Synced subagent ${ref.subagent.name}`,
+      buildArtifact: () => subagentSyncArtifact({ ref, ws }),
+    });
+  const knowledgeMaterializeStep = ({
+    ref,
+    force,
+    transitionLabel,
+  }: Reconciled<KnowledgeExtensionRef>) =>
+    buildMaterializeOperation(knowledgeManager, {
+      ref,
+      force,
+      label: transitionLabel,
+      message: `Synced knowledge ${ref.knowledge.name}`,
+    });
+
+  return {
+    expectedSubagentNames: new Set(subagentRefs.map(({ ref }) => ref.subagent.name)),
+    steps: [
+      ...skillRefs.filter(({ materialize }) => materialize).map(skillMaterializeStep),
+      ...commandRefs.filter(({ materialize }) => materialize).map(commandMaterializeStep),
+      ...mcpServerRefs
+        .filter(({ materialize }) => materialize)
+        .map(({ ref, force, transitionLabel }) =>
+          buildMcpServerSyncOperation({
+            ref,
+            fs,
+            path,
+            ws,
+            renderer,
+            agentRepo,
+            force,
+            transitionLabel,
+            manager: mcpServerManager,
+          }),
+        ),
+      ...inlineMcpServerSteps,
+      ...(needsMcpServerPrune
         ? [
             buildMcpServerPruneOperation({
               declaredServerNames: declaredMcpServerNames,
@@ -555,19 +918,23 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
             }),
           ]
         : []),
-      ...materializedSubagentRefs.map(subagentMaterializeStep),
-      ...fileRefs.map((ref) => buildMaterializeOperation(fileManager, { ref })),
-      ...packFileRefs
-        .filter((ref) => !directFilesNames.has(ref.file.name))
-        .map((ref) => buildMaterializeOperation(fileManager, { ref })),
-      ...ruleRefs.map((ref) => buildMaterializeOperation(ruleManager, { ref })),
-      ...packRuleRefs
-        .filter((ref) => !directRuleNames.has(ref.rule.name))
-        .map((ref) => buildMaterializeOperation(ruleManager, { ref })),
-      ...hookRefs.map((ref) => buildMaterializeOperation(hookManager, { ref })),
-      ...packHookRefs
-        .filter((ref) => !directHookNames.has(ref.hook.name))
-        .map((ref) => buildMaterializeOperation(hookManager, { ref })),
+      ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
+      ...fileRefs
+        .filter(({ materialize }) => materialize)
+        .map(({ ref, force, transitionLabel }) =>
+          buildMaterializeOperation(fileManager, { ref, force, label: transitionLabel }),
+        ),
+      ...ruleRefs
+        .filter(({ materialize }) => materialize)
+        .map(({ ref, force, transitionLabel }) =>
+          buildMaterializeOperation(ruleManager, { ref, force, label: transitionLabel }),
+        ),
+      ...hookRefs
+        .filter(({ materialize }) => materialize)
+        .map(({ ref, force, transitionLabel }) =>
+          buildMaterializeOperation(hookManager, { ref, force, label: transitionLabel }),
+        ),
+      ...knowledgeRefs.filter(({ materialize }) => materialize).map(knowledgeMaterializeStep),
     ] satisfies ReadonlyArray<PlannedJobStep>,
   };
 });
@@ -575,13 +942,19 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
 const makeSyncPlan = ({
   materializeSteps,
   workspaceGeneratorStep,
+  trustMigrationStep,
+  name = PLAN_NAME,
+  description = PLAN_DESCRIPTION,
 }: {
   readonly materializeSteps: ReadonlyArray<PlannedJobStep>;
   readonly workspaceGeneratorStep: Option.Option<PlannedJobStep>;
+  readonly trustMigrationStep: Option.Option<PlannedJobStep>;
+  readonly name?: string;
+  readonly description?: string;
 }): Plan => ({
   _tag: "Plan",
-  name: PLAN_NAME,
-  description: Option.some(PLAN_DESCRIPTION),
+  name,
+  description: Option.some(description),
   jobs: [
     ...(materializeSteps.length > 0
       ? [{ concurrency: "unbounded" as const, steps: materializeSteps }]
@@ -589,78 +962,47 @@ const makeSyncPlan = ({
     ...(Option.isSome(workspaceGeneratorStep)
       ? [{ concurrency: 1 as const, steps: [workspaceGeneratorStep.value] }]
       : []),
+    ...(Option.isSome(trustMigrationStep)
+      ? [{ concurrency: 1 as const, steps: [trustMigrationStep.value] }]
+      : []),
   ],
 });
 
-const previewPlan = (plan: Plan): PlanResolution => ({
-  _tag: "PreviewedPlan",
-  name: plan.name,
-  description: plan.description,
-  jobs: plan.jobs,
-});
-
-const mergeSyncResolution = (
-  primary: Option.Option<PlanResolution>,
-  extra: Option.Option<PlanResolution>,
-): Option.Option<PlanResolution> =>
-  Option.match(primary, {
-    onNone: () => extra,
-    onSome: (primaryResolution) =>
-      Option.match(extra, {
-        onNone: () => primary,
-        onSome: (extraResolution) => {
-          if (
-            primaryResolution._tag === "ExecutedPlan" &&
-            extraResolution._tag === "ExecutedPlan"
-          ) {
-            return Option.some({
-              _tag: "ExecutedPlan" as const,
-              name: PLAN_NAME,
-              description: Option.some(PLAN_DESCRIPTION),
-              jobs: [...primaryResolution.jobs, ...extraResolution.jobs],
-            });
-          }
-
-          if (
-            primaryResolution._tag === "PreviewedPlan" &&
-            extraResolution._tag === "PreviewedPlan"
-          ) {
-            return Option.some({
-              _tag: "PreviewedPlan" as const,
-              name: PLAN_NAME,
-              description: Option.some(PLAN_DESCRIPTION),
-              jobs: [...primaryResolution.jobs, ...extraResolution.jobs],
-            });
-          }
-
-          return primary;
-        },
+const collectTrustMigrationStep = Effect.fn("Sync.collectTrustMigrationStep")(function* () {
+  const ws = yield* WorkspaceMutations;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const trustPath = path.join(ws.path, TRUST_STATE_FILENAME);
+  const exists = yield* fs.exists(trustPath).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "internal",
+        detail: `Failed to inspect workspace trust state at ${trustPath}`,
+        cause,
       }),
-  });
+    ),
+  );
+  if (exists) return Option.none<PlannedJobStep>();
 
-const collectLibrarySubscriptionResolution = (args: {
-  readonly dryRun: boolean;
-  readonly force: boolean;
-}) =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredLibraryEntries();
-    const hasEnabledLibrary = Object.values(configured).some(isConfiguredEntryEnabled);
-    if (!hasEnabledLibrary) {
-      return Option.none<PlanResolution>();
-    }
+  const state = yield* ws.getTrustState();
+  if (Object.keys(state.records).length === 0) return Option.none<PlannedJobStep>();
 
-    return yield* runWorkspaceInstall({
-      type: Option.some("library"),
-      planName: LIBRARY_SYNC_PLAN_NAME,
-      planDescription: Option.some(LIBRARY_SYNC_PLAN_DESCRIPTION),
-      flags: {
-        yes: true,
-        force: args.force,
-        preview: args.dryRun,
-      },
-    });
+  return Option.some<PlannedJobStep>({
+    key: "migrate-workspace-trust",
+    label: "workspace trust baseline",
+    readiness: "ready",
+    run: initializeWorkspaceTrustState(ws.path, state).pipe(
+      Effect.map((initialized): JobStepResult => ({
+        result: "success",
+        message: initialized
+          ? "Migrated workspace trust baseline from the legacy receipt"
+          : "Workspace trust baseline already current",
+      })),
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    ),
   });
+});
 
 const regionLabel = (count: number): string => (count === 1 ? "region" : "regions");
 
@@ -706,12 +1048,12 @@ const collectWorkspaceGeneratorStep = Effect.fn("Sync.collectWorkspaceGeneratorS
     Effect.provideService(Path.Path, path),
   );
 
-  return Option.some({
+  return Option.some<PlannedJobStep>({
     key: "workspace-generator-regions",
     label: "workspace generator regions",
     readiness: "ready",
     run,
-  } satisfies PlannedJobStep);
+  });
 });
 
 interface SyncInstructionTargetIntentArgs {
@@ -733,6 +1075,7 @@ const collectInstructionOperations = Effect.fn("Sync.collectInstructionOperation
   const resolvedConfig = resolveInstructionsConfig(config.value);
   const status = yield* getInstructionsStatus({
     workspaceRoot: ws.baseDir,
+    scope: ws.scope,
     configuredAgents,
     config: resolvedConfig,
   });
@@ -907,58 +1250,114 @@ const renderInstructionPhase = Effect.fn("Sync.renderInstructionPhase")(function
 // aliases are synced only after that phase has finished.
 
 export const handleSync = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs) {
-  const libraryResolution = yield* collectLibrarySubscriptionResolution(args);
-  const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({ force: args.force });
-  const workspaceGeneratorStep = yield* collectWorkspaceGeneratorStep();
+  const ws = yield* WorkspaceMutations;
+  const renderer = yield* CliRenderer;
+  const target = args.target ?? Option.none<string>();
+  const type = args.type ?? Option.none<Exclude<ExtensionType, "pack">>();
+  const selection = { target, type };
+  const scoped = Option.isSome(target) || Option.isSome(type);
+  const scopeLabel = Option.isSome(target)
+    ? target.value
+    : Option.isSome(type)
+      ? `type ${type.value}`
+      : "workspace";
+  const planName = scoped ? `Sync ${scopeLabel}` : PLAN_NAME;
+  const planDescription = scoped ? `Scoped materialization for ${scopeLabel}` : PLAN_DESCRIPTION;
+  const preflight = yield* renderer.withSpinner(
+    `Resolving ${scopeLabel} sync`,
+    () =>
+      Effect.gen(function* () {
+        const { steps, expectedSubagentNames } = yield* collectMaterializeSteps({
+          force: args.force,
+          selection,
+        });
+        const workspaceGeneratorStep = scoped
+          ? Option.none<PlannedJobStep>()
+          : yield* collectWorkspaceGeneratorStep();
+        const trustMigrationStep = scoped
+          ? Option.none<PlannedJobStep>()
+          : yield* collectTrustMigrationStep();
+
+        // A degraded lockfile is work even when nothing needs materializing: `axm sync`
+        // is the command users are pointed at to recover one, so it must not short-circuit
+        // to a no-op before reconciliation has had a chance to run.
+        const lockfileNeedsRecovery = !scoped && (yield* ws.getLockfileState()) !== "ok";
+        return {
+          steps,
+          expectedSubagentNames,
+          workspaceGeneratorStep,
+          trustMigrationStep,
+          lockfileNeedsRecovery,
+        };
+      }),
+    { successMessage: `Resolved ${scopeLabel} sync` },
+  );
+  const {
+    steps,
+    expectedSubagentNames,
+    workspaceGeneratorStep,
+    trustMigrationStep,
+    lockfileNeedsRecovery,
+  } = preflight;
 
   if (
-    Option.isNone(libraryResolution) &&
     steps.length === 0 &&
-    Option.isNone(workspaceGeneratorStep)
+    Option.isNone(workspaceGeneratorStep) &&
+    Option.isNone(trustMigrationStep) &&
+    !lockfileNeedsRecovery
   ) {
-    yield* renderInstructionPhase(args.dryRun);
-    if (!args.dryRun) {
+    if (!scoped) yield* renderInstructionPhase(args.dryRun);
+    if (!scoped && !args.dryRun) {
       yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
     }
     yield* emitNoOpOutcome("sync", {
-      planName: PLAN_NAME,
-      planDescription: PLAN_DESCRIPTION,
-      message: "Workspace materialization is up to date",
+      planName,
+      planDescription,
+      message: scoped
+        ? `${scopeLabel} materialization is up to date`
+        : "Workspace materialization is up to date",
     });
     return;
   }
 
-  if (
-    Option.isSome(libraryResolution) &&
-    steps.length === 0 &&
-    Option.isNone(workspaceGeneratorStep)
-  ) {
-    yield* renderInstructionPhase(args.dryRun);
-    if (!args.dryRun) {
-      yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
-    }
-    yield* emitPlanResolutionResult("sync", libraryResolution.value);
+  const plan = makeSyncPlan({
+    materializeSteps: steps,
+    workspaceGeneratorStep,
+    trustMigrationStep,
+    name: planName,
+    description: planDescription,
+  });
+
+  // `previewOrApplyPlan` rather than `applyPlan`: it prepends the lockfile
+  // recovery job when the lockfile is missing or unreadable.
+  const resolution: PlanResolution = scoped
+    ? args.dryRun
+      ? {
+          _tag: "PreviewedPlan",
+          name: plan.name,
+          description: plan.description,
+          jobs: plan.jobs,
+        }
+      : yield* renderer.withSpinner(`Applying ${plan.name}`, () => applyPlan(plan), {
+          successMessage: `Finished applying ${plan.name}`,
+        })
+    : yield* previewOrApplyPlan(plan, {
+        yes: true,
+        force: args.force,
+        preview: args.dryRun,
+        displayApplied: false,
+      });
+
+  if (resolution._tag === "PreviewedPlan") {
+    if (!scoped) yield* renderInstructionPhase(true);
+    yield* emitPlanResolutionResult("sync", resolution);
     return;
   }
 
-  const plan = makeSyncPlan({ materializeSteps: steps, workspaceGeneratorStep });
-
-  if (args.dryRun) {
-    yield* displayPlan(plan);
-    yield* renderInstructionPhase(true);
-    const resolution = mergeSyncResolution(libraryResolution, Option.some(previewPlan(plan)));
-    if (Option.isSome(resolution)) {
-      yield* emitPlanResolutionResult("sync", resolution.value);
-    }
-    return;
+  if (!scoped) {
+    yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
+    yield* renderInstructionPhase(false);
   }
-
-  const executed = yield* applyPlan(plan);
-  yield* cleanupStaleManagedSubagentFiles({ expectedSubagentNames });
-  yield* renderInstructionPhase(false);
-  yield* displayPlan(executed);
-  const resolution = mergeSyncResolution(libraryResolution, Option.some(executed));
-  if (Option.isSome(resolution)) {
-    yield* emitPlanResolutionResult("sync", resolution.value);
-  }
+  yield* displayPlan(resolution);
+  yield* emitPlanResolutionResult("sync", resolution);
 });

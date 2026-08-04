@@ -11,6 +11,11 @@ MCP server packages live in
 subagents, an MCP server has no `src/` body — the whole definition lives in the
 manifest.
 
+The governing standard for this extension type is the
+[Model Context Protocol](https://modelcontextprotocol.io). AXM stores server
+definitions in the protocol's own registry shape rather than an AXM-specific
+one, so a manifest stays portable across agents and registries.
+
 ## mcp.json
 
 [`mcp.json`](https://axm.sh/schemas/mcp.schema.json)
@@ -143,7 +148,7 @@ configs through `axm sync` or `axm lint --fix`.
 Never store literal tokens in `.axm/settings.json`. Put secrets in `env` or
 `headers` as `${VAR}` references and let each agent resolve them from the
 environment at runtime. `axm lint` flags secret-looking literals through
-`workspace/mcp-server-no-secret-literal`, and `mcp.json` marks sensitive
+`workspace/mcps-no-secret-literal`, and `mcp.json` marks sensitive
 inputs with `isSecret` so installers prompt for them instead of hardcoding.
 
 ## Recommended packs
@@ -166,4 +171,5 @@ See `axm help packs` for pack authoring and `standalone` semantics.
 - `axm mcps --help` — full MCP server subcommand surface
 - `axm help mcp-schema` — raw `mcp.json` JSON Schema
 - `axm help settings` — workspace state, `mcpServers`, and `mcpServersConfig`
+- `axm help workspace-state` — packaged and inline MCP observation semantics
 - `axm help packs` — bundling MCP server extensions with extension packs

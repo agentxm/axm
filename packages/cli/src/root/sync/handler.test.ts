@@ -4,18 +4,24 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
 import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { AXM_MANAGED_MARKER } from "@agentxm/client-core/unstable/workspace";
+import {
+  AXM_MANAGED_MARKER,
+  withDegradedLockfileReads,
+} from "@agentxm/client-core/unstable/workspace";
+import YAML from "yaml";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -26,7 +32,7 @@ import {
   planResultSteps,
   property,
 } from "../../test-helpers.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleSync } from "./handler.js";
 
 const writeJson = (filePath: string, value: unknown) => {
@@ -65,6 +71,21 @@ const writeCommandExtension = (baseDir: string, name: string) => {
   fs.writeFileSync(
     path.join(commandDir, "src", `${name}.md`),
     `---\nname: ${name}\ndescription: Test command\n---\n\n# ${name}\n`,
+  );
+};
+
+const writeSkillExtension = (baseDir: string, name: string) => {
+  const skillDir = path.join(baseDir, ".axm", "extensions", "@acme", "skills", name);
+  writeJson(path.join(skillDir, "skill.json"), {
+    owner: "@acme",
+    type: "skill",
+    name,
+    version: "1.0.0",
+  });
+  fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(skillDir, "src", "SKILL.md"),
+    `---\nname: ${name}\ndescription: Test skill\n---\n\n# ${name}\n`,
   );
 };
 
@@ -137,6 +158,7 @@ describe("root sync handler", () => {
         CommandManagerLive,
         FilesManagerLive,
         HookManagerLive,
+        KnowledgeManagerLive,
         McpServerManagerLive,
         RuleManagerLive,
         SkillManagerLive,
@@ -166,7 +188,7 @@ describe("root sync handler", () => {
 
   it.effect("reports no-op when workspace materialization is already up to date", () =>
     Effect.gen(function* () {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: [],
       });
@@ -174,6 +196,10 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ dryRun: false, force: false }));
 
       expect(logs.success).toEqual(["Workspace materialization is up to date"]);
+      expect(rendererState.spinnerMessages).toEqual([
+        "Resolving workspace sync",
+        "Resolved workspace sync",
+      ]);
     }),
   );
 
@@ -191,6 +217,122 @@ describe("root sync handler", () => {
         planName: "Sync workspace",
         message: "Workspace materialization is up to date",
       });
+    }),
+  );
+
+  it.effect("migrates a valid legacy receipt into the dedicated trust baseline", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: [],
+        lockfileSkills: {
+          review: {
+            type: "registry",
+            owner: "@acme",
+            name: "review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        },
+      });
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      const trust = JSON.parse(fs.readFileSync(path.join(axmDir, "trust.json"), "utf8"));
+      expect(trust.records["skill:review"]).toMatchObject({
+        extensionType: "skill",
+        authority: "registry",
+        sourceIdentity: "@acme/skills/review",
+        publisherBindingId: "hbnd_test",
+      });
+    }),
+  );
+
+  it.effect("keeps legacy trust migration preview read-only", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: [],
+        lockfileSkills: {
+          review: {
+            type: "registry",
+            owner: "@acme",
+            name: "review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        },
+      });
+
+      yield* provide(handleSync({ dryRun: true, force: false }));
+
+      expect(fs.existsSync(path.join(axmDir, "trust.json"))).toBe(false);
+    }),
+  );
+
+  it.effect("writes a missing lockfile even when there is nothing to materialize", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, { agents: [] });
+      fs.rmSync(path.join(axmDir, "axm-lock.yaml"), { force: true });
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+      expect(written.lockfileVersion).toBe(3);
+    }),
+  );
+
+  it.effect("backs up and regenerates an unreadable lockfile", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, { agents: [] });
+      fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: []\n");
+
+      // Mirrors the CLI's `withWorkspace` boundary.
+      yield* provide(withDegradedLockfileReads(handleSync({ dryRun: false, force: false })));
+
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 2,
+        warningCount: 2,
+      });
+      expect(result).toMatchObject({
+        steps: [
+          { label: "Recover lockfile (invalid)", status: "applied" },
+          { label: "Reconcile lockfile (invalid)", status: "applied" },
+        ],
+      });
+
+      const written = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+      expect(written.lockfileVersion).toBe(3);
+    }),
+  );
+
+  it.effect("does not fail a dry run against an unreadable lockfile", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, { agents: [] });
+      const corrupt = "lockfileVersion: 3\nskills: []\n";
+      fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), corrupt);
+
+      yield* provide(withDegradedLockfileReads(handleSync({ dryRun: true, force: false })));
+
+      // A dry run reports the recovery it would perform without performing it.
+      expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(corrupt);
     }),
   );
 
@@ -228,6 +370,34 @@ describe("root sync handler", () => {
     }),
   );
 
+  it.effect("does not prune managed artifacts when configured pack state is incomplete", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        packs: {
+          missing: "@acme/packs/missing",
+        },
+      });
+      const configPath = path.join(tempDir, ".mcp.json");
+      writeJson(configPath, {
+        mcpServers: {
+          retained: {
+            "x-axm": { managed: true, source: "@acme/mcps/retained" },
+            type: "stdio",
+            command: "node",
+          },
+        },
+      });
+
+      const error = yield* provide(handleSync({ dryRun: false, force: false })).pipe(Effect.flip);
+
+      expect(error.detail).toContain("incomplete desired extension graph");
+      const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+      expect(config.mcpServers.retained.command).toBe("node");
+    }),
+  );
+
   it.effect("prunes disabled managed MCP server configs without re-materializing them", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
@@ -235,7 +405,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code", "cursor", "codex"],
         mcps: {
-          browser: "@acme/mcps/browser",
+          browser: "workspace:@acme/mcps/browser",
         },
       });
       writeMcpServerExtension(tempDir, "browser");
@@ -370,16 +540,16 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("renders settings-owned on-disk extensions while ignoring stale lockfile sources", () =>
+  it.effect("refuses an unattended source-authority change from stale lock state", () =>
     Effect.gen(function* () {
-      const { provide } = makeLayers();
+      const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = path.join(tempDir, ".axm");
       const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "review");
 
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],
         skills: {
-          review: "@acme/skills/review",
+          review: "workspace:@acme/skills/review",
         },
         lockfileSkills: {
           review: {
@@ -389,7 +559,7 @@ describe("root sync handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -409,12 +579,16 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ dryRun: false, force: false }));
 
-      const renderedSkill = path.join(tempDir, ".claude", "skills", "review", "SKILL.md");
-      const universalSkill = path.join(tempDir, ".agents", "skills", "review", "SKILL.md");
-      expect(fs.existsSync(renderedSkill)).toBe(true);
-      expect(fs.readFileSync(renderedSkill, "utf-8")).toContain("# Review");
-      expect(fs.existsSync(universalSkill)).toBe(true);
-      expect(fs.readFileSync(universalSkill, "utf-8")).toContain("# Review");
+      const payload = expectRecord(rendererState.results[0]?.data);
+      const result = expectRecord(property(payload, "result"));
+      expect(property(result, "outcome")).toBe("failed");
+      expect(property(result, "failedCount")).toBe(1);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review", "SKILL.md"))).toBe(
+        false,
+      );
+      expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "review", "SKILL.md"))).toBe(
+        false,
+      );
     }),
   );
 
@@ -427,7 +601,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(axmDir, {
         agents: [],
         skills: {
-          solo: "@acme/skills/solo",
+          solo: "workspace:@acme/skills/solo",
         },
       });
       writeJson(path.join(skillDir, "skill.json"), {
@@ -452,7 +626,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         commands: {
-          review: "@acme/commands/review",
+          review: "workspace:@acme/commands/review",
         },
       });
       writeCommandExtension(tempDir, "review");
@@ -462,6 +636,100 @@ describe("root sync handler", () => {
       const renderedCommand = path.join(tempDir, ".claude", "commands", "review.md");
       expect(fs.existsSync(renderedCommand)).toBe(true);
       expect(fs.readFileSync(renderedCommand, "utf-8")).toContain("# review");
+    }),
+  );
+
+  it.effect("syncs only the requested extension FQN", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        skills: {
+          review: "workspace:@acme/skills/review",
+        },
+        commands: {
+          release: "workspace:@acme/commands/release",
+        },
+      });
+      writeSkillExtension(tempDir, "review");
+      writeCommandExtension(tempDir, "release");
+
+      yield* provide(
+        handleSync({
+          target: Option.some("@acme/commands/release"),
+          dryRun: false,
+          force: false,
+        }),
+      );
+
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync @acme/commands/release",
+        totalSteps: 1,
+      });
+      const steps = planResultSteps(result);
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
+        status: "applied",
+      });
+      expect(property(expectRecord(steps[0]), "label")).toContain(
+        "previous source=none; proposed source=workspace:@acme/commands/release",
+      );
+      expect(property(expectRecord(steps[0]), "label")).toContain(
+        "previous version=none; proposed version=1.0.0",
+      );
+      expect(property(expectRecord(steps[0]), "label")).toContain("downgrade=no");
+      expect(fs.existsSync(path.join(tempDir, ".claude", "commands", "release.md"))).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(false);
+    }),
+  );
+
+  it.effect("syncs only extensions of the requested type", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        skills: {
+          review: "workspace:@acme/skills/review",
+        },
+        commands: {
+          release: "workspace:@acme/commands/release",
+        },
+      });
+      writeSkillExtension(tempDir, "review");
+      writeCommandExtension(tempDir, "release");
+
+      yield* provide(
+        handleSync({
+          type: Option.some("skill"),
+          dryRun: false,
+          force: false,
+        }),
+      );
+
+      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review", "SKILL.md"))).toBe(
+        true,
+      );
+      expect(fs.existsSync(path.join(tempDir, ".claude", "commands", "release.md"))).toBe(false);
+    }),
+  );
+
+  it.effect("materializes settings-owned knowledge bundles", () =>
+    Effect.gen(function* () {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: [],
+        knowledge: {
+          handbook: "workspace:@acme/knowledge/handbook",
+        },
+      });
+      writeKnowledgeExtension(axmDir, "handbook");
+
+      yield* provide(handleSync({ dryRun: false, force: false }));
+
+      const index = path.join(axmDir, "knowledge", "index.md");
+      expect(fs.existsSync(index)).toBe(true);
+      expect(fs.readFileSync(index, "utf-8")).toContain("[handbook]");
     }),
   );
 
@@ -636,9 +904,9 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ dryRun: true, force: false }));
 
-      expectPreviewedPlanResult(rendererState.results[0]?.data, {
+      expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
-        totalSteps: 1,
+        message: "Workspace materialization is up to date",
       });
       const rendered = rendererState.logs.map((entry) => entry.message).join("\n");
       expect(rendered).not.toContain("instruction gitignore entries");
@@ -652,7 +920,7 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         subagents: {
-          review: "@acme/subagents/review",
+          review: "workspace:@acme/subagents/review",
         },
       });
       writeSubagentExtension(tempDir, "review");
@@ -672,7 +940,7 @@ describe("root sync handler", () => {
         agents: ["claude-code"],
         subagents: {
           review: {
-            source: "@acme/subagents/review",
+            source: "workspace:@acme/subagents/review",
             enabled: false,
           },
         },

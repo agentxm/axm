@@ -1,0 +1,75 @@
+# Machine output
+
+Pass `--json` to receive one complete machine-readable document on stdout.
+Warnings, errors, suggestions, progress, and task logs use one JSON object per
+line (NDJSON) on stderr. Human text never shares the machine stdout channel.
+
+## Success documents
+
+Since AXM CLI 0.25.0, every ordinary command result uses the same envelope:
+
+```json
+{
+  "ok": true,
+  "result": {}
+}
+```
+
+The command-specific payload always lives under `result`. Collections put
+`items[]`, counts, and cursors inside `result`; queries put their resource
+fields inside `result`; mutations put their outcome and steps inside `result`.
+Only optional `summary` and `suggestions[]` may sit beside it.
+
+This is a versioned breaking change from 0.24.x, where payloads could appear
+under `data`, `value`, `items`, or other command-specific top-level keys.
+
+Mutation-plan outcomes are `no-op`, `applied`, `partial`, `failed`,
+`cancelled`, or `previewed`. For every ordinary result, `ok` is `true` exactly
+when the process exits 0 and `false` when it exits nonzero. Inspect step counts
+and committed artifacts when recovering a partial result.
+
+`axm view <ref> <field> --json` places the selected scalar or array directly
+under `result`. Token commands also place their command payload under `result`;
+do not log or forward token result documents.
+
+Built-in formatter documents are the two success-envelope exceptions:
+
+```json
+{ "type": "help", "name": "axm", "usage": "axm <subcommand> [flags]" }
+```
+
+```json
+{ "type": "version", "name": "axm", "version": "0.23.0" }
+```
+
+## Errors
+
+Expected errors and defects return the fixed stdout envelope:
+
+```json
+{
+  "ok": false,
+  "code": "auth",
+  "title": "Unauthorized",
+  "detail": "Credentials are missing, expired, or invalid."
+}
+```
+
+The matching stderr stream ends with an event such as:
+
+```json
+{ "type": "error", "code": "auth", "message": "Credentials are missing, expired, or invalid." }
+```
+
+Normal, verbose, and debug error surfaces redact credentials from metadata,
+response bodies, causes, stacks, URLs, suggestions, and telemetry.
+
+## Consumption
+
+- Parse the entire stdout buffer once; ordinary `--json` is not a result stream.
+- Parse each non-empty stderr line independently as JSON.
+- Branch on `ok` or the process exit code for ordinary results and errors; they
+  agree. Branch on `type` for built-in help and version documents.
+- Read every ordinary command payload from `result`.
+
+Future streaming results require a separate explicit mode and contract.

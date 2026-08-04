@@ -1,17 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
-import { CliOutput, Command } from "effect/unstable/cli";
+
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
 import { ExitCode } from "@agentxm/client-core/unstable/app-error";
+import {
+  EXTENSION_ONLY_TYPES,
+  WORKSPACE_CAPABILITY_EXTENSION_TYPES,
+  toExtensionTypePlural,
+} from "@agentxm/client-core/unstable/extensions";
 
-import { rootCommand, run } from "./app.js";
+import { run } from "./app.js";
+import { captureHelpDoc, collectHelpFiles } from "./command-tree-test-helpers.js";
 import { LearnMore } from "./formatter.js";
-import { baseLayer } from "./runtime.js";
 
-const TEST_VERSION = "0.0.0-test";
-type HelpFiles = Map<string, HelpDoc>;
+const groupCommandNames = (doc: HelpDoc, group: string): ReadonlyArray<string> =>
+  (doc.subcommands ?? [])
+    .filter((entry) => entry.group === group)
+    .flatMap((entry) => entry.commands.map((command) => command.name));
 
 class ExitCalled extends Error {
   readonly code: number;
@@ -21,57 +28,6 @@ class ExitCalled extends Error {
     this.code = code;
   }
 }
-
-const formatCommandPath = (path: ReadonlyArray<string>): string =>
-  path.length === 0 ? "axm" : `axm ${path.join(" ")}`;
-
-const captureHelpDoc = (path: ReadonlyArray<string>): Effect.Effect<HelpDoc, unknown, never> =>
-  Effect.gen(function* () {
-    const files: Array<HelpDoc> = [];
-    const formatter: CliOutput.Formatter = {
-      ...CliOutput.defaultFormatter({ colors: false }),
-      formatHelpDoc: (doc) => {
-        files.push(doc);
-        return "";
-      },
-    };
-
-    yield* Command.runWith(rootCommand, { version: TEST_VERSION })([...path, "--help"]).pipe(
-      Effect.provide(baseLayer),
-      Effect.provideService(CliOutput.Formatter, formatter),
-    );
-
-    const doc = files[0];
-    if (doc === undefined) {
-      return yield* Effect.die(
-        new Error(`Expected help output for ${formatCommandPath(path)} --help`),
-      );
-    }
-
-    return doc;
-  });
-
-const collectHelpFiles = (
-  path: ReadonlyArray<string> = [],
-): Effect.Effect<HelpFiles, unknown, never> =>
-  Effect.gen(function* () {
-    const doc = yield* captureHelpDoc(path);
-    const childPaths = (doc.subcommands ?? []).flatMap((group) =>
-      group.commands.map((subcommand) => [...path, subcommand.name]),
-    );
-    const childEntries: ReadonlyArray<HelpFiles> = yield* Effect.forEach(
-      childPaths,
-      collectHelpFiles,
-      {
-        concurrency: "unbounded",
-      },
-    );
-
-    return new Map([
-      [formatCommandPath(path), doc] as const,
-      ...childEntries.flatMap((entries) => Array.from(entries)),
-    ]);
-  });
 
 describe("root command help", () => {
   it("attaches a LEARN MORE footer pointing at entry-point help topics", async () => {
@@ -104,16 +60,51 @@ describe("root command help", () => {
     expect(missingExamples).toEqual([]);
     expect(invalidExamples).toEqual([]);
   });
+
+  it("opens the EXTENSIONS group with the catalog's extension-only types, in table order", async () => {
+    const doc = await Effect.runPromise(captureHelpDoc([]));
+    const extensions = groupCommandNames(doc, "EXTENSIONS");
+    const expected = EXTENSION_ONLY_TYPES.map(toExtensionTypePlural);
+
+    expect(extensions.slice(0, expected.length)).toEqual(expected);
+  });
+
+  it("lists workspace-capability types under WORKSPACE rather than EXTENSIONS", async () => {
+    const doc = await Effect.runPromise(captureHelpDoc([]));
+    const workspace = groupCommandNames(doc, "WORKSPACE");
+    const extensions = groupCommandNames(doc, "EXTENSIONS");
+    const expected = WORKSPACE_CAPABILITY_EXTENSION_TYPES.map(toExtensionTypePlural);
+
+    expect(expected.filter((plural) => !workspace.includes(plural))).toEqual([]);
+    expect(expected.filter((plural) => extensions.includes(plural))).toEqual([]);
+  });
+
+  it("does not expose the retired maintainer command", async () => {
+    const files = await Effect.runPromise(collectHelpFiles());
+
+    expect(files.has("axm maintainer")).toBe(false);
+  });
 });
 
 describe("root command parser output", () => {
   let stdoutWrites: Array<string>;
+  let stderrWrites: Array<string>;
+  let consoleErrorWrites: Array<string>;
 
   beforeEach(() => {
     stdoutWrites = [];
+    stderrWrites = [];
+    consoleErrorWrites = [];
     vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
       stdoutWrites.push(String(args[0]));
       return true;
+    });
+    vi.spyOn(process.stderr, "write").mockImplementation((...args: Array<unknown>) => {
+      stderrWrites.push(String(args[0]));
+      return true;
+    });
+    vi.spyOn(console, "error").mockImplementation((...args: ReadonlyArray<unknown>) => {
+      consoleErrorWrites.push(args.map(String).join(" "));
     });
     vi.spyOn(process, "exit").mockImplementation((code) => {
       throw new ExitCalled(typeof code === "number" ? code : 0);
@@ -122,6 +113,29 @@ describe("root command parser output", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("rejects an unknown flag with exit 2 across every registered command", async () => {
+    const files = await Effect.runPromise(collectHelpFiles());
+    const unknownFlag = "--definitely-unknown";
+
+    for (const command of files.keys()) {
+      stdoutWrites.length = 0;
+      stderrWrites.length = 0;
+      consoleErrorWrites.length = 0;
+      const commandArgs = command.split(" ").slice(1);
+
+      await expect(
+        run([...commandArgs, unknownFlag, "--non-interactive"]),
+        command,
+      ).rejects.toMatchObject({
+        code: ExitCode.Usage,
+      });
+      expect(stdoutWrites, command).toEqual([]);
+      expect([...stderrWrites, ...consoleErrorWrites].join("\n"), command).toContain(
+        `Unrecognized flag: ${unknownFlag}`,
+      );
+    }
   });
 
   it("emits one JSON usage envelope for missing required flags", async () => {

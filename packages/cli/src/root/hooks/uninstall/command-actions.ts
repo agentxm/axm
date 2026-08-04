@@ -77,7 +77,9 @@ const withHookUninstallArtifact = (args: {
   return {
     ...step,
     run: Effect.gen(function* () {
-      const lockEntry = yield* args.ws.getLockedHookEntry(args.targetName);
+      const lockEntry = yield* args.ws
+        .getLockedHookEntry(args.targetName)
+        .pipe(Effect.catch(() => Effect.succeed(Option.none())));
       const result = yield* step.run;
       if (result.result !== "success") return result;
       return {
@@ -115,15 +117,18 @@ export const UninstallHookCommandWorkflowActionsLive = Layer.effect(
       parsed: ParsedHookUninstallArgs,
     ): Effect.Effect<UninstallHookCommandIntent, AppError> =>
       Effect.gen(function* () {
-        const locked = yield* ws.getLockedHookEntry(parsed.name);
-        const configured = yield* ws.getConfiguredHookEntries();
-        if (Option.isNone(locked) && configured[parsed.name] === undefined) {
+        const target: HookExtensionTarget = { type: "hook", name: parsed.name };
+        const configured =
+          hookManager.getConfiguredSource === undefined
+            ? Option.none<string>()
+            : yield* hookManager.getConfiguredSource({ target });
+        const installed = yield* hookManager.isInstalled({ target });
+        if (Option.isNone(configured) && !installed) {
           return yield* makeAppError({
             code: "not_found",
-            detail: `hooks package "${parsed.name}" is not installed`,
+            detail: `hooks package "${parsed.name}" is not configured or observed`,
           });
         }
-        const target: HookExtensionTarget = { type: "hook", name: parsed.name };
         return { targets: [target] };
       });
 

@@ -28,7 +28,7 @@ export const windsurfAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Devin Desktop reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills (user) with progressive disclosure. It also discovers universal .agents/skills paths.\n",
+          "Devin Desktop reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills (user) with progressive disclosure. It also discovers universal .agents/skills paths. The built-in Cascade agent reached end-of-life 2026-07-01 and is being replaced by Devin Local; the .windsurf/* and ~/.codeium/windsurf/* config surfaces persist under Devin Local.\n",
         docs: [],
         sources: ["https://docs.devin.ai/desktop/cascade/skills"],
         scopes: ["user", "project"],
@@ -69,7 +69,7 @@ export const windsurfAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio", "http"],
+        transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "braced",
           defaults: false,
@@ -77,7 +77,7 @@ export const windsurfAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -101,7 +101,6 @@ export const windsurfAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -118,42 +117,6 @@ export const windsurfAgent = {
       axm: {
         status: "unsupported",
         lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://docs.devin.ai/desktop/cascade/agents-md"],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        directory: ".windsurf/rules",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
         writer: null,
       },
     },
@@ -262,6 +225,14 @@ export const windsurfAgent = {
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-06-06",
           },
+          {
+            nativeName: "post_cascade_response_with_transcript",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
+            lastVerified: "2026-07-22",
+          },
         ],
         tools: [
           {
@@ -296,6 +267,28 @@ export const windsurfAgent = {
         lastVerified: "2026-06-06",
         reason: "AXM has not implemented a Devin Desktop/Cascade hooks writer.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://docs.devin.ai/desktop/cascade/agents-md"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      directory: ".devin/rules",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

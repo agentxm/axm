@@ -59,13 +59,13 @@ export const kiroCliAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://kiro.dev/docs/cli/mcp/"],
+        sources: ["https://kiro.dev/docs/cli/mcp/", "https://kiro.dev/docs/cli/mcp/configuration/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "braced",
           defaults: false,
         },
       },
@@ -107,7 +107,6 @@ export const kiroCliAgent = {
               },
               headersKey: null,
             },
-            transform: null,
           },
         },
       },
@@ -122,43 +121,6 @@ export const kiroCliAgent = {
         scopes: ["user", "project"],
         directory: ".kiro/agents",
         layout: "directory",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Kiro CLI steering files live under .kiro/steering and can be always-on, conditional, or manually referenced.",
-        docs: [],
-        sources: ["https://kiro.dev/docs/cli/steering/"],
-        scopes: ["user", "project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        directory: ".kiro/steering",
-        kind: "rules-dir",
-        files: ["*.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
       },
       axm: {
         status: "supported",
@@ -188,6 +150,29 @@ export const kiroCliAgent = {
       },
     },
   },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Kiro CLI steering files live under .kiro/steering and can be always-on, conditional, or manually referenced.",
+      docs: [],
+      sources: ["https://kiro.dev/docs/cli/steering/"],
+      scopes: ["user", "project"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      directory: ".kiro/steering",
+      kind: "rules-dir",
+      files: ["*.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
+    },
+  },
   permissions: {
     native: {
       availability: { via: "native" },
@@ -197,7 +182,7 @@ export const kiroCliAgent = {
       docs: [],
       sources: [
         "https://kiro.dev/docs/cli/custom-agents/configuration-reference/",
-        "https://kiro.dev/docs/cli/commands/",
+        "https://kiro.dev/docs/cli/",
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file"],

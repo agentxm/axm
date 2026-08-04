@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { SourceTypeSchema } from "@agentxm/client-core/unstable/sources";
 
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import {
   type SuggestedAction,
@@ -21,12 +21,19 @@ import type {
   PlanResolution,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { ArtifactChangeSchema } from "@agentxm/client-core/unstable/plan";
-import { serializeErrorCauseChain } from "@agentxm/client-core/unstable/app-error";
+import {
+  ArtifactChangeSchema,
+  OperationPreconditionSchema,
+} from "@agentxm/client-core/unstable/plan";
+import {
+  redactSensitiveText,
+  serializeErrorCauseChain,
+} from "@agentxm/client-core/unstable/app-error";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   HandleSchema,
+  formatFqn,
 } from "@agentxm/client-core/unstable/extensions";
 import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -136,19 +143,48 @@ const artifactForJson = (
   options: PlanResolutionResultOptions,
 ): StepArtifact => {
   const { targets, source, ...base } = artifact;
-  const rest = options.debug === true && source !== undefined ? { ...base, source } : base;
+  const sanitizedBase = {
+    ...base,
+    ...(base.path === undefined ? {} : { path: redactSensitiveText(base.path) }),
+  };
+  const sanitizedSource =
+    source === undefined
+      ? undefined
+      : {
+          ...source,
+          origin: redactSensitiveText(source.origin),
+          ...(source.ref === undefined ? {} : { ref: redactSensitiveText(source.ref) }),
+        };
+  const rest =
+    options.debug === true && sanitizedSource !== undefined
+      ? { ...sanitizedBase, source: sanitizedSource }
+      : sanitizedBase;
   if (targets === undefined) return rest;
   const additionalTargets = artifact.targets?.filter((target) => target.path !== artifact.path);
   return additionalTargets === undefined || additionalTargets.length === 0
     ? rest
-    : { ...rest, targets: additionalTargets };
+    : {
+        ...rest,
+        targets: additionalTargets.map((target) => ({
+          ...target,
+          path: redactSensitiveText(target.path),
+        })),
+      };
 };
 
 export const PlanResolutionResultSchema = Schema.Struct({
-  outcome: Schema.Literals(["previewed", "cancelled", "applied", "no-op"] as const).annotate({
+  outcome: Schema.Literals([
+    "previewed",
+    "cancelled",
+    "applied",
+    "partial",
+    "failed",
+    "no-op",
+  ] as const).annotate({
     identifier: "PlanOutcome",
     title: "Plan Outcome",
-    description: "Final outcome of a plan resolution: previewed, cancelled, applied, or no-op.",
+    description:
+      "Final outcome of a plan resolution: previewed, cancelled, applied, partial, failed, or no-op.",
   }),
   planName: Schema.String,
   planDescription: Schema.optional(Schema.String),
@@ -160,6 +196,7 @@ export const PlanResolutionResultSchema = Schema.Struct({
   appliedCount: Schema.Number,
   failedCount: Schema.Number,
   blockedCount: Schema.Number,
+  preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
   steps: Schema.Array(StepSchema),
 }).annotate({
   identifier: "PlanResolutionResult",
@@ -172,6 +209,12 @@ export type PlanResolutionResult = typeof PlanResolutionResultSchema.Type;
 const PlanResolutionDocumentFields = {
   result: PlanResolutionResultSchema,
 } satisfies Schema.Struct.Fields;
+export const PlanResolutionDocumentSchema = Schema.Struct(PlanResolutionDocumentFields).annotate({
+  identifier: "PlanResolutionDocument",
+  title: "Plan Resolution Document",
+  description: "Top-level machine-output payload for a resolved AXM operation plan.",
+});
+export type PlanResolutionDocument = typeof PlanResolutionDocumentSchema.Type;
 
 const PublishActionSchema = Schema.Literals(["publish", "skip", "error"] as const).annotate({
   identifier: "PublishAction",
@@ -210,7 +253,9 @@ const PublishResultItemSchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypeSchema,
   name: ExtensionNameSchema,
-  version: VersionSchema,
+  // Omitted when no version was resolved (skipped, not-publishable, or
+  // preflight-failed items). Never fabricated.
+  version: Schema.optional(VersionSchema),
   sourceType: Schema.optional(SourceTypeSchema),
   authored: Schema.optional(Schema.Boolean),
   action: PublishActionSchema,
@@ -230,6 +275,7 @@ const PublishResultItemSchema = Schema.Struct({
 
 export const PublishResultSchema = Schema.Struct({
   mode: PublishModeSchema,
+  preconditions: Schema.optional(Schema.Array(OperationPreconditionSchema)),
   selection: Schema.optional(
     Schema.Struct({
       mode: Schema.Literals(["authored", "all", "explicit", "filtered-explicit"] as const),
@@ -247,6 +293,131 @@ export const PublishResultSchema = Schema.Struct({
 });
 export type PublishResult = typeof PublishResultSchema.Type;
 export type PublishResultItem = typeof PublishResultItemSchema.Type;
+
+const publishIdentity = (item: PublishResultItem): string => {
+  const fqn = formatFqn({ owner: item.owner, type: item.type, name: item.name });
+  return item.version === undefined ? fqn : `${fqn}@${item.version}`;
+};
+
+const publishBrowserSuggestions = (result: PublishResult): ReadonlyArray<SuggestedAction> =>
+  result.results.flatMap((item) =>
+    item.links === undefined ? [] : [{ description: "View in browser", url: item.links.html }],
+  );
+
+const publishItemLine = (item: PublishResultItem): string =>
+  item.links === undefined ? publishIdentity(item) : `${publishIdentity(item)}\n${item.links.html}`;
+
+const renderHumanPublishResult = (
+  renderer: typeof CliRenderer.Service,
+  result: PublishResult,
+  options: {
+    readonly suggestions: ReadonlyArray<SuggestedAction>;
+    readonly withoutSuggestions?: boolean;
+  },
+) =>
+  Effect.gen(function* () {
+    const verbosity = yield* Verbosity;
+    if (verbosity.level === "quiet") return;
+
+    for (const precondition of result.preconditions ?? []) {
+      if (precondition.status === "unmet") {
+        yield* renderer.warn(
+          `${precondition.label}: ${precondition.detail ?? "Required before apply"}`,
+        );
+      }
+    }
+
+    const published = result.results.filter(
+      (item) => item.action === "publish" && item.status === "success",
+    );
+    const publishable = result.results.filter((item) => item.action === "publish");
+    const skipped = result.results.filter((item) => item.action === "skip");
+    const failed = result.results.filter(
+      (item) => item.action === "error" || item.status === "failed",
+    );
+    const suggestions =
+      options.suggestions.length === 0
+        ? undefined
+        : {
+            suggestions: options.suggestions,
+            ...(options.withoutSuggestions === undefined
+              ? {}
+              : { withoutSuggestions: options.withoutSuggestions }),
+          };
+
+    if (result.results.length === 0) {
+      yield* renderer.success("No extensions selected for publishing", suggestions);
+      return;
+    }
+
+    if (result.mode === "preview") {
+      const previewItems = publishable.filter((item) => item.status !== "failed");
+      const [previewItem] = previewItems;
+      const headline =
+        previewItem !== undefined && previewItems.length === 1
+          ? `Would publish ${publishIdentity(previewItem)}`
+          : `Would publish ${count(previewItems.length, "extension")}`;
+      const summary =
+        previewItems.length <= 1
+          ? undefined
+          : previewItems.map((item) => publishItemLine(item)).join("\n");
+      const previewOptions = {
+        ...(summary === undefined ? {} : { summary }),
+        ...(suggestions ?? {}),
+      };
+      yield* renderer.success(headline, previewOptions);
+      if (failed.length > 0) {
+        yield* renderer.error(`${count(failed.length, "extension")} blocked from publishing`);
+      }
+      return;
+    }
+
+    if (published.length > 0 && failed.length === 0) {
+      const [publishedItem] = published;
+      const headline =
+        publishedItem !== undefined && published.length === 1
+          ? `Published ${publishItemLine(publishedItem)}`
+          : `Published ${count(published.length, "extension")}`;
+      const summary =
+        published.length <= 1
+          ? undefined
+          : published.map((item) => publishItemLine(item)).join("\n");
+      yield* renderer.success(headline, {
+        ...(summary === undefined ? {} : { summary }),
+        ...(suggestions ?? {}),
+      });
+      return;
+    }
+
+    if (published.length > 0) {
+      const headline = `Published ${count(published.length, "extension")}; ${count(
+        failed.length,
+        "extension",
+      )} failed`;
+      yield* renderer.error(headline, suggestions);
+      yield* renderer.info(
+        [...published, ...failed].map((item) => publishItemLine(item)).join("\n"),
+      );
+      return;
+    }
+
+    if (failed.length > 0) {
+      const [failedItem] = failed;
+      const headline =
+        failedItem !== undefined && failed.length === 1
+          ? `Failed to publish ${publishIdentity(failedItem)}`
+          : `Failed to publish ${count(failed.length, "extension")}`;
+      yield* renderer.error(headline, suggestions);
+      return;
+    }
+
+    const [skippedItem] = skipped;
+    const headline =
+      skippedItem !== undefined && skipped.length === 1
+        ? `Already published — ${publishIdentity(skippedItem)}`
+        : `No extensions published — ${count(skipped.length, "extension")} already published`;
+    yield* renderer.success(headline, suggestions);
+  });
 
 const plannedStepToStep = (step: PlannedJobStep): Step => {
   switch (step.readiness) {
@@ -280,14 +451,18 @@ const completedStepToStep = (
     return {
       label: step.label,
       status,
-      ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
+      ...(step.result.message.length > 0
+        ? { message: redactSensitiveText(step.result.message) }
+        : {}),
       ...(step.result.warnings !== undefined && step.result.warnings.length > 0
-        ? { warnings: step.result.warnings }
+        ? { warnings: step.result.warnings.map((warning) => redactSensitiveText(warning)) }
         : {}),
       ...(step.result.artifact !== undefined
         ? { artifact: artifactForJson(step.result.artifact, options) }
         : {}),
-      ...(step.result.links !== undefined ? { links: step.result.links } : {}),
+      ...(step.result.links !== undefined
+        ? { links: { html: redactSensitiveText(step.result.links.html) } }
+        : {}),
     };
   }
 
@@ -299,13 +474,15 @@ const completedStepToStep = (
   return {
     label: step.label,
     status: step.result.message.includes("blocked") ? "blocked" : "failed",
-    ...(step.result.message.length > 0 ? { message: step.result.message } : {}),
+    ...(step.result.message.length > 0
+      ? { message: redactSensitiveText(step.result.message) }
+      : {}),
     code,
     ...(includeErrorDetails
       ? {
           error: {
             code,
-            message: step.result.error.detail,
+            message: redactSensitiveText(step.result.error.detail),
             ...(causes.length > 0 ? { causes } : {}),
           },
         }
@@ -343,6 +520,9 @@ export const toPlanResolutionResult = (
         appliedCount: 0,
         failedCount: 0,
         blockedCount: 0,
+        ...(resolution.preconditions === undefined
+          ? {}
+          : { preconditions: resolution.preconditions }),
         steps,
       };
     }
@@ -356,7 +536,13 @@ export const toPlanResolutionResult = (
       const warningCount = steps.reduce((total, step) => total + (step.warnings?.length ?? 0), 0);
       const description = planDescription(resolution);
       const outcome =
-        appliedCount === 0 && failedCount === 0 && blockedCount === 0 ? "no-op" : "applied";
+        failedCount > 0 || blockedCount > 0
+          ? appliedCount > 0
+            ? "partial"
+            : "failed"
+          : appliedCount > 0
+            ? "applied"
+            : "no-op";
 
       return {
         outcome,
@@ -369,6 +555,9 @@ export const toPlanResolutionResult = (
         appliedCount,
         failedCount,
         blockedCount,
+        ...(resolution.preconditions === undefined
+          ? {}
+          : { preconditions: resolution.preconditions }),
         steps,
       };
     }
@@ -392,15 +581,19 @@ export const emitPlanResolutionResult = <TCommand extends string>(
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(planResolutionToSummary(resolution, {})),
     });
+    const result = toPlanResolutionResult(resolution, {
+      verbose: verbosity.isAtLeast("verbose"),
+      debug: verbosity.level === "debug",
+    });
     return yield* renderer.result(
       {
-        result: toPlanResolutionResult(resolution, {
-          verbose: verbosity.isAtLeast("verbose"),
-          debug: verbosity.level === "debug",
-        }),
+        result,
       },
-      Schema.Struct(PlanResolutionDocumentFields),
-      options,
+      PlanResolutionDocumentSchema,
+      {
+        ...options,
+        ok: result.outcome !== "failed" && result.outcome !== "partial",
+      },
     );
   });
 
@@ -415,8 +608,63 @@ export const emitPublishResult = <TCommand extends string>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    return yield* renderer.result(result, PublishResultSchema, options);
+    const browserSuggestions = publishBrowserSuggestions(result);
+    const suggestions = [...(options?.suggestions ?? []), ...browserSuggestions];
+    const summary = publishResultToSummary(result);
+    const renderOptions = {
+      ...(options?.summary === undefined ? {} : { summary: options.summary }),
+      ...(suggestions.length === 0 ? {} : { suggestions }),
+      ...(options?.withoutSuggestions === undefined
+        ? {}
+        : { withoutSuggestions: options.withoutSuggestions }),
+      ok: summary.failedCount === 0,
+    };
+    const existingSemanticProperties = yield* getCommandSemanticProperties;
+    yield* setCommandSemanticProperties({
+      ...existingSemanticProperties,
+      ...summarizeCommandOutcome(summary),
+    });
+    const emitted = yield* renderer.result(result, PublishResultSchema, renderOptions);
+    if (!emitted) {
+      yield* renderHumanPublishResult(renderer, result, {
+        suggestions,
+        ...(options?.withoutSuggestions === undefined
+          ? {}
+          : { withoutSuggestions: options.withoutSuggestions }),
+      });
+    }
+    return emitted;
   });
+
+/**
+ * Convert a PublishResult to a CommandOutcomeSummary for telemetry.
+ *
+ * Outcome follows the same convention as executed plans: a run that touched
+ * nothing is `no-op`, and any applied or failed work is `applied` even when
+ * every item failed, so partial failures stay in one bucket.
+ */
+export const publishResultToSummary = (result: PublishResult): CommandOutcomeSummary => {
+  const appliedCount = result.results.filter(
+    (item) => item.action === "publish" && item.status === "success",
+  ).length;
+  const failedCount = result.results.filter((item) => item.status === "failed").length;
+  const types = new Set(result.results.map((item) => item.type));
+  const [onlyType] = [...types];
+  const subjectType: SubjectType =
+    onlyType === undefined ? "unknown" : types.size === 1 ? onlyType : "mixed";
+  return {
+    outcome:
+      result.mode === "preview"
+        ? "previewed"
+        : appliedCount === 0 && failedCount === 0
+          ? "no-op"
+          : "applied",
+    subjectType,
+    sourceKind: "workspace",
+    appliedCount,
+    failedCount,
+  };
+};
 
 /**
  * Convert a PlanResolution to a CommandOutcomeSummary for telemetry.
@@ -473,7 +721,7 @@ export const emitNoOpResult = <TCommand extends string>(
           steps: [],
         },
       },
-      Schema.Struct(PlanResolutionDocumentFields),
+      PlanResolutionDocumentSchema,
       options,
     );
   });

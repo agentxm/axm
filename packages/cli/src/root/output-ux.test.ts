@@ -84,6 +84,11 @@ interface DirectRendererResultFinding {
   readonly reason: string;
 }
 
+interface IgnoredRendererResultFinding {
+  readonly file: string;
+  readonly line: number;
+}
+
 const readOnlyRendererResultFiles = new Set([
   "packages/cli/src/root/agents/list.ts",
   "packages/cli/src/root/auth/whoami.ts",
@@ -97,10 +102,10 @@ const rendererResultCallPattern = /\brenderer\.result\(/g;
 const resultCallSnippetLength = 2_400;
 
 const planResultCallPattern =
-  /\b(?:PlanResolutionDocumentFields|PlanResolutionResultSchema|SetupDocumentFields|UpgradeDocumentFields|LoginDocumentFields|LoginNoOpDocumentFields|LogoutDocumentFields|CreatedTokenDocumentFields|RevokeTokenDocumentFields|LintFixJsonDocumentFields)\b/;
+  /\b(?:PlanResolutionDocumentSchema|PlanResolutionResultSchema|PublishResultSchema|SetupDocumentSchema|UpgradeDocumentSchema|LoginDocumentSchema|LoginNoOpDocumentSchema|DeviceLoginPendingDocumentSchema|LogoutDocumentSchema|CreatedTokenDocumentSchema|RevokeTokenDocumentSchema|LintFixDocumentSchema)\b/;
 
 const readQueryResultCallPattern =
-  /\b(?:AgentsListOutputSchema|CachePruneOutputSchema|CacheStatusOutputSchema|CacheVerifyOutputSchema|DiscoverOutputSchema|ExtensionInventorySchema|GrantListOutputSchema|HelpTopicResultSchema|HelpTopicsResultSchema|InstructionsStatusOutputSchema|KnowledgeListQueryResultSchema|KnowledgeSearchQueryResultSchema|KnowledgeOpenQueryResultSchema|KnowledgeLintQueryResultSchema|LintJsonDocumentFields|MaintainerOutputSchema|McpServerGetResultSchema|OutdatedDocumentFields|TokenDocumentFields|TokenListDocumentFields|ViewDocumentFields|WhoamiDocumentFields|Schema\.Array\(Schema\.String\)|Schema\.String)\b/;
+  /\b(?:AgentCapabilitiesOutputSchema|AgentsListOutputSchema|CachePruneOutputSchema|CacheStatusOutputSchema|CacheVerifyOutputSchema|DiscoverOutputSchema|ExtensionInventorySchema|GrantListOutputSchema|HelpIndexResultSchema|HelpTopicResultSchema|HookPortabilityResultSchema|InstructionsStatusOutputSchema|KnowledgeListQueryResultSchema|KnowledgeSearchQueryResultSchema|KnowledgeOpenQueryResultSchema|KnowledgeLintQueryResultSchema|LintResultDocumentSchema|ExtensionShowResultSchema|OutdatedDocumentSchema|PackRepairResultSchema|PackShowResultSchema|TokenDocumentSchema|TokenListDocumentSchema|ViewDocumentSchema|ViewFieldValueSchema|WhoamiDocumentSchema|WorkspaceStatusSchema)\b/;
 
 const visibleLiteralText = (literal: string): string =>
   literal.startsWith("`") ? literal.replace(templateExpressionPattern, "") : literal;
@@ -247,6 +252,34 @@ const directRendererResultFindings = (): ReadonlyArray<DirectRendererResultFindi
     }),
   );
 
+const ignoredRendererResultFindings = (): ReadonlyArray<IgnoredRendererResultFinding> =>
+  sourceRoots.flatMap((sourceRoot) =>
+    collectSourceFiles(path.join(repoRoot, sourceRoot)).flatMap((file) => {
+      const source = fs.readFileSync(file, "utf8");
+      const lines = source.split("\n");
+      const relativeFile = path.relative(repoRoot, file);
+
+      return Array.from(source.matchAll(rendererResultCallPattern)).flatMap((match) => {
+        const lineIndex = lineIndexAtOffset(source, match.index);
+        const line = lines[lineIndex] ?? "";
+        const prefix = line.slice(0, line.indexOf("renderer.result"));
+        const previousNonEmpty = lines
+          .slice(Math.max(0, lineIndex - 3), lineIndex)
+          .map((candidate) => candidate.trim())
+          .filter((candidate) => candidate.length > 0)
+          .at(-1);
+        const resultIsConsumed =
+          /\b(?:if|return)\s*\([^)]*$/.test(prefix) ||
+          /\breturn\s+yield\*\s*$/.test(prefix) ||
+          /=\s*yield\*\s*$/.test(prefix) ||
+          prefix.includes("!(") ||
+          previousNonEmpty === "if (";
+
+        return resultIsConsumed ? [] : [{ file: relativeFile, line: lineIndex + 1 }];
+      });
+    }),
+  );
+
 describe("CLI output UX", () => {
   it("keeps generic completion and plural-shorthand phrases out of production strings", () => {
     expect(outputUxFindings()).toEqual([]);
@@ -258,5 +291,9 @@ describe("CLI output UX", () => {
 
   it("keeps bespoke mutation JSON results tied to the plan model", () => {
     expect(directRendererResultFindings()).toEqual([]);
+  });
+
+  it("consumes every renderer.result machine-output decision", () => {
+    expect(ignoredRendererResultFindings()).toEqual([]);
   });
 });

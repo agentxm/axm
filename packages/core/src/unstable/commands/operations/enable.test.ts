@@ -10,9 +10,11 @@ import { afterEach, beforeEach, vi } from "vitest";
 import type { AppError } from "../../app-error/index.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
+import { computePackageContentHash } from "../../extensions/package-hash.js";
 import type { CommandLockEntry } from "../../lockfile/index.js";
 import { handle } from "../../test-helpers.js";
 import { makeRegistryCommandLockEntry } from "../../workspace/test-stubs.js";
+import { TRUST_STATE_VERSION } from "../../trust/index.js";
 import type { EnableCommandOperation } from "./enable.js";
 import { enableCommand } from "./enable.js";
 import { makeAgentRepoMock, makeWorkspaceMock } from "./test-helpers.js";
@@ -31,6 +33,7 @@ const withServices = (
       lockEntry: unknown;
     }) => Effect.Effect<void, AppError>;
   },
+  contentIdentity?: string,
 ) => {
   const setCommandFn = wsOverrides?.setCommandFn;
   const setCommandLockFn = wsOverrides?.setCommandLockFn;
@@ -41,6 +44,33 @@ const withServices = (
       makeWorkspaceMock(axmDir, {
         getLockedCommands: () => Effect.succeed(lockEntry ? { "my-command": lockEntry } : {}),
         getLockedCommand: () => Effect.succeed(Option.fromUndefinedOr(lockEntry)),
+        getTrustState: () =>
+          Effect.succeed({
+            trustStateVersion: TRUST_STATE_VERSION,
+            records:
+              lockEntry?.type === "registry"
+                ? {
+                    "command:my-command": {
+                      extensionType: "command",
+                      name: "my-command",
+                      authority: "registry",
+                      sourceIdentity: "@community/commands/my-command",
+                      resolvedVersion: lockEntry.resolvedVersion,
+                      publisherBindingId: lockEntry.publisherBindingId,
+                      sourceName: lockEntry.sourceName,
+                      integrity: lockEntry.integrity,
+                      contentIdentity: contentIdentity ?? "0".repeat(64),
+                    },
+                  }
+                : {},
+          }),
+        getConfiguredCommandEntries: () =>
+          Effect.succeed({
+            "my-command": {
+              source: "@community/commands/my-command",
+              enabled: false,
+            },
+          }),
         setCommand: setCommandFn
           ? (args: { name: string; lockEntry: unknown }) => setCommandFn(args)
           : () => Effect.void,
@@ -82,22 +112,20 @@ describe("enableCommand", () => {
   });
 
   describe("settings-only path (no lock entry)", () => {
-    it.effect("returns success when no lock entry", () =>
+    it.effect("fails when desired settings have no trusted canonical content", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        const result = yield* enableCommand(makeOp()).pipe(Effect.provide(withServices(axmDir)));
+        const result = yield* enableCommand(makeOp()).pipe(
+          Effect.provide(withServices(axmDir)),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
+        );
 
-        expect(result.result).toBe("success");
-        expect(result.message).toBe("Enabled my-command");
-        if (result.result === "success") {
-          expect(result.artifact).toEqual({
-            path: ".axm/settings.json",
-            scope: "project",
-            change: "updated",
-          });
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("not_found");
         }
       }),
     );
@@ -117,17 +145,28 @@ describe("enableCommand", () => {
           "commands",
           "my-command",
         );
-        fs.mkdirSync(canonicalPath, { recursive: true });
-        fs.writeFileSync(path.join(canonicalPath, "my-command.md"), "Hello world");
+        fs.mkdirSync(path.join(canonicalPath, "src"), { recursive: true });
+        fs.writeFileSync(
+          path.join(canonicalPath, "command.json"),
+          JSON.stringify({
+            owner: "@community",
+            type: "command",
+            name: "my-command",
+            version: "1.0.0",
+          }),
+        );
+        fs.writeFileSync(path.join(canonicalPath, "src", "my-command.md"), "Hello world");
 
         const setCommandLockFn = vi.fn(
           (_args: { name: string; lockEntry: unknown }) => Effect.void,
         );
         const lockEntry = makeRegistryLockEntry();
-
-        const result = yield* enableCommand(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, lockEntry, { setCommandLockFn })),
+        const contentIdentity = yield* computePackageContentHash(canonicalPath).pipe(
+          Effect.provide(NodeServices.layer),
         );
+        const services = withServices(axmDir, lockEntry, { setCommandLockFn }, contentIdentity);
+
+        const result = yield* enableCommand(makeOp()).pipe(Effect.provide(services));
 
         expect(result.result).toBe("success");
         expect(result.message).toBe("Enabled my-command");
@@ -148,7 +187,7 @@ describe("enableCommand", () => {
             ],
           });
         }
-        expect(setCommandLockFn).toHaveBeenCalledOnce();
+        expect(setCommandLockFn).not.toHaveBeenCalled();
       }),
     );
 

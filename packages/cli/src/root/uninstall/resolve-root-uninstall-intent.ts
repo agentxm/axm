@@ -10,13 +10,12 @@ import {
   toInstallableExtensionType,
   type InstallableExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
-import { parseLibraryRef } from "@agentxm/client-core/unstable/libraries";
 import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
 
 export const rootUninstallableTypeSegments = installableExtensionTypePluralSegments;
-export type RootUninstallableType = InstallableExtensionType | "library";
+export type RootUninstallableType = InstallableExtensionType;
 
 export interface RootUninstallIntent {
   readonly source: string;
@@ -25,9 +24,7 @@ export interface RootUninstallIntent {
 }
 
 const rootUninstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
-const rootLibraryUninstallFqnGrammar = "@<handle>/libraries/<name>";
-
-const supportedRootUninstallTypes = [...rootUninstallableTypeSegments, "libraries"].join(", ");
+const supportedRootUninstallTypes = rootUninstallableTypeSegments.join(", ");
 
 const genericPerTypeUninstallGuidance =
   "Use the matching per-type uninstall command instead: `axm skills uninstall <name>`, `axm commands uninstall <name>`, `axm subagents uninstall <name>`, `axm packs uninstall <name>`, or `axm mcps uninstall <name>`.";
@@ -70,24 +67,16 @@ export const resolveRootUninstallIntent = (input: string) =>
     }
 
     if (pluralType === "libraries") {
-      const libraryRef = parseLibraryRef(source);
-      if (libraryRef === undefined) {
-        return yield* makeAppError({
-          code: "validation",
-          detail: "Library uninstall source must be a bare Library ref",
-          suggestions: [
-            {
-              description: `Use ${rootLibraryUninstallFqnGrammar}. Libraries do not accept version suffixes.`,
-            },
-          ],
-        });
-      }
-
-      return {
-        source,
-        type: "library",
-        name: libraryRef.name,
-      } satisfies RootUninstallIntent;
+      return yield* makeAppError({
+        code: "usage",
+        detail: "Libraries are curated registry collections and cannot be uninstalled",
+        suggestions: [
+          {
+            description:
+              "Uninstall individual extensions by FQN; Libraries do not create workspace state.",
+          },
+        ],
+      });
     }
 
     const parsed = yield* decodeRegistrySourceRef(source).pipe(

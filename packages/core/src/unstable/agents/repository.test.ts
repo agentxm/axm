@@ -91,6 +91,26 @@ describe("DefaultCodingAgentRepository", () => {
     }).pipe(Effect.provide(withWorkspace(["qoder"]))),
   );
 
+  it.effect("resolves skills only for agents the capability catalog supports", () =>
+    Effect.gen(function* () {
+      // Behavior-neutral today: every catalog agent supports skills, and the
+      // universal descriptor is not a catalog agent. The gate exists so an
+      // agent whose skill capability AXM stops supporting refuses instead of
+      // resolving an empty directory onto the workspace root.
+      const agents = yield* DefaultCodingAgentRepository.all;
+      const resolved = yield* Effect.forEach(agents, (agent) =>
+        agent
+          .resolveEffectiveSkillsDir({ workspaceRoot: "/workspace" })
+          .pipe(Effect.map((outcome) => [agent.id, outcome._tag] as const)),
+      );
+
+      expect(resolved.filter(([, tag]) => tag !== "supported")).toEqual([]);
+      for (const [, outcome] of resolved) {
+        expect(outcome).toBe("supported");
+      }
+    }).pipe(Effect.provide(withWorkspace([]))),
+  );
+
   it.effect("prepends universal to materialization agents", () =>
     Effect.gen(function* () {
       const agents = yield* DefaultCodingAgentRepository.getMaterializationAgents();

@@ -9,15 +9,20 @@ import {
   extensionTypeToPlural,
   fqnInvalidErrorToAppError,
   parseFqn,
-  type ExtensionType,
 } from "@agentxm/client-core/unstable/extensions";
+import type { PublishableType } from "./command.js";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { AuthLayer, withRuntime, withWorkspace } from "../../runtime.js";
-import { skipExistingFlag } from "../shared/publish-flags.js";
+import {
+  allowOlderFlag,
+  allowUnsafeArchiveFlag,
+  onExistingFlag,
+  skipExistingFlag,
+} from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
-type PerTypePublishType = Exclude<ExtensionType, "rule">;
+type PerTypePublishType = PublishableType;
 
 const normalizeSelector = (type: PerTypePublishType, selector: string) =>
   Effect.gen(function* () {
@@ -59,11 +64,10 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       Flag.withDescription("Override the target registry URL for automation"),
       Flag.optional,
     ),
-    onExisting: Flag.choice("on-existing", ["error", "skip", "verify"] as const).pipe(
-      Flag.withDescription("Policy when a version already exists"),
-      Flag.withDefault("error"),
-    ),
+    onExisting: onExistingFlag,
     skipExisting: skipExistingFlag,
+    allowOlder: allowOlderFlag,
+    allowUnsafeArchive: allowUnsafeArchiveFlag,
     visibility: Flag.choice("visibility", ["public", "private"] as const).pipe(
       Flag.withDescription("Initial visibility for one explicit publish"),
       Flag.optional,
@@ -77,7 +81,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     ),
     yes: yesFlag.pipe(Flag.withDescription("Publish without confirmation")),
     force: forceFlag.pipe(
-      Flag.withDescription("Allow an older unpublished version; never overwrite a version"),
+      Flag.withDescription("Proceed past blocked plan steps; never overwrites a published version"),
     ),
     preview: previewFlag.pipe(Flag.withDescription("Preflight without uploading")),
   } as const;
@@ -107,6 +111,8 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         registryUrl: parsed.registryUrl,
         onExisting: parsed.onExisting,
         skipExisting: parsed.skipExisting,
+        allowOlder: parsed.allowOlder,
+        allowUnsafeArchive: parsed.allowUnsafeArchive,
         yes: parsed.yes,
         force: parsed.force,
         preview: parsed.preview,
@@ -144,3 +150,4 @@ export const filesPublishCommand = makePerTypePublishCommand("files");
 export const hooksPublishCommand = makePerTypePublishCommand("hook");
 export const knowledgePublishCommand = makePerTypePublishCommand("knowledge");
 export const packsPublishCommand = makePerTypePublishCommand("pack");
+export const rulesPublishCommand = makePerTypePublishCommand("rule");

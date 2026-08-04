@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeHttp from "node:http";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -49,13 +50,13 @@ describe("runPublishAuthorization", () => {
         return Effect.succeed({
           requestId: "pubreq_test",
           authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_test",
-          expiresAt: "2099-01-01T00:00:00.000Z",
+          expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
         });
       },
       exchangePublishAuthorizationCode: (params) =>
         Effect.succeed({
           accessToken: "axm_pub_capability",
-          expiresAt: "2099-01-01T00:15:00.000Z",
+          expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
           scope: "extensions:publish:version",
           publishRequestId: "pubreq_test",
         }).pipe(
@@ -107,7 +108,7 @@ describe("runPublishAuthorization", () => {
         return Effect.succeed({
           requestId: "pubreq_denied",
           authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_denied",
-          expiresAt: "2099-01-01T00:00:00.000Z",
+          expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
         });
       },
     });
@@ -145,7 +146,7 @@ describe("runPublishAuthorization", () => {
         return Effect.succeed({
           requestId: "pubreq_wrong_issuer",
           authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_wrong_issuer",
-          expiresAt: "2099-01-01T00:00:00.000Z",
+          expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
         });
       },
     });
@@ -183,7 +184,7 @@ describe("runPublishAuthorization", () => {
         return Effect.succeed({
           requestId: "pubreq_exchange_failure",
           authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_exchange_failure",
-          expiresAt: "2099-01-01T00:00:00.000Z",
+          expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
         });
       },
       exchangePublishAuthorizationCode: () =>

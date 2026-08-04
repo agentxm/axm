@@ -19,9 +19,10 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import {
-  buildRegistrySubagentRef,
   SubagentManagerLive,
+  type RegistrySubagentRef,
 } from "@agentxm/client-core/unstable/subagents";
+import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import {
   expectNoOpPlanResult,
@@ -54,7 +55,7 @@ const initWorkspace = (
   if (opts?.sources) settings["sources"] = opts.sources;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 1,
+    lockfileVersion: 3,
     skills: {},
     subagents: opts?.subagentLocks ?? {},
   };
@@ -69,6 +70,26 @@ const defaultArgs = (overrides: Partial<UpdateHandlerArgs> = {}): UpdateHandlerA
   yes: false,
   preview: false,
   ...overrides,
+});
+
+const makeRegistrySubagentRef = (
+  name: string,
+  version: string,
+  source: RegistrySource,
+): RegistrySubagentRef => ({
+  type: "subagent",
+  refType: "registry",
+  source,
+  subagent: {
+    name: extensionName(name),
+    description: Option.none(),
+  },
+  owner: handle("@acme"),
+  name: extensionName(name),
+  version: exactVersion(version),
+  publisherBindingId: "hbnd_test",
+  integrity: Option.none(),
+  packages: [],
 });
 
 // -----------------------------------------------------------------------------
@@ -211,9 +232,7 @@ describe("subagents-update.handler", () => {
           yield* handleUpdate(defaultArgs({ subagents: ["nonexistent-*"] }));
 
           expect(
-            logs.success.some((m) =>
-              m.includes("No installed subagents match the --subagent filter"),
-            ),
+            logs.success.some((m) => m.includes("No installed subagents match the --name filter")),
           ).toBe(true);
         }),
       );
@@ -234,16 +253,7 @@ describe("subagents-update.handler", () => {
           name: "test",
         };
         const sourcesLayer = Layer.succeed(SourceHostProviders, {
-          find: () =>
-            Effect.succeed([
-              buildRegistrySubagentRef(
-                handle("@acme"),
-                extensionName("researcher"),
-                exactVersion("2.0.0"),
-                source,
-                [],
-              ),
-            ]),
+          find: () => Effect.succeed([makeRegistrySubagentRef("researcher", "2.0.0", source)]),
           fetch: () => Effect.die("unused"),
           cloneUrl: () => Option.none(),
           origin: () => "test",
@@ -276,6 +286,7 @@ describe("subagents-update.handler", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha384-test",
               sourceName: "test",
+              publisherBindingId: "hbnd_test",
               agents: ["claude-code"],
               installedAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -313,6 +324,7 @@ describe("subagents-update.handler", () => {
               resolvedVersion: "1.0.0",
               integrity: "sha384-test",
               sourceName: "test",
+              publisherBindingId: "hbnd_test",
               agents: ["claude-code"],
               installedAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -369,15 +381,7 @@ describe("subagents-update.handler", () => {
         find: (_source, request) =>
           Effect.succeed(
             request.names.includes("researcher")
-              ? [
-                  buildRegistrySubagentRef(
-                    handle("@acme"),
-                    extensionName("researcher"),
-                    exactVersion("2.0.0"),
-                    source,
-                    [],
-                  ),
-                ]
+              ? [makeRegistrySubagentRef("researcher", "2.0.0", source)]
               : [],
           ),
         fetch: () => Effect.die("unused"),
@@ -413,6 +417,7 @@ describe("subagents-update.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha384-test",
             sourceName: "test",
+            publisherBindingId: "hbnd_test",
             agents: ["claude-code"],
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -424,6 +429,7 @@ describe("subagents-update.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha384-test",
             sourceName: "test",
+            publisherBindingId: "hbnd_test",
             agents: ["claude-code"],
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

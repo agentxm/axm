@@ -23,6 +23,7 @@ import {
   type CommandSyncConfig,
 } from "./command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "./subagent-sync.js";
+import { userScopeRefusal } from "./scope-refusal.js";
 import type { AgentId } from "./types.js";
 import type * as FileSystem from "effect/FileSystem";
 import type { AppError } from "../app-error/index.js";
@@ -104,7 +105,11 @@ export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): Codi
         if (scope === "user") {
           return {
             _tag: "unsupported",
-            reason: `${config.displayName} does not support user-scope commands`,
+            reason: userScopeRefusal({
+              agentId: config.agentId,
+              agentName: config.displayName,
+              type: "commands",
+            }),
           } as const;
         }
         const path = yield* Path.Path;
@@ -130,7 +135,11 @@ export const makeProjectOnlyCodingAgent = (config: ProjectOnlyAgentConfig): Codi
         if (scope === "user") {
           return {
             _tag: "unsupported",
-            reason: `${config.displayName} does not support user-scope subagents`,
+            reason: userScopeRefusal({
+              agentId: config.agentId,
+              agentName: config.displayName,
+              type: "subagents",
+            }),
           } as const;
         }
         return {

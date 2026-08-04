@@ -2,11 +2,11 @@
  * files subject module: declared/resolved/actual payloads, scanner composition,
  * and projections via the shared helper.
  *
- * files have no `settings.json` entry shape and no `axm-lock.yaml` entry
- * shape in v1; `declared` and `resolved` cells therefore return
- * `Option.none()` permanently. Actual occurrences come exclusively from the
+ * Declared packages come from `settings.files`; resolved packages come from
+ * `axm-lock.yaml` `files`. Actual occurrences come exclusively from the
  * canonical-extensions scanner (`type === "files"`); no agent registers a
- * files rendering directory.
+ * files rendering directory. Pack members arrive through the pack lock
+ * `resolvedFiles` map.
  *
  * The projection helper still owns ignored/unmanaged behavior: a canonical
  * files occurrence whose name matches an ignored pattern produces an ignored
@@ -15,8 +15,11 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { ExtensionName } from "../../../extensions/common.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
+import type { FilesLockEntry, Lockfile } from "../../../lockfile/schema.js";
+import type { FilesEntry, Settings } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
+import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
   ActivationState,
@@ -26,6 +29,7 @@ import type {
   Scope,
 } from "../types.js";
 import { filterMapOccurrences } from "./actual-helpers.js";
+import { matchesIgnoredPattern } from "./ignore-patterns.js";
 import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
@@ -44,14 +48,16 @@ export type FilesDetectionOrigin =
 // Payloads
 // ---------------------------------------------------------------------------
 
-/**
- * v1 has no settings entry for files; the declared payload type is `never[]`
- * effectively, but the helper still wants a typed array shape.
- */
-export type DeclaredFilesPackage = never;
+export interface DeclaredFilesPackage {
+  readonly name: ExtensionName;
+  readonly entry: FilesEntry;
+}
 export type DeclaredFiles = ReadonlyArray<DeclaredFilesPackage>;
 
-export type ResolvedFilesPackage = never;
+export interface ResolvedFilesPackage {
+  readonly name: ExtensionName;
+  readonly lockEntry: FilesLockEntry;
+}
 export type ResolvedFiles = ReadonlyArray<ResolvedFilesPackage>;
 
 export interface ActualFilesPackage {
@@ -81,11 +87,23 @@ export interface UnmanagedFilesPackage {
   readonly actual: ActualFilesPackage;
 }
 
-export type IgnoredFilesCandidate = {
-  readonly key: ExtensionKey<"files">;
-  readonly reason: "actual-ignored";
-  readonly actual: ActualFilesPackage;
-};
+export type IgnoredFilesCandidate =
+  | {
+      readonly key: ExtensionKey<"files">;
+      readonly reason: "declared-ignored";
+      readonly declared: DeclaredFilesPackage;
+    }
+  | {
+      readonly key: ExtensionKey<"files">;
+      readonly reason: "pack-member-ignored";
+      readonly member: FilesPackMember;
+      readonly pack: InstalledPackRef;
+    }
+  | {
+      readonly key: ExtensionKey<"files">;
+      readonly reason: "actual-ignored";
+      readonly actual: ActualFilesPackage;
+    };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -102,12 +120,33 @@ const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): Act
   };
 };
 
+const declaredFromSettings = (settings: Settings): DeclaredFiles => {
+  if (settings.files === undefined) return [];
+  return Object.entries(settings.files).map(([name, entry]) => ({
+    name: decodeExtensionNameSync(name),
+    entry,
+  }));
+};
+
+const resolvedFromLockfile = (lockfile: Lockfile): ResolvedFiles => {
+  if (lockfile.files === undefined) return [];
+  return Object.entries(lockfile.files).map(([name, lockEntry]) => ({
+    name: decodeExtensionNameSync(name),
+    lockEntry,
+  }));
+};
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export interface FilesScanners {
   readonly canonical: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
+}
+
+export interface FilesScopedLoaders {
+  readonly settings: Effect.Effect<Option.Option<Settings>, SettingsReadError>;
+  readonly lockfile: Effect.Effect<Option.Option<Lockfile>, LockfileReadError>;
 }
 
 export interface InstalledPackForFiles {
@@ -117,6 +156,7 @@ export interface InstalledPackForFiles {
 
 export interface FilesExtensionsApiDeps {
   readonly scope: Scope;
+  readonly loaders: FilesScopedLoaders;
   readonly scanners: FilesScanners;
   readonly installedPacks: Effect.Effect<ReadonlyArray<InstalledPackForFiles>>;
   readonly ignoredNames: ReadonlySet<string>;
@@ -124,12 +164,14 @@ export interface FilesExtensionsApiDeps {
 }
 
 export interface FilesExtensionsApi {
-  readonly declared: Effect.Effect<Option.Option<DeclaredFiles>>;
-  readonly resolved: Effect.Effect<Option.Option<ResolvedFiles>>;
+  readonly declared: Effect.Effect<Option.Option<DeclaredFiles>, SettingsReadError>;
+  readonly resolved: Effect.Effect<Option.Option<ResolvedFiles>, LockfileReadError>;
   readonly actual: Effect.Effect<ActualFiles>;
   readonly installed: Effect.Effect<ReadonlyArray<InstalledFilesPackage>>;
   readonly byName: (name: string) => Effect.Effect<Option.Option<InstalledFilesPackage>>;
-  readonly declaredByName: (name: string) => Effect.Effect<Option.Option<DeclaredFilesPackage>>;
+  readonly declaredByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<DeclaredFilesPackage>, SettingsReadError>;
   readonly active: Effect.Effect<ReadonlyArray<InstalledFilesPackage>>;
   readonly unmanaged: Effect.Effect<ReadonlyArray<UnmanagedFilesPackage>>;
   readonly ignored: Effect.Effect<ReadonlyArray<IgnoredFilesCandidate>>;
@@ -149,26 +191,20 @@ const filesPolicy = (
   DeclaredFiles,
   ResolvedFiles,
   ActualFiles,
-  // `never` rather than `FilesPackMember`: v1 emits no files pack members, so
-  // the projection helper never invokes pack-member callbacks. The narrower
-  // `never` lets `buildPackMemberIgnoredRow` be implemented without a throw.
-  never,
+  FilesPackMember,
   InstalledFilesPackage,
   UnmanagedFilesPackage,
   IgnoredFilesCandidate
 > => ({
-  declaredEntries: () => [],
-  declaredName: (entry) => entry,
-  declaredActivation: () => "enabled",
-  resolvedEntries: () => [],
-  resolvedName: (entry) => entry,
+  declaredEntries: (d) => d,
+  declaredName: (entry) => entry.name,
+  declaredActivation: (entry) => (entry.entry.enabled === false ? "disabled" : "enabled"),
+  resolvedEntries: (r) => r,
+  resolvedName: (entry) => entry.name,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
-  // `m: never` — the helper invocation passes `TPackMember = never`, so
-  // this callback is statically uninhabitable. Returning `m` (typed as
-  // `never`) satisfies the `string` return type.
-  packMemberName: (m) => m,
-  isIgnoredName: (name, ignored) => ignored.has(name),
+  packMemberName: (m) => m.name,
+  isIgnoredName: matchesIgnoredPattern,
   packMemberActivation: () => "enabled",
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
@@ -184,14 +220,17 @@ const filesPolicy = (
     key: { scope, type: "files", name: entry.key.name },
     actual: entry,
   }),
-  // `DeclaredFilesPackage = never` (files have no settings entry shape), so
-  // `input.declared` has type `never` and `return input.declared` satisfies
-  // any `TIgnored` statically. The body is uninhabitable at runtime.
-  buildDeclaredIgnoredRow: (input) => input.declared,
-  // The helper invocation passes `TPackMember = never` (v1 emits no files
-  // pack members), so `input.member` has type `never` and the body is
-  // uninhabitable at runtime — no throw needed.
-  buildPackMemberIgnoredRow: (input) => input.member,
+  buildDeclaredIgnoredRow: (input) => ({
+    key: { scope, type: "files", name: input.name },
+    reason: "declared-ignored",
+    declared: input.declared,
+  }),
+  buildPackMemberIgnoredRow: (input) => ({
+    key: { scope, type: "files", name: input.name },
+    reason: "pack-member-ignored",
+    member: input.member,
+    pack: input.pack,
+  }),
   buildActualIgnoredRow: (input) => ({
     key: { scope, type: "files", name: input.name },
     reason: "actual-ignored",
@@ -211,21 +250,16 @@ export const makeFilesExtensionsApi = (
   Effect.gen(function* () {
     const { scope, scanners, ignoredNames, diagnostics } = deps;
 
-    const declared: FilesExtensionsApi["declared"] = Effect.succeed(Option.none<DeclaredFiles>());
-    const resolved: FilesExtensionsApi["resolved"] = Effect.succeed(Option.none<ResolvedFiles>());
+    const declared: FilesExtensionsApi["declared"] = deps.loaders.settings.pipe(
+      Effect.map((opt) => Option.map(opt, declaredFromSettings)),
+    );
+    const resolved: FilesExtensionsApi["resolved"] = deps.loaders.lockfile.pipe(
+      Effect.map((opt) => Option.map(opt, resolvedFromLockfile)),
+    );
     const actual: FilesExtensionsApi["actual"] = Effect.gen(function* () {
       const canonical = yield* scanners.canonical;
       return filterMapOccurrences(canonical, "files", (occ) => canonicalToActual(occ, scope));
     });
-
-    // v1 emits no files pack members. Pass an empty installed-packs effect to
-    // the projection helper with `TPackMember = never` so unreachable
-    // pack-member callbacks become statically uninhabitable.
-    // `deps.installedPacks` is accepted on the public dep contract but ignored
-    // here until v2 wires files pack members through.
-    const installedPacksForHelper: Effect.Effect<
-      ReadonlyArray<{ readonly ref: InstalledPackRef; readonly members: ReadonlyArray<never> }>
-    > = Effect.succeed([]);
 
     const project = yield* Effect.cached(
       projectInstalledExtensions({
@@ -233,8 +267,10 @@ export const makeFilesExtensionsApi = (
         declared,
         resolved,
         actual,
-        installedPacks: installedPacksForHelper,
-        packMembers: (pack) => pack.members,
+        installedPacks: deps.installedPacks,
+        packMembers: (pack: {
+          readonly files: ReadonlyArray<FilesPackMember>;
+        }): ReadonlyArray<FilesPackMember> => pack.files,
         packRef: (pack) => pack.ref,
         ignoredNames,
         policy: filesPolicy(scope),
@@ -252,6 +288,5 @@ export const makeFilesExtensionsApi = (
       declared,
       resolved,
       actual,
-      declaredByName: () => Effect.succeed(Option.none()),
     } satisfies FilesExtensionsApi;
   });

@@ -27,7 +27,6 @@ const writeHookPackage = (
   options?: {
     readonly timeoutMs?: number;
     readonly bindings?: ReadonlyArray<Record<string, unknown>>;
-    readonly blocking?: boolean;
     readonly fallback?: "auto" | "none";
   },
 ) => {
@@ -44,7 +43,6 @@ const writeHookPackage = (
         entrypoint: "src/hook.sh",
         bindings: options?.bindings ?? [{ on: "tool.pre", matcherRaw: "Write|Edit" }],
         ...(options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-        ...(options?.blocking === undefined ? {} : { blocking: options.blocking }),
         ...(options?.fallback === undefined ? {} : { fallback: options.fallback }),
       },
       null,
@@ -151,6 +149,32 @@ describe("HookManager", () => {
           "utf8",
         );
         expect(claudeRaw).toContain('"matcher": "Bash"');
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("uses Devin's catalog hook writer dialect", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-devin-"));
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "devin-check");
+
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          yield* manager.materializeInstall({
+            ref: makeLocalHookRef("devin-check", packageRoot),
+          });
+        }).pipe(
+          Effect.provide(makeHookManagerLayer(workspaceRoot, { configuredAgents: ["devin"] })),
+        );
+
+        const raw = readFileSync(nodePath.join(workspaceRoot, ".devin", "config.json"), "utf8");
+        expect(raw).toContain('"PreToolUse"');
+        expect(raw).toContain('"matcher": "Write|Edit"');
+        expect(raw).not.toContain('"name": "devin-check"');
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }

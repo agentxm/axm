@@ -7,9 +7,9 @@ describe("projectExtensionInventory", () => {
   it("returns the lifecycle partition and excludes ignored candidates by default", () => {
     const result = projectExtensionInventory({
       lifecycle: [
-        { key: key("configured"), lifecycle: "configured", activation: "enabled" },
-        { key: key("implicit"), lifecycle: "implicit", activation: "enabled" },
-        { key: key("unmanaged"), lifecycle: "unmanaged", activation: null },
+        { key: key("configured"), lifecycle: "configured", enabled: true, installed: true },
+        { key: key("implicit"), lifecycle: "implicit", enabled: true, installed: true },
+        { key: key("unmanaged"), lifecycle: "unmanaged", enabled: null, installed: true },
       ],
       ignored: [{ key: key("old-skill"), reason: "actual-ignored" }],
       ignoredPatterns: new Set(["old-*", "*-skill"]),
@@ -21,7 +21,7 @@ describe("projectExtensionInventory", () => {
       count: 3,
       configuredCount: 1,
       implicitCount: 1,
-      installedCount: 2,
+      installedCount: 3,
       unmanagedCount: 1,
       ignoredCount: 0,
     });
@@ -43,7 +43,7 @@ describe("projectExtensionInventory", () => {
           reason: "declared-ignored",
           agents: ["claude-code"],
           origins: ["canonical-axm-skill"],
-          paths: ["/workspace/.axm/extensions/@acme/skills/src/old-skill"],
+          paths: ["/workspace/.axm/extensions/@acme/skills/old-skill"],
         },
       ],
       ignoredPatterns: new Set(["*-skill", "old-*", "unrelated"]),
@@ -60,12 +60,13 @@ describe("projectExtensionInventory", () => {
           matchedBy: ["*-skill", "old-*"],
           reasons: ["actual-ignored", "declared-ignored"],
         },
-        activation: null,
+        enabled: null,
+        installed: false,
         agents: ["claude-code", "codex"],
         origins: ["agent-skill-dir", "canonical-axm-skill"],
         paths: [
           "/home/.codex/skills/old-skill",
-          "/workspace/.axm/extensions/@acme/skills/src/old-skill",
+          "/workspace/.axm/extensions/@acme/skills/old-skill",
         ],
       },
     ]);
@@ -83,13 +84,15 @@ describe("projectExtensionInventory", () => {
         {
           key: key("shared"),
           lifecycle: "unmanaged",
-          activation: null,
+          enabled: null,
+          installed: true,
           agents: ["codex"],
         },
         {
           key: key("shared"),
           lifecycle: "configured",
-          activation: "disabled",
+          enabled: false,
+          installed: false,
           agents: ["claude-code"],
         },
       ],
@@ -102,7 +105,7 @@ describe("projectExtensionInventory", () => {
       expect.objectContaining({
         name: "shared",
         classification: { kind: "lifecycle", lifecycle: "configured" },
-        activation: "disabled",
+        enabled: false,
         agents: ["claude-code", "codex"],
       }),
     ]);
@@ -111,8 +114,20 @@ describe("projectExtensionInventory", () => {
   it("filters lifecycle and ignored observations consistently by agent", () => {
     const result = projectExtensionInventory({
       lifecycle: [
-        { key: key("claude"), lifecycle: "unmanaged", activation: null, agents: ["claude-code"] },
-        { key: key("codex"), lifecycle: "unmanaged", activation: null, agents: ["codex"] },
+        {
+          key: key("claude"),
+          lifecycle: "unmanaged",
+          enabled: null,
+          installed: true,
+          agents: ["claude-code"],
+        },
+        {
+          key: key("codex"),
+          lifecycle: "unmanaged",
+          enabled: null,
+          installed: true,
+          agents: ["codex"],
+        },
       ],
       ignored: [
         { key: key("ignored-claude"), reason: "actual-ignored", agents: ["claude-code"] },

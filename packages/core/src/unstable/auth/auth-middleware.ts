@@ -12,6 +12,7 @@
 
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
@@ -40,11 +41,17 @@ export const makeAuthMiddlewareLive = (flagToken?: string) =>
       const baseClient = yield* HttpClient.HttpClient;
       const store = yield* CredentialStore;
       const authClient = yield* AuthClient;
+      const fs = yield* Effect.serviceOption(FileSystem.FileSystem);
       const defaultRegistryUrl = yield* RegistryUrl;
-      const authLayer = Layer.mergeAll(
+      const authLayerBase = Layer.mergeAll(
         Layer.succeed(CredentialStore, store),
         Layer.succeed(AuthClient, authClient),
       );
+      const authLayer = Option.match(fs, {
+        onNone: () => authLayerBase,
+        onSome: (fileSystem) =>
+          Layer.merge(authLayerBase, Layer.succeed(FileSystem.FileSystem, fileSystem)),
+      });
 
       return HttpClient.make((request) =>
         Effect.gen(function* () {

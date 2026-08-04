@@ -13,7 +13,7 @@
  * 5. Asserts `rule.check` returns **zero findings** post-apply.
  *
  * The assertion is the "apply(fix) + re-run(rule) === [] from that rule"
- * contract from `docs/design/lint-engine.md §6` ("Autofix determinism").
+ * contract from `contributing/guides/lint-rule-authoring.md` ("Writing `fix`").
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -128,6 +128,32 @@ const seedLockfileMissing = (): WorkspaceState => {
   return state;
 };
 
+/**
+ * `workspace/lockfile-valid` missing arm with one declaration of every
+ * installable type. The missing-arm autofix used to emit install ops for only
+ * four of the nine families, so `axm lint --fix` rebuilt a partial lockfile
+ * and a second run still reported the same finding.
+ */
+const seedLockfileMissingEveryType = (): WorkspaceState => {
+  const state = emptyWorkspaceState();
+  state.settings = {
+    agents: ["claude-code"],
+    skills: { reviewer: "@acme/skills/reviewer@1.0.0" },
+    commands: { deploy: "@acme/commands/deploy@1.0.0" },
+    subagents: { critic: "@acme/subagents/critic@1.0.0" },
+    mcpServers: { database: "@acme/mcps/database@1.0.0" },
+    files: { "house-style": "@acme/files/house-style@1.0.0" },
+    rules: { conventions: "@acme/rules/conventions@1.0.0" },
+    hooks: { "pre-commit": "@acme/hooks/pre-commit@1.0.0" },
+    knowledge: { domain: "@acme/knowledge/domain@1.0.0" },
+    packs: { starter: "@acme/packs/starter@1.0.0" },
+  };
+  state.existingPaths.add(".axm");
+  state.existingPaths.add(".axm/settings.json");
+  state.listings.set(CLAUDE_CODE_SKILLS_DIR, []);
+  return state;
+};
+
 /** Seed for `workspace/skills-lockfile-aligned` missing arm. */
 const seedSkillMissingFromLockfile = (): WorkspaceState => {
   const state = emptyWorkspaceState();
@@ -135,7 +161,7 @@ const seedSkillMissingFromLockfile = (): WorkspaceState => {
     agents: ["claude-code"],
     skills: { reviewer: "@acme/skills/reviewer@1.0.0" },
   };
-  state.lockfile = { lockfileVersion: 1, skills: {} };
+  state.lockfile = { lockfileVersion: 3, skills: {} };
   return state;
 };
 
@@ -147,7 +173,7 @@ const seedSkillOrphanInLockfile = (): WorkspaceState => {
     skills: {},
   };
   state.lockfile = {
-    lockfileVersion: 1,
+    lockfileVersion: 3,
     skills: {
       stale: {
         type: "registry",
@@ -156,6 +182,8 @@ const seedSkillOrphanInLockfile = (): WorkspaceState => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-stub",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2026-04-21T00:00:00.000Z",
         updatedAt: "2026-04-21T00:00:00.000Z",
@@ -174,7 +202,7 @@ const seedSkillIntegrityMismatch = (): WorkspaceState => {
     skills: { reviewer: "@acme/skills/reviewer@1.0.0" },
   };
   state.lockfile = {
-    lockfileVersion: 1,
+    lockfileVersion: 3,
     skills: {
       reviewer: {
         type: "registry",
@@ -183,6 +211,8 @@ const seedSkillIntegrityMismatch = (): WorkspaceState => {
         resolvedVersion: "1.0.0",
         integrity: "sha512-stub",
         sourceName: "default",
+
+        publisherBindingId: "hbnd_test",
         agents: ["claude-code"],
         installedAt: "2026-04-21T00:00:00.000Z",
         updatedAt: "2026-04-21T00:00:00.000Z",
@@ -236,6 +266,11 @@ const cases: ReadonlyArray<HarnessCase> = [
     label: "workspace/lockfile-valid — missing-arm reinstalls declared extensions",
     rule: lockfileValidRule as AutofixingRule<WorkspaceRuleContext>,
     seed: seedLockfileMissing,
+  },
+  {
+    label: "workspace/lockfile-valid — missing arm covers every installable type",
+    rule: lockfileValidRule as AutofixingRule<WorkspaceRuleContext>,
+    seed: seedLockfileMissingEveryType,
   },
   {
     label: "workspace/skills-lockfile-aligned — missing arm installs the skill",

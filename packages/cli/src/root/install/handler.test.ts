@@ -20,10 +20,6 @@ import {
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
 import {
-  InstallLibraryCommandWorkflowActions,
-  type InstallLibraryHandlerArgs,
-} from "../libraries/install/command-actions.js";
-import {
   InstallKnowledgeCommandWorkflowActions,
   type InstallKnowledgeHandlerArgs,
 } from "../knowledge/install/command-actions.js";
@@ -53,8 +49,9 @@ import {
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultSteps,
 } from "../../test-helpers.js";
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 
 import { handleInstall, type RootInstallFlags } from "./handler.js";
@@ -235,25 +232,6 @@ describe("root install handler", () => {
       buildPlan: () => Effect.succeed(makePlan("pack")),
     };
 
-    const libraryActions = {
-      parseArgs: (args: InstallLibraryHandlerArgs) =>
-        Effect.sync(() => {
-          calls.push({
-            type: "library",
-            source: args.source,
-            yes: false,
-            force: false,
-            preview: true,
-            ...(args.frozen === undefined ? {} : { frozen: args.frozen }),
-          });
-          return {};
-        }),
-      resolveSourceRequests: () => Effect.succeed([]),
-      discoverRefs: () => Effect.succeed([]),
-      finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("library")),
-    };
-
     const knowledgeActions = {
       parseArgs: (args: InstallKnowledgeHandlerArgs) =>
         Effect.sync(() => {
@@ -349,13 +327,6 @@ describe("root install handler", () => {
       ),
       // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
       Layer.succeed(
-        InstallLibraryCommandWorkflowActions,
-        libraryActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallLibraryCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
         InstallKnowledgeCommandWorkflowActions,
         knowledgeActions as unknown as ServiceMap.Service.Shape<
           typeof InstallKnowledgeCommandWorkflowActions
@@ -398,9 +369,9 @@ describe("root install handler", () => {
         "@ac/files/workspace-baseline",
         "@acme/rules/review-policy",
         "@acme/hooks/tool-audit",
+        "@acme/knowledge/handbook",
         "@acme/subagents/researcher",
         "@acme/packs/frontend-tools",
-        "@acme/libraries/frontend-team",
       ] as const;
 
       yield* Effect.forEach(sources, (source) =>
@@ -414,9 +385,9 @@ describe("root install handler", () => {
         { type: "files", source: "@ac/files/workspace-baseline", ...flags },
         { type: "rule", source: "@acme/rules/review-policy", ...flags },
         { type: "hook", source: "@acme/hooks/tool-audit", ...flags },
+        { type: "knowledge", source: "@acme/knowledge/handbook", ...flags },
         { type: "subagent", source: "@acme/subagents/researcher", ...flags },
         { type: "pack", source: "@acme/packs/frontend-tools", ...flags },
-        { type: "library", source: "@acme/libraries/frontend-team", ...flags },
       ]);
     }),
   );
@@ -476,38 +447,6 @@ describe("root install handler", () => {
     }),
   );
 
-  it.effect("passes --frozen to Library installs", () =>
-    Effect.gen(function* () {
-      const calls: Array<InstallCall> = [];
-      const { provide } = makeLayers(calls);
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: ["claude-code"],
-        owner: "@axm",
-      });
-
-      yield* provide(
-        handleInstall({
-          source: Option.some("@acme/libraries/frontend-team"),
-          yes: false,
-          force: false,
-          preview: true,
-          frozen: true,
-        }),
-      );
-
-      expect(calls).toEqual([
-        {
-          type: "library",
-          source: "@acme/libraries/frontend-team",
-          yes: false,
-          force: false,
-          preview: true,
-          frozen: true,
-        },
-      ]);
-    }),
-  );
-
   it.effect("emits JSON no-op when workspace has no configured extensions to install", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
@@ -535,6 +474,34 @@ describe("root install handler", () => {
       expect(result).toMatchObject({
         planDescription: "Install configured workspace extensions",
       });
+    }),
+  );
+
+  it.effect("installs configured knowledge bundles on workspace install", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code"],
+        owner: "@axm",
+        knowledge: { handbook: "workspace:@acme/knowledge/handbook" },
+      });
+      writeKnowledgeExtension(axmDir, "handbook");
+
+      yield* provide(
+        handleInstall({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Install configured extensions",
+      });
+      expect(planResultSteps(result)).toMatchObject([{ label: "knowledge", status: "applied" }]);
     }),
   );
 
@@ -572,6 +539,13 @@ describe("root install handler", () => {
         },
         { type: "rule", source: "github:acme/extensions", yes: false, force: false, preview: true },
         { type: "hook", source: "github:acme/extensions", yes: false, force: false, preview: true },
+        {
+          type: "knowledge",
+          source: "github:acme/extensions",
+          yes: false,
+          force: false,
+          preview: true,
+        },
         {
           type: "subagent",
           source: "github:acme/extensions",

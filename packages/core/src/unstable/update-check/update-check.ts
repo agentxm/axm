@@ -8,6 +8,8 @@
  * @packageDocumentation
  */
 
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -17,6 +19,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 import * as semver from "semver";
 
+import { DateTimeUtcSchema } from "../date-time.js";
 import { resolveUserScopeDir } from "../workspace/paths.js";
 
 // -----------------------------------------------------------------------------
@@ -24,7 +27,7 @@ import { resolveUserScopeDir } from "../workspace/paths.js";
 // -----------------------------------------------------------------------------
 
 const CACHE_FILENAME = "update-check.json";
-const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes
+const CACHE_TTL = Duration.minutes(60);
 
 // -----------------------------------------------------------------------------
 // Cache schema
@@ -33,15 +36,17 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes
 /** Schema for the on-disk update check cache file. */
 export const UpdateCheckCacheSchema = Schema.Struct({
   latestVersion: Schema.String,
-  checkedAt: Schema.String,
+  checkedAt: DateTimeUtcSchema,
 });
 
 /** Decoded cache shape. */
 export type UpdateCheckCache = typeof UpdateCheckCacheSchema.Type;
 
-const decodeUpdateCheckCacheFromJsonString = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(UpdateCheckCacheSchema),
-);
+const UpdateCheckCacheJsonSchema = Schema.fromJsonString(UpdateCheckCacheSchema);
+
+const decodeUpdateCheckCacheFromJsonString = Schema.decodeUnknownEffect(UpdateCheckCacheJsonSchema);
+
+const encodeUpdateCheckCacheToJsonString = Schema.encodeEffect(UpdateCheckCacheJsonSchema);
 
 // -----------------------------------------------------------------------------
 // Skip-check context
@@ -128,11 +133,8 @@ export const notificationMessage = (
 /**
  * Check whether the cache is stale (older than 60 minutes).
  */
-export const isCacheStale = (checkedAt: string, now: Date): boolean => {
-  const checkedDate = new Date(checkedAt);
-  if (isNaN(checkedDate.getTime())) return true;
-  return now.getTime() - checkedDate.getTime() > CACHE_TTL_MS;
-};
+export const isCacheStale = (checkedAt: DateTime.Utc): Effect.Effect<boolean> =>
+  DateTime.isPast(DateTime.addDuration(checkedAt, CACHE_TTL));
 
 /**
  * Compare versions to determine if an update is available.
@@ -165,8 +167,8 @@ export const readCacheFromPath = (cachePath: string) =>
     const decoded = yield* decodeUpdateCheckCacheFromJsonString(content.value).pipe(Effect.option);
     if (Option.isNone(decoded)) return Option.none<UpdateCheckCache>();
 
-    const now = yield* Effect.sync(() => new Date());
-    if (isCacheStale(decoded.value.checkedAt, now)) return Option.none<UpdateCheckCache>();
+    const stale = yield* isCacheStale(decoded.value.checkedAt);
+    if (stale) return Option.none<UpdateCheckCache>();
 
     return Option.some(decoded.value);
   });
@@ -182,11 +184,11 @@ export const writeCacheToPath = (cachePath: string, latestVersion: string) =>
     const dir = path.dirname(cachePath);
     yield* fs.makeDirectory(dir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
 
-    const now = yield* Effect.sync(() => new Date().toISOString());
-    const data: UpdateCheckCache = { latestVersion, checkedAt: now };
-    yield* fs
-      .writeFileString(cachePath, JSON.stringify(data))
-      .pipe(Effect.catch(() => Effect.void));
+    const data: UpdateCheckCache = { latestVersion, checkedAt: yield* DateTime.now };
+    const content = yield* encodeUpdateCheckCacheToJsonString(data).pipe(Effect.option);
+    if (Option.isNone(content)) return;
+
+    yield* fs.writeFileString(cachePath, content.value).pipe(Effect.catch(() => Effect.void));
   });
 
 /**

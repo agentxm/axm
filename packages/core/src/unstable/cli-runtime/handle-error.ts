@@ -4,7 +4,10 @@ import {
   ExitCode,
   exitCodeFor,
   effectiveSuggestionsFor,
+  collectSensitiveStrings,
   makeAppError,
+  redactSensitiveText,
+  redactSuggestedAction,
   renderAppError,
 } from "../app-error/index.js";
 import type { OutputFormat } from "./output-mode.js";
@@ -54,16 +57,20 @@ export const renderAppErrorChannels = (
     verbose: false,
     debug: false,
   },
-): { readonly stderr: ReadonlyArray<string>; readonly stdout?: string } =>
-  format === "text"
-    ? { stderr: [renderAppError(error, options)] }
-    : {
-        stderr: [
-          ...effectiveSuggestionsFor(error).map((s) => JSON.stringify(makeSuggestionEvent(s))),
-          JSON.stringify(makeErrorEvent(error.code, error.detail)),
-        ],
-        stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, options), null, 2) + "\n",
-      };
+): { readonly stderr: ReadonlyArray<string>; readonly stdout?: string } => {
+  if (format === "text") return { stderr: [renderAppError(error, options)] };
+
+  const secrets = collectSensitiveStrings(error.metadata);
+  return {
+    stderr: [
+      ...effectiveSuggestionsFor(error).map((suggestion) =>
+        JSON.stringify(makeSuggestionEvent(redactSuggestedAction(suggestion, secrets))),
+      ),
+      JSON.stringify(makeErrorEvent(error.code, redactSensitiveText(error.detail, { secrets }))),
+    ],
+    stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, options), null, 2) + "\n",
+  };
+};
 
 /**
  * Pure error classification — determines exit code and output without side effects.
@@ -104,7 +111,7 @@ export const classifyError = (
       }
 
       if (format !== "text") {
-        const message = cliErrorMessage(error.errors);
+        const message = redactSensitiveText(cliErrorMessage(error.errors));
         return {
           exitCode: ExitCode.Usage,
           stdout:
@@ -124,10 +131,11 @@ export const classifyError = (
     }
 
     if (format !== "text") {
-      const message =
+      const rawMessage =
         "errors" in error && Array.isArray(error.errors) && error.errors.length > 0
           ? cliErrorMessage(error.errors)
           : error.message;
+      const message = redactSensitiveText(rawMessage);
       return {
         exitCode: ExitCode.Usage,
         stderr: [JSON.stringify(makeErrorEvent("usage", message))],
@@ -147,7 +155,7 @@ export const classifyError = (
     return { exitCode: ExitCode.Usage };
   }
 
-  const message = error instanceof Error ? error.message : String(error);
+  const message = redactSensitiveText(error instanceof Error ? error.message : String(error));
   const wrapped = makeAppError({
     code: "internal",
     detail: message,

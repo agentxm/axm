@@ -14,7 +14,6 @@ describe("resolveRootInstallIntent", () => {
         { source: "@acme/subagents/researcher", type: "subagent" },
         { source: "@ac/files/policy", type: "files" },
         { source: "@acme/packs/frontend-tools", type: "pack" },
-        { source: "@acme/libraries/frontend", type: "library" },
       ] as const;
 
       const results = yield* Effect.forEach(cases, ({ source }) =>
@@ -48,9 +47,15 @@ describe("resolveRootInstallIntent", () => {
 
       expect(appError.code).toBe("usage");
       expect(appError.detail).toContain("registry FQN or source locator");
-      expect(
-        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("axm skills install code-review");
+
+      const guidance = (appError.suggestions ?? [])
+        .map((suggestion) => suggestion.description)
+        .join("\n");
+
+      expect(guidance).toContain("axm skills install code-review");
+      expect(guidance).toContain(
+        "skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs",
+      );
     }),
   );
 
@@ -74,23 +79,20 @@ describe("resolveRootInstallIntent", () => {
       expect(appError.code).toBe("not_found");
       expect(
         (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain(
-        "skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs, libraries",
-      );
+      ).toContain("skills, commands, mcps, subagents, files, rules, hooks, knowledge, packs");
     }),
   );
 
-  it.effect("rejects versioned library refs", () =>
+  it.effect("rejects Library install refs", () =>
     Effect.gen(function* () {
-      const error = yield* resolveRootInstallIntent("@acme/libraries/frontend@1.0.0").pipe(
-        Effect.flip,
-      );
+      const error = yield* resolveRootInstallIntent("@acme/libraries/frontend").pipe(Effect.flip);
       const appError = getAppError(error);
 
-      expect(appError.code).toBe("validation");
-      expect(
-        (appError.suggestions ?? []).map((suggestion) => suggestion.description).join("\n"),
-      ).toContain("@<handle>/libraries/<name>");
+      expect(appError.code).toBe("usage");
+      expect(appError.detail).toBe(
+        "Libraries are curated registry collections and cannot be installed",
+      );
+      expect(appError.suggestions?.[0]?.description).toContain("install the individual extensions");
     }),
   );
 });

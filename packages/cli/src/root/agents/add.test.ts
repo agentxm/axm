@@ -6,16 +6,21 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import YAML from "yaml";
+import {
+  AgentExecutableResolver,
+  CodingAgentRepositoryLive,
+} from "@agentxm/client-core/unstable/agents";
 import { CommandManager } from "@agentxm/client-core/unstable/commands";
 import { FilesManager } from "@agentxm/client-core/unstable/files";
 import { HookManager } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+import { withDegradedLockfileReads } from "@agentxm/client-core/unstable/workspace";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -114,6 +119,19 @@ const emptySubagentManager = {
   removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof SubagentManager>;
 
+const emptyKnowledgeManager = {
+  type: "knowledge",
+  refreshCatalog: () => Effect.void,
+  isInstalled: () => Effect.succeed(false),
+  materializeInstall: () => Effect.void,
+  listMaterializable: () => Effect.succeed([]),
+  materializeUninstall: () => Effect.void,
+  upsertSettingsEntry: () => Effect.void,
+  removeSettingsEntry: () => Effect.void,
+  upsertLockfileEntry: () => Effect.void,
+  removeLockfileEntry: () => Effect.void,
+} satisfies ServiceMap.Service.Shape<typeof KnowledgeManager>;
+
 const emptyPackManager = {
   type: "pack",
   isInstalled: () => Effect.succeed(false),
@@ -134,19 +152,9 @@ const emptyManagersLayer = Layer.mergeAll(
   Layer.succeed(HookManager, emptyHookManager),
   Layer.succeed(RuleManager, emptyRuleManager),
   Layer.succeed(SubagentManager, emptySubagentManager),
+  Layer.succeed(KnowledgeManager, emptyKnowledgeManager),
   Layer.succeed(PackManager, emptyPackManager),
 );
-
-const malformedLockfileSkillManager = {
-  ...emptySkillManager,
-  listMaterializable: () =>
-    Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: "Failed to read workspace lockfile",
-      }),
-    ),
-} satisfies ServiceMap.Service.Shape<typeof SkillManager>;
 
 describe("agents add.handler", () => {
   let tempDir: string;
@@ -174,35 +182,34 @@ describe("agents add.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: {
-    readonly machine?: boolean;
-    readonly quiet?: boolean;
-    readonly malformedLockfile?: boolean;
-  }) => {
+  const makeLayers = (opts?: { readonly machine?: boolean; readonly quiet?: boolean }) => {
     const context = makeWorkspaceHandlerTestContext({
       machine: opts?.machine,
       ...(opts?.quiet === undefined ? {} : { flags: { quiet: opts.quiet } }),
     });
-    const managersLayer =
-      opts?.malformedLockfile === true
-        ? Layer.mergeAll(
-            Layer.succeed(SkillManager, malformedLockfileSkillManager),
-            Layer.succeed(CommandManager, emptyCommandManager),
-            Layer.succeed(McpServerManager, emptyMcpServerManager),
-            Layer.succeed(FilesManager, emptyFilesManager),
-            Layer.succeed(HookManager, emptyHookManager),
-            Layer.succeed(RuleManager, emptyRuleManager),
-            Layer.succeed(SubagentManager, emptySubagentManager),
-            Layer.succeed(PackManager, emptyPackManager),
-          )
-        : emptyManagersLayer;
-    const fullLayer = Layer.mergeAll(context.fullLayer, managersLayer, CodingAgentRepositoryLive);
+    const fullLayer = Layer.mergeAll(
+      context.fullLayer,
+      emptyManagersLayer,
+      CodingAgentRepositoryLive,
+      Layer.succeed(AgentExecutableResolver, {
+        exists: () => Effect.succeed(false),
+      }),
+    );
 
     return {
       provide: makeEffectProvide(fullLayer),
       logs: context.logs,
       rendererState: context.rendererState,
     };
+  };
+
+  const readConfiguredAgents = (): ReadonlyArray<string> => {
+    const settings: { readonly agents?: unknown } = JSON.parse(
+      fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+    );
+    return Array.isArray(settings.agents)
+      ? settings.agents.filter((agent): agent is string => typeof agent === "string")
+      : [];
   };
 
   it.effect("surfaces permission suggestions in the human renderer", () => {
@@ -220,6 +227,12 @@ describe("agents add.handler", () => {
         });
 
         expect(rendererState.suggestions).toEqual([cursorSuggestion]);
+        expect(rendererState.spinnerMessages).toEqual(
+          expect.arrayContaining([
+            "Resolving installed extension materialization",
+            "Resolved installed extension materialization",
+          ]),
+        );
       }),
     );
   });
@@ -286,56 +299,42 @@ describe("agents add.handler", () => {
     );
   });
 
-  it.effect("reports skipped materialization in machine-mode plan output", () => {
-    const { provide, logs, rendererState } = makeLayers({
-      machine: true,
-      malformedLockfile: true,
-    });
-    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+  it.effect("recovers an unreadable lockfile instead of skipping materialization", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    const axmDir = path.join(tempDir, ".axm");
+    writeWorkspaceFiles(axmDir, { agents: [] });
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 3\nskills: []\n");
 
+    // Mirrors the CLI's `withWorkspace` boundary, which degrades lockfile reads
+    // so a corrupt file cannot abort the command before recovery runs.
     return provide(
-      Effect.gen(function* () {
-        yield* handleAgentsAdd({
-          ids: ["cursor"],
-          detected: false,
-          yes: false,
-          force: false,
-          preview: false,
-        });
+      withDegradedLockfileReads(
+        Effect.gen(function* () {
+          yield* handleAgentsAdd({
+            ids: ["cursor"],
+            detected: false,
+            yes: false,
+            force: false,
+            preview: false,
+          });
 
-        expect(logs.warn).toEqual([]);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Add coding agents",
-          totalSteps: 2,
-          appliedCount: 1,
-        });
-        expect(result).toMatchObject({
-          steps: [
-            {
-              label: "Add cursor",
-              status: "applied",
-              message: "Configured cursor",
-              artifact: {
-                path: ".axm/settings.json",
-                scope: "project",
-                agents: ["cursor"],
-                change: "updated",
-                fileCount: 1,
-              },
-            },
-            {
-              label: "Materialize installed extensions",
-              status: "unchanged",
-              message:
-                "Skipped installed extension materialization: Failed to read workspace lockfile. Run `axm sync` after fixing the workspace lockfile.",
-              artifact: {
-                scope: "project",
-                change: "unchanged",
-              },
-            },
-          ],
-        });
-      }),
+          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+            planName: "Add coding agents",
+            totalSteps: 3,
+            warningCount: 2,
+          });
+          expect(result).toMatchObject({
+            steps: [
+              { label: "Recover lockfile (invalid)", status: "applied" },
+              { label: "Reconcile lockfile (invalid)", status: "applied" },
+              { label: "Add cursor", status: "applied", message: "Configured cursor" },
+            ],
+          });
+
+          const rewritten = YAML.parse(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"));
+          expect(rewritten.lockfileVersion).toBe(3);
+        }),
+      ),
     );
   });
 
@@ -374,6 +373,55 @@ describe("agents add.handler", () => {
 
         expect(rendererState.logs).toEqual([{ _tag: "success", message: "Configured 1 agent" }]);
         expect(rendererState.suggestions).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("does not auto-add a detected retired agent", () => {
+    const { provide, rendererState } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+    fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsAdd({
+          ids: [],
+          detected: true,
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(readConfiguredAgents()).toEqual([]);
+        expect(rendererState.logs).toContainEqual(
+          expect.objectContaining({
+            _tag: "warn",
+            message: expect.stringContaining("was not added automatically"),
+          }),
+        );
+        expect(rendererState.logs).toContainEqual({
+          _tag: "success",
+          message: "No active detected agents to configure",
+        });
+      }),
+    );
+  });
+
+  it.effect("allows an explicit retired agent to be configured", () => {
+    const { provide } = makeLayers();
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsAdd({
+          ids: ["gemini-cli"],
+          detected: false,
+          yes: false,
+          force: false,
+          preview: false,
+        });
+
+        expect(readConfiguredAgents()).toEqual(["gemini-cli"]);
       }),
     );
   });

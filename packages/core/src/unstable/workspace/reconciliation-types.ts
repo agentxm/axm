@@ -1,3 +1,4 @@
+import type * as DateTime from "effect/DateTime";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Option from "effect/Option";
 import type * as Path from "effect/Path";
@@ -23,7 +24,8 @@ export type ReconcileExtensionType = Extract<
   "skills" | "commands" | "mcps" | "subagents" | "files" | "rules" | "hooks" | "knowledge" | "packs"
 >;
 
-export type UnresolvedReason = "missing" | "invalid" | "declaration-mismatch";
+export type UnresolvedReason =
+  "missing" | "invalid" | "declaration-mismatch" | "missing-registry-metadata";
 
 export interface ReconciliationDeclaration {
   readonly type: ReconcileExtensionType;
@@ -38,7 +40,7 @@ export interface ReconciliationDeclaration {
 export interface ReconciliationContext {
   readonly baseDir: string;
   readonly scope?: WorkspaceScope;
-  readonly now: Date;
+  readonly now: DateTime.Utc;
   /**
    * Configured workspace owner used as the fallback for declarations whose
    * source does not parse as a registry FQN. `Option.none` when no owner is
@@ -130,7 +132,7 @@ export interface ReconciliationAdapter {
     context: ReconciliationContext,
     env: AdapterEnvironment,
   ) => import("effect/Effect").Effect<DeclarationScanResult, AppError>;
-  readonly checkDiskCompatibility: (
+  readonly resolveDeclaration: (
     declaration: ReconciliationDeclaration,
     context: ReconciliationContext,
     env: AdapterEnvironment,

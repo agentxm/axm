@@ -38,6 +38,85 @@ const seedSkillSource = (root: string, name: string): void => {
 };
 
 describe("axm lint (e2e, Phase 7)", () => {
+  describe("workspace-authored canonical changes", () => {
+    it("treats unpublished edits as non-blocking and recommends publish", async () => {
+      const temp = createTempDir();
+      try {
+        const env = { HOME: temp.path, AXM_USER_HOME: temp.path };
+        const setup = await runCli(
+          ["setup", "--agent", "claude-code", "--yes", "--non-interactive"],
+          {
+            cwd: temp.path,
+            env,
+          },
+        );
+        expect(setup.exitCode).toBe(0);
+
+        const scaffold = await runCli(
+          ["skills", "new", "draft-skill", "--owner", "@test", "--yes"],
+          { cwd: temp.path, env },
+        );
+        expect(scaffold.exitCode).toBe(0);
+
+        const skillPath = path.join(
+          temp.path,
+          ".axm",
+          "extensions",
+          "@test",
+          "skills",
+          "draft-skill",
+          "src",
+          "SKILL.md",
+        );
+        fs.appendFileSync(skillPath, "\n## Author edit\n\nUnpublished working content.\n");
+
+        const status = await runCli(["status", "--json"], { cwd: temp.path, env });
+        expect(status.exitCode, `${status.stderr}\n${status.stdout}`).toBe(0);
+        const statusDocument = JSON.parse(status.stdout);
+        expect(statusDocument.ok).toBe(true);
+        const statusProblem = statusDocument.result.problems.find(
+          (problem: { code: string; identity: string }) =>
+            problem.code === "canonical-locally-modified" &&
+            problem.identity === "@test/skills/draft-skill",
+        );
+        expect(statusProblem).toEqual(
+          expect.objectContaining({
+            blocking: false,
+            recoveryAction: "axm publish @test/skills/draft-skill",
+            detail: expect.stringContaining(
+              "modified since its last recorded authoring/publish baseline",
+            ),
+          }),
+        );
+        expect(statusProblem.detail).toContain("preserves the authored content");
+        expect(statusProblem.detail).not.toContain("sync");
+
+        const lint = await runCli(["lint", "--json"], { cwd: temp.path, env });
+        expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
+        const lintDocument = JSON.parse(lint.stdout);
+        expect(lintDocument.ok).toBe(true);
+        const lintFinding = lintDocument.result.findings.find(
+          (finding: { message: string; ruleId: string }) =>
+            finding.ruleId === "workspace/authored-content-unpublished" &&
+            finding.message.includes("draft-skill"),
+        );
+        expect(lintFinding).toEqual(
+          expect.objectContaining({
+            severity: "warning",
+            message: expect.stringContaining(
+              "modified since its last recorded authoring/publish baseline",
+            ),
+          }),
+        );
+        expect(lintFinding.message).toContain("axm publish @test/skills/draft-skill");
+        expect(lintFinding.message).toContain("preserves the authored content");
+        expect(lintFinding.message).not.toContain("axm sync");
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
   describe("Task 7.6 — stale artifacts + missing lockfile", () => {
     it("reports error findings for a declared-but-uninstalled skill", async () => {
       const temp = createTempDir();
@@ -66,6 +145,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(result.exitCode).toBe(1);
 
         const doc = JSON.parse(result.stdout);
+        expect(doc.ok).toBe(false);
         const findings = doc?.result?.findings ?? [];
         const ruleIds: Array<string> = findings.map((f: { ruleId: string }) => f.ruleId);
         expect(ruleIds).toContain("workspace/skills-lockfile-aligned");
@@ -98,7 +178,9 @@ describe("axm lint (e2e, Phase 7)", () => {
 
         const result = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(result.exitCode).toBe(1);
-        const findings = JSON.parse(result.stdout)?.result?.findings ?? [];
+        const doc = JSON.parse(result.stdout);
+        expect(doc.ok).toBe(false);
+        const findings = doc?.result?.findings ?? [];
         const ruleIds: Array<string> = findings.map((f: { ruleId: string }) => f.ruleId);
         expect(ruleIds).toContain("workspace/lockfile-valid");
       } finally {
@@ -202,9 +284,12 @@ describe("axm lint (e2e, Phase 7)", () => {
       const temp = createTempDir();
       try {
         await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
-        const uninstallDefault = await runCli(["skills", "uninstall", "axm", "--yes"], {
-          cwd: temp.path,
-        });
+        const uninstallDefault = await runCli(
+          ["skills", "uninstall", "axm", "--yes", "--keep-source"],
+          {
+            cwd: temp.path,
+          },
+        );
         expect(uninstallDefault.exitCode).toBe(0);
 
         // Downgrade the error-severity workspace/* rules the declared
@@ -216,8 +301,10 @@ describe("axm lint (e2e, Phase 7)", () => {
           rules: {
             "workspace/lockfile-valid": "warn",
             "workspace/configured-but-not-installed": "warn",
+            "workspace/desired-state-reconcilable": "warn",
             "workspace/skills-lockfile-aligned": "warn",
             "workspace/skills-artifacts-correct": "warn",
+            "workspace/skills-managed": "warn",
           },
         };
         writeJson(settingsPath, settings);

@@ -6,7 +6,12 @@ import { Flag, GlobalFlag } from "effect/unstable/cli";
 // Global flag definitions (parsed by Effect CLI at the root command level)
 // ---------------------------------------------------------------------------
 
-export { isCI, isNonInteractive, nonInteractiveFlag } from "./non-interactive.js";
+export {
+  isCI,
+  isNonInteractive,
+  isNonInteractiveOptional,
+  nonInteractiveFlag,
+} from "./non-interactive.js";
 import { nonInteractiveFlag } from "./non-interactive.js";
 
 export const jsonFlag = GlobalFlag.setting("axm-json")({
@@ -84,12 +89,12 @@ export const TestFlagsLayer = (overrides?: {
   nonInteractive?: boolean;
   json?: boolean;
 }) => {
-  const level: VerbosityLevel = overrides?.debug
-    ? "debug"
-    : overrides?.verbose
-      ? "verbose"
-      : overrides?.quiet
-        ? "quiet"
+  const level: VerbosityLevel = overrides?.quiet
+    ? "quiet"
+    : overrides?.debug
+      ? "debug"
+      : overrides?.verbose
+        ? "verbose"
         : "normal";
   return Layer.mergeAll(
     makeVerbosityLayer(level),

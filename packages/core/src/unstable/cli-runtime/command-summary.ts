@@ -1,24 +1,18 @@
+import type { ExtensionType } from "../extensions/common.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
 
 // ---------------------------------------------------------------------------
 // Bounded vocabularies
 // ---------------------------------------------------------------------------
 
-export type CommandOutcome = "applied" | "previewed" | "no-op" | "cancelled";
+export type CommandOutcome = "applied" | "previewed" | "no-op" | "cancelled" | "partial" | "failed";
 
-export type SubjectType =
-  | "skill"
-  | "command"
-  | "files"
-  | "rule"
-  | "hook"
-  | "knowledge"
-  | "subagent"
-  | "pack"
-  | "library"
-  | "mcp-server"
-  | "mixed"
-  | "unknown";
+/**
+ * What a command acted on, for telemetry and JSON output. Derived from the
+ * extension type table so a new type is named here automatically, plus two
+ * aggregate markers that are not types.
+ */
+export type SubjectType = ExtensionType | "mixed" | "unknown";
 
 export type SourceKind = "registry" | "git" | "local" | "workspace" | "mixed" | "unknown";
 

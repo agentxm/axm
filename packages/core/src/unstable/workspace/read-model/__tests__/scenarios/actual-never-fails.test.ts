@@ -42,31 +42,29 @@ describe("actual cells never fail", () => {
   it.effect("partial scanner failure: actual returns readable subset + warning published", () =>
     Effect.gen(function* () {
       // Compose the test layer with `wrapFileSystem` to fail `readDirectory`
-      // on a deep path inside one owner's tree, leaving the other owner
-      // readable. The canonical-extensions scanner publishes a `scanner-io`
-      // warning when `childEntries(srcDir)` fails. The readable owner
-      // continues to produce occurrences. The intercepted path is
-      // `@unreadable/skills/src` (the canonical scanner's per-owner
-      // `<type-plural>/src` directory).
-      const UNREADABLE_SRC_DIR = `${SCENARIO_WORKSPACE_ROOT}/.axm/extensions/@unreadable/skills/src`;
+      // while enumerating one owner's skill packages, leaving the other owner
+      // readable. The first read lets directory classification succeed; the
+      // second exercises the scanner's warning-producing enumeration path.
+      const UNREADABLE_TYPE_DIR = `${SCENARIO_WORKSPACE_ROOT}/.axm/extensions/@unreadable/skills`;
 
       const spec: FixtureSpec = {
         workspaceRoot: SCENARIO_WORKSPACE_ROOT,
         userHome: SCENARIO_USER_HOME,
         project: {
           axmExtensions: {
-            "@readable/skills/src/readable-skill/SKILL.md": "# readable\n",
-            "@unreadable/skills/src/unreadable-skill/SKILL.md": "# unreadable\n",
+            "@readable/skills/readable-skill/src/SKILL.md": "# readable\n",
+            "@unreadable/skills/unreadable-skill/src/SKILL.md": "# unreadable\n",
           },
         },
       };
 
-      const failingFs = (baseFs: FileSystem.FileSystem): FileSystem.FileSystem =>
-        FileSystem.makeNoop({
+      const failingFs = (baseFs: FileSystem.FileSystem): FileSystem.FileSystem => {
+        let unreadableTypeReads = 0;
+        return FileSystem.makeNoop({
           exists: (path) => baseFs.exists(path),
           readFileString: (path) => baseFs.readFileString(path),
           readDirectory: (path) => {
-            if (path === UNREADABLE_SRC_DIR) {
+            if (path === UNREADABLE_TYPE_DIR && unreadableTypeReads++ > 0) {
               return Effect.fail(
                 PlatformError.systemError({
                   _tag: "PermissionDenied",
@@ -80,6 +78,7 @@ describe("actual cells never fail", () => {
             return baseFs.readDirectory(path);
           },
         });
+      };
 
       const program = Effect.gen(function* () {
         const project = yield* makeWorkspaceReadModel("project");

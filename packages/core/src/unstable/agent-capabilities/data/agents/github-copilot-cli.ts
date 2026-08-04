@@ -138,7 +138,6 @@ export const githubCopilotCliAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -157,44 +156,6 @@ export const githubCopilotCliAgent = {
         scopes: ["user", "project"],
         directory: ".github/agents",
         layout: "directory",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "GitHub Copilot CLI supports AGENTS.md plus Copilot-specific instruction files; AXM syncs the cross-agent AGENTS.md convention.\n",
-        docs: [],
-        sources: [
-          "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions",
-        ],
-        scopes: ["user", "project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
       },
       axm: {
         status: "supported",
@@ -224,6 +185,30 @@ export const githubCopilotCliAgent = {
       },
     },
   },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "GitHub Copilot CLI supports AGENTS.md plus Copilot-specific instruction files; AXM syncs the cross-agent AGENTS.md convention.\n",
+      docs: [],
+      sources: [
+        "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions",
+      ],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
+    },
+  },
   permissions: {
     native: {
       availability: { via: "native" },
@@ -236,8 +221,27 @@ export const githubCopilotCliAgent = {
         "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
       ],
       scopes: ["user", "project"],
-      mechanism: ["cli-flag"],
-      configFiles: [],
+      mechanism: ["cli-flag", "config-file"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.copilot/permissions-config.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "user",
+          path: "~/.copilot/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".github/copilot/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+      ],
       grammar: {
         style: "prefix",
         example: "--allow-tool='shell(axm:*)'",
@@ -258,11 +262,27 @@ export const githubCopilotCliAgent = {
           flag: "--allow-all",
           note: "Allow all tools, paths, and URLs.",
         },
+        {
+          flag: "--deny-tool",
+          note: "Deny a tool pattern; deny rules take precedence over allow rules.",
+        },
+        {
+          flag: "--available-tools",
+          note: "Restrict the tools available to the session.",
+        },
+        {
+          flag: "--excluded-tools",
+          note: "Remove tools from the session.",
+        },
+        {
+          flag: "--yolo",
+          note: "Alias for allowing all tools, paths, and URLs.",
+        },
       ],
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-07-22",
       writer: {
         grants: {
           shell: {

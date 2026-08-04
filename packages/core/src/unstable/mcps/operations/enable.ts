@@ -10,13 +10,14 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { CodingAgentRepository, syncInlineMcpServerToAgent } from "../../agents/index.js";
 import type { McpServerSyncOutcome } from "../../agents/coding-agent.js";
-import { canonicalExtensionPathForLockEntry, normalizeHandle } from "../../extensions/index.js";
+import { normalizeHandle, parseExtensionFqnParts } from "../../extensions/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
+import { usableTrustedCanonicalObservation } from "../../workspace/trusted-canonical-ref.js";
 
 export type EnableMcpServerOperation = Operation<
   "enable-mcp-server",
@@ -76,21 +77,7 @@ export const enableMcpServer = (
       });
     }
 
-    yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
-      ...current,
-      enabled: true,
-    }));
-
-    const lockEntry = yield* ws.getLockedMcpServer(op.args.serverName);
-    if (Option.isNone(lockEntry)) {
-      return {
-        result: "success",
-        message: `Enabled ${op.args.serverName}`,
-        artifact: enableArtifact({ lockEntry: undefined, scope: ws.scope, targets: [] }),
-      };
-    }
-
-    if (lockEntry.value.type === "inline") {
+    if (entry.source === "inline") {
       const agentIds = yield* ws.getConfiguredAgents();
       const outcomes = yield* Effect.forEach(
         agentIds,
@@ -114,31 +101,52 @@ export const enableMcpServer = (
           : [];
       });
 
+      yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+        ...current,
+        enabled: true,
+      }));
+
       return {
         result: "success",
         message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
         artifact: enableArtifact({
-          lockEntry: lockEntry.value,
+          lockEntry: undefined,
           scope: ws.scope,
           targets: agentConfigTargets(agentOutcomes),
         }),
       };
     }
 
-    const canonicalPath = canonicalExtensionPathForLockEntry(
-      path,
-      ws.baseDir,
-      "mcps",
-      op.args.serverName,
-      lockEntry.value,
-    );
-    const exists = yield* fs.exists(canonicalPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
+    const canonical = yield* usableTrustedCanonicalObservation({
+      workspace: ws,
+      type: "mcp-server",
+      name: op.args.serverName,
+    });
+    if (Option.isNone(canonical)) {
       return yield* makeAppError({
         code: "not_found",
-        detail: `MCP server files for "${op.args.serverName}" not found at ${canonicalPath}`,
+        detail: `Trusted MCP server content for "${op.args.serverName}" is not usable`,
+        suggestions: [
+          {
+            description: "Try reinstalling the MCP server.",
+            cmd: "axm mcps install <source>",
+          },
+        ],
       });
     }
+    const canonicalPath = canonical.value.observation.path;
+    const trust = canonical.value.trust;
+    const identity =
+      trust.authority === "workspace"
+        ? trust.sourceIdentity.slice("workspace:".length)
+        : trust.sourceIdentity;
+    const trustedIdentity =
+      trust.authority === "registry" || trust.authority === "workspace"
+        ? parseExtensionFqnParts(identity)
+        : undefined;
+    const owner =
+      trustedIdentity?.type === "mcp-server" ? trustedIdentity.owner : normalizeHandle("@local");
+    const resolvedVersion = trust.resolvedVersion ?? "0.0.0";
 
     const agents = yield* agentRepo.getConfiguredAgents();
     const outcomes = yield* Effect.forEach(
@@ -149,10 +157,8 @@ export const enableMcpServer = (
           scope: ws.scope,
           serverName: op.args.serverName,
           canonicalPath,
-          owner:
-            lockEntry.value.type === "registry" ? lockEntry.value.owner : normalizeHandle("@local"),
-          resolvedVersion:
-            lockEntry.value.type === "registry" ? lockEntry.value.resolvedVersion : "0.0.0",
+          owner,
+          resolvedVersion,
           enabled: true,
           configValues: entry.env,
         }),
@@ -165,12 +171,16 @@ export const enableMcpServer = (
         ? [{ agentId: agent.id, targets: outcome.targets }]
         : [];
     });
+    yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+      ...current,
+      enabled: true,
+    }));
 
     return {
       result: "success",
       message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
       artifact: enableArtifact({
-        lockEntry: lockEntry.value,
+        lockEntry: undefined,
         scope: ws.scope,
         targets: agentConfigTargets(agentOutcomes),
       }),

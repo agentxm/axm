@@ -6,19 +6,21 @@
 
 import * as os from "node:os";
 import * as Config from "effect/Config";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { computeIntegrity } from "../utils/index.js";
+import { computeIntegrity, writeFileAtomic } from "../utils/index.js";
 
 export const ARCHIVE_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
-export const ARCHIVE_CACHE_MAX_AGE_MILLIS = 90 * 24 * 60 * 60 * 1_000;
+export const ARCHIVE_CACHE_MAX_AGE = Duration.days(90);
 
 export interface ArchiveCacheOptions {
   readonly maxBytes?: number;
-  readonly maxAgeMillis?: number;
+  readonly maxAge?: Duration.Duration;
 }
 
 export interface ArchiveCacheStatus {
@@ -50,14 +52,14 @@ export interface ArchiveCache {
   ) => Effect.Effect<void, AppError>;
   readonly status: () => Effect.Effect<ArchiveCacheStatus, AppError>;
   readonly verify: () => Effect.Effect<ArchiveCacheVerifyResult, AppError>;
-  readonly prune: (now?: number) => Effect.Effect<ArchiveCachePruneResult, AppError>;
+  readonly prune: () => Effect.Effect<ArchiveCachePruneResult, AppError>;
 }
 
 interface CacheEntry {
   readonly path: string;
   readonly integrity: string | undefined;
   readonly size: number;
-  readonly accessedAt: number;
+  readonly accessedAt: DateTime.Utc;
 }
 
 const cacheError = (detail: string, cause?: unknown): AppError =>
@@ -88,6 +90,9 @@ export interface ArchiveCacheEnvironment {
   readonly xdgCacheHome?: string;
 }
 
+// Load-bearing only for direct callers of `resolveArchiveCacheRootPure`, which
+// accept arbitrary strings. The Config path below cannot deliver "" — Config
+// treats empty env values as missing (effect beta.95).
 const nonEmpty = (value: string | undefined): string | undefined =>
   value === undefined || value.length === 0 ? undefined : value;
 
@@ -132,7 +137,7 @@ export const makeArchiveCache = (
   options: ArchiveCacheOptions = {},
 ): ArchiveCache => {
   const maxBytes = options.maxBytes ?? ARCHIVE_CACHE_MAX_BYTES;
-  const maxAgeMillis = options.maxAgeMillis ?? ARCHIVE_CACHE_MAX_AGE_MILLIS;
+  const maxAge = options.maxAge ?? ARCHIVE_CACHE_MAX_AGE;
 
   const pathForIntegrity = (integrity: string): Effect.Effect<string, AppError> => {
     const fileName = cacheFileName(integrity);
@@ -167,8 +172,8 @@ export const makeArchiveCache = (
               integrity: integrityFromFileName(name),
               size: Number(info.size),
               accessedAt: Option.match(info.mtime, {
-                onNone: () => 0,
-                onSome: (mtime) => mtime.getTime(),
+                onNone: () => DateTime.makeUnsafe(0),
+                onSome: (mtime) => DateTime.makeUnsafe(mtime),
               }),
             } satisfies CacheEntry;
           }),
@@ -183,10 +188,15 @@ export const makeArchiveCache = (
         Effect.mapError((cause) => cacheError(`Failed to remove cache entry: ${entryPath}`, cause)),
       );
 
-  const prune = (now = Date.now()): Effect.Effect<ArchiveCachePruneResult, AppError> =>
+  const prune = (): Effect.Effect<ArchiveCachePruneResult, AppError> =>
     Effect.gen(function* () {
-      const entries = [...(yield* listEntries())].sort((a, b) => a.accessedAt - b.accessedAt);
-      const expired = entries.filter((entry) => now - entry.accessedAt > maxAgeMillis);
+      const now = yield* DateTime.now;
+      const entries = [...(yield* listEntries())].sort((a, b) =>
+        DateTime.Order(a.accessedAt, b.accessedAt),
+      );
+      const expired = entries.filter((entry) =>
+        Duration.isGreaterThan(DateTime.distance(entry.accessedAt, now), maxAge),
+      );
       yield* Effect.forEach(expired, (entry) => removeEntry(entry.path), { concurrency: 8 });
 
       const expiredPaths = new Set(expired.map((entry) => entry.path));
@@ -224,7 +234,7 @@ export const makeArchiveCache = (
         yield* removeEntry(entryPath);
         return Option.none();
       }
-      const now = new Date();
+      const now = DateTime.toDateUtc(yield* DateTime.now);
       yield* fs.utimes(entryPath, now, now).pipe(Effect.ignore);
       return Option.some(archive);
     });
@@ -248,36 +258,15 @@ export const makeArchiveCache = (
         .pipe(
           Effect.mapError((cause) => cacheError(`Failed to create archive cache: ${root}`, cause)),
         );
-      const tempPath = yield* fs
-        .makeTempFile({
-          directory: root,
-          prefix: ".archive-",
-          suffix: ".tmp",
-        })
-        .pipe(
-          Effect.mapError((cause) => cacheError("Failed to create archive cache temp file", cause)),
-        );
-      const tempDirectory = path.dirname(tempPath);
-      yield* Effect.ensuring(
-        Effect.gen(function* () {
-          yield* fs
-            .writeFile(tempPath, archive)
-            .pipe(
-              Effect.mapError((cause) =>
-                cacheError("Failed to write archive cache temp file", cause),
-              ),
-            );
-          yield* fs.remove(entryPath).pipe(Effect.ignore);
-          yield* fs
-            .rename(tempPath, entryPath)
-            .pipe(
-              Effect.mapError((cause) =>
-                cacheError(`Failed to commit cache entry: ${entryPath}`, cause),
-              ),
-            );
-        }),
-        fs.remove(tempDirectory, { recursive: true }).pipe(Effect.ignore),
-      );
+      yield* writeFileAtomic(fs, {
+        targetPath: entryPath,
+        content: archive,
+        removeTargetBeforeRename: true,
+        mapError: (failure) =>
+          failure.step === "rename"
+            ? cacheError(`Failed to commit cache entry: ${entryPath}`, failure.cause)
+            : cacheError("Failed to write archive cache temp file", failure.cause),
+      });
       if (writeOptions.prune !== false) yield* prune();
     });
 
@@ -286,7 +275,7 @@ export const makeArchiveCache = (
       entries: entries.length,
       bytes: entries.reduce((total, entry) => total + entry.size, 0),
       maxBytes,
-      maxAgeDays: maxAgeMillis / (24 * 60 * 60 * 1_000),
+      maxAgeDays: Duration.toDays(maxAge),
     }));
 
   const verify = (): Effect.Effect<ArchiveCacheVerifyResult, AppError> =>

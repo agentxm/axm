@@ -66,13 +66,21 @@ export const canonicalHealthProblem = (
           : `axm sync ${identity} --dry-run`,
     };
   }
+  const recoveryAction =
+    observation.status === "missing-trust"
+      ? `axm sync ${identity}`
+      : observation.status === "wrong-origin" && isWorkspaceSourceLocator(node.source)
+        ? `axm sync ${identity} --accept-authority-change`
+        : observation.status === "wrong-origin"
+          ? null
+          : `axm sync ${identity} --dry-run`;
   return {
     code: `canonical-${observation.status}`,
     extensionType: node.type,
     identity,
     detail: `Canonical content is ${observation.status}${pathDetail}`,
     blocking: true,
-    recoveryAction: observation.status === "wrong-origin" ? null : `axm sync ${identity} --dry-run`,
+    recoveryAction,
   };
 };
 

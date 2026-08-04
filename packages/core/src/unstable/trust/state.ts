@@ -73,6 +73,9 @@ const registryRefIdentity = (
   ref: Extract<ExtensionRef, { readonly refType: "registry" }>,
 ): string => `${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`;
 
+const sourceIdentityLabel = (authority: string, identity: string): string =>
+  identity.startsWith(`${authority}:`) ? identity : `${authority}:${identity}`;
+
 export const trustedRegistryVersionForRef = (
   state: WorkspaceTrustState,
   ref: ExtensionRef,
@@ -99,6 +102,7 @@ export const validateRefTrustTransition = (
   ref: ExtensionRef,
   options: {
     readonly allowSourceTransition?: boolean;
+    readonly allowWorkspaceSourceTransition?: boolean;
     readonly allowDowngrade?: boolean;
   } = {},
 ): Effect.Effect<void, AppError> => {
@@ -115,21 +119,31 @@ export const validateRefTrustTransition = (
     record?.authority === "local" && record.sourceIdentity.startsWith("local:")
       ? record.sourceIdentity.slice("local:".length)
       : record?.sourceIdentity;
+  const workspaceSourceTransitionAllowed =
+    options.allowWorkspaceSourceTransition === true &&
+    record?.authority === "workspace" &&
+    ref.refType === "workspace";
   if (
     record !== undefined &&
     options.allowSourceTransition !== true &&
+    !workspaceSourceTransitionAllowed &&
     (record.authority !== proposedAuthority || recordedIdentity !== proposedIdentity)
   ) {
+    const suggestion =
+      ref.refType === "workspace" && record.authority === "workspace"
+        ? {
+            description: "Accept the relocated workspace authoring source",
+            cmd: `axm sync ${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name} --accept-authority-change`,
+          }
+        : {
+            description:
+              "Install the new source explicitly after verifying the authority transition.",
+          };
     return Effect.fail(
       makeAppError({
         code: "conflict",
-        detail: `Source authority would change for ${ref.type} "${name}" from ${record.authority}:${record.sourceIdentity} to ${proposedAuthority}:${proposedIdentity}.`,
-        suggestions: [
-          {
-            description:
-              "Install the new source explicitly after verifying the authority transition.",
-          },
-        ],
+        detail: `Source authority would change for ${ref.type} "${name}" from ${sourceIdentityLabel(record.authority, record.sourceIdentity)} to ${sourceIdentityLabel(proposedAuthority, proposedIdentity)}.`,
+        suggestions: [suggestion],
       }),
     );
   }

@@ -96,6 +96,18 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     }),
   );
 
+  it.effect("distinguishes missing trust from a mismatched trusted origin", () =>
+    Effect.gen(function* () {
+      const observed = yield* observeCanonicalExtension({
+        baseDir: root,
+        desired: desiredSkill(),
+        trust: undefined,
+      });
+
+      expect(observed.status).toBe("missing-trust");
+    }),
+  );
+
   it.effect("does not reuse a trusted Registry version outside desired constraints", () =>
     Effect.gen(function* () {
       const desired: DesiredExtensionNode = {

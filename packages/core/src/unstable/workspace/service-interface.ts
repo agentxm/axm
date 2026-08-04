@@ -205,6 +205,7 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly validateTrustTransition?: (args: {
     readonly ref: TRef;
     readonly allowSourceTransition?: boolean;
+    readonly allowWorkspaceSourceTransition?: boolean;
     readonly allowDowngrade?: boolean;
   }) => Effect.Effect<void, AppError, never>;
   readonly getLastMaterialization?: (args: {

@@ -25,6 +25,7 @@ import type { DesiredExtensionNode } from "./desired-state-graph.js";
 export type CanonicalObservationStatus =
   | "not-applicable"
   | "missing"
+  | "missing-trust"
   | "wrong-origin"
   | "corrupt"
   | "incomplete"
@@ -179,7 +180,14 @@ export const observeCanonicalExtension = ({
         status: "not-applicable",
       };
     }
-    if (trust === undefined || trust.sourceIdentity !== desired.identity) {
+    if (trust === undefined) {
+      return {
+        type: desired.type,
+        name: desired.name,
+        status: "missing-trust",
+      };
+    }
+    if (trust.sourceIdentity !== desired.identity) {
       return {
         type: desired.type,
         name: desired.name,

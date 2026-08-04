@@ -5,6 +5,7 @@ import * as Option from "effect/Option";
 import { normalizeHandle } from "../extensions/handle.js";
 import { exactVersion, extensionName } from "../test-helpers.js";
 import type { RegistrySkillRef } from "../skills/refs.js";
+import type { WorkspaceSkillRef } from "../skills/refs.js";
 import type { Lockfile } from "../lockfile/index.js";
 import {
   makeRegistryCommandLockEntry,
@@ -52,6 +53,28 @@ const epochState: WorkspaceTrustState = {
       publisherBindingId: "hbnd_epoch_1",
     },
   },
+};
+
+const workspaceSkillRef = (owner: string): WorkspaceSkillRef => {
+  const name = extensionName("review");
+  const normalizedOwner = normalizeHandle(owner);
+  return {
+    type: "skill",
+    refType: "workspace",
+    source: {
+      type: "workspace",
+      owner: normalizedOwner,
+      extensionType: "skill",
+      name,
+    },
+    owner: normalizedOwner,
+    name,
+    version: exactVersion("1.2.3"),
+    scope: "project",
+    location: `file:///workspace/.axm/extensions/${owner}/skills/review`,
+    sourceHash: computeSourceHash("review"),
+    skill: { name, description: Option.none(), metadata: Option.none() },
+  };
 };
 
 describe("workspace trust state", () => {
@@ -143,6 +166,11 @@ describe("workspace trust state", () => {
       );
       expect(error.code).toBe("conflict");
 
+      const workspaceOnlyError = yield* validateRefTrustTransition(epochState, differentSource, {
+        allowWorkspaceSourceTransition: true,
+      }).pipe(Effect.flip);
+      expect(workspaceOnlyError.code).toBe("conflict");
+
       yield* validateRefTrustTransition(epochState, differentSource, {
         allowSourceTransition: true,
       });
@@ -157,6 +185,38 @@ describe("workspace trust state", () => {
       expect(error.code).toBe("conflict");
       expect(error.detail).toContain("Publisher identity changed");
       expect(trustedRegistryVersionForRef(epochState, changedEpoch)).toBeUndefined();
+    }),
+  );
+
+  it.effect("renders one workspace prefix and an executable recovery command", () =>
+    Effect.gen(function* () {
+      const state: WorkspaceTrustState = {
+        trustStateVersion: 1,
+        records: {
+          "skill:review": {
+            extensionType: "skill",
+            name: "review",
+            authority: "workspace",
+            sourceIdentity: "workspace:@original/skills/review",
+            resolvedVersion: "1.2.3",
+          },
+        },
+      };
+      const relocated = workspaceSkillRef("@other");
+      const error = yield* validateRefTrustTransition(state, relocated).pipe(Effect.flip);
+
+      expect(error.detail).toContain(
+        "from workspace:@original/skills/review to workspace:@other/skills/review",
+      );
+      expect(error.detail).not.toContain("workspace:workspace:");
+      expect(error.suggestions).toContainEqual({
+        description: "Accept the relocated workspace authoring source",
+        cmd: "axm sync @other/skills/review --accept-authority-change",
+      });
+
+      yield* validateRefTrustTransition(state, relocated, {
+        allowWorkspaceSourceTransition: true,
+      });
     }),
   );
 });

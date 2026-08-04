@@ -81,4 +81,48 @@ describe("canonicalHealthProblem", () => {
       recoveryAction: "axm publish @test/packs/draft-pack",
     });
   });
+
+  it("provides an explicit recovery command for a relocated workspace extension", () => {
+    const node = {
+      type: "skill",
+      name: "draft-skill",
+      identity: "workspace:@other/skills/draft-skill",
+      source: "workspace:@other/skills/draft-skill",
+      enabled: true,
+      constraints: [],
+      origins: [],
+    } satisfies DesiredExtensionNode;
+
+    expect(
+      canonicalHealthProblem(node, {
+        ...observation,
+        status: "wrong-origin",
+      }),
+    ).toMatchObject({
+      code: "canonical-wrong-origin",
+      recoveryAction: "axm sync @other/skills/draft-skill --accept-authority-change",
+    });
+  });
+
+  it("provides a distinct recovery command when trust is missing", () => {
+    const node = {
+      type: "skill",
+      name: "draft-skill",
+      identity: "workspace:@test/skills/draft-skill",
+      source: "workspace:@test/skills/draft-skill",
+      enabled: true,
+      constraints: [],
+      origins: [],
+    } satisfies DesiredExtensionNode;
+
+    expect(
+      canonicalHealthProblem(node, {
+        ...observation,
+        status: "missing-trust",
+      }),
+    ).toMatchObject({
+      code: "canonical-missing-trust",
+      recoveryAction: "axm sync @test/skills/draft-skill",
+    });
+  });
 });

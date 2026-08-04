@@ -62,6 +62,8 @@ import {
 export type InstallMcpServerOperationArgs = {
   readonly ref: McpServerExtensionRef;
   readonly force: boolean;
+  /** Explicitly permit a workspace-authored relocation during reconciliation. */
+  readonly allowWorkspaceSourceTransition?: boolean;
   readonly versionRange: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings: Option.Option<boolean>;
@@ -637,7 +639,9 @@ export const installMcpServer: (
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
     const trustState = yield* ws.getTrustState();
-    yield* validateRefTrustTransition(trustState, ref);
+    yield* validateRefTrustTransition(trustState, ref, {
+      allowWorkspaceSourceTransition: op.args.allowWorkspaceSourceTransition === true,
+    });
     const lockedVersion = trustedRegistryVersionForRef(trustState, ref);
     const canonicalPath =
       ref.refType === "registry"

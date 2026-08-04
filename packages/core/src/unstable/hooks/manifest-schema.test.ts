@@ -33,13 +33,13 @@ describe("HookManifestSchema", () => {
     ]);
   });
 
-  it("decodes legacy Claude event bindings to canonical bindings", () => {
-    const decoded = Schema.decodeUnknownSync(HookManifestSchema)({
-      ...baseManifest,
-      bindings: [{ event: "PreToolUse", matcher: "Write|Edit" }],
-    });
-
-    expect(decoded.bindings).toEqual([{ on: "tool.pre", matcherRaw: "Write|Edit" }]);
+  it("rejects non-canonical event bindings", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(HookManifestSchema)({
+        ...baseManifest,
+        bindings: [{ event: "PreToolUse", matcher: "Write|Edit" }],
+      }),
+    ).toThrow();
   });
 
   it("rejects canonical events with no native writer-backed mapping", () => {

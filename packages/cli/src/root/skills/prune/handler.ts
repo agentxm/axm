@@ -13,7 +13,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, unmanagedRowsByName } from "@agentxm/client-core/unstable/workspace";
+import type { PerAgentType } from "@agentxm/client-core/unstable/extension-types";
 import { expandGlobs } from "@agentxm/client-core/unstable/utils";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
@@ -44,14 +45,21 @@ export const noArtifacts: ReadonlyArray<PrunableArtifact> = [];
 // Core logic (shared between interactive and JSON modes)
 // ---------------------------------------------------------------------------
 
-export const collectPrunableArtifacts = Effect.fn("SkillsPrune.collect")(function* (
+/**
+ * Collect prunable artifacts for one extension type.
+ *
+ * Every unmanaged read-model row carries workspace-relative `locations`, so the
+ * same collection works for any type that can appear on disk unmanaged.
+ */
+export const collectPrunableArtifactsForType = Effect.fn("Prune.collectForType")(function* (
+  type: PerAgentType,
   patterns: ReadonlyArray<string>,
 ) {
   const ws = yield* WorkspaceMutations;
 
-  // 1. Get unmanaged skills from the workspace read model (includes locations)
-  const unmanagedSkills = yield* ws.records.getUnmanagedSkills();
-  const allUnmanagedNames = Object.keys(unmanagedSkills);
+  // 1. Get unmanaged entries from the workspace read model (includes locations)
+  const unmanaged = yield* ws.records.rows(type).pipe(Effect.map(unmanagedRowsByName));
+  const allUnmanagedNames = Object.keys(unmanaged);
 
   // 2. Apply glob pattern filtering
   const matchedNames =
@@ -59,10 +67,16 @@ export const collectPrunableArtifacts = Effect.fn("SkillsPrune.collect")(functio
 
   // 3. Build the list of prunable artifacts (one entry per location)
   return matchedNames.flatMap((name) => {
-    const skill = unmanagedSkills[name];
-    if (!skill) return noArtifacts;
-    return skill.locations.map((location): PrunableArtifact => ({ name, location }));
+    const row = unmanaged[name];
+    if (!row) return noArtifacts;
+    return row.locations.map((location): PrunableArtifact => ({ name, location }));
   });
+});
+
+export const collectPrunableArtifacts = Effect.fn("SkillsPrune.collect")(function* (
+  patterns: ReadonlyArray<string>,
+) {
+  return yield* collectPrunableArtifactsForType("skill", patterns);
 });
 
 export const removeArtifacts = Effect.fn("SkillsPrune.remove")(function* (

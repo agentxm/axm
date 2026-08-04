@@ -25,11 +25,7 @@ import {
   type InstallHookHandlerArgs,
 } from "../hooks/install/command-actions.js";
 import {
-  InstallLibraryCommandWorkflowActions,
-  type InstallLibraryHandlerArgs,
-} from "../libraries/install/command-actions.js";
-import {
-  makeInstallKnowledgeCommandWorkflowActions,
+  InstallKnowledgeCommandWorkflowActions,
   type InstallKnowledgeHandlerArgs,
 } from "../knowledge/install/command-actions.js";
 import {
@@ -100,7 +96,7 @@ const runUpdateIntent = (intent: RootUpdateIntent, args: RootUpdateFlags) =>
         return yield* runInstallCommandWorkflow(hookArgs, actions, args);
       }
       case "knowledge": {
-        const actions = yield* makeInstallKnowledgeCommandWorkflowActions;
+        const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
         return yield* runInstallCommandWorkflow(knowledgeArgs, actions, args);
       }
@@ -116,14 +112,6 @@ const runUpdateIntent = (intent: RootUpdateIntent, args: RootUpdateFlags) =>
         const actions = yield* InstallPackCommandWorkflowActions;
         const packArgs: InstallPackHandlerArgs = { source: intent.source, unattended: true };
         return yield* runInstallCommandWorkflow(packArgs, actions, args);
-      }
-      case "library": {
-        const actions = yield* InstallLibraryCommandWorkflowActions;
-        const libraryArgs: InstallLibraryHandlerArgs = {
-          source: intent.source,
-          unattended: true,
-        };
-        return yield* runInstallCommandWorkflow(libraryArgs, actions, args);
       }
     }
   });
@@ -143,10 +131,7 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
         const intent = yield* resolveRootUpdateIntent(source);
         const resolution = yield* runUpdateIntent(intent, args);
         let outputResolution: PlanResolution = resolution;
-        if (
-          !args.preview &&
-          (intent.type === "files" || intent.type === "pack" || intent.type === "library")
-        ) {
+        if (!args.preview && (intent.type === "files" || intent.type === "pack")) {
           const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
             dryRun: false,
           });

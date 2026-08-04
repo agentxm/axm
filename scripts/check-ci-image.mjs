@@ -6,6 +6,12 @@ const containerfile = read("containers/ci/Containerfile");
 const dockerignore = read("containers/ci/.dockerignore");
 const ciImagePin = read("containers/ci/CI_IMAGE").trim();
 const version = read("containers/ci/VERSION").trim();
+const affectedCiRunner = read("scripts/verify-affected-ci.sh");
+const ciWorkflow = read(".github/workflows/ci.yml");
+const nxManifest = JSON.parse(read("nx.json"));
+const packageManifest = JSON.parse(read("package.json"));
+const project = read("project.json");
+const projectManifest = JSON.parse(project);
 const workflow = read(".github/workflows/ci-image.yml");
 const workflowSources = readdirSync(".github/workflows")
   .filter((path) => path.endsWith(".yml") || path.endsWith(".yaml"))
@@ -51,7 +57,14 @@ for (const text of [
   requireText(containerfile, text, `Containerfile is missing ${text}`);
 }
 
-for (const variable of ["AXM_HOST_UID", "AXM_HOST_GID", "AXM_DEPS_DIRS"]) {
+for (const variable of [
+  "AXM_HOST_UID",
+  "AXM_HOST_GID",
+  "AXM_DEPS_DIRS",
+  "AXM_CI_PHASE_SUMMARY_FILE",
+  "AXM_EXPECT_NX_CACHE_HIT",
+  "AXM_RELEASE_PREPARATION",
+]) {
   requireText(
     containerLauncher,
     `--env ${variable}=`,
@@ -62,15 +75,102 @@ for (const variable of ["AXM_HOST_UID", "AXM_HOST_GID", "AXM_DEPS_DIRS"]) {
 for (const cacheVolume of ["CI_PNPM_CACHE_VOLUME", "CI_NX_CACHE_VOLUME"]) {
   requireText(
     containerLauncher,
-    `docker volume create "$${cacheVolume}"`,
-    `container launcher must create the scoped ${cacheVolume} cache`,
-  );
-  requireText(
-    containerLauncher,
-    `--volume "$${cacheVolume}:`,
-    `container launcher must mount the scoped ${cacheVolume} cache`,
+    `ensure_ci_cache_source "$${cacheVolume}"`,
+    `container launcher must prepare the scoped ${cacheVolume} cache`,
   );
 }
+
+requireText(
+  containerLauncher,
+  '--volume "$CI_PNPM_CACHE_VOLUME:/tmp/axm-home/.local/share/pnpm/store"',
+  "container launcher must mount the scoped pnpm cache at the pnpm store",
+);
+requireText(
+  containerLauncher,
+  '--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx"',
+  "container launcher must persist Nx task artifacts with their database metadata",
+);
+if (containerLauncher.includes('--volume "$CI_NX_CACHE_VOLUME:/tmp/axm-home/.cache/nx/cache"')) {
+  errors.push(
+    "container launcher must not separate Nx task artifacts from their database metadata",
+  );
+}
+if (containerLauncher.includes("NX_REJECT_UNKNOWN_LOCAL_CACHE")) {
+  errors.push("container launcher must not bypass Nx cache provenance checks");
+}
+
+for (const text of [
+  "affected_projects: ${{ steps.classify.outputs.affected_projects }}",
+  "id: pnpm-cache",
+  "id: nx-cache",
+  "axm-ci-cache/pnpm-store",
+  "axm-ci-cache/nx",
+  "hashFiles('containers/ci/CI_IMAGE')",
+  'AXM_CONTAINER_NX_PARALLEL: "3"',
+  'AXM_CONTAINER_VITEST_MAX_WORKERS: "2"',
+  "AXM_EXPECT_NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}",
+  "scripts/verify-affected-ci.sh",
+  "if: always()",
+  '>> "$GITHUB_STEP_SUMMARY"',
+  "Exact hit",
+  "Fallback hit",
+  "Miss",
+]) {
+  requireText(ciWorkflow, text, `CI workflow is missing ${text}`);
+}
+
+if (
+  !/key:\s*>-\s+axm-ci-nx-v2-[\s\S]{0,500}github\.event\.pull_request\.head\.sha\s*\}\}\s+restore-keys:/u.test(
+    ciWorkflow,
+  )
+) {
+  errors.push("the Nx cache must use a commit-specific primary key");
+}
+
+for (const text of [
+  "::group::%s",
+  'run_phase "Install workspace dependencies"',
+  'run_phase "Validate release plan"',
+  "pnpm release:plan:check",
+  'run_phase "Validate CI image contract"',
+  'run_phase "Validate generated artifacts"',
+  'run_phase "Validate workspace synchronization"',
+  "nx affected -t lint typecheck build test e2e",
+  "-t scripts-lint scripts-typecheck scripts-test verify-e2e-boundaries",
+  "validate_restored_nx_cache",
+  "An exact Actions cache hit produced no Nx task hits",
+]) {
+  requireText(affectedCiRunner, text, `affected CI runner is missing ${text}`);
+}
+
+const workflowFormatChecks = ciWorkflow.match(/pnpm run format:check/gu) ?? [];
+if (workflowFormatChecks.length !== 1) {
+  errors.push("the PR workflow must have exactly one formatting owner");
+}
+
+if (packageManifest.scripts?.["generate:check"]?.includes("format:check")) {
+  errors.push("generate:check must not duplicate the PR formatting check");
+}
+
+if (
+  !nxManifest.targetDefaults?.test?.outputs?.includes("{workspaceRoot}/test-results/{projectName}")
+) {
+  errors.push("cached test targets must restore their JUnit reports");
+}
+
+if (
+  !projectManifest.targets?.["scripts-test"]?.outputs?.includes(
+    "{workspaceRoot}/test-results/scripts",
+  )
+) {
+  errors.push("the cached scripts test target must restore its JUnit report");
+}
+
+requireText(
+  project,
+  '"command": "pnpm exec nx format:check"',
+  "local verification must retain its formatting check",
+);
 
 for (const scopeInput of ['"axm|', "$(uname -m)", "$CI_IMAGE", "pnpm-lock.yaml"]) {
   requireText(

@@ -1,9 +1,8 @@
 /**
  * Enable command executor — re-renders command to agents for a previously disabled command.
  *
- * Two paths:
- * - Lock entry present: full enable (re-render to agents + update lock + settings)
- * - No lock entry: settings-only toggle (configured command with no lock backing)
+ * Enabling requires usable trusted canonical content. Receipts are not consulted:
+ * they are optional post-success history, not an input to lifecycle decisions.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -11,10 +10,9 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
-import type { CommandLockEntry } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type {
   JobStepArtifact,
@@ -23,9 +21,8 @@ import type {
   JobStepResult,
 } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { canonicalExtensionPathForLockEntry, computeSourceHash } from "../../extensions/index.js";
-import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
-import type { RenderedFilesMap } from "../../extensions/rendered-files.js";
+import { RenderedFilesMapSchema, type RenderedFilesMap } from "../../extensions/rendered-files.js";
+import { parseExtensionFqnParts } from "../../extensions/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../../utils/path-types.js";
 import {
@@ -33,11 +30,9 @@ import {
   readCommandContent,
   renderToAgents,
 } from "./shared-command-helpers.js";
+import { usableTrustedCanonicalObservation } from "../../workspace/trusted-canonical-ref.js";
 
 const decodeRenderedFilesMap = Schema.decodeUnknownSync(RenderedFilesMapSchema);
-
-const commandVersion = (entry: CommandLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
 
 const renderedFileTargets = (
   renderedFiles: RenderedFilesMap,
@@ -64,16 +59,14 @@ const renderedFileTargets = (
     }));
 };
 
-const commandArtifactFromLockEntry = (
-  lockEntry: CommandLockEntry,
+const commandArtifact = (
+  version: string | undefined,
   scope: JobStepArtifact["scope"],
   agents: ReadonlyArray<string>,
   renderedFiles: RenderedFilesMap,
 ): JobStepArtifact => {
   const targets = renderedFileTargets(renderedFiles);
   const firstTarget = targets[0];
-  const version = commandVersion(lockEntry);
-
   return {
     path: firstTarget?.path ?? ".axm/settings.json",
     scope,
@@ -83,12 +76,6 @@ const commandArtifactFromLockEntry = (
     ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
   };
 };
-
-const settingsOnlyCommandArtifact = (scope: JobStepArtifact["scope"]): JobStepArtifact => ({
-  path: ".axm/settings.json",
-  scope,
-  change: "updated",
-});
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -108,70 +95,29 @@ export type EnableCommandOperation = Operation<"enable-command", { readonly comm
 /**
  * Enable-command operation handler.
  *
- * Lock-backed path:
- * 1. Read lock entry, determine canonical path
- * 2. Verify canonical directory exists
- * 3. Read the command's `${name}.md` content file and `command.json`
- * 4. Render to all configured agents concurrently
- * 5. Update the shared source hash in the lock entry
- * 6. Update settings entry to set enabled: true
- *
- * Settings-only path (no lock entry):
- * 1. Update settings entry to set enabled: true
+ * 1. Resolve usable canonical content from desired state, trust, and observation.
+ * 2. Read the command content and manifest.
+ * 3. Render to configured agents.
+ * 4. Update settings to set enabled: true.
  */
 export const enableCommand: OperationHandler<
   EnableCommandOperation,
   FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
 
-    // Check for lock entry to determine path
-    const lockEntryOption = yield* ws.getLockedCommand(op.args.commandName).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read lockfile: ${e.message}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    // Settings-only path: no lock entry, just toggle enabled flag
-    if (Option.isNone(lockEntryOption)) {
-      yield* ws
-        .updateCommandEntry(op.args.commandName, (entry) => ({
-          ...entry,
-          enabled: true,
-        }))
-        .pipe(Effect.catch(() => Effect.void));
-
-      return {
-        result: "success",
-        message: `Enabled ${op.args.commandName}`,
-        artifact: settingsOnlyCommandArtifact(ws.scope),
-      } satisfies JobStepResult;
-    }
-
-    // Lock-backed path: full enable with re-rendering
-    const lockEntry = lockEntryOption.value;
-
-    const canonicalPath = canonicalExtensionPathForLockEntry(
-      path,
-      base,
-      "commands",
-      op.args.commandName,
-      lockEntry,
-    );
-
-    const exists = yield* fs.exists(canonicalPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
+    const canonical = yield* usableTrustedCanonicalObservation({
+      workspace: ws,
+      type: "command",
+      name: op.args.commandName,
+    });
+    if (Option.isNone(canonical)) {
       return yield* makeAppError({
         code: "not_found",
-        detail: `Command files for "${op.args.commandName}" not found at ${canonicalPath}`,
+        detail: `Trusted command content for "${op.args.commandName}" is not usable`,
         suggestions: [
           {
             description: "Try reinstalling the command.",
@@ -180,6 +126,7 @@ export const enableCommand: OperationHandler<
         ],
       });
     }
+    const canonicalPath = canonical.value.observation.path;
 
     // Read the command content file and command.json
     const { frontmatter, agentOverrides, body, manifest, contentPath } = yield* readCommandContent(
@@ -195,10 +142,18 @@ export const enableCommand: OperationHandler<
       });
     }
 
-    // Resolve owner: registry lock entries supply it; otherwise read from settings
+    const trust = canonical.value.trust;
+    const identity =
+      trust.authority === "workspace"
+        ? trust.sourceIdentity.slice("workspace:".length)
+        : trust.sourceIdentity;
+    const trustedIdentity =
+      trust.authority === "registry" || trust.authority === "workspace"
+        ? parseExtensionFqnParts(identity)
+        : undefined;
     const owner =
-      lockEntry.type === "registry" || lockEntry.type === "workspace"
-        ? lockEntry.owner
+      trustedIdentity?.type === "command"
+        ? trustedIdentity.owner
         : yield* ws.getConfiguredOwner().pipe(
             Effect.flatMap(
               Option.match({
@@ -233,21 +188,7 @@ export const enableCommand: OperationHandler<
       force: false,
     });
     const renderingWarnings = collectRenderingWarningSummaries(outcomes);
-
-    // Persist only shared source state. Agent and render state is derived from
-    // settings and the workspace filesystem.
-    const now = new Date();
-    const sourceHash = computeSourceHash(body);
     const renderedFiles = decodeRenderedFilesMap(rawRenderedFiles);
-    const updatedLockEntry = {
-      ...lockEntry,
-      sourceHash,
-      updatedAt: now,
-    };
-    // Update lockfile only (preserve existing settings source)
-    yield* ws
-      .setCommandLock({ name: op.args.commandName, lockEntry: updatedLockEntry })
-      .pipe(Effect.catch(() => Effect.void));
 
     // Update settings entry to enabled (collapsed to string form)
     yield* ws
@@ -261,8 +202,8 @@ export const enableCommand: OperationHandler<
       result: "success",
       message: `Enabled ${op.args.commandName}`,
       ...(renderingWarnings.length === 0 ? {} : { warnings: renderingWarnings }),
-      artifact: commandArtifactFromLockEntry(
-        updatedLockEntry,
+      artifact: commandArtifact(
+        canonical.value.trust.resolvedVersion,
         ws.scope,
         successfulAgents,
         renderedFiles,

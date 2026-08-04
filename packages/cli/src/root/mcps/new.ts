@@ -196,7 +196,6 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
             versionRange: Option.none(),
             skipSettings: Option.none(),
             env: Option.none(),
-            nonInteractive: Option.some(true),
           },
         }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),

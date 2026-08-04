@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
+import type { ExtensionType } from "../../extensions/index.js";
 import type { ExtensionIndex } from "../../registry/schema.js";
 import type { RegistryClient } from "../../registry/client.js";
 
@@ -8,7 +9,7 @@ const v = decodeVersionSync;
 
 export const makeExtensionIndex = (
   name: string,
-  type: "skill" | "command" | "mcp-server" | "subagent" | "pack",
+  type: ExtensionType,
   versions: ReadonlyArray<string>,
 ): ExtensionIndex =>
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- Assertion needed: test stub omits branded fields
@@ -32,7 +33,6 @@ export const makeStubRegistryClient = (indices: ReadonlyArray<ExtensionIndex>): 
     },
     getExtensionsByScope: () => Effect.die("not used"),
     ownerExists: () => Effect.die("not used"),
-    getLibrary: () => Effect.die("not used"),
     getExtensionPackage: () => Effect.die("not used"),
     publishExtension: () => Effect.die("not used"),
     extensionExists: () => Effect.die("not used"),

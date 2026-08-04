@@ -16,6 +16,7 @@ import {
 } from "../../test-helpers.js";
 import { InstallFilesCommandWorkflowActions } from "../files/install/command-actions.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
+import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
 import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
 
@@ -34,6 +35,14 @@ const unusedInstallHookActions = {
   finalizeIntent: () => Effect.die("unused"),
   buildPlan: () => Effect.die("unused"),
 } satisfies ServiceMap.Service.Shape<typeof InstallHookCommandWorkflowActions>;
+
+const unusedInstallKnowledgeActions = {
+  parseArgs: () => Effect.die("unused"),
+  resolveSourceRequests: () => Effect.die("unused"),
+  discoverRefs: () => Effect.die("unused"),
+  finalizeIntent: () => Effect.die("unused"),
+  buildPlan: () => Effect.die("unused"),
+} satisfies ServiceMap.Service.Shape<typeof InstallKnowledgeCommandWorkflowActions>;
 
 const unusedInstallMcpServerActions = {
   parseArgs: () => Effect.die("unused"),
@@ -113,6 +122,36 @@ describe("workspace update handler output", () => {
         });
         expect(result).toMatchObject({
           planDescription: "Update configured hooks packages",
+        });
+      }),
+    );
+  });
+
+  it.effect("emits knowledge update JSON no-op for an empty knowledge configuration", () => {
+    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
+    const fullLayer = Layer.mergeAll(
+      ctx.fullLayer,
+      Layer.succeed(InstallKnowledgeCommandWorkflowActions, unusedInstallKnowledgeActions),
+    );
+    const provide = makeEffectProvide(fullLayer);
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleWorkspaceUpdate({
+          command: "knowledge.update",
+          type: Option.some("knowledge"),
+          planName: "Update Knowledge",
+          planDescription: Option.some("Update configured Knowledge bundles"),
+          flags: { yes: false, force: false, preview: false },
+        });
+
+        const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
+          planName: "Update Knowledge",
+          message: "No configured knowledge bundles.",
+        });
+        expect(result).toMatchObject({
+          planDescription: "Update configured Knowledge bundles",
         });
       }),
     );

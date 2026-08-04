@@ -11,7 +11,7 @@ import { handleInstall } from "./handler.js";
 const installConfig = {
   source: Argument.string("source").pipe(
     Argument.withDescription(
-      "Registry FQN (@owner/<plural-type>/<name>[@version]) or source locator",
+      'Registry FQN (@owner/<plural-type>/<name>[@version]) or source locator; provider shorthand uses a final @ref, and shorthand refs cannot contain "/"',
     ),
     Argument.optional,
   ),
@@ -23,16 +23,13 @@ const installConfig = {
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be installed without making changes"),
   ),
-  frozen: Flag.boolean("frozen").pipe(
-    Flag.withDescription("Replay locked Library snapshots without registry re-resolution"),
-  ),
 } as const;
 
 export const installCommand = Command.make(
   "install",
   installConfig,
-  ({ source, scope, yes, force, preview, frozen }) =>
-    handleInstall({ source, yes, force, preview, frozen }).pipe(
+  ({ source, scope, yes, force, preview }) =>
+    handleInstall({ source, yes, force, preview }).pipe(
       withWorkspace(scope),
       withRuntime("install"),
     ),
@@ -56,7 +53,8 @@ export const installCommand = Command.make(
     },
     {
       command: "axm install github:acme/agent-extensions//tools@v1.0.0",
-      description: "Install everything AXM can discover from a locator",
+      description:
+        "Discover and install skills, commands, files, rules, hooks, knowledge, and subagents from a locator",
     },
     {
       command: "axm install @acme/packs/frontend-tools --preview",

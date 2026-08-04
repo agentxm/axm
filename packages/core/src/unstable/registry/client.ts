@@ -92,21 +92,6 @@ export interface GetExtensionIndexArgs {
 }
 
 // -----------------------------------------------------------------------------
-// Get Library Args
-// -----------------------------------------------------------------------------
-
-/**
- * Options for fetching a registry Library and its viewer-visible members.
- *
- * - `owner`: owner in the registry path (e.g. `"@acme"`)
- * - `name`: Library name
- */
-export interface GetLibraryArgs {
-  readonly owner: Handle;
-  readonly name: ExtensionName;
-}
-
-// -----------------------------------------------------------------------------
 // Publish Extension Args
 // -----------------------------------------------------------------------------
 
@@ -255,8 +240,8 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly owner: Handle;
   readonly type: T;
   readonly name: ExtensionName;
-  /** Immutable publisher epoch for this coordinate. Absent only for legacy local registries. */
-  readonly publisherBindingId?: string;
+  /** Immutable publisher epoch for this coordinate. */
+  readonly publisherBindingId: string;
   readonly description: Option.Option<string>;
   readonly repository: Option.Option<Repository>;
   readonly bugs: Option.Option<Bugs>;
@@ -268,61 +253,6 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   /** Package URLs this extension is compatible with. Empty when absent in registry metadata. */
   readonly packages: ReadonlyArray<PackageUrlParts>;
   readonly lifecycleWarnings?: ReadonlyArray<string>;
-}
-
-export type RegistryLibraryVisibility = "public" | "internal" | "private";
-
-export type RegistryLibraryMaintainer =
-  | {
-      readonly kind: "user";
-      readonly userId: string;
-      readonly assignedAt: string | null;
-      readonly assignedBy: string | null;
-    }
-  | {
-      readonly kind: "team";
-      readonly teamId: string;
-      readonly assignedAt: string | null;
-      readonly assignedBy: string | null;
-    }
-  | {
-      readonly kind: "none";
-      readonly assignedAt: string | null;
-      readonly assignedBy: string | null;
-    };
-
-export interface RegistryLibrary {
-  readonly id: string;
-  readonly owner: Handle;
-  readonly name: ExtensionName;
-  readonly title: string;
-  readonly description: string | null;
-  readonly visibility: RegistryLibraryVisibility;
-  readonly maintainer: RegistryLibraryMaintainer;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
-
-export interface RegistryLibraryMember {
-  readonly id: string;
-  readonly libraryId: string;
-  readonly extensionId: string;
-  readonly extensionOwner: Handle;
-  readonly extensionType: ExtensionType;
-  readonly extensionName: ExtensionName;
-  readonly resolvedVersion: Version;
-  readonly addedAt: string;
-  readonly publishedAt: string | null;
-}
-
-export interface RegistryLibraryDetail {
-  readonly libraryId: string;
-  readonly reference: string;
-  readonly name: ExtensionName;
-  readonly updatedAt: string;
-  readonly membershipDigest: string;
-  readonly viewerRelative: true;
-  readonly members: ReadonlyArray<RegistryLibraryMember>;
 }
 
 // -----------------------------------------------------------------------------
@@ -345,9 +275,6 @@ export interface RegistryClient {
   readonly getExtensionIndex: (
     args: GetExtensionIndexArgs,
   ) => Effect.Effect<Option.Option<ExtensionIndex>, AppError>;
-  readonly getLibrary: (
-    args: GetLibraryArgs,
-  ) => Effect.Effect<Option.Option<RegistryLibraryDetail>, AppError>;
   readonly getExtensionPackage: (
     args: GetExtensionPackageArgs,
   ) => Effect.Effect<GetExtensionPackageResponse, AppError>;

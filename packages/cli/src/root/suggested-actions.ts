@@ -60,9 +60,17 @@ export const SCAFFOLD_MANAGED_SKILL = {
   cmd: "axm skills new",
 } as const satisfies SuggestedAction;
 
+// Registry sources are declared by hand under `sources` in .axm/settings.json;
+// there is no command that edits them, so both actions point at the topic that
+// documents the file.
 export const ADD_REGISTRY_SOURCE = {
-  description: "Add a registry source",
-  cmd: "axm sources add",
+  description: "Add a registry under `sources` in .axm/settings.json",
+  cmd: "axm help settings",
+} as const satisfies SuggestedAction;
+
+export const REVIEW_REGISTRY_SOURCES = {
+  description: "Review the registries declared under `sources` in .axm/settings.json",
+  cmd: "axm help settings",
 } as const satisfies SuggestedAction;
 
 export const SKILL_NAME_RULES = "Use lowercase letters, numbers, and hyphens; up to 64 characters";

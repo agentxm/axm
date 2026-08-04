@@ -14,8 +14,8 @@ export const warpAgent = {
   },
   docs: [
     {
-      label: "Warp",
-      url: "https://www.warp.dev",
+      label: "Warp documentation",
+      url: "https://docs.warp.dev",
     },
   ],
   capabilities: {
@@ -25,7 +25,7 @@ export const warpAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://github.com/vercel-labs/skills/blob/main/src/agents.ts"],
+        sources: ["https://docs.warp.dev/agent-platform/capabilities/skills/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -33,7 +33,7 @@ export const warpAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -53,11 +53,17 @@ export const warpAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Warp stores project MCP servers in .warp/.mcp.json and user servers in ~/.warp/.mcp.json under mcpServers.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.warp.dev/agent-platform/capabilities/mcp/"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "sse", "http"],
+        mcpEnvExpansion: { variables: "braced", defaults: false },
       },
       axm: {
         status: "unsupported",
@@ -66,34 +72,6 @@ export const warpAgent = {
       },
     },
     subagent: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
@@ -122,13 +100,47 @@ export const warpAgent = {
       },
     },
   },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Warp discovers hierarchical AGENTS.md project rules and exposes user-level rules through Warp Drive.",
+      docs: [],
+      sources: ["https://docs.warp.dev/agent-platform/capabilities/rules/"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
+    },
+  },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Warp Agent Profiles configure autonomy per action and regular-expression command allowlists and denylists; deny rules take precedence.",
       docs: [],
-      sources: [],
+      sources: ["https://docs.warp.dev/agent-platform/capabilities/agent-profiles-permissions/"],
+      scopes: ["user"],
+      mechanism: ["ui-only"],
+      configFiles: [],
+      grammar: {
+        style: "regex",
+        example: "ls(\\s.*)?",
+        notes:
+          "Command allowlist and denylist entries are regular expressions configured in Settings.",
+      },
+      prerequisites: [],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",

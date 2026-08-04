@@ -3,7 +3,7 @@
  * workspace autofix rules.
  *
  * Autofix `fix` methods MUST compose from the Operation vocabulary per
- * `docs/design/lint-engine.md §6`. Wiring to the canonical `OperationHandler`
+ * `contributing/guides/lint-rule-authoring.md` ("Writing `fix`"). Wiring to the canonical `OperationHandler`
  * registry (which expects fully-resolved `SkillExtensionRef` / `PackRef`
  * values) happens at the CLI layer (Phase 5); at the lint layer we emit the
  * Operation **intent** — minimal args capturing what reinstall / uninstall /
@@ -109,6 +109,106 @@ export interface EnableSubagentIntent {
 
 /** @experimental */
 export interface DisableSubagentIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface InstallSubagentIntent {
+  readonly name: string;
+  readonly source: string;
+  readonly force: boolean;
+}
+
+/** @experimental */
+export interface UninstallSubagentIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface InstallFilesIntent {
+  readonly name: string;
+  readonly source: string;
+  readonly force: boolean;
+}
+
+/** @experimental */
+export interface UninstallFilesIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface EnableFilesIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface DisableFilesIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface InstallRuleIntent {
+  readonly name: string;
+  readonly source: string;
+  readonly force: boolean;
+}
+
+/** @experimental */
+export interface UninstallRuleIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface EnableRuleIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface DisableRuleIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface InstallHookIntent {
+  readonly name: string;
+  readonly source: string;
+  readonly force: boolean;
+}
+
+/** @experimental */
+export interface UninstallHookIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface EnableHookIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface DisableHookIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface InstallKnowledgeIntent {
+  readonly name: string;
+  readonly source: string;
+  readonly force: boolean;
+}
+
+/** @experimental */
+export interface UninstallKnowledgeIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface EnableKnowledgeIntent {
+  readonly name: string;
+}
+
+/** @experimental */
+export interface DisableKnowledgeIntent {
   readonly name: string;
 }
 
@@ -241,6 +341,132 @@ export const disableSubagentOp = (
   args: intent,
 });
 
+export const installSubagentOp = (
+  intent: InstallSubagentIntent,
+): Operation<"install-subagent", InstallSubagentIntent> => ({
+  name: "install-subagent",
+  args: intent,
+});
+
+export const uninstallSubagentOp = (
+  intent: UninstallSubagentIntent,
+): Operation<"uninstall-subagent", UninstallSubagentIntent> => ({
+  name: "uninstall-subagent",
+  args: intent,
+});
+
+export const installFilesOp = (
+  intent: InstallFilesIntent,
+): Operation<"install-files", InstallFilesIntent> => ({
+  name: "install-files",
+  args: intent,
+});
+
+export const uninstallFilesOp = (
+  intent: UninstallFilesIntent,
+): Operation<"uninstall-files", UninstallFilesIntent> => ({
+  name: "uninstall-files",
+  args: intent,
+});
+
+export const enableFilesOp = (
+  intent: EnableFilesIntent,
+): Operation<"enable-files", EnableFilesIntent> => ({
+  name: "enable-files",
+  args: intent,
+});
+
+export const disableFilesOp = (
+  intent: DisableFilesIntent,
+): Operation<"disable-files", DisableFilesIntent> => ({
+  name: "disable-files",
+  args: intent,
+});
+
+export const installRuleOp = (
+  intent: InstallRuleIntent,
+): Operation<"install-rule", InstallRuleIntent> => ({
+  name: "install-rule",
+  args: intent,
+});
+
+export const uninstallRuleOp = (
+  intent: UninstallRuleIntent,
+): Operation<"uninstall-rule", UninstallRuleIntent> => ({
+  name: "uninstall-rule",
+  args: intent,
+});
+
+export const enableRuleOp = (
+  intent: EnableRuleIntent,
+): Operation<"enable-rule", EnableRuleIntent> => ({
+  name: "enable-rule",
+  args: intent,
+});
+
+export const disableRuleOp = (
+  intent: DisableRuleIntent,
+): Operation<"disable-rule", DisableRuleIntent> => ({
+  name: "disable-rule",
+  args: intent,
+});
+
+export const installHookOp = (
+  intent: InstallHookIntent,
+): Operation<"install-hook", InstallHookIntent> => ({
+  name: "install-hook",
+  args: intent,
+});
+
+export const uninstallHookOp = (
+  intent: UninstallHookIntent,
+): Operation<"uninstall-hook", UninstallHookIntent> => ({
+  name: "uninstall-hook",
+  args: intent,
+});
+
+export const enableHookOp = (
+  intent: EnableHookIntent,
+): Operation<"enable-hook", EnableHookIntent> => ({
+  name: "enable-hook",
+  args: intent,
+});
+
+export const disableHookOp = (
+  intent: DisableHookIntent,
+): Operation<"disable-hook", DisableHookIntent> => ({
+  name: "disable-hook",
+  args: intent,
+});
+
+export const installKnowledgeOp = (
+  intent: InstallKnowledgeIntent,
+): Operation<"install-knowledge", InstallKnowledgeIntent> => ({
+  name: "install-knowledge",
+  args: intent,
+});
+
+export const uninstallKnowledgeOp = (
+  intent: UninstallKnowledgeIntent,
+): Operation<"uninstall-knowledge", UninstallKnowledgeIntent> => ({
+  name: "uninstall-knowledge",
+  args: intent,
+});
+
+export const enableKnowledgeOp = (
+  intent: EnableKnowledgeIntent,
+): Operation<"enable-knowledge", EnableKnowledgeIntent> => ({
+  name: "enable-knowledge",
+  args: intent,
+});
+
+export const disableKnowledgeOp = (
+  intent: DisableKnowledgeIntent,
+): Operation<"disable-knowledge", DisableKnowledgeIntent> => ({
+  name: "disable-knowledge",
+  args: intent,
+});
+
 export const syncInstructionTargetOp = (
   intent: SyncInstructionTargetIntent,
 ): Operation<"sync-instruction-target", SyncInstructionTargetIntent> => ({
@@ -296,8 +522,26 @@ export const PER_EXTENSION_OPERATION_NAMES = [
   "disable-command",
   "install-mcp-server",
   "uninstall-mcp-server",
+  "install-subagent",
+  "uninstall-subagent",
   "enable-subagent",
   "disable-subagent",
+  "install-files",
+  "uninstall-files",
+  "enable-files",
+  "disable-files",
+  "install-rule",
+  "uninstall-rule",
+  "enable-rule",
+  "disable-rule",
+  "install-hook",
+  "uninstall-hook",
+  "enable-hook",
+  "disable-hook",
+  "install-knowledge",
+  "uninstall-knowledge",
+  "enable-knowledge",
+  "disable-knowledge",
   "sync-instruction-target",
   "sync-instructions-gitignore",
   "sync-mcp-server-agent",
@@ -318,10 +562,14 @@ export const isPerExtensionOperationName = (name: string): name is PerExtensionO
 // -----------------------------------------------------------------------------
 
 /**
- * Emit one `install-{type}` Operation per declared entry in `settings`,
- * across all five installable types. Used by
- * `workspace/lockfile-valid` missing-arm autofix — each declaration produces
- * a reinstall intent, and the handler side-effects recreate the lockfile.
+ * Emit one `install-{type}` Operation per declared entry in `settings`, across
+ * every installable type. Used by `workspace/lockfile-valid`'s missing-arm
+ * autofix — each declaration produces a reinstall intent, and the handler
+ * side-effects recreate the lockfile.
+ *
+ * Subagents, context files, rules, hooks, and knowledge bundles used to be
+ * skipped, so `axm lint --fix` on a missing lockfile silently rebuilt a
+ * partial one.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -339,18 +587,22 @@ export const collectMissingLockfileInstallOps = (
     ops.push(installCommandOp({ name, source: entry.source, force: false }));
   }
   for (const [name, entry] of Object.entries(settings.subagents ?? {})) {
-    // Subagents install-handler ships in a later install family; v1 emits a
-    // no-op install-command for consistency… Actually, per the operation
-    // vocabulary subagents have only enable/disable Operations at v1 (their
-    // install family defers); emitting only enable here would be wrong.
-    // Skip subagents in the missing-arm autofix for now — the lockfile
-    // recreation is approximate, and subagent install is tracked as a v1.5+
-    // item.
-    void name;
-    void entry;
+    ops.push(installSubagentOp({ name, source: entry.source, force: false }));
   }
   for (const [name, entry] of Object.entries(settings.mcpServers ?? {})) {
     ops.push(installMcpServerOp({ name, source: entry.source, force: false }));
+  }
+  for (const [name, entry] of Object.entries(settings.files ?? {})) {
+    ops.push(installFilesOp({ name, source: entry.source, force: false }));
+  }
+  for (const [name, entry] of Object.entries(settings.rules ?? {})) {
+    ops.push(installRuleOp({ name, source: entry.source, force: false }));
+  }
+  for (const [name, entry] of Object.entries(settings.hooks ?? {})) {
+    ops.push(installHookOp({ name, source: entry.source, force: false }));
+  }
+  for (const [name, entry] of Object.entries(settings.knowledge ?? {})) {
+    ops.push(installKnowledgeOp({ name, source: entry.source, force: false }));
   }
   return ops;
 };

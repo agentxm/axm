@@ -153,4 +153,5 @@ See `axm help packs` for pack authoring and `standalone` semantics.
 - `axm files --help` - full files subcommand surface
 - `axm help files-schema` - exact manifest fields
 - `axm help settings` - workspace vars and files inputs
+- `axm help workspace-state` - package and rendered-file reconciliation
 - `axm help packs` - bundling files packages with packs

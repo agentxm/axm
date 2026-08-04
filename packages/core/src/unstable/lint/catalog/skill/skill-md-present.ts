@@ -6,7 +6,7 @@
  * `skill/frontmatter-parseable` cascade.
  *
  * Advisory-only (no autofix). Scaffolding `SKILL.md` is a user-authored action
- * per `docs/design/lint-engine.md §6`.
+ * per `contributing/guides/lint-rule-authoring.md` ("Choose Advisory vs Autofixing").
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

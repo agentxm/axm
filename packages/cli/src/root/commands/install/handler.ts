@@ -59,6 +59,7 @@ export const handleInstallCommand = Effect.fn("InstallCommand.handle")(function*
         ? unchangedPlanHeadline(resolution, "No commands installed.")
         : "Installed command " + args.source.value,
     resolution,
+    reportInstallationCoverage: true,
     suggestions: [{ description: "Inspect installed commands", cmd: "axm commands list" }],
   });
 });

@@ -173,6 +173,7 @@ describe("reconcileKnowledgeProjection", () => {
         expect(existsSync(nodePath.join(root, ".agents", "knowledge", "@acme", "platform"))).toBe(
           false,
         );
+        expect(existsSync(nodePath.join(root, ".agents", "knowledge", "index.md"))).toBe(false);
         expect(readFileSync(nodePath.join(root, ".agents", "knowledge", "notes.md"), "utf8")).toBe(
           "keep\n",
         );
@@ -260,6 +261,57 @@ describe("reconcileKnowledgeProjection", () => {
         }).pipe(Effect.flip);
         expect(error.code).toBe("conflict");
         expect(existsSync(nodePath.join(root, ".agents", "knowledge"))).toBe(false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("preserves an unavailable bundle while reconciling healthy bundles", () =>
+    Effect.gen(function* () {
+      const { root, axmDir, bundle } = fixture();
+      try {
+        const unavailableSource = nodePath.join(
+          axmDir,
+          "extensions",
+          "@acme",
+          "knowledge",
+          "unavailable",
+          "src",
+        );
+        mkdirSync(unavailableSource, { recursive: true });
+        writeFileSync(nodePath.join(unavailableSource, "index.md"), "# Unavailable\n");
+        const unavailable = {
+          ...bundle,
+          name: "unavailable",
+          sourceDir: unavailableSource,
+        } satisfies KnowledgeProjectionBundle;
+
+        yield* run(root, axmDir, [unavailable], { symlinkSupported: true });
+
+        const result = yield* reconcileKnowledgeProjection({
+          scopeRoot: root,
+          axmDir,
+          config: {
+            directory: ".agents/knowledge",
+            dir: nodePath.join(root, ".agents", "knowledge"),
+          },
+          bundles: [bundle],
+          instructionsPath: nodePath.join(root, "AGENTS.md"),
+          symlinkSupported: true,
+          preserveBundleNames: new Set(["unavailable"]),
+        }).pipe(Effect.provide(NodeServices.layer));
+
+        expect(result.changed).toBe(true);
+        expect(existsSync(nodePath.join(root, ".agents", "knowledge", "@acme", "platform"))).toBe(
+          true,
+        );
+        expect(
+          existsSync(nodePath.join(root, ".agents", "knowledge", "@acme", "unavailable")),
+        ).toBe(true);
+        const index = readFileSync(nodePath.join(root, ".agents", "knowledge", "index.md"), "utf8");
+        expect(index).toContain("[@acme/platform]");
+        expect(index).toContain("[@acme/unavailable]");
       } finally {
         rmSync(root, { recursive: true, force: true });
       }

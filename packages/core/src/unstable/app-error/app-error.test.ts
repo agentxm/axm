@@ -44,9 +44,13 @@ describe("AppError", () => {
       "forbidden",
       "conflict",
       "issues",
+      "auth_required",
+      "auth_expired",
+      "auth_denied",
     ] as const) {
       expect(errorClassForAppErrorCode(code)).toBe("user");
     }
+    expect(errorClassForAppErrorCode("timeout")).toBe("external");
   });
 
   it("constructs with all fields", () => {

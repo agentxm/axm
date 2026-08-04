@@ -1,7 +1,8 @@
 /**
  * Uninstall MCP server executor — orchestrates per-server removal pipeline.
  *
- * Pipeline: read lockfile -> remove canonical dir -> remove lockfile/settings entry.
+ * Pipeline: resolve desired/observed state -> remove canonical source -> clear
+ * settings and receipt.
  * Simpler than skills — no agent symlinks.
  *
  * @experimental This API is unstable and may change without notice.
@@ -19,16 +20,8 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import {
-  canonicalExtensionPathForLockEntry,
-  REGISTRY_EXTENSIONS_DIR,
-} from "../../extensions/index.js";
-import {
-  agentConfigTarget,
-  mcpServerArtifact,
-  mcpSourceTarget,
-  mcpSettingsTarget,
-} from "./artifact.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import { agentConfigTarget, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -206,9 +199,9 @@ const syncConfiguredAgentsOnUninstall = (args: {
 /**
  * Uninstall-mcp-server operation handler.
  *
- * 1. Read lockfile to determine if server is installed
+ * 1. Resolve configured and observed state
  * 2. Remove canonical directory from disk (if exists)
- * 3. Remove lockfile + settings entry
+ * 3. Remove settings and receipt
  */
 export const uninstallMcpServer: (
   op: UninstallMcpServerOperation,
@@ -224,36 +217,31 @@ export const uninstallMcpServer: (
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const base = ws.baseDir;
 
-    const lockEntryOption = yield* ws.getLockedMcpServer(op.args.serverName).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read lockfile: ${e.message}`,
-          cause: e,
-        }),
-      ),
+    const desired = yield* ws.getDesiredStateGraph();
+    if (!desired.complete) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: "Cannot uninstall the MCP server while the desired extension graph is incomplete.",
+        recover: "Repair or reinstall the configured packs, then retry.",
+      });
+    }
+    const desiredNode = desired.nodes.find(
+      (node) => node.type === "mcp-server" && node.name === op.args.serverName,
     );
-    const lockEntry = Option.getOrUndefined(lockEntryOption);
-
-    // Check if server exists on disk (scan registry extensions dir for any owner)
     const installedOnDisk = yield* checkInstalledOnDisk(fs, path, base, op.args.serverName);
 
-    if (!lockEntry && !installedOnDisk) {
+    if (desiredNode === undefined && !installedOnDisk) {
       return { result: "success", message: "not installed" } satisfies JobStepResult;
     }
+    if (desiredNode?.origins.some((origin) => origin.type === "pack") === true) {
+      yield* ws.removeMcpServerSettings(op.args.serverName);
+      return {
+        result: "success",
+        message: "Kept on disk because dependency is still required by an installed pack",
+      } satisfies JobStepResult;
+    }
 
-    // Determine canonical path from lock entry or scan
-    if (lockEntry?.type === "registry") {
-      const canonicalPath = canonicalExtensionPathForLockEntry(
-        path,
-        base,
-        "mcps",
-        op.args.serverName,
-        lockEntry,
-      );
-      yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catch(() => Effect.void));
-    } else if (installedOnDisk) {
-      // Remove from all known locations
+    if (installedOnDisk) {
       yield* removeFromAllMcpServerLocations(fs, path, base, op.args.serverName);
     }
 
@@ -277,9 +265,6 @@ export const uninstallMcpServer: (
       onSome: (warning) => [warning, ...agentSync.warnings],
     });
     const agentTarget = agentConfigTarget("removed", agentSync.agentIds);
-    const sourceTarget =
-      lockEntry?.type === "registry" ? mcpSourceTarget(lockEntry, "removed") : undefined;
-
     return {
       result: "success",
       message: appendWarningsToMessage(
@@ -287,11 +272,10 @@ export const uninstallMcpServer: (
         warnings,
       ),
       artifact: mcpServerArtifact({
-        lockEntry,
+        lockEntry: undefined,
         scope: ws.scope,
         change: "removed",
         targets: [
-          ...(sourceTarget === undefined ? [] : [sourceTarget]),
           mcpSettingsTarget("removed"),
           ...(agentTarget === undefined ? [] : [agentTarget]),
         ],

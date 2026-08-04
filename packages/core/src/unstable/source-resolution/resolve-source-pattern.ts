@@ -22,6 +22,11 @@ import { WorkspaceMutations } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
 import { fileUrlToPath } from "../sources/index.js";
 import type { Source } from "../sources/index.js";
+import {
+  configuredRowsByName,
+  installedRowsByName,
+  unmanagedRowsByName,
+} from "../workspace/read-model-record-rows.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -36,9 +41,9 @@ const buildCandidates = Effect.gen(function* () {
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
   const base = ws.baseDir;
-  const installedSkills = yield* ws.records.getInstalledSkills();
-  const unmanagedSkills = yield* ws.records.getUnmanagedSkills();
-  const configuredSkills = yield* ws.records.getConfiguredSkills();
+  const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
+  const unmanagedSkills = yield* ws.records.rows("skill").pipe(Effect.map(unmanagedRowsByName));
+  const configuredSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
   const configuredAgents = yield* agentRepo
     .getMaterializationAgents()
     .pipe(Effect.provideService(WorkspaceMutations, ws));

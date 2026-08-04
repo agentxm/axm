@@ -23,7 +23,7 @@ CI_CACHE_SCOPE=$(
   volume_key "axm|$(uname -m)|$CI_IMAGE|$(cksum <"$ROOT/pnpm-lock.yaml")"
 )
 CI_PNPM_CACHE_VOLUME=${AXM_CI_PNPM_CACHE_VOLUME:-axm-ci-pnpm-$CI_CACHE_SCOPE}
-CI_NX_CACHE_VOLUME=${AXM_CI_NX_CACHE_VOLUME:-axm-ci-nx-$CI_CACHE_SCOPE}
+CI_NX_CACHE_VOLUME=${AXM_CI_NX_CACHE_VOLUME:-axm-ci-nx-v2-$CI_CACHE_SCOPE}
 
 usage() {
   cat <<'EOF'
@@ -38,8 +38,8 @@ Usage: scripts/container-environment.sh <command> [arguments]
 Environment:
   AXM_CI_IMAGE          Override the CI image
   AXM_LOCAL_CI_IMAGE    Override the local producer image tag
-  AXM_CI_PNPM_CACHE_VOLUME  Override the digest/architecture/lockfile-scoped CI pnpm cache volume
-  AXM_CI_NX_CACHE_VOLUME  Override the digest/architecture/lockfile-scoped CI Nx cache volume
+  AXM_CI_PNPM_CACHE_VOLUME  Override the scoped CI pnpm cache source (volume or absolute path)
+  AXM_CI_NX_CACHE_VOLUME  Override the scoped CI Nx cache source (volume or absolute path)
   AXM_DEV_IMAGE         Override the development image
   AXM_DEV_HOME_VOLUME   Override the persistent development home volume
   AXM_DEV_DEPS_VOLUME   Override the persistent node_modules volume
@@ -73,6 +73,19 @@ smoke_ci_image() {
   '
 }
 
+# A CI cache target is either a named Docker volume (persistent host, the
+# default) or an absolute host path bind mount (e.g. a directory restored by
+# actions/cache on an ephemeral runner). Docker treats a leading-slash source
+# as a bind mount automatically; only named volumes need `docker volume create`.
+ensure_ci_cache_source() {
+  local source=$1
+  if [[ "$source" == /* ]]; then
+    mkdir -p "$source"
+  else
+    docker volume create "$source" >/dev/null
+  fi
+}
+
 run_ci() {
   local uid gid command
   uid=$(id -u)
@@ -83,8 +96,8 @@ run_ci() {
     printf -v command '%q ' "$@"
   fi
   mkdir -p "$ROOT/node_modules"
-  docker volume create "$CI_PNPM_CACHE_VOLUME" >/dev/null
-  docker volume create "$CI_NX_CACHE_VOLUME" >/dev/null
+  ensure_ci_cache_source "$CI_PNPM_CACHE_VOLUME"
+  ensure_ci_cache_source "$CI_NX_CACHE_VOLUME"
 
   docker run --rm \
     --user root \
@@ -92,6 +105,9 @@ run_ci() {
     --env AXM_HOST_UID="$uid" \
     --env AXM_HOST_GID="$gid" \
     --env AXM_DEPS_DIRS="$ROOT/node_modules" \
+    --env AXM_CI_PHASE_SUMMARY_FILE="${AXM_CI_PHASE_SUMMARY_FILE:-}" \
+    --env AXM_EXPECT_NX_CACHE_HIT="${AXM_EXPECT_NX_CACHE_HIT:-false}" \
+    --env AXM_RELEASE_PREPARATION="${AXM_RELEASE_PREPARATION:-false}" \
     --env HOME=/tmp/axm-home \
     --env MISE_STATE_DIR=/tmp/axm-home/.local/state/mise \
     --env npm_config_store_dir=/tmp/axm-home/.local/share/pnpm/store \

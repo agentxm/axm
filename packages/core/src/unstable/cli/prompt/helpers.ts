@@ -1,9 +1,8 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { Prompt } from "effect/unstable/cli";
 import type * as PromptTypes from "effect/unstable/cli/Prompt";
 import { makeAppError } from "../../app-error/index.js";
-import { isCI, nonInteractiveFlag } from "../../cli-flags/index.js";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
 
 interface InteractiveGuardOptions {
@@ -12,12 +11,6 @@ interface InteractiveGuardOptions {
 }
 
 const defaultHowToFix = "Pass the value via a flag or remove --non-interactive.";
-
-const resolveNonInteractive = Effect.gen(function* () {
-  const explicit = Option.flatten(yield* Effect.serviceOption(nonInteractiveFlag));
-  const ci = yield* isCI;
-  return Option.getOrElse(explicit, () => ci || process.stdin.isTTY !== true);
-});
 
 const promptRequired = (options: InteractiveGuardOptions) =>
   makeAppError({
@@ -38,7 +31,7 @@ export const requireInteractive = <A>(
   options: InteractiveGuardOptions,
 ) =>
   Effect.gen(function* () {
-    const nonInteractive = yield* resolveNonInteractive;
+    const nonInteractive = yield* isNonInteractiveOptional;
     if (nonInteractive) {
       return yield* promptRequired(options);
     }

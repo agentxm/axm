@@ -1,4 +1,6 @@
 import { Command } from "effect/unstable/cli";
+import { makeExtensionShowCommand } from "../shared/extension-show.js";
+import { filesVersionCommand as versionCommand } from "../shared/version-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
@@ -9,6 +11,12 @@ import { pruneCommand } from "./prune.js";
 import { filesPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { updateCommand } from "./update.js";
+
+const showCommand = makeExtensionShowCommand({
+  type: "files",
+  group: "files",
+  exampleName: "workspace-baseline",
+});
 
 export const filesCommand = Command.make("files").pipe(
   Command.withDescription("Manage Context Files packages"),
@@ -21,17 +29,20 @@ export const filesCommand = Command.make("files").pipe(
   Command.annotate(
     LearnMore,
     formatLearnMore([
-      ["axm files install @acme/files/workspace-baseline", "Install a Context Files package"],
+      ["axm help files", "Managing Context Files packages with AXM"],
+      ["axm help files-schema", "Print the files manifest JSON Schema"],
     ]),
   ),
   Command.withSubcommands([
     installCommand,
     uninstallCommand,
     listCommand,
+    showCommand,
     enableCommand,
     disableCommand,
     updateCommand,
     newCommand,
+    versionCommand,
     publishCommand,
     pruneCommand,
   ]),

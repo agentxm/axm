@@ -59,8 +59,10 @@ export const resolveUserScopeDirPure = (
 export const resolveUserScopeDir = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
+    // Config treats an empty env value as missing (effect beta.95), so
+    // AXM_USER_HOME="" already resolves to Option.none here.
     const axmUserHome = yield* Effect.orDie(axmUserHomeConfig);
-    const home = Option.match(axmUserHome.pipe(Option.filter((value) => value.length > 0)), {
+    const home = Option.match(axmUserHome, {
       onNone: () => os.homedir(),
       onSome: (value) => value,
     });

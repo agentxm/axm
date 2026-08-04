@@ -210,9 +210,7 @@ export const skillLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
-              ...(entry.publisherBindingId === undefined
-                ? {}
-                : { publisherBindingId: entry.publisherBindingId }),
+              publisherBindingId: entry.publisherBindingId,
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
@@ -285,6 +283,7 @@ export const commandLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
@@ -357,6 +356,7 @@ export const mcpServerLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
@@ -436,6 +436,7 @@ export const subagentLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
@@ -508,9 +509,7 @@ export const knowledgeLockEntryToRef = (
               refType: "registry" as const,
               source,
               owner: entry.owner,
-              ...(entry.publisherBindingId === undefined
-                ? {}
-                : { publisherBindingId: entry.publisherBindingId }),
+              publisherBindingId: entry.publisherBindingId,
               name: entry.name,
               version: entry.resolvedVersion,
               integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
@@ -599,6 +598,7 @@ export const packLockEntryToRef = (
         refType: "registry" as const,
         source,
         owner: entry.owner,
+        publisherBindingId: entry.publisherBindingId,
         name: entry.name,
         version: entry.resolvedVersion,
         integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),

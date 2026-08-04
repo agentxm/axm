@@ -87,7 +87,7 @@ export const runWithTransientFileBackup = <A, R>(args: {
       tempPrefix: args.tempPrefix,
     });
     return yield* args.operation.pipe(
-      Effect.tap(() => removeTransientFileBackup(backup)),
+      Effect.tap(() => removeTransientFileBackup(backup).pipe(Effect.ignore)),
       Effect.mapError((error) => backupRetainedDetail(error, backup.path)),
     );
   });

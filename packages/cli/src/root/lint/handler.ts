@@ -37,14 +37,27 @@ import {
   CodingAgentRepository,
   removeMcpServerFromManifest,
   resolveInstructionsConfig,
-  syncInlineMcpServerToAgent,
+  syncInlineMcpServerToAgents,
   syncInstructionTarget,
   syncInstructionsGitignore,
   type McpServerSyncOutcome,
 } from "@agentxm/client-core/unstable/agents";
 import { disableSkill, enableSkill, SkillManager } from "@agentxm/client-core/unstable/skills";
+import { FilesManager } from "@agentxm/client-core/unstable/files";
+import { RuleManager } from "@agentxm/client-core/unstable/rules";
+import { HookManager } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
+import {
+  disableSubagent,
+  enableSubagent,
+  SubagentManager,
+} from "@agentxm/client-core/unstable/subagents";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
-import { CommandManager } from "@agentxm/client-core/unstable/commands";
+import {
+  CommandManager,
+  disableCommand,
+  enableCommand,
+} from "@agentxm/client-core/unstable/commands";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import {
   buildLintWorkspace,
@@ -59,6 +72,7 @@ import {
   type FixSummary,
   type LintHumanBlock,
   type LintHumanDiagnostic,
+  LintJsonDocumentSchema,
   type LintJsonDocument,
   type LintSummary,
 } from "@agentxm/client-core/unstable/lint";
@@ -71,14 +85,21 @@ import {
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
+  AXM_DIR_NAME,
+  WorkspaceMutations,
+  configuredRowsByName,
+  getUserScopeDir,
   resolveConfiguredCommand,
+  resolveConfiguredFiles,
+  resolveConfiguredHook,
+  resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
+  resolveConfiguredRule,
   resolveConfiguredSkill,
-  getUserScopeDir,
-  AXM_DIR_NAME,
+  resolveConfiguredSubagent,
+  observeCanonicalExtension,
   type WorkspaceScope,
-  WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
 import {
@@ -440,6 +461,12 @@ type AdapterContext =
   | PackManager
   | CommandManager
   | McpServerManager
+  | SubagentManager
+  | FilesManager
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
+  | CodingAgentRepository
   | FileSystem.FileSystem
   | Path.Path
   | Scope.Scope;
@@ -459,6 +486,7 @@ const adaptIntent = (
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
+          force: op.args.force,
         });
         return { kind: "step", step };
       }
@@ -482,6 +510,7 @@ const adaptIntent = (
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
+          force: op.args.force,
         });
         return { kind: "step", step };
       }
@@ -492,7 +521,9 @@ const adaptIntent = (
         const mgr = yield* PackManager;
         const retention = yield* makeRetentionPolicy();
         const ws = yield* WorkspaceMutations;
-        const configuredPacks = yield* ws.records.getConfiguredPacks();
+        const configuredPacks = yield* ws.records
+          .rows("pack")
+          .pipe(Effect.map(configuredRowsByName));
         const entry = configuredPacks[op.args.name];
         if (entry === undefined) {
           return unmapped(op.name, `pack "${op.args.name}" not found in settings`);
@@ -518,6 +549,7 @@ const adaptIntent = (
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
+          force: op.args.force,
         });
         return { kind: "step", step };
       }
@@ -541,6 +573,7 @@ const adaptIntent = (
         const step = buildInstallOperation(mgr, {
           ref: resolved.ref,
           versionRange: resolved.versionRange,
+          force: op.args.force,
         });
         return { kind: "step", step };
       }
@@ -574,20 +607,26 @@ const adaptIntent = (
             `MCP server "${intent.serverName}" is not an inline settings entry`,
           );
         }
-        const run = syncInlineMcpServerToAgent(intent.agentId, {
-          workspaceRoot: args.workspaceRoot,
-          serverName: intent.serverName,
-          entry,
-          scope: intent.scope,
+        const run = Effect.gen(function* () {
+          const agentIds = yield* ws.getConfiguredAgents();
+          const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+            workspaceRoot: args.workspaceRoot,
+            serverName: intent.serverName,
+            entry,
+            scope: intent.scope,
+          });
+          const index = agentIds.indexOf(intent.agentId);
+          const outcome = index < 0 ? undefined : outcomes[index];
+          return mcpSyncOutcomeResult({
+            action: "synchronized",
+            serverName: intent.serverName,
+            agentId: intent.agentId,
+            outcome: outcome ?? {
+              _tag: "unsupported",
+              reason: intent.agentId + " is not configured in this workspace",
+            },
+          });
         }).pipe(
-          Effect.map((outcome) =>
-            mcpSyncOutcomeResult({
-              action: "synchronized",
-              serverName: intent.serverName,
-              agentId: intent.agentId,
-              outcome,
-            }),
-          ),
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );
@@ -637,6 +676,126 @@ const adaptIntent = (
           label: `${intent.agentId} MCP server '${intent.serverName}'`,
           run,
         };
+        return { kind: "step", step };
+      }
+      case "install-subagent": {
+        if (!isIntentWithSource(op.args)) {
+          return unmapped(op.name, "missing name/source args");
+        }
+        const mgr = yield* SubagentManager;
+        const resolved = yield* resolveConfiguredSubagent(op.args.name, op.args.source);
+        const step = buildInstallOperation(mgr, {
+          ref: resolved.ref,
+          versionRange: resolved.versionRange,
+          force: op.args.force,
+        });
+        return { kind: "step", step };
+      }
+      case "uninstall-subagent": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const mgr = yield* SubagentManager;
+        const retention = yield* makeRetentionPolicy();
+        const step = buildUninstallOperation(mgr, retention, {
+          target: { type: "subagent", name: op.args.name },
+        });
+        return { kind: "step", step };
+      }
+      case "install-files": {
+        if (!isIntentWithSource(op.args)) {
+          return unmapped(op.name, "missing name/source args");
+        }
+        const mgr = yield* FilesManager;
+        const resolved = yield* resolveConfiguredFiles(op.args.name, op.args.source);
+        const step = buildInstallOperation(mgr, {
+          ref: resolved.ref,
+          versionRange: resolved.versionRange,
+          force: op.args.force,
+        });
+        return { kind: "step", step };
+      }
+      case "uninstall-files": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const mgr = yield* FilesManager;
+        const retention = yield* makeRetentionPolicy();
+        const step = buildUninstallOperation(mgr, retention, {
+          target: { type: "files", name: op.args.name },
+        });
+        return { kind: "step", step };
+      }
+      case "install-rule": {
+        if (!isIntentWithSource(op.args)) {
+          return unmapped(op.name, "missing name/source args");
+        }
+        const mgr = yield* RuleManager;
+        const resolved = yield* resolveConfiguredRule(op.args.name, op.args.source);
+        const step = buildInstallOperation(mgr, {
+          ref: resolved.ref,
+          versionRange: resolved.versionRange,
+          force: op.args.force,
+        });
+        return { kind: "step", step };
+      }
+      case "uninstall-rule": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const mgr = yield* RuleManager;
+        const retention = yield* makeRetentionPolicy();
+        const step = buildUninstallOperation(mgr, retention, {
+          target: { type: "rule", name: op.args.name },
+        });
+        return { kind: "step", step };
+      }
+      case "install-hook": {
+        if (!isIntentWithSource(op.args)) {
+          return unmapped(op.name, "missing name/source args");
+        }
+        const mgr = yield* HookManager;
+        const resolved = yield* resolveConfiguredHook(op.args.name, op.args.source);
+        const step = buildInstallOperation(mgr, {
+          ref: resolved.ref,
+          versionRange: resolved.versionRange,
+          force: op.args.force,
+        });
+        return { kind: "step", step };
+      }
+      case "uninstall-hook": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const mgr = yield* HookManager;
+        const retention = yield* makeRetentionPolicy();
+        const step = buildUninstallOperation(mgr, retention, {
+          target: { type: "hook", name: op.args.name },
+        });
+        return { kind: "step", step };
+      }
+      case "install-knowledge": {
+        if (!isIntentWithSource(op.args)) {
+          return unmapped(op.name, "missing name/source args");
+        }
+        const mgr = yield* KnowledgeManager;
+        const resolved = yield* resolveConfiguredKnowledge(op.args.name, op.args.source);
+        const step = buildInstallOperation(mgr, {
+          ref: resolved.ref,
+          versionRange: resolved.versionRange,
+          force: op.args.force,
+        });
+        return { kind: "step", step };
+      }
+      case "uninstall-knowledge": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const mgr = yield* KnowledgeManager;
+        const retention = yield* makeRetentionPolicy();
+        const step = buildUninstallOperation(mgr, retention, {
+          target: { type: "knowledge", name: op.args.name },
+        });
         return { kind: "step", step };
       }
       case "enable-skill": {
@@ -756,14 +915,74 @@ const adaptIntent = (
         return { kind: "step", step };
       }
       case "enable-command":
-      case "disable-command":
+      case "disable-command": {
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const ws = yield* WorkspaceMutations;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const agents = yield* CodingAgentRepository;
+        const commandName = op.args.name;
+        const run =
+          op.name === "enable-command"
+            ? enableCommand({ name: "enable-command", args: { commandName } })
+            : disableCommand({ name: "disable-command", args: { commandName } });
+        const step: PlannedJobStep = {
+          key: `command:${commandName}`,
+          readiness: "ready",
+          label: commandName,
+          run: run.pipe(
+            Effect.provideService(WorkspaceMutations, ws),
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(CodingAgentRepository, agents),
+          ),
+        };
+        return { kind: "step", step };
+      }
       case "enable-subagent":
       case "disable-subagent": {
-        // These extension families do not have enable/disable lint-fix
-        // adapters yet. Keep them advisory until their handlers are wired.
+        if (!isIntentWithName(op.args)) {
+          return unmapped(op.name, "missing name arg");
+        }
+        const ws = yield* WorkspaceMutations;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const agents = yield* CodingAgentRepository;
+        const subagentName = op.args.name;
+        const run =
+          op.name === "enable-subagent"
+            ? enableSubagent({ name: "enable-subagent", args: { subagentName } })
+            : disableSubagent({ name: "disable-subagent", args: { subagentName } });
+        const step: PlannedJobStep = {
+          key: `subagent:${subagentName}`,
+          readiness: "ready",
+          label: subagentName,
+          run: run.pipe(
+            Effect.provideService(WorkspaceMutations, ws),
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(CodingAgentRepository, agents),
+          ),
+        };
+        return { kind: "step", step };
+      }
+      case "enable-files":
+      case "disable-files":
+      case "enable-rule":
+      case "disable-rule":
+      case "enable-hook":
+      case "disable-hook":
+      case "enable-knowledge":
+      case "disable-knowledge": {
+        // The op name exists so rules can express the intent, but there is no
+        // core enable/disable operation for these families yet — only the
+        // settings flag, with no materialization step to run. Reporting it
+        // unmapped keeps `--fix` honest instead of claiming a no-op succeeded.
         return unmapped(
           op.name,
-          `enable/disable intents are not wired into --fix; run 'axm ${op.name.replace("-", " ")} ...' manually`,
+          `enable/disable is not wired into --fix for this extension type; run 'axm ${op.name.replace("-", " ")} ...' manually`,
         );
       }
       default: {
@@ -789,6 +1008,12 @@ const applyFixes = (args: {
   | PackManager
   | CommandManager
   | McpServerManager
+  | SubagentManager
+  | FilesManager
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
+  | CodingAgentRepository
   | FileSystem.FileSystem
   | Path.Path
   | Scope.Scope
@@ -861,27 +1086,41 @@ const applyFixes = (args: {
 // -----------------------------------------------------------------------------
 
 const LintJsonDocumentFields = {
-  result: Schema.Any,
+  result: LintJsonDocumentSchema,
 } satisfies Schema.Struct.Fields;
+export const LintResultDocumentSchema = Schema.Struct(LintJsonDocumentFields);
+export type LintResultDocument = typeof LintResultDocumentSchema.Type;
 
+/**
+ * `--fix` emits the same lint document with the autofix plan nested under
+ * `plan`. It used to emit the plan as `result` and the lint report as a second
+ * top-level `data` key, which broke the one-primary-payload contract and made
+ * `axm lint --json` and `axm lint --fix --json` two different documents.
+ */
 const LintFixJsonDocumentFields = {
-  result: PlanResolutionResultSchema,
-  data: Schema.Any,
+  result: Schema.Struct({
+    ...LintJsonDocumentSchema.fields,
+    plan: PlanResolutionResultSchema,
+  }),
 } satisfies Schema.Struct.Fields;
+export const LintFixDocumentSchema = Schema.Struct(LintFixJsonDocumentFields);
+export type LintFixDocument = typeof LintFixDocumentSchema.Type;
 
 const emitJsonDocument = (
   doc: LintJsonDocument,
   fixResolution: Option.Option<typeof PlanResolutionResultSchema.Type>,
+  ok: boolean,
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     if (Option.isSome(fixResolution)) {
       return yield* renderer.result(
-        { result: fixResolution.value, data: doc },
-        Schema.Struct(LintFixJsonDocumentFields),
+        { result: { ...doc, plan: fixResolution.value } },
+        LintFixDocumentSchema,
+        { ok },
       );
     }
-    return yield* renderer.result({ result: doc }, Schema.Struct(LintJsonDocumentFields));
+    return yield* renderer.result({ result: doc }, LintResultDocumentSchema, { ok });
   });
 
 const emitHumanOutput = (args: {
@@ -1297,16 +1536,47 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   );
   const skillContexts = buildSkillRuleContexts(view);
   const packContexts = buildPackRuleContexts(view);
+  const ws = yield* WorkspaceMutations;
+  const canonicalObservations = Effect.gen(function* () {
+    const graph = yield* ws.getDesiredStateGraph();
+    const trust = yield* ws.getTrustState();
+    return yield* Effect.forEach(
+      graph.nodes,
+      (node) =>
+        observeCanonicalExtension({
+          baseDir: ws.baseDir,
+          desired: node,
+          trust: trust.records[`${node.type}:${node.name}`],
+        }).pipe(
+          Effect.map((observation) => ({ desired: node, observation })),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        ),
+      { concurrency: 16 },
+    );
+  });
+  const workspaceHealthContext = {
+    ...workspaceContext,
+    health: {
+      desiredState: ws.getDesiredStateGraph(),
+      canonicalObservations,
+    },
+  };
 
   // -- Evaluate --
   const evaluations = yield* evaluateAllCatalogs({
-    skillContexts,
-    packContexts,
-    commandContexts: view.commandContexts,
-    subagentContexts: view.subagentContexts,
-    mcpServerContexts: view.mcpServerContexts,
-    fileContexts: view.fileContexts,
-    workspaceContext,
+    contexts: {
+      skill: skillContexts,
+      pack: packContexts,
+      command: view.commandContexts,
+      subagent: view.subagentContexts,
+      "mcp-server": view.mcpServerContexts,
+      files: view.fileContexts,
+      rule: view.ruleContexts,
+      hook: view.hookContexts,
+      knowledge: view.knowledgeContexts,
+      workspace: [workspaceHealthContext],
+    },
     config,
   });
   const summary = summarizeEvaluations(evaluations, config);
@@ -1339,6 +1609,16 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     fixResolution = Option.some(toPlanResolutionResult(executed));
   }
 
+  // -- Resolve the semantic outcome before emitting the machine document so
+  // its `ok` field and the eventual process exit code cannot disagree. --
+  const category = summary.exitCategory;
+  const outcome = resolveLintExitCategory({ category, strict: args.strict });
+  const fixFailed = Option.match(fixSummary, {
+    onNone: () => false,
+    onSome: (s) => s.failed > 0,
+  });
+  const ok = outcome !== "fail" && !fixFailed;
+
   // -- Emit output --
   const handledByMachine = yield* emitJsonDocument(
     toLintJsonDocument({
@@ -1346,6 +1626,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
       ...(Option.isSome(fixSummary) ? { fixSummary: fixSummary.value } : {}),
     }),
     fixResolution,
+    ok,
   );
   if (!handledByMachine) {
     yield* emitHumanOutput({
@@ -1360,12 +1641,6 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   // for any remaining failed operations; otherwise the category is the
   // pre-fix summary (consistent with "axm lint --fix" surfacing original
   // issues, even if all were resolved).
-  const category = summary.exitCategory;
-  const outcome = resolveLintExitCategory({ category, strict: args.strict });
-  const fixFailed = Option.match(fixSummary, {
-    onNone: () => false,
-    onSome: (s) => s.failed > 0,
-  });
   if (outcome === "fail" || fixFailed) {
     return yield* Effect.die(effectCliExit(ExitCode.Issues));
   }

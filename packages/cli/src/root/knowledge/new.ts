@@ -76,7 +76,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
     name,
     version,
     type: "knowledge",
-    format: { name: "okf", version: "0.1" },
+    format: { name: "okf", version: "0.2" },
     bundleRoot: KNOWLEDGE_SOURCE_DIR,
   };
   const manifestPath = path.join(targetDir, KNOWLEDGE_MANIFEST_FILENAME);
@@ -95,7 +95,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
     yield* fs.writeFileString(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     yield* fs.writeFileString(
       indexPath,
-      `---\nokf_version: 0.1\n---\n# ${name}\n\nDescribe this knowledge bundle and link its concepts here.\n`,
+      `---\nokf_version: "0.2"\n---\n# ${name}\n\nDescribe this knowledge bundle and link its concepts here.\n`,
     );
   }).pipe(
     Effect.mapError((cause) =>
@@ -113,6 +113,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
         concurrency: 1,
         steps: [
           buildNewExtensionStep(manager, {
+            target: { type: "knowledge", name },
             ref: {
               type: "knowledge",
               refType: "workspace",

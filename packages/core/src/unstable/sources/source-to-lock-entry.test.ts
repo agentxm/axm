@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
 import type { GitHostedSkillRef, LocalSkillRef, RegistrySkillRef } from "../skills/refs.js";
 import { extensionName, exactVersion, handle } from "../test-helpers.js";
 import { sourceToLockEntry } from "./source-to-lock-entry.js";
 
-const now = new Date("2025-01-15T00:00:00.000Z");
+const now = DateTime.makeUnsafe("2025-01-15T00:00:00.000Z");
 
 const skillBase = {
   type: "skill" as const,
@@ -272,6 +273,8 @@ describe("sourceToLockEntry", () => {
     const ref: RegistrySkillRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("test-skill"),
         description: Option.some("A test skill"),
@@ -303,6 +306,8 @@ describe("sourceToLockEntry", () => {
       resolvedVersion: exactVersion("2.1.0"),
       integrity: "sha512-AAAA==",
       sourceName: "local",
+
+      publisherBindingId: "hbnd_test",
       installedAt: now,
       updatedAt: now,
     } satisfies SkillLockEntry);
@@ -312,6 +317,8 @@ describe("sourceToLockEntry", () => {
     const ref: RegistrySkillRef = {
       type: "skill",
       refType: "registry",
+
+      publisherBindingId: "hbnd_test",
       skill: {
         name: extensionName("test-skill"),
         description: Option.some("A test skill"),
@@ -379,7 +386,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("preserves existingInstalledAt when provided", () => {
-    const originalInstallDate = new Date("2024-06-01T00:00:00.000Z");
+    const originalInstallDate = DateTime.makeUnsafe("2024-06-01T00:00:00.000Z");
     const ref: GitHostedSkillRef = {
       ...skillBase,
       source: {

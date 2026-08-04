@@ -32,7 +32,7 @@ const writeKnowledge = (dir: string, name: string) => {
       type: "knowledge",
       name,
       version: "1.0.0",
-      format: { name: "okf", version: "0.1" },
+      format: { name: "okf", version: "0.2" },
       bundleRoot: "src",
     }),
   );

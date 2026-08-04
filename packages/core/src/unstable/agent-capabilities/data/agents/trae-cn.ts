@@ -25,15 +25,15 @@ export const traeCnAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://forum.trae.cn/t/topic/8191"],
-        scopes: ["project"],
-        standardsCompliance: "partial",
+        sources: ["https://docs.trae.cn/ide/skills"],
+        scopes: ["project", "user"],
+        standardsCompliance: "full",
         convention: "vendor",
         directory: ".trae/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -57,7 +57,7 @@ export const traeCnAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://forum.trae.cn/t/topic/8191"],
+        sources: ["https://docs.trae.cn/ide_add-mcp-servers"],
         scopes: ["project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -69,11 +69,14 @@ export const traeCnAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -82,25 +85,18 @@ export const traeCnAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
-                },
-              },
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
                 sse: "url",
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -119,42 +115,6 @@ export const traeCnAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
-        docs: [],
-        sources: ["https://forum.trae.cn/t/topic/8191"],
-        scopes: ["project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        kind: "rules-dir",
-        files: ["*.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-        directory: ".trae/rules",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
@@ -168,6 +128,28 @@ export const traeCnAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
+      docs: [],
+      sources: ["https://docs.trae.cn/ide/rules"],
+      scopes: ["project"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      kind: "rules-dir",
+      files: ["*.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+      directory: ".trae/rules",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

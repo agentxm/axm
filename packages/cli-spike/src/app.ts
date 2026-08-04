@@ -8,7 +8,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Layer from "effect/Layer";
-import { CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
+import { CliConfig, CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
 
 import {
   nonInteractiveFlag,
@@ -17,7 +17,7 @@ import {
   debugFlag,
   quietFlag,
 } from "@agentxm/client-core/unstable/cli-flags";
-import { removeBuiltInFlag, runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
+import { runCliMain } from "@agentxm/client-core/unstable/cli-runtime";
 
 import { makeSpikeFormatter } from "./formatter.js";
 import { ROOT_COMMAND, VERSION } from "./runtime.js";
@@ -30,8 +30,13 @@ const globalFlags = [nonInteractiveFlag, verboseFlag, debugFlag, quietFlag, json
 const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
   args.includes("--json") || args.includes("-j");
 
-removeBuiltInFlag(GlobalFlag.Completions);
-removeBuiltInFlag(GlobalFlag.LogLevel);
+/**
+ * Effect CLI built-ins kept for the spike: `--completions` and `--log-level`
+ * are intentionally absent, mirroring the main CLI.
+ */
+const cliConfigLayer = CliConfig.layer({
+  builtIns: [GlobalFlag.Help, GlobalFlag.Version, GlobalFlag.Wizard],
+});
 
 export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   Command.withDescription(
@@ -63,6 +68,7 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
           Layer.mergeAll(
             NodeServices.layer,
             FetchHttpClient.layer,
+            cliConfigLayer,
             CliOutput.layer(makeSpikeFormatter({ json: isJson })),
           ),
         ),

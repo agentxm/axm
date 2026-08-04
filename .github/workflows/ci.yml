@@ -44,6 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
+      affected_projects: ${{ steps.classify.outputs.affected_projects }}
       code: ${{ steps.classify.outputs.code }}
       documentation: ${{ steps.classify.outputs.documentation }}
       image: ${{ steps.classify.outputs.image }}
@@ -54,24 +55,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-          package-manager-cache: false
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.3.5
-
-      - name: Set up pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.29.3 --activate
-
-      - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
 
       - name: Classify changed paths and affected projects
         id: classify
@@ -92,25 +77,49 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-          package-manager-cache: false
-
-      - name: Set up pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.29.3 --activate
-
-      - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
 
       - name: Create local main ref for formatting diff
         run: git fetch --no-tags origin main:main
 
       - name: Verify formatting
         run: pnpm run format:check
+
+  extension-lint:
+    name: AXM extension lint
+    needs: classify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
+      - name: Build CLI dependencies
+        run: pnpm exec nx run cli:build --outputStyle=static
+
+      - name: Lint bundled AXM skill
+        run: |
+          { pnpm --silent axm:local lint --json --quiet --non-interactive 2>/dev/null || true; } |
+            jq -e '
+              [
+                .result.findings[]
+                | select(.severity == "error")
+                | select(
+                    ((.path // "") + " " + (.displayRoot // ""))
+                    | contains(".axm/extensions/@agentxm/skills/axm")
+                  )
+              ] as $errors
+              | if ($errors | length) == 0 then
+                  "Bundled AXM skill passed lint"
+                else
+                  $errors, error("Bundled AXM skill has lint errors")
+                end
+            '
 
   documentation:
     name: Documentation integrity
@@ -182,25 +191,100 @@ jobs:
       - name: Create local main ref for affected diff
         run: git fetch --no-tags origin main:main
 
-      - name: Verify affected changes in pinned CI image
+      - name: Restore pnpm store
+        id: pnpm-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          key: axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Restore Nx cache
+        id: nx-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/axm-ci-cache/nx
+          key: >-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{
+            hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-${{
+            github.event.pull_request.head.sha }}
+          restore-keys: |
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Determine release verification mode
+        id: release-mode
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           release_preparation=false
           release_subject="release: ${HEAD_REF#release/}"
           if [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
             [[ "$HEAD_REF" =~ ^release/cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] &&
-            [[ "$(git show --no-patch --format=%s HEAD)" == "$release_subject" ]]; then
+            git log --format=%s "main..$HEAD_SHA" | grep --fixed-strings --line-regexp --quiet -- "$release_subject"; then
             release_preparation=true
           fi
-          scripts/container-environment.sh ci bash -lc \
-            "set -euo pipefail
-            pnpm install --frozen-lockfile
-            if [[ '$release_preparation' != 'true' ]]; then
-              pnpm release:plan:check
+          echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
+
+      - name: Verify affected changes in pinned CI image
+        id: verify
+        env:
+          AXM_CI_PNPM_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          AXM_CI_NX_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/nx
+          AXM_CI_PHASE_SUMMARY_FILE: test-results/ci-verification-summary.md
+          AXM_CONTAINER_NX_PARALLEL: "3"
+          AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
+          AXM_EXPECT_NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}
+          AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
+        run: scripts/container-environment.sh ci scripts/verify-affected-ci.sh
+
+      - name: Publish verification summary
+        if: always()
+        env:
+          AFFECTED_PROJECTS: ${{ needs.classify.outputs.affected_projects }}
+          NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}
+          NX_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/nx
+          PNPM_CACHE_HIT: ${{ steps.pnpm-cache.outputs.cache-hit }}
+          PNPM_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          cache_status() {
+            case "$1" in
+              true) printf 'Exact hit' ;;
+              false) printf 'Fallback hit' ;;
+              *) printf 'Miss' ;;
+            esac
+          }
+          cache_size() {
+            if [[ -d "$1" ]]; then
+              du -sh "$1" | cut -f1
+            else
+              printf '0 B'
             fi
-            pnpm run ci:affected"
+          }
+          affected_projects=${AFFECTED_PROJECTS:-None reported}
+          verify_outcome=${VERIFY_OUTCOME:-not run}
+          {
+            echo "## Hosted PR verification"
+            echo
+            echo "| Signal | Result |"
+            echo "| --- | --- |"
+            echo "| Outcome | $verify_outcome |"
+            echo "| Affected projects | $affected_projects |"
+            echo "| pnpm cache | $(cache_status "$PNPM_CACHE_HIT") ($(cache_size "$PNPM_CACHE_PATH")) |"
+            echo "| Nx cache | $(cache_status "$NX_CACHE_HIT") ($(cache_size "$NX_CACHE_PATH")) |"
+            echo "| Concurrency | Nx 3; Vitest 2 |"
+            echo
+            if [[ -f test-results/ci-verification-summary.md ]]; then
+              cat test-results/ci-verification-summary.md
+            else
+              echo "Verification did not start, so no phase timings are available."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JUnit artifacts
         if: always()
@@ -312,24 +396,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-          package-manager-cache: false
-
-      - name: Set up pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.29.3 --activate
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.3.5
-
-      - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
 
       - name: Compile host binary
         run: pnpm exec nx run cli:compile --outputStyle=static -- --host-only
@@ -358,6 +426,7 @@ jobs:
     needs:
       - classify
       - format
+      - extension-lint
       - documentation
       - workflow-validation
       - image

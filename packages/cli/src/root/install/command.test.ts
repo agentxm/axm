@@ -40,9 +40,12 @@ describe("root install command help", () => {
       "Install extensions from a registry FQN or source locator, or reinstall configured extensions",
     );
     expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version]) or source");
-    expect(output).toContain("locator (optional)");
     expect(output).toContain("axm install");
     expect(output).toContain("axm install @acme/skills/code-review");
     expect(output).toContain("axm install github:acme/agent-extensions//tools@v1.0.0");
+    expect(output).toContain('refs cannot contain "/"');
+    expect(output).toContain(
+      "Discover and install skills, commands, files, rules, hooks, knowledge, and",
+    );
   });
 });

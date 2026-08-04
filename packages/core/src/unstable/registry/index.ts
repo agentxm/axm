@@ -37,18 +37,12 @@ export type {
   GetExtensionIndexArgs,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
-  GetLibraryArgs,
   PublishExtensionArgs,
   PublishExtensionResponse,
   OwnerExistsResponse,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
   ExtensionVisibility,
-  RegistryLibrary,
-  RegistryLibraryDetail,
-  RegistryLibraryMaintainer,
-  RegistryLibraryMember,
-  RegistryLibraryVisibility,
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
 export { createRegistryClient } from "./client.js";
@@ -67,24 +61,19 @@ export type {
   ArchiveCacheVerifyResult,
 } from "./archive-cache.js";
 export {
-  ARCHIVE_CACHE_MAX_AGE_MILLIS,
+  ARCHIVE_CACHE_MAX_AGE,
   ARCHIVE_CACHE_MAX_BYTES,
   makeArchiveCache,
   makeUserArchiveCache,
 } from "./archive-cache.js";
 
 export type {
-  ExtensionMaintainer,
-  ExtensionMaintainerTarget,
   RegistryExtensionReference,
   RegistryExtensionVersionReference,
   RegistryLifecycleCallOptions,
   YankCategory,
 } from "./admin-client.js";
 export {
-  clearExtensionMaintainer,
-  getExtensionMaintainer,
-  setExtensionMaintainer,
   yankExtensionVersion,
   yankAvailableExtensionVersions,
   unyankExtensionVersion,
@@ -117,10 +106,9 @@ export {
 
 export {
   DEFAULT_MINIMUM_RELEASE_AGE,
-  DEFAULT_MINIMUM_RELEASE_AGE_MS,
+  DEFAULT_MINIMUM_RELEASE_AGE_DURATION,
   filterMatureVersions,
   isVersionEntryMature,
   parseMinimumReleaseAge,
   releaseAgeHoldbackWarning,
 } from "./release-age-policy.js";
-export type { ReleaseAgePolicy } from "./release-age-policy.js";

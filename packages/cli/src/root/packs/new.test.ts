@@ -55,7 +55,6 @@ const defaultArgs = (
   name: extensionName(name),
   owner: Option.none<Handle>(),
   yes: false,
-  force: false,
   preview: false,
   ...overrides,
 });

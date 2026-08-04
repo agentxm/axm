@@ -59,23 +59,26 @@ export const kiroCliAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://kiro.dev/docs/cli/mcp/"],
+        sources: ["https://kiro.dev/docs/mcp/configuration/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "braced",
           defaults: false,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "disabled", enabled: false, disabled: true },
+              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "project",
@@ -89,25 +92,17 @@ export const kiroCliAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "http",
-                },
-              },
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
-                sse: "url",
               },
-              headersKey: null,
+              headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -122,43 +117,6 @@ export const kiroCliAgent = {
         scopes: ["user", "project"],
         directory: ".kiro/agents",
         layout: "directory",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Kiro CLI steering files live under .kiro/steering and can be always-on, conditional, or manually referenced.",
-        docs: [],
-        sources: ["https://kiro.dev/docs/cli/steering/"],
-        scopes: ["user", "project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        directory: ".kiro/steering",
-        kind: "rules-dir",
-        files: ["*.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
       },
       axm: {
         status: "supported",
@@ -188,6 +146,29 @@ export const kiroCliAgent = {
       },
     },
   },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Kiro CLI steering files live under .kiro/steering and can be always-on, conditional, or manually referenced.",
+      docs: [],
+      sources: ["https://kiro.dev/docs/cli/steering/"],
+      scopes: ["user", "project"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      directory: ".kiro/steering",
+      kind: "rules-dir",
+      files: ["*.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-06-06",
+      writer: null,
+    },
+  },
   permissions: {
     native: {
       availability: { via: "native" },
@@ -197,7 +178,7 @@ export const kiroCliAgent = {
       docs: [],
       sources: [
         "https://kiro.dev/docs/cli/custom-agents/configuration-reference/",
-        "https://kiro.dev/docs/cli/commands/",
+        "https://kiro.dev/docs/cli/",
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file"],

@@ -13,6 +13,7 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
+import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { handleUninstallCommand } from "./handler.js";
@@ -35,17 +36,36 @@ const initWorkspace = (
     agents,
     commands: Object.keys(commands).length > 0 ? commands : undefined,
     lockfileCommands: Object.keys(lockfileCommands).length > 0 ? lockfileCommands : undefined,
+    writeTrustFromLockfile: Object.keys(lockfileCommands).length > 0,
   });
 };
 
-const makeLockEntry = (overrides: Record<string, unknown> = {}) => ({
-  type: "local",
-  path: "installed",
+const makeLockEntry = () => ({
+  type: "registry",
+  owner: "@acme",
+  name: "my-cmd",
+  resolvedVersion: "1.0.0",
+  integrity: "sha512-AAAA==",
+  sourceName: "default",
+  publisherBindingId: "hbnd_test",
+  sourceHash: computeSourceHash("# my-cmd\n"),
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  agents: [],
-  ...overrides,
 });
+
+const writeCanonicalCommand = (axmDir: string) => {
+  const sourcePath = path.join(
+    axmDir,
+    "extensions",
+    "@acme",
+    "commands",
+    "my-cmd",
+    "src",
+    "my-cmd.md",
+  );
+  fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+  fs.writeFileSync(sourcePath, "# my-cmd\n");
+};
 
 const defaultArgs = (
   name: string,
@@ -107,13 +127,7 @@ describe("commands uninstall.handler", () => {
         path.join(tempDir, ".axm"),
         { "my-cmd": "@acme/commands/my-cmd" },
         {
-          "my-cmd": makeLockEntry({
-            agents: ["claude-code", "cursor"],
-            renderedFiles: {
-              "claude-code": [{ path: ".claude/commands/my-cmd.md" }],
-              cursor: [{ path: ".cursor/commands/my-cmd.md" }],
-            },
-          }),
+          "my-cmd": makeLockEntry(),
         },
         ["claude-code", "cursor"],
       );
@@ -153,7 +167,7 @@ describe("commands uninstall.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("apply", () => {
-    it.effect("removes rendered command files recorded in the lockfile", () => {
+    it.effect("removes rendered command files for configured agents", () => {
       const { provide, logs } = makeLayers();
       const renderedPath = path.join(tempDir, ".claude", "commands", "my-cmd.md");
       fs.mkdirSync(path.dirname(renderedPath), { recursive: true });
@@ -162,14 +176,10 @@ describe("commands uninstall.handler", () => {
         path.join(tempDir, ".axm"),
         { "my-cmd": "@acme/commands/my-cmd" },
         {
-          "my-cmd": makeLockEntry({
-            agents: ["claude-code"],
-            renderedFiles: {
-              "claude-code": [{ path: ".claude/commands/my-cmd.md" }],
-            },
-          }),
+          "my-cmd": makeLockEntry(),
         },
       );
+      writeCanonicalCommand(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
@@ -193,9 +203,7 @@ describe("commands uninstall.handler", () => {
         path.join(tempDir, ".axm"),
         { "my-cmd": "@acme/commands/my-cmd" },
         {
-          "my-cmd": makeLockEntry({
-            agents: ["claude-code", "cursor"],
-          }),
+          "my-cmd": makeLockEntry(),
         },
       );
 

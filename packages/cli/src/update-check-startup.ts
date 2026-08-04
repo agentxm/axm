@@ -182,7 +182,7 @@ export const withUpdateCheck = <A, E, R>(
     });
 
     // Phase 2: Spawn detached refresh fiber if cache is missing or stale
-    const needsRefresh = Option.isNone(cache) || isCacheStale(cache.value.checkedAt, new Date());
+    const needsRefresh = Option.isNone(cache) || (yield* isCacheStale(cache.value.checkedAt));
     if (needsRefresh) {
       yield* Effect.forkDetach(refreshCache(options.localVersion));
     }

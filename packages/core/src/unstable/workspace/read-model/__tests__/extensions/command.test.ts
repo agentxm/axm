@@ -75,7 +75,7 @@ describe("makeCommandExtensionsApi", () => {
             origin: "canonical-axm",
             name: "build",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@owner/commands/src/build",
+            contentLocation: "/ws/.axm/extensions/@owner/commands/build",
           }),
         ],
         agentDirOccurrences: [

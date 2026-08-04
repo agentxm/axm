@@ -46,8 +46,6 @@ export { McpServerManager, McpServerManagerLive } from "./manager.js";
 
 export { mcpServerReconciliationAdapter } from "./reconciliation-adapter.js";
 
-export { buildRegistryMcpServerRef } from "./registry-ref-builder.js";
-
 export type {
   PublishMcpServerOperationArgs,
   PublishMcpServerOperation,
@@ -99,3 +97,11 @@ export {
   type InlineRemoteTransport,
   type ProjectExpectedEntryArgs,
 } from "./projection.js";
+export {
+  resolveSharedMcpTarget,
+  type ResolvedSharedMcpTarget,
+  type SharedMcpTargetConflict,
+  type SharedMcpTargetMember,
+  type SharedMcpTargetResolution,
+  type SharedMcpTransport,
+} from "./shared-target.js";

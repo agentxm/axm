@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { readEnvWithDefault } from "@agentxm/client-utils/unstable/env";
 
 import { capture, run, tryCapture } from "./release-command.js";
@@ -7,6 +7,14 @@ export const RELEASE_PACKAGE_JSON_PATHS = [
   "packages/utils/package.json",
   "packages/core/package.json",
   "packages/cli/package.json",
+] as const;
+
+export const AXM_SKILL_MANIFEST_PATH = ".axm/extensions/@agentxm/skills/axm/skill.json";
+export const AXM_SKILL_DOCUMENT_PATH = ".axm/extensions/@agentxm/skills/axm/src/SKILL.md";
+
+const RELEASE_VERSION_JSON_PATHS = [
+  ...RELEASE_PACKAGE_JSON_PATHS,
+  AXM_SKILL_MANIFEST_PATH,
 ] as const;
 
 export type GitHubRun = {
@@ -63,6 +71,57 @@ export const readPackageVersion = (path: string): string =>
 export const readPackageVersionAtRef = (ref: string, path: string): string =>
   readVersionFromJson(git("show", `${ref}:${path}`), `${ref}:${path}`);
 
+const readSkillCliVersionFromContent = (content: string, source: string): string => {
+  const match = /^cli-version:[ \t]*["']?([^"'\s]+)["']?[ \t]*$/m.exec(content);
+  return match?.[1] ?? fail(`Missing cli-version release stamp in ${source}.`);
+};
+
+export const readSkillCliVersion = (path: string = AXM_SKILL_DOCUMENT_PATH): string =>
+  readSkillCliVersionFromContent(readFileSync(path, "utf8"), path);
+
+export const readSkillCliVersionAtRef = (
+  ref: string,
+  path: string = AXM_SKILL_DOCUMENT_PATH,
+): string => readSkillCliVersionFromContent(git("show", `${ref}:${path}`), `${ref}:${path}`);
+
+const replaceExactlyOnce = (
+  content: string,
+  pattern: RegExp,
+  replacement: string,
+  source: string,
+): string => {
+  const matches = content.match(pattern);
+  if (matches?.length !== 1) {
+    return fail(`Expected exactly one release stamp in ${source}.`);
+  }
+
+  return content.replace(pattern, replacement);
+};
+
+export const writeSkillVersion = (version: string, path: string = AXM_SKILL_MANIFEST_PATH) => {
+  validateReleaseVersion(version);
+  const content = readFileSync(path, "utf8");
+  const updated = replaceExactlyOnce(
+    content,
+    /^[ \t]*"version"[ \t]*:[ \t]*"[^"]+"[ \t]*,?[ \t]*$/gm,
+    `  "version": "${version}"`,
+    path,
+  );
+  writeFileSync(path, updated, "utf8");
+};
+
+export const stampSkillCliVersion = (version: string, path: string = AXM_SKILL_DOCUMENT_PATH) => {
+  validateReleaseVersion(version);
+  const content = readFileSync(path, "utf8");
+  const updated = replaceExactlyOnce(
+    content,
+    /^cli-version:[ \t]*.+$/gm,
+    `cli-version: "${version}"`,
+    path,
+  );
+  writeFileSync(path, updated, "utf8");
+};
+
 export const git = (...args: readonly string[]): string => capture("git", args);
 
 export const fetchOriginMain = () => {
@@ -115,15 +174,23 @@ const requireMatchingVersions = (
 
 export const requireMatchingReleasePackageVersions = (): string =>
   requireMatchingVersions(
-    RELEASE_PACKAGE_JSON_PATHS.map((filePath) => [filePath, readPackageVersion(filePath)] as const),
+    [
+      ...RELEASE_VERSION_JSON_PATHS.map(
+        (filePath) => [filePath, readPackageVersion(filePath)] as const,
+      ),
+      [AXM_SKILL_DOCUMENT_PATH, readSkillCliVersion()] as const,
+    ],
     "working tree",
   );
 
 export const requireMatchingReleasePackageVersionsAtRef = (ref: string): string =>
   requireMatchingVersions(
-    RELEASE_PACKAGE_JSON_PATHS.map(
-      (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
-    ),
+    [
+      ...RELEASE_VERSION_JSON_PATHS.map(
+        (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
+      ),
+      [AXM_SKILL_DOCUMENT_PATH, readSkillCliVersionAtRef(ref)] as const,
+    ],
     ref,
   );
 

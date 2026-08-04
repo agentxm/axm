@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -21,7 +22,7 @@ import {
   makeRegistrySkillLockEntry,
 } from "../../workspace/test-stubs.js";
 import { decodeRelativePathSync } from "../../utils/path-types.js";
-import { exactVersion, getAppError, handle } from "../../test-helpers.js";
+import { exactVersion, handle } from "../../test-helpers.js";
 import type { UninstallSkillOperation } from "./uninstall.js";
 import { uninstallSkill } from "./uninstall.js";
 
@@ -49,6 +50,7 @@ const makeWorkspaceMock = (
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     lockedPacks?: Record<string, PackLockEntry>;
+    requiredByPack?: boolean;
   },
 ): WorkspaceMutationsService => {
   let skills: Record<string, SkillLockEntry> = { ...lockfileSkills };
@@ -61,22 +63,20 @@ const makeWorkspaceMock = (
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; skills: Record<string, unknown> } = {
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: {},
     };
     for (const [k, v] of Object.entries(skills)) {
       lockfile.skills[k] = {
         ...v,
-        installedAt: v.installedAt.toISOString(),
-        updatedAt: v.updatedAt.toISOString(),
+        installedAt: DateTime.formatIso(v.installedAt),
+        updatedAt: DateTime.formatIso(v.updatedAt),
       };
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
   };
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(legacyConfiguredAgents(lockfileSkills)),
     getLockedSkills: () =>
       lockfileErrorOverride !== undefined ? lockfileErrorOverride() : Effect.succeed(skills),
@@ -93,7 +93,7 @@ const makeWorkspaceMock = (
                 ...skills,
                 [name]: {
                   ...lockEntry,
-                  updatedAt: new Date(),
+                  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
                 },
               };
               writeToDisk();
@@ -104,7 +104,7 @@ const makeWorkspaceMock = (
           ...skills,
           [name]: {
             ...lockEntry,
-            updatedAt: new Date(),
+            updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
           },
         };
         writeToDisk();
@@ -130,7 +130,33 @@ const makeWorkspaceMock = (
               void name;
             }),
     getLockedPacks: () => Effect.succeed(lockedPacks),
-    getConfiguredMcpServers: () => Effect.succeed({}),
+    ...(overrides?.requiredByPack === true
+      ? {
+          getDesiredStateGraph: () =>
+            Effect.succeed({
+              complete: true,
+              problems: [],
+              nodes: [
+                {
+                  type: "skill" as const,
+                  name: "my-skill",
+                  identity: "@acme/skills/my-skill",
+                  source: "@acme/skills/my-skill@^1.0.0",
+                  enabled: true,
+                  constraints: ["^1.0.0"],
+                  origins: [
+                    {
+                      type: "pack" as const,
+                      pack: "@acme/packs/starter-pack",
+                      source: "@acme/skills/my-skill",
+                      constraint: "^1.0.0",
+                    },
+                  ],
+                },
+              ],
+            }),
+        }
+      : {}),
   });
 };
 
@@ -145,6 +171,7 @@ const withServices = (
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     lockedPacks?: Record<string, PackLockEntry>;
+    requiredByPack?: boolean;
   },
 ) => {
   return Layer.mergeAll(
@@ -167,7 +194,7 @@ const makeOp = (
 /** Writes a lockfile YAML to disk. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
 const writeLockfileYaml = (axmDir: string, skills: Record<string, any>) => {
-  const lockfile = { lockfileVersion: 1, skills };
+  const lockfile = { lockfileVersion: 3, skills };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
@@ -177,13 +204,13 @@ const readLockfileYaml = (axmDir: string) => {
   return YAML.parse(content);
 };
 
-/** Creates a local source lock entry for the in-memory mock (Date objects). */
+/** Creates a local source lock entry for the in-memory mock (DateTime.Utc values). */
 const makeLocalLockEntry = (agents: string[]) => ({
   type: "local" as const,
   path: decodeRelativePathSync("tmp/source"),
   agents,
-  installedAt: new Date(),
-  updatedAt: new Date(),
+  installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
 });
 
 /** Creates a local source lock entry for on-disk YAML (ISO strings). */
@@ -195,12 +222,14 @@ const makeLocalLockEntryYaml = (agents: string[]) => ({
   updatedAt: new Date().toISOString(),
 });
 
-/** Creates a registry source lock entry for the in-memory mock (Date objects). */
+/** Creates a registry source lock entry for the in-memory mock (DateTime.Utc values). */
 const makeRegistryLockEntry = (agents: string[]) =>
   makeRegistrySkillLockEntry({
     owner: handle("@community"),
     name: "my-skill",
     sourceName: "local",
+
+    publisherBindingId: "hbnd_test",
     agents,
   });
 
@@ -212,6 +241,8 @@ const makeRegistryLockEntryYaml = (agents: string[]) => ({
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "local",
+
+  publisherBindingId: "hbnd_test",
   agents,
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
@@ -245,7 +276,7 @@ describe("uninstallSkill", () => {
       agents?: string[];
       createCanonical?: boolean;
       createSymlinks?: boolean;
-      /** In-memory mock lockfile skills (Date objects). Passed to withServices. */
+      /** In-memory mock lockfile skills (DateTime.Utc values). Passed to withServices. */
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
       lockfileSkills?: Record<string, any>;
       /** On-disk YAML lockfile skills (ISO strings). Written to axm-lock.yaml. */
@@ -286,7 +317,7 @@ describe("uninstallSkill", () => {
       }
     }
 
-    // In-memory mock (Date objects) for withServices
+    // In-memory mock (DateTime.Utc values) for withServices
     const lockfileSkills = opts.lockfileSkills ?? { [skillName]: makeLocalLockEntry(agents) };
     // On-disk YAML (ISO strings) for lockfile read/write operations
     const lockfileSkillsYaml = opts.lockfileSkillsYaml ?? {
@@ -514,7 +545,7 @@ describe("uninstallSkill", () => {
   });
 
   describe("missing canonical dir", () => {
-    it.effect("skips without error when canonical dir does not exist", () =>
+    it.effect("ignores a stale receipt when canonical dir does not exist", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
@@ -531,11 +562,11 @@ describe("uninstallSkill", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled my-skill");
+        expect(result.message).toBe("not installed");
 
-        // Lockfile entry should be removed
+        // Historical receipt data is not mutation authority.
         const lockfile = readLockfileYaml(axmDir);
-        expect(lockfile.skills["my-skill"]).toBeUndefined();
+        expect(lockfile.skills["my-skill"]).toBeDefined();
       }),
     );
   });
@@ -594,9 +625,9 @@ describe("uninstallSkill", () => {
   });
 
   describe("lockfile read error handling", () => {
-    it.effect("propagates AppError from lockfile read failure", () =>
+    it.effect("uninstalls observed content without reading the receipt", () =>
       Effect.gen(function* () {
-        const { axmDir, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
+        const { axmDir, base, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
 
         const result = yield* uninstallSkill(makeOp()).pipe(
           Effect.provide(
@@ -614,14 +645,11 @@ describe("uninstallSkill", () => {
               },
             ),
           ),
-          Effect.flip,
         );
 
-        const error = getAppError(result);
-        expect(error.code).toBe("internal");
-        expect(error.cause).toBeInstanceOf(AppError);
-        // Canonical dir should still exist (error propagated before removal)
-        expect(fs.existsSync(canonicalPath)).toBe(true);
+        expect(result.result).toBe("success");
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
       }),
     );
   });
@@ -716,8 +744,13 @@ describe("uninstallSkill", () => {
         owner: handle("@acme"),
         name: "starter-pack",
         sourceName: "local",
+
+        publisherBindingId: "hbnd_test",
         resolvedSkills: Object.fromEntries(
-          Object.entries(resolvedSkills).map(([name, version]) => [name, exactVersion(version)]),
+          Object.entries(resolvedSkills).map(([name, version]) => [
+            name,
+            { version: exactVersion(version), publisherBindingId: "hbnd_test" },
+          ]),
         ),
       });
 
@@ -764,6 +797,8 @@ describe("uninstallSkill", () => {
               owner: handle("@acme"),
               name: "my-skill",
               sourceName: "local",
+
+              publisherBindingId: "hbnd_test",
               agents: ["claude-code"],
             }),
           },
@@ -788,6 +823,7 @@ describe("uninstallSkill", () => {
                   "@acme/skills/my-skill": "1.0.0",
                 }),
               },
+              requiredByPack: true,
             }),
           ),
         );
@@ -815,6 +851,8 @@ describe("uninstallSkill", () => {
               owner: handle("@acme"),
               name: "my-skill",
               sourceName: "local",
+
+              publisherBindingId: "hbnd_test",
               agents: ["claude-code"],
             }),
           },
@@ -842,6 +880,7 @@ describe("uninstallSkill", () => {
                   "@acme/skills/my-skill": "2.0.0",
                 }),
               },
+              requiredByPack: true,
             }),
           ),
         );
@@ -871,6 +910,8 @@ describe("uninstallSkill", () => {
               owner: handle("@community"),
               name: "my-skill",
               sourceName: "local",
+
+              publisherBindingId: "hbnd_test",
               agents: ["claude-code"],
             }),
           },
@@ -895,6 +936,7 @@ describe("uninstallSkill", () => {
                   "@community/skills/my-skill": "1.0.0",
                 }),
               },
+              requiredByPack: true,
             }),
           ),
         );

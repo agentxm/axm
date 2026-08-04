@@ -10,7 +10,7 @@
       }
     },
     "lockfile": {
-      "lockfileVersion": 1,
+      "lockfileVersion": 3,
       "skills": {
         "reviewer": {
           "type": "registry",
@@ -19,6 +19,8 @@
           "resolvedVersion": "1.0.0",
           "integrity": "sha512-stub",
           "sourceName": "default",
+
+          "publisherBindingId": "hbnd_test",
           "agents": [
             "universal",
             "amp"

@@ -13,6 +13,7 @@ import * as nodePath from "node:path";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -34,7 +35,7 @@ import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
   version: exactVersion("1.0.0"),
-  published: "2025-01-01T00:00:00Z",
+  published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
   integrity: "sha512-AAAA==",
   ...overrides,
 });
@@ -45,6 +46,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
   type: "skill",
   versions: [makeVersionEntry()],
   ...overrides,
+  publisherBindingId: overrides?.publisherBindingId ?? "hbnd_test",
 });
 
 const defaultFindOptions: FindOptions = {

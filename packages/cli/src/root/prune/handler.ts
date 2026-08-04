@@ -1,9 +1,10 @@
 /**
  * Handler for `axm prune`.
  *
- * Aggregates prunable artifacts across all extension types using per-type
- * collectors (following the `axm install` aggregation pattern). In v1, only
- * the skills collector produces results; other type collectors return empty.
+ * Aggregates prunable artifacts across every per-agent extension type using
+ * per-type collectors (following the `axm install` aggregation pattern).
+ * Workspace-placed types (files, rules, knowledge) write into workspace files
+ * rather than per-agent artifact directories, so they have nothing to sweep.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -11,11 +12,15 @@
 import * as Effect from "effect/Effect";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import type { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  PER_AGENT_EXTENSION_TYPES,
+  type PerAgentType,
+} from "@agentxm/client-core/unstable/extension-types";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 
 import {
   type PrunableArtifact,
-  collectPrunableArtifacts,
+  collectPrunableArtifactsForType,
   makePruneArtifactsPlan,
 } from "../skills/prune/handler.js";
 import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
@@ -38,19 +43,41 @@ export interface RootPruneHandlerFlags {
 // ---------------------------------------------------------------------------
 
 interface PruneCollector {
-  readonly type: string;
+  readonly type: PerAgentType;
   readonly collect: (
     patterns: ReadonlyArray<string>,
   ) => Effect.Effect<ReadonlyArray<PrunableArtifact>, AppError, WorkspaceMutations>;
 }
 
-const skillsPruneCollector: PruneCollector = {
-  type: "skill",
-  collect: (patterns) => collectPrunableArtifacts(patterns),
+/**
+ * One collector per per-agent type.
+ *
+ * Keyed by `PerAgentType` so a new per-agent type fails compile here rather
+ * than silently leaving its unmanaged artifacts behind on every sweep.
+ */
+export const PRUNE_COLLECTORS: Record<PerAgentType, PruneCollector> = {
+  skill: {
+    type: "skill",
+    collect: (patterns) => collectPrunableArtifactsForType("skill", patterns),
+  },
+  command: {
+    type: "command",
+    collect: (patterns) => collectPrunableArtifactsForType("command", patterns),
+  },
+  "mcp-server": {
+    type: "mcp-server",
+    collect: (patterns) => collectPrunableArtifactsForType("mcp-server", patterns),
+  },
+  subagent: {
+    type: "subagent",
+    collect: (patterns) => collectPrunableArtifactsForType("subagent", patterns),
+  },
+  hook: { type: "hook", collect: (patterns) => collectPrunableArtifactsForType("hook", patterns) },
 };
 
-// In v1, only skills produce results. Other type collectors return empty.
-const pruneCollectors: ReadonlyArray<PruneCollector> = [skillsPruneCollector];
+const pruneCollectors: ReadonlyArray<PruneCollector> = PER_AGENT_EXTENSION_TYPES.map(
+  (type) => PRUNE_COLLECTORS[type],
+);
 
 // ---------------------------------------------------------------------------
 // Core logic

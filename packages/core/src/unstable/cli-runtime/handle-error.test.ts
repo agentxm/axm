@@ -119,6 +119,8 @@ describe("classifyError — EffectCliExit", () => {
 });
 
 describe("classifyError — AppError", () => {
+  const secretSentinel = "AXM_SECRET_SENTINEL_92";
+
   it("maps code to exit code and JSON envelope fields", () => {
     const error = makeAppError({
       code: "auth",
@@ -194,6 +196,44 @@ describe("classifyError — AppError", () => {
     // Suggestions render once, via renderAppError's "Next:" block.
     expect(content).toContain("Next:");
     expect(content.split("Next:").length - 1).toBe(1);
+  });
+
+  it.each([
+    { format: "text", verbose: false, debug: false },
+    { format: "text", verbose: true, debug: false },
+    { format: "text", verbose: true, debug: true },
+    { format: "json", verbose: false, debug: false },
+    { format: "json", verbose: true, debug: false },
+    { format: "json", verbose: true, debug: true },
+  ] as const)("redacts secrets across $format verbosity channels", (options) => {
+    const cause = new Error(`cause ${secretSentinel}`);
+    cause.stack = `Error: ${secretSentinel}\n at test`;
+    const error = makeAppError({
+      code: "internal",
+      detail: `failed with ${secretSentinel}`,
+      metadata: {
+        request: {
+          service: "registry",
+          url: `https://registry.test/path?token=${secretSentinel}`,
+        },
+        response: {
+          status: 500,
+          body: { token: secretSentinel, message: `body ${secretSentinel}` },
+        },
+      },
+      suggestions: [
+        {
+          description: `retry ${secretSentinel}`,
+          url: `https://registry.test/retry?code=${secretSentinel}`,
+        },
+      ],
+      cause,
+    });
+
+    const result = classifyError(error, options.format, options);
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain(secretSentinel);
+    expect(serialized).toContain("[REDACTED]");
   });
 });
 

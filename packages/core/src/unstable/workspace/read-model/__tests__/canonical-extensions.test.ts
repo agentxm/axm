@@ -1,6 +1,6 @@
 /**
  * Canonical-extensions scanner: covers canonical AXM
- * (`.axm/extensions/<owner>/<type-plural>/src/<name>/`) and external AXM
+ * (`.axm/extensions/<owner>/<type-plural>/<name>/src/`) and external AXM
  * (`.axm/extensions/external/<type-plural>/<name>/`) materializations across
  * all extension types.
  *
@@ -9,12 +9,18 @@
  * modules map these into subject-specific origin unions.
  */
 
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import {
+  EXTENSION_TYPE_TABLE,
+  extensionTypes,
+  toExtensionTypePlural,
+  type ExtensionType,
+} from "../../../extensions/common.js";
 import { buildFixture, type FixtureSpec } from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeCanonicalExtensionsScanner } from "../scanners/canonical-extensions.js";
@@ -46,7 +52,7 @@ const sortByContent = (
 ): ReadonlyArray<CanonicalExtensionOccurrence> =>
   [...occurrences].sort((a, b) => a.contentLocation.localeCompare(b.contentLocation));
 
-describe("canonical-extensions scanner", () => {
+layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner", (it) => {
   it.effect("emits no occurrences when .axm/extensions is absent", () =>
     Effect.gen(function* () {
       const { occurrences, warnings } = yield* runScanner({
@@ -56,18 +62,18 @@ describe("canonical-extensions scanner", () => {
       });
       expect(occurrences).toEqual([]);
       expect(warnings).toEqual([]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
-  it.effect("emits one canonical-axm occurrence per <owner>/<type>/src/<name>", () =>
+  it.effect("emits one canonical-axm occurrence per <owner>/<type>/<name>/src", () =>
     Effect.gen(function* () {
       const { occurrences } = yield* runScanner({
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/src/some-skill/SKILL.md": "# canonical\n",
-            "@owner/commands/src/some-command/some-command.md": "# command\n",
+            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+            "@owner/commands/some-command/src/some-command.md": "# command\n",
           },
         },
       });
@@ -83,7 +89,7 @@ describe("canonical-extensions scanner", () => {
         origin: "canonical-axm",
         name: "some-command",
         owner: "@owner",
-        contentLocation: "/ws/.axm/extensions/@owner/commands/src/some-command",
+        contentLocation: "/ws/.axm/extensions/@owner/commands/some-command/src",
       });
       expect(sorted[1]).toMatchObject({
         _tag: "canonical-extension",
@@ -92,9 +98,9 @@ describe("canonical-extensions scanner", () => {
         origin: "canonical-axm",
         name: "some-skill",
         owner: "@owner",
-        contentLocation: "/ws/.axm/extensions/@owner/skills/src/some-skill",
+        contentLocation: "/ws/.axm/extensions/@owner/skills/some-skill/src",
       });
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits one external-axm occurrence per external/<type>/<name>", () =>
@@ -116,7 +122,7 @@ describe("canonical-extensions scanner", () => {
         { type: "mcp-server", name: "external-mcp", owner: null },
         { type: "skill", name: "external-skill", owner: null },
       ]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits canonical and external occurrences for the same name as distinct entries", () =>
@@ -126,7 +132,7 @@ describe("canonical-extensions scanner", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/src/some-skill/SKILL.md": "# canonical\n",
+            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
             "external/skills/some-skill/SKILL.md": "# external\n",
           },
         },
@@ -136,7 +142,7 @@ describe("canonical-extensions scanner", () => {
       expect(sorted.map((o) => o.origin).sort()).toEqual(["canonical-axm", "external-axm"]);
       // Distinct contentLocations → distinct entries.
       expect(new Set(sorted.map((o) => o.contentLocation)).size).toBe(2);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("ignores non-extension type segments under canonical owners", () =>
@@ -146,7 +152,7 @@ describe("canonical-extensions scanner", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/src/some-skill/SKILL.md": "# ok\n",
+            "@owner/skills/some-skill/src/SKILL.md": "# ok\n",
             // "stuff" is not a local extension type directory; the scanner should skip it.
             "@owner/stuff/src/junk/file.txt": "junk",
           },
@@ -154,26 +160,31 @@ describe("canonical-extensions scanner", () => {
       });
       expect(occurrences).toHaveLength(1);
       expect(occurrences[0]?.type).toBe("skill");
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
-  it.effect("covers all seven extension types under one owner", () =>
+  it.effect("covers every extension type under one owner", () =>
     Effect.gen(function* () {
-      const types = ["skills", "commands", "mcps", "subagents", "files", "rules", "packs"] as const;
+      // Container types hold their members directly; every other type nests its
+      // content under `src/`. Both the set of types and that distinction come
+      // from the catalog, so a new type joins this case without an edit here.
+      const markerFor = (type: ExtensionType) =>
+        EXTENSION_TYPE_TABLE[type].placement === "container"
+          ? `@owner/${toExtensionTypePlural(type)}/sample/marker`
+          : `@owner/${toExtensionTypePlural(type)}/sample/src/marker`;
+
       const project: FixtureSpec["project"] = {
-        axmExtensions: Object.fromEntries(
-          types.map((t) => [`@owner/${t}/src/sample/marker`, "ok\n"]),
-        ),
+        axmExtensions: Object.fromEntries(extensionTypes.map((type) => [markerFor(type), "ok\n"])),
       };
       const { occurrences } = yield* runScanner({
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project,
       });
-      expect(occurrences).toHaveLength(7);
+      expect(occurrences).toHaveLength(extensionTypes.length);
       const observedTypes = new Set(occurrences.map((o) => o.type));
-      expect(observedTypes.size).toBe(7);
-    }).pipe(Effect.provide(Path.layer)),
+      expect(observedTypes.size).toBe(extensionTypes.length);
+    }),
   );
 
   it.effect("does not leak FileSystem | Path requirement to callers", () =>
@@ -190,7 +201,7 @@ describe("canonical-extensions scanner", () => {
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
-          axmExtensions: { "@x/skills/src/y/SKILL.md": "ok\n" },
+          axmExtensions: { "@x/skills/y/src/SKILL.md": "ok\n" },
         },
       });
       // Build the scanner effect with deps, then run it WITHOUT providing fs/path layers.
@@ -203,7 +214,7 @@ describe("canonical-extensions scanner", () => {
         diagnostics: diag,
       });
       expect(occurrences).toHaveLength(1);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("scope is stamped onto every occurrence", () =>
@@ -213,7 +224,7 @@ describe("canonical-extensions scanner", () => {
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
-          axmExtensions: { "@owner/skills/src/sample/SKILL.md": "ok\n" },
+          axmExtensions: { "@owner/skills/sample/src/SKILL.md": "ok\n" },
         },
       });
       const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
@@ -227,7 +238,7 @@ describe("canonical-extensions scanner", () => {
       // Even though the file is at project, the scanner stamps whatever scope
       // its deps record specifies. Phase 9 picks the right scope per call.
       expect(occurrences.every((o) => o.scope === "user")).toBe(true);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 });
 

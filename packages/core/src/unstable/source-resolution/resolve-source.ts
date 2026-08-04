@@ -22,7 +22,6 @@ import * as bitbucket from "./providers/bitbucket/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import * as github from "./providers/github/index.js";
 import * as gitlab from "./providers/gitlab/index.js";
-import { parseLocalPath } from "./providers/local-parser/index.js";
 import { parseInputPattern } from "../sources/index.js";
 import type {
   InputParseResult,
@@ -38,13 +37,10 @@ import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import type { ExtensionName, ExtensionType, ExtensionTypePlural } from "../extensions/index.js";
 import {
   decodeExtensionNameSync,
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
   isExtensionTypePlural,
   toExtensionType,
 } from "../extensions/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { SkillLockEntry } from "../lockfile/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { refFromFragment, refFromUrlHash, stripUrlHash } from "./url-fragment.js";
 
@@ -156,14 +152,6 @@ const getConfiguredSources = (_input: string) =>
       ),
     );
   });
-
-/** Get the relative path of an installed skill from its lockfile entry. */
-const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
-  if (entry.type === "registry") {
-    return `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/skills/${name}`;
-  }
-  return `${EXTERNAL_EXTENSIONS_DIR}/skills/${name}`;
-};
 
 /** Parse shorthand input using the provider for the given source type. */
 const parseShorthandForSource = (
@@ -439,40 +427,24 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
 // Simple pattern routing
 // -----------------------------------------------------------------------------
 
-/** Route NameInput: look up installed skill in lockfile, then configured skills. */
+/** Route NameInput through the complete desired extension graph. */
 export const routeNameInput = (
   name: string,
   _input: string,
 ): Effect.Effect<Source, AppError, FileSystem.FileSystem | Path.Path | WorkspaceMutations> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-
-    // Tier 1: lockfile entry
-    const skills = yield* ws.getLockedSkills().pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to read lockfile: ${e._tag}`,
-        }),
-      ),
-    );
-    const lockedSkill = skills[name];
-    if (lockedSkill !== undefined) {
-      return yield* parseLocalPath(getInstalledSkillPath(name, lockedSkill));
+    const graph = yield* ws.getDesiredStateGraph();
+    if (!graph.complete) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: "Cannot resolve the skill while the desired extension graph is incomplete.",
+        recover: "Repair or reinstall the configured packs, then retry.",
+      });
     }
-
-    // Tier 2: configured skill with a source string
-    const configured = yield* ws.records.getConfiguredSkills().pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to read settings: ${e._tag}`,
-        }),
-      ),
-    );
-    const entry = configured[name];
-    if (entry !== undefined) {
-      return yield* resolveSource(entry.source);
+    const desired = graph.nodes.find((node) => node.type === "skill" && node.name === name);
+    if (desired !== undefined) {
+      return yield* resolveSource(desired.source);
     }
 
     return yield* makeAppError({

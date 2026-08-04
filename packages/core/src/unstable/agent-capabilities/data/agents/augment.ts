@@ -44,13 +44,13 @@ export const augmentAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for slash commands yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://docs.augmentcode.com/cli/slash-commands"],
+        sources: ["https://docs.augmentcode.com/cli/custom-commands"],
         scopes: ["user", "project"],
         directory: ".augment/commands",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -67,17 +67,20 @@ export const augmentAgent = {
         convention: "universal",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
-          variables: "braced",
+          variables: "none",
           defaults: false,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "user",
@@ -86,17 +89,28 @@ export const augmentAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",
@@ -104,7 +118,6 @@ export const augmentAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -119,41 +132,6 @@ export const augmentAgent = {
         scopes: ["user", "project"],
         directory: ".augment/agents",
         layout: "directory",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: ["https://docs.augmentcode.com/cli/context"],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
       },
       axm: {
         status: "supported",
@@ -203,18 +181,18 @@ export const augmentAgent = {
           {
             nativeName: "PreToolUse",
             canonical: "tool.pre",
-            matcher: { kind: "regex", example: "launch-process|save-file", notes: null },
+            matcher: { kind: "regex", example: "terminal|write", notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "PostToolUse",
             canonical: "tool.post",
-            matcher: { kind: "regex", example: "launch-process|save-file", notes: null },
+            matcher: { kind: "regex", example: "terminal|write", notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "Stop",
@@ -227,28 +205,28 @@ export const augmentAgent = {
         ],
         tools: [
           {
-            nativeName: "view",
+            nativeName: "read",
             canonical: "file.read",
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-07-22",
           },
           {
-            nativeName: "save-file",
+            nativeName: "write",
             canonical: "file.write",
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-07-22",
           },
           {
-            nativeName: "str-replace-editor",
+            nativeName: "edit",
             canonical: "file.edit",
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-07-22",
           },
           {
-            nativeName: "launch-process",
+            nativeName: "terminal",
             canonical: "shell.exec",
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "web-fetch",
@@ -277,8 +255,29 @@ export const augmentAgent = {
           timeoutSerialization: "milliseconds",
           commandNameSerialization: "omit",
         },
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://docs.augmentcode.com/cli/rules"],
+      scopes: ["user", "project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {
@@ -286,15 +285,21 @@ export const augmentAgent = {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes:
-        "Auggie CLI evaluates toolPermissions top-to-bottom with first match winning. Tool permissions are CLI-only and use ~/.augment/settings.json.",
+        "Auggie CLI evaluates toolPermissions top-to-bottom with first match winning. Tool permissions are CLI-only and live in ~/.augment/settings.json (user scope) or a repo-committed .augment/settings.json (project scope).",
       docs: [],
       sources: ["https://docs.augmentcode.com/cli/permissions"],
-      scopes: ["user"],
+      scopes: ["user", "project"],
       mechanism: ["config-file"],
       configFiles: [
         {
           scope: "user",
           path: "~/.augment/settings.json",
+          format: "json",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".augment/settings.json",
           format: "json",
           gitignored: false,
         },
@@ -310,7 +315,7 @@ export const augmentAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-07-22",
       writer: {
         grants: {
           shell: {
@@ -318,7 +323,7 @@ export const augmentAgent = {
             patch: {
               toolPermissions: [
                 {
-                  toolName: "launch-process",
+                  toolName: "terminal",
                   shellInputRegex: "^${tool}(\\s|$)",
                   permission: { type: "allow" },
                 },
@@ -330,9 +335,9 @@ export const augmentAgent = {
             target: "~/.augment/settings.json",
             patch: {
               toolPermissions: [
-                { toolName: "view", permission: { type: "allow" } },
-                { toolName: "str-replace-editor", permission: { type: "allow" } },
-                { toolName: "save-file", permission: { type: "allow" } },
+                { toolName: "read", permission: { type: "allow" } },
+                { toolName: "edit", permission: { type: "allow" } },
+                { toolName: "write", permission: { type: "allow" } },
               ],
             },
             template: null,

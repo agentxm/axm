@@ -34,12 +34,15 @@ export const handleWorkspaceUpdate = (args: {
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
   readonly flags: WorkspaceUpdateFlags;
+  /** Installed names a selector resolved to; omit to update every entry. */
+  readonly names?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
     const planResult = yield* buildWorkspaceUpdatePlan({
       type: args.type,
       planName: args.planName,
       planDescription: args.planDescription,
+      ...(args.names === undefined ? {} : { names: args.names }),
     });
 
     if (planResult._tag === "NoConfiguredExtensions") {
@@ -63,10 +66,7 @@ export const handleWorkspaceUpdate = (args: {
 
     const resolution = yield* previewOrApplyPlan(planResult.plan, args.flags);
     let outputResolution: PlanResolution = resolution;
-    if (
-      !args.flags.preview &&
-      (Option.isNone(args.type) || args.type.value === "files" || args.type.value === "library")
-    ) {
+    if (!args.flags.preview && (Option.isNone(args.type) || args.type.value === "files")) {
       const workspaceGeneratorResolution = yield* runFilesWorkspaceGeneratorPhase({
         dryRun: false,
       });

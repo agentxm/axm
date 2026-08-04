@@ -21,6 +21,7 @@ export {
   CredentialFileSchema,
   CredentialStoreTokenSource,
   EnvVarTokenSource,
+  FileTokenSource,
   FlagTokenSource,
   RegistryAccountsSchema,
 } from "./schema.js";
@@ -36,6 +37,17 @@ export {
   makePersistedCredentialsUnsupportedError,
   selectTier,
 } from "./credential-store.js";
+
+export type {
+  PendingDeviceLogin,
+  PendingDeviceLoginStoreService,
+} from "./pending-device-login-store.js";
+export {
+  PendingDeviceLoginSchema,
+  PendingDeviceLoginStore,
+  PendingDeviceLoginStoreLive,
+  PendingDeviceLoginStoreTest,
+} from "./pending-device-login-store.js";
 
 // Token resolution
 export {
@@ -72,12 +84,17 @@ export type { NormalizedTokenResponse } from "./oauth-contract.js";
 
 // Device login orchestration
 export type {
+  DeviceLoginPendingResult,
   DeviceLoginInteractionService,
   DeviceLoginInteractionTestState,
+  ResumeDeviceLoginOptions,
 } from "./device-login.js";
 export {
+  DeviceLoginPendingResultSchema,
   DeviceLoginInteraction,
   DeviceLoginInteractionTest,
+  initiateDeviceLogin,
+  resumeDeviceLogin,
   runDeviceLogin,
   type RunDeviceLoginOptions,
 } from "./device-login.js";
@@ -94,6 +111,12 @@ export {
   LoopbackLoginFallback,
   startLoopbackServer,
 } from "./loopback-server.js";
+export {
+  LoginDocumentSchema,
+  LoginResultSchema,
+  type LoginDocument,
+  type LoginResult,
+} from "./login-output.js";
 export {
   runPublishAuthorization,
   type PublishAuthorizationInput,

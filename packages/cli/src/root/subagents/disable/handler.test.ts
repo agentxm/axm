@@ -11,7 +11,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../../test-stubs.js";
+import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
+import { computePackageContentHashSync, writeWorkspaceFiles } from "../../../test-stubs.js";
 import { expectNoOpPlanResult, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import {
   CodingAgentRepository,
@@ -28,13 +29,18 @@ const initWorkspace = (
   opts: {
     subagents?: Record<string, unknown>;
     lockfileSubagents?: Record<string, unknown>;
+    packs?: Record<string, unknown>;
+    lockfilePacks?: Record<string, unknown>;
     agents?: string[];
   } = {},
 ) => {
   writeWorkspaceFiles(axmDir, {
     agents: opts.agents,
     subagents: opts.subagents,
+    packs: opts.packs,
     lockfileSubagents: opts.lockfileSubagents,
+    lockfilePacks: opts.lockfilePacks,
+    writeTrustFromLockfile: true,
   });
 };
 
@@ -187,10 +193,41 @@ describe("subagents disable.handler", () => {
   // ---------------------------------------------------------------------------
 
   it.effect("promotes implicit subagent to configured entry with enabled: false", () => {
-    const { provide } = makeLayers();
+    const { provide, rendererState } = makeLayers();
     const axmDir = path.join(tempDir, ".axm");
-    // Lockfile-only entry (no settings entry) = implicit
+    const subagentDir = path.join(axmDir, "extensions", "@acme", "subagents", "pack-subagent");
+    fs.mkdirSync(path.join(subagentDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(subagentDir, "subagent.json"),
+      JSON.stringify({
+        owner: "@acme",
+        type: "subagent",
+        name: "pack-subagent",
+        version: "1.0.0",
+      }),
+    );
+    fs.writeFileSync(
+      path.join(subagentDir, "src", "pack-subagent.md"),
+      "---\nname: pack-subagent\n---\n# pack-subagent",
+    );
+
+    const packDir = path.join(axmDir, "extensions", "@acme", "packs", "starter-pack");
+    fs.mkdirSync(packDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(packDir, "pack.json"),
+      JSON.stringify({
+        owner: "@acme",
+        type: "pack",
+        name: "starter-pack",
+        version: "1.0.0",
+        dependencies: {
+          "@acme/subagents/pack-subagent": "^1.0.0",
+        },
+      }),
+    );
+
     initWorkspace(axmDir, {
+      packs: { "starter-pack": "@acme/packs/starter-pack" },
       lockfileSubagents: {
         "pack-subagent": {
           ...makeLockEntry(),
@@ -198,8 +235,33 @@ describe("subagents disable.handler", () => {
           owner: "@acme",
           name: "pack-subagent",
           resolvedVersion: "1.0.0",
-          integrity: "",
+          integrity: "sha512-AAAA==",
           sourceName: "default",
+          publisherBindingId: "hbnd_test",
+          sourceHash: computeSourceHash("# pack-subagent"),
+        },
+      },
+      lockfilePacks: {
+        "starter-pack": {
+          type: "registry",
+          owner: "@acme",
+          name: "starter-pack",
+          resolvedVersion: "1.0.0",
+          integrity: "sha512-AAAA==",
+          sourceName: "default",
+          publisherBindingId: "hbnd_test",
+          sourceHash: computePackageContentHashSync(packDir),
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          resolvedSkills: {},
+          resolvedCommands: {},
+          resolvedMcpServers: {},
+          resolvedSubagents: {
+            "@acme/subagents/pack-subagent": {
+              version: "1.0.0",
+              publisherBindingId: "hbnd_test",
+            },
+          },
         },
       },
     });
@@ -216,12 +278,15 @@ describe("subagents disable.handler", () => {
         // Verify settings now has a direct entry with enabled: false
         const settings = readSettings(axmDir);
         const subagents = settings["subagents"] as Record<string, unknown>;
+        if (subagents === undefined) {
+          throw new Error(JSON.stringify(rendererState.results));
+        }
         expect(subagents).toBeDefined();
         expect(subagents["pack-subagent"]).toBeDefined();
 
         const entry = subagents["pack-subagent"] as { source: string; enabled: boolean };
         expect(entry.enabled).toBe(false);
-        expect(entry.source).toBe("@acme/subagents/pack-subagent");
+        expect(entry.source).toBe("@acme/subagents/pack-subagent@^1.0.0");
       }),
     );
   });

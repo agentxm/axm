@@ -12,12 +12,12 @@
  * Supporting logic is split into focused modules:
  * - `source-metadata.ts` — source metadata derivation helpers
  * - `initialization.ts` — workspace initialization (agent detection, settings creation)
- * - `read-model-record-converters.ts` — workspace row → record map converters
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
+import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -27,8 +27,8 @@ import {
   LOCKFILE_NAME,
   LOCKFILE_VERSION,
   commitLockfileSnapshotUpdate,
-  makeRegistryLibraryLockEntry,
-  type RegistryLibraryLockEntry,
+  type ResolvedExtension,
+  type ResolvedExtensionMap,
   type FilesLockMap,
   type HooksLockMap,
   type KnowledgeLockMap,
@@ -41,6 +41,7 @@ import type { Lockfile } from "../lockfile/schema.js";
 import { computeSkillPaths } from "../skills/paths.js";
 import { computePackPaths } from "../packs/paths.js";
 import type { Handle } from "../extensions/handle.js";
+import type { InstallableExtensionType } from "../extensions/installable-types.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
   ConfigurableAgentIdSchema,
@@ -48,8 +49,11 @@ import {
   formatFqn,
   parseExtensionFqnParts,
   parseRegistrySourcePatternParts,
+  type SourceHash,
+  SourceHashSchema,
 } from "../extensions/index.js";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { decodeVersionSync } from "../version-constraints/version-constraints.js";
+import { type AppError, BC, makeAppError } from "../app-error/index.js";
 import {
   type CommandEntry,
   type CommandsMap,
@@ -61,8 +65,6 @@ import {
   type KnowledgeEntry,
   type KnowledgeMap,
   type InstructionsConfigValue,
-  type LibraryEntry,
-  type LibrariesMap,
   type McpServerEntry,
   type McpServersMap,
   type MinimumReleaseAge,
@@ -83,10 +85,22 @@ import { DEFAULT_MINIMUM_RELEASE_AGE } from "../registry/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 import { resolveKnowledgeProjectionConfig } from "../knowledge/projection-config.js";
+import {
+  readWorkspaceTrustState,
+  TRUST_STATE_VERSION,
+  trustRecordKey,
+  trustStateFromLockfile,
+  writeWorkspaceTrustState,
+  type PackTrustManifest,
+  type WorkspaceTrustState,
+} from "../trust/index.js";
 
+import { withStrictLockfileReads } from "./lockfile-read-tolerance.js";
 import { getAxmDir } from "./paths.js";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as semver from "semver";
 import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 import {
   makeWorkspaceReadModel,
@@ -108,7 +122,6 @@ import {
   type SetRuleArgs,
   type SetHookArgs,
   type SetKnowledgeArgs,
-  type SetLibraryArgs,
   type SetMcpServerArgs,
   type SetSubagentArgs,
   type SkillPathSource,
@@ -116,26 +129,19 @@ import {
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
-import {
-  toConfiguredCommandRecord,
-  toConfiguredExtensionRefRecord,
-  toConfiguredSkillRecord,
-  toInstalledCommandRecord,
-  toInstalledExtensionRefRecord,
-  toInstalledSkillRecord,
-  toUnmanagedCommandRecord,
-  toUnmanagedExtensionRefRecord,
-  toUnmanagedSkillRecord,
-  toConfiguredSubagentRecord,
-  toInstalledSubagentRecord,
-} from "./read-model-record-converters.js";
+import { buildDesiredStateGraph } from "./desired-state-graph.js";
+import { validateDesiredPackTrust } from "./desired-pack-trust.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
   skills: {},
 });
+const createEmptyTrustState = (): WorkspaceTrustState => ({
+  trustStateVersion: TRUST_STATE_VERSION,
+  records: {},
+});
 
 const normalizeForStableCompare = (value: unknown): unknown => {
-  if (value instanceof Date) return value.toISOString();
+  if (DateTime.isDateTime(value)) return DateTime.formatIso(value);
   if (Array.isArray(value)) return value.map(normalizeForStableCompare);
   if (typeof value === "object" && value !== null) {
     const normalized: Record<string, unknown> = {};
@@ -154,8 +160,8 @@ const stableCompare = (left: unknown, right: unknown): boolean =>
   JSON.stringify(normalizeForStableCompare(right));
 
 type TimestampedLockEntry = {
-  readonly installedAt: Date;
-  readonly updatedAt: Date;
+  readonly installedAt: DateTime.Utc;
+  readonly updatedAt: DateTime.Utc;
 };
 
 const withoutLockTimestamps = (entry: TimestampedLockEntry): unknown => {
@@ -175,26 +181,31 @@ const skillLockEntrySemanticallyEqual = (
   next: SkillLockEntry,
 ): boolean => lockEntrySemanticallyEqual(current, next);
 
-const nextUpdatedAt = (current: TimestampedLockEntry | undefined): Date => {
-  const now = new Date();
-  if (current === undefined) return now;
-  const currentTime = current.updatedAt.getTime();
-  return now.getTime() > currentTime ? now : new Date(currentTime + 1);
-};
+const nextUpdatedAt = (current: TimestampedLockEntry | undefined): Effect.Effect<DateTime.Utc> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now;
+    if (current === undefined) return now;
+    // Keep updatedAt strictly increasing even when the clock has not advanced
+    // between two writes within the same millisecond.
+    return DateTime.isGreaterThan(now, current.updatedAt)
+      ? now
+      : DateTime.addDuration(current.updatedAt, Duration.millis(1));
+  });
 
 const preserveLockTimestampsOnNoop = <TEntry extends TimestampedLockEntry>(
   current: TEntry | undefined,
   next: TEntry,
-): TEntry => {
-  const candidate = {
-    ...next,
-    installedAt: current?.installedAt ?? next.installedAt,
-    updatedAt: nextUpdatedAt(current),
-  };
-  return lockEntrySemanticallyEqual(current, candidate) && current !== undefined
-    ? current
-    : candidate;
-};
+): Effect.Effect<TEntry> =>
+  Effect.gen(function* () {
+    const candidate = {
+      ...next,
+      installedAt: current?.installedAt ?? next.installedAt,
+      updatedAt: yield* nextUpdatedAt(current),
+    };
+    return lockEntrySemanticallyEqual(current, candidate) && current !== undefined
+      ? current
+      : candidate;
+  });
 
 const subagentLockEntrySemanticallyEqual = (
   current: SubagentLockEntry | undefined,
@@ -204,15 +215,45 @@ const subagentLockEntrySemanticallyEqual = (
 const contextReadErrorToAppError = (
   source: "settings" | "lockfile" | "workspace",
   error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
-): AppError =>
-  makeAppError({
-    code:
-      error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError"
-        ? "validation"
-        : "internal",
+): AppError => {
+  // A hand-edited settings file the user can correct is a validation failure,
+  // not an internal error; name the offending keys so the fix is obvious.
+  if (error._tag === "SettingsDecodeError") {
+    return makeAppError({
+      code: "validation",
+      detail: `Invalid workspace settings at ${error.path}: ${error.issues.join("; ")}`,
+      cause: error,
+      suggestions: [
+        { description: "Edit the settings file to fix the invalid value, then re-run." },
+      ],
+    });
+  }
+  if (error._tag === "SettingsParseError") {
+    return makeAppError({
+      code: "validation",
+      detail: `Workspace settings at ${error.path} are not valid JSON`,
+      cause: error,
+      suggestions: [{ description: "Fix the JSON syntax in the settings file, then re-run." }],
+    });
+  }
+
+  const isUnreadableLockfile =
+    error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError";
+  return makeAppError({
+    code: isUnreadableLockfile ? "validation" : "internal",
     detail: `Failed to read workspace ${source}`,
     cause: error,
+    // Where an unreadable lockfile is still terminal, point at the command that
+    // backs the bad file up and regenerates it.
+    ...(isUnreadableLockfile
+      ? {
+          suggestions: [
+            BC.run("axm sync", "Back up the unreadable lockfile and regenerate it from settings."),
+          ],
+        }
+      : {}),
   });
+};
 
 const contextCellErrorToAppError = (
   error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
@@ -342,6 +383,25 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
      */
     const readLockfileSafe = (dir: string) => readLockfileCell(dir);
 
+    const readTrustState = () =>
+      readWorkspaceTrustState(workspaceDir).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.flatMap(
+          Option.match({
+            onNone: () => readLockfileSafe(workspaceDir).pipe(Effect.map(trustStateFromLockfile)),
+            onSome: Effect.succeed,
+          }),
+        ),
+      );
+
+    const readAuthoritativeTrustState = () =>
+      readWorkspaceTrustState(workspaceDir).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.map(Option.getOrElse(createEmptyTrustState)),
+      );
+
     /**
      * Look up `key` in `record`, failing with an `AppError` when absent.
      */
@@ -375,7 +435,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           return "missing";
         }
 
-        return yield* readLockfileSafe(workspaceDir).pipe(
+        // Pinned strict: this probe is what tells reconciliation the difference
+        // between "invalid" and "ok", so it must never inherit an ambient
+        // degrade policy that would report an unreadable lockfile as absent.
+        return yield* withStrictLockfileReads(readLockfileSafe(workspaceDir)).pipe(
           Effect.as("ok" as const),
           Effect.catch((error) => {
             if (error.code === "validation") {
@@ -396,38 +459,33 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         Effect.mapError(contextCellErrorToAppError),
       );
 
-    const readModelRecordReaders = makeReadModelRecordReaders({ baseDir, path, readScopedContext });
-    const getReadModelRecordRows = readModelRecordReaders.getReadModelRecordRows;
+    const readDesiredStateGraph = () =>
+      Effect.gen(function* () {
+        const settings = yield* readSettingsSafe(workspaceDir);
+        const graph = yield* buildDesiredStateGraph({ baseDir, settings }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+        // A valid legacy lockfile is the one-time migration source when a
+        // workspace has not written trust.json yet. Once the dedicated trust
+        // document exists, readTrustState ignores receipt content entirely.
+        // This keeps existing configured packs usable on the first command
+        // after upgrade without accepting an invalid or missing baseline.
+        const trust = yield* readTrustState();
+        return yield* validateDesiredPackTrust({ baseDir, graph, trust }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        );
+      });
+    const readModelRecordReaders = makeReadModelRecordReaders({
+      baseDir,
+      path,
+      readScopedContext,
+      getDesiredStateGraph: readDesiredStateGraph,
+    });
     const records = {
       getExtensionInventory: readModelRecordReaders.getExtensionInventory,
-      getConfiguredSkills: () =>
-        getReadModelRecordRows("skill").pipe(Effect.map(toConfiguredSkillRecord)),
-      getUnmanagedSkills: () =>
-        getReadModelRecordRows("skill").pipe(Effect.map(toUnmanagedSkillRecord)),
-      getInstalledSkills: () =>
-        getReadModelRecordRows("skill").pipe(Effect.map(toInstalledSkillRecord)),
-      getConfiguredCommands: () =>
-        getReadModelRecordRows("command").pipe(Effect.map(toConfiguredCommandRecord)),
-      getUnmanagedCommands: () =>
-        getReadModelRecordRows("command").pipe(Effect.map(toUnmanagedCommandRecord)),
-      getInstalledCommands: () =>
-        getReadModelRecordRows("command").pipe(Effect.map(toInstalledCommandRecord)),
-      getConfiguredMcpServers: () =>
-        getReadModelRecordRows("mcp-server").pipe(Effect.map(toConfiguredExtensionRefRecord)),
-      getUnmanagedMcpServers: () =>
-        getReadModelRecordRows("mcp-server").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
-      getInstalledMcpServers: () =>
-        getReadModelRecordRows("mcp-server").pipe(Effect.map(toInstalledExtensionRefRecord)),
-      getConfiguredPacks: () =>
-        getReadModelRecordRows("pack").pipe(Effect.map(toConfiguredExtensionRefRecord)),
-      getUnmanagedPacks: () =>
-        getReadModelRecordRows("pack").pipe(Effect.map(toUnmanagedExtensionRefRecord)),
-      getInstalledPacks: () =>
-        getReadModelRecordRows("pack").pipe(Effect.map(toInstalledExtensionRefRecord)),
-      getConfiguredSubagents: () =>
-        getReadModelRecordRows("subagent").pipe(Effect.map(toConfiguredSubagentRecord)),
-      getInstalledSubagents: () =>
-        getReadModelRecordRows("subagent").pipe(Effect.map(toInstalledSubagentRecord)),
+      rows: readModelRecordReaders.getReadModelRecordRows,
     };
 
     /**
@@ -494,12 +552,136 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         return merged;
       }).pipe(Effect.withSpan("WorkspaceMutations.getConfiguredSources"));
 
+    const resolvePackReceipt = (
+      manifest: PackTrustManifest,
+      trust: WorkspaceTrustState,
+    ): Effect.Effect<
+      {
+        readonly resolvedSkills: ResolvedExtensionMap;
+        readonly resolvedCommands: ResolvedExtensionMap;
+        readonly resolvedMcpServers: ResolvedExtensionMap;
+        readonly resolvedSubagents: ResolvedExtensionMap;
+        readonly resolvedFiles: ResolvedExtensionMap;
+        readonly resolvedRules: ResolvedExtensionMap;
+        readonly resolvedHooks: ResolvedExtensionMap;
+        readonly resolvedKnowledge: ResolvedExtensionMap;
+      },
+      AppError
+    > =>
+      Effect.gen(function* () {
+        const groups: Record<
+          Exclude<InstallableExtensionType, "pack">,
+          Record<string, ResolvedExtension>
+        > = {
+          skill: {},
+          command: {},
+          "mcp-server": {},
+          subagent: {},
+          files: {},
+          rule: {},
+          hook: {},
+          knowledge: {},
+        };
+        for (const [fqn, constraint] of Object.entries(manifest.dependencies)) {
+          const parsed = parseExtensionFqnParts(fqn);
+          if (parsed === undefined || parsed.type === "pack") {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Invalid pack dependency identity: ${fqn}`,
+            });
+          }
+          const record = trust.records[trustRecordKey(parsed.type, parsed.name)];
+          if (
+            record === undefined ||
+            record.resolvedVersion === undefined ||
+            !semver.satisfies(record.resolvedVersion, constraint)
+          ) {
+            return yield* makeAppError({
+              code: "conflict",
+              detail: `Pack dependency ${fqn} requires ${constraint}, but trusted workspace state has ${record?.resolvedVersion ?? "no resolved version"}.`,
+            });
+          }
+          const version = decodeVersionSync(record.resolvedVersion);
+          if (record.authority === "workspace" && record.contentIdentity !== undefined) {
+            const contentIdentity = yield* Schema.decodeUnknownEffect(SourceHashSchema)(
+              record.contentIdentity,
+            ).pipe(
+              Effect.mapError((cause) =>
+                makeAppError({
+                  code: "validation",
+                  detail: `Trusted content identity for ${fqn} is invalid`,
+                  cause,
+                }),
+              ),
+            );
+            groups[parsed.type][fqn] = {
+              source: "workspace",
+              version,
+              sourceIdentity: record.sourceIdentity,
+              contentIdentity,
+            };
+            continue;
+          }
+          if (
+            record.authority === "registry" &&
+            record.publisherBindingId !== undefined &&
+            record.integrity !== undefined
+          ) {
+            groups[parsed.type][fqn] = {
+              source: "registry",
+              version,
+              publisherBindingId: record.publisherBindingId,
+              integrity: record.integrity,
+            };
+            continue;
+          }
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Pack dependency ${fqn} has unsupported trusted authority ${record.authority}.`,
+          });
+        }
+        return {
+          resolvedSkills: groups.skill,
+          resolvedCommands: groups.command,
+          resolvedMcpServers: groups["mcp-server"],
+          resolvedSubagents: groups.subagent,
+          resolvedFiles: groups.files,
+          resolvedRules: groups.rule,
+          resolvedHooks: groups.hook,
+          resolvedKnowledge: groups.knowledge,
+        };
+      });
+
     return {
       scope: options.scope,
       path: workspaceDir,
       baseDir,
 
       getLockfileState,
+
+      getDesiredStateGraph: () =>
+        readDesiredStateGraph().pipe(Effect.withSpan("WorkspaceMutations.getDesiredStateGraph")),
+
+      getTrustState: () =>
+        readTrustState().pipe(Effect.withSpan("WorkspaceMutations.getTrustState")),
+
+      removeTrustRecord: (type: InstallableExtensionType, name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const trust = yield* readAuthoritativeTrustState();
+            const key = trustRecordKey(type, name);
+            if (!(key in trust.records)) return;
+            const { [key]: _, ...remainingRecords } = trust.records;
+            void _;
+            yield* writeWorkspaceTrustState(workspaceDir, {
+              ...trust,
+              records: remainingRecords,
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            );
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.removeTrustRecord")),
 
       getConfiguredSources,
 
@@ -651,7 +833,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               files: {
                 ...currentLockedContext,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -672,7 +854,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               files: {
                 ...currentLockedContext,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -822,7 +1004,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -843,7 +1025,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               rules: {
                 ...currentLockedRules,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -993,7 +1175,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1014,7 +1196,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               hooks: {
                 ...currentLockedHooks,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1176,7 +1358,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               knowledge: {
                 ...currentLocked,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             }).pipe(Effect.provide(fsLayer));
           }),
@@ -1192,7 +1374,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               knowledge: {
                 ...currentLocked,
-                [name]: preserveLockTimestampsOnNoop(previous, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(previous, lockEntry),
               },
             }).pipe(Effect.provide(fsLayer));
           }),
@@ -1367,10 +1549,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               skills: {
                 ...currentLockfile.skills,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: nextUpdatedAt(currentLockEntry),
-                },
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1386,17 +1565,15 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.gen(function* () {
             // Update lockfile only (skip settings) — used for pack dependencies
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            if (skillLockEntrySemanticallyEqual(currentLockfile.skills[name], lockEntry)) {
+            const currentLockEntry = currentLockfile.skills[name];
+            if (skillLockEntrySemanticallyEqual(currentLockEntry, lockEntry)) {
               return;
             }
             const updatedLockfile = {
               ...currentLockfile,
               skills: {
                 ...currentLockfile.skills,
-                [name]: {
-                  ...lockEntry,
-                  updatedAt: nextUpdatedAt(currentLockfile.skills[name]),
-                },
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1579,9 +1756,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   : fqn;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: PacksMap = currentSettings.packs ?? {};
+            const enabled = currentPacks[name]?.enabled ?? true;
             const updatedSettings = {
               ...currentSettings,
-              packs: { ...currentPacks, [name]: { source } },
+              packs: { ...currentPacks, [name]: { source, enabled } },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1592,7 +1770,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               packs: {
                 ...currentLockedPacks,
-                [name]: preserveLockTimestampsOnNoop(currentLockedPacks[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockedPacks[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1602,6 +1780,86 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             ).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setPack")),
+
+      refreshPackContentIdentity: (
+        name: string,
+        contentIdentity: SourceHash,
+        manifest?: PackTrustManifest,
+      ) =>
+        withMutex(
+          Effect.gen(function* () {
+            const trust = yield* readAuthoritativeTrustState();
+            const key = trustRecordKey("pack", name);
+            const record = trust.records[key];
+            if (record?.authority !== "workspace") {
+              return yield* makeAppError({
+                code: "conflict",
+                detail: `Pack "${name}" is not an authored workspace pack`,
+                recover: "Only workspace-authored packs can be edited in place.",
+              });
+            }
+            const nextTrust = {
+              ...trust,
+              records: {
+                ...trust.records,
+                [key]: {
+                  ...record,
+                  contentIdentity,
+                  ...(manifest === undefined ? {} : { packManifest: manifest }),
+                },
+              },
+            };
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentPack = currentLockfile.packs?.[name];
+            const receipt =
+              manifest === undefined ? undefined : yield* resolvePackReceipt(manifest, trust);
+            if (
+              manifest !== undefined &&
+              (currentPack === undefined || currentPack.type !== "workspace")
+            ) {
+              return yield* makeAppError({
+                code: "conflict",
+                detail: `Workspace pack "${name}" has no matching workspace receipt`,
+              });
+            }
+            const updatedLockfile =
+              manifest === undefined || receipt === undefined || currentPack === undefined
+                ? currentLockfile
+                : {
+                    ...currentLockfile,
+                    packs: {
+                      ...currentLockfile.packs,
+                      [name]: {
+                        ...currentPack,
+                        version: decodeVersionSync(manifest.version),
+                        sourceHash: contentIdentity,
+                        ...receipt,
+                      },
+                    },
+                  };
+            yield* writeWorkspaceTrustState(workspaceDir, nextTrust).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            );
+            if (updatedLockfile !== currentLockfile) {
+              yield* commitLockfileSnapshotUpdate(
+                workspaceDir,
+                currentLockfile,
+                updatedLockfile,
+              ).pipe(
+                Effect.provide(fsLayer),
+                Effect.catch((error) =>
+                  writeWorkspaceTrustState(workspaceDir, trust).pipe(
+                    Effect.provideService(FileSystem.FileSystem, fs),
+                    Effect.provideService(Path.Path, path),
+                    Effect.catch(() => Effect.void),
+                    Effect.andThen(Effect.fail(error)),
+                  ),
+                ),
+              );
+            }
+          }),
+        ).pipe(Effect.withSpan("WorkspaceMutations.refreshPackContentIdentity")),
 
       setPackEntry: (name: string, entry: PackEntry) =>
         withMutex(
@@ -1645,92 +1903,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removePack")),
 
-      getConfiguredLibraryEntries: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s): LibrariesMap => s.libraries ?? {}),
-          Effect.withSpan("WorkspaceMutations.getConfiguredLibraryEntries"),
-        ),
-
-      getLockedLibraries: () =>
-        readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.libraries ?? {})),
-
-      getLockedLibrary: (name: string) =>
-        readLockfileSafe(workspaceDir).pipe(
-          Effect.map((lf) => Option.fromUndefinedOr((lf.libraries ?? {})[name])),
-        ),
-
-      setLibrary: (args: SetLibraryArgs) =>
-        withMutex(
-          Effect.gen(function* () {
-            const { source, name, ...lockFields } = args;
-            const lockEntry: RegistryLibraryLockEntry = makeRegistryLibraryLockEntry({
-              ...lockFields,
-              name,
-            });
-
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentLibraries: LibrariesMap = currentSettings.libraries ?? {};
-            const existing = currentLibraries[name];
-            const enabled = existing?.enabled ?? true;
-            const updatedSettings = {
-              ...currentSettings,
-              libraries: { ...currentLibraries, [name]: { source, enabled } },
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedLibraries = currentLockfile.libraries ?? {};
-            const updatedLockfile = {
-              ...currentLockfile,
-              libraries: {
-                ...currentLockedLibraries,
-                [name]: preserveLockTimestampsOnNoop(currentLockedLibraries[name], lockEntry),
-              },
-            };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setLibrary")),
-
-      setLibraryEntry: (name: string, entry: LibraryEntry) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentLibraries: LibrariesMap = currentSettings.libraries ?? {};
-            const updatedSettings = {
-              ...currentSettings,
-              libraries: { ...currentLibraries, [name]: entry },
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.setLibraryEntry")),
-
-      removeLibrary: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentLibraries: LibrariesMap = currentSettings.libraries ?? {};
-            const { [name]: removedLibrary, ...remainingLibraries } = currentLibraries;
-            void removedLibrary;
-            const updatedSettings = { ...currentSettings, libraries: remainingLibraries };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedLibraries = currentLockfile.libraries ?? {};
-            const { [name]: removedLock, ...remainingLockedLibraries } = currentLockedLibraries;
-            void removedLock;
-            const updatedLockfile = { ...currentLockfile, libraries: remainingLockedLibraries };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ).pipe(Effect.withSpan("WorkspaceMutations.removeLibrary")),
-
       getPackDir: (name: string, owner: Handle) =>
         Effect.succeed(computePackPaths(path.join, baseDir, owner, name)),
 
@@ -1746,17 +1918,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.commands ?? {})[name])),
         ),
 
-      setCommand: ({ name, lockEntry }: SetCommandArgs) =>
+      setCommand: ({ name, lockEntry, versionRange }: SetCommandArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
             const source =
               lockEntry.type === "registry"
-                ? formatFqn({
-                    owner: lockEntry.owner,
-                    type: "command",
-                    name: decodeExtensionNameSync(name),
-                  })
+                ? (() => {
+                    const fqn = formatFqn({
+                      owner: lockEntry.owner,
+                      type: "command",
+                      name: decodeExtensionNameSync(name),
+                    });
+                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                  })()
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentCommands: CommandsMap = currentSettings.commands ?? {};
@@ -1773,7 +1948,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               commands: {
                 ...currentLockedCommands,
-                [name]: preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1794,7 +1969,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               commands: {
                 ...currentLockedCommands,
-                [name]: preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockedCommands[name], lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1892,17 +2067,20 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.withSpan("WorkspaceMutations.getConfiguredCommandEntries"),
         ),
 
-      setSubagent: ({ name, lockEntry }: SetSubagentArgs) =>
+      setSubagent: ({ name, lockEntry, versionRange }: SetSubagentArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
             const source =
               lockEntry.type === "registry"
-                ? formatFqn({
-                    owner: lockEntry.owner,
-                    type: "subagent",
-                    name: decodeExtensionNameSync(name),
-                  })
+                ? (() => {
+                    const fqn = formatFqn({
+                      owner: lockEntry.owner,
+                      type: "subagent",
+                      name: decodeExtensionNameSync(name),
+                    });
+                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                  })()
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSubagents: SubagentsMap = currentSettings.subagents ?? {};
@@ -1928,7 +2106,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               subagents: {
                 ...currentLockedSubagents,
-                [name]: preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(currentLockEntry, lockEntry),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -1952,7 +2130,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               subagents: {
                 ...currentLockedSubagents,
-                [name]: preserveLockTimestampsOnNoop(currentLockedSubagents[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(
+                  currentLockedSubagents[name],
+                  lockEntry,
+                ),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -2069,7 +2250,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.map((lf) => Option.fromUndefinedOr((lf.mcpServers ?? {})[name])),
         ),
 
-      setMcpServer: ({ name, lockEntry, env, enabled }: SetMcpServerArgs) =>
+      setMcpServer: ({ name, lockEntry, versionRange, env, enabled }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings (uses "mcpServers" key)
@@ -2091,11 +2272,16 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : {
                     source:
                       lockEntry.type === "registry"
-                        ? formatFqn({
-                            owner: lockEntry.owner,
-                            type: "mcp-server",
-                            name: decodeExtensionNameSync(name),
-                          })
+                        ? (() => {
+                            const fqn = formatFqn({
+                              owner: lockEntry.owner,
+                              type: "mcp-server",
+                              name: decodeExtensionNameSync(name),
+                            });
+                            return Option.isSome(versionRange)
+                              ? `${fqn}@${versionRange.value}`
+                              : fqn;
+                          })()
                         : printSourceParams(lockEntryToSourceParams(lockEntry)),
                     enabled: enabled ?? currentEnabled,
                     env: env ?? currentEnv,
@@ -2116,7 +2302,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: preserveLockTimestampsOnNoop(currentLockedMcpServers[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(
+                  currentLockedMcpServers[name],
+                  lockEntry,
+                ),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -2137,7 +2326,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               mcpServers: {
                 ...currentLockedMcpServers,
-                [name]: preserveLockTimestampsOnNoop(currentLockedMcpServers[name], lockEntry),
+                [name]: yield* preserveLockTimestampsOnNoop(
+                  currentLockedMcpServers[name],
+                  lockEntry,
+                ),
               },
             };
             yield* commitLockfileSnapshotUpdate(
@@ -2328,191 +2520,28 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ),
 
-      removeLibrarySettings: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentLibraries: LibrariesMap = currentSettings.libraries ?? {};
-            if (!(name in currentLibraries)) return;
-            const { [name]: _, ...remainingLibraries } = currentLibraries;
-            void _;
-            const updatedSettings = { ...currentSettings, libraries: remainingLibraries };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
-          }),
-        ),
-
-      removeLibraryLock: (name: string) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            const currentLockedLibraries = currentLockfile.libraries ?? {};
-            if (!(name in currentLockedLibraries)) return;
-            const { [name]: _, ...remainingLibraries } = currentLockedLibraries;
-            void _;
-            const updatedLockfile = { ...currentLockfile, libraries: remainingLibraries };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
-              currentLockfile,
-              updatedLockfile,
-            ).pipe(Effect.provide(fsLayer));
-          }),
-        ),
-
       // -----------------------------------------------------------------------
       // Pack dependency queries
       // -----------------------------------------------------------------------
 
       isExtensionRequiredByInstalledPack: (target: ExtensionTarget) =>
         Effect.gen(function* () {
-          // Packs don't depend on other packs in this model
           if (target.type === "pack") return false;
-
-          const lockfile = yield* readLockfileSafe(workspaceDir);
-          const packs = lockfile.packs ?? {};
-
-          for (const packEntry of Object.values(packs)) {
-            const resolvedMap =
-              target.type === "skill"
-                ? packEntry.resolvedSkills
-                : target.type === "command"
-                  ? packEntry.resolvedCommands
-                  : target.type === "mcp-server"
-                    ? packEntry.resolvedMcpServers
-                    : target.type === "files"
-                      ? (packEntry.resolvedFiles ?? {})
-                      : target.type === "rule"
-                        ? (packEntry.resolvedRules ?? {})
-                        : (packEntry.resolvedHooks ?? {});
-
-            // Check if any FQN key in the resolved map ends with the target name
-            for (const fqn of Object.keys(resolvedMap)) {
-              const resolvedName = parseExtensionFqnParts(fqn)?.name;
-              if (resolvedName === target.name) return true;
-            }
+          const graph = yield* readDesiredStateGraph();
+          if (!graph.complete) {
+            return yield* makeAppError({
+              code: "conflict",
+              detail: "Cannot decide pack retention because the desired pack graph is incomplete.",
+              recover: "Restore or reinstall configured pack manifests, then retry.",
+            });
           }
-
-          return false;
+          return graph.nodes.some(
+            (node) =>
+              node.type === target.type &&
+              node.name === target.name &&
+              node.origins.some((origin) => origin.type === "pack"),
+          );
         }),
-
-      markDependencyRetainedInLockfile: (target: ExtensionTarget) =>
-        withMutex(
-          Effect.gen(function* () {
-            const currentLockfile = yield* readLockfileSafe(workspaceDir);
-
-            switch (target.type) {
-              case "skill": {
-                const entry = currentLockfile.skills[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  skills: {
-                    ...currentLockfile.skills,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "command": {
-                const commands = currentLockfile.commands ?? {};
-                const entry = commands[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  commands: {
-                    ...commands,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "mcp-server": {
-                const mcpServers = currentLockfile.mcpServers ?? {};
-                const entry = mcpServers[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  mcpServers: {
-                    ...mcpServers,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "files": {
-                const files = currentLockfile.files ?? {};
-                const entry = files[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  files: {
-                    ...files,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "rule": {
-                const rules = currentLockfile.rules ?? {};
-                const entry = rules[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  rules: {
-                    ...rules,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "hook": {
-                const hooks = currentLockfile.hooks ?? {};
-                const entry = hooks[target.name];
-                if (entry === undefined) return;
-                const updatedLockfile = {
-                  ...currentLockfile,
-                  hooks: {
-                    ...hooks,
-                    [target.name]: { ...entry, retainedByPack: true },
-                  },
-                };
-                yield* commitLockfileSnapshotUpdate(
-                  workspaceDir,
-                  currentLockfile,
-                  updatedLockfile,
-                ).pipe(Effect.provide(fsLayer));
-                break;
-              }
-              case "pack":
-                // No retention marking for packs — packs are not dependencies of other packs
-                break;
-            }
-          }),
-        ),
     };
   });
 

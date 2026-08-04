@@ -43,16 +43,11 @@ import {
   type McpConfig,
   type McpConfigTarget,
 } from "../../../agent-capabilities/index.js";
-import { decodeExtensionNameSync, type ExtensionName } from "../../../extensions/common.js";
+import { ExtensionNameSchema, type ExtensionName } from "../../../extensions/common.js";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
 import { isPathSafe } from "../../../utils/index.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
-import {
-  agentRootSegment,
-  makeAgentRootResolverState,
-  type AgentRootResolverState,
-} from "./agent-root.js";
 import type {
   AgentMcpConfigOccurrence,
   McpConfigOccurrence,
@@ -67,10 +62,7 @@ const SCANNER_NAME = "mcp-config";
 
 /**
  * Inputs the live layer captures before invoking the scanner. The optional
- * `agentRegistry` mirrors the agent-dir scanner. `rootResolverState` lets
- * the live layer share heuristic-warning state across `mcp-config` and
- * `agent-settings`; when omitted, a fresh state is used (one warning per
- * scanner invocation per agent).
+ * `agentRegistry` mirrors the agent-dir scanner.
  */
 export interface McpConfigScannerDeps {
   readonly fs: FileSystem.FileSystem;
@@ -79,7 +71,6 @@ export interface McpConfigScannerDeps {
   readonly scope: Scope;
   readonly diagnostics: Diagnostics;
   readonly agentRegistry?: Readonly<Partial<Record<AgentId, AgentDescriptor>>>;
-  readonly rootResolverState?: AgentRootResolverState;
 }
 
 /**
@@ -104,6 +95,11 @@ const McpConfigShapeSchema = Schema.Record(Schema.String, Schema.Unknown);
 
 const decodeMcpConfigShape = Schema.decodeUnknownEffect(McpConfigShapeSchema);
 
+// MCP configs can contain arbitrary, user-authored server names. Only names that
+// are valid AXM extension names can be managed; skip the rest instead of letting
+// a non-conforming name (e.g. uppercase or underscore) crash the whole scan.
+const decodeExtensionNameOption = Schema.decodeUnknownOption(ExtensionNameSchema);
+
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -116,16 +112,11 @@ const extractServers = (
 }> =>
   !isRecord(decoded[serversKey])
     ? []
-    : Object.entries(decoded[serversKey]).flatMap(([name, config]) =>
-        isRecord(config)
-          ? [
-              {
-                name: decodeExtensionNameSync(name),
-                config,
-              },
-            ]
-          : [],
-      );
+    : Object.entries(decoded[serversKey]).flatMap(([name, config]) => {
+        if (!isRecord(config)) return [];
+        const decodedName = decodeExtensionNameOption(name);
+        return Option.isNone(decodedName) ? [] : [{ name: decodedName.value, config }];
+      });
 
 const readMcpConfig = (
   fs: FileSystem.FileSystem,
@@ -279,16 +270,12 @@ const resolveMcpConfigTargetPath = (
 const scanAgentMcp = (
   deps: McpConfigScannerDeps,
   descriptor: AgentDescriptor,
-  rootResolverState: AgentRootResolverState,
   cache: McpConfigReadCache,
 ): Effect.Effect<ReadonlyArray<AgentMcpConfigOccurrence>> =>
   Effect.gen(function* () {
     const { fs, path, scope, diagnostics } = deps;
     const capability = capabilityFor(descriptor);
     if (capability === undefined) return [];
-    // Resolve the root segment for legacy descriptors whose MCP config target
-    // is still the default `<agent-root>/mcp.json`.
-    yield* agentRootSegment(path, descriptor, diagnostics, rootResolverState);
     const config = capability.axm.writer.config;
     const targets = config.targets.filter((target) => target.scope === scope);
     const perTarget = yield* Effect.forEach(
@@ -324,12 +311,11 @@ const scanMcpConfig = Effect.fn("workspace.read-model.scanner.mcp-config")(funct
   deps: McpConfigScannerDeps,
 ) {
   const registry = deps.agentRegistry ?? AGENTS;
-  const rootResolverState = deps.rootResolverState ?? makeAgentRootResolverState();
   const cache: McpConfigReadCache = new Map();
   const workspaceOccurrences = yield* scanWorkspaceMcp(deps, cache);
   const agentOccurrences = yield* Effect.forEach(
     Object.values(registry),
-    (descriptor) => scanAgentMcp(deps, descriptor, rootResolverState, cache),
+    (descriptor) => scanAgentMcp(deps, descriptor, cache),
     { concurrency: 1 },
   );
   const out: ReadonlyArray<McpConfigOccurrence> = [

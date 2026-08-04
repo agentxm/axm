@@ -70,3 +70,4 @@ export {
   type WorkspaceGeneratorRegionResult,
 } from "./workspace-generators.js";
 export { FilesManager, FilesManagerLive } from "./manager.js";
+export { filesReconciliationAdapter } from "./reconciliation-adapter.js";

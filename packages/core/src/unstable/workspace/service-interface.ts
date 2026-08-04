@@ -12,7 +12,6 @@
 import type * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as Option from "effect/Option";
-import type * as Record from "effect/Record";
 import * as ServiceMap from "effect/Context";
 
 import type { AppError } from "../app-error/index.js";
@@ -31,9 +30,6 @@ import type {
   HooksLockMap,
   KnowledgeLockEntry,
   KnowledgeLockMap,
-  LibraryLockEntry,
-  LibrariesLockMap,
-  RegistryLibraryLockEntryArgs,
   McpServerLockEntry,
   McpServersLockMap,
   PackLockEntry,
@@ -54,8 +50,6 @@ import type {
   HooksMap,
   KnowledgeEntry,
   KnowledgeMap,
-  LibraryEntry,
-  LibrariesMap,
   InstructionsConfigValue,
   McpServerEntry,
   McpServersMap,
@@ -70,23 +64,14 @@ import type {
   SubagentsMap,
   SourceHostConfig,
 } from "../settings/index.js";
-import type {
-  ConfiguredCommand,
-  ConfiguredExtensionRef,
-  ConfiguredSkill,
-  ConfiguredSubagent,
-  InstalledCommand,
-  InstalledExtensionRef,
-  InstalledSkill,
-  InstalledSubagent,
-  UnmanagedCommand,
-  UnmanagedExtensionRef,
-  UnmanagedSkill,
-} from "./read-model-record-types.js";
+import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
 import type { ResolvedKnowledgeProjectionConfig } from "../knowledge/projection-config.js";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
+import type { PackTrustManifest, WorkspaceTrustState } from "../trust/index.js";
+import type { SourceHash } from "../extensions/index.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -215,6 +200,14 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   }) => Effect.Effect<boolean, AppError, never>;
   readonly materializeInstall: (args: {
     readonly ref: TRef;
+    /** When true, re-materialize unconditionally instead of reusing an existing canonical tree. */
+    readonly force?: boolean;
+  }) => Effect.Effect<void, AppError, never>;
+  readonly validateTrustTransition?: (args: {
+    readonly ref: TRef;
+    readonly allowSourceTransition?: boolean;
+    readonly allowWorkspaceSourceTransition?: boolean;
+    readonly allowDowngrade?: boolean;
   }) => Effect.Effect<void, AppError, never>;
   readonly getLastMaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
@@ -239,9 +232,15 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   }) => Effect.Effect<void, AppError, never>;
   readonly upsertLockfileEntry: (args: {
     readonly ref: TRef;
-    readonly retainedByPack?: boolean;
   }) => Effect.Effect<void, AppError, never>;
   readonly removeLockfileEntry: (args: {
+    readonly target: ExtensionTargetFor<TRef>;
+  }) => Effect.Effect<void, AppError, never>;
+  /**
+   * Retire the trusted identity after an explicit full uninstall. Optional for
+   * compatibility with lightweight manager implementations outside core.
+   */
+  readonly removeTrustEntry?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<void, AppError, never>;
 }
@@ -255,65 +254,17 @@ export interface WorkspaceReadModelRecords {
       readonly agents?: ReadonlyArray<string>;
     },
   ) => Effect.Effect<ExtensionInventory, AppError>;
-  /** Configured skills from settings with source metadata. */
-  readonly getConfiguredSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredSkill>,
-    AppError
-  >;
-  /** Unmanaged skills (on-disk only, not configured or implicit). */
-  readonly getUnmanagedSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedSkill>,
-    AppError
-  >;
-  /** Installed skills (configured + implicit). */
-  readonly getInstalledSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledSkill>,
-    AppError
-  >;
-  readonly getConfiguredCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredCommand>,
-    AppError
-  >;
-  readonly getUnmanagedCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedCommand>,
-    AppError
-  >;
-  readonly getInstalledCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledCommand>,
-    AppError
-  >;
-  readonly getConfiguredMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    AppError
-  >;
-  readonly getUnmanagedMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    AppError
-  >;
-  readonly getInstalledMcpServers: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    AppError
-  >;
-  readonly getConfiguredPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
-    AppError
-  >;
-  readonly getUnmanagedPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
-    AppError
-  >;
-  readonly getInstalledPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledExtensionRef>,
-    AppError
-  >;
-  readonly getConfiguredSubagents: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredSubagent>,
-    AppError
-  >;
-  readonly getInstalledSubagents: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledSubagent>,
-    AppError
-  >;
+  /**
+   * Every read-model row for one extension type, tagged with its lifecycle
+   * (`configured` / `implicit` / `unmanaged`).
+   *
+   * Total over `InstallableExtensionType` and non-throwing: a type whose
+   * workspace has no entries yields an empty array. Narrow with the helpers in
+   * `read-model-record-rows.ts` rather than adding a per-type accessor.
+   */
+  readonly rows: (
+    type: InstallableExtensionType,
+  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -341,19 +292,12 @@ export type SetPackArgs = (RegistryPackLockEntry | WorkspacePackLockEntry) & {
 };
 
 /**
- * Arguments for `setLibrary` -- all `LibraryLockEntry` fields except `type` (always "registry"),
- * plus the source string used for the settings subscription.
- */
-export type SetLibraryArgs = RegistryLibraryLockEntryArgs & {
-  readonly source: string;
-};
-
-/**
  * Arguments for `setCommand` -- bundles the command name with the lock entry.
  */
 export interface SetCommandArgs {
   readonly name: string;
   readonly lockEntry: CommandLockEntry;
+  readonly versionRange: Option.Option<string>;
 }
 
 /**
@@ -362,6 +306,7 @@ export interface SetCommandArgs {
 export interface SetSubagentArgs {
   readonly name: string;
   readonly lockEntry: SubagentLockEntry;
+  readonly versionRange: Option.Option<string>;
 }
 
 /**
@@ -370,6 +315,7 @@ export interface SetSubagentArgs {
 export interface SetMcpServerArgs {
   readonly name: string;
   readonly lockEntry: McpServerLockEntry;
+  readonly versionRange: Option.Option<string>;
   readonly env?: Readonly<Record<string, string>>;
   readonly enabled?: boolean;
 }
@@ -428,6 +374,19 @@ export interface WorkspaceMutationsService {
   readonly baseDir: string;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<LockfileState, AppError>;
+  /** Build the authoritative desired extension graph from settings and installed pack manifests. */
+  readonly getDesiredStateGraph: () => Effect.Effect<DesiredStateGraph, AppError>;
+  /** Read the dedicated trust baseline, migrating in memory from a valid legacy lockfile if absent. */
+  readonly getTrustState: () => Effect.Effect<WorkspaceTrustState, AppError>;
+  /**
+   * Retire one trusted identity after an explicit full uninstall.
+   *
+   * Receipt-only maintenance must not call this operation.
+   */
+  readonly removeTrustRecord: (
+    type: InstallableExtensionType,
+    name: string,
+  ) => Effect.Effect<void, AppError>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   /** Lookup a source by name from the merged sources list. */
@@ -606,24 +565,16 @@ export interface WorkspaceMutationsService {
   readonly getLockedPack: (name: string) => Effect.Effect<Option.Option<PackLockEntry>, AppError>;
   /** Add or update a pack in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
   readonly setPack: (args: SetPackArgs) => Effect.Effect<void, AppError>;
+  /** Refresh the trusted content identity after an authorized edit to a workspace-authored pack. */
+  readonly refreshPackContentIdentity: (
+    name: string,
+    contentIdentity: SourceHash,
+    manifest?: PackTrustManifest,
+  ) => Effect.Effect<void, AppError>;
   /** Create or overwrite a pack entry in settings only (no lockfile). Serialized by semaphore. */
   readonly setPackEntry: (name: string, entry: PackEntry) => Effect.Effect<void, AppError>;
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removePack: (name: string) => Effect.Effect<void, AppError>;
-  /** Read settings and return configured Library subscriptions, defaulting to `{}`. */
-  readonly getConfiguredLibraryEntries: () => Effect.Effect<LibrariesMap, AppError>;
-  /** Read lockfile and return the Library lock map. */
-  readonly getLockedLibraries: () => Effect.Effect<LibrariesLockMap, AppError>;
-  /** Read lockfile and return the entry for a specific Library, or Option.none(). */
-  readonly getLockedLibrary: (
-    name: string,
-  ) => Effect.Effect<Option.Option<LibraryLockEntry>, AppError>;
-  /** Add or update a Library subscription in both settings and lockfile. Serialized by semaphore. */
-  readonly setLibrary: (args: SetLibraryArgs) => Effect.Effect<void, AppError>;
-  /** Create or overwrite a Library entry in settings only (no lockfile). Serialized by semaphore. */
-  readonly setLibraryEntry: (name: string, entry: LibraryEntry) => Effect.Effect<void, AppError>;
-  /** Remove a Library subscription from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeLibrary: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
   readonly getPackDir: (name: string, owner: Handle) => Effect.Effect<PackDirPath, AppError>;
   /** Read lockfile and return the commands lock map. */
@@ -710,19 +661,11 @@ export interface WorkspaceMutationsService {
   readonly removePackSettings: (name: string) => Effect.Effect<void, AppError>;
   /** Remove a pack from lockfile only (keep settings entry). Serialized by semaphore. */
   readonly removePackLock: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a Library subscription from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removeLibrarySettings: (name: string) => Effect.Effect<void, AppError>;
-  /** Remove a Library subscription from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removeLibraryLock: (name: string) => Effect.Effect<void, AppError>;
   // --- Pack dependency queries ---
   /** Check if an extension target is referenced by any installed pack's dependency maps. */
   readonly isExtensionRequiredByInstalledPack: (
     target: ExtensionTarget,
   ) => Effect.Effect<boolean, AppError>;
-  /** Update lockfile entry for a target to indicate it is retained as a pack dependency. No-op if not found. Serialized by semaphore. */
-  readonly markDependencyRetainedInLockfile: (
-    target: ExtensionTarget,
-  ) => Effect.Effect<void, AppError>;
 }
 
 // ---------------------------------------------------------------------------

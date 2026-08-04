@@ -204,13 +204,24 @@ export const InstallFilesCommandWorkflowActionsLive = Layer.effect(
                 message: `Installed ${ref.file.name}`,
                 buildArtifact: ({ installedBefore }) =>
                   Effect.gen(function* () {
-                    const currentLockEntry = yield* ws.getLockedFilesEntry(ref.file.name);
+                    const currentLockEntry = yield* ws
+                      .getLockedFilesEntry(ref.file.name)
+                      .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                     if (Option.isNone(currentLockEntry)) {
-                      return yield* makeAppError({
-                        code: "internal",
-                        detail: `Installed files package ${ref.file.name} but could not read its lockfile entry`,
-                        suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
-                      });
+                      const path =
+                        ref.refType === "registry" || ref.refType === "workspace"
+                          ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/files/${ref.name}`
+                          : ref.file.name;
+                      const change = installedBefore ? "updated" : "created";
+                      return {
+                        path,
+                        scope: ws.scope,
+                        ...(ref.refType === "registry" || ref.refType === "workspace"
+                          ? { version: ref.version }
+                          : {}),
+                        change,
+                        targets: [{ path, change }],
+                      } satisfies JobStepArtifact;
                     }
                     const materialization =
                       filesManager.getLastMaterialization === undefined

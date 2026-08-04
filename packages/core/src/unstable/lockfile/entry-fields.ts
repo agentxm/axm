@@ -4,10 +4,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import type { GitBasedSource } from "../sources/types.js";
 
-export const commonLockFields = (now: Date) => ({
+export const commonLockFields = (now: DateTime.Utc) => ({
   installedAt: now,
   updatedAt: now,
 });

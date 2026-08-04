@@ -10,12 +10,14 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "../../agents/index.js";
 import { sourceToLockEntry } from "../../sources/index.js";
 import {
   UNIVERSAL_SKILLS_DIR,
+  computePackageContentHash,
   type RenderedFilePath,
   type RenderedFilesMap,
   RenderedFilePathSchema,
@@ -40,7 +42,7 @@ import {
   removeFromAllCanonicalLocations,
   stripFileProtocol,
 } from "../../utils/index.js";
-import { validatePathSafety } from "../../extensions/index.js";
+import { shouldReuseCanonicalInstall, validatePathSafety } from "../../extensions/index.js";
 import { errInstallFailed, makeAppError } from "../../app-error/index.js";
 import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
@@ -54,6 +56,11 @@ import type {
   JobStepResult,
 } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import {
+  trustedRegistryVersionForRef,
+  trustRecordKey,
+  validateRefTrustTransition,
+} from "../../trust/index.js";
 import {
   copyExtensionDirectory,
   formatCopyExtensionDirectoryFailure,
@@ -83,7 +90,7 @@ export type InstallSkillOperationArgs = {
   /** When true, fail on unknown configured agents instead of warning+skip. */
   readonly strictUnknownAgents: Option.Option<boolean>;
   /** When updating, preserve the original install timestamp instead of using now. */
-  readonly existingInstalledAt: Option.Option<Date>;
+  readonly existingInstalledAt: Option.Option<DateTime.Utc>;
   /** Named registry source that provided the ref (written to lockfile for registry skills). */
   readonly sourceName: Option.Option<string>;
 };
@@ -253,19 +260,6 @@ const countFiles = (dir: string): Effect.Effect<number, never, FileSystem.FileSy
     }
     return total;
   });
-
-const previousResolvedVersion = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("type" in entry) || entry.type !== "registry") return undefined;
-  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") return undefined;
-  return entry.resolvedVersion;
-};
-
-const previousSourceHash = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("sourceHash" in entry) || typeof entry.sourceHash !== "string") return undefined;
-  return entry.sourceHash;
-};
 
 const expectedSkillSrcPath = (ref: SkillExtensionRef) =>
   Effect.gen(function* () {
@@ -471,6 +465,7 @@ const installFromRegistry = (
   ref: RegistrySkillRef,
   sanitizedName: string,
   versionRange: Option.Option<string>,
+  reuse: CanonicalReuseContext,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -482,7 +477,6 @@ const installFromRegistry = (
     });
     yield* validatePathSafety(ws.baseDir, canonicalPath);
 
-    // Synthetic refs from publish may have no integrity — use existing canonical
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -492,7 +486,13 @@ const installFromRegistry = (
         }),
       ),
     );
-    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+    const useExisting = shouldReuseCanonicalInstall({
+      canonicalExists,
+      force: reuse.force,
+      hasIntegrity: Option.isSome(ref.integrity),
+      refVersion: ref.version,
+      lockedVersion: reuse.lockedVersion,
+    });
 
     if (!useExisting) {
       const locationStr =
@@ -649,16 +649,23 @@ const installForDirectory = (opts: {
 // Dispatch helper
 // -----------------------------------------------------------------------------
 
+/** Reuse inputs sourced from the install operation and current lockfile. */
+type CanonicalReuseContext = {
+  readonly force: boolean;
+  readonly lockedVersion: string | undefined;
+};
+
 const materializeSkill = (
   ref: SkillExtensionRef,
   sanitizedName: string,
   versionRange: Option.Option<string>,
+  reuse: CanonicalReuseContext,
 ) => {
   switch (ref.refType) {
     case "git-hosted":
       return installFromGitHosted(ref, sanitizedName);
     case "registry":
-      return installFromRegistry(ref, sanitizedName, versionRange);
+      return installFromRegistry(ref, sanitizedName, versionRange, reuse);
     case "local":
       return installFromLocal(ref, sanitizedName);
     case "workspace":
@@ -694,21 +701,18 @@ export const installSkill: OperationHandler<
     const { ref } = op.args;
     const sanitizedName = sanitizeName(ref.skill.name);
     const strictUnknownAgents = Option.getOrElse(op.args.strictUnknownAgents, () => false);
-    const previousLockEntry = yield* ws
-      .getLockedSkill(ref.skill.name)
-      .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-    const previousVersion = Option.match(previousLockEntry, {
-      onNone: () => undefined,
-      onSome: previousResolvedVersion,
-    });
-    const lockSourceHash = Option.match(previousLockEntry, {
-      onNone: () => undefined,
-      onSome: previousSourceHash,
-    });
-    const sourceHashBeforeInstall = lockSourceHash ?? (yield* existingSourceHash(ref));
+    const trustState = yield* ws.getTrustState();
+    yield* validateRefTrustTransition(trustState, ref);
+    const previousVersion = trustedRegistryVersionForRef(trustState, ref);
+    const previouslyTrusted =
+      trustState.records[trustRecordKey("skill", ref.skill.name)] !== undefined;
+    const sourceHashBeforeInstall = yield* existingSourceHash(ref);
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
-    const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionRange);
+    const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionRange, {
+      force: op.args.force,
+      lockedVersion: previousVersion,
+    });
 
     // ── Shared: resolve agent targets + install once per distinct dir ────────
     const configuredAgents = yield* agentRepo
@@ -833,10 +837,6 @@ export const installSkill: OperationHandler<
       return matched.result;
     });
     // ── Shared: compute rendered files tracking for copy-mode ──────
-    const hasCopyResults = agentResults.some((r) => r.mode === "copy" && r.success);
-    const hasRenderInputs = perDirectoryResults.some(
-      ({ build }) => build.renderInput !== undefined,
-    );
     const renderWarnings: Array<string> = [];
     for (const { build, targetAgentId } of perDirectoryResults) {
       if (build.degraded) {
@@ -851,9 +851,11 @@ export const installSkill: OperationHandler<
       }
     }
     const sourceHash =
-      hasCopyResults || hasRenderInputs
-        ? yield* computeSkillSourceHash(materialized.skillSrcPath)
-        : undefined;
+      ref.refType === "workspace"
+        ? ref.sourceHash
+        : ref.refType === "registry"
+          ? yield* computePackageContentHash(path.dirname(materialized.skillSrcPath))
+          : yield* computeSkillSourceHash(materialized.skillSrcPath);
 
     // ── Shared: update lockfile + settings ──────────────────────────
     const workspaceRelativeLocalSourcePath =
@@ -868,14 +870,14 @@ export const installSkill: OperationHandler<
     }
     const baseLockEntry = sourceToLockEntry({
       ref,
-      now: new Date(),
+      now: yield* DateTime.now,
       sourceName: op.args.sourceName,
       existingInstalledAt: op.args.existingInstalledAt,
       workspaceRelativeLocalSourcePath,
     });
     const lockEntry = {
       ...baseLockEntry,
-      ...(sourceHash !== undefined ? { sourceHash } : {}),
+      sourceHash,
     };
 
     if (lockEntry.type === "registry") {
@@ -884,19 +886,6 @@ export const installSkill: OperationHandler<
         lockEntry.resolvedVersion,
       );
     }
-
-    const skillArgs = {
-      name: ref.skill.name,
-      lockEntry,
-      versionRange: materialized.versionRange,
-    };
-    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
-      ? ws.setSkillLock(skillArgs)
-      : ws.setSkill(skillArgs);
-    const writeWarning = yield* writeEffect.pipe(
-      Effect.as(undefined),
-      Effect.catch((e) => Effect.succeed(`Skill update failed: ${String(e)}`)),
-    );
 
     // ── Shared: compute result ──────────────────────────────────────
     const anyFailed = agentResults.some((r) => !r.success);
@@ -921,7 +910,7 @@ export const installSkill: OperationHandler<
         : Option.getOrUndefined(op.args.versionRange);
     const sameVersion = previousVersion === version;
     const sameSource = sourceHashBeforeInstall === currentSourceHash;
-    const fallbackChange: JobStepArtifact["change"] = Option.isNone(previousLockEntry)
+    const fallbackChange: JobStepArtifact["change"] = !previouslyTrusted
       ? "created"
       : sameVersion && sameSource
         ? "unchanged"
@@ -942,6 +931,19 @@ export const installSkill: OperationHandler<
         }),
       } satisfies JobStepResult;
     }
+
+    const skillArgs = {
+      name: ref.skill.name,
+      lockEntry,
+      versionRange: materialized.versionRange,
+    };
+    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
+      ? ws.setSkillLock(skillArgs)
+      : ws.setSkill(skillArgs);
+    const writeWarning = yield* writeEffect.pipe(
+      Effect.as(undefined),
+      Effect.catch((e) => Effect.succeed(`Skill update failed: ${String(e)}`)),
+    );
 
     const warnings = [
       unknownAgentWarning,

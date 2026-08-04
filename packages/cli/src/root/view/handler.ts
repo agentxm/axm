@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema";
 
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { DateTimeUtcSchema } from "@agentxm/client-core/unstable/date-time";
 import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   extensionTypeToPlural,
@@ -17,6 +18,8 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { createRegistryClient, type ExtensionIndex } from "@agentxm/client-core/unstable/registry";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+
+import { installCommandFor } from "../shared/per-type-install.js";
 
 export interface ViewHandlerArgs {
   readonly handle: string;
@@ -38,23 +41,26 @@ const isSupportedField = (field: string): field is SupportedField =>
 
 const ViewVersionSchema = Schema.Struct({
   version: Schema.String,
-  published: Schema.String,
+  published: DateTimeUtcSchema,
 });
 
 const ViewDocumentFields = {
-  data: Schema.Struct({
-    handle: Schema.String,
-    owner: Schema.String,
-    type: Schema.String,
-    name: Schema.String,
-    description: Schema.optional(Schema.String),
-    latest: Schema.optional(ViewVersionSchema),
-    versions: Schema.Array(ViewVersionSchema),
-    install: Schema.String,
-  }),
+  handle: Schema.String,
+  owner: Schema.String,
+  type: Schema.String,
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  latest: Schema.optional(ViewVersionSchema),
+  versions: Schema.Array(ViewVersionSchema),
+  install: Schema.String,
 } satisfies Schema.Struct.Fields;
+export const ViewDocumentSchema = Schema.Struct(ViewDocumentFields);
+export type ViewDocument = typeof ViewDocumentSchema.Type;
 
-type ViewDocumentData = Schema.Struct.Type<typeof ViewDocumentFields>["data"];
+export const ViewFieldValueSchema = Schema.Union([Schema.String, Schema.Array(Schema.String)]);
+export type ViewFieldValue = typeof ViewFieldValueSchema.Type;
+
+type ViewDocumentData = Schema.Struct.Type<typeof ViewDocumentFields>;
 
 interface ViewTableRow {
   readonly field: string;
@@ -230,7 +236,7 @@ const toDocumentData = (index: ExtensionIndex): ViewDocumentData => {
       version: entry.version,
       published: entry.published,
     })),
-    install: `axm ${extensionTypeToPlural[index.type]} install ${handle}`,
+    install: installCommandFor(index.type, handle),
   };
 };
 
@@ -253,13 +259,10 @@ const fieldValue = (
   }
 };
 
-const emitFieldValue = (field: SupportedField, value: string | ReadonlyArray<string>) =>
+const emitFieldValue = (field: SupportedField, value: ViewFieldValue) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const emitted =
-      typeof value === "string"
-        ? yield* renderer.result(value, Schema.String)
-        : yield* renderer.result(value, Schema.Array(Schema.String));
+    const emitted = yield* renderer.result(value, ViewFieldValueSchema);
     if (emitted) return;
     yield* renderer.raw(typeof value === "string" ? `${value}\n` : `${value.join("\n")}\n`);
   });
@@ -303,22 +306,32 @@ const handleResolvedView = (args: {
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
     const client = yield* createRegistryClient(args.targetRegistry.registryUrl);
-    const indexOption = yield* client.getExtensionIndex(args.parts);
+    const subject = `${args.handle} from ${args.targetRegistry.registryName}`;
+    const index = yield* renderer.withSpinner(
+      `Loading ${subject}`,
+      () =>
+        client.getExtensionIndex(args.parts).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () =>
+                makeAppError({
+                  code: "not_found",
+                  detail: `Extension ${args.handle} not found on registry "${args.targetRegistry.registryName}".`,
+                  suggestions: [
+                    {
+                      description: "Sign in if this extension is private.",
+                      cmd: "axm login",
+                    },
+                  ],
+                }),
+              onSome: Effect.succeed,
+            }),
+          ),
+        ),
+      { successMessage: `Loaded ${subject}` },
+    );
 
-    if (Option.isNone(indexOption)) {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: `Extension ${args.handle} not found on registry "${args.targetRegistry.registryName}".`,
-        suggestions: [
-          {
-            description: "Sign in if this extension is private.",
-            cmd: "axm login",
-          },
-        ],
-      });
-    }
-
-    const data = toDocumentData(indexOption.value);
+    const data = toDocumentData(index);
 
     if (Option.isSome(args.field)) {
       const field = args.field.value;
@@ -339,7 +352,7 @@ const handleResolvedView = (args: {
       return;
     }
 
-    if (yield* renderer.result({ data }, Schema.Struct(ViewDocumentFields))) {
+    if (yield* renderer.result(data, ViewDocumentSchema)) {
       return;
     }
 

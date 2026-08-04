@@ -1,9 +1,12 @@
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 
+import * as Array from "effect/Array";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../trust/index.js";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
@@ -17,6 +20,8 @@ import {
   materializeExternalPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
+import { computePackageContentHash } from "../extensions/package-hash.js";
+import type { SourceHash } from "../extensions/rendered-files.js";
 import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { validateExactResolvedVersion } from "../lockfile/index.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
@@ -27,8 +32,11 @@ import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
 import { resolveConfiguredKnowledge } from "../workspace/configured-entry-resolution/index.js";
+import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
 import type { ExtensionManager, KnowledgeExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { trustedCanonicalObservation } from "../workspace/trusted-canonical-ref.js";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -69,6 +77,7 @@ export interface KnowledgeSyncResult {
 
 interface PreparedKnowledgePackage {
   readonly root: string;
+  readonly sourceHash: SourceHash;
   readonly commit: Effect.Effect<void>;
   readonly rollback: Effect.Effect<void>;
 }
@@ -79,39 +88,56 @@ export class KnowledgeManager extends ServiceMap.Service<
 >()("@agentxm/client-core/unstable/knowledge/manager/KnowledgeManager") {}
 
 const decodeManifest = Schema.decodeUnknownEffect(KnowledgeManifestSchema);
-const registryLockEntry = (ref: RegistryKnowledgeRef): KnowledgeLockEntry => ({
+const optionalSourceHash = (
+  sourceHash: SourceHash | undefined,
+): { readonly sourceHash?: SourceHash } => (sourceHash === undefined ? {} : { sourceHash });
+
+const registryLockEntry = (
+  ref: RegistryKnowledgeRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): KnowledgeLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
-  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
-  ...commonLockFields(new Date()),
+  publisherBindingId: ref.publisherBindingId,
+  ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
-const gitLockEntry = (ref: GitHostedKnowledgeRef): KnowledgeLockEntry => ({
+const gitLockEntry = (
+  ref: GitHostedKnowledgeRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
+): KnowledgeLockEntry => ({
   ...gitSourceLockFields(ref.source, ref.gitTreeSha),
-  ...commonLockFields(new Date()),
+  ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
 const localLockEntry = (
   ref: LocalKnowledgeRef,
   relativePath: Option.Option<string>,
+  now: DateTime.Utc,
+  sourceHash: SourceHash | undefined,
 ): KnowledgeLockEntry => ({
   type: "local",
   path: Option.getOrElse(relativePath, () => ref.source.path),
-  ...commonLockFields(new Date()),
+  ...commonLockFields(now),
+  ...optionalSourceHash(sourceHash),
 });
 
-const workspaceLockEntry = (ref: WorkspaceKnowledgeRef): KnowledgeLockEntry => ({
+const workspaceLockEntry = (ref: WorkspaceKnowledgeRef, now: DateTime.Utc): KnowledgeLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "knowledge",
   name: ref.name,
   version: ref.version,
   sourceHash: ref.sourceHash,
-  ...commonLockFields(new Date()),
+  ...commonLockFields(now),
 });
 
 export const KnowledgeManagerLive = Layer.effect(
@@ -133,6 +159,7 @@ export const KnowledgeManagerLive = Layer.effect(
       string,
       {
         readonly relativeLocalSource: Option.Option<string>;
+        readonly sourceHash: SourceHash;
       }
     >();
 
@@ -143,36 +170,45 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const materializePackage = (
       ref: KnowledgeExtensionRef,
-      options?: { readonly baseDir: string; readonly canonicalPath: string },
+      options?: {
+        readonly baseDir?: string;
+        readonly canonicalPath?: string;
+        readonly force?: boolean;
+      },
     ) => {
       const canonicalPath = options?.canonicalPath ?? canonicalPathForRef(ref);
       const materializationBaseDir = options?.baseDir ?? baseDir;
       switch (ref.refType) {
         case "registry":
-          return provide(
-            materializeRegistryPackage({
-              baseDir: materializationBaseDir,
-              canonicalPath,
-              sourceLocation: ref.source.location,
-              owner: ref.owner,
-              type: "knowledge",
-              name: ref.name,
-              version: ref.version,
-              integrity: ref.integrity,
-              messages: {
-                existsFailureDetail: (target) => `Failed to inspect knowledge path: ${target}`,
-                integrityMismatchCode: "network",
-                integrityMismatchDetail: `Integrity mismatch for knowledge:${ref.name}@${ref.version}`,
-                tempDirectoryFailureDetail: "Temporary knowledge directory could not be created",
-                createDirectoryFailureDetail: (target) =>
-                  `Failed to create knowledge directory: ${target}`,
-                inspectExtractedFailureDetail: "Failed to inspect extracted knowledge package",
-                copyEntryFailureCode: "internal",
-                copyEntryFailureDetail: (entry) =>
-                  `Failed to copy knowledge package entry: ${entry}`,
-              },
-            }),
-          );
+          return Effect.gen(function* () {
+            const lockedVersion = trustedRegistryVersionForRef(yield* ws.getTrustState(), ref);
+            return yield* provide(
+              materializeRegistryPackage({
+                baseDir: materializationBaseDir,
+                canonicalPath,
+                sourceLocation: ref.source.location,
+                owner: ref.owner,
+                type: "knowledge",
+                name: ref.name,
+                version: ref.version,
+                integrity: ref.integrity,
+                force: options?.force ?? false,
+                ...(lockedVersion === undefined ? {} : { lockedVersion }),
+                messages: {
+                  existsFailureDetail: (target) => `Failed to inspect knowledge path: ${target}`,
+                  integrityMismatchCode: "network",
+                  integrityMismatchDetail: `Integrity mismatch for knowledge:${ref.name}@${ref.version}`,
+                  tempDirectoryFailureDetail: "Temporary knowledge directory could not be created",
+                  createDirectoryFailureDetail: (target) =>
+                    `Failed to create knowledge directory: ${target}`,
+                  inspectExtractedFailureDetail: "Failed to inspect extracted knowledge package",
+                  copyEntryFailureCode: "internal",
+                  copyEntryFailureDetail: (entry) =>
+                    `Failed to copy knowledge package entry: ${entry}`,
+                },
+              }),
+            );
+          });
         case "git-hosted":
         case "local":
           return provide(
@@ -254,13 +290,19 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const preparePackage = (
       ref: KnowledgeExtensionRef,
+      force = false,
     ): Effect.Effect<PreparedKnowledgePackage, ReturnType<typeof makeAppError>> =>
       Effect.gen(function* () {
         const canonicalPath = canonicalPathForRef(ref);
         if (ref.refType === "workspace") {
-          const root = yield* materializePackage(ref);
+          const root = yield* materializePackage(ref, { force });
           yield* inspectPackage(root);
-          return { root, commit: Effect.void, rollback: Effect.void };
+          return {
+            root,
+            sourceHash: ref.sourceHash,
+            commit: Effect.void,
+            rollback: Effect.void,
+          };
         }
         const tempDir = yield* fs.makeTempDirectory({ prefix: "axm-knowledge-package-" });
         const stagedPath = path.join(tempDir, "staged");
@@ -268,10 +310,12 @@ export const KnowledgeManagerLive = Layer.effect(
         const stagedRoot = yield* materializePackage(ref, {
           baseDir: tempDir,
           canonicalPath: stagedPath,
+          force,
         });
         yield* inspectPackage(stagedRoot).pipe(
           Effect.tapError(() => fs.remove(tempDir, { recursive: true }).pipe(Effect.ignore)),
         );
+        const sourceHash = yield* provide(computePackageContentHash(stagedRoot));
         const hadCanonical = yield* fs.exists(canonicalPath);
         if (hadCanonical) yield* fs.rename(canonicalPath, backupPath);
         yield* fs.makeDirectory(path.dirname(canonicalPath), { recursive: true });
@@ -284,6 +328,7 @@ export const KnowledgeManagerLive = Layer.effect(
           );
         return {
           root: canonicalPath,
+          sourceHash,
           commit: fs.remove(tempDir, { recursive: true }).pipe(Effect.ignore),
           rollback: fs
             .remove(canonicalPath, { recursive: true })
@@ -357,28 +402,27 @@ export const KnowledgeManagerLive = Layer.effect(
       readonly include?: { readonly ref: KnowledgeExtensionRef; readonly root: string };
       readonly excludeName?: string;
       readonly dryRun?: boolean;
+      readonly preserveNames?: ReadonlySet<string>;
     }) =>
       Effect.gen(function* () {
         const configured = yield* ws.getConfiguredKnowledgeEntries();
-        const locked = yield* ws.getLockedKnowledge();
-        const installed = yield* Effect.forEach(
-          enabledConfiguredEntries(configured).filter(
+        const locked = yield* getKnowledgeLockEntries(ws);
+        const installed = Array.getSomes(
+          yield* Effect.forEach(
+            enabledConfiguredEntries(configured).filter(
+              ([name]) =>
+                name !== options?.include?.ref.knowledge.name &&
+                name !== options?.excludeName &&
+                options?.preserveNames?.has(name) !== true,
+            ),
             ([name]) =>
-              name !== options?.include?.ref.knowledge.name && name !== options?.excludeName,
+              Effect.gen(function* () {
+                const lockEntry = locked[name];
+                if (lockEntry === undefined) return Option.none<KnowledgeProjectionBundle>();
+                const root = canonicalRoot(name, lockEntry);
+                return Option.some(toProjectionBundle(root, yield* inspectPackage(root)));
+              }),
           ),
-          ([name]) =>
-            Effect.gen(function* () {
-              const lockEntry = locked[name];
-              if (lockEntry === undefined) {
-                return yield* makeAppError({
-                  code: "validation",
-                  detail: `Knowledge bundle is configured but not locked: ${name}`,
-                  suggestions: [{ description: "Repair the workspace", cmd: "axm sync" }],
-                });
-              }
-              const root = canonicalRoot(name, lockEntry);
-              return toProjectionBundle(root, yield* inspectPackage(root));
-            }),
         );
         const included =
           options?.include === undefined
@@ -398,22 +442,30 @@ export const KnowledgeManagerLive = Layer.effect(
             config,
             bundles: [...installed, ...included],
             instructionsPath,
+            ...(options?.preserveNames === undefined
+              ? {}
+              : { preserveBundleNames: options.preserveNames }),
             ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
           }),
         );
       });
 
-    const buildLockEntry = (ref: KnowledgeExtensionRef): KnowledgeLockEntry => {
+    const buildLockEntry = (ref: KnowledgeExtensionRef, now: DateTime.Utc): KnowledgeLockEntry => {
       const state = lastInstallState.get(ref.knowledge.name);
       switch (ref.refType) {
         case "registry":
-          return registryLockEntry(ref);
+          return registryLockEntry(ref, now, state?.sourceHash);
         case "git-hosted":
-          return gitLockEntry(ref);
+          return gitLockEntry(ref, now, state?.sourceHash);
         case "local":
-          return localLockEntry(ref, state?.relativeLocalSource ?? Option.none());
+          return localLockEntry(
+            ref,
+            state?.relativeLocalSource ?? Option.none(),
+            now,
+            state?.sourceHash,
+          );
         case "workspace":
-          return workspaceLockEntry(ref);
+          return workspaceLockEntry(ref, now);
       }
     };
 
@@ -475,13 +527,15 @@ export const KnowledgeManagerLive = Layer.effect(
     ): Effect.Effect<KnowledgeSyncResult, ReturnType<typeof makeAppError>> =>
       Effect.gen(function* () {
         const configured = yield* ws.getConfiguredKnowledgeEntries();
-        const locked = yield* ws.getLockedKnowledge();
+        const locked = yield* getKnowledgeLockEntries(ws);
         const warnings: Array<string> = [];
         const prepared: Array<PreparedKnowledgePackage> = [];
+        const unavailableNames = new Set<string>();
         for (const [name] of enabledConfiguredEntries(configured)) {
           const entry = locked[name];
           if (entry === undefined) {
             warnings.push(`Knowledge bundle is configured but not locked: ${name}`);
+            unavailableNames.add(name);
             continue;
           }
           const root = canonicalRoot(name, entry);
@@ -489,17 +543,21 @@ export const KnowledgeManagerLive = Layer.effect(
           if (Result.isSuccess(inspection)) continue;
           if (dryRun) {
             warnings.push(`Knowledge bundle requires lock-backed restore: ${name}`);
+            unavailableNames.add(name);
             continue;
           }
           const restored = yield* Effect.result(Effect.scoped(restoreLockedPackage(name, entry)));
-          if (Result.isFailure(restored)) warnings.push(restored.failure.detail);
-          else prepared.push(restored.success);
+          if (Result.isFailure(restored)) {
+            warnings.push(`${name}: ${restored.failure.detail}`);
+            unavailableNames.add(name);
+          } else prepared.push(restored.success);
         }
-        if (warnings.length > 0) {
-          yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
-          return { changed: prepared.length > 0, warnings, artifacts: [] };
-        }
-        const projected = yield* Effect.result(reconcileProjection({ dryRun }));
+        const projected = yield* Effect.result(
+          reconcileProjection({
+            dryRun,
+            ...(unavailableNames.size === 0 ? {} : { preserveNames: unavailableNames }),
+          }),
+        );
         if (Result.isFailure(projected)) {
           yield* Effect.forEach([...prepared].reverse(), (item) => item.rollback, {
             discard: true,
@@ -509,7 +567,7 @@ export const KnowledgeManagerLive = Layer.effect(
         yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
         const projection = projected.success;
         return {
-          changed: projection.changed,
+          changed: prepared.length > 0 || projection.changed,
           warnings,
           artifacts: projection.artifacts,
         };
@@ -523,7 +581,7 @@ export const KnowledgeManagerLive = Layer.effect(
         const name = args.ref.knowledge.name;
         const previousConfigured = yield* ws.getConfiguredKnowledgeEntries();
         const previousEntry = Option.fromUndefinedOr(previousConfigured[name]);
-        const previousLock = yield* ws.getLockedKnowledgeEntry(name);
+        const previousLock = Option.fromUndefinedOr((yield* getKnowledgeLockEntries(ws))[name]);
         const relativeLocalSource =
           args.ref.refType === "local"
             ? makeWorkspaceRelativeSourcePath(path, baseDir, args.ref.source.path)
@@ -534,8 +592,12 @@ export const KnowledgeManagerLive = Layer.effect(
             detail: `Local knowledge source must stay within the workspace: ${args.ref.source.path}`,
           });
         }
-        lastInstallState.set(name, { relativeLocalSource });
         const prepared = yield* preparePackage(args.ref);
+        const now = yield* DateTime.now;
+        lastInstallState.set(name, {
+          relativeLocalSource,
+          sourceHash: prepared.sourceHash,
+        });
         const rollbackMetadata = Effect.gen(function* () {
           if (Option.isSome(previousEntry)) yield* ws.setKnowledgeEntry(name, previousEntry.value);
           else yield* ws.removeKnowledgeSettings(name);
@@ -551,7 +613,7 @@ export const KnowledgeManagerLive = Layer.effect(
           ws
             .setKnowledge({
               name,
-              lockEntry: buildLockEntry(args.ref),
+              lockEntry: buildLockEntry(args.ref, now),
               versionRange: args.versionRange,
             })
             .pipe(
@@ -574,12 +636,19 @@ export const KnowledgeManagerLive = Layer.effect(
 
     return {
       type: "knowledge",
+      validateTrustTransition: (args) =>
+        ws
+          .getTrustState()
+          .pipe(Effect.flatMap((state) => validateRefTrustTransition(state, args.ref, args))),
       refreshCatalog: () => reconcileProjection().pipe(Effect.asVoid),
       sync: ({ dryRun }) => syncLocked(dryRun),
       install: installAtomically,
       isInstalled: ({ target }: { readonly target: KnowledgeExtensionTarget }) =>
-        ws.getLockedKnowledgeEntry(target.name).pipe(Effect.map(Option.isSome)),
-      materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(function* ({ ref }) {
+        isObservedInstalled(ws, "knowledge", target.name),
+      materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(function* ({
+        ref,
+        force,
+      }) {
         const relativeLocalSource =
           ref.refType === "local"
             ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
@@ -590,7 +659,7 @@ export const KnowledgeManagerLive = Layer.effect(
             detail: `Local knowledge source must stay within the workspace: ${ref.source.path}`,
           });
         }
-        const prepared = yield* preparePackage(ref);
+        const prepared = yield* preparePackage(ref, force === true);
         const projection = yield* Effect.result(
           reconcileProjection({ include: { ref, root: prepared.root } }),
         );
@@ -599,7 +668,10 @@ export const KnowledgeManagerLive = Layer.effect(
           return yield* projection.failure;
         }
         yield* prepared.commit;
-        lastInstallState.set(ref.knowledge.name, { relativeLocalSource });
+        lastInstallState.set(ref.knowledge.name, {
+          relativeLocalSource,
+          sourceHash: prepared.sourceHash,
+        });
       }, Effect.asVoid),
       getConfiguredSource: ({ target }) =>
         ws
@@ -626,49 +698,56 @@ export const KnowledgeManagerLive = Layer.effect(
         target,
         preserveSource,
       }) {
-        const locked = yield* ws.getLockedKnowledgeEntry(target.name);
-        if (Option.isNone(locked)) return;
-        if (preserveSource !== true) {
-          const root =
-            locked.value.type === "registry" || locked.value.type === "workspace"
-              ? path.join(
-                  baseDir,
-                  REGISTRY_EXTENSIONS_DIR,
-                  locked.value.owner,
-                  KNOWLEDGE_EXTENSION_DIR,
-                  locked.value.name,
-                )
-              : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, KNOWLEDGE_EXTENSION_DIR, target.name);
-          yield* fs.remove(root, { recursive: true }).pipe(Effect.ignore);
+        const canonical = yield* provide(
+          trustedCanonicalObservation({
+            workspace: ws,
+            type: "knowledge",
+            name: target.name,
+          }),
+        );
+        const root = Option.flatMap(canonical, (state) =>
+          Option.fromUndefinedOr(state.observation.path),
+        );
+        if (preserveSource !== true && Option.isSome(root)) {
+          yield* fs.remove(root.value, { recursive: true }).pipe(Effect.ignore);
         }
         yield* reconcileProjection({ excludeName: target.name });
       }, Effect.asVoid),
-      upsertSettingsEntry: ({ ref, versionRange }) => {
-        const entry = buildLockEntry(ref);
-        return ws.setKnowledge({ name: ref.knowledge.name, lockEntry: entry, versionRange });
-      },
-      removeSettingsEntry: ({ target }) => ws.removeKnowledgeSettings(target.name),
-      upsertLockfileEntry: ({ ref, retainedByPack }) => {
-        const entry = buildLockEntry(ref);
-        const lockEntry = retainedByPack === undefined ? entry : { ...entry, retainedByPack };
-        const validate =
-          lockEntry.type === "registry"
-            ? validateExactResolvedVersion(
-                `knowledge.${ref.knowledge.name}.resolvedVersion`,
-                lockEntry.resolvedVersion,
-              )
-            : Effect.void;
-        return validate.pipe(
-          Effect.flatMap(() =>
-            ws.setKnowledgeLock({
+      upsertSettingsEntry: ({ ref, versionRange }) =>
+        DateTime.now.pipe(
+          Effect.flatMap((now) =>
+            ws.setKnowledge({
               name: ref.knowledge.name,
-              lockEntry,
-              versionRange: Option.none(),
+              lockEntry: buildLockEntry(ref, now),
+              versionRange,
             }),
           ),
-        );
-      },
+        ),
+      removeSettingsEntry: ({ target }) => ws.removeKnowledgeSettings(target.name),
+      upsertLockfileEntry: ({ ref }) =>
+        DateTime.now.pipe(
+          Effect.flatMap((now) => {
+            const lockEntry = buildLockEntry(ref, now);
+            const validate =
+              lockEntry.type === "registry"
+                ? validateExactResolvedVersion(
+                    `knowledge.${ref.knowledge.name}.resolvedVersion`,
+                    lockEntry.resolvedVersion,
+                  )
+                : Effect.void;
+            return validate.pipe(
+              Effect.flatMap(() =>
+                ws.setKnowledgeLock({
+                  name: ref.knowledge.name,
+                  lockEntry,
+                  versionRange: Option.none(),
+                }),
+              ),
+            );
+          }),
+        ),
       removeLockfileEntry: ({ target }) => ws.removeKnowledgeLock(target.name),
+      removeTrustEntry: ({ target }) => ws.removeTrustRecord("knowledge", target.name),
     } satisfies KnowledgeManagerService;
   }),
 );

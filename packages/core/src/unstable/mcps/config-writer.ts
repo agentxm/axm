@@ -8,14 +8,19 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Semaphore from "effect/Semaphore";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { getHome } from "../agents/constants.js";
 import { isPathSafe } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
-import { stringifyToml } from "../toml/index.js";
+import { stringifyToml, stringifyTomlKey } from "../toml/index.js";
 import { deleteYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
-import type { McpConfigTarget, McpServersKey } from "../agent-capabilities/index.js";
+import type {
+  McpActivationField,
+  McpConfigTarget,
+  McpServersKey,
+} from "../agent-capabilities/index.js";
 import type { ArtifactChange } from "../plan/plan.js";
 
 export interface WriteAgentMcpConfigArgs {
@@ -31,7 +36,7 @@ export interface RemoveAgentMcpConfigArgs {
   readonly serverName: string;
   readonly serversKey: McpServersKey;
   readonly target: McpConfigTarget;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
 }
 
@@ -197,17 +202,18 @@ const removeJsonLike = (args: {
   readonly raw: string;
   readonly serversKey: string;
   readonly serverName: string;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
 }): Effect.Effect<string, AppError> =>
   Effect.gen(function* () {
     if (args.raw.trim().length === 0) return args.raw;
     const parsed = yield* parseJsonConfig(args.configPath, args.raw);
     yield* validateServersShape(args.configPath, parsed, args.serversKey);
-    if (args.disableOnly && args.nativeEnabled) {
+    const activation = args.activationField.required;
+    if (args.disableOnly && activation !== null) {
       return applyEdits(
         args.raw,
-        modify(args.raw, [args.serversKey, args.serverName, "enabled"], false, {
+        modify(args.raw, [args.serversKey, args.serverName, activation.name], activation.disabled, {
           formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
         }),
       );
@@ -243,13 +249,18 @@ const removeYaml = (args: {
   readonly raw: string;
   readonly serversKey: string;
   readonly serverName: string;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
 }): Effect.Effect<string, AppError> =>
   Effect.sync(() => {
     if (args.raw.trim().length === 0) return args.raw;
-    if (args.disableOnly && args.nativeEnabled) {
-      return setYamlScalar(args.raw, [args.serversKey, args.serverName, "enabled"], false);
+    const activation = args.activationField.required;
+    if (args.disableOnly && activation !== null) {
+      return setYamlScalar(
+        args.raw,
+        [args.serversKey, args.serverName, activation.name],
+        activation.disabled,
+      );
     }
     return deleteYamlEntry(args.raw, args.serversKey, args.serverName);
   }).pipe(Effect.mapError((error) => mapYamlError(args.configPath, error)));
@@ -272,11 +283,14 @@ const upsertToml = (args: {
   readonly entry: Readonly<Record<string, unknown>>;
 }): string => {
   const trimmed = stripManagedTomlBlock(args.raw, args.serverName);
+  const parentHeader = `[${stringifyTomlKey(args.serversKey)}]`;
   const block = stringifyToml({
-    [args.serversKey]: {
-      [args.serverName]: args.entry,
-    },
-  });
+    [args.serversKey]: { [args.serverName]: args.entry },
+  })
+    .split("\n")
+    .filter((line) => line !== parentHeader)
+    .join("\n")
+    .trim();
   const prefix = trimmed.length > 0 ? `${trimmed}\n\n` : "";
   return `${prefix}${managedTomlStart(args.serverName)}\n${block}\n${managedTomlEnd(args.serverName)}\n`;
 };
@@ -285,10 +299,19 @@ const removeToml = (args: {
   readonly raw: string;
   readonly serverName: string;
   readonly disableOnly: boolean;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
 }): string => {
-  if (args.disableOnly && args.nativeEnabled) {
-    return args.raw.replace(/^enabled = true$/m, "enabled = false");
+  const activation = args.activationField.required;
+  if (args.disableOnly && activation !== null) {
+    const start = managedTomlStart(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const end = managedTomlEnd(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const field = activation.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return args.raw.replace(new RegExp(`${start}[\\s\\S]*?${end}`), (block) =>
+      block.replace(
+        new RegExp(`^${field} = (?:true|false)$`, "m"),
+        `${activation.name} = ${String(activation.disabled)}`,
+      ),
+    );
   }
   const stripped = stripManagedTomlBlock(args.raw, args.serverName);
   return stripped.length > 0 ? `${stripped}\n` : "";
@@ -299,44 +322,60 @@ const pickProjectTarget = (
 ): Option.Option<McpConfigTarget> =>
   Option.fromUndefinedOr(targets.find((target) => target.scope === "project"));
 
+// Serializes concurrent read-modify-write access to a single agent MCP config
+// file within a process, so parallel sync steps writing different servers to the
+// same file cannot clobber each other's entries (last-write-wins data loss).
+const configWriteLocks = new Map<string, Semaphore.Semaphore>();
+const configWriteLockFor = (configPath: string): Semaphore.Semaphore => {
+  const existing = configWriteLocks.get(configPath);
+  if (existing !== undefined) return existing;
+  const created = Semaphore.makeUnsafe(1);
+  configWriteLocks.set(configPath, created);
+  return created;
+};
+
 export const writeAgentMcpConfig = (
   args: WriteAgentMcpConfigArgs,
 ): Effect.Effect<AgentMcpConfigWriteResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
-    const raw = yield* readExisting(configPath);
-    const next = yield* Effect.gen(function* () {
-      switch (target.format) {
-        case "toml":
-          return upsertToml({
-            raw,
-            serversKey: args.serversKey,
-            serverName: args.serverName,
-            entry: args.entry,
-          });
-        case "yaml":
-          return yield* upsertYaml({
-            configPath,
-            raw,
-            serversKey: args.serversKey,
-            serverName: args.serverName,
-            entry: args.entry,
-          });
-        case "json":
-        case "jsonc":
-        case "starlark":
-        case "vscode-settings":
-          return yield* upsertJsonLike({
-            configPath,
-            raw,
-            serversKey: args.serversKey,
-            serverName: args.serverName,
-            entry: args.entry,
-          });
-      }
-    });
-    return yield* writeIfChanged(configPath, target.path, raw, next);
+    return yield* configWriteLockFor(configPath).withPermits(1)(
+      Effect.gen(function* () {
+        const raw = yield* readExisting(configPath);
+        const next = yield* Effect.gen(function* () {
+          switch (target.format) {
+            case "toml":
+              return upsertToml({
+                raw,
+                serversKey: args.serversKey,
+                serverName: args.serverName,
+                entry: args.entry,
+              });
+            case "yaml":
+              return yield* upsertYaml({
+                configPath,
+                raw,
+                serversKey: args.serversKey,
+                serverName: args.serverName,
+                entry: args.entry,
+              });
+            case "json":
+            case "jsonc":
+            case "starlark":
+            case "vscode-settings":
+              return yield* upsertJsonLike({
+                configPath,
+                raw,
+                serversKey: args.serversKey,
+                serverName: args.serverName,
+                entry: args.entry,
+              });
+          }
+        });
+        return yield* writeIfChanged(configPath, target.path, raw, next);
+      }),
+    );
   });
 
 export const removeAgentMcpConfig = (
@@ -345,38 +384,42 @@ export const removeAgentMcpConfig = (
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
-    const raw = yield* readExisting(configPath);
-    const next = yield* Effect.gen(function* () {
-      switch (target.format) {
-        case "toml":
-          return removeToml({
-            raw,
-            serverName: args.serverName,
-            disableOnly: args.disableOnly,
-            nativeEnabled: args.nativeEnabled,
-          });
-        case "yaml":
-          return yield* removeYaml({
-            configPath,
-            raw,
-            serversKey: args.serversKey,
-            serverName: args.serverName,
-            nativeEnabled: args.nativeEnabled,
-            disableOnly: args.disableOnly,
-          });
-        case "json":
-        case "jsonc":
-        case "starlark":
-        case "vscode-settings":
-          return yield* removeJsonLike({
-            configPath,
-            raw,
-            serversKey: args.serversKey,
-            serverName: args.serverName,
-            nativeEnabled: args.nativeEnabled,
-            disableOnly: args.disableOnly,
-          });
-      }
-    });
-    return yield* writeIfChanged(configPath, target.path, raw, next);
+    return yield* configWriteLockFor(configPath).withPermits(1)(
+      Effect.gen(function* () {
+        const raw = yield* readExisting(configPath);
+        const next = yield* Effect.gen(function* () {
+          switch (target.format) {
+            case "toml":
+              return removeToml({
+                raw,
+                serverName: args.serverName,
+                disableOnly: args.disableOnly,
+                activationField: args.activationField,
+              });
+            case "yaml":
+              return yield* removeYaml({
+                configPath,
+                raw,
+                serversKey: args.serversKey,
+                serverName: args.serverName,
+                activationField: args.activationField,
+                disableOnly: args.disableOnly,
+              });
+            case "json":
+            case "jsonc":
+            case "starlark":
+            case "vscode-settings":
+              return yield* removeJsonLike({
+                configPath,
+                raw,
+                serversKey: args.serversKey,
+                serverName: args.serverName,
+                activationField: args.activationField,
+                disableOnly: args.disableOnly,
+              });
+          }
+        });
+        return yield* writeIfChanged(configPath, target.path, raw, next);
+      }),
+    );
   });

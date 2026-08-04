@@ -46,6 +46,58 @@ describe("settings", () => {
       ),
     );
 
+    it.effect("writes atomically, leaving no temp file behind", () =>
+      withContext(
+        Effect.gen(function* () {
+          const settings: Settings = {
+            skills: { commit: { source: "^1.0.0", enabled: true } },
+          };
+
+          yield* writeSettings(axmDir, settings);
+
+          // The atomic write goes through a temp file then rename; no temp is
+          // left behind, and the real settings file holds the written content.
+          const leftovers = fs.readdirSync(axmDir).filter((name) => name.includes(".tmp"));
+          expect(leftovers).toEqual([]);
+          const parsed = expectRecord(
+            JSON.parse(fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8")),
+          );
+          expect(parsed).toHaveProperty("skills");
+        }),
+      ),
+    );
+
+    it.effect("preserves unknown top-level keys across a full write cycle", () =>
+      withContext(
+        Effect.gen(function* () {
+          const settings = yield* Schema.decodeUnknownEffect(SettingsSchema)(
+            {
+              telemetry: false,
+              futureKey: { alpha: 1, beta: ["x"] },
+            },
+            { onExcessProperty: "error" },
+          );
+
+          yield* writeSettings(axmDir, settings);
+
+          const settingsPath = path.join(axmDir, "settings.json");
+          const firstContent = fs.readFileSync(settingsPath, "utf-8");
+          const parsed = expectRecord(JSON.parse(firstContent));
+          expect(parsed["futureKey"]).toEqual({ alpha: 1, beta: ["x"] });
+          // Unknown keys land after every canonical key.
+          const keys = Object.keys(parsed);
+          expect(keys.indexOf("futureKey")).toBe(keys.length - 1);
+
+          // Steady state: a second decode+write cycle is byte-identical.
+          const reDecoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed, {
+            onExcessProperty: "error",
+          });
+          yield* writeSettings(axmDir, reDecoded);
+          expect(fs.readFileSync(settingsPath, "utf-8")).toBe(firstContent);
+        }),
+      ),
+    );
+
     it.effect("writes settings with 2-space indentation and trailing newline", () =>
       withContext(
         Effect.gen(function* () {
@@ -86,6 +138,7 @@ describe("settings", () => {
             agents: ["claude-code"],
             skills: { commit: { source: "^1.0.0", enabled: true } },
             skillsConfig: { ignore: ["internal-*"] },
+            knowledgeConfig: { directory: "docs/agent-knowledge" },
           };
 
           yield* writeSettings(axmDir, settings);

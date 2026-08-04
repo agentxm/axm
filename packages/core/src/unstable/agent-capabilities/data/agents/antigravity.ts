@@ -73,13 +73,16 @@ export const antigravityAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Antigravity CLI stores global MCP servers in ~/.gemini/antigravity-cli/mcp_config.json and workspace MCP servers in .agents/mcp_config.json. Remote MCP definitions use serverUrl.",
+          "Antigravity stores global MCP servers in ~/.gemini/config/mcp_config.json and workspace MCP servers in .agents/mcp_config.json. Remote MCP definitions use serverUrl, and disabled is an optional per-server switch.",
         docs: [],
-        sources: ["https://antigravity.google/docs/cli-plugins"],
+        sources: [
+          "https://antigravity.google/docs/mcp",
+          "https://antigravity.google/docs/cli/plugins",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        transports: ["stdio", "sse"],
+        transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "none",
           defaults: false,
@@ -87,15 +90,18 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: { name: "disabled", enabled: false, disabled: true },
+              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "user",
-                path: "~/.gemini/antigravity-cli/mcp_config.json",
+                path: "~/.gemini/config/mcp_config.json",
                 format: "json",
               },
               {
@@ -105,19 +111,18 @@ export const antigravityAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "serverUrl",
                 sse: "serverUrl",
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -136,65 +141,117 @@ export const antigravityAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [
-          "https://antigravity.google/docs/project-context",
-          "https://antigravity.google/docs/rules-workflows",
-        ],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        directory: ".agents/rules",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: true,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Antigravity documents command hooks in hooks.json for the current Antigravity execution loop. This supersedes earlier research that found hooks only in SDK/plugin surfaces.",
+          "Antigravity documents command hooks in hooks.json for the current Antigravity execution loop. This supersedes earlier research that found hooks only in SDK/plugin surfaces. Each hooks.json entry is namespaced by a hook name that carries its own enabled flag, and event groups nest under that name rather than under a single top-level hooks key.",
         docs: [],
         sources: [
           "https://antigravity.google/docs/hooks",
-          "https://antigravity.google/docs/cli-plugins",
+          "https://antigravity.google/docs/cli/plugins",
         ],
         scopes: ["user", "project"],
-        modeling: "native-unmodeled",
+        mechanism: ["command-stdin"],
+        configFiles: [
+          {
+            scope: "user",
+            path: "~/.gemini/config/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+          {
+            scope: "project",
+            path: ".agents/hooks.json",
+            format: "json",
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "PreToolUse",
+            canonical: "tool.pre",
+            matcher: {
+              kind: "regex",
+              example: "browser_.*",
+              notes: "Matches on tool name; * selects every tool.",
+            },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny", "ask"] }],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-07-24",
+          },
+          {
+            nativeName: "PostToolUse",
+            canonical: "tool.post",
+            matcher: { kind: "regex", example: "run_command", notes: null },
+            decision: [{ kind: "observe" }],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-07-24",
+          },
+          {
+            nativeName: "PreInvocation",
+            canonical: "prompt.submit",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-07-24",
+          },
+          {
+            nativeName: "PostInvocation",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-07-24",
+          },
+          {
+            nativeName: "Stop",
+            canonical: "turn.end",
+            matcher: { kind: "none-imperative", example: null, notes: null },
+            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-07-24",
+          },
+        ],
+        tools: [
+          {
+            nativeName: "run_command",
+            canonical: "shell.exec",
+            sources: ["https://antigravity.google/docs/hooks"],
+            lastVerified: "2026-07-24",
+          },
+        ],
       },
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-06-06",
-        reason: "AXM has not implemented an Antigravity hooks writer.",
+        lastVerified: "2026-07-22",
+        reason:
+          "Antigravity namespaces each hook bundle under its own top-level name in hooks.json; AXM's writer targets a single settings key and cannot express that nesting.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: ["https://antigravity.google/docs/rules-workflows"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      directory: ".agents/rules",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

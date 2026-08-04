@@ -10,6 +10,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -17,6 +18,7 @@ import type { AgentId } from "../../agents/index.js";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { computeIntegrity, isPathSafe } from "../../utils/index.js";
+import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
@@ -24,7 +26,10 @@ import { createRegistryClient, extractZip } from "../../registry/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import { trustedRegistryVersionForRef, validateRefTrustTransition } from "../../trust/index.js";
+import { REGISTRY_EXTENSIONS_DIR, shouldReuseCanonicalInstall } from "../../extensions/index.js";
+import { computePackageContentHash } from "../../extensions/package-hash.js";
+import type { SourceHash } from "../../extensions/rendered-files.js";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
@@ -40,6 +45,12 @@ import {
   type McpServerManifest,
   McpServerManifestSchema,
 } from "../manifest-schema.js";
+import {
+  agentConfigTargets,
+  mcpServerArtifact,
+  mcpSettingsTarget,
+  mcpSourceTarget,
+} from "./artifact.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -51,6 +62,8 @@ import {
 export type InstallMcpServerOperationArgs = {
   readonly ref: McpServerExtensionRef;
   readonly force: boolean;
+  /** Explicitly permit a workspace-authored relocation during reconciliation. */
+  readonly allowWorkspaceSourceTransition?: boolean;
   readonly versionRange: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings: Option.Option<boolean>;
@@ -58,8 +71,6 @@ export type InstallMcpServerOperationArgs = {
   readonly strictAgentSync?: Option.Option<boolean>;
   /** Resolved MCP input values from `--env KEY=VALUE` flags. */
   readonly env?: Option.Option<Readonly<Record<string, string>>>;
-  /** When true, do not prompt for missing input values. */
-  readonly nonInteractive?: Option.Option<boolean>;
 };
 
 /**
@@ -76,19 +87,27 @@ export type InstallMcpServerOperation = Operation<
 // Lock entry builder
 // -----------------------------------------------------------------------------
 
-const buildLockEntry = (ref: RegistryMcpServerRef, now: Date): McpServerLockEntry => ({
+const buildLockEntry = (
+  ref: RegistryMcpServerRef,
+  now: DateTime.Utc,
+  sourceHash: SourceHash,
+): McpServerLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
-  ...(ref.publisherBindingId === undefined ? {} : { publisherBindingId: ref.publisherBindingId }),
+  publisherBindingId: ref.publisherBindingId,
+  sourceHash,
   installedAt: now,
   updatedAt: now,
 });
 
-const buildWorkspaceLockEntry = (ref: WorkspaceMcpServerRef, now: Date): McpServerLockEntry => ({
+const buildWorkspaceLockEntry = (
+  ref: WorkspaceMcpServerRef,
+  now: DateTime.Utc,
+): McpServerLockEntry => ({
   type: "workspace",
   owner: ref.owner,
   extensionType: "mcp-server",
@@ -161,6 +180,30 @@ const maybeSecretInputName = (
   return undefined;
 };
 
+/**
+ * Named environment inputs the manifest marks required. Only key/value inputs
+ * are collected: an unnamed input has nothing a caller could pass through
+ * `--env KEY=VALUE`, so it cannot be reported as a missing name.
+ */
+const collectRequiredInputNames = (manifest: McpServerManifest): ReadonlySet<string> => {
+  const names = new Set<string>();
+  const add = (input: McpRegistryKeyValueInput) => {
+    if (input.isRequired === true && input.value === undefined && input.default === undefined) {
+      names.add(input.name);
+    }
+  };
+
+  for (const pkg of manifest.server.packages ?? []) {
+    for (const input of pkg.environmentVariables ?? []) add(input);
+  }
+
+  for (const remote of manifest.server.remotes ?? []) {
+    for (const input of remote.headers ?? []) add(input);
+  }
+
+  return names;
+};
+
 const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySet<string> => {
   const names = new Set<string>();
   const add = (input: McpRegistryInput | McpRegistryKeyValueInput | McpRegistryArgument) => {
@@ -188,7 +231,10 @@ const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySet<strin
 // Registry install
 // -----------------------------------------------------------------------------
 
-const installFromRegistry = (ref: RegistryMcpServerRef) =>
+const installFromRegistry = (
+  ref: RegistryMcpServerRef,
+  reuse: { readonly force: boolean; readonly lockedVersion: string | undefined },
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -219,7 +265,13 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
         }),
       ),
     );
-    const useExisting = Option.isNone(ref.integrity) && canonicalExists;
+    const useExisting = shouldReuseCanonicalInstall({
+      canonicalExists,
+      force: reuse.force,
+      hasIntegrity: Option.isSome(ref.integrity),
+      refVersion: ref.version,
+      lockedVersion: reuse.lockedVersion,
+    });
 
     if (!useExisting) {
       const locationStr =
@@ -282,7 +334,15 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
             (entry) => {
               const src = path.join(tmpDir, entry);
               const dest = path.join(canonicalPath, entry);
-              return fs.copy(src, dest).pipe(Effect.ignore);
+              return fs.copy(src, dest).pipe(
+                Effect.mapError((e) =>
+                  makeAppError({
+                    code: "validation",
+                    detail: `Failed to copy installed file: ${entry}`,
+                    cause: e,
+                  }),
+                ),
+              );
             },
             { concurrency: "unbounded" },
           );
@@ -391,6 +451,7 @@ interface AgentSyncSummary {
   readonly status: "green" | "degraded";
   readonly details: ReadonlyArray<string>;
   readonly warnings: ReadonlyArray<string>;
+  readonly outcomes: ReadonlyArray<AgentOutcome>;
 }
 
 const formatAgentSyncWarning = (
@@ -429,6 +490,7 @@ const summarizeAgentSync = (
     status: degraded ? "degraded" : "green",
     details,
     warnings,
+    outcomes,
   };
 };
 
@@ -563,16 +625,27 @@ export const installMcpServer: (
 
     if (ref.refType !== "registry" && ref.refType !== "workspace") {
       return yield* makeAppError({
-        code: "internal",
-        detail: `Unsupported ref type for MCP server install: ${ref.refType}`,
+        code: "usage",
+        detail: `MCP servers install from a registry or a workspace package, not from a ${ref.refType} source`,
+        suggestions: [
+          {
+            description: "Install from the registry",
+            cmd: `axm mcps install @owner/mcps/${ref.server.name}`,
+          },
+        ],
       });
     }
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
+    const trustState = yield* ws.getTrustState();
+    yield* validateRefTrustTransition(trustState, ref, {
+      allowWorkspaceSourceTransition: op.args.allowWorkspaceSourceTransition === true,
+    });
+    const lockedVersion = trustedRegistryVersionForRef(trustState, ref);
     const canonicalPath =
       ref.refType === "registry"
-        ? yield* installFromRegistry(ref)
+        ? yield* installFromRegistry(ref, { force: op.args.force, lockedVersion })
         : yield* Effect.gen(function* () {
             const fs = yield* FileSystem.FileSystem;
             const path = yield* Path.Path;
@@ -622,26 +695,40 @@ export const installMcpServer: (
     );
 
     // Build lock entry and persist
+    const now = yield* DateTime.now;
     const lockEntry =
       ref.refType === "registry"
-        ? buildLockEntry(ref, new Date())
-        : buildWorkspaceLockEntry(ref, new Date());
+        ? buildLockEntry(ref, now, yield* computePackageContentHash(canonicalPath))
+        : buildWorkspaceLockEntry(ref, now);
     const currentMcpServers = yield* ws.getConfiguredMcpServerEntries();
     const currentEntry = currentMcpServers[ref.server.name];
     const storedSecrets = yield* loadStoredMcpSecrets(ref.server.name, secretNames);
     const mergedEnv = { ...storedSecrets, ...(currentEntry?.env ?? {}), ...env };
+
+    // Under --non-interactive there is nobody to prompt, so a required input
+    // that nothing supplied would otherwise install a server that cannot start.
+    // Fail with the exact recipe instead.
+    const requiredInputNames = Option.match(manifest, {
+      onNone: () => new Set<string>(),
+      onSome: collectRequiredInputNames,
+    });
+    const missingInputs = [...requiredInputNames]
+      .filter((name) => mergedEnv[name] === undefined || mergedEnv[name] === "")
+      .sort((left, right) => left.localeCompare(right));
+    if (missingInputs.length > 0 && (yield* isNonInteractiveOptional)) {
+      return yield* makeAppError({
+        code: "usage",
+        detail: `${ref.server.name} needs ${missingInputs.join(", ")}, and --non-interactive cannot prompt for them`,
+        suggestions: [
+          {
+            description: "Supply each required input on the command line",
+            cmd: missingInputs.map((name) => `--env ${name}=<value>`).join(" "),
+          },
+        ],
+      });
+    }
     const persistedEnv = redactSettingsEnv(mergedEnv, secretNames);
     const enabled = currentEntry?.enabled ?? true;
-    yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);
-
-    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
-      ? ws.setMcpServerLock({ name: ref.server.name, lockEntry })
-      : ws.setMcpServer({ name: ref.server.name, lockEntry, env: persistedEnv, enabled });
-    const writeWarning = yield* writeEffect.pipe(
-      Effect.as(Option.none<string>()),
-      Effect.catch((e) => Effect.succeed(Option.some(`MCP server update failed: ${e.detail}`))),
-    );
-
     const agentSync = yield* syncConfiguredAgentsOnInstall({
       wsBaseDir: ws.baseDir,
       scope: ws.scope,
@@ -655,10 +742,40 @@ export const installMcpServer: (
       configValues: mergedEnv,
     });
 
+    yield* persistMcpSecrets(ref.server.name, secretNames, mergedEnv);
+    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
+      ? ws.setMcpServerLock({
+          name: ref.server.name,
+          lockEntry,
+          versionRange: Option.none(),
+        })
+      : ws.setMcpServer({
+          name: ref.server.name,
+          lockEntry,
+          versionRange: op.args.versionRange,
+          env: persistedEnv,
+          enabled,
+        });
+    const writeWarning = yield* writeEffect.pipe(
+      Effect.as(Option.none<string>()),
+      Effect.catch((e) => Effect.succeed(Option.some(`MCP server update failed: ${e.detail}`))),
+    );
+
     const warnings = Option.match(writeWarning, {
       onNone: () => agentSync.warnings,
       onSome: (warning) => [warning, ...agentSync.warnings],
     });
+    const change = currentEntry === undefined ? "created" : "updated";
+    const agentOutcomes = agentSync.outcomes.flatMap(({ agentId, outcome }) =>
+      outcome._tag === "success" || outcome._tag === "fallback"
+        ? [
+            {
+              agentId,
+              ...(outcome.targets === undefined ? {} : { targets: outcome.targets }),
+            },
+          ]
+        : [],
+    );
 
     return {
       result: "success",
@@ -666,5 +783,15 @@ export const installMcpServer: (
         `Installed ${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
         warnings,
       ),
+      artifact: mcpServerArtifact({
+        lockEntry,
+        scope: ws.scope,
+        change,
+        targets: [
+          ...(ref.refType === "registry" ? [mcpSourceTarget(lockEntry, change)] : []),
+          mcpSettingsTarget(change),
+          ...agentConfigTargets(agentOutcomes),
+        ],
+      }),
     } satisfies JobStepResult;
   });

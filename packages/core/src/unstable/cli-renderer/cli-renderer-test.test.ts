@@ -431,7 +431,7 @@ describe("TestRenderer", () => {
     );
   });
 
-  describe("list(), result(), and resultStream()", () => {
+  describe("list() and result()", () => {
     it.effect("list() returns false (interactive mode)", () =>
       Effect.gen(function* () {
         const { layer, state } = TestRenderer.make();
@@ -466,21 +466,6 @@ describe("TestRenderer", () => {
         expect(result).toBe(false);
         expect(state.results).toHaveLength(1);
         expect(state.results[0]?.data).toEqual({ name: "test" });
-      }),
-    );
-
-    it.effect("resultStream() returns false (interactive mode)", () =>
-      Effect.gen(function* () {
-        const { layer, state } = TestRenderer.make();
-        const result = yield* Effect.gen(function* () {
-          const r = yield* CliRenderer;
-          return yield* r.resultStream(
-            Stream.make({ name: "a" }, { name: "b" }),
-            Schema.Struct({ name: Schema.String }),
-          );
-        }).pipe(Effect.provide(layer));
-        expect(result).toBe(false);
-        expect(state.results).toHaveLength(2);
       }),
     );
 
@@ -612,21 +597,6 @@ describe("TestMachineRenderer", () => {
       const result = yield* Effect.gen(function* () {
         const r = yield* CliRenderer;
         return yield* r.result({ name: "test" }, Schema.Struct({ name: Schema.String }));
-      }).pipe(Effect.provide(layer));
-      expect(result).toBe(true);
-      expect(state.results).toHaveLength(1);
-    }),
-  );
-
-  it.effect("resultStream() returns true (machine mode)", () =>
-    Effect.gen(function* () {
-      const { layer, state } = TestMachineRenderer.make();
-      const result = yield* Effect.gen(function* () {
-        const r = yield* CliRenderer;
-        return yield* r.resultStream(
-          Stream.make({ name: "a" }),
-          Schema.Struct({ name: Schema.String }),
-        );
       }).pipe(Effect.provide(layer));
       expect(result).toBe(true);
       expect(state.results).toHaveLength(1);

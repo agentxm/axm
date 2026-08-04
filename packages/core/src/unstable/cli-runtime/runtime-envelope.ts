@@ -1,4 +1,5 @@
 import * as Cause from "effect/Cause";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -7,7 +8,7 @@ import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.
 import type { OutputFormat } from "./output-mode.js";
 import { makeErrorEvent } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
-import { ExitCode, exitCodeFor } from "../app-error/index.js";
+import { ExitCode, exitCodeFor, redactSensitiveText } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { renderAppErrorChannels } from "./handle-error.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
@@ -40,7 +41,7 @@ const writeStderr = (message: string): void => {
 
 const defectMessage = (cause: Cause.Cause<unknown>): string => {
   const squashed = Cause.squash(cause);
-  return squashed instanceof Error ? squashed.message : String(squashed);
+  return redactSensitiveText(squashed instanceof Error ? squashed.message : String(squashed));
 };
 
 /**
@@ -174,14 +175,13 @@ export const makeFoundationLayer = (
           const envDebug = options?.envDebug ?? false;
           const envVerbose = options?.envVerbose ?? false;
 
-          const level: VerbosityLevel =
-            flagDebug || envDebug
+          const level: VerbosityLevel = flagQuiet
+            ? "quiet"
+            : flagDebug || envDebug
               ? "debug"
               : flagVerbose || envVerbose
                 ? "verbose"
-                : flagQuiet
-                  ? "quiet"
-                  : "normal";
+                : "normal";
 
           return makeVerbosityLayer(level);
         }),
@@ -238,7 +238,7 @@ export const withCliErrorHandling = <A, R>(
     yield* trackCliCommand({ command, properties: allProperties });
 
     // Execute program with timing
-    const startTime = Date.now();
+    const startTime = yield* Clock.currentTimeMillis;
 
     return yield* program.pipe(
       Effect.tap(() =>
@@ -248,7 +248,7 @@ export const withCliErrorHandling = <A, R>(
           yield* trackCliCommandCompleted({
             command,
             result: semanticExitCode === undefined ? "success" : "error",
-            durationMs: Date.now() - startTime,
+            durationMs: (yield* Clock.currentTimeMillis) - startTime,
             ...(semanticExitCode !== undefined && {
               errorCode: "issues",
               errorCategory: "issues",
@@ -261,7 +261,6 @@ export const withCliErrorHandling = <A, R>(
         }),
       ),
       Effect.catch((error: ExpectedCliError) => {
-        const durationMs = Date.now() - startTime;
         const exitCode = defaultExitCodeForExpectedError(error);
         const result = error._tag === "PromptCancelled" ? "cancelled" : "error";
 
@@ -273,7 +272,7 @@ export const withCliErrorHandling = <A, R>(
               yield* trackCliCommandCompleted({
                 command,
                 result,
-                durationMs,
+                durationMs: (yield* Clock.currentTimeMillis) - startTime,
                 ...(error._tag === "AppError" && {
                   errorCode: error.code,
                   errorCategory: error.code,
@@ -286,7 +285,6 @@ export const withCliErrorHandling = <A, R>(
         );
       }),
       Effect.catchCause((cause) => {
-        const durationMs = Date.now() - startTime;
         const defect = Cause.squash(cause);
         if (isEffectCliExit(defect)) {
           return Effect.failCause(cause);
@@ -303,7 +301,7 @@ export const withCliErrorHandling = <A, R>(
               yield* trackCliCommandCompleted({
                 command,
                 result: "defect",
-                durationMs,
+                durationMs: (yield* Clock.currentTimeMillis) - startTime,
                 semanticProperties,
               });
             }),

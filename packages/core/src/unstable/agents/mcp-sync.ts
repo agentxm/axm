@@ -4,11 +4,15 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import * as ChildProcess from "effect/unstable/process/ChildProcess";
+import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import { parse, type ParseError } from "jsonc-parser";
 import {
   AGENTS_BY_ID,
@@ -16,6 +20,7 @@ import {
   type AgentId as CapabilityAgentId,
   type McpConfig,
   type McpConfigTarget,
+  type McpEnvExpansion,
   type McpTransport,
 } from "../agent-capabilities/index.js";
 import { getHome } from "./constants.js";
@@ -31,7 +36,12 @@ import {
   buildAxmMcpMetadata,
   isAxmManagedMcpEntry,
 } from "../mcps/metadata.js";
-import { projectExpectedEntry } from "../mcps/projection.js";
+import { inferInlineRemoteTransport, projectExpectedEntry } from "../mcps/projection.js";
+import {
+  resolveSharedMcpTarget,
+  type SharedMcpTargetMember,
+  type SharedMcpTransport,
+} from "../mcps/shared-target.js";
 import { resolveMcpServer } from "../mcps/resolution.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer.js";
 import { managedYamlNames } from "../yaml/index.js";
@@ -167,55 +177,74 @@ const checkExecutableAvailable = (
 const unsupportedExecutableReason = (command: string): string =>
   `${command} CLI executable is unavailable on ${process.platform}; install ${command} and ensure it is on PATH`;
 
+const collectStreamText = <E>(stream: Stream.Stream<Uint8Array, E>): Effect.Effect<string, E> =>
+  Effect.gen(function* () {
+    const chunks = yield* Stream.runCollect(stream);
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const bytes = new Uint8Array(totalLength);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    return new TextDecoder("utf-8").decode(bytes);
+  });
+
 export const runCliInvocation = (
   invocation: CliInvocation,
-): Effect.Effect<CliInvocationResult, AppError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const { spawn } = await import("node:child_process");
-
-      return new Promise<CliInvocationResult>((resolve, reject) => {
-        const child = spawn(invocation.command, [...invocation.args], {
+): Effect.Effect<CliInvocationResult, AppError, ChildProcessSpawner.ChildProcessSpawner> =>
+  Effect.gen(function* () {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    return yield* Effect.gen(function* () {
+      const handle = yield* spawner.spawn(
+        ChildProcess.make(invocation.command, invocation.args, {
           cwd: invocation.cwd,
-          stdio: ["ignore", "pipe", "pipe"],
-        });
-
-        const timeout = setTimeout(() => {
-          child.kill("SIGTERM");
-          resolve({
+          stdin: "ignore",
+          // Scope close terminates the child with SIGTERM; escalate to
+          // SIGKILL so an unresponsive CLI cannot stall the timeout path.
+          forceKillAfter: Duration.seconds(2),
+        }),
+      );
+      const collected = yield* Effect.all(
+        {
+          stdout: collectStreamText(handle.stdout),
+          stderr: collectStreamText(handle.stderr),
+          exitCode: handle.exitCode.pipe(
+            Effect.map((code) => Number(code)),
+            // A signal-terminated child reports no exit code; preserve the
+            // previous `code ?? 1` convention instead of failing.
+            Effect.catch(() => Effect.succeed(1)),
+          ),
+        },
+        { concurrency: "unbounded" },
+      );
+      return {
+        exitCode: collected.exitCode,
+        stdout: redactSecrets(collected.stdout.trim()),
+        stderr: redactSecrets(collected.stderr.trim()),
+      };
+    }).pipe(
+      Effect.scoped,
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to execute MCP CLI command: ${invocation.command}`,
+          cause: error,
+        }),
+      ),
+      Effect.timeoutOrElse({
+        duration: Duration.millis(invocation.timeoutMs),
+        orElse: () =>
+          Effect.succeed({
             // 124 follows the Unix `timeout(1)` convention; not an `ExitCode`.
             exitCode: 124,
             stdout: "",
             stderr: `Command timed out after ${invocation.timeoutMs}ms`,
-          });
-        }, invocation.timeoutMs);
-
-        let stdout = "";
-        let stderr = "";
-        child.stdout.on("data", (chunk) => {
-          stdout += String(chunk);
-        });
-        child.stderr.on("data", (chunk) => {
-          stderr += String(chunk);
-        });
-
-        child.once("error", reject);
-        child.once("close", (code) => {
-          clearTimeout(timeout);
-          resolve({
-            exitCode: code ?? 1,
-            stdout: redactSecrets(stdout.trim()),
-            stderr: redactSecrets(stderr.trim()),
-          });
-        });
-      });
-    },
-    catch: (error) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to execute MCP CLI command: ${invocation.command}`,
-        cause: error,
+          }),
       }),
+    );
   });
 
 const decodeJsonConfig = (
@@ -233,20 +262,20 @@ const decodeJsonConfig = (
   );
 
 const parseJsonObject = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
-  Effect.sync(() => {
-    const errors: Array<ParseError> = [];
-    const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
-    if (errors.length > 0) throw errors;
-    return parsed;
-  }).pipe(
-    Effect.mapError((error) =>
+  Effect.try({
+    try: () => {
+      const errors: Array<ParseError> = [];
+      const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
+      if (errors.length > 0) throw errors;
+      return parsed;
+    },
+    catch: (error) =>
       makeAppError({
         code: "validation",
         detail: `Invalid MCP config JSON/JSONC: ${configPath}`,
         cause: error,
       }),
-    ),
-  );
+  });
 
 const resolveMcpConfigTargetPath = (
   workspaceRoot: string,
@@ -532,65 +561,179 @@ export interface PruneManagedMcpServersArgs {
   readonly workspaceRoot: string;
   readonly declaredServerNames: ReadonlySet<string>;
   readonly scope?: "project" | "user";
+  /** Inspect and report stale targets without changing agent configuration. */
+  readonly dryRun?: boolean;
 }
+
+interface SharedSyncMember {
+  readonly targetMember: SharedMcpTargetMember;
+  readonly envExpansion: McpEnvExpansion | undefined;
+}
+
+interface SharedSyncAccumulator {
+  readonly targets: Array<McpServerSyncTarget>;
+  readonly warnings: Array<string>;
+}
+
+const sharedTransportForEntry = (
+  entry: McpServerEntry,
+): Effect.Effect<SharedMcpTransport, AppError> => {
+  if (entry.command !== undefined) return Effect.succeed("stdio");
+  if (entry.url !== undefined) {
+    return Effect.try({
+      try: () => inferInlineRemoteTransport(entry.url ?? ""),
+      catch: (error) =>
+        makeAppError({
+          code: "validation",
+          detail: "Invalid inline MCP server URL",
+          cause: error,
+        }),
+    });
+  }
+  return Effect.fail(
+    makeAppError({
+      code: "validation",
+      detail: "Inline MCP server has no command or URL",
+    }),
+  );
+};
+
+export const syncInlineMcpServerToAgents = (
+  agentIds: ReadonlyArray<string>,
+  args: SyncInlineMcpServerArgs,
+): Effect.Effect<
+  ReadonlyArray<McpServerSyncOutcome>,
+  AppError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const transport = yield* sharedTransportForEntry(args.entry);
+    const scope = args.scope ?? "project";
+    const terminalOutcomes = new Map<string, McpServerSyncOutcome>();
+    const accumulators = new Map<string, SharedSyncAccumulator>();
+    const groups = new Map<string, Array<SharedSyncMember>>();
+
+    for (const agentId of agentIds) {
+      if (!isCapabilityAgentId(agentId)) {
+        terminalOutcomes.set(agentId, {
+          _tag: "unsupported",
+          reason: agentId + " has no MCP capability catalog entry",
+        });
+        continue;
+      }
+      const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+      if (!hasMcpConfig(capability)) {
+        terminalOutcomes.set(agentId, {
+          _tag: "unsupported",
+          reason: agentId + " does not have MCP config support",
+        });
+        continue;
+      }
+      accumulators.set(agentId, { targets: [], warnings: [] });
+      for (const target of capability.axm.writer.config.targets.filter(
+        (candidate) => candidate.scope === scope,
+      )) {
+        const key = target.scope + ":" + target.path;
+        const members = groups.get(key) ?? [];
+        members.push({
+          targetMember: {
+            agentId,
+            config: capability.axm.writer.config,
+            target,
+          },
+          envExpansion: capability.native.mcpEnvExpansion,
+        });
+        groups.set(key, members);
+      }
+    }
+
+    for (const members of groups.values()) {
+      const resolution = resolveSharedMcpTarget({
+        members: members.map((member) => member.targetMember),
+        transport,
+      });
+      if (resolution._tag === "conflict") {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: resolution.reason,
+        });
+      }
+      const projected = members.map((member) => ({
+        agentId: member.targetMember.agentId,
+        result: projectExpectedEntry({
+          serverName: args.serverName,
+          entry: args.entry,
+          stdio: resolution.config.stdio,
+          remote: resolution.config.remote,
+          activationField: resolution.config.activationField,
+          envExpansion: member.envExpansion,
+        }),
+      }));
+      const unsupported = projected.find((item) => item.result._tag === "unsupported");
+      if (unsupported !== undefined && unsupported.result._tag === "unsupported") {
+        return yield* makeAppError({
+          code: "conflict",
+          detail:
+            unsupported.agentId +
+            " cannot read shared MCP target '" +
+            resolution.path +
+            "': " +
+            unsupported.result.reason,
+        });
+      }
+      const firstProjected = projected[0]?.result;
+      if (firstProjected === undefined || firstProjected._tag !== "projected") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: "Shared MCP target projection produced no entry for " + resolution.path,
+        });
+      }
+      const writeResult = yield* writeAgentMcpConfig({
+        workspaceRoot: args.workspaceRoot,
+        serverName: args.serverName,
+        serversKey: resolution.config.serversKey,
+        target: resolution.target,
+        entry: firstProjected.entry,
+      });
+      for (const item of projected) {
+        if (item.result._tag !== "projected") continue;
+        const accumulator = accumulators.get(item.agentId);
+        if (accumulator === undefined) continue;
+        accumulator.targets.push(...writeResult.targets);
+        accumulator.warnings.push(...item.result.warnings);
+      }
+    }
+
+    return agentIds.map((agentId) => {
+      const terminal = terminalOutcomes.get(agentId);
+      if (terminal !== undefined) return terminal;
+      const accumulator = accumulators.get(agentId);
+      if (accumulator === undefined) {
+        return {
+          _tag: "unsupported",
+          reason: agentId + " does not have MCP config support",
+        };
+      }
+      return {
+        _tag: "success",
+        targets: accumulator.targets,
+        ...(accumulator.warnings.length > 0 ? { warnings: accumulator.warnings } : {}),
+      };
+    });
+  });
 
 export const syncInlineMcpServerToAgent = (
   agentId: string,
   args: SyncInlineMcpServerArgs,
 ): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    if (!isCapabilityAgentId(agentId)) {
-      return {
+    const outcomes = yield* syncInlineMcpServerToAgents([agentId], args);
+    return (
+      outcomes[0] ?? {
         _tag: "unsupported",
-        reason: `${agentId} has no MCP capability catalog entry`,
-      } as const;
-    }
-
-    const agent: Agent = AGENTS_BY_ID[agentId];
-    const capability = agent.capabilities["mcp-server"];
-    if (!hasMcpConfig(capability)) {
-      return {
-        _tag: "unsupported",
-        reason: `${agentId} does not have MCP config support`,
-      } as const;
-    }
-
-    const config = capability.axm.writer.config;
-    const projected = projectExpectedEntry({
-      serverName: args.serverName,
-      entry: args.entry,
-      stdio: config.stdio,
-      remote: config.remote,
-      nativeEnabled: config.nativeEnabled,
-      envExpansion: capability.native.mcpEnvExpansion,
-    });
-
-    if (projected._tag !== "projected") {
-      return {
-        _tag: "unsupported",
-        reason: `${agentId} ${projected.reason}`,
-      } as const;
-    }
-
-    const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
-    const writeResults = yield* Effect.forEach(
-      targets,
-      (target) =>
-        writeAgentMcpConfig({
-          workspaceRoot: args.workspaceRoot,
-          serverName: args.serverName,
-          serversKey: config.serversKey,
-          target,
-          entry: projected.entry,
-        }),
-      { concurrency: "unbounded" },
+        reason: agentId + " does not have MCP config support",
+      }
     );
-    const syncTargets = writeResults.flatMap((result) => result.targets);
-    return {
-      _tag: "success",
-      targets: syncTargets,
-      ...(projected.warnings.length > 0 ? { warnings: projected.warnings } : {}),
-    } satisfies McpServerSyncOutcome;
   });
 
 export const pruneManagedMcpServersForAgent = (
@@ -616,6 +759,7 @@ export const pruneManagedMcpServersForAgent = (
 
     const config = capability.axm.writer.config;
     const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
+    const prunedTargets: Array<McpServerSyncTarget> = [];
     yield* Effect.forEach(
       targets,
       (target) =>
@@ -646,23 +790,30 @@ export const pruneManagedMcpServersForAgent = (
                 );
             }
           });
-          yield* Effect.forEach(
-            staleNames,
-            (serverName) =>
-              removeAgentMcpConfig({
-                workspaceRoot: args.workspaceRoot,
-                serverName,
-                serversKey: config.serversKey,
-                target,
-                nativeEnabled: config.nativeEnabled,
-                disableOnly: false,
-              }),
-            { concurrency: "unbounded" },
-          );
+          if (staleNames.length === 0) return;
+          if (args.dryRun !== true) {
+            yield* Effect.forEach(
+              staleNames,
+              (serverName) =>
+                removeAgentMcpConfig({
+                  workspaceRoot: args.workspaceRoot,
+                  serverName,
+                  serversKey: config.serversKey,
+                  target,
+                  activationField: config.activationField,
+                  disableOnly: false,
+                }),
+              { concurrency: "unbounded" },
+            );
+          }
+          prunedTargets.push({ path: configPath, change: "updated" });
         }),
       { concurrency: "unbounded" },
     );
-    return { _tag: "success" } as const;
+    return {
+      _tag: "success",
+      ...(prunedTargets.length > 0 ? { targets: prunedTargets } : {}),
+    } satisfies McpServerSyncOutcome;
   });
 
 const isCapabilityAgentId = (id: string): id is CapabilityAgentId => id in AGENTS_BY_ID;
@@ -718,7 +869,11 @@ const fallbackOutcome = (
 export const addMcpServerMixed = (
   strategy: MixedStrategyConfig,
   args: AddMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     const platformOutcome = ensurePlatformSupported(
       strategy.cliAdd[0] ?? "cli",
@@ -774,7 +929,11 @@ export const addMcpServerMixed = (
 export const removeMcpServerMixed = (
   strategy: MixedStrategyConfig,
   args: RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     const platformOutcome = ensurePlatformSupported(
       strategy.cliRemove[0] ?? "cli",
@@ -846,7 +1005,11 @@ export interface ConfigFirstStrategy {
 const verifyConfigFirst = (
   strategy: ConfigFirstStrategy,
   args: AddMcpServerArgs | RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     if (strategy.verifyCommand === undefined || strategy.verifyCommand.length === 0) {
       return { _tag: "success" } as const;
@@ -887,7 +1050,11 @@ const verifyConfigFirst = (
 export const addMcpServerConfigFirst = (
   strategy: ConfigFirstStrategy,
   args: AddMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     yield* upsertJsonConfigServer(
       strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
@@ -900,7 +1067,11 @@ export const addMcpServerConfigFirst = (
 export const removeMcpServerConfigFirst = (
   strategy: ConfigFirstStrategy,
   args: RemoveMcpServerArgs,
-): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  McpServerSyncOutcome,
+  AppError,
+  FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+> =>
   Effect.gen(function* () {
     yield* removeJsonConfigServer(
       strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
@@ -1015,7 +1186,7 @@ export const removeMcpServerFromManifest = (
           serverName: args.serverName,
           serversKey: config.serversKey,
           target,
-          nativeEnabled: config.nativeEnabled,
+          activationField: config.activationField,
           disableOnly: args.disableOnly ?? false,
         }),
       { concurrency: "unbounded" },

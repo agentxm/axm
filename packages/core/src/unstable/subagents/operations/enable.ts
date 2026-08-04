@@ -1,9 +1,8 @@
 /**
  * Enable subagent executor — re-renders agent-native files for a previously disabled subagent.
  *
- * Two paths:
- * - Lock entry present: full enable (render files + update lock + settings)
- * - No lock entry: settings-only toggle (configured subagent with no lock backing)
+ * Enabling requires usable trusted canonical content. Receipts are not consulted:
+ * they are optional post-success history, not an input to lifecycle decisions.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -19,15 +18,13 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { sanitizeName } from "../../extensions/utils.js";
-import { computeSourceHash, RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
+import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
 import { makeWorkspaceRelativePath } from "../../utils/path-types.js";
-import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "../paths.js";
-import type { SubagentPathSource } from "../paths.js";
+import { subagentContentFilename, subagentContentPath } from "../paths.js";
 import { parseSubagentMd } from "../subagent-content.js";
 import { warnOnOrphanOverrides } from "../rendering/overrides.js";
-import type { SubagentLockEntry } from "../../lockfile/index.js";
 import { subagentLifecycleArtifact } from "./artifact.js";
+import { usableTrustedCanonical } from "../../workspace/trusted-canonical-ref.js";
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
@@ -56,35 +53,14 @@ export type EnableSubagentOperation = Operation<
 >;
 
 // -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-/** Derive a SubagentPathSource from a lock entry type. */
-const lockEntryToPathSource = (lockEntry: SubagentLockEntry): SubagentPathSource =>
-  lockEntry.type === "registry"
-    ? { refType: "registry", owner: lockEntry.owner }
-    : lockEntry.type === "local"
-      ? { refType: "local" }
-      : { refType: "git-hosted" };
-
-// -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 
 /**
  * Enable-subagent operation handler.
  *
- * Lock-backed path:
- * 1. Read configured agents, lock entry
- * 2. Compute canonical path
- * 3. Verify canonical directory exists
- * 4. Read and parse the subagent content file
- * 5. Render to all agents (concurrent)
- * 6. Update the shared source hash in the lockfile
- * 7. Update settings entry to set enabled: true
- *
- * Settings-only path (no lock entry):
- * 1. Update settings entry to set enabled: true
+ * Resolves trusted canonical content, renders to configured agents, and then
+ * updates the desired settings entry.
  */
 export const enableSubagent: OperationHandler<
   EnableSubagentOperation,
@@ -96,41 +72,15 @@ export const enableSubagent: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
 
-    // Check for lock entry to determine path
-    const lockEntryOption = yield* ws.getLockedSubagent(op.args.subagentName);
-
-    // Settings-only path: no lock entry, just toggle enabled flag
-    if (Option.isNone(lockEntryOption)) {
-      yield* ws
-        .updateSubagentEntry(op.args.subagentName, (e) => ({ ...e, enabled: true }))
-        .pipe(Effect.catch(() => Effect.void));
-
-      return {
-        result: "success",
-        message: `Enabled ${op.args.subagentName}`,
-        artifact: subagentLifecycleArtifact({
-          name: op.args.subagentName,
-          scope: ws.scope,
-          change: "updated",
-        }),
-      } satisfies JobStepResult;
-    }
-
-    // Lock-backed path: full enable with rendering
-    const lockEntry = lockEntryOption.value;
-    const baseDir = ws.baseDir;
-    const pathSource = lockEntryToPathSource(lockEntry);
-    const sanitized = sanitizeName(op.args.subagentName);
-    const paths = computeSubagentPaths(path.join, baseDir, pathSource, sanitized);
-
-    // Verify canonical source exists
-    const exists = yield* fs
-      .exists(paths.subagentSrcPath)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
+    const canonical = yield* usableTrustedCanonical({
+      workspace: ws,
+      type: "subagent",
+      name: op.args.subagentName,
+    });
+    if (Option.isNone(canonical) || canonical.value.ref.type !== "subagent") {
       return yield* makeAppError({
         code: "not_found",
-        detail: `Subagent files for "${op.args.subagentName}" not found at ${paths.subagentSrcPath}`,
+        detail: `Trusted subagent content for "${op.args.subagentName}" is not usable`,
         suggestions: [
           {
             description: "Try reinstalling the subagent.",
@@ -140,9 +90,12 @@ export const enableSubagent: OperationHandler<
       });
     }
 
+    const baseDir = ws.baseDir;
+    const subagentSrcPath = canonical.value.observation.path;
+
     // Read and parse the subagent content file
     const expectedFilename = subagentContentFilename(op.args.subagentName);
-    const contentPath = subagentContentPath(path.join, paths.subagentSrcPath, op.args.subagentName);
+    const contentPath = subagentContentPath(path.join, subagentSrcPath, op.args.subagentName);
     const editSourcePath = makeWorkspaceRelativePath(path, baseDir, contentPath);
     if (Option.isNone(editSourcePath)) {
       return yield* makeAppError({
@@ -154,7 +107,7 @@ export const enableSubagent: OperationHandler<
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          detail: `Failed to read ${expectedFilename} from ${paths.subagentSrcPath}`,
+          detail: `Failed to read ${expectedFilename} from ${subagentSrcPath}`,
           suggestions: [
             {
               description: `Ensure the subagent content file exists at ${contentPath}.`,
@@ -165,7 +118,6 @@ export const enableSubagent: OperationHandler<
       ),
     );
     const parsed = yield* parseSubagentMd(rawContent, op.args.subagentName);
-    const currentHash = computeSourceHash(rawContent);
     const frontmatter: Readonly<Record<string, unknown>> = Option.getOrElse(
       parsed.frontmatter,
       () => ({}),
@@ -225,20 +177,14 @@ export const enableSubagent: OperationHandler<
       { concurrency: "unbounded" },
     );
 
-    // Persist only the shared source hash. Rendered paths remain transient.
     const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
     const renderedFiles = decodeRenderedFiles(renderedFilesMap);
-    const updatedLockEntry = {
-      ...lockEntry,
-      sourceHash: currentHash,
-    };
-    yield* ws.setSubagentLock({ name: op.args.subagentName, lockEntry: updatedLockEntry });
 
     // Update settings entry to set enabled: true
     yield* ws
       .updateSubagentEntry(op.args.subagentName, (e) => ({ ...e, enabled: true }))
       .pipe(Effect.catch(() => Effect.void));
-    const version = lockEntry.type === "registry" ? lockEntry.resolvedVersion : undefined;
+    const version = canonical.value.trust.resolvedVersion;
 
     return {
       result: "success",

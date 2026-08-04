@@ -12,38 +12,24 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Option from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import type { CommandLockEntry } from "../../lockfile/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { JobStepArtifact, Operation, JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { CodingAgentRepository } from "../../agents/index.js";
-
-const commandVersion = (entry: CommandLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
+import { configuredRowsByName } from "../../workspace/read-model-record-rows.js";
 
 const commandDisableArtifact = (
-  lockEntry: CommandLockEntry,
   scope: JobStepArtifact["scope"],
   agents: ReadonlyArray<string>,
 ): JobStepArtifact => {
-  const version = commandVersion(lockEntry);
-
   return {
     path: ".axm/settings.json",
     scope,
     ...(agents.length === 0 ? {} : { agents }),
-    ...(version === undefined ? {} : { version }),
     change: "updated",
   };
 };
-
-const settingsOnlyCommandArtifact = (scope: JobStepArtifact["scope"]): JobStepArtifact => ({
-  path: ".axm/settings.json",
-  scope,
-  change: "updated",
-});
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -84,39 +70,24 @@ export const disableCommand: OperationHandler<
     const base = ws.baseDir;
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
-    // Check for lock entry
-    const lockEntryOption = yield* ws.getLockedCommand(op.args.commandName).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read lockfile: ${e.message}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    // Lock-backed file operations (when lock entry exists)
-    if (Option.isSome(lockEntryOption)) {
-      yield* Effect.forEach(
-        configuredAgents,
-        (agent) =>
-          agent
-            .removeCommand({
-              workspaceRoot: base,
-              scope: "project",
-              commandName: op.args.commandName,
-            })
-            .pipe(Effect.catch(() => Effect.void)),
-        { concurrency: "unbounded" },
-      );
+    const desired = yield* ws.getDesiredStateGraph();
+    if (!desired.complete) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: "Cannot disable the command while pack-derived desired state is unresolved.",
+      });
     }
+    const desiredNodeBeforeDisable = desired.nodes.find(
+      (node) => node.type === "command" && node.name === op.args.commandName,
+    );
 
     // Update settings to mark as disabled
     // For configured commands: update existing entry
     // For implicit commands (lockfile-only): promote to direct entry
-    const existingSettings = yield* ws.records
-      .getConfiguredCommands()
-      .pipe(Effect.catch(() => Effect.succeed({})));
+    const existingSettings = yield* ws.records.rows("command").pipe(
+      Effect.map(configuredRowsByName),
+      Effect.catch(() => Effect.succeed({})),
+    );
     if (op.args.commandName in existingSettings) {
       yield* ws
         .updateCommandEntry(op.args.commandName, (entry) => ({
@@ -124,29 +95,32 @@ export const disableCommand: OperationHandler<
           enabled: false,
         }))
         .pipe(Effect.catch(() => Effect.void));
-    } else if (Option.isSome(lockEntryOption)) {
-      // Implicit command: promote to direct settings entry with disabled state
-      const lockEntry = lockEntryOption.value;
-      const source =
-        lockEntry.type === "registry"
-          ? `${lockEntry.owner}/commands/${lockEntry.name}`
-          : lockEntry.type === "local"
-            ? lockEntry.path
-            : "";
+    } else if (desiredNodeBeforeDisable !== undefined) {
       yield* ws
-        .setCommandEntry(op.args.commandName, { source, enabled: false })
+        .setCommandEntry(op.args.commandName, {
+          source: desiredNodeBeforeDisable.source,
+          enabled: false,
+        })
         .pipe(Effect.catch(() => Effect.void));
     }
 
-    const artifact = Option.match(lockEntryOption, {
-      onNone: () => settingsOnlyCommandArtifact(ws.scope),
-      onSome: (lockEntry) =>
-        commandDisableArtifact(
-          lockEntry,
-          ws.scope,
-          configuredAgents.map((agent) => agent.id),
-        ),
-    });
+    yield* Effect.forEach(
+      configuredAgents,
+      (agent) =>
+        agent
+          .removeCommand({
+            workspaceRoot: base,
+            scope: "project",
+            commandName: op.args.commandName,
+          })
+          .pipe(Effect.catch(() => Effect.void)),
+      { concurrency: "unbounded" },
+    );
+
+    const artifact = commandDisableArtifact(
+      ws.scope,
+      configuredAgents.map((agent) => agent.id),
+    );
 
     return {
       result: "success",

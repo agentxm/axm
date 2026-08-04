@@ -36,3 +36,4 @@ export {
   type KnowledgeProjectionBundle,
   type KnowledgeProjectionResult,
 } from "./projection.js";
+export { knowledgeReconciliationAdapter } from "./reconciliation-adapter.js";

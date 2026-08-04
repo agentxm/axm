@@ -1,4 +1,6 @@
 import { Command } from "effect/unstable/cli";
+import { makeExtensionShowCommand } from "../shared/extension-show.js";
+import { hooksVersionCommand as versionCommand } from "../shared/version-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
@@ -11,6 +13,12 @@ import { hooksPublishCommand as publishCommand } from "../publish/per-type-comma
 import { uninstallCommand } from "./uninstall/command.js";
 import { updateCommand } from "./update.js";
 
+const showCommand = makeExtensionShowCommand({
+  type: "hook",
+  group: "hooks",
+  exampleName: "workspace-baseline",
+});
+
 export const hooksCommand = Command.make("hooks").pipe(
   Command.withDescription("Manage hook extensions"),
   Command.withExamples([
@@ -22,7 +30,8 @@ export const hooksCommand = Command.make("hooks").pipe(
   Command.annotate(
     LearnMore,
     formatLearnMore([
-      ["axm hooks install @acme/hooks/workspace-baseline", "Install a hook extension"],
+      ["axm help hooks", "Managing hook extensions with AXM"],
+      ["axm help hook-schema", "Print the hook manifest JSON Schema"],
     ]),
   ),
   Command.withSubcommands([
@@ -31,9 +40,11 @@ export const hooksCommand = Command.make("hooks").pipe(
     uninstallCommand,
     infoCommand,
     listCommand,
+    showCommand,
     enableCommand,
     disableCommand,
     updateCommand,
+    versionCommand,
     publishCommand,
     pruneCommand,
   ]),

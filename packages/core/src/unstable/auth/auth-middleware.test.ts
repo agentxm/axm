@@ -10,6 +10,7 @@ import { describe, it } from "@effect/vitest";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, expect } from "vitest";
@@ -59,10 +60,10 @@ const makeTestLayers = (
   return Layer.mergeAll(middlewareLayer, credStoreLayer, authClientLayer, registryUrlLayer);
 };
 
-const futureExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
-const nearExpiry = () => new Date(Date.now() + 2 * 60 * 1000).toISOString(); // 2 minutes
+const futureExpiry = () => DateTime.add(DateTime.nowUnsafe(), { hours: 1 });
+const nearExpiry = () => DateTime.add(DateTime.nowUnsafe(), { minutes: 2 });
 
-const storedCredentials = (expiresAt?: string) => ({
+const storedCredentials = (expiresAt?: DateTime.Utc) => ({
   version: 1 as const,
   registries: {
     [REGISTRY_URL]: {
@@ -249,7 +250,7 @@ describe("AuthMiddleware", () => {
               refresh_token: "axm_ref_refreshed",
               token_type: "Bearer",
               expires_in: 3600,
-              expires_at: futureExpiry(),
+              expires_at: DateTime.formatIso(futureExpiry()),
             }),
             { status: 200, headers: { "content-type": "application/json" } },
           );
@@ -344,7 +345,7 @@ describe("AuthMiddleware", () => {
               refresh_token: "axm_ref_refreshed",
               token_type: "Bearer",
               expires_in: 3600,
-              expires_at: futureExpiry(),
+              expires_at: DateTime.formatIso(futureExpiry()),
             }),
             { status: 200, headers: { "content-type": "application/json" } },
           );

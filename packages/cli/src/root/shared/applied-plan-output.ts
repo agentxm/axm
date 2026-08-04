@@ -141,6 +141,47 @@ const defaultFailureSuggestions: ReadonlyArray<SuggestedAction> = [
   { description: "Review the failed step above, fix the source or workspace state, and retry." },
 ];
 
+export interface InstallationCoverage {
+  readonly agents: ReadonlyArray<string>;
+  readonly scope: "project" | "user";
+}
+
+export const installationCoverage = (plan: ExecutedPlan): InstallationCoverage => {
+  const agents = new Set<string>();
+  let scope: "project" | "user" = "project";
+  let foundScope = false;
+
+  for (const step of plan.jobs.flatMap((job) => job.steps)) {
+    if (step.result.result !== "success" || step.result.artifact === undefined) continue;
+    const artifact = step.result.artifact;
+    if (!foundScope) {
+      scope = artifact.scope;
+      foundScope = true;
+    }
+    for (const agent of artifact.agents ?? []) {
+      if (agent !== "universal") agents.add(agent);
+    }
+    for (const target of artifact.targets ?? []) {
+      for (const agent of target.agentIds ?? []) {
+        if (agent !== "universal") agents.add(agent);
+      }
+    }
+  }
+
+  return { agents: [...agents], scope };
+};
+
+const appendSummary = (summary: string | undefined, line: string): string =>
+  summary === undefined ? line : `${summary}\n${line}`;
+
+const materializationSuggestion = (scope: InstallationCoverage["scope"]): SuggestedAction => ({
+  description: "Detect and configure an active coding agent, then reinstall.",
+  cmd: `axm agents add --detected${scope === "user" ? " --scope user" : ""}`,
+});
+
+const materializationWarning = (scope: InstallationCoverage["scope"]): string =>
+  `No coding-agent targets were materialized. Run \`axm agents add --detected${scope === "user" ? " --scope user" : ""}\`, then reinstall.`;
+
 export const unchangedPlanHeadline = (resolution: PlanResolution, fallback: string): string => {
   if (resolution._tag !== "ExecutedPlan") return fallback;
 
@@ -163,21 +204,39 @@ export const emitAppliedPlanOutcome = <TCommand extends string>(args: {
   readonly resolution: PlanResolution;
   readonly suggestions: ReadonlyArray<SuggestedAction>;
   readonly failureSuggestions?: ReadonlyArray<SuggestedAction>;
+  readonly reportInstallationCoverage?: boolean;
 }) =>
   Effect.gen(function* () {
     const verbosity = yield* Verbosity;
     const failed =
       args.resolution._tag === "ExecutedPlan" ? hasFailedSteps(args.resolution) : false;
-    const suggestions = failed
+    const coverage =
+      args.reportInstallationCoverage === true && args.resolution._tag === "ExecutedPlan" && !failed
+        ? installationCoverage(args.resolution)
+        : undefined;
+    const baseSuggestions = failed
       ? (args.failureSuggestions ?? defaultFailureSuggestions)
       : args.suggestions;
-    const summary =
+    const suggestions =
+      coverage !== undefined && coverage.agents.length === 0
+        ? [materializationSuggestion(coverage.scope), ...baseSuggestions]
+        : baseSuggestions;
+    const outcomeSummary =
       args.resolution._tag === "ExecutedPlan"
         ? summarizeExecutedOutcome(args.resolution, {
             verbose: verbosity.isAtLeast("verbose"),
             debug: verbosity.level === "debug",
           })
         : undefined;
+    const summary =
+      coverage === undefined
+        ? outcomeSummary
+        : appendSummary(
+            outcomeSummary,
+            coverage.agents.length === 0
+              ? "Agent coverage: none"
+              : `Agent coverage: ${coverage.agents.join(", ")}`,
+          );
     const resultOptions = summary === undefined ? { suggestions } : { summary, suggestions };
     const emitted = yield* emitPlanResolutionResult(
       args.command,
@@ -215,5 +274,8 @@ export const emitAppliedPlanOutcome = <TCommand extends string>(args: {
         args.headline,
         verbosity.level === "quiet" ? undefined : successOptions,
       );
+      if (coverage !== undefined && coverage.agents.length === 0 && verbosity.level !== "quiet") {
+        yield* renderer.warn(materializationWarning(coverage.scope));
+      }
     }
   });

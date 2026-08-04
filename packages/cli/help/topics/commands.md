@@ -81,4 +81,5 @@ See `axm help packs` for pack authoring and `standalone` semantics.
 ## Where to go next
 
 - `axm help packs` — bundling command extensions with extension packs
+- `axm help workspace-state` — desired, observed, trust, and receipt semantics
 - `axm commands --help` — full command subcommand surface

@@ -17,7 +17,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { DateFromIsoDateTimeStringSchema } from "../date-time.js";
+import { DateTimeUtcSchema } from "../date-time.js";
 import {
   ExtensionFqnSchema,
   type ExtensionType,
@@ -25,6 +25,7 @@ import {
   SourceHashSchema,
 } from "../extensions/index.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
+import type { CatalogExtensionType } from "../extension-types/schema.js";
 import { FileInputValueSchema, FileMaterializationModeSchema } from "../files/manifest-schema.js";
 import { RelativePathSchema } from "../utils/path-types.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
@@ -45,8 +46,8 @@ export const LOCKFILE_VERSION = 3;
  * Common fields shared by all lock entries (without agents).
  */
 const BaseCommonFields = {
-  installedAt: DateFromIsoDateTimeStringSchema,
-  updatedAt: DateFromIsoDateTimeStringSchema,
+  installedAt: DateTimeUtcSchema,
+  updatedAt: DateTimeUtcSchema,
   gitTreeHash: Schema.optional(Schema.String),
   retainedByPack: Schema.optional(Schema.Boolean),
 };
@@ -140,9 +141,14 @@ const makeSourceLockUnion = <
       owner: HandleSchema,
       name: ExtensionNameSchema,
       resolvedVersion: VersionSchema,
-      integrity: Schema.String,
+      integrity: Schema.String.annotate({
+        description:
+          "SRI sha512 of the published archive, verified against downloaded bytes before " +
+          "extraction. The supply-chain guarantee for registry installs; never compared " +
+          "against installed files on disk.",
+      }),
       sourceName: Schema.String,
-      publisherBindingId: Schema.optional(Schema.NonEmptyString),
+      publisherBindingId: Schema.NonEmptyString,
       ...extraFields,
     }),
     Schema.Struct({
@@ -179,10 +185,14 @@ const InlineMcpServerLockEntrySchema = Schema.Struct({
  *
  * Fields common to all entries:
  * - type: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry")
- * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
- * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
+ * - installedAt: ISO 8601 timestamp of initial installation (DateTime.Utc in TS)
+ * - updatedAt: ISO 8601 timestamp of last update (DateTime.Utc in TS)
  * - gitTreeHash: Git tree SHA of source folder (git sources, optional)
- * - sourceHash: SHA-256 hash of canonical skill source (copy-mode only, optional)
+ * - sourceHash: advisory SHA-256 change marker of the canonical skill source
+ *   captured at install time (shallow: top-level `src/` files only; optional).
+ *   Used for created/updated/unchanged reporting, never as a tamper check —
+ *   installed content is workspace-owned and may be rewritten by
+ *   content-preserving tools after install
  *
  * Source-specific fields are at the top level based on source type.
  *
@@ -240,7 +250,7 @@ const CommandCommonFields = {
  * Lock entry for a single installed command.
  * Discriminated union by the `type` field.
  *
- * Includes `sourceHash` for tracking the shared source content.
+ * Includes an advisory `sourceHash` change marker for the shared source content.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -299,7 +309,7 @@ const SubagentWorkspaceFields = {
  * Lock entry for a single installed subagent.
  * Discriminated union by the `type` field.
  *
- * Includes `sourceHash` for tracking the shared source content.
+ * Includes an advisory `sourceHash` change marker for the shared source content.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -344,10 +354,19 @@ export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>
  *
  * Same structure as SkillLockEntry but without the `agents` field.
  *
+ * Includes an advisory `sourceHash` change marker for the installed package
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check. Inline servers carry no source content and so have no `sourceHash`.
+ *
  * @experimental This API is unstable and may change without notice.
  */
+const McpServerCommonFields = {
+  ...BaseCommonFields,
+  sourceHash: Schema.optional(SourceHashSchema),
+};
+
 export const McpServerLockEntrySchema = Schema.Union([
-  makeSourceLockUnion(BaseCommonFields, "mcp-server", BaseCommonFields),
+  makeSourceLockUnion(McpServerCommonFields, "mcp-server", BaseCommonFields),
   InlineMcpServerLockEntrySchema,
 ]);
 
@@ -417,21 +436,32 @@ export const MaterializedFileTargetSchema = Schema.Struct({
 /** @experimental */
 export type MaterializedFileTarget = Schema.Schema.Type<typeof MaterializedFileTargetSchema>;
 
-const FilesCommonFields = {
+const FilesWorkspaceFields = {
   ...BaseCommonFields,
   resolvedInputs: Schema.optional(FilesResolvedInputsMapSchema),
+};
+
+// The workspace variant declares a required `sourceHash` of its own, so the
+// optional marker only belongs on the remaining source variants.
+const FilesCommonFields = {
+  ...FilesWorkspaceFields,
+  sourceHash: Schema.optional(SourceHashSchema),
 };
 
 /**
  * Lock entry for a single installed Context Files package.
  * Discriminated union by the `type` field.
  *
+ * Includes an advisory `sourceHash` change marker for the installed package
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 export const FilesLockEntrySchema = makeSourceLockUnion(
   FilesCommonFields,
   "files",
-  FilesCommonFields,
+  FilesWorkspaceFields,
 );
 
 /** @experimental */
@@ -451,12 +481,21 @@ export type FilesLockMap = Schema.Schema.Type<typeof FilesLockMapSchema>;
 // Rule Lock Entry (union of all source types, no agents)
 // =============================================================================
 
+const RuleCommonFields = {
+  ...BaseCommonFields,
+  sourceHash: Schema.optional(SourceHashSchema),
+};
+
 /**
  * Lock entry for a single installed rule.
  *
+ * Includes an advisory `sourceHash` change marker for the installed package
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check.
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleLockEntrySchema = makeSourceLockUnion(BaseCommonFields, "rule", BaseCommonFields);
+export const RuleLockEntrySchema = makeSourceLockUnion(RuleCommonFields, "rule", BaseCommonFields);
 
 /** @experimental */
 export type RuleLockEntry = Schema.Schema.Type<typeof RuleLockEntrySchema>;
@@ -475,12 +514,21 @@ export type RulesLockMap = Schema.Schema.Type<typeof RulesLockMapSchema>;
 // Hook Lock Entry (union of all source types, no agents)
 // =============================================================================
 
+const HookCommonFields = {
+  ...BaseCommonFields,
+  sourceHash: Schema.optional(SourceHashSchema),
+};
+
 /**
  * Lock entry for a single installed hook.
  *
+ * Includes an advisory `sourceHash` change marker for the installed package
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check.
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookLockEntrySchema = makeSourceLockUnion(BaseCommonFields, "hook", BaseCommonFields);
+export const HookLockEntrySchema = makeSourceLockUnion(HookCommonFields, "hook", BaseCommonFields);
 
 /** @experimental */
 export type HookLockEntry = Schema.Schema.Type<typeof HookLockEntrySchema>;
@@ -499,8 +547,22 @@ export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
 // Knowledge Lock Entry (isolated OKF bundle plus derived index)
 // =============================================================================
 
+const KnowledgeCommonFields = {
+  ...BaseCommonFields,
+  sourceHash: Schema.optional(SourceHashSchema),
+};
+
+/**
+ * Lock entry for a single installed knowledge bundle.
+ *
+ * Includes an advisory `sourceHash` change marker for the installed bundle
+ * content — used for created/updated/unchanged reporting, never as a tamper
+ * check.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
 export const KnowledgeLockEntrySchema = makeSourceLockUnion(
-  BaseCommonFields,
+  KnowledgeCommonFields,
   "knowledge",
   BaseCommonFields,
 );
@@ -517,7 +579,42 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
  * Resolved extension map: FQN keys to exact version strings.
  * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
  */
-export const ResolvedExtensionMapSchema = Schema.Record(ExtensionFqnSchema, VersionSchema);
+const LegacyResolvedRegistryExtensionSchema = Schema.Struct({
+  version: VersionSchema,
+  publisherBindingId: Schema.NonEmptyString,
+});
+
+const ResolvedRegistryExtensionSchema = Schema.Struct({
+  source: Schema.Literal("registry"),
+  version: VersionSchema,
+  publisherBindingId: Schema.NonEmptyString,
+  integrity: Schema.String,
+});
+
+const ResolvedWorkspaceExtensionSchema = Schema.Struct({
+  source: Schema.Literal("workspace"),
+  version: VersionSchema,
+  sourceIdentity: Schema.String,
+  contentIdentity: SourceHashSchema,
+});
+
+export const ResolvedExtensionSchema = Schema.Union([
+  ResolvedRegistryExtensionSchema,
+  ResolvedWorkspaceExtensionSchema,
+  LegacyResolvedRegistryExtensionSchema,
+]).annotate({
+  identifier: "ResolvedExtension",
+  title: "Resolved Extension",
+  description:
+    "Last successful pack-member resolution from a workspace or Registry authority. Legacy Registry receipts remain readable.",
+});
+
+export type ResolvedExtension = Schema.Schema.Type<typeof ResolvedExtensionSchema>;
+
+export const ResolvedExtensionMapSchema = Schema.Record(
+  ExtensionFqnSchema,
+  ResolvedExtensionSchema,
+);
 
 /**
  * Inferred type for resolved extension maps.
@@ -538,9 +635,10 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedVersion: VersionSchema,
   integrity: Schema.String,
   sourceName: Schema.String,
-  publisherBindingId: Schema.optional(Schema.NonEmptyString),
-  installedAt: DateFromIsoDateTimeStringSchema,
-  updatedAt: DateFromIsoDateTimeStringSchema,
+  publisherBindingId: Schema.NonEmptyString,
+  sourceHash: Schema.optional(SourceHashSchema),
+  installedAt: DateTimeUtcSchema,
+  updatedAt: DateTimeUtcSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
@@ -548,6 +646,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolvedFiles: Schema.optional(ResolvedExtensionMapSchema),
   resolvedRules: Schema.optional(ResolvedExtensionMapSchema),
   resolvedHooks: Schema.optional(ResolvedExtensionMapSchema),
+  resolvedKnowledge: Schema.optional(ResolvedExtensionMapSchema),
 }).annotate({
   identifier: "RegistryPackLockEntry",
   title: "Registry Pack Lock Entry",
@@ -569,8 +668,8 @@ export const WorkspacePackLockEntrySchema = Schema.Struct({
   name: ExtensionNameSchema,
   version: VersionSchema,
   sourceHash: SourceHashSchema,
-  installedAt: DateFromIsoDateTimeStringSchema,
-  updatedAt: DateFromIsoDateTimeStringSchema,
+  installedAt: DateTimeUtcSchema,
+  updatedAt: DateTimeUtcSchema,
   resolvedSkills: ResolvedExtensionMapSchema,
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
@@ -578,6 +677,7 @@ export const WorkspacePackLockEntrySchema = Schema.Struct({
   resolvedFiles: Schema.optional(ResolvedExtensionMapSchema),
   resolvedRules: Schema.optional(ResolvedExtensionMapSchema),
   resolvedHooks: Schema.optional(ResolvedExtensionMapSchema),
+  resolvedKnowledge: Schema.optional(ResolvedExtensionMapSchema),
 }).annotate({
   identifier: "WorkspacePackLockEntry",
   title: "Workspace Pack Lock Entry",
@@ -646,76 +746,31 @@ export const PacksLockMapSchema = Schema.Record(Schema.String, PackLockEntrySche
 export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
 
 // =============================================================================
-// Library Lock Entry
+// Lock entry schemas by extension type
 // =============================================================================
 
 /**
- * Registry Library lock entry.
+ * Every catalog extension type's lock-entry schema, keyed by type.
  *
- * Libraries are live registry collections, not versioned artifacts. The lock
- * entry pins the resolved membership snapshot and exact member versions.
+ * Total by construction: a new extension type fails compile here until its lock
+ * entry exists. The parity conformance suite decodes a synthetic entry through
+ * each schema to check obligations that must hold for every type.
+ *
+ * Packs are excluded — a pack lock entry records resolved members rather than a
+ * single installed source, so it is not shape-comparable with the others.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RegistryLibraryLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("registry"),
-  owner: HandleSchema,
-  name: ExtensionNameSchema,
-  sourceName: Schema.String,
-  installedAt: DateFromIsoDateTimeStringSchema,
-  updatedAt: DateFromIsoDateTimeStringSchema,
-  resolvedAt: DateFromIsoDateTimeStringSchema,
-  membershipDigest: Schema.String,
-  resolvedSkills: ResolvedExtensionMapSchema,
-  resolvedCommands: ResolvedExtensionMapSchema,
-  resolvedMcpServers: ResolvedExtensionMapSchema,
-  resolvedSubagents: ResolvedExtensionMapSchema,
-  resolvedFiles: ResolvedExtensionMapSchema,
-  resolvedRules: ResolvedExtensionMapSchema,
-  resolvedHooks: ResolvedExtensionMapSchema,
-}).annotate({
-  identifier: "RegistryLibraryLockEntry",
-  title: "Registry Library Lock Entry",
-  description: "Pinned membership snapshot for a Library subscription.",
-});
-
-/** @experimental */
-export type RegistryLibraryLockEntry = Schema.Schema.Type<typeof RegistryLibraryLockEntrySchema>;
-
-/** @experimental */
-export type RegistryLibraryLockEntryArgs = Omit<RegistryLibraryLockEntry, "type">;
-
-/** @experimental */
-export const makeRegistryLibraryLockEntry = (
-  args: RegistryLibraryLockEntryArgs,
-): RegistryLibraryLockEntry => ({
-  type: "registry",
-  ...args,
-});
-
-/**
- * Lock entry for a single Library subscription.
- *
- * @experimental
- */
-export const LibraryLockEntrySchema = RegistryLibraryLockEntrySchema.annotate({
-  identifier: "LibraryLockEntry",
-  title: "Library Lock Entry",
-  description: "Pinned membership snapshot for an installed Library subscription.",
-});
-
-/** @experimental */
-export type LibraryLockEntry = Schema.Schema.Type<typeof LibraryLockEntrySchema>;
-
-/**
- * Map of Library subscription names to lock entries.
- *
- * @experimental
- */
-export const LibrariesLockMapSchema = Schema.Record(Schema.String, LibraryLockEntrySchema);
-
-/** @experimental */
-export type LibrariesLockMap = Schema.Schema.Type<typeof LibrariesLockMapSchema>;
+export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
+  skill: SkillLockEntrySchema,
+  command: CommandLockEntrySchema,
+  "mcp-server": McpServerLockEntrySchema,
+  subagent: SubagentLockEntrySchema,
+  files: FilesLockEntrySchema,
+  rule: RuleLockEntrySchema,
+  hook: HookLockEntrySchema,
+  knowledge: KnowledgeLockEntrySchema,
+} as const satisfies Record<CatalogExtensionType, Schema.Top>;
 
 // =============================================================================
 // Lockfile
@@ -734,11 +789,10 @@ export type LibrariesLockMap = Schema.Schema.Type<typeof LibrariesLockMapSchema>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const LockfileSchema = Schema.Struct({
-  lockfileVersion: Schema.Int.pipe(
-    Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+const LockfileBaseSchema = Schema.Struct({
+  lockfileVersion: Schema.Literal(LOCKFILE_VERSION).pipe(
     Schema.annotate({
-      description: "Lockfile schema version (currently 3).",
+      description: "Lockfile schema version.",
       default: LOCKFILE_VERSION,
     }),
     Schema.annotateKey({ messageMissingKey: "lockfileVersion is required" }),
@@ -754,12 +808,20 @@ export const LockfileSchema = Schema.Struct({
   hooks: Schema.optional(HooksLockMapSchema),
   knowledge: Schema.optional(KnowledgeLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
-  libraries: Schema.optional(LibrariesLockMapSchema),
-}).annotate({
+});
+
+// Unknown top-level keys are carried by the rest record so a lockfile written
+// by a newer AXM survives a read-modify-write cycle here. Nested strictness is
+// unchanged: unknown keys inside lock entries still fail decode. The removed
+// legacy `libraries` key is rejected by explicit pre-decode guards on the
+// lockfile read paths, not by this schema.
+export const LockfileSchema = Schema.StructWithRest(LockfileBaseSchema, [
+  Schema.Record(Schema.String, Schema.Unknown),
+]).annotate({
   identifier: "Lockfile",
   title: "AXM Lockfile",
   description:
-    "Records the exact versions of all installed extensions so installs are reproducible.",
+    "Optional receipt history for successful extension resolution and materialization. Desired, observed, and trust state remain authoritative elsewhere.",
 });
 
 /**
@@ -768,3 +830,13 @@ export const LockfileSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export type Lockfile = Schema.Schema.Type<typeof LockfileSchema>;
+
+const LOCKFILE_KNOWN_KEYS: ReadonlySet<string> = new Set(Object.keys(LockfileBaseSchema.fields));
+
+/**
+ * The unknown top-level entries carried on a decoded lockfile.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const lockfileRestEntries = (lockfile: Lockfile): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(lockfile).filter(([key]) => !LOCKFILE_KNOWN_KEYS.has(key)));

@@ -11,6 +11,7 @@ to finish.
 - [CLI Design Guide](./cli-design.md) - Command and flag conventions
 - [Effect Guide](./effect.md) - Service and error patterns
 - [Testing Guide](./testing.md) - Test levels and quality
+- [Workspace State](./workspace-state.md) - Required authority model for workspace lifecycle changes
 
 ---
 

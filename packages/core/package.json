@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/client-core",
-  "version": "0.22.6",
+  "version": "0.24.15",
   "description": "Core library for the axm agent extension manager. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
@@ -87,9 +87,9 @@
       "types": "./dist/src/unstable/lockfile/index.d.ts",
       "default": "./dist/src/unstable/lockfile/index.js"
     },
-    "./unstable/libraries": {
-      "types": "./dist/src/unstable/libraries/index.d.ts",
-      "default": "./dist/src/unstable/libraries/index.js"
+    "./unstable/trust": {
+      "types": "./dist/src/unstable/trust/index.d.ts",
+      "default": "./dist/src/unstable/trust/index.js"
     },
     "./unstable/schema": {
       "types": "./dist/src/unstable/schema/index.d.ts",
@@ -275,6 +275,8 @@
     "@types/proper-lockfile": "^4.1.4",
     "@types/semver": "catalog:",
     "@types/spdx-expression-parse": "4.0.0",
+    "@typescript/native": "catalog:",
+    "smol-toml": "catalog:",
     "swagger2openapi": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

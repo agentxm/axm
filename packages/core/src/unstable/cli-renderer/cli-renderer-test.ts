@@ -17,6 +17,7 @@ import {
   type SpinnerHandle,
   type SpinnerOptions,
   type SuccessOptions,
+  type ResultOptions,
   type TableView,
   type TaskLogConfig,
   type TaskLogGroupHandle,
@@ -49,7 +50,11 @@ export interface TestRendererState {
     def: unknown;
     title?: string;
   }>;
-  readonly results: Array<{ data: unknown; schema: Option.Option<Schema.Top> }>;
+  readonly results: Array<{
+    data: unknown;
+    schema: Option.Option<Schema.Top>;
+    ok?: boolean;
+  }>;
   readonly markdown: Array<string>;
   readonly spinnerMessages: Array<string>;
   readonly notes: Array<{ message: string; title?: string }>;
@@ -189,6 +194,10 @@ const makeTestRendererService = (
     message: (message: string) =>
       Effect.sync(() => {
         state.logs.push({ _tag: "message", message });
+      }),
+    instruction: (message: string) =>
+      Effect.sync(() => {
+        state.logs.push({ _tag: "info", message });
       }),
     diagnostic: (content: string) =>
       Effect.sync(() => {
@@ -482,7 +491,7 @@ const makeTestRendererService = (
     result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
-      options?: SuccessOptions,
+      options?: ResultOptions,
     ) =>
       Effect.sync(() => {
         if (
@@ -495,23 +504,10 @@ const makeTestRendererService = (
         state.results.push({
           data,
           schema: Option.some(schema),
+          ...(options?.ok === undefined ? {} : { ok: options.ok }),
         });
         return resultReturnValue;
       }),
-    resultStream: <S extends Schema.Top>(stream: Stream.Stream<Schema.Schema.Type<S>>, schema: S) =>
-      Stream.runCollect(stream).pipe(
-        Effect.tap((chunks) =>
-          Effect.sync(() => {
-            for (const item of chunks) {
-              state.results.push({
-                data: item,
-                schema: Option.some(schema),
-              });
-            }
-          }),
-        ),
-        Effect.as(resultReturnValue),
-      ),
 
     // Both modes (stdout)
     json: (data: unknown) =>

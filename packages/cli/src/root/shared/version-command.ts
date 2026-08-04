@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
@@ -38,6 +39,21 @@ import {
   type VersionableExtensionType,
   type VersionBump,
 } from "./extension-version.js";
+import { PackManifestSchema, packTrustManifest } from "@agentxm/client-core/unstable/packs";
+import { computePackageContentHash } from "@agentxm/client-core/unstable/extensions";
+import * as Schema from "effect/Schema";
+import { trustRecordKey } from "@agentxm/client-core/unstable/trust";
+
+const packContentIdentity = (directory: string) =>
+  computePackageContentHash(directory).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "internal",
+        detail: `Failed to compute pack content identity at ${directory}`,
+        cause,
+      }),
+    ),
+  );
 
 export interface VersionHandlerArgs {
   readonly type: VersionableExtensionType;
@@ -71,6 +87,12 @@ const configuredSourceForVersionTarget = Effect.fn("Version.configuredSourceForT
       return entrySource((yield* ws.getConfiguredPackEntries())[name]);
     case "hook":
       return entrySource((yield* ws.getConfiguredHookEntries())[name]);
+    case "files":
+      return entrySource((yield* ws.getConfiguredFilesEntries())[name]);
+    case "rule":
+      return entrySource((yield* ws.getConfiguredRuleEntries())[name]);
+    case "knowledge":
+      return entrySource((yield* ws.getConfiguredKnowledgeEntries())[name]);
   }
 });
 
@@ -229,13 +251,93 @@ export const handleVersion = (args: VersionHandlerArgs) =>
       ...versionArgs,
       preview: true,
     });
+    if (args.type === "pack") {
+      const ws = yield* WorkspaceMutations;
+      const path = yield* Path.Path;
+      const trust = (yield* ws.getTrustState()).records[trustRecordKey("pack", parsedTarget.name)];
+      const currentIdentity = yield* packContentIdentity(path.dirname(previewResult.manifestPath));
+      if (trust?.authority !== "workspace" || trust.contentIdentity !== currentIdentity) {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: `Pack ${args.handle} differs from its trusted workspace baseline`,
+          recover: "Inspect and resolve the pack drift before changing its version.",
+          suggestions: [
+            {
+              description: "Preview pack repair",
+              cmd: `axm packs repair ${args.handle} --preview`,
+            },
+          ],
+        });
+      }
+    }
     const plan = makeVersionPlan(previewResult);
     const resolution = args.preview
       ? previewVersionPlan(plan)
       : yield* bumpManifestVersion({
           ...versionArgs,
           preview: false,
-        }).pipe(Effect.flatMap((applied) => executedVersionPlan(plan, applied)));
+        }).pipe(
+          Effect.tap((applied) =>
+            args.type !== "pack" || !applied.written
+              ? Effect.void
+              : Effect.gen(function* () {
+                  const ws = yield* WorkspaceMutations;
+                  const fs = yield* FileSystem.FileSystem;
+                  const path = yield* Path.Path;
+                  const raw = yield* fs.readFileString(applied.manifestPath).pipe(
+                    Effect.mapError((cause) =>
+                      makeAppError({
+                        code: "internal",
+                        detail: `Failed to read pack manifest: ${applied.manifestPath}`,
+                        cause,
+                      }),
+                    ),
+                  );
+                  const parsed = yield* Effect.try({
+                    try: (): unknown => JSON.parse(raw),
+                    catch: (cause) =>
+                      makeAppError({
+                        code: "validation",
+                        detail: `Invalid pack manifest after version update: ${applied.manifestPath}`,
+                        cause,
+                      }),
+                  });
+                  const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
+                    parsed,
+                  ).pipe(
+                    Effect.mapError((cause) =>
+                      makeAppError({
+                        code: "validation",
+                        detail: `Invalid pack manifest after version update: ${applied.manifestPath}`,
+                        cause,
+                      }),
+                    ),
+                  );
+                  const contentIdentity = yield* packContentIdentity(
+                    path.dirname(applied.manifestPath),
+                  );
+                  yield* ws.refreshPackContentIdentity(
+                    parsedTarget.name,
+                    contentIdentity,
+                    packTrustManifest(manifest),
+                  );
+                }).pipe(
+                  Effect.catch((error) =>
+                    bumpManifestVersion({
+                      fqn: args.handle,
+                      type: "pack",
+                      bump: "set",
+                      targetVersion: applied.from,
+                      preview: false,
+                    }).pipe(
+                      Effect.catch(() => Effect.void),
+                      Effect.andThen(Effect.fail(error)),
+                    ),
+                  ),
+                ),
+          ),
+          Effect.flatMap((applied) => executedVersionPlan(plan, applied)),
+        );
 
     const renderer = yield* CliRenderer;
     if (yield* emitPlanResolutionResult("version", resolution)) {
@@ -261,7 +363,10 @@ const exampleNamesByType: Record<VersionableExtensionType, string> = {
   skill: "code-review",
   subagent: "researcher",
   "mcp-server": "my-server",
+  files: "workspace-baseline",
+  rule: "commit-style",
   hook: "block-secrets",
+  knowledge: "platform-handbook",
   pack: "frontend-tools",
 };
 
@@ -307,6 +412,10 @@ export const skillsVersionCommand = makeVersionCommand("skill");
 export const subagentsVersionCommand = makeVersionCommand("subagent");
 export const mcpsVersionCommand = makeVersionCommand("mcp-server");
 export const packsVersionCommand = makeVersionCommand("pack");
+export const filesVersionCommand = makeVersionCommand("files");
+export const rulesVersionCommand = makeVersionCommand("rule");
+export const hooksVersionCommand = makeVersionCommand("hook");
+export const knowledgeVersionCommand = makeVersionCommand("knowledge");
 
 export interface RootVersionHandlerArgs {
   readonly handle: string;

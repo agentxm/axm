@@ -12,12 +12,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
+import { userScopeRefusal } from "../scope-refusal.js";
 import {
   addCommandViaResolve,
   removeCommandViaResolve,
   type CommandSyncConfig,
 } from "../command-sync.js";
 import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagent-sync.js";
+import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcp-sync.js";
 import { agentSkillsProjectDir, agentSubagentsProjectDir } from "../descriptor-paths.js";
 
 /** @experimental */
@@ -60,22 +62,14 @@ export const kiloCodingAgent: CodingAgent = {
         dir: path.resolve(workspaceRoot, agentSkillsProjectDir("kilo")),
       } as const;
     }),
-  addMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: "MCP add is not supported for kilo",
-    } as const),
-  removeMcpServer: () =>
-    Effect.succeed({
-      _tag: "unsupported",
-      reason: "MCP remove is not supported for kilo",
-    } as const),
+  addMcpServer: (args) => addMcpServerFromManifest("kilo", args),
+  removeMcpServer: (args) => removeMcpServerFromManifest("kilo", args),
   resolveEffectiveCommandsDir: ({ workspaceRoot, scope }) =>
     Effect.gen(function* () {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Kilo Code does not support user-scope commands",
+          reason: userScopeRefusal({ agentId: "kilo", agentName: "Kilo Code", type: "commands" }),
         } as const;
       }
       const dir = yield* resolveKiloCommandsDir(workspaceRoot);
@@ -103,7 +97,7 @@ export const kiloCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Kilo Code does not support user-scope subagents",
+          reason: userScopeRefusal({ agentId: "kilo", agentName: "Kilo Code", type: "subagents" }),
         } as const;
       }
       return {

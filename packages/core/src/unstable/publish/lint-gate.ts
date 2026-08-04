@@ -3,25 +3,32 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { count } from "../cli-renderer/index.js";
+import { makePlatformFilesAccessor } from "../lint/catalog/files-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../lint/catalog/pack-accessor/platform.js";
 import { makePlatformSkillFileAccessor } from "../lint/catalog/skill-accessor/platform.js";
 import { platformCanonicalLintConfig } from "../lint/config.js";
 import { composePath } from "../lint/compose-path.js";
 import type {
   CommandRuleContext,
+  FilesRuleContext,
   HookRuleContext,
+  KnowledgeRuleContext,
   McpServerRuleContext,
   PackRuleContext,
   SkillRuleContext,
   SubagentRuleContext,
+  RuleRuleContext,
 } from "../lint/context.js";
 import { evaluateContexts } from "../lint/evaluate.js";
 import {
   commandRules,
+  filesRules,
   hookRules,
+  knowledgeRules,
   mcpServerRules,
   packRules,
   skillRules,
+  ruleRules,
   subagentRules,
 } from "../lint/publish.js";
 import type { LintFinding } from "../lint/rule.js";
@@ -67,6 +74,24 @@ export type PublishLintArgs =
       readonly extensionDir: string;
       readonly manifestJson: unknown;
       readonly platform: PublishLintPlatform;
+    }
+  | {
+      readonly type: "rule";
+      readonly extensionDir: string;
+      readonly manifestJson: unknown;
+      readonly platform: PublishLintPlatform;
+    }
+  | {
+      readonly type: "files";
+      readonly extensionDir: string;
+      readonly manifestJson: unknown;
+      readonly platform: PublishLintPlatform;
+    }
+  | {
+      readonly type: "knowledge";
+      readonly extensionDir: string;
+      readonly manifestJson: unknown;
+      readonly platform: PublishLintPlatform;
     };
 
 interface PublishLintFinding {
@@ -88,6 +113,12 @@ export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, A
       return evaluateMcpServer(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "hook":
       return evaluateHook(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
+    case "files":
+      return evaluateFiles(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
+    case "knowledge":
+      return evaluateKnowledge(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
+    case "rule":
+      return evaluateRule(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
   }
 };
 
@@ -164,6 +195,42 @@ const evaluateHook = (args: Extract<PublishLintArgs, { readonly type: "hook" }>)
     displayRoot: "",
   };
   return evaluateContexts(hookRules, [context], platformCanonicalLintConfig).pipe(
+    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
+  );
+};
+
+const evaluateFiles = (args: Extract<PublishLintArgs, { readonly type: "files" }>) => {
+  const files = makePlatformFilesAccessor(args.platform, args.extensionDir);
+  const context: FilesRuleContext = {
+    subject: { filesJson: args.manifestJson },
+    files,
+    displayRoot: "",
+  };
+  return evaluateContexts(filesRules, [context], platformCanonicalLintConfig).pipe(
+    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
+  );
+};
+
+const evaluateRule = (args: Extract<PublishLintArgs, { readonly type: "rule" }>) => {
+  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
+  const context: RuleRuleContext = {
+    subject: { ruleJson: args.manifestJson },
+    files,
+    displayRoot: "",
+  };
+  return evaluateContexts(ruleRules, [context], platformCanonicalLintConfig).pipe(
+    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
+  );
+};
+
+const evaluateKnowledge = (args: Extract<PublishLintArgs, { readonly type: "knowledge" }>) => {
+  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
+  const context: KnowledgeRuleContext = {
+    subject: { knowledgeJson: args.manifestJson },
+    files,
+    displayRoot: "",
+  };
+  return evaluateContexts(knowledgeRules, [context], platformCanonicalLintConfig).pipe(
     Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
   );
 };

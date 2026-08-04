@@ -17,13 +17,13 @@ const createKnowledgePackage = (packageRoot: string) => {
     type: "knowledge",
     name: "platform",
     version: "1.0.0",
-    format: { name: "okf", version: "0.1" },
+    format: { name: "okf", version: "0.2" },
     bundleRoot: "src",
   });
   fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(packageRoot, "src", "index.md"),
-    "---\nokf_version: 0.1\n---\n# Platform knowledge\n",
+    '---\nokf_version: "0.2"\n---\n# Platform knowledge\n',
   );
   fs.writeFileSync(
     path.join(packageRoot, "src", "architecture.md"),
@@ -116,12 +116,12 @@ describe("axm knowledge lifecycle", () => {
       expect(fs.existsSync(defaultProjection)).toBe(false);
 
       const disable = await runCli(["knowledge", "disable", "platform"], { cwd: temp.path });
-      expect(disable.exitCode).toBe(0);
+      expect(disable.exitCode, disable.stdout + disable.stderr).toBe(0);
       expect(fs.existsSync(relocated)).toBe(false);
       expect(fs.existsSync(canonical)).toBe(true);
 
       const enable = await runCli(["knowledge", "enable", "platform"], { cwd: temp.path });
-      expect(enable.exitCode).toBe(0);
+      expect(enable.exitCode, enable.stdout + enable.stderr).toBe(0);
       expect(fs.existsSync(relocated)).toBe(true);
 
       const uninstall = await runCli(

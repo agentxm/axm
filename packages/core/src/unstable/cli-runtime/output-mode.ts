@@ -1,6 +1,7 @@
 import * as Console from "effect/Console";
 import * as Schema from "effect/Schema";
 import type { SuggestedAction } from "./suggested-action.js";
+import { redactSensitiveText, redactSuggestedAction } from "../app-error/secret-redaction.js";
 
 // ---------------------------------------------------------------------------
 // Output format
@@ -18,7 +19,6 @@ export type OutputFormat = "text" | "json";
 //   progress → drive progress bars (phase, percent, message)
 //   log      → informational messages at different severity levels
 //   error    → typed error with stable code for programmatic handling
-//   result   → final output (emitted last, wraps command-specific data)
 // ---------------------------------------------------------------------------
 
 export const ProgressEventSchema = Schema.Struct({
@@ -68,7 +68,7 @@ export type ErrorEvent = typeof ErrorEventSchema.Type;
 export const makeErrorEvent = (code: string, message: string): ErrorEvent => ({
   type: "error",
   code,
-  message,
+  message: redactSensitiveText(message),
 });
 
 export const SuggestionEventSchema = Schema.Struct({
@@ -87,12 +87,15 @@ export type SuggestionEvent = typeof SuggestionEventSchema.Type;
  * Construct an NDJSON `suggestion` event — the single source of truth for the
  * machine-mode suggestion event shape, shared by the renderer and error paths.
  */
-export const makeSuggestionEvent = (suggestion: SuggestedAction): SuggestionEvent => ({
-  type: "suggestion",
-  description: suggestion.description,
-  ...(suggestion.cmd !== undefined ? { cmd: suggestion.cmd } : {}),
-  ...(suggestion.url !== undefined ? { url: suggestion.url } : {}),
-});
+export const makeSuggestionEvent = (suggestion: SuggestedAction): SuggestionEvent => {
+  const redacted = redactSuggestedAction(suggestion);
+  return {
+    type: "suggestion",
+    description: redacted.description,
+    ...(redacted.cmd !== undefined ? { cmd: redacted.cmd } : {}),
+    ...(redacted.url !== undefined ? { url: redacted.url } : {}),
+  };
+};
 
 export type StreamEvent = ProgressEvent | LogEvent | ErrorEvent | SuggestionEvent;
 

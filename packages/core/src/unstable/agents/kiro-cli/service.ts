@@ -7,6 +7,7 @@
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../coding-agent.js";
+import { userScopeRefusal } from "../scope-refusal.js";
 import {
   addCommandViaResolve,
   removeCommandViaResolve,
@@ -52,7 +53,7 @@ export const kiroCliCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Kiro does not support user-scope commands",
+          reason: userScopeRefusal({ agentId: "kiro-cli", agentName: "Kiro", type: "commands" }),
         } as const;
       }
       return {
@@ -79,7 +80,7 @@ export const kiroCliCodingAgent: CodingAgent = {
       if (scope === "user") {
         return {
           _tag: "unsupported",
-          reason: "Kiro does not support user-scope subagents",
+          reason: userScopeRefusal({ agentId: "kiro-cli", agentName: "Kiro", type: "subagents" }),
         } as const;
       }
       return {

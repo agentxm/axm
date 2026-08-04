@@ -7,6 +7,11 @@ import { emptyWorkspaceState, type WorkspaceState } from "../workspace-fixtures/
 import { scopeFilesFromWorkspaceState } from "../workspace-fixtures/fixture-state.js";
 import { skillsLockfileAlignedRule } from "./skills-lockfile-aligned.js";
 
+type RawResolvedExtensionMap = Record<
+  string,
+  { readonly version: string; readonly publisherBindingId: string }
+>;
+
 const contextFor = (state: WorkspaceState): Effect.Effect<WorkspaceRuleContext> => {
   const project = scopeFilesFromWorkspaceState(state);
   return Effect.gen(function* () {
@@ -47,7 +52,8 @@ const skillLockEntry = (args: {
   resolvedVersion: args.resolvedVersion,
   integrity: "sha512-stub",
   sourceName: "default",
-  agents: ["claude-code"],
+
+  publisherBindingId: "hbnd_test",
   installedAt: "2026-04-21T00:00:00.000Z",
   updatedAt: "2026-04-21T00:00:00.000Z",
   sourceHash: "sha",
@@ -57,7 +63,7 @@ const skillLockEntry = (args: {
 const packLockEntry = (args: {
   readonly owner: string;
   readonly name: string;
-  readonly resolvedSkills: Record<string, string>;
+  readonly resolvedSkills: RawResolvedExtensionMap;
 }) => ({
   type: "registry",
   owner: args.owner,
@@ -65,6 +71,8 @@ const packLockEntry = (args: {
   resolvedVersion: "1.0.0",
   integrity: "sha512-stub",
   sourceName: "default",
+
+  publisherBindingId: "hbnd_test",
   installedAt: "2026-04-21T00:00:00.000Z",
   updatedAt: "2026-04-21T00:00:00.000Z",
   resolvedSkills: args.resolvedSkills,
@@ -83,7 +91,7 @@ describe("workspace/skills-lockfile-aligned", () => {
         skills: {},
       };
       state.lockfile = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           "foo-add-flag": skillLockEntry({
             owner: "@examples",
@@ -96,7 +104,12 @@ describe("workspace/skills-lockfile-aligned", () => {
           foo: packLockEntry({
             owner: "@examples",
             name: "foo",
-            resolvedSkills: { "@examples/skills/foo-add-flag": "0.1.0" },
+            resolvedSkills: {
+              "@examples/skills/foo-add-flag": {
+                version: "0.1.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
           }),
         },
       };
@@ -115,7 +128,7 @@ describe("workspace/skills-lockfile-aligned", () => {
         skills: {},
       };
       state.lockfile = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           stale: skillLockEntry({
             owner: "@acme",
@@ -140,7 +153,7 @@ describe("workspace/skills-lockfile-aligned", () => {
         skills: { reviewer: "@acme/skills/reviewer@^0.1.0" },
       };
       state.lockfile = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           reviewer: skillLockEntry({
             owner: "@acme",
@@ -164,7 +177,7 @@ describe("workspace/skills-lockfile-aligned", () => {
         skills: { reviewer: "@acme/skills/reviewer@^0.1.0" },
       };
       state.lockfile = {
-        lockfileVersion: 1,
+        lockfileVersion: 3,
         skills: {
           reviewer: skillLockEntry({
             owner: "@acme",

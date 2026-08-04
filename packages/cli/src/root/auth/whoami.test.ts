@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -41,7 +42,7 @@ const makeLayers = (opts?: {
                 [ALICE]: {
                   access_token: "axm_ses_tok",
                   refresh_token: "axm_ref_tok",
-                  expires_at: "2099-01-01T00:00:00Z",
+                  expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
                   active: true,
                 },
               },
@@ -74,19 +75,19 @@ const makeLayers = (opts?: {
 };
 
 describe("auth whoami handler", () => {
-  it.effect("fails with AUTH_LOGIN_REQUIRED when no token", () => {
+  it.effect("fails with auth_required when no token", () => {
     const { provide } = makeLayers();
     return provide(
       Effect.gen(function* () {
         const result = yield* handleWhoami().pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
-        expect(result).toMatchObject({ error: true, code: "auth" });
+        expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
     );
   });
 
-  it.effect("fails with auth when persisted credentials are disabled", () => {
+  it.effect("fails with auth_required when persisted credentials are disabled", () => {
     const { provide } = makeLayers({ allowsPersistedCredentials: false });
     return provide(
       Effect.gen(function* () {
@@ -101,8 +102,8 @@ describe("auth whoami handler", () => {
         );
         expect(result).toMatchObject({
           error: true,
-          code: "auth",
-          guidance: "Set the AXM_TOKEN environment variable for non-interactive auth.",
+          code: "auth_required",
+          guidance: "Set AXM_TOKEN or AXM_TOKEN_FILE for non-interactive authentication.",
         });
       }),
     );

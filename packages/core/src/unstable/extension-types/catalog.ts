@@ -13,7 +13,7 @@ const skill = {
   description:
     "Reusable capability packages authored in the Agent Skills format. Read by the agent as task-specific behavior and grounded by the Agent Skills open standard.",
   standard: STANDARDS.skills,
-  docs: [{ label: "Agent Skills", url: "https://agentskills.io" }],
+  docs: [{ label: "Skill manifest schema", url: "https://axm.sh/schemas/skill.schema.json" }],
 } satisfies ExtensionTypeDefinition;
 
 const command = {
@@ -22,7 +22,7 @@ const command = {
   description:
     "User-invoked command prompts installed into an agent's native command system. Commands have no governing open standard.",
   standard: null,
-  docs: [],
+  docs: [{ label: "Command manifest schema", url: "https://axm.sh/schemas/command.schema.json" }],
 } satisfies ExtensionTypeDefinition;
 
 const mcpServer = {
@@ -31,7 +31,7 @@ const mcpServer = {
   description:
     "MCP server connections installed into each agent's native MCP configuration. The Model Context Protocol is the authoritative standard for this capability.",
   standard: STANDARDS.mcp,
-  docs: [{ label: "Model Context Protocol", url: "https://modelcontextprotocol.io" }],
+  docs: [{ label: "MCP server manifest schema", url: "https://axm.sh/schemas/mcp.schema.json" }],
 } satisfies ExtensionTypeDefinition;
 
 const subagent = {
@@ -40,7 +40,7 @@ const subagent = {
   description:
     "Delegated agent profiles installed into vendor-specific subagent layouts. Subagents have no governing open standard.",
   standard: null,
-  docs: [],
+  docs: [{ label: "Subagent manifest schema", url: "https://axm.sh/schemas/subagent.schema.json" }],
 } satisfies ExtensionTypeDefinition;
 
 const files = {
@@ -49,7 +49,7 @@ const files = {
   description:
     "Context material the agent may reference, such as scaffolded docs or notes. These files are not behavior-governing instructions; behavior-governing instructions are rule. Context files have no governing standard.",
   standard: null,
-  docs: [],
+  docs: [{ label: "Files manifest schema", url: "https://axm.sh/schemas/files.schema.json" }],
 } satisfies ExtensionTypeDefinition;
 
 const rule = {
@@ -58,7 +58,7 @@ const rule = {
   description:
     "Umbrella capability for behavior-governing instructions: syncing AGENTS.md, CLAUDE.md, and rules directories, and distributing rule extensions that inject content into those instruction files. Read by the agent to shape behavior.",
   standard: STANDARDS.rules,
-  docs: [{ label: "AGENTS.md", url: "https://agents.md" }],
+  docs: [{ label: "Rule manifest schema", url: "https://axm.sh/schemas/rule.schema.json" }],
 } satisfies ExtensionTypeDefinition;
 
 const hook = {
@@ -67,24 +67,17 @@ const hook = {
   description:
     "Lifecycle automation hooks installed into vendor-specific agent hook systems. Hooks have no governing open standard.",
   standard: null,
-  docs: [],
+  docs: [{ label: "Hook manifest schema", url: "https://axm.sh/schemas/hook.schema.json" }],
 } satisfies ExtensionTypeDefinition;
 
 const knowledge = {
   id: "knowledge",
   summary: "Package portable Open Knowledge Format concept bundles.",
   description:
-    "Reference knowledge installed as isolated Markdown concept bundles using the Open Knowledge Format 0.1 draft. Knowledge is discoverable and readable without being injected into agent instructions.",
-  standard: {
-    id: "okf-0.1-draft",
-    name: "Open Knowledge Format 0.1 draft",
-    url: "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md",
-  },
+    "Reference knowledge installed as isolated Markdown concept bundles using Open Knowledge Format 0.2. Knowledge is discoverable and readable without being injected into agent instructions.",
+  standard: STANDARDS.okf,
   docs: [
-    {
-      label: "Open Knowledge Format",
-      url: "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md",
-    },
+    { label: "Knowledge manifest schema", url: "https://axm.sh/schemas/knowledge.schema.json" },
   ],
 } satisfies ExtensionTypeDefinition;
 

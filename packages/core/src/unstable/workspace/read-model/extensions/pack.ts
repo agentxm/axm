@@ -14,9 +14,9 @@
  * `installedPacks` inputs so pack-provided members surface as implicit
  * installed rows on those subjects (skill, command, mcp-server, subagent).
  *
- * MCP servers and packs use activation `enabled` by policy and do not
- * duplicate a no-op enabled field in declared settings; the projection row
- * supplies activation for generic consumers.
+ * Pack activation follows its declared settings entry. Disabled packs retain
+ * their declaration, lock data, and canonical content while leaving the
+ * active projection.
  */
 
 import * as Effect from "effect/Effect";
@@ -215,8 +215,7 @@ const packPolicy = (
 > => ({
   declaredEntries: (d) => d,
   declaredName: (e) => e.name,
-  // Packs have no `enabled` flag — activation is always "enabled".
-  declaredActivation: () => "enabled",
+  declaredActivation: (entry) => (entry.entry.enabled ? "enabled" : "disabled"),
   resolvedEntries: (r) => r,
   resolvedName: (e) => e.name,
   actualEntries: (a) => a,

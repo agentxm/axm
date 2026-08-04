@@ -71,7 +71,9 @@ export const handleDisableFiles = Effect.fn("DisableFiles.handle")(function* (ar
             readiness: "ready",
             label: args.name,
             run: Effect.gen(function* () {
-              const lockEntry = yield* ws.getLockedFilesEntry(args.name);
+              const lockEntry = yield* ws
+                .getLockedFilesEntry(args.name)
+                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               yield* ws.updateFilesEntry(args.name, (current) => ({
                 ...current,
                 enabled: false,

@@ -31,18 +31,12 @@ export { ensureSkillAgentArtifact } from "./materialization.js";
 export { computeSkillPaths, type SkillPathSource, type SkillDirPaths } from "./paths.js";
 
 // Utilities
-export {
-  getSkillDisplayName,
-  getSkillFqn,
-  isReferencedByPack,
-  getReferencingPacks,
-} from "./utils.js";
+export { getSkillDisplayName } from "./utils.js";
 
 // Reconciliation
-export { skillReconciliationAdapter, assertSkillAdapterLoaded } from "./reconciliation-adapter.js";
+export { skillReconciliationAdapter } from "./reconciliation-adapter.js";
 
 // Registry ref builder
-export { buildRegistrySkillRef } from "./registry-ref-builder.js";
 
 // Operations
 export type {

@@ -47,7 +47,10 @@ const prefersCliFlags = (permissions: PermissionsExtensionCapability): boolean =
   permissions.native.mechanism.includes("cli-flag") &&
   ("configFiles" in permissions.native ? permissions.native.configFiles.length === 0 : true);
 
-const looksLikeRunnableAxmCommand = (example: string): boolean => /^axm\s/.test(example);
+// Mirrors SuggestedActionSchema's runnable-command check: a description that
+// embeds `axm ` anywhere is rejected unless it carries a `cmd`, so an example
+// containing one can never be inlined, not just one that starts with it.
+const looksLikeRunnableAxmCommand = (example: string): boolean => /`?axm\s/.test(example);
 
 const descriptionExample = (example: string | undefined): string | undefined =>
   example === undefined || looksLikeRunnableAxmCommand(example) ? undefined : example;

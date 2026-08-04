@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PER_AGENT_EXTENSION_TYPES } from "../extensions/common.js";
 import {
   AGENTS,
   agentById,
@@ -13,9 +14,11 @@ import {
   getSupportedAgentsForExtensionTypes,
   getSupportedExtensionTypesForAgent,
   installable,
+  isCapabilitySupported,
   listCapabilities,
   toNativeAgent,
 } from "./index.js";
+import type { AgentId } from "./index.js";
 import type { Agent } from "./schema.js";
 const unsupportedCapability = {
   native: {
@@ -72,10 +75,9 @@ const baseAgent = {
     command: unsupportedCapability,
     "mcp-server": unsupportedCapability,
     subagent: unsupportedCapability,
-    files: unsupportedCapability,
-    rule: unsupportedCapability,
     hook: unsupportedHookCapability,
   },
+  instructions: unsupportedCapability,
   permissions: unsupportedCapability,
 } satisfies Agent;
 const sampleRootDetection = {
@@ -103,9 +105,9 @@ describe("agent capability derivation", () => {
     ]);
   });
   it("counts supported capabilities as support", () => {
-    expect(agentSupportsType(agentById("claude-code"), "rule")).toBe(true);
-    expect(agentSupportsType(agentById("claude-code"), "files")).toBe(false);
-    expect(agentSupportsType(agentById("cursor"), "rule")).toBe(true);
+    expect(agentSupportsType(agentById("claude-code"), "skill")).toBe(true);
+    expect(isCapabilitySupported(agentById("claude-code").instructions)).toBe(true);
+    expect(isCapabilitySupported(agentById("cursor").instructions)).toBe(true);
   });
   it("determines support from AXM support and availability", () => {
     expect(
@@ -139,9 +141,16 @@ describe("agent capability derivation", () => {
       ),
     ).toBe(false);
   });
-  it("does not infer support for omitted capabilities", () => {
-    expect(agentSupportsType(agentById("codex"), "files")).toBe(false);
-    expect(agentSupportsType(agentById("github-copilot-cli"), "files")).toBe(false);
+  it("does not infer support for capabilities an agent lacks natively", () => {
+    expect(agentSupportsType(agentById("github-copilot-cli"), "command")).toBe(false);
+    const inferred = AGENTS.flatMap((agent) =>
+      PER_AGENT_EXTENSION_TYPES.filter(
+        (type) =>
+          agent.capabilities[type].native.availability.via === "none" &&
+          agentSupportsType(agent, type),
+      ).map((type) => `${agent.id}:${type}`),
+    );
+    expect(inferred).toEqual([]);
   });
   it("requires supported MCP capabilities without writer config to explain why they are not writable", () => {
     const unsupportedWritableMcp = AGENTS.flatMap((agent) => {
@@ -164,10 +173,13 @@ describe("agent capability derivation", () => {
       "augment",
       "claude-code",
       "cline",
+      "codebuddy",
       "codex",
+      "command-code",
       "continue",
       "crush",
       "cursor",
+      "deepagents",
       "devin",
       "droid",
       "forgecode",
@@ -185,6 +197,7 @@ describe("agent capability derivation", () => {
       "opencode",
       "openhands",
       "pi",
+      "pochi",
       "qoder",
       "qwen-code",
       "roo",
@@ -203,7 +216,9 @@ describe("agent capability derivation", () => {
     ).toEqual([
       "augment",
       "claude-code",
+      "codebuddy",
       "codex",
+      "command-code",
       "cursor",
       "devin",
       "gemini-cli",
@@ -233,7 +248,9 @@ describe("agent capability derivation", () => {
       "augment",
       "claude-code",
       "cline",
+      "codebuddy",
       "codex",
+      "command-code",
       "crush",
       "cursor",
       "devin",
@@ -242,17 +259,27 @@ describe("agent capability derivation", () => {
       "hermes",
       "ibm-bob",
       "junie",
+      "kilo",
       "kiro-cli",
-      "mistral-vibe",
-      "opencode",
+      "pochi",
       "qoder",
       "qwen-code",
       "trae-cn",
       "trae",
       "windsurf",
-      "zencoder",
     ]);
   });
+  it("reports no compatible agents for types the catalog models no capability for", () => {
+    // `files` lost its per-agent capability slot when the slot was found to be
+    // unpopulated for all 54 agents. The slot was always `via: "none"`, so this
+    // already returned no agents; pinned so removing the slot stays a pure
+    // refactor rather than silently widening compatibility to every agent.
+    expect(getSupportedAgentsForExtensionType("files", AGENTS)).toEqual([]);
+    expect(
+      getSupportedAgentsForExtension({ type: "pack", memberTypes: ["skill", "files"] }, AGENTS),
+    ).toEqual([]);
+  });
+
   it("does not treat empty packs as vacuously compatible", () => {
     expect(getSupportedAgentsForExtension({ type: "pack", memberTypes: [] }, AGENTS)).toEqual([]);
   });
@@ -502,26 +529,26 @@ describe("agent capability derivation", () => {
               writer: null,
             },
           },
-          rule: {
-            native: {
-              standardsCompliance: "parity",
-              convention: "vendor",
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/instructions"],
-              scopes: ["project"],
-              kind: "own-file",
-              files: ["SAMPLE.md"],
-              nestedDiscovery: true,
-              importSyntax: "at-path",
-            },
-            axm: {
-              status: "supported",
-              lastVerified: "2026-05-16",
-              writer: null,
-            },
+        },
+        instructions: {
+          native: {
+            standardsCompliance: "parity",
+            convention: "vendor",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/instructions"],
+            scopes: ["project"],
+            kind: "own-file",
+            files: ["SAMPLE.md"],
+            nestedDiscovery: true,
+            importSyntax: "at-path",
+          },
+          axm: {
+            status: "supported",
+            lastVerified: "2026-05-16",
+            writer: null,
           },
         },
       }),
@@ -536,8 +563,8 @@ describe("agent capability derivation", () => {
         },
         user: { markers: [] },
       },
-      commands: { dir: ".sample/commands" },
-      subagents: { dir: ".sample/agents" },
+      commands: { dir: ".sample/commands", scopes: ["project"] },
+      subagents: { dir: ".sample/agents", scopes: ["project"] },
       instructions: { kind: "own-file", file: "SAMPLE.md", importSyntax: "at-path" },
     });
   });
@@ -573,12 +600,25 @@ describe("agent capability derivation", () => {
       rootDir: undefined,
       skills: { dir: ".sample/skills" },
       detection: { project: { markers: [] }, user: { markers: [] } },
-      subagents: { dir: ".sample-modes.yaml", isFile: true },
+      subagents: { dir: ".sample-modes.yaml", scopes: ["project"], isFile: true },
     });
   });
   it("derives explicit rootDir", () => {
     expect(deriveAgentDescriptor(baseAgent).rootDir).toBe(".sample");
     expect(deriveAgentDescriptor(baseAgent).detection).toEqual(sampleRootDetection);
+  });
+  it("does not treat a shared MCP target as agent-specific detection evidence", () => {
+    const projectFileMarkers = (agentId: AgentId) =>
+      deriveAgentDescriptor(agentById(agentId)).detection.project.markers.flatMap((marker) =>
+        marker.kind === "file" ? [marker.path] : [],
+      );
+
+    for (const agentId of ["codebuddy", "command-code", "qoder"] as const) {
+      expect(projectFileMarkers(agentId)).not.toContain(".mcp.json");
+    }
+    for (const agentId of ["claude-code", "github-copilot-cli"] as const) {
+      expect(projectFileMarkers(agentId)).toContain(".mcp.json");
+    }
   });
   it("derives detection from rootDir, config files, and authored markers", () => {
     expect(
@@ -619,14 +659,20 @@ describe("agent capability derivation", () => {
               writer: {
                 config: {
                   serversKey: "mcpServers",
-                  nativeEnabled: true,
+                  activationField: {
+                    required: { name: "enabled", enabled: true, disabled: false },
+                    accepted: [{ name: "enabled", enabled: true, disabled: false }],
+                  },
                   targets: [
                     { scope: "project", path: ".sample/settings.json", format: "json" },
                     { scope: "user", path: "~/.sample/settings.json", format: "json" },
                   ],
-                  stdio: { typeField: null, command: "split", envKey: null },
+                  stdio: {
+                    typeField: { required: null, accepted: [null] },
+                    command: "split",
+                    envKey: null,
+                  },
                   remote: null,
-                  transform: null,
                 },
               },
             },
@@ -659,26 +705,26 @@ describe("agent capability derivation", () => {
         ...baseAgent,
         capabilities: {
           ...baseAgent.capabilities,
-          rule: {
-            native: {
-              standardsCompliance: "full",
-              convention: "universal",
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/instructions"],
-              scopes: ["project"],
-              kind: "agents-md",
-              files: ["AGENTS.md"],
-              nestedDiscovery: true,
-              importSyntax: null,
-            },
-            axm: {
-              status: "supported",
-              lastVerified: "2026-05-16",
-              writer: null,
-            },
+        },
+        instructions: {
+          native: {
+            standardsCompliance: "full",
+            convention: "universal",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/instructions"],
+            scopes: ["project"],
+            kind: "agents-md",
+            files: ["AGENTS.md"],
+            nestedDiscovery: true,
+            importSyntax: null,
+          },
+          axm: {
+            status: "supported",
+            lastVerified: "2026-05-16",
+            writer: null,
           },
         },
       }).instructions,
@@ -688,27 +734,27 @@ describe("agent capability derivation", () => {
         ...baseAgent,
         capabilities: {
           ...baseAgent.capabilities,
-          rule: {
-            native: {
-              standardsCompliance: "partial",
-              convention: "vendor",
-              availability: { via: "native" },
-              vendorStatus: { state: "active" },
-              notes: null,
-              docs: [],
-              sources: ["https://example.com/instructions"],
-              scopes: ["project"],
-              kind: "rules-dir",
-              files: ["RULES.md"],
-              nestedDiscovery: false,
-              importSyntax: null,
-              directory: ".sample/rules",
-            },
-            axm: {
-              status: "supported",
-              lastVerified: "2026-05-16",
-              writer: null,
-            },
+        },
+        instructions: {
+          native: {
+            standardsCompliance: "partial",
+            convention: "vendor",
+            availability: { via: "native" },
+            vendorStatus: { state: "active" },
+            notes: null,
+            docs: [],
+            sources: ["https://example.com/instructions"],
+            scopes: ["project"],
+            kind: "rules-dir",
+            files: ["RULES.md"],
+            nestedDiscovery: false,
+            importSyntax: null,
+            directory: ".sample/rules",
+          },
+          axm: {
+            status: "supported",
+            lastVerified: "2026-05-16",
+            writer: null,
           },
         },
       }).instructions,

@@ -11,16 +11,18 @@
 import { unzipSync } from "fflate";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as semver from "semver";
 
 import { makeAppError } from "../app-error/index.js";
+import { makeAbsolutePath, safeChildPath } from "../utils/index.js";
 import type { Handle } from "../extensions/handle.js";
 import { resolveVersionInRange } from "../version-constraints/version-constraints.js";
 import { toExtensionTypePlural, type ExtensionType } from "../extensions/index.js";
 import type { ExtensionIndex, VersionEntry } from "./schema.js";
-import { filterMatureVersions, type ReleaseAgePolicy } from "./release-age-policy.js";
+import { filterMatureVersions } from "./release-age-policy.js";
 
 // -----------------------------------------------------------------------------
 // Version Selection
@@ -92,13 +94,15 @@ export const extensionLifecycleWarnings = (
 export const resolveVersionEntryWithReleaseAge = (
   versions: ReadonlyArray<VersionEntry>,
   versionRange: Option.Option<string>,
-  releaseAgePolicy: Option.Option<ReleaseAgePolicy>,
-): Option.Option<VersionEntry> => {
-  if (Option.isNone(releaseAgePolicy)) {
-    return resolveVersionEntry(versions, versionRange);
+  minimumReleaseAge: Option.Option<Duration.Duration>,
+): Effect.Effect<Option.Option<VersionEntry>> => {
+  if (Option.isNone(minimumReleaseAge)) {
+    return Effect.succeed(resolveVersionEntry(versions, versionRange));
   }
 
-  return resolveVersionEntry(filterMatureVersions(versions, releaseAgePolicy.value), versionRange);
+  return filterMatureVersions(versions, minimumReleaseAge.value).pipe(
+    Effect.map((mature) => resolveVersionEntry(mature, versionRange)),
+  );
 };
 
 // -----------------------------------------------------------------------------
@@ -145,12 +149,24 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
         }),
     });
 
+    // Resolve the target directory once for containment checks.
+    const baseDir = makeAbsolutePath(path, targetDir);
+
     // Write each entry to the target directory
     yield* Effect.forEach(
       Object.entries(entries),
       ([name, data]) =>
         Effect.gen(function* () {
-          const fullPath = path.join(targetDir, name);
+          // Reject any entry whose resolved path escapes the target directory
+          // (zip slip): `..` traversal or an absolute path.
+          const safePath = yield* safeChildPath(baseDir, name);
+          if (Option.isNone(safePath)) {
+            return yield* makeAppError({
+              code: "validation",
+              detail: `Refusing to extract entry outside the target directory: ${name}`,
+            });
+          }
+          const fullPath = safePath.value;
 
           // Directory entries end with '/'
           if (name.endsWith("/")) {

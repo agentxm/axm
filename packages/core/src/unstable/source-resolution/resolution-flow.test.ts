@@ -37,7 +37,6 @@ const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_
       makeBaseWorkspaceMock("/tmp/axm", {
         getConfiguredSources: () => Effect.succeed(sources),
         getLockedSkills: () => Effect.succeed({}),
-        getConfiguredSkills: () => Effect.succeed({}),
         getRegistrySourceHosts: () =>
           Effect.succeed(
             sources.filter(

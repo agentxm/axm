@@ -2,32 +2,34 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { count } from "../cli-renderer/index.js";
 import type { ExtensionRef, Handle, ExtensionName, ExtensionType } from "../extensions/index.js";
-import { formatFqn, parseFqnOrThrow } from "../extensions/index.js";
+import { formatFqn, parseFqnOrThrow, toExtensionTypePlural } from "../extensions/index.js";
 import type { ResolvedExtensionMap } from "../lockfile/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "../sources/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { PackRef } from "./refs.js";
 import type { ExtensionDependencyConstraintMap } from "../extensions/index.js";
-import type { ReleaseAgePolicy } from "../registry/index.js";
-import { buildRegistrySkillRef } from "../skills/registry-ref-builder.js";
-import { buildRegistryCommandRef } from "../commands/registry-ref-builder.js";
-import { buildRegistryMcpServerRef } from "../mcps/registry-ref-builder.js";
-import { buildRegistrySubagentRef } from "../subagents/registry-ref-builder.js";
-import { buildRegistryHookRef } from "../hooks/registry-ref-builder.js";
-import { buildRegistryRuleRef } from "../rules/registry-ref-builder.js";
-import {
-  decodeVersionSync,
-  type VersionRange,
-} from "../version-constraints/version-constraints.js";
+import type * as Duration from "effect/Duration";
+import type { VersionRange } from "../version-constraints/version-constraints.js";
+import * as semver from "semver";
 
-type ResolvedDependency<T extends ExtensionType = ExtensionType> = {
+/** Every extension type a pack can depend on — packs cannot nest. */
+type SupportedPackDependencyType = Exclude<ExtensionType, "pack">;
+
+type PackDependencyRef = Extract<ExtensionRef, { readonly refType: "registry" | "workspace" }>;
+
+type ResolvedDependency = {
   readonly owner: Handle;
-  readonly type: T;
+  readonly type: SupportedPackDependencyType;
   readonly name: ExtensionName;
-  readonly ref: Extract<ExtensionRef, { readonly refType: "registry"; readonly type: T }>;
-  readonly source: RegistrySource;
+  readonly ref: PackDependencyRef;
 };
+
+export type WorkspacePackDependencyResolver = (args: {
+  readonly owner: Handle;
+  readonly type: SupportedPackDependencyType;
+  readonly name: ExtensionName;
+}) => Effect.Effect<Option.Option<ExtensionRef>, AppError>;
 
 export interface ResolvedPackDependencies {
   readonly resolvedSkills: ResolvedExtensionMap;
@@ -37,17 +39,17 @@ export interface ResolvedPackDependencies {
   readonly resolvedFiles: ResolvedExtensionMap;
   readonly resolvedRules: ResolvedExtensionMap;
   readonly resolvedHooks: ResolvedExtensionMap;
+  readonly resolvedKnowledge: ResolvedExtensionMap;
   readonly dependencyRefs: ReadonlyArray<ExtensionRef>;
 }
-
-type SupportedPackDependencyType =
-  "skill" | "command" | "mcp-server" | "subagent" | "files" | "rule" | "hook";
 
 const registrySourceForDependency = (
   pack: PackRef,
   owner: Handle,
+  sourceOverride?: RegistrySource,
 ): Effect.Effect<RegistrySource, AppError> => {
-  if (pack.source.type !== "registry") {
+  const source = sourceOverride ?? (pack.source.type === "registry" ? pack.source : undefined);
+  if (source === undefined) {
     return Effect.fail(
       makeAppError({
         code: "usage",
@@ -57,19 +59,21 @@ const registrySourceForDependency = (
   }
 
   return Effect.succeed({
-    ...pack.source,
+    ...source,
     owner: Option.some(owner),
   });
 };
 
-const resolveDependencyRef = <T extends ExtensionType>(
+const resolveDependencyRef = (
   pack: PackRef,
-  expectedType: T,
+  expectedType: SupportedPackDependencyType,
   fqn: string,
   constraint: VersionRange,
   sources: SourceHostProvidersService,
-  releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
-): Effect.Effect<ResolvedDependency<T>, AppError> =>
+  minimumReleaseAge?: Option.Option<Duration.Duration>,
+  sourceOverride?: RegistrySource,
+  workspaceResolver?: WorkspacePackDependencyResolver,
+): Effect.Effect<ResolvedDependency, AppError> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
     if (parsed.type !== expectedType) {
@@ -79,21 +83,53 @@ const resolveDependencyRef = <T extends ExtensionType>(
       });
     }
 
-    const source = yield* registrySourceForDependency(pack, parsed.owner);
+    if (workspaceResolver !== undefined) {
+      const workspace = yield* workspaceResolver({
+        owner: parsed.owner,
+        type: expectedType,
+        name: parsed.name,
+      });
+      if (Option.isSome(workspace)) {
+        const candidate = workspace.value;
+        if (
+          candidate.type !== expectedType ||
+          candidate.refType !== "workspace" ||
+          candidate.owner !== parsed.owner ||
+          candidate.name !== parsed.name
+        ) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Configured workspace authority does not match pack dependency ${fqn}`,
+          });
+        }
+        if (!semver.satisfies(candidate.version, constraint)) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Workspace dependency ${fqn}@${candidate.version} does not satisfy ${constraint}`,
+          });
+        }
+        return {
+          owner: parsed.owner,
+          type: expectedType,
+          name: parsed.name,
+          ref: candidate,
+        };
+      }
+    }
+
+    const source = yield* registrySourceForDependency(pack, parsed.owner, sourceOverride);
     const matches = yield* Effect.scoped(
       sources.find(source, {
         names: [parsed.name],
         type: expectedType,
         owner: Option.some(parsed.owner),
         versionRange: Option.some<string>(constraint),
-        ...(releaseAgePolicy === undefined ? {} : { releaseAgePolicy }),
+        ...(minimumReleaseAge === undefined ? {} : { minimumReleaseAge }),
       }),
     );
 
     const matchingRef = matches.find(
-      (
-        candidate,
-      ): candidate is Extract<ExtensionRef, { readonly refType: "registry"; readonly type: T }> =>
+      (candidate): candidate is Extract<ExtensionRef, { readonly refType: "registry" }> =>
         candidate.type === expectedType &&
         candidate.refType === "registry" &&
         candidate.owner === parsed.owner &&
@@ -112,81 +148,94 @@ const resolveDependencyRef = <T extends ExtensionType>(
       type: expectedType,
       name: parsed.name,
       ref: matchingRef,
-      source,
     };
   });
 
-const toResolvedMap = <T extends ExtensionType>(
-  dependencies: ReadonlyArray<ResolvedDependency<T>>,
-): ResolvedExtensionMap =>
+const toResolvedMap = (dependencies: ReadonlyArray<ResolvedDependency>): ResolvedExtensionMap =>
   Object.fromEntries(
-    dependencies.map((dependency) => [
-      formatFqn(dependency),
-      decodeVersionSync(dependency.ref.version),
-    ]),
+    dependencies.map((dependency) => {
+      const ref = dependency.ref;
+      return [
+        formatFqn(dependency),
+        ref.refType === "registry"
+          ? {
+              source: "registry" as const,
+              version: ref.version,
+              publisherBindingId: ref.publisherBindingId,
+              integrity: Option.getOrElse(ref.integrity, () => ""),
+            }
+          : {
+              source: "workspace" as const,
+              version: ref.version,
+              sourceIdentity: `workspace:${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
+              contentIdentity: ref.sourceHash,
+            },
+      ];
+    }),
   );
 
-const resolveDependencyGroup = <T extends SupportedPackDependencyType>(
+const resolveDependencyGroup = (
   pack: PackRef,
   dependencies: ReadonlyArray<readonly [string, VersionRange]>,
-  expectedType: T,
+  expectedType: SupportedPackDependencyType,
   sources: SourceHostProvidersService,
-  releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
-): Effect.Effect<ReadonlyArray<ResolvedDependency<T>>, AppError> =>
+  minimumReleaseAge?: Option.Option<Duration.Duration>,
+  sourceOverride?: RegistrySource,
+  workspaceResolver?: WorkspacePackDependencyResolver,
+): Effect.Effect<ReadonlyArray<ResolvedDependency>, AppError> =>
   Effect.forEach(
     dependencies,
     ([fqn, constraint]) =>
-      resolveDependencyRef(pack, expectedType, fqn, constraint, sources, releaseAgePolicy),
+      resolveDependencyRef(
+        pack,
+        expectedType,
+        fqn,
+        constraint,
+        sources,
+        minimumReleaseAge,
+        sourceOverride,
+        workspaceResolver,
+      ),
     { concurrency: "unbounded" },
   );
 
+/**
+ * Group dependency FQNs by extension type.
+ *
+ * The `groups` record is keyed by every non-pack extension type, so a new type
+ * fails compile here rather than being silently dropped from pack membership.
+ */
 const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) => {
-  const skills: Array<readonly [string, VersionRange]> = [];
-  const commands: Array<readonly [string, VersionRange]> = [];
-  const mcpServers: Array<readonly [string, VersionRange]> = [];
-  const subagents: Array<readonly [string, VersionRange]> = [];
-  const files: Array<readonly [string, VersionRange]> = [];
-  const rules: Array<readonly [string, VersionRange]> = [];
-  const hooks: Array<readonly [string, VersionRange]> = [];
+  const groups: Record<SupportedPackDependencyType, Array<readonly [string, VersionRange]>> = {
+    skill: [],
+    command: [],
+    "mcp-server": [],
+    subagent: [],
+    files: [],
+    rule: [],
+    hook: [],
+    knowledge: [],
+  };
   const unsupported: string[] = [];
 
   for (const [fqn, constraint] of Object.entries(dependencies)) {
     const parsed = parseFqnOrThrow(fqn);
-    switch (parsed.type) {
-      case "skill":
-        skills.push([fqn, constraint]);
-        break;
-      case "command":
-        commands.push([fqn, constraint]);
-        break;
-      case "mcp-server":
-        mcpServers.push([fqn, constraint]);
-        break;
-      case "subagent":
-        subagents.push([fqn, constraint]);
-        break;
-      case "files":
-        files.push([fqn, constraint]);
-        break;
-      case "rule":
-        rules.push([fqn, constraint]);
-        break;
-      case "hook":
-        hooks.push([fqn, constraint]);
-        break;
-      case "pack":
-        unsupported.push(fqn);
-        break;
+    if (parsed.type === "pack") {
+      unsupported.push(fqn);
+      continue;
     }
+    groups[parsed.type].push([fqn, constraint]);
   }
 
-  return { skills, commands, mcpServers, subagents, files, rules, hooks, unsupported };
+  return { groups, unsupported };
 };
 
 export const resolvePackDependencies = (
   pack: PackRef,
   sources: SourceHostProvidersService,
-  releaseAgePolicy?: Option.Option<ReleaseAgePolicy>,
+  minimumReleaseAge?: Option.Option<Duration.Duration>,
+  sourceOverride?: RegistrySource,
+  workspaceResolver?: WorkspacePackDependencyResolver,
 ): Effect.Effect<ResolvedPackDependencies, AppError> =>
   Effect.gen(function* () {
     const dependencies = partitionDependencies(pack.pack.dependencies);
@@ -197,55 +246,25 @@ export const resolvePackDependencies = (
       });
     }
 
-    const resolvedSkills = yield* resolveDependencyGroup(
-      pack,
-      dependencies.skills,
-      "skill",
-      sources,
-      releaseAgePolicy,
-    );
-    const resolvedCommands = yield* resolveDependencyGroup(
-      pack,
-      dependencies.commands,
-      "command",
-      sources,
-      releaseAgePolicy,
-    );
-    const resolvedMcpServers = yield* resolveDependencyGroup(
-      pack,
-      dependencies.mcpServers,
-      "mcp-server",
-      sources,
-      releaseAgePolicy,
-    );
-    const resolvedSubagents = yield* resolveDependencyGroup(
-      pack,
-      dependencies.subagents,
-      "subagent",
-      sources,
-      releaseAgePolicy,
-    );
-    const resolvedFiles = yield* resolveDependencyGroup(
-      pack,
-      dependencies.files,
-      "files",
-      sources,
-      releaseAgePolicy,
-    );
-    const resolvedRules = yield* resolveDependencyGroup(
-      pack,
-      dependencies.rules,
-      "rule",
-      sources,
-      releaseAgePolicy,
-    );
-    const resolvedHooks = yield* resolveDependencyGroup(
-      pack,
-      dependencies.hooks,
-      "hook",
-      sources,
-      releaseAgePolicy,
-    );
+    const resolveGroup = <T extends SupportedPackDependencyType>(type: T) =>
+      resolveDependencyGroup(
+        pack,
+        dependencies.groups[type],
+        type,
+        sources,
+        minimumReleaseAge,
+        sourceOverride,
+        workspaceResolver,
+      );
+
+    const resolvedSkills = yield* resolveGroup("skill");
+    const resolvedCommands = yield* resolveGroup("command");
+    const resolvedMcpServers = yield* resolveGroup("mcp-server");
+    const resolvedSubagents = yield* resolveGroup("subagent");
+    const resolvedFiles = yield* resolveGroup("files");
+    const resolvedRules = yield* resolveGroup("rule");
+    const resolvedHooks = yield* resolveGroup("hook");
+    const resolvedKnowledge = yield* resolveGroup("knowledge");
 
     return {
       resolvedSkills: toResolvedMap(resolvedSkills),
@@ -255,62 +274,16 @@ export const resolvePackDependencies = (
       resolvedFiles: toResolvedMap(resolvedFiles),
       resolvedRules: toResolvedMap(resolvedRules),
       resolvedHooks: toResolvedMap(resolvedHooks),
+      resolvedKnowledge: toResolvedMap(resolvedKnowledge),
       dependencyRefs: [
-        ...resolvedSkills.map((dependency) =>
-          buildRegistrySkillRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedCommands.map((dependency) =>
-          buildRegistryCommandRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedMcpServers.map((dependency) =>
-          buildRegistryMcpServerRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedSubagents.map((dependency) =>
-          buildRegistrySubagentRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedFiles.map((dependency) => dependency.ref),
-        ...resolvedRules.map((dependency) =>
-          buildRegistryRuleRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-        ...resolvedHooks.map((dependency) =>
-          buildRegistryHookRef(
-            dependency.owner,
-            dependency.name,
-            dependency.ref.version,
-            dependency.source,
-            dependency.ref.packages,
-          ),
-        ),
-      ],
+        ...resolvedSkills,
+        ...resolvedCommands,
+        ...resolvedMcpServers,
+        ...resolvedSubagents,
+        ...resolvedFiles,
+        ...resolvedRules,
+        ...resolvedHooks,
+        ...resolvedKnowledge,
+      ].map((dependency) => dependency.ref),
     };
   });

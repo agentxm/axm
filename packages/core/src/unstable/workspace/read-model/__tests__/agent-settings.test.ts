@@ -4,7 +4,7 @@
  * `agent-settings(agentId)` origins.
  */
 
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
@@ -45,7 +45,7 @@ const runScanner = (
     return { occurrences, warnings: yield* Ref.get(ref) };
   });
 
-describe("agent-settings scanner", () => {
+layer(Path.layer, { excludeTestServices: true })("agent-settings scanner", (it) => {
   it.effect("emits no occurrences when no agent settings file exists", () =>
     Effect.gen(function* () {
       const { occurrences, warnings } = yield* runScanner({
@@ -55,7 +55,7 @@ describe("agent-settings scanner", () => {
       });
       expect(occurrences).toEqual([]);
       expect(warnings).toEqual([]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits one occurrence per agent settings.json", () =>
@@ -74,7 +74,7 @@ describe("agent-settings scanner", () => {
       expect(claude[0]?._tag).toBe("agent-settings");
       expect(claude[0]?.scope).toBe("project");
       expect(claude[0]?.contentLocation).toBe("/ws/.claude/settings.json");
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("emits multiple occurrences when multiple agents have settings", () =>
@@ -96,7 +96,7 @@ describe("agent-settings scanner", () => {
       expect(observed).toHaveLength(3);
       const ids = observed.map((o) => o.agentId).sort();
       expect(ids).toEqual(["claude-code", "codex", "cursor"]);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("does not parse the settings file (Phase 8 owns that)", () =>
@@ -114,7 +114,7 @@ describe("agent-settings scanner", () => {
       });
       const claude = occurrences.filter((o) => o.agentId === "claude-code");
       expect(claude).toHaveLength(1);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 
   it.effect("user scope is stamped onto every occurrence", () =>
@@ -136,6 +136,6 @@ describe("agent-settings scanner", () => {
         diagnostics: makeDiagnostics(ref),
       });
       expect(occurrences.every((o) => o.scope === "user")).toBe(true);
-    }).pipe(Effect.provide(Path.layer)),
+    }),
   );
 });

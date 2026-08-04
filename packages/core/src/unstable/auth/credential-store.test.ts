@@ -3,6 +3,7 @@
  */
 
 import { describe, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { expect } from "vitest";
@@ -21,7 +22,7 @@ describe("CredentialStore", () => {
     const credentials = {
       access_token: "axm_ses_abc",
       refresh_token: "axm_ref_def",
-      expires_at: "2026-03-12T10:30:00Z",
+      expires_at: DateTime.makeUnsafe("2026-03-12T10:30:00Z"),
     };
 
     it.effect("returns none when no credentials exist", () => {
@@ -44,7 +45,7 @@ describe("CredentialStore", () => {
           expect(result.value.handle).toBe("@alice");
           expect(result.value.access_token).toBe("axm_ses_abc");
           expect(result.value.refresh_token).toBe("axm_ref_def");
-          expect(result.value.expires_at).toBe("2026-03-12T10:30:00Z");
+          expect(DateTime.formatIso(result.value.expires_at)).toBe("2026-03-12T10:30:00.000Z");
         }
       }).pipe(Effect.provide(layer));
     });
@@ -114,7 +115,7 @@ describe("CredentialStore", () => {
         const result = yield* store
           .save(registryUrl, normalizeHandle("@alice"), credentials)
           .pipe(Effect.catchTag("AppError", (error) => Effect.succeed(error.code)));
-        expect(result).toBe("auth");
+        expect(result).toBe("auth_required");
       }).pipe(Effect.provide(layer));
     });
 
@@ -184,8 +185,8 @@ describe("CredentialStore", () => {
       expect(canUsePersistedCredentials({ ...baseEnv, isCI: true })).toBe(false);
     });
 
-    it("disables persisted credentials in containers", () => {
-      expect(canUsePersistedCredentials({ ...baseEnv, isContainer: true })).toBe(false);
+    it("allows restricted-file credentials in containers for agent sessions", () => {
+      expect(canUsePersistedCredentials({ ...baseEnv, isContainer: true })).toBe(true);
     });
   });
 });

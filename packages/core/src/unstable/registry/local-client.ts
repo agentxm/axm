@@ -11,6 +11,7 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Array from "effect/Array";
+import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -40,6 +41,7 @@ import {
   toExtensionTypePlural,
 } from "../extensions/common.js";
 import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
+import { writeFileAtomic } from "../utils/index.js";
 import { packagesToPackageUrlParts, ExtensionIndexSchema, type ExtensionIndex } from "./schema.js";
 import type { DiscoverPackagesResponse, DiscoveryExtensionResult } from "./discover-schema.js";
 import { purlMatch } from "../packaging/purl-match.js";
@@ -54,7 +56,7 @@ const encodeExtensionIndexToJsonString = Schema.encodeSync(
 );
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 const PUBLISH_LOCK_RETRY_DELAY = Duration.millis(25);
-const PUBLISH_LOCK_STALE_MILLIS = Duration.toMillis(Duration.minutes(5));
+const PUBLISH_LOCK_STALE_TIMEOUT = Duration.minutes(5);
 const publishLockSemaphores = new Map<string, Semaphore.Semaphore>();
 
 // -----------------------------------------------------------------------------
@@ -102,8 +104,9 @@ const acquirePublishLock = (
   lockPath: string,
 ): Effect.Effect<void, AppError> =>
   Effect.gen(function* () {
+    const acquiredAt = DateTime.formatIso(yield* DateTime.now);
     const result = yield* fs
-      .writeFileString(lockPath, `${new Date().toISOString()}\n`, { flag: "wx" })
+      .writeFileString(lockPath, `${acquiredAt}\n`, { flag: "wx" })
       .pipe(Effect.result);
     if (result._tag === "Success") return;
     if (result.failure.reason._tag !== "AlreadyExists") {
@@ -115,11 +118,16 @@ const acquirePublishLock = (
     }
 
     const info = yield* fs.stat(lockPath).pipe(Effect.option);
-    if (
-      Option.isSome(info) &&
-      Option.isSome(info.value.mtime) &&
-      Date.now() - info.value.mtime.value.getTime() > PUBLISH_LOCK_STALE_MILLIS
-    ) {
+    const staleLock =
+      Option.isSome(info) && Option.isSome(info.value.mtime)
+        ? yield* DateTime.isPast(
+            DateTime.addDuration(
+              DateTime.makeUnsafe(info.value.mtime.value),
+              PUBLISH_LOCK_STALE_TIMEOUT,
+            ),
+          )
+        : false;
+    if (staleLock) {
       yield* removeBestEffort(fs, lockPath);
     } else {
       yield* Effect.sleep(PUBLISH_LOCK_RETRY_DELAY);
@@ -155,9 +163,7 @@ const indexToManifest = (
     owner: index.owner,
     type: index.type,
     name: index.name,
-    ...(index.publisherBindingId === undefined
-      ? {}
-      : { publisherBindingId: index.publisherBindingId }),
+    publisherBindingId: index.publisherBindingId,
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
     bugs: Option.fromUndefinedOr(index.bugs),
@@ -423,8 +429,6 @@ export const createLocalRegistryClient = (
       return Option.some(yield* readExtensionIndex(fs, idxPath));
     }),
 
-  getLibrary: () => Effect.succeed(Option.none()),
-
   getExtensionPackage: (args: GetExtensionPackageArgs) =>
     Effect.gen(function* () {
       const owner = args.owner;
@@ -554,86 +558,41 @@ export const createLocalRegistryClient = (
                 name: args.name,
                 owner,
                 type: args.type,
+                publisherBindingId: `hbnd_local_${globalThis.crypto.randomUUID()}`,
                 visibility: args.initialVisibility ?? "public",
                 versions: [args.metadata],
               } satisfies ExtensionIndex);
 
-          const archiveTempPath = yield* fs
-            .makeTempFile({
-              directory: dir,
-              prefix: `.${args.version}.archive-`,
-              suffix: ".tmp",
-            })
-            .pipe(
-              Effect.mapError((cause) =>
-                errRegistryPublishRejected({
-                  message: "Registry archive temp file could not be created",
-                  cause,
-                }),
-              ),
-            );
-          const archiveTempDir = path.dirname(archiveTempPath);
-          yield* Effect.ensuring(
-            Effect.gen(function* () {
-              yield* fs.writeFile(archiveTempPath, args.archive).pipe(
-                Effect.mapError((cause) =>
-                  errRegistryPublishRejected({
-                    message: `Registry archive temp file could not be written: ${archiveTempPath}`,
-                    cause,
-                  }),
-                ),
-              );
-              yield* removeBestEffort(fs, archivePath);
-              yield* fs.rename(archiveTempPath, archivePath).pipe(
-                Effect.mapError((cause) =>
-                  errRegistryPublishRejected({
+          yield* writeFileAtomic(fs, {
+            targetPath: archivePath,
+            content: args.archive,
+            removeTargetBeforeRename: true,
+            mapError: (failure) =>
+              failure.step === "rename"
+                ? errRegistryPublishRejected({
                     message: `Registry archive could not be committed: ${archivePath}`,
-                    cause,
+                    cause: failure.cause,
+                  })
+                : errRegistryPublishRejected({
+                    message: `Registry archive temp file could not be written: ${failure.tempPath}`,
+                    cause: failure.cause,
                   }),
-                ),
-              );
-            }),
-            fs.remove(archiveTempDir, { recursive: true }).pipe(Effect.ignore),
-          );
+          });
 
-          const indexTempPath = yield* fs
-            .makeTempFile({
-              directory: dir,
-              prefix: ".index-",
-              suffix: ".tmp",
-            })
-            .pipe(
-              Effect.mapError((cause) =>
-                errRegistryPublishRejected({
-                  message: "Registry index temp file could not be created",
-                  cause,
-                }),
-              ),
-            );
-          const indexTempDir = path.dirname(indexTempPath);
-          yield* Effect.ensuring(
-            Effect.gen(function* () {
-              yield* fs
-                .writeFileString(indexTempPath, `${encodeExtensionIndexToJsonString(nextIndex)}\n`)
-                .pipe(
-                  Effect.mapError((cause) =>
-                    errRegistryPublishRejected({
-                      message: `Registry index temp file could not be written: ${indexTempPath}`,
-                      cause,
-                    }),
-                  ),
-                );
-              yield* fs.rename(indexTempPath, indexPath).pipe(
-                Effect.mapError((cause) =>
-                  errRegistryPublishRejected({
+          yield* writeFileAtomic(fs, {
+            targetPath: indexPath,
+            content: `${encodeExtensionIndexToJsonString(nextIndex)}\n`,
+            mapError: (failure) =>
+              failure.step === "rename"
+                ? errRegistryPublishRejected({
                     message: `Registry index could not be committed: ${indexPath}`,
-                    cause,
+                    cause: failure.cause,
+                  })
+                : errRegistryPublishRejected({
+                    message: `Registry index temp file could not be written: ${failure.tempPath}`,
+                    cause: failure.cause,
                   }),
-                ),
-              );
-            }),
-            fs.remove(indexTempDir, { recursive: true }).pipe(Effect.ignore),
-          );
+          });
 
           return { published: true } as const;
         }),

@@ -8,6 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -26,6 +27,7 @@ import {
 } from "../manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryClient } from "../../registry/index.js";
+import { publishArchiveOptions } from "../../publish/publish-ignore.js";
 import { buildZipArchive, computeIntegrity } from "../../utils/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { JobStepArtifact, JobStepResult, Operation } from "../../plan/plan.js";
@@ -177,7 +179,10 @@ export const publishCommand: (
     });
 
     // Build zip archive from extension directory
-    const archive = yield* buildZipArchive(extensionDir);
+    const archive = yield* buildZipArchive(
+      extensionDir,
+      yield* publishArchiveOptions("command", manifest.publish?.ignore),
+    );
 
     // Compute integrity
     const integrity = yield* computeIntegrity(archive);
@@ -205,7 +210,7 @@ export const publishCommand: (
     // Build version entry metadata
     const versionEntry: VersionEntry = {
       version: manifest.version,
-      published: new Date().toISOString(),
+      published: yield* DateTime.now,
       integrity,
       ...(manifest.packages !== undefined && {
         packages: manifest.packages,

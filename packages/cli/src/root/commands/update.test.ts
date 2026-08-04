@@ -44,7 +44,8 @@ const initWorkspace = (
 const defaultArgs = (
   overrides: Partial<UpdateCommandHandlerArgs> = {},
 ): UpdateCommandHandlerArgs => ({
-  name: Option.none(),
+  source: Option.none(),
+  names: [],
   yes: false,
   force: false,
   preview: false,
@@ -64,6 +65,7 @@ const makeRegistryRef = (name = "my-cmd"): RegistryCommandRef => ({
   name: extensionName(name),
   version: exactVersion("1.0.0"),
   integrity: Option.none(),
+  publisherBindingId: "hbnd_test",
   packages: [],
 });
 
@@ -116,7 +118,7 @@ describe("commands update.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleUpdateCommand(defaultArgs({ name: Option.some("nonexistent") }));
+        yield* handleUpdateCommand(defaultArgs({ source: Option.some("nonexistent") }));
 
         expect(
           logs.success.some(
@@ -142,7 +144,7 @@ describe("commands update.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleUpdateCommand(defaultArgs({ name: Option.some("my-cmd"), preview: true }));
+        yield* handleUpdateCommand(defaultArgs({ source: Option.some("my-cmd"), preview: true }));
 
         expect(ctx.logs.info.some((message) => message.includes("Would update 1 command"))).toBe(
           true,
@@ -158,12 +160,12 @@ describe("commands update.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleUpdateCommand(defaultArgs({ name: Option.some("missing-cmd") }));
+        yield* handleUpdateCommand(defaultArgs({ names: ["missing-cmd"] }));
 
-        expect(logs.success).toContain("No installed commands match the name filter.");
+        expect(logs.success).toContain("No installed commands match the --name filter.");
         expectNoOpPlanResult(rendererState.results[0]?.data, {
           planName: "Update commands",
-          message: "No installed commands match the name filter.",
+          message: "No installed commands match the --name filter.",
         });
       }),
     );

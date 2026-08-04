@@ -7,6 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
 import { commonLockFields, gitSourceLockFields } from "../lockfile/entry-fields.js";
@@ -16,7 +17,7 @@ import type { SubagentExtensionRef } from "./refs.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const commonFields = (now: Date) => commonLockFields(now);
+const commonFields = (now: DateTime.Utc) => commonLockFields(now);
 
 const localSourceLockPath = (
   sourcePath: string,
@@ -34,7 +35,7 @@ const localSourceLockPath = (
  */
 export const buildSubagentLockEntry = (
   ref: SubagentExtensionRef,
-  now: Date,
+  now: DateTime.Utc,
   workspaceRelativeLocalSourcePath: Option.Option<string> = Option.none(),
 ): SubagentLockEntry => {
   const common = commonFields(now);
@@ -61,9 +62,7 @@ export const buildSubagentLockEntry = (
         resolvedVersion: ref.version,
         integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: "default",
-        ...(ref.publisherBindingId === undefined
-          ? {}
-          : { publisherBindingId: ref.publisherBindingId }),
+        publisherBindingId: ref.publisherBindingId,
         ...common,
       };
     case "workspace":

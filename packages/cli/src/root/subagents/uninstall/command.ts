@@ -3,7 +3,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { forceFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { handleUninstall } from "./handler.js";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+import { scopeFlag } from "../../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import * as Effect from "effect/Effect";
 import {
@@ -15,6 +15,9 @@ import {
 const uninstallConfig = {
   subagent: Argument.string("subagent").pipe(
     Argument.withDescription("Name of the subagent to uninstall"),
+  ),
+  scope: scopeFlag.pipe(
+    Flag.withDescription("Uninstall from project (default) or user-level configuration"),
   ),
   yes: yesFlag.pipe(Flag.withDescription("Skip the 'are you sure?' confirmation")),
   force: forceFlag.pipe(
@@ -30,14 +33,14 @@ const uninstallConfig = {
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ subagent, yes, force, preview, keepSource, deleteSource }) =>
+  ({ subagent, scope, yes, force, preview, keepSource, deleteSource }) =>
     Effect.gen(function* () {
       const sourceDisposition = yield* resolveSourceDisposition(keepSource, deleteSource);
       yield* handleUninstall(
         { subagent },
         { yes, force, preview, ...(sourceDisposition === undefined ? {} : { sourceDisposition }) },
       );
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("subagents uninstall")),
+    }).pipe(withWorkspace(scope), withRuntime("subagents uninstall")),
 ).pipe(
   withArgvTracking(uninstallConfig),
   Command.withDescription("Uninstall a subagent from agents"),

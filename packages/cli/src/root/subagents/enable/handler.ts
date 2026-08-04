@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
@@ -34,7 +34,9 @@ export const handleEnableSubagent = Effect.fn("EnableSubagent.handle")(function*
   });
 
   // Load installed subagents (configured + implicit) from the read-model record projection.
-  const installedSubagents = yield* ws.records.getInstalledSubagents();
+  const installedSubagents = yield* ws.records
+    .rows("subagent")
+    .pipe(Effect.map(installedRowsByName));
   const entry = installedSubagents[subagentName];
 
   // Validate: subagent is installed (ignored names are excluded from installed)

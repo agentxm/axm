@@ -14,6 +14,7 @@ import * as Array from "effect/Array";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -71,6 +72,8 @@ export interface InstallSkillSourceHandlerArgs {
   readonly source: string;
   readonly skills: readonly string[];
   readonly all: boolean;
+  /** Re-materialize even when the canonical tree already matches the lockfile. */
+  readonly force?: boolean;
 }
 
 /**
@@ -83,6 +86,7 @@ export interface ParsedSkillInstallArgs {
   readonly requestedOwner: Option.Option<Handle>;
   readonly resolutionProbes: ReadonlyArray<RegistryLookupProbe>;
   readonly all: boolean;
+  readonly force: boolean;
 }
 
 /**
@@ -389,8 +393,11 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         if (installedBefore || ref.refType !== "registry") return Option.none<string>();
 
         const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
-        const minimumAgeMs = parseMinimumReleaseAge(minimumReleaseAge);
-        if (Option.isNone(minimumAgeMs) || minimumAgeMs.value <= 0) {
+        const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);
+        if (
+          Option.isNone(minimumAge) ||
+          Duration.isLessThanOrEqualTo(minimumAge.value, Duration.zero)
+        ) {
           return Option.none<string>();
         }
 
@@ -408,9 +415,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
 
         const versionEntry = index.value.versions.find((entry) => entry.version === ref.version);
         if (versionEntry === undefined) return Option.none<string>();
-        if (
-          isVersionEntryMature(versionEntry, { minimumAgeMs: minimumAgeMs.value, now: new Date() })
-        ) {
+        if (yield* isVersionEntryMature(versionEntry, minimumAge.value)) {
           return Option.none<string>();
         }
 
@@ -517,6 +522,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             requestedOwner,
             resolutionProbes,
             all: args.all,
+            force: args.force === true,
           } satisfies ParsedSkillInstallArgs;
         }),
       );
@@ -622,6 +628,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 ref.refType === "registry" ? parsed.versionRange : Option.none<VersionRange>(),
             })),
             ...(diagnosticLines !== undefined ? { diagnosticLines } : {}),
+            force: parsed.force,
           } satisfies InstallSkillCommandIntent;
         }),
       );
@@ -755,6 +762,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
                 buildInstallOperation(skillMgr, {
                   ref,
                   versionRange: entry.versionRange,
+                  force: intent.force === true,
                   installedBefore: Effect.succeed(installedBefore),
                   buildArtifact,
                 }),

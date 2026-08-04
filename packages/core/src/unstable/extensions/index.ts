@@ -28,9 +28,13 @@ export {
   nonPackExtensionTypePluralSegments,
   PACK_FQN_PATTERN,
   PackFqnSchema,
+  PublishOptionsSchema,
   PackSpecSchema,
   parseExtensionSpecParts,
   decodeExtensionNameSync,
+  EXTENSION_ONLY_TYPES,
+  WORKSPACE_CAPABILITY_EXTENSION_TYPES,
+  CONTAINER_EXTENSION_TYPES,
   extensionTypeFromPlural,
   extensionTypeLabels,
   extensionTypePluralSegments,
@@ -47,6 +51,7 @@ export {
   toAuthor,
   type Author,
   type ConfigurableAgentId,
+  type ContainerType,
   type ExtensionName,
   type ExtensionDependencyConstraintMap,
   type ExtensionFqnParts,
@@ -59,6 +64,9 @@ export {
   type NonPackExtensionTypePlural,
   type PackFqn,
   type PackSpec,
+  type PerAgentType,
+  type PublishOptions,
+  type WorkspaceCapabilityType,
 } from "./common.js";
 
 export { parseLicenseExpression } from "./license.js";
@@ -163,7 +171,6 @@ export {
 } from "./configured-entry.js";
 
 // Reconciliation utilities
-export { readAndDecodeManifest } from "./reconciliation-utils.js";
 
 // Extension operations
 export {
@@ -202,6 +209,8 @@ export {
   type SourceHash,
 } from "./rendered-files.js";
 
+export { computePackageContentHash } from "./package-hash.js";
+
 // Frontmatter parsing
 export {
   parseFrontmatterEffect,
@@ -224,6 +233,8 @@ export {
   type MaterializeRegistryPackageArgs,
   type RegistryPackageMaterializationMessages,
 } from "./package-materialization.js";
+
+export { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
 
 export { markerFqnForRef, type MarkerFqnRef } from "./marker-fqn.js";
 

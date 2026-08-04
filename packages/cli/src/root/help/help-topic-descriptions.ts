@@ -10,6 +10,8 @@ import type { HelpTopicName } from "../../__generated__/help-topics.js";
 export const HELP_TOPIC_DESCRIPTIONS = {
   "getting-started": "Set up AXM in a new workspace and install your first extension.",
   "basic-usage": "Everyday commands for installing, updating, and removing extensions.",
+  "machine-output": "JSON stdout documents, NDJSON stderr events, envelopes, and field nesting.",
+  authoring: "How to write registry-facing extension descriptions, keywords, and READMEs.",
   skills: "How skill extensions work and how AXM installs and manages them.",
   "skill-schema": "JSON Schema for a skill extension manifest.",
   subagents: "How subagent extensions work and how AXM installs and manages them.",
@@ -28,10 +30,14 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   "hook-schema": "JSON Schema for a hook extension manifest.",
   "knowledge-schema": "JSON Schema for an Open Knowledge Format bundle manifest.",
   settings: "What AXM tracks in the .axm/settings.json workspace state file.",
+  "workspace-state":
+    "How desired, observed, trust, and receipt state drive workspace reconciliation.",
   "settings-schema": "JSON Schema for the .axm/settings.json file.",
+  "trust-schema": "JSON Schema for the authoritative .axm/trust.json trust baseline.",
   mcps: "How MCP server extensions work and how AXM installs and manages them.",
   "mcp-schema": "JSON Schema for an MCP server manifest.",
   "axm-lock-schema": "JSON Schema for the AXM lockfile.",
   "axm-package-meta-schema": "JSON Schema for package-native AXM extension metadata.",
   "exit-codes": "Exit codes returned by AXM commands and what each one means.",
+  upgrade: "How AXM selects, verifies, delegates, and rolls back CLI upgrades.",
 } as const satisfies Record<HelpTopicName, string>;

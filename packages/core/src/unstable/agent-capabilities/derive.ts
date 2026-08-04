@@ -10,7 +10,7 @@ import type {
   AgentInstructionsDescriptor,
   AgentSubagentsDescriptor,
 } from "../agents/types.js";
-import type { ExtensionType } from "../extensions/common.js";
+import { PER_AGENT_EXTENSION_TYPES, type ExtensionType } from "../extensions/common.js";
 import { AGENTS, AGENT_IDS, type AgentId } from "./catalog.js";
 import {
   LEAF_EXTENSION_TYPES,
@@ -31,6 +31,7 @@ import {
   type LeafExtensionType,
   type McpConfigTarget,
   type ConfigFileLocation,
+  type PerAgentType,
 } from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */
@@ -41,18 +42,13 @@ export interface CapabilityListing {
 
 /** @experimental This API is unstable and may change without notice. */
 export type NativeAgentCapabilities = {
-  readonly skill: Agent["capabilities"]["skill"]["native"];
-  readonly command: Agent["capabilities"]["command"]["native"];
-  readonly "mcp-server": Agent["capabilities"]["mcp-server"]["native"];
-  readonly subagent: Agent["capabilities"]["subagent"]["native"];
-  readonly files: Agent["capabilities"]["files"]["native"];
-  readonly rule: Agent["capabilities"]["rule"]["native"];
-  readonly hook: Agent["capabilities"]["hook"]["native"];
+  readonly [Type in PerAgentType]: Agent["capabilities"][Type]["native"];
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export type NativeAgent = Omit<Agent, "capabilities" | "permissions"> & {
+export type NativeAgent = Omit<Agent, "capabilities" | "instructions" | "permissions"> & {
   readonly capabilities: NativeAgentCapabilities;
+  readonly instructions: Agent["instructions"]["native"];
   readonly permissions: Agent["permissions"]["native"];
 };
 
@@ -95,6 +91,26 @@ export const isCapabilitySupported = (capability: AgentExtensionCapability): boo
   (capability.axm.writer !== null || capability.axm.status === SUPPORTED_AXM_SUPPORT) &&
   capability.native.availability.via !== "none";
 
+const perAgentTypes = new Set<string>(PER_AGENT_EXTENSION_TYPES);
+
+const isPerAgentType = (type: LeafExtensionType): type is PerAgentType => perAgentTypes.has(type);
+
+/**
+ * The capability record describing how one agent handles an extension type.
+ * `rule` resolves to the agent's `instructions` slot: rules render into shared
+ * workspace instruction files, but each agent still records how it consumes
+ * them. `files` has no per-agent record at all — it renders to workspace paths
+ * no agent owns — so it resolves to `undefined`.
+ */
+const capabilityForType = (
+  agent: Agent,
+  type: LeafExtensionType,
+): AgentExtensionCapability | undefined => {
+  if (type === "rule") return agent.instructions;
+  if (isPerAgentType(type)) return agent.capabilities[type];
+  return undefined;
+};
+
 const catalogAgentIds = new Set<string>(AGENT_IDS);
 
 const isCatalogAgentId = (id: string): id is AgentId => catalogAgentIds.has(id);
@@ -116,6 +132,21 @@ const deriveRootDir = (agent: Agent): string | undefined =>
 
 const detectionMarkerKey = (marker: AgentDetectionMarker): string =>
   marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
+
+const mcpTargetKey = (target: McpConfigTarget): string => `${target.scope}:${target.path}`;
+
+const sharedMcpWriterTargetKeys = (() => {
+  const counts = new Map<string, number>();
+  for (const agent of AGENTS) {
+    const writer = agent.capabilities["mcp-server"].axm.writer;
+    if (writer === null) continue;
+    for (const target of writer.config.targets) {
+      const key = mcpTargetKey(target);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return new Set([...counts.entries()].flatMap(([key, count]) => (count > 1 ? [key] : [])));
+})();
 
 const fileMarker = (path: string): AgentDetectionMarker => ({
   kind: "file",
@@ -166,7 +197,12 @@ const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection =
 
   const mcp = agent.capabilities["mcp-server"];
   if (mcp.axm.writer !== null) {
-    appendFileMarkers(markersByScope, mcp.axm.writer.config.targets);
+    appendFileMarkers(
+      markersByScope,
+      mcp.axm.writer.config.targets.filter(
+        (target) => !sharedMcpWriterTargetKeys.has(mcpTargetKey(target)),
+      ),
+    );
   }
 
   for (const capability of Object.values(agent.capabilities)) {
@@ -201,17 +237,24 @@ const deriveSubagentsDescriptor = (agent: Agent): AgentSubagentsDescriptor | und
   if (!("directory" in subagents.native)) return undefined;
   return {
     dir: subagents.native.directory,
+    scopes: subagents.native.scopes,
     ...(subagents.native.layout === "file" ? { isFile: true } : {}),
   };
 };
 
 const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor | undefined => {
-  const instructions = agent.capabilities.rule;
+  const instructions = agent.instructions;
   if (!isCapabilitySupported(instructions) || !("kind" in instructions.native)) return undefined;
+
+  // A secondary native rules directory beside the instruction file. Carried
+  // through so status output can report it as unsynced; AXM writes only the
+  // instruction file itself.
+  const rulesDir =
+    "directory" in instructions.native ? { rulesDir: instructions.native.directory } : {};
 
   switch (instructions.native.kind) {
     case "agents-md":
-      return { kind: "agents-md" };
+      return { kind: "agents-md", ...rulesDir };
     case "own-file": {
       const file = instructions.native.files[0];
       if (file === undefined) return undefined;
@@ -221,6 +264,7 @@ const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor
         ...(instructions.native.importSyntax === null
           ? {}
           : { importSyntax: instructions.native.importSyntax }),
+        ...rulesDir,
       };
     }
     case "rules-dir": {
@@ -239,7 +283,7 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
   const command = agent.capabilities.command;
   const commands =
     isCapabilitySupported(command) && "directory" in command.native
-      ? { dir: command.native.directory }
+      ? { dir: command.native.directory, scopes: command.native.scopes }
       : undefined;
   const subagents = deriveSubagentsDescriptor(agent);
   const instructions = deriveInstructionsDescriptor(agent);
@@ -265,7 +309,8 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
   const capabilities: Array<CapabilityListing> = [];
 
   for (const type of LEAF_EXTENSION_TYPES) {
-    const capability = agent.capabilities[type];
+    const capability = capabilityForType(agent, type);
+    if (capability === undefined) continue;
     if (
       capability.axm.status !== "unsupported" ||
       capability.axm.writer !== null ||
@@ -283,7 +328,7 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const agentSupportsType = (agent: Agent, type: LeafExtensionType): boolean => {
+export const agentSupportsType = (agent: Agent, type: PerAgentType): boolean => {
   const capability = agent.capabilities[type];
   return isCapabilitySupported(capability);
 };
@@ -292,15 +337,32 @@ export const agentSupportsType = (agent: Agent, type: LeafExtensionType): boolea
 export const getSupportedExtensionTypesForAgent = (
   agent: Agent,
 ): ReadonlyArray<LeafExtensionType> =>
-  LEAF_EXTENSION_TYPES.filter((type) => agentSupportsType(agent, type));
+  LEAF_EXTENSION_TYPES.filter((type) => {
+    const capability = capabilityForType(agent, type);
+    return capability !== undefined && isCapabilitySupported(capability);
+  });
 
-/** @experimental This API is unstable and may change without notice. */
+// A type the catalog models no capability for is treated as unsupported, so
+// `files` extensions keep reporting zero compatible agents exactly as they did
+// when every agent carried an unpopulated `files` slot. Whether that is the
+// right answer for a workspace-placed type is a product question, deliberately
+// left unchanged here.
+const agentSatisfiesType = (agent: Agent, type: LeafExtensionType): boolean => {
+  const capability = capabilityForType(agent, type);
+  return capability !== undefined && isCapabilitySupported(capability);
+};
+
+/**
+ * Agents an extension of the given types can be installed for.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
 export const getSupportedAgentsForExtensionTypes = (
   types: ReadonlyArray<LeafExtensionType>,
   catalog: ReadonlyArray<Agent> = AGENTS,
 ): ReadonlyArray<Agent> => {
   if (types.length === 0) return [];
-  return catalog.filter((agent) => types.every((type) => agentSupportsType(agent, type)));
+  return catalog.filter((agent) => types.every((type) => agentSatisfiesType(agent, type)));
 };
 
 /** @experimental This API is unstable and may change without notice. */
@@ -552,9 +614,8 @@ export const toNativeAgent = (agent: Agent): NativeAgent => ({
     command: agent.capabilities.command.native,
     "mcp-server": agent.capabilities["mcp-server"].native,
     subagent: agent.capabilities.subagent.native,
-    files: agent.capabilities.files.native,
-    rule: agent.capabilities.rule.native,
     hook: agent.capabilities.hook.native,
   },
+  instructions: agent.instructions.native,
   permissions: agent.permissions.native,
 });

@@ -18,20 +18,47 @@ import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/mcps
 import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/skills";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/subagents";
+import { FILES_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/files";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/hooks";
+import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/knowledge";
+import { RULE_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/rules";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { VersionSchema, type Version } from "@agentxm/client-core/unstable/version-constraints";
 
+/**
+ * Version-bump policy, total over every extension type: a new type cannot be
+ * added without deciding whether `axm version` can bump it. The `false` rows
+ * are capability gaps the parity program closes deliberately, not catalog
+ * data.
+ */
+export const VERSIONABLE_TYPES = {
+  skill: true,
+  command: true,
+  "mcp-server": true,
+  subagent: true,
+  files: true,
+  rule: true,
+  hook: true,
+  knowledge: true,
+  pack: true,
+} as const satisfies Record<ExtensionType, boolean>;
+
+type TruthyKeys<T> = { [K in keyof T]: T[K] extends true ? K : never }[keyof T];
+
+export type VersionableExtensionType = TruthyKeys<typeof VERSIONABLE_TYPES>;
+
+// Explicit order is user-visible in `axm version` help and error suggestions.
 export const versionableTypes = [
   "command",
   "skill",
   "subagent",
   "mcp-server",
+  "files",
+  "rule",
   "hook",
+  "knowledge",
   "pack",
-] as const satisfies ReadonlyArray<ExtensionType>;
-
-export type VersionableExtensionType = (typeof versionableTypes)[number];
+] as const satisfies ReadonlyArray<VersionableExtensionType>;
 export type VersionBump = "patch" | "minor" | "major" | "prerelease";
 
 export interface ManifestVersionInfo {
@@ -47,17 +74,18 @@ export interface BumpManifestVersionResult extends ManifestVersionInfo {
   readonly written: boolean;
 }
 
-const versionableTypeSet: ReadonlySet<ExtensionType> = new Set(versionableTypes);
-
 export const isVersionableType = (type: ExtensionType): type is VersionableExtensionType =>
-  versionableTypeSet.has(type);
+  VERSIONABLE_TYPES[type];
 
 const manifestFilenameByType: Record<VersionableExtensionType, string> = {
   command: COMMAND_MANIFEST_FILENAME,
   skill: SKILL_MANIFEST_FILENAME,
   subagent: SUBAGENT_MANIFEST_FILENAME,
   "mcp-server": MCP_SERVER_MANIFEST_FILENAME,
+  files: FILES_MANIFEST_FILENAME,
+  rule: RULE_MANIFEST_FILENAME,
   hook: HOOK_MANIFEST_FILENAME,
+  knowledge: KNOWLEDGE_MANIFEST_FILENAME,
   pack: PACK_MANIFEST_FILENAME,
 };
 

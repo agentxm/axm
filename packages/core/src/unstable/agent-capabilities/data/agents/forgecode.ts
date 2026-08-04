@@ -4,7 +4,7 @@ export const forgecodeAgent = {
   name: "ForgeCode",
   vendor: "Tailcall",
   homepage: "https://forgecode.dev",
-  interfaces: ["cli"],
+  interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".forge",
   lifecycle: { state: "active" },
@@ -48,11 +48,13 @@ export const forgecodeAgent = {
     },
     command: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "ForgeCode custom commands are Markdown files under .forge/commands.",
         docs: [],
-        sources: [],
+        sources: ["https://forgecode.dev/docs/commands/"],
+        scopes: ["user", "project"],
+        directory: ".forge/commands",
       },
       axm: {
         status: "unsupported",
@@ -62,11 +64,15 @@ export const forgecodeAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "ForgeCode supports local and remote MCP servers.",
         docs: [],
-        sources: [],
+        sources: ["https://forgecode.dev/docs/mcp-integration/"],
+        scopes: ["user", "project"],
+        standardsCompliance: "full",
+        convention: "universal",
+        transports: ["stdio", "http", "sse"],
       },
       axm: {
         status: "unsupported",
@@ -76,50 +82,18 @@ export const forgecodeAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "ForgeCode custom agents are files under .forge/agents.",
         docs: [],
-        sources: ["https://forgecode.dev/docs/agents-md/"],
-        scopes: ["project"],
-        standardsCompliance: "full",
-        convention: "universal",
-        kind: "agents-md",
-        files: ["AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
+        sources: ["https://forgecode.dev/docs/creating-agents/"],
+        scopes: ["user", "project"],
+        directory: ".forge/agents",
+        layout: "file",
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
       },
     },
@@ -138,13 +112,66 @@ export const forgecodeAgent = {
       },
     },
   },
-  permissions: {
+  instructions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes: null,
       docs: [],
-      sources: [],
+      sources: ["https://forgecode.dev/docs/custom-rules/"],
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      files: ["AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
+    },
+  },
+  permissions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "ForgeCode permissions.yaml policies combine read, write, command, and URL glob rules with all, any, and not operators; decisions are allow, deny, or confirm.",
+      docs: [],
+      sources: ["https://forgecode.dev/docs/permissions/"],
+      scopes: ["user", "project"],
+      mechanism: ["config-file"],
+      configFiles: [
+        {
+          scope: "user",
+          path: "~/.forge/permissions.yaml",
+          format: "yaml",
+          gitignored: false,
+        },
+        {
+          scope: "project",
+          path: ".forge.toml",
+          format: "toml",
+          gitignored: false,
+        },
+      ],
+      grammar: {
+        style: "glob",
+        example: 'command: "git *"',
+        notes:
+          "Rules support all, any, and not composition with allow, deny, and confirm decisions.",
+      },
+      prerequisites: [
+        {
+          key: "restricted",
+          value: "true",
+          scope: "project",
+          note: "Enables restricted permission policy enforcement from .forge.toml.",
+        },
+      ],
+      cliFlags: [],
     },
     axm: {
       status: "unsupported",

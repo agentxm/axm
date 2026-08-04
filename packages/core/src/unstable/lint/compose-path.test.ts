@@ -1,7 +1,7 @@
 /**
  * Unit tests for `composePath`.
  *
- * Covers the four `displayRoot` cases from `docs/design/lint-engine.md`
+ * Covers the four `displayRoot` cases from `agentxm-internal/docs/design/lint-engine.md`
  * "Diagnostic path rendering":
  *
  * | Caller                      | `displayRoot`                                  |
@@ -79,14 +79,37 @@ describe("composePath", () => {
   });
 
   describe("edge cases", () => {
+    it("preserves absolute finding paths outside the workspace root", () => {
+      expect(
+        composePath(
+          "",
+          loc({
+            file: "/Users/craig/Code/extensions/.axm/extensions/@acme/skills/review",
+          }),
+        ),
+      ).toBe("/Users/craig/Code/extensions/.axm/extensions/@acme/skills/review");
+    });
+
+    it("appends coordinates without corrupting an absolute finding path", () => {
+      expect(composePath("", loc({ file: "/opt/extensions/SKILL.md", line: 12, column: 3 }))).toBe(
+        "/opt/extensions/SKILL.md:12:3",
+      );
+    });
+
+    it("preserves absolute Windows finding paths", () => {
+      expect(composePath("", loc({ file: "C:\\Users\\craig\\extensions\\SKILL.md" }))).toBe(
+        "C:\\Users\\craig\\extensions\\SKILL.md",
+      );
+    });
+
     it("strips trailing slash from displayRoot", () => {
       expect(composePath(".axm/extensions/@acme/skills/axm/src/", loc())).toBe(
         "./.axm/extensions/@acme/skills/axm/src/SKILL.md",
       );
     });
 
-    it("strips leading slash from location file", () => {
-      expect(composePath("", loc({ file: "/SKILL.md" }))).toBe("./SKILL.md");
+    it("preserves an absolute root-level location file", () => {
+      expect(composePath("", loc({ file: "/SKILL.md" }))).toBe("/SKILL.md");
     });
 
     it("handles empty location file (finding targets context root)", () => {

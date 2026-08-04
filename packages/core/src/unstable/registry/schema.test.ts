@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import { ExtensionIndexSchema, VersionEntrySchema } from "./schema.js";
 
@@ -15,7 +16,7 @@ describe("registry schema", () => {
       const result = Schema.decodeUnknownSync(VersionEntrySchema)(input);
 
       expect(result.version).toBe("1.2.3");
-      expect(result.published).toBe("2025-06-01T12:00:00Z");
+      expect(DateTime.formatIso(result.published)).toBe("2025-06-01T12:00:00.000Z");
       expect(result.dependencies).toEqual({
         "@acme/skills/utils": "^1.0.0",
         "@acme/skills/core": "~2.1.0",
@@ -33,7 +34,7 @@ describe("registry schema", () => {
       const result = Schema.decodeUnknownSync(VersionEntrySchema)(input);
 
       expect(result.version).toBe("0.1.0");
-      expect(result.published).toBe("2025-01-01T00:00:00Z");
+      expect(DateTime.formatIso(result.published)).toBe("2025-01-01T00:00:00.000Z");
       expect(result.dependencies).toBeUndefined();
       expect(result.integrity).toBe("sha512-deadbeef");
     });
@@ -131,6 +132,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
         versions: [
           {
@@ -157,6 +160,8 @@ describe("registry schema", () => {
       const input = {
         name: "code-review",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "mcp-server",
         description: "Automated code review tool",
         repository: "https://github.com/acme/code-review",
@@ -204,6 +209,8 @@ describe("registry schema", () => {
     it("rejects missing name", () => {
       const input = {
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
         versions: [
           {
@@ -237,6 +244,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         versions: [
           {
             version: "1.0.0",
@@ -253,6 +262,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
       };
 
@@ -263,6 +274,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "invalid-type",
         versions: [],
       };
@@ -274,6 +287,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
         versions: [],
       };
@@ -287,6 +302,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-server",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "mcp-server",
         versions: [],
       };
@@ -300,6 +317,8 @@ describe("registry schema", () => {
       const input = {
         name: "frontend-pack",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "pack",
         versions: [],
       };
@@ -313,6 +332,8 @@ describe("registry schema", () => {
       const input = {
         name: "my-skill",
         owner: "@acme",
+
+        publisherBindingId: "hbnd_test",
         type: "skill",
         authors: [{ name: "Alice" }],
         versions: [],

@@ -15,7 +15,7 @@ export const junieAgent = {
   docs: [
     {
       label: "Junie documentation",
-      url: "https://www.jetbrains.com/help/junie",
+      url: "https://junie.jetbrains.com/docs/",
     },
   ],
   capabilities: {
@@ -71,11 +71,14 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -89,19 +92,18 @@ export const junieAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
                 sse: "url",
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -112,53 +114,14 @@ export const junieAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://junie.jetbrains.com/docs/junie-cli-configuration.html"],
+        sources: ["https://junie.jetbrains.com/docs/junie-cli-subagents.html"],
         scopes: ["user", "project"],
         directory: ".junie/agents",
-        layout: "directory",
+        layout: "file",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes:
-          "Junie CLI reads persistent project guidance from .junie/AGENTS.md and suggests importing AGENTS.md-style files from other agents into that location.",
-        docs: [],
-        sources: [
-          "https://junie.jetbrains.com/docs/guidelines-and-memory.html",
-          "https://junie.jetbrains.com/docs/junie-cli-usage.html",
-        ],
-        scopes: ["project"],
-        standardsCompliance: "parity",
-        convention: "vendor",
-        kind: "own-file",
-        files: [".junie/AGENTS.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -167,7 +130,7 @@ export const junieAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Junie CLI EAP hooks currently support only SessionStart command hooks from user config or explicit --config-location files. Default project hooks are ignored for safety, so AXM does not write Junie hooks yet.",
+          "Junie CLI hooks support seven command (type:command) event types: SessionStart, UserPromptSubmit, PreToolUse, Stop, StopFailure, PermissionRequest, and SessionEnd, configured from user config or explicit --config-location files. Default project hooks are still ignored for safety, so AXM does not write Junie hooks yet.",
         docs: [],
         sources: [
           "https://junie.jetbrains.com/docs/junie-cli-hooks.html",
@@ -179,9 +142,34 @@ export const junieAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         reason: "AXM has no trusted project hook writer target for Junie CLI hooks.",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Junie CLI reads persistent project guidance from .junie/AGENTS.md and suggests importing AGENTS.md-style files from other agents into that location.",
+      docs: [],
+      sources: [
+        "https://junie.jetbrains.com/docs/guidelines-and-memory.html",
+        "https://junie.jetbrains.com/docs/junie-cli-usage.html",
+      ],
+      scopes: ["project", "user"],
+      standardsCompliance: "parity",
+      convention: "vendor",
+      kind: "own-file",
+      files: [".junie/AGENTS.md"],
+      nestedDiscovery: false,
+      importSyntax: null,
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

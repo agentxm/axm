@@ -27,7 +27,6 @@ export type {
   RegistryHookRef,
   WorkspaceHookRef,
 } from "./refs.js";
-export { buildRegistryHookRef } from "./registry-ref-builder.js";
 export {
   hookPackagesInDir,
   type DiscoveredHookPackage,
@@ -38,3 +37,4 @@ export type { PublishHookOperation, PublishHookOperationArgs } from "./operation
 export { publishHook } from "./operations/publish.js";
 export type { NewHookOperation, NewHookOperationArgs } from "./operations/new-hook.js";
 export { newHook } from "./operations/new-hook.js";
+export { hookReconciliationAdapter } from "./reconciliation-adapter.js";

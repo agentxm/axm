@@ -2,14 +2,13 @@
  * `workspace/packs-members-retained` — every member lock entry with
  * `retainedByPack: true` is declared by an installed pack.
  *
- * For each member lock entry (skill, command, subagent, mcp-server) where
- * `retainedByPack === true` AND the member is not directly declared in
- * settings, at least one installed pack's lock entry lists the member's
- * FQN in the appropriate resolved map. Entries directly declared in
- * settings are exempt (covered by per-type declarations rules).
+ * For each member lock entry where `retainedByPack === true` AND the member is
+ * not directly declared in settings, at least one installed pack's lock entry
+ * lists the member's FQN in the appropriate resolved map. Entries directly
+ * declared in settings are exempt (covered by per-type declarations rules).
  *
- * Rule body walks every member lock entry type — not just skills — so
- * adding non-skill install families in v1.5+ is test-surface-only.
+ * The family table below is total over every non-pack extension type, so
+ * adding an install family is a table row here, not a new rule.
  *
  * One finding per affected entity. Advisory, warning.
  *
@@ -23,12 +22,18 @@ import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import {
-  type Lockfile,
-  type SkillLockEntry,
   type CommandLockEntry,
-  type SubagentLockEntry,
+  type FilesLockEntry,
+  type HookLockEntry,
+  type KnowledgeLockEntry,
+  type Lockfile,
   type McpServerLockEntry,
+  type PackLockEntry,
+  type RuleLockEntry,
+  type SkillLockEntry,
+  type SubagentLockEntry,
 } from "../../../lockfile/schema.js";
+import { extensionTypeToPlural, type ExtensionType } from "../../../extensions/common.js";
 import { type Settings } from "../../../settings/schema.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
@@ -36,7 +41,33 @@ const RULE_ID = "workspace/packs-members-retained";
 const LOCKFILE_REL = ".axm/axm-lock.yaml";
 const SETTINGS_REL = ".axm/settings.json";
 
-type AnyMemberEntry = SkillLockEntry | CommandLockEntry | SubagentLockEntry | McpServerLockEntry;
+/** Packs cannot contain packs, so every other extension type is a member type. */
+type MemberType = Exclude<ExtensionType, "pack">;
+
+type AnyMemberEntry =
+  | SkillLockEntry
+  | CommandLockEntry
+  | SubagentLockEntry
+  | McpServerLockEntry
+  | FilesLockEntry
+  | RuleLockEntry
+  | HookLockEntry
+  | KnowledgeLockEntry;
+
+/**
+ * Settings map key per member type. Not derivable from the plural segment:
+ * MCP servers live under `mcpServers`, not `mcps`.
+ */
+const SETTINGS_KEY_BY_TYPE = {
+  skill: "skills",
+  command: "commands",
+  subagent: "subagents",
+  "mcp-server": "mcpServers",
+  files: "files",
+  rule: "rules",
+  hook: "hooks",
+  knowledge: "knowledge",
+} as const satisfies Record<MemberType, string>;
 
 const entryFqn = (entry: AnyMemberEntry, name: string, typeSegment: string): string | undefined => {
   if (entry.type !== "registry") {
@@ -50,36 +81,98 @@ const entryFqn = (entry: AnyMemberEntry, name: string, typeSegment: string): str
   return `${owner}/${typeSegment}/${regName}`;
 };
 
+/**
+ * One pack-member family: where its lock entries live, where a direct
+ * declaration lives in settings, and which pack `resolved*` map records it.
+ *
+ * Total over every non-pack extension type — a pack cannot contain a pack —
+ * so a new extension type fails compile here until its retention is decided.
+ * The rule walked only four families before, which meant a pack-provided
+ * context package, rule, hook, or knowledge bundle left behind by a pack
+ * uninstall was invisible.
+ */
+interface MemberFamily {
+  readonly lockEntries: (lockfile: Lockfile) => Readonly<Record<string, AnyMemberEntry>>;
+  readonly declaredNames: (settings: Settings) => Readonly<Record<string, unknown>>;
+  readonly resolved: (pack: PackLockEntry) => Readonly<Record<string, unknown>> | undefined;
+}
+
+const MEMBER_FAMILIES = {
+  skill: {
+    lockEntries: (lockfile) => lockfile.skills,
+    declaredNames: (settings) => settings.skills ?? {},
+    resolved: (pack) => pack.resolvedSkills,
+  },
+  command: {
+    lockEntries: (lockfile) => lockfile.commands ?? {},
+    declaredNames: (settings) => settings.commands ?? {},
+    resolved: (pack) => pack.resolvedCommands,
+  },
+  subagent: {
+    lockEntries: (lockfile) => lockfile.subagents ?? {},
+    declaredNames: (settings) => settings.subagents ?? {},
+    resolved: (pack) => pack.resolvedSubagents,
+  },
+  "mcp-server": {
+    lockEntries: (lockfile) => lockfile.mcpServers ?? {},
+    declaredNames: (settings) => settings.mcpServers ?? {},
+    resolved: (pack) => pack.resolvedMcpServers,
+  },
+  files: {
+    lockEntries: (lockfile) => lockfile.files ?? {},
+    declaredNames: (settings) => settings.files ?? {},
+    resolved: (pack) => pack.resolvedFiles,
+  },
+  rule: {
+    lockEntries: (lockfile) => lockfile.rules ?? {},
+    declaredNames: (settings) => settings.rules ?? {},
+    resolved: (pack) => pack.resolvedRules,
+  },
+  hook: {
+    lockEntries: (lockfile) => lockfile.hooks ?? {},
+    declaredNames: (settings) => settings.hooks ?? {},
+    resolved: (pack) => pack.resolvedHooks,
+  },
+  knowledge: {
+    lockEntries: (lockfile) => lockfile.knowledge ?? {},
+    declaredNames: (settings) => settings.knowledge ?? {},
+    resolved: (pack) => pack.resolvedKnowledge,
+  },
+} as const satisfies Record<MemberType, MemberFamily>;
+
+/** Walk order; findings render in this order. */
+const MEMBER_ORDER: ReadonlyArray<MemberType> = [
+  "skill",
+  "command",
+  "subagent",
+  "mcp-server",
+  "files",
+  "rule",
+  "hook",
+  "knowledge",
+];
+
 const buildPackRetainedFqns = (lockfile: Lockfile): ReadonlySet<string> => {
   const declared = new Set<string>();
-  const packs = lockfile.packs ?? {};
   // Kept separate from the skill-specific retained helper: this rule needs
-  // every pack lock entry and all four resolved member maps, not just
+  // every pack lock entry and every resolved member map, not just
   // declared-pack `resolvedSkills`.
-  for (const entry of Object.values(packs)) {
-    for (const fqn of Object.keys(entry.resolvedSkills)) {
-      declared.add(fqn);
-    }
-    for (const fqn of Object.keys(entry.resolvedCommands)) {
-      declared.add(fqn);
-    }
-    for (const fqn of Object.keys(entry.resolvedSubagents)) {
-      declared.add(fqn);
-    }
-    for (const fqn of Object.keys(entry.resolvedMcpServers)) {
-      declared.add(fqn);
+  for (const entry of Object.values(lockfile.packs ?? {})) {
+    for (const type of MEMBER_ORDER) {
+      for (const fqn of Object.keys(MEMBER_FAMILIES[type].resolved(entry) ?? {})) {
+        declared.add(fqn);
+      }
     }
   }
   return declared;
 };
 
 const droppedFinding = (
-  memberType: string,
+  memberType: MemberType,
   name: string,
   fqn: string | undefined,
 ): AdvisoryFinding => {
-  const settingsSurface =
-    memberType === "mcp-server" ? "settings.mcpServers" : `settings.${memberType}s`;
+  const settingsSurface = `settings.${SETTINGS_KEY_BY_TYPE[memberType]}`;
   const installCommand = fqn === undefined ? undefined : `axm install ${fqn}`;
   const uninstallCommand = fqn === undefined ? undefined : `axm uninstall ${fqn}`;
   return {
@@ -97,53 +190,25 @@ const droppedFinding = (
 };
 
 interface MemberEntry {
-  readonly memberType: "skill" | "command" | "subagent" | "mcp-server";
+  readonly memberType: MemberType;
   readonly name: string;
   readonly entry: AnyMemberEntry;
 }
 
 const collectMembers = (lockfile: Lockfile): ReadonlyArray<MemberEntry> => {
   const result: Array<MemberEntry> = [];
-  for (const [name, entry] of Object.entries(lockfile.skills)) {
-    result.push({ memberType: "skill", name, entry });
-  }
-  for (const [name, entry] of Object.entries(lockfile.commands ?? {})) {
-    result.push({ memberType: "command", name, entry });
-  }
-  for (const [name, entry] of Object.entries(lockfile.subagents ?? {})) {
-    result.push({ memberType: "subagent", name, entry });
-  }
-  for (const [name, entry] of Object.entries(lockfile.mcpServers ?? {})) {
-    result.push({ memberType: "mcp-server", name, entry });
+  for (const memberType of MEMBER_ORDER) {
+    for (const [name, entry] of Object.entries(MEMBER_FAMILIES[memberType].lockEntries(lockfile))) {
+      result.push({ memberType, name, entry });
+    }
   }
   return result;
 };
 
-const isDirectlyDeclared = (member: MemberEntry, settings: Settings): boolean => {
-  switch (member.memberType) {
-    case "skill":
-      return member.name in (settings.skills ?? {});
-    case "command":
-      return member.name in (settings.commands ?? {});
-    case "subagent":
-      return member.name in (settings.subagents ?? {});
-    case "mcp-server":
-      return member.name in (settings.mcpServers ?? {});
-  }
-};
+const isDirectlyDeclared = (member: MemberEntry, settings: Settings): boolean =>
+  member.name in MEMBER_FAMILIES[member.memberType].declaredNames(settings);
 
-const typeSegment = (memberType: MemberEntry["memberType"]): string => {
-  switch (memberType) {
-    case "skill":
-      return "skills";
-    case "command":
-      return "commands";
-    case "subagent":
-      return "subagents";
-    case "mcp-server":
-      return "mcps";
-  }
-};
+const typeSegment = (memberType: MemberType): string => extensionTypeToPlural[memberType];
 
 export const packsMembersRetainedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,

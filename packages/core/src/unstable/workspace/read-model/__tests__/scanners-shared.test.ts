@@ -13,7 +13,7 @@
  *     root and asserting the scanner does not check it (i.e., does not raise).
  */
 
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -93,14 +93,34 @@ const makeDiag = Effect.gen(function* () {
 // Scanner contract tests
 // ---------------------------------------------------------------------------
 
-describe("workspace read-model shared scanner contract", () => {
-  it.effect(
-    "canonical-extensions: partial filesystem failure publishes diagnostic warning, not error",
-    () =>
+layer(Path.layer, { excludeTestServices: true })(
+  "workspace read-model shared scanner contract",
+  (it) => {
+    it.effect(
+      "canonical-extensions: partial filesystem failure publishes diagnostic warning, not error",
+      () =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const { diag, ref } = yield* makeDiag;
+          const occurrences = yield* makeCanonicalExtensionsScanner({
+            fs: failingFs,
+            path,
+            workspaceRoot: "/ws",
+            scope: "project",
+            diagnostics: diag,
+          });
+          expect(occurrences).toEqual([]);
+          const warnings = yield* Ref.get(ref);
+          expect(warnings.length).toBeGreaterThan(0);
+          expect(warnings.every((w) => w.source === "scanner")).toBe(true);
+        }),
+    );
+
+    it.effect("agent-dir: partial filesystem failure publishes diagnostic warning, not error", () =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
         const { diag, ref } = yield* makeDiag;
-        const occurrences = yield* makeCanonicalExtensionsScanner({
+        const occurrences = yield* makeAgentDirScanner({
           fs: failingFs,
           path,
           workspaceRoot: "/ws",
@@ -111,123 +131,108 @@ describe("workspace read-model shared scanner contract", () => {
         const warnings = yield* Ref.get(ref);
         expect(warnings.length).toBeGreaterThan(0);
         expect(warnings.every((w) => w.source === "scanner")).toBe(true);
-      }).pipe(Effect.provide(Path.layer)),
-  );
+      }),
+    );
 
-  it.effect("agent-dir: partial filesystem failure publishes diagnostic warning, not error", () =>
-    Effect.gen(function* () {
-      const path = yield* Path.Path;
-      const { diag, ref } = yield* makeDiag;
-      const occurrences = yield* makeAgentDirScanner({
-        fs: failingFs,
-        path,
-        workspaceRoot: "/ws",
-        scope: "project",
-        diagnostics: diag,
-      });
-      expect(occurrences).toEqual([]);
-      const warnings = yield* Ref.get(ref);
-      expect(warnings.length).toBeGreaterThan(0);
-      expect(warnings.every((w) => w.source === "scanner")).toBe(true);
-    }).pipe(Effect.provide(Path.layer)),
-  );
+    it.effect(
+      "mcp-config: partial filesystem failure publishes diagnostic warning, not error",
+      () =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const { diag, ref } = yield* makeDiag;
+          const occurrences = yield* makeMcpConfigScanner({
+            fs: failingFs,
+            path,
+            workspaceRoot: "/ws",
+            scope: "project",
+            diagnostics: diag,
+          });
+          expect(occurrences).toEqual([]);
+          const warnings = yield* Ref.get(ref);
+          expect(warnings.length).toBeGreaterThan(0);
+          expect(warnings.every((w) => w.source === "scanner")).toBe(true);
+        }),
+    );
 
-  it.effect("mcp-config: partial filesystem failure publishes diagnostic warning, not error", () =>
-    Effect.gen(function* () {
-      const path = yield* Path.Path;
-      const { diag, ref } = yield* makeDiag;
-      const occurrences = yield* makeMcpConfigScanner({
-        fs: failingFs,
-        path,
-        workspaceRoot: "/ws",
-        scope: "project",
-        diagnostics: diag,
-      });
-      expect(occurrences).toEqual([]);
-      const warnings = yield* Ref.get(ref);
-      expect(warnings.length).toBeGreaterThan(0);
-      expect(warnings.every((w) => w.source === "scanner")).toBe(true);
-    }).pipe(Effect.provide(Path.layer)),
-  );
+    it.effect(
+      "agent-settings: partial filesystem failure publishes diagnostic warning, not error",
+      () =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const { diag, ref } = yield* makeDiag;
+          const occurrences = yield* makeAgentSettingsScanner({
+            fs: failingFs,
+            path,
+            workspaceRoot: "/ws",
+            scope: "project",
+            diagnostics: diag,
+          });
+          expect(occurrences).toEqual([]);
+          const warnings = yield* Ref.get(ref);
+          // agent-settings only emits stat warnings; "exists: true" then no IO
+          // occurs against settings.json itself unless a real read is required.
+          // Tolerate zero or more — the scanner's contract is "no error", not
+          // "always emits a warning".
+          expect(warnings.every((w) => w.source === "scanner")).toBe(true);
+        }),
+    );
 
-  it.effect(
-    "agent-settings: partial filesystem failure publishes diagnostic warning, not error",
-    () =>
+    it.effect("scanners do not validate workspace-root escape (Phase 9 owns that)", () =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
-        const { diag, ref } = yield* makeDiag;
-        const occurrences = yield* makeAgentSettingsScanner({
-          fs: failingFs,
+        const { diag } = yield* makeDiag;
+        // An "escaping" workspace root is just a path string here; the scanner
+        // should treat it like any other root and read what it can. With an
+        // empty FS it returns an empty array without raising.
+        const escaping = "/ws/../escape";
+        const occurrences = yield* makeCanonicalExtensionsScanner({
+          fs: emptyFs,
+          path,
+          workspaceRoot: escaping,
+          scope: "project",
+          diagnostics: diag,
+        });
+        expect(occurrences).toEqual([]);
+      }),
+    );
+
+    it.effect("scanners run under their stable Effect.fn span name", () =>
+      Effect.gen(function* () {
+        // The naming convention is enforced by `Effect.fn("workspace.read-model.scanner.<id>")`
+        // at the call site. We assert non-failure here; trace-name introspection
+        // is exercised through the runtime tracer, not the test harness, so this
+        // test guards against a future refactor that drops the wrapper.
+        const path = yield* Path.Path;
+        const { diag } = yield* makeDiag;
+        yield* makeCanonicalExtensionsScanner({
+          fs: emptyFs,
           path,
           workspaceRoot: "/ws",
           scope: "project",
           diagnostics: diag,
         });
-        expect(occurrences).toEqual([]);
-        const warnings = yield* Ref.get(ref);
-        // agent-settings only emits stat warnings; "exists: true" then no IO
-        // occurs against settings.json itself unless a real read is required.
-        // Tolerate zero or more — the scanner's contract is "no error", not
-        // "always emits a warning".
-        expect(warnings.every((w) => w.source === "scanner")).toBe(true);
-      }).pipe(Effect.provide(Path.layer)),
-  );
-
-  it.effect("scanners do not validate workspace-root escape (Phase 9 owns that)", () =>
-    Effect.gen(function* () {
-      const path = yield* Path.Path;
-      const { diag } = yield* makeDiag;
-      // An "escaping" workspace root is just a path string here; the scanner
-      // should treat it like any other root and read what it can. With an
-      // empty FS it returns an empty array without raising.
-      const escaping = "/ws/../escape";
-      const occurrences = yield* makeCanonicalExtensionsScanner({
-        fs: emptyFs,
-        path,
-        workspaceRoot: escaping,
-        scope: "project",
-        diagnostics: diag,
-      });
-      expect(occurrences).toEqual([]);
-    }).pipe(Effect.provide(Path.layer)),
-  );
-
-  it.effect("scanners run under their stable Effect.fn span name", () =>
-    Effect.gen(function* () {
-      // The naming convention is enforced by `Effect.fn("workspace.read-model.scanner.<id>")`
-      // at the call site. We assert non-failure here; trace-name introspection
-      // is exercised through the runtime tracer, not the test harness, so this
-      // test guards against a future refactor that drops the wrapper.
-      const path = yield* Path.Path;
-      const { diag } = yield* makeDiag;
-      yield* makeCanonicalExtensionsScanner({
-        fs: emptyFs,
-        path,
-        workspaceRoot: "/ws",
-        scope: "project",
-        diagnostics: diag,
-      });
-      yield* makeAgentDirScanner({
-        fs: emptyFs,
-        path,
-        workspaceRoot: "/ws",
-        scope: "project",
-        diagnostics: diag,
-      });
-      yield* makeMcpConfigScanner({
-        fs: emptyFs,
-        path,
-        workspaceRoot: "/ws",
-        scope: "project",
-        diagnostics: diag,
-      });
-      yield* makeAgentSettingsScanner({
-        fs: emptyFs,
-        path,
-        workspaceRoot: "/ws",
-        scope: "project",
-        diagnostics: diag,
-      });
-    }).pipe(Effect.provide(Path.layer)),
-  );
-});
+        yield* makeAgentDirScanner({
+          fs: emptyFs,
+          path,
+          workspaceRoot: "/ws",
+          scope: "project",
+          diagnostics: diag,
+        });
+        yield* makeMcpConfigScanner({
+          fs: emptyFs,
+          path,
+          workspaceRoot: "/ws",
+          scope: "project",
+          diagnostics: diag,
+        });
+        yield* makeAgentSettingsScanner({
+          fs: emptyFs,
+          path,
+          workspaceRoot: "/ws",
+          scope: "project",
+          diagnostics: diag,
+        });
+      }),
+    );
+  },
+);

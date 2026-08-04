@@ -18,6 +18,7 @@ import {
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
+import { agentLifecycle, lifecycleCell } from "./lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 
@@ -32,6 +33,8 @@ interface AgentListItem {
   readonly configured: boolean;
   readonly detected: boolean;
   readonly instructions: string;
+  /** Whether the vendor still maintains the agent: active, deprecated, retired. */
+  readonly lifecycle: string;
 }
 
 const AgentListItemSchema = Schema.Struct({
@@ -40,15 +43,17 @@ const AgentListItemSchema = Schema.Struct({
   configured: Schema.Boolean,
   detected: Schema.Boolean,
   instructions: Schema.String,
+  lifecycle: Schema.String,
 });
 
-const AgentsListOutputSchema = Schema.Struct({
-  data: Schema.Array(AgentListItemSchema),
+export const AgentsListOutputSchema = Schema.Struct({
+  items: Schema.Array(AgentListItemSchema),
   configured: Schema.Array(Schema.String),
   detected: Schema.Array(Schema.String),
   available: Schema.Array(Schema.String),
   count: Schema.Number,
 });
+export type AgentsListOutput = typeof AgentsListOutputSchema.Type;
 
 const AgentListTable = {
   columns: {
@@ -57,6 +62,10 @@ const AgentListTable = {
     configured: { header: "Configured", render: (value: boolean) => (value ? "yes" : "no") },
     detected: { header: "Detected", render: (value: boolean) => (value ? "yes" : "no") },
     instructions: { header: "Rules" },
+    lifecycle: {
+      header: "Lifecycle",
+      render: (_value: string, row: AgentListItem) => lifecycleCell(row.id),
+    },
   },
 } as const satisfies TableView<AgentListItem>;
 
@@ -83,6 +92,7 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
     Option.isSome(instructionsConfig) && instructionsConfig.value !== false
       ? yield* getInstructionsStatus({
           workspaceRoot: ws.baseDir,
+          scope: ws.scope,
           configuredAgents: configured,
           config: resolveInstructionsConfig(instructionsConfig.value),
         }).pipe(
@@ -103,10 +113,11 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
       configured: configuredSet.has(id),
       detected: detectedSet.has(id),
       instructions: configuredSet.has(id) ? (instructionStatuses.get(id) ?? "manual") : "-",
+      lifecycle: agentLifecycle(id).state,
     }));
 
   const output = {
-    data: items,
+    items,
     configured: configured.filter((id) => id !== "universal"),
     detected,
     available: [...CONFIGURABLE_AGENT_IDS],

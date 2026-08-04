@@ -1,4 +1,5 @@
 import { Command, Flag } from "effect/unstable/cli";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -141,8 +142,8 @@ const normalizeStdio = (
   name: string,
   config: Readonly<Record<string, unknown>>,
   adoption: ImportedMcpServerAdoption,
+  now: DateTime.Utc,
 ): Option.Option<ImportedMcpServer> => {
-  const now = new Date();
   const commandValue = config["command"];
   const env = envRefsFromRecord(stringRecord(config["env"] ?? config["environment"]));
   if (typeof commandValue === "string") {
@@ -181,10 +182,10 @@ const normalizeRemote = (
   name: string,
   config: Readonly<Record<string, unknown>>,
   adoption: ImportedMcpServerAdoption,
+  now: DateTime.Utc,
 ): Option.Option<ImportedMcpServer> => {
   const url = config["url"];
   if (typeof url !== "string") return Option.none();
-  const now = new Date();
   return Option.some({
     name,
     lockEntry: {
@@ -203,24 +204,26 @@ const normalizeServer = (
   name: string,
   config: Readonly<Record<string, unknown>>,
   adoption: ImportedMcpServerAdoption,
+  now: DateTime.Utc,
 ): Option.Option<ImportedMcpServer> => {
   if (isAxmManagedMcpEntry(config)) return Option.none();
-  const remote = normalizeRemote(name, config, adoption);
+  const remote = normalizeRemote(name, config, adoption, now);
   if (Option.isSome(remote)) return remote;
-  return normalizeStdio(name, config, adoption);
+  return normalizeStdio(name, config, adoption, now);
 };
 
 const collectFromConfig = (
   config: Readonly<Record<string, unknown>>,
   serversKey: string,
   filePath: string,
+  now: DateTime.Utc,
 ): ReadonlyArray<ImportedMcpServer> => {
   const servers = config[serversKey];
   if (!isRecord(servers)) return [];
   return Object.entries(servers)
     .map(([name, value]) =>
       isRecord(value)
-        ? normalizeServer(name, value, { filePath, serversKey, name })
+        ? normalizeServer(name, value, { filePath, serversKey, name }, now)
         : Option.none(),
     )
     .filter(Option.isSome)
@@ -275,6 +278,7 @@ const collectImportableServers = (
   path: Path.Path,
 ): Effect.Effect<ReadonlyArray<ImportedMcpServer>, AppError> =>
   Effect.gen(function* () {
+    const now = yield* DateTime.now;
     const configured = yield* ws.getConfiguredMcpServerEntries();
     const configuredNames = new Set(Object.keys(configured));
     const imports: Array<ImportedMcpServer> = [];
@@ -297,7 +301,7 @@ const collectImportableServers = (
     const workspaceConfigPath = path.join(ws.baseDir, ".mcp.json");
     const workspaceConfig = yield* readJsonObject(fs, workspaceConfigPath);
     if (Option.isSome(workspaceConfig))
-      addNew(collectFromConfig(workspaceConfig.value, "mcpServers", workspaceConfigPath));
+      addNew(collectFromConfig(workspaceConfig.value, "mcpServers", workspaceConfigPath, now));
 
     const agentIds = yield* ws.getConfiguredAgents();
     for (const agentId of agentIds) {
@@ -310,7 +314,7 @@ const collectImportableServers = (
         const configPath = path.resolve(ws.baseDir, target.path);
         const config = yield* readJsonObject(fs, configPath);
         if (Option.isSome(config))
-          addNew(collectFromConfig(config.value, mcpConfig.value.serversKey, configPath));
+          addNew(collectFromConfig(config.value, mcpConfig.value.serversKey, configPath, now));
       }
     }
     return imports;
@@ -335,6 +339,7 @@ const makePlan = (
           .setMcpServer({
             name: server.name,
             lockEntry: server.lockEntry,
+            versionRange: Option.none(),
             env: server.env,
             enabled: true,
           })

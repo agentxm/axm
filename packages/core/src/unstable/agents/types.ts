@@ -10,7 +10,7 @@ import {
   AGENT_IDS as CONFIGURABLE_AGENT_IDS,
   type AgentId as ConfigurableAgentId,
 } from "../agent-capabilities/catalog.js";
-import type { DetectionMarker, ScopeDetection } from "../agent-capabilities/schema.js";
+import type { DetectionMarker, Scope, ScopeDetection } from "../agent-capabilities/schema.js";
 
 // -----------------------------------------------------------------------------
 // Agent Skills Configuration
@@ -38,6 +38,12 @@ export interface AgentSkillsDescriptor {
 export interface AgentCommandsDescriptor {
   /** Primary commands directory, relative to cwd (e.g., ".claude/commands") */
   readonly dir: string;
+  /**
+   * Scopes the agent itself supports for commands. `dir` is a single
+   * workspace-relative path, so AXM writes project scope only; a "user" entry
+   * here means the agent has a user-scope surface AXM does not manage yet.
+   */
+  readonly scopes: ReadonlyArray<Scope>;
 }
 
 // -----------------------------------------------------------------------------
@@ -53,6 +59,11 @@ export interface AgentSubagentsDescriptor {
   /** Subagents directory, relative to cwd (e.g., ".claude/agents") */
   readonly dir: string;
   /**
+   * Scopes the agent itself supports for subagents. See
+   * {@link AgentCommandsDescriptor.scopes}.
+   */
+  readonly scopes: ReadonlyArray<Scope>;
+  /**
    * When true, the path is a single file (e.g., ".roomodes") rather than a
    * directory containing subagent files.
    */
@@ -63,10 +74,25 @@ export interface AgentSubagentsDescriptor {
 // Agent Instruction File Configuration
 // -----------------------------------------------------------------------------
 
-/** @experimental */
+/**
+ * Workspace instruction-file convention for one coding agent.
+ *
+ * `rulesDir` on the file-based variants is a *secondary* native rules directory
+ * the agent also reads alongside its instruction file (e.g. Cursor reads both
+ * `AGENTS.md` and `.cursor/rules`). AXM does not write it — the field exists so
+ * status output can say so rather than silently reporting the agent as fully
+ * synced.
+ *
+ * @experimental
+ */
 export type AgentInstructionsDescriptor =
-  | { readonly kind: "agents-md" }
-  | { readonly kind: "own-file"; readonly file: string; readonly importSyntax?: "at-path" }
+  | { readonly kind: "agents-md"; readonly rulesDir?: string }
+  | {
+      readonly kind: "own-file";
+      readonly file: string;
+      readonly importSyntax?: "at-path";
+      readonly rulesDir?: string;
+    }
   | { readonly kind: "rules-dir"; readonly dir: string; readonly format: "frontmatter" };
 
 // -----------------------------------------------------------------------------

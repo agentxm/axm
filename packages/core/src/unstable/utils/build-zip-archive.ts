@@ -14,16 +14,31 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { zipSync, type Zippable } from "fflate";
 import { makeAppError } from "../app-error/index.js";
+import { expandGlobs } from "./glob.js";
 
-const DETERMINISTIC_MTIME = new Date("2020-01-01T00:00:00Z");
+// ZIP timestamps have no timezone. fflate serializes Date's local calendar
+// fields, so construct those fields locally to keep the encoded bytes stable
+// across host timezones.
+const DETERMINISTIC_MTIME = new Date(2020, 0, 1, 0, 0, 0, 0);
 const READ_CONCURRENCY = 16;
+
+/** @experimental This API is unstable and may change without notice. */
+export interface BuildZipArchiveOptions {
+  /**
+   * Glob patterns matched against archive-relative POSIX paths. Absent or
+   * empty leaves the archive exactly as it would have been built without this
+   * option — the default path is unchanged, so already-published integrity
+   * digests stay reproducible.
+   */
+  readonly ignore?: ReadonlyArray<string> | undefined;
+}
 
 /**
  * Build a zip archive of a directory.
  * Files are stored at the root of the zip (no enclosing directory).
  * Directory entries are not emitted.
  */
-export const buildZipArchive = (dir: string) =>
+export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -46,7 +61,17 @@ export const buildZipArchive = (dir: string) =>
 
       const onlyFiles = candidates.filter((c) => c.isFile);
       onlyFiles.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
-      return onlyFiles;
+
+      const ignore = options?.ignore ?? [];
+      if (ignore.length === 0) return onlyFiles;
+
+      const ignored = new Set(
+        expandGlobs(
+          ignore,
+          onlyFiles.map((c) => c.rel),
+        ),
+      );
+      return onlyFiles.filter((c) => !ignored.has(c.rel));
     }).pipe(
       Effect.mapError((cause) =>
         makeAppError({

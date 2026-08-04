@@ -3,7 +3,7 @@ export const codebuddyAgent = {
   id: "codebuddy",
   name: "CodeBuddy",
   vendor: "Tencent Cloud",
-  homepage: "https://www.codebuddy.ai",
+  homepage: "https://www.codebuddy.ai/docs",
   interfaces: ["cli", "ide-extension"],
   family: null,
   rootDir: ".codebuddy",
@@ -39,15 +39,17 @@ export const codebuddyAgent = {
     },
     command: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes: "CodeBuddy custom slash commands are Markdown files in .codebuddy/commands.",
         docs: [],
-        sources: [],
+        sources: ["https://www.codebuddy.ai/docs/cli/slash-commands"],
+        scopes: ["user", "project"],
+        directory: ".codebuddy/commands",
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
+        status: "supported",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -58,23 +60,26 @@ export const codebuddyAgent = {
         notes:
           "CodeBuddy MCP configs are JSONC and use first-existing-file precedence within each scope; AXM writes the recommended project/user files.",
         docs: [],
-        sources: ["https://staging-codebuddy.tencent.com/docs/cli/mcp"],
+        sources: ["https://www.codebuddy.ai/docs/cli/mcp"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
           variables: "braced",
-          defaults: false,
+          defaults: true,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -89,19 +94,39 @@ export const codebuddyAgent = {
             ],
             stdio: {
               typeField: {
-                name: "type",
-                value: "stdio",
+                required: {
+                  name: "type",
+                  value: "stdio",
+                },
+                accepted: [
+                  {
+                    name: "type",
+                    value: "stdio",
+                  },
+                  null,
+                ],
               },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",
@@ -109,7 +134,6 @@ export const codebuddyAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -120,42 +144,14 @@ export const codebuddyAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://staging-codebuddy.tencent.com/docs/cli/best-practices"],
+        sources: ["https://www.codebuddy.ai/docs/cli/sub-agents"],
         scopes: ["user", "project"],
         directory: ".codebuddy/agents",
         layout: "directory",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -166,7 +162,7 @@ export const codebuddyAgent = {
         notes:
           "CodeBuddy hooks are configured under the hooks key in settings.json and use grouped event/matcher command hooks compatible with AXM's command-stdin serializer.",
         docs: [],
-        sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
+        sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
         configFiles: [
@@ -187,90 +183,94 @@ export const codebuddyAgent = {
           {
             nativeName: "SessionStart",
             canonical: "session.start",
-            matcher: { kind: "none-imperative", example: null, notes: null },
+            matcher: { kind: "literal-list", example: "startup|resume", notes: null },
             decision: [{ kind: "observe" }],
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "UserPromptSubmit",
             canonical: "prompt.submit",
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "PreToolUse",
             canonical: "tool.pre",
             matcher: { kind: "regex", example: "Bash|Edit|Write", notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["deny"] }],
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
-            lastVerified: "2026-06-06",
+            decision: [
+              { kind: "observe" },
+              { kind: "block", outcomes: ["allow", "deny", "ask"] },
+              { kind: "modify", operations: ["modify-input"] },
+            ],
+            sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "PostToolUse",
             canonical: "tool.post",
             matcher: { kind: "regex", example: "Edit|Write", notes: null },
-            decision: [{ kind: "observe" }],
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
-            lastVerified: "2026-06-06",
+            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "Stop",
             canonical: "turn.end",
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "SubagentStop",
             canonical: "subagent.stop",
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "PreCompact",
             canonical: "compaction.pre",
-            matcher: { kind: "none-imperative", example: null, notes: null },
+            matcher: { kind: "literal-list", example: "manual|auto", notes: null },
             decision: [{ kind: "observe" }],
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+            lastVerified: "2026-07-22",
           },
         ],
         tools: [
           {
             nativeName: "Read",
             canonical: "file.read",
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/settings"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/settings"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "Write",
             canonical: "file.write",
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "Edit",
             canonical: "file.edit",
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/hooks-guide"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "Bash",
             canonical: "shell.exec",
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/settings"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/settings"],
+            lastVerified: "2026-07-22",
           },
           {
             nativeName: "WebFetch",
             canonical: "web.fetch",
-            sources: ["https://staging-codebuddy.tencent.com/docs/cli/settings"],
-            lastVerified: "2026-06-06",
+            sources: ["https://www.codebuddy.ai/docs/cli/settings"],
+            lastVerified: "2026-07-22",
           },
         ],
       },
@@ -293,8 +293,31 @@ export const codebuddyAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "CodeBuddy loads CODEBUDDY.md plus nested .codebuddy/rules instruction files and supports @path imports.",
+      docs: [],
+      sources: ["https://www.codebuddy.ai/docs/cli/memory"],
+      scopes: ["user", "project"],
+      standardsCompliance: "none",
+      convention: "vendor",
+      kind: "own-file",
+      files: ["CODEBUDDY.md"],
+      nestedDiscovery: true,
+      importSyntax: "at-path",
+      directory: ".codebuddy/rules",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {
@@ -305,8 +328,8 @@ export const codebuddyAgent = {
         "CodeBuddy permissions support allow/ask/deny rules in settings.json plus CLI permission flags. Bash rules are prefix-style and can include :* suffixes.",
       docs: [],
       sources: [
-        "https://staging-codebuddy.tencent.com/docs/cli/settings",
-        "https://staging-codebuddy.tencent.com/docs/cli/reference",
+        "https://www.codebuddy.ai/docs/cli/settings",
+        "https://www.codebuddy.ai/docs/cli/cli-reference",
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
@@ -346,7 +369,7 @@ export const codebuddyAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-07-22",
       writer: {
         grants: {
           shell: {

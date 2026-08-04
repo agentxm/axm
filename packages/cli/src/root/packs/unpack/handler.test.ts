@@ -15,7 +15,16 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { SkillManagerLive, type RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
+import { CommandManagerLive } from "@agentxm/client-core/unstable/commands";
+import { FilesManagerLive } from "@agentxm/client-core/unstable/files";
+import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
+import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
+import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
+import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
+import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -28,6 +37,13 @@ import {
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import {
+  computePackageContentHashSync,
+  exactVersion,
+  extensionName,
+  handle,
+  writeTrustFromWorkspaceLockfile,
+} from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -63,7 +79,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       skills: options.lockSkills ?? {},
       ...(options.lockCommands ? { commands: options.lockCommands } : {}),
       ...(options.lockMcpServers ? { mcpServers: options.lockMcpServers } : {}),
@@ -106,6 +122,38 @@ const createCanonicalDirs = (
   }
 };
 
+const createPackManifest = (
+  baseDir: string,
+  name: string,
+  dependencies: Readonly<Record<string, string>>,
+) => {
+  const packDir = path.join(baseDir, ".axm", "extensions", "@test", "packs", name);
+  fs.mkdirSync(packDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(packDir, "pack.json"),
+    JSON.stringify({
+      owner: "@test",
+      type: "pack",
+      name,
+      version: "1.0.0",
+      dependencies,
+    }),
+  );
+  const lockfilePath = path.join(baseDir, ".axm", "axm-lock.yaml");
+  const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
+  const packs = expectRecord(lockfile["packs"] ?? {});
+  const lockedPack = expectRecord(packs[name]);
+  const updatedPacks = {
+    ...packs,
+    [name]: {
+      ...lockedPack,
+      sourceHash: computePackageContentHashSync(packDir),
+    },
+  };
+  fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
+  writeTrustFromWorkspaceLockfile(path.join(baseDir, ".axm"));
+};
+
 const defaultArgs = (
   name: string,
   overrides: Partial<UnpackHandlerArgs> = {},
@@ -144,16 +192,55 @@ describe("packs unpack.handler", () => {
       },
       wsOptions: wsOverrides,
     });
-    const SPLayer = Layer.provide(
-      SourceHostProvidersLive,
-      Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer),
-    );
-    const FullLayer = Layer.mergeAll(
+    const SPLayer = Layer.succeed(SourceHostProviders, {
+      find: (source, request) =>
+        Effect.succeed(
+          source.type === "registry" && request.type === "skill"
+            ? request.names.map((name): RegistrySkillRef => ({
+                type: "skill",
+                refType: "registry",
+                source,
+                skill: {
+                  name: extensionName(name),
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                owner: handle("@test"),
+                name: extensionName(name),
+                version: exactVersion(
+                  Option.getOrElse(request.versionRange, () => exactVersion("1.0.0")),
+                ),
+                publisherBindingId: "hbnd_test",
+                integrity: Option.none(),
+                packages: [],
+              }))
+            : [],
+        ),
+      fetch: () => Effect.die("unused"),
+      cloneUrl: () => Option.none(),
+      origin: () => "test",
+    });
+    const CoreLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
     );
+    const ManagersLayer = Layer.provide(
+      Layer.mergeAll(
+        SkillManagerLive,
+        CommandManagerLive,
+        McpServerManagerLive,
+        SubagentManagerLive,
+        FilesManagerLive,
+        RuleManagerLive,
+        HookManagerLive,
+        KnowledgeManagerLive,
+        PackManagerLive,
+      ),
+      CoreLayer,
+    );
+    const FullLayer = Layer.merge(CoreLayer, ManagersLayer);
     const provide = makeEffectProvide(FullLayer);
 
     return {
@@ -178,7 +265,7 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -189,7 +276,7 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "2.0.0",
             integrity: "",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -202,11 +289,18 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
-              "@test/skills/code-review": "1.0.0",
-              "@test/skills/test-writer": "2.0.0",
+              "@test/skills/code-review": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+              "@test/skills/test-writer": {
+                version: "2.0.0",
+                publisherBindingId: "hbnd_test",
+              },
             },
             resolvedCommands: {},
             resolvedMcpServers: {},
@@ -221,6 +315,10 @@ describe("packs unpack.handler", () => {
           { owner: "@test", name: "code-review" },
           { owner: "@test", name: "test-writer" },
         ],
+      });
+      createPackManifest(tempDir, "frontend-tools", {
+        "@test/skills/code-review": "^1.0.0",
+        "@test/skills/test-writer": "^2.0.0",
       });
 
       return provide(
@@ -256,12 +354,8 @@ describe("packs unpack.handler", () => {
           });
           const steps = planResultSteps(result);
           const uninstallStep = expectRecord(expectDefined(steps[2], "Expected uninstall step"));
-          expect(property(uninstallStep, "artifact")).toMatchObject({
-            path: ".axm/extensions/@test/packs/frontend-tools",
-            scope: "project",
-            version: "1.0.0",
-            change: "removed",
-          });
+          expect(property(uninstallStep, "status")).toBe("applied");
+          expect(property(uninstallStep, "message")).toBe("Removed @test/frontend-tools");
         }),
       );
     });
@@ -285,7 +379,7 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "0.9.0",
             integrity: "",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -296,7 +390,7 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "",
             sourceName: "local",
-            agents: ["claude-code"],
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -309,11 +403,18 @@ describe("packs unpack.handler", () => {
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
             sourceName: "local",
+            publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             resolvedSkills: {
-              "@test/skills/code-review": "1.0.0",
-              "@test/skills/new-skill": "1.0.0",
+              "@test/skills/code-review": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+              "@test/skills/new-skill": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
             },
             resolvedCommands: {},
             resolvedMcpServers: {},
@@ -328,6 +429,10 @@ describe("packs unpack.handler", () => {
           { owner: "@test", name: "code-review" },
           { owner: "@test", name: "new-skill" },
         ],
+      });
+      createPackManifest(tempDir, "frontend-tools", {
+        "@test/skills/code-review": "^1.0.0",
+        "@test/skills/new-skill": "^1.0.0",
       });
 
       return provide(
@@ -370,11 +475,65 @@ describe("packs unpack.handler", () => {
             ),
           );
           const errorResult = getErrorResult(result);
-          expect(errorResult.message).toContain("not installed");
+          expect(errorResult.message).toContain("not configured");
           expect(errorResult.guidance).toContain(
             "Install the pack first. · axm packs install <source>",
           );
           expect(rendererState.spinnerMessages).toEqual([]);
+        }),
+      );
+    });
+  });
+
+  describe("untrusted members", () => {
+    it.effect("refuses to unpack a member without authoritative trust", () => {
+      const { provide } = makeLayers();
+      const axmDir = path.join(tempDir, ".axm");
+
+      initWorkspace(axmDir, {
+        packs: { "frontend-tools": "@test/packs/frontend-tools" },
+        lockPacks: {
+          "frontend-tools": {
+            type: "registry",
+            owner: "@test",
+            name: "frontend-tools",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "local",
+            publisherBindingId: "hbnd_test",
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            resolvedSkills: {},
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+            resolvedSubagents: {
+              "@test/subagents/reviewer": {
+                version: "1.0.0",
+                publisherBindingId: "hbnd_test",
+              },
+            },
+          },
+        },
+      });
+      createPackManifest(tempDir, "frontend-tools", {
+        "@test/subagents/reviewer": "^1.0.0",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleUnpack(defaultArgs("frontend-tools")).pipe(
+            Effect.catchTag("AppError", (e) =>
+              Effect.succeed({ error: true, message: e.detail, guidance: "" }),
+            ),
+          );
+          const errorResult = getErrorResult(result);
+          expect(errorResult.message).toContain("Trusted subagent identity");
+
+          // The pack must NOT be removed when unpack refuses.
+          const lockContent = YAML.parse(
+            fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"),
+          );
+          expect(Object.keys(lockContent.packs ?? {})).toContain("frontend-tools");
         }),
       );
     });

@@ -6,6 +6,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
+  computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
   REGISTRY_EXTENSIONS_DIR,
@@ -13,7 +14,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import type {
   NewCommandOperation,
-  RegistryCommandRef,
+  WorkspaceCommandRef,
 } from "@agentxm/client-core/unstable/commands";
 import {
   CommandManager,
@@ -145,20 +146,22 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
   // 5. Build plan with inline run closure
   const fqn = `${owner}/commands/${args.name}`;
   const version = decodeVersionSync("0.1.0");
-  const ref: RegistryCommandRef = {
+  const ref: WorkspaceCommandRef = {
     type: "command",
-    refType: "registry",
-    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    refType: "workspace",
+    source: { type: "workspace", owner, extensionType: "command", name: args.name },
+    scope: ws.scope,
     owner,
     name: args.name,
     version,
-    integrity: Option.none(),
-    packages: [],
+    sourceHash: computeSourceHash("scaffold"),
+    location: targetDir,
     command: { name: args.name },
   };
 
   const step = buildNewExtensionStep(manager, {
     ref,
+    target: { type: "command", name: args.name },
     versionRange: Option.none(),
     label: fqn,
     message: `Created command ${fqn}`,
@@ -175,13 +178,17 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
     ),
     buildArtifact: () =>
       Effect.gen(function* () {
-        const currentLockEntry = yield* ws.getLockedCommand(args.name);
+        const currentLockEntry = yield* ws
+          .getLockedCommand(args.name)
+          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
         if (Option.isNone(currentLockEntry)) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Created command ${fqn} but could not read its lockfile entry`,
-            suggestions: [{ description: "Inspect .axm/axm-lock.yaml." }],
-          });
+          return {
+            path: targetDir,
+            scope: ws.scope,
+            version,
+            change: "created",
+            targets: [{ path: targetDir, change: "created" }],
+          } satisfies JobStepArtifact;
         }
         const materialization =
           manager.getLastMaterialization === undefined
@@ -192,7 +199,7 @@ export const handleCommandsNew = Effect.fn("CommandsNew.handle")(function* (
 
         return commandInstallArtifact({
           lockEntry: currentLockEntry.value,
-          previousLockEntry: Option.none(),
+          previouslyTrusted: false,
           versionRange: Option.none(),
           canonicalPath: targetDir,
           fallbackPath: args.name,

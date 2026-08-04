@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildNewExtensionStep,
+  computeSourceHash,
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
@@ -19,7 +20,7 @@ import {
   subagentContentPath,
   SubagentManager,
   type SubagentManifest,
-  type RegistrySubagentRef,
+  type WorkspaceSubagentRef,
 } from "@agentxm/client-core/unstable/subagents";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
@@ -99,15 +100,16 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
   const fqn = formatFqn({ owner, type: "subagent", name: args.name });
   const scaffoldPath = subagentSourcePath(owner, args.name);
   const base = ws.baseDir;
-  const ref: RegistrySubagentRef = {
+  const ref: WorkspaceSubagentRef = {
     type: "subagent",
-    refType: "registry",
-    source: { type: "registry", location: new URL("file:///"), owner: Option.some(owner) },
+    refType: "workspace",
+    source: { type: "workspace", owner, extensionType: "subagent", name: args.name },
+    scope: ws.scope,
     owner,
     name: args.name,
     version: INITIAL_VERSION,
-    integrity: Option.none(),
-    packages: [],
+    sourceHash: computeSourceHash("scaffold"),
+    location: path.join(base, scaffoldPath),
     subagent: {
       name: args.name,
       description: Option.none(),
@@ -116,6 +118,7 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
 
   const step = buildNewExtensionStep(manager, {
     ref,
+    target: { type: "subagent", name: args.name },
     versionRange: Option.none(),
     label: fqn,
     message: `Created subagent ${fqn}`,

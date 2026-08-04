@@ -16,6 +16,10 @@ import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
+import {
+  computePackageContentHashSync,
+  writeTrustFromWorkspaceLockfile,
+} from "../../test-stubs.js";
 import { handleList } from "./list.js";
 
 // -----------------------------------------------------------------------------
@@ -24,11 +28,37 @@ import { handleList } from "./list.js";
 
 const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = {}) => {
   fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents: ["claude-code"] }));
+  const packs: Record<string, unknown> = {};
+  const lockedPacks: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(lockfilePacks)) {
+    if (typeof value !== "object" || value === null) continue;
+    const owner = Reflect.get(value, "owner");
+    const version = Reflect.get(value, "resolvedVersion");
+    if (typeof owner !== "string" || typeof version !== "string") continue;
+    packs[name] = `${owner}/packs/${name}`;
+    const packDir = path.join(axmDir, "extensions", owner, "packs", name);
+    fs.mkdirSync(packDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(packDir, "pack.json"),
+      JSON.stringify({ owner, type: "pack", name, version, dependencies: {} }),
+    );
+    lockedPacks[name] = {
+      ...value,
+      sourceHash: computePackageContentHashSync(packDir),
+    };
+  }
+  fs.writeFileSync(
+    path.join(axmDir, "settings.json"),
+    JSON.stringify({
+      agents: ["claude-code"],
+      ...(Object.keys(packs).length === 0 ? {} : { packs }),
+    }),
+  );
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: {}, packs: lockfilePacks }),
+    YAML.stringify({ lockfileVersion: 3, skills: {}, packs: lockedPacks }),
   );
+  writeTrustFromWorkspaceLockfile(axmDir);
 };
 
 const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -38,6 +68,7 @@ const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => 
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
+  publisherBindingId: "hbnd_test",
   installedAt: "2025-01-01T00:00:00.000Z",
   updatedAt: "2025-01-01T00:00:00.000Z",
   resolvedSkills: {},
@@ -97,6 +128,7 @@ describe("packs list.handler", () => {
         owner: "@team",
         resolvedVersion: "2.3.1",
         sourceName: "company",
+        publisherBindingId: "hbnd_test",
       }),
     });
 
@@ -158,11 +190,11 @@ describe("packs list.handler", () => {
           items: [
             {
               name: "starter-pack",
-              activation: "enabled",
+              enabled: true,
               owner: "@acme",
               version: "1.0.0",
               source: "default",
-              classification: { kind: "lifecycle", lifecycle: "implicit" },
+              classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           ],
         });

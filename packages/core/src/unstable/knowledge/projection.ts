@@ -127,22 +127,33 @@ const hashDirectory = (
     return hash.toString(16).padStart(8, "0");
   });
 
-const renderIndex = (bundles: ReadonlyArray<KnowledgeProjectionBundle>): string => {
-  const lines = ["# Installed knowledge", ""];
-  for (const bundle of bundles) {
-    const metadata = [
-      bundle.description,
-      bundle.version === undefined ? undefined : `v${bundle.version}`,
-      bundle.conceptCount === undefined
-        ? undefined
-        : `${bundle.conceptCount} ${bundle.conceptCount === 1 ? "concept" : "concepts"}`,
-    ].filter((value): value is string => value !== undefined);
-    const suffix = metadata.length === 0 ? "" : ` — ${metadata.join("; ")}`;
-    lines.push(
-      `- [${bundle.owner}/${bundle.name}](${toPortablePath(`${bundle.owner}/${bundle.name}/index.md`)})${suffix}`,
-    );
-  }
-  return `${lines.join("\n").trimEnd()}\n`;
+const renderIndexEntry = (bundle: KnowledgeProjectionBundle): string => {
+  const metadata = [
+    bundle.description,
+    bundle.version === undefined ? undefined : `v${bundle.version}`,
+    bundle.conceptCount === undefined
+      ? undefined
+      : `${bundle.conceptCount} ${bundle.conceptCount === 1 ? "concept" : "concepts"}`,
+  ].filter((value): value is string => value !== undefined);
+  const suffix = metadata.length === 0 ? "" : ` — ${metadata.join("; ")}`;
+  return `- [${bundle.owner}/${bundle.name}](${toPortablePath(`${bundle.owner}/${bundle.name}/index.md`)})${suffix}`;
+};
+
+const indexEntryName = (line: string): string | undefined => {
+  const link = /\]\(([^)]+)\)/.exec(line)?.[1];
+  if (link === undefined) return undefined;
+  const segments = toPortablePath(link).split("/");
+  return segments.at(-1) === "index.md" ? segments.at(-2) : undefined;
+};
+
+const renderIndex = (
+  bundles: ReadonlyArray<KnowledgeProjectionBundle>,
+  preservedEntries: ReadonlyArray<string>,
+): string => {
+  const entries = [...bundles.map(renderIndexEntry), ...preservedEntries].sort((left, right) =>
+    left.localeCompare(right),
+  );
+  return `${["# Installed knowledge", "", ...entries].join("\n").trimEnd()}\n`;
 };
 
 const discoveryText = (directory: string): string =>
@@ -212,6 +223,7 @@ export const reconcileKnowledgeProjection = (args: {
   readonly instructionsPath: string;
   readonly dryRun?: boolean;
   readonly symlinkSupported?: boolean;
+  readonly preserveBundleNames?: ReadonlySet<string>;
 }): Effect.Effect<KnowledgeProjectionResult, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -237,6 +249,9 @@ export const reconcileKnowledgeProjection = (args: {
       onNone: () => new Map<string, MaterializationArtifact>(),
       onSome: (state) => new Map(state.artifacts.map((artifact) => [artifact.path, artifact])),
     });
+    const preservedArtifacts = [...priorArtifacts.values()].filter((artifact) =>
+      args.preserveBundleNames?.has(path.basename(artifact.path)),
+    );
     const desired = yield* Effect.forEach(sortedBundles, (bundle) =>
       Effect.gen(function* () {
         const absolute = path.join(args.config.dir, bundle.owner, bundle.name);
@@ -276,6 +291,12 @@ export const reconcileKnowledgeProjection = (args: {
     const priorIndex = Option.flatMap(priorState, (state) =>
       Option.fromUndefinedOr(state.indexPath),
     );
+    const priorIndexRemoval =
+      Option.isSome(priorIndex) && priorIndex.value !== indexRelative
+        ? Option.some(path.join(args.scopeRoot, priorIndex.value))
+        : Option.none<string>();
+    const priorIndexRemovalExists =
+      Option.isSome(priorIndexRemoval) && (yield* fs.exists(priorIndexRemoval.value));
     const existingIndex = yield* readOptional(fs, indexPath);
     if (
       Option.isSome(existingIndex) &&
@@ -286,8 +307,16 @@ export const reconcileKnowledgeProjection = (args: {
         detail: `Knowledge aggregate index is unmanaged: ${indexRelative}`,
       });
     }
-    const renderedIndex = renderIndex(sortedBundles);
-    const indexDesired = sortedBundles.length > 0;
+    const preservedIndexEntries = Option.match(existingIndex, {
+      onNone: () => [],
+      onSome: (content) =>
+        content.split("\n").filter((line) => {
+          const name = indexEntryName(line);
+          return name !== undefined && args.preserveBundleNames?.has(name) === true;
+        }),
+    });
+    const renderedIndex = renderIndex(sortedBundles, preservedIndexEntries);
+    const indexDesired = sortedBundles.length > 0 || preservedIndexEntries.length > 0;
     const indexUnchanged = indexDesired
       ? Option.isSome(existingIndex) && existingIndex.value === renderedIndex
       : Option.isNone(existingIndex);
@@ -314,7 +343,10 @@ export const reconcileKnowledgeProjection = (args: {
       : stripManagedRegion(instructionBody, { region: DISCOVERY_REGION }, instructionStyle.value);
     const instructionsChanged = renderedInstructions !== instructionBody;
 
-    const desiredPaths = new Set(desired.map((item) => item.relative));
+    const desiredPaths = new Set([
+      ...desired.map((item) => item.relative),
+      ...preservedArtifacts.map((artifact) => artifact.path),
+    ]);
     const removals = Option.match(priorState, {
       onNone: () => [],
       onSome: (state) => state.artifacts.filter((artifact) => !desiredPaths.has(artifact.path)),
@@ -330,10 +362,20 @@ export const reconcileKnowledgeProjection = (args: {
           : "created",
       mechanism: item.mechanism,
     }));
+    artifacts.push(
+      ...preservedArtifacts.map((artifact) => ({
+        path: artifact.path,
+        change: "unchanged" as const,
+        mechanism: artifact.mechanism,
+      })),
+    );
     for (const removal of removals) {
       if (yield* fs.exists(path.join(args.scopeRoot, removal.path))) {
         artifacts.push({ path: removal.path, change: "removed", mechanism: removal.mechanism });
       }
+    }
+    if (priorIndexRemovalExists && Option.isSome(priorIndex)) {
+      artifacts.push({ path: priorIndex.value, change: "removed" });
     }
     if (!indexUnchanged) {
       artifacts.push({
@@ -343,7 +385,7 @@ export const reconcileKnowledgeProjection = (args: {
     }
     const priorRoot = Option.map(priorState, (state) => state.root);
     const stateChanged =
-      (Option.isNone(priorState) && sortedBundles.length > 0) ||
+      (Option.isNone(priorState) && indexDesired) ||
       Option.match(priorRoot, {
         onNone: () => false,
         onSome: (root) => root !== args.config.directory,
@@ -354,6 +396,7 @@ export const reconcileKnowledgeProjection = (args: {
       artifacts.some((artifact) => artifact.change !== "unchanged") ||
       instructionsChanged ||
       legacyExists ||
+      priorIndexRemovalExists ||
       stateChanged;
     if (args.dryRun === true || !changed) return { changed, artifacts };
 
@@ -442,6 +485,7 @@ export const reconcileKnowledgeProjection = (args: {
       for (const removal of removals) {
         yield* backup(path.join(args.scopeRoot, removal.path));
       }
+      if (Option.isSome(priorIndexRemoval)) yield* backup(priorIndexRemoval.value);
       if (legacyExists) yield* backup(legacyIndex);
 
       yield* backup(statePath);
@@ -451,7 +495,7 @@ export const reconcileKnowledgeProjection = (args: {
           version: STATE_VERSION,
           root: args.config.directory,
           ...(indexDesired ? { indexPath: indexRelative } : {}),
-          artifacts: actualArtifacts,
+          artifacts: [...actualArtifacts, ...preservedArtifacts],
         },
       });
       created.add(statePath);
@@ -463,6 +507,12 @@ export const reconcileKnowledgeProjection = (args: {
             args.scopeRoot,
             Option.getOrElse(priorRoot, () => args.config.directory),
           ),
+        );
+      }
+      if (Option.isSome(priorIndexRemoval) && Option.isSome(priorRoot)) {
+        yield* removeEmptyParents(
+          path.dirname(priorIndexRemoval.value),
+          path.join(args.scopeRoot, priorRoot.value),
         );
       }
       if (legacyExists) {

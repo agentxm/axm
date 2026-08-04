@@ -5,8 +5,9 @@
  */
 
 import * as Data from "effect/Data";
+import type * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
-import { IsoDateTimeStringSchema } from "../date-time.js";
+import { DateTimeUtcSchema } from "../date-time.js";
 import { HandleSchema, type Handle } from "../extensions/handle.js";
 
 // -----------------------------------------------------------------------------
@@ -20,7 +21,7 @@ export const CredentialEntrySchema = Schema.Struct({
   refresh_token: Schema.String.pipe(
     Schema.annotateKey({ messageMissingKey: "refresh_token is required" }),
   ),
-  expires_at: IsoDateTimeStringSchema.pipe(
+  expires_at: DateTimeUtcSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "expires_at is required" }),
   ),
   active: Schema.Boolean.pipe(Schema.annotateKey({ messageMissingKey: "active is required" })),
@@ -77,14 +78,20 @@ export class FlagTokenSource extends Data.TaggedClass("Flag")<{
   readonly token: string;
 }> {}
 
+export class FileTokenSource extends Data.TaggedClass("File")<{
+  readonly token: string;
+  readonly path: string;
+}> {}
+
 export class CredentialStoreTokenSource extends Data.TaggedClass("CredentialStore")<{
   readonly token: string;
   readonly refresh_token: string;
-  readonly expires_at: Schema.Schema.Type<typeof IsoDateTimeStringSchema>;
+  readonly expires_at: DateTime.Utc;
   readonly registryUrl: string;
 }> {}
 
-export type TokenSource = EnvVarTokenSource | FlagTokenSource | CredentialStoreTokenSource;
+export type TokenSource =
+  EnvVarTokenSource | FileTokenSource | FlagTokenSource | CredentialStoreTokenSource;
 
 // -----------------------------------------------------------------------------
 // Stored Credentials (returned from CredentialStore.load)
@@ -94,7 +101,7 @@ export interface StoredCredentials {
   readonly handle: Handle;
   readonly access_token: string;
   readonly refresh_token: string;
-  readonly expires_at: Schema.Schema.Type<typeof IsoDateTimeStringSchema>;
+  readonly expires_at: DateTime.Utc;
 }
 
 // -----------------------------------------------------------------------------

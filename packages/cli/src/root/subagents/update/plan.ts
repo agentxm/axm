@@ -11,9 +11,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import {
+  trustRecordKey,
+  type ExtensionTrustRecord,
+  type WorkspaceTrustState,
+} from "@agentxm/client-core/unstable/trust";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -30,11 +34,6 @@ export interface UpdateOperation {
  */
 export type MakeRunClosure = (op: UpdateOperation) => Effect.Effect<JobStepResult, AppError, never>;
 
-interface SubagentLockfile {
-  readonly lockfileVersion: number;
-  readonly subagents: Record<string, SubagentLockEntry>;
-}
-
 // -----------------------------------------------------------------------------
 // Version comparison
 // -----------------------------------------------------------------------------
@@ -45,24 +44,25 @@ interface SubagentLockfile {
  *
  * Returns `true` when the subagent has changed and should be updated.
  */
-const hasChanged = (op: UpdateOperation, entry: SubagentLockEntry): boolean => {
+const hasChanged = (op: UpdateOperation, trust: ExtensionTrustRecord): boolean => {
   const { ref } = op;
 
   if (ref.refType === "git-hosted") {
-    const lockHash = Option.fromUndefinedOr(entry.gitTreeHash);
+    const trustedRevision = Option.fromUndefinedOr(trust.immutableRevision);
     const opHash = ref.gitTreeSha;
 
     // If either hash is missing, treat as needing update
-    if (Option.isNone(lockHash) || Option.isNone(opHash)) return true;
+    if (Option.isNone(trustedRevision) || Option.isNone(opHash)) return true;
 
-    return lockHash.value !== opHash.value;
+    return trustedRevision.value !== opHash.value;
   }
 
   if (ref.refType === "registry") {
-    if (entry.type !== "registry") return true;
-    const lockVersion = entry.resolvedVersion;
-    const opVersion = ref.version;
-    return opVersion !== lockVersion;
+    return (
+      trust.authority !== "registry" ||
+      trust.resolvedVersion === undefined ||
+      ref.version !== trust.resolvedVersion
+    );
   }
 
   // Local sources: always update (no version tracking)
@@ -83,7 +83,7 @@ const hasChanged = (op: UpdateOperation, entry: SubagentLockEntry): boolean => {
  */
 export const buildUpdatePlan = (
   ops: ReadonlyArray<UpdateOperation>,
-  lockfile: SubagentLockfile,
+  trustState: WorkspaceTrustState,
   name: string,
   description: Option.Option<string>,
   makeRunClosure: MakeRunClosure,
@@ -95,8 +95,8 @@ export const buildUpdatePlan = (
     {
       concurrency: "unbounded",
       steps: ops.map((op): PlannedJobStep => {
-        const entry = lockfile.subagents[op.ref.subagent.name];
-        const needsUpdate = !entry || op.force || hasChanged(op, entry);
+        const trust = trustState.records[trustRecordKey("subagent", op.ref.subagent.name)];
+        const needsUpdate = trust === undefined || op.force || hasChanged(op, trust);
 
         if (!needsUpdate) {
           return {

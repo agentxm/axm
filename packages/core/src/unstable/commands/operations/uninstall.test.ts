@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -34,14 +35,14 @@ const makeUninstallWorkspaceMock = (
 
   const writeToDisk = () => {
     const lockfile: { lockfileVersion: number; commands: Record<string, unknown> } = {
-      lockfileVersion: 1,
+      lockfileVersion: 3,
       commands: {},
     };
     for (const [k, v] of Object.entries(commands)) {
       lockfile.commands[k] = {
         ...v,
-        installedAt: v.installedAt.toISOString(),
-        updatedAt: v.updatedAt.toISOString(),
+        installedAt: DateTime.formatIso(v.installedAt),
+        updatedAt: DateTime.formatIso(v.updatedAt),
       };
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
@@ -98,12 +99,14 @@ const makeRegistryLockEntryYaml = () => ({
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
   sourceName: "default",
+
+  publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
 
 const writeLockfileYaml = (axmDir: string, commands: Record<string, unknown>) => {
-  const lockfile = { lockfileVersion: 1, commands };
+  const lockfile = { lockfileVersion: 3, commands };
   fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
@@ -225,7 +228,7 @@ describe("uninstallCommand", () => {
   });
 
   describe("canonical directory already missing", () => {
-    it.effect("still removes lockfile entry when canonical dir is missing", () =>
+    it.effect("ignores a stale receipt when canonical content is missing", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileCommands } = setupWorkspace({ createCanonical: false });
         const removeCommandFn = vi.fn((_name: string) => Effect.void);
@@ -235,14 +238,14 @@ describe("uninstallCommand", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled my-command");
-        expect(removeCommandFn).toHaveBeenCalledOnce();
+        expect(result.message).toBe("not installed");
+        expect(removeCommandFn).not.toHaveBeenCalled();
       }),
     );
   });
 
   describe("settings removal failure", () => {
-    it.effect("swallows removeCommand failure (warning, not error)", () =>
+    it.effect("surfaces removeCommand failure instead of reporting success", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileCommands } = setupWorkspace();
         const removeCommandFn = vi.fn(() =>
@@ -255,11 +258,17 @@ describe("uninstallCommand", () => {
           ),
         );
 
-        const result = yield* uninstallCommand(makeOp()).pipe(
+        // The settings/lockfile entry is authoritative; if its removal fails the
+        // operation must fail rather than leave the command present in the
+        // lockfile but gone from disk.
+        const error = yield* uninstallCommand(makeOp()).pipe(
           Effect.provide(withServices(axmDir, lockfileCommands, { removeCommandFn })),
+          Effect.flip,
         );
 
-        expect(result.result).toBe("success");
+        expect(removeCommandFn).toHaveBeenCalled();
+        expect(error.code).toBe("internal");
+        expect(error.detail).toBe("write failed");
       }),
     );
   });

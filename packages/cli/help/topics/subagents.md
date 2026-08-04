@@ -95,4 +95,5 @@ See `axm help packs` for pack authoring and `standalone` semantics.
 ## Where to go next
 
 - `axm subagents --help` — full subagent subcommand surface
+- `axm help workspace-state` — desired, observed, trust, and receipt semantics
 - `axm help packs` — bundling subagent extensions with extension packs

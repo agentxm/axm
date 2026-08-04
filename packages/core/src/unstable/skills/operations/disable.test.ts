@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -12,7 +13,12 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../../workspace/test-stubs.js";
+import {
+  implicitRow,
+  makeBaseWorkspaceMock,
+  makeRegistrySkillLockEntry,
+  rowsFor,
+} from "../../workspace/test-stubs.js";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
 import { handle } from "../../test-helpers.js";
@@ -36,14 +42,11 @@ const makeWorkspaceMock = (
   const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredSkills: () => Effect.succeed({}),
-    getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
     updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
     setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
-    getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
 
@@ -63,8 +66,8 @@ const makeOp = (skillName = "my-skill"): DisableSkillOperation => ({
 const makeLocalLockEntry = (_agents: string[]): SkillLockEntry => ({
   type: "local" as const,
   path: decodeRelativePathSync("tmp/source"),
-  installedAt: new Date(),
-  updatedAt: new Date(),
+  installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
 });
 
 /** Creates a registry source lock entry. */
@@ -73,6 +76,8 @@ const makeRegistryLockEntry = (_agents: string[]): SkillLockEntry =>
     owner: handle("@community"),
     name: "my-skill",
     sourceName: "local",
+
+    publisherBindingId: "hbnd_test",
   });
 
 // -----------------------------------------------------------------------------
@@ -370,16 +375,16 @@ describe("disableSkill", () => {
 
         // Mock workspace where skill is implicit (lock exists but no settings entry)
         const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
-          getConfiguredSkills: () => Effect.succeed({}),
-          getInstalledSkills: () =>
-            Effect.succeed({
-              "my-skill": {
-                lifecycle: "implicit" as const,
-                source: Option.some("local:/tmp/source"),
-                enabled: true as const,
-                packagingKind: "non-native" as const,
-              },
-            }),
+          rows: rowsFor({
+            skill: [
+              implicitRow({
+                type: "skill",
+                name: "my-skill",
+                source: "local:/tmp/source",
+                packagingKind: "non-native",
+              }),
+            ],
+          }),
           getConfiguredAgents: () => Effect.succeed(["claude-code"]),
           getLockedSkills: () =>
             Effect.succeed({ "my-skill": makeLocalLockEntry(["claude-code"]) }),
@@ -410,20 +415,36 @@ describe("disableSkill", () => {
         const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
 
         const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
-          getConfiguredSkills: () => Effect.succeed({}),
-          getInstalledSkills: () =>
-            Effect.succeed({
-              "my-skill": {
-                lifecycle: "implicit" as const,
-                source: Option.none(),
-                enabled: true as const,
-                packagingKind: "native" as const,
-              },
-            }),
+          rows: rowsFor({
+            skill: [implicitRow({ type: "skill", name: "my-skill", packagingKind: "native" })],
+          }),
           getConfiguredAgents: () => Effect.succeed(["claude-code"]),
           getLockedSkills: () =>
             Effect.succeed({ "my-skill": makeRegistryLockEntry(["claude-code"]) }),
           getLockedSkill: () => Effect.succeed(Option.some(makeRegistryLockEntry(["claude-code"]))),
+          getDesiredStateGraph: () =>
+            Effect.succeed({
+              complete: true,
+              nodes: [
+                {
+                  type: "skill",
+                  name: "my-skill",
+                  identity: "@community/skills/my-skill",
+                  source: "@community/skills/my-skill",
+                  enabled: true,
+                  constraints: [],
+                  origins: [
+                    {
+                      type: "pack",
+                      pack: "@community/packs/toolkit",
+                      source: "@community/skills/my-skill",
+                      constraint: "*",
+                    },
+                  ],
+                },
+              ],
+              problems: [],
+            }),
           setSkillEntry: setSkillEntryFn,
         });
 
@@ -447,16 +468,9 @@ describe("disableSkill", () => {
 
         // Mock workspace where skill is implicit with no source
         const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
-          getConfiguredSkills: () => Effect.succeed({}),
-          getInstalledSkills: () =>
-            Effect.succeed({
-              "my-skill": {
-                lifecycle: "implicit" as const,
-                source: Option.none(),
-                enabled: true as const,
-                packagingKind: "non-native" as const,
-              },
-            }),
+          rows: rowsFor({
+            skill: [implicitRow({ type: "skill", name: "my-skill", packagingKind: "non-native" })],
+          }),
           getConfiguredAgents: () => Effect.succeed(["claude-code"]),
           getLockedSkills: () => Effect.succeed({}),
           getLockedSkill: () => Effect.succeed(Option.none()),
@@ -480,16 +494,9 @@ describe("disableSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
-          getConfiguredSkills: () => Effect.succeed({}),
-          getInstalledSkills: () =>
-            Effect.succeed({
-              "my-skill": {
-                lifecycle: "implicit" as const,
-                source: Option.none(),
-                enabled: true as const,
-                packagingKind: "non-native" as const,
-              },
-            }),
+          rows: rowsFor({
+            skill: [implicitRow({ type: "skill", name: "my-skill", packagingKind: "non-native" })],
+          }),
           getConfiguredAgents: () => Effect.succeed(["claude-code"]),
           getLockedSkills: () => Effect.succeed({}),
           getLockedSkill: () => Effect.succeed(Option.none()),

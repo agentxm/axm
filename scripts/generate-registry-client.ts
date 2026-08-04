@@ -41,7 +41,139 @@ const header = `/**
 
 `;
 
-fs.writeFileSync(OUTPUT_PATH, header + result.stdout);
+/**
+ * openapigen has no format-aware mapping, so the spec's ISO date-time
+ * component is emitted as a plain string schema. Swap the generated
+ * declaration for the shared kernel timestamp schema so client responses
+ * decode timestamps to DateTime.Utc (wire format unchanged).
+ */
+const swapDateTimeSchema = (source: string): string => {
+  const typeAnchorPattern = /^export type IsoDateTimeString = string;?$/m;
+  const constAnchorPattern = /^export const IsoDateTimeString = .*$/m;
+  const importAnchorPattern = /^import \* as Stream from "effect\/Stream";?$/m;
+  if (
+    !typeAnchorPattern.test(source) ||
+    !constAnchorPattern.test(source) ||
+    !importAnchorPattern.test(source)
+  ) {
+    console.error(
+      "generate-registry-client: IsoDateTimeString anchors not found in generated output; " +
+        "update swapDateTimeSchema for the new generated shape. This post-processor " +
+        "(and patches/@effect__openapi-generator@*.patch) exist while these upstream " +
+        "issues are open: https://github.com/Effect-TS/effect/issues/6368 " +
+        "https://github.com/Effect-TS/effect/issues/6373 " +
+        "https://github.com/Effect-TS/effect/pull/6403 " +
+        "https://github.com/Effect-TS/effect/pull/6404",
+    );
+    process.exit(1);
+  }
+  return source
+    .replace(
+      importAnchorPattern,
+      (line) => `${line}\nimport { DateTimeUtcSchema } from "../../date-time.js"`,
+    )
+    .replace(typeAnchorPattern, "export type IsoDateTimeString = typeof DateTimeUtcSchema.Type")
+    .replace(constAnchorPattern, "export const IsoDateTimeString = DateTimeUtcSchema");
+};
+
+/**
+ * The component swap above only covers fields routed through the shared
+ * IsoDateTimeString component. Spec fields that inline `format: "date-time"`
+ * are emitted as plain string schemas, so map those to the kernel schema as
+ * well, and fail loudly on any date-time-formatted string shape this mapping
+ * does not recognize.
+ */
+const inlineDateTimeStringPatterns: ReadonlyArray<RegExp> = [
+  /Schema\.String\.annotate\(\{\s*format:\s*"date-time"\s*\}\)/g,
+  /Schema\.String\.check\(Schema\.isMinLength\(1,\s*\{\s*format:\s*"date-time"\s*\}\)\)/g,
+];
+
+const mapInlineDateTimeSchemas = (source: string): string => {
+  const mapped = inlineDateTimeStringPatterns.reduce(
+    (current, pattern) => current.replace(pattern, "DateTimeUtcSchema"),
+    source,
+  );
+  if (/format:\s*"date-time"/.test(mapped)) {
+    console.error(
+      "generate-registry-client: unrecognized date-time schema shape in generated output; " +
+        "extend inlineDateTimeStringPatterns so the field maps to DateTimeUtcSchema.",
+    );
+    process.exit(1);
+  }
+  return mapped;
+};
+
+/**
+ * openapigen's SSE surface double-wraps the event schema: it passes the full
+ * `*200Sse` event struct to `Sse.decodeDataSchema`, which itself wraps the
+ * given schema in `Schema.fromJsonString` under a `data` key — so decoding
+ * always fails at runtime ("Missing key" under data). It also models the SSE
+ * `id` field as `string | null`, while the SSE parser emits an ABSENT id.
+ * Rewrite the helper to decode whole events with `Sse.decodeSchema` and fix
+ * the id fields to optional. Remove when the upstream generator emits a
+ * working SSE pipeline.
+ */
+const fixSseSurface = (source: string): string => {
+  if (!source.includes("const sseRequest =")) {
+    return source;
+  }
+
+  const idConstPattern =
+    /"id": Schema\.Union\(\[Schema\.String, Schema\.Null\]\),(?= "event": Schema\.String, "data":)/g;
+  const idTypePattern =
+    /readonly "id": string \| null,(?= readonly "event": string, readonly "data":)/g;
+
+  const start = source.indexOf("const sseRequest =");
+  const end = source.indexOf("const binaryRequest");
+  const hasIdConst = source.search(idConstPattern) !== -1;
+  const hasIdType = source.search(idTypePattern) !== -1;
+  if (start === -1 || end === -1 || !hasIdConst || !hasIdType) {
+    console.error(
+      "generate-registry-client: SSE anchors not found in generated output; " +
+        "update fixSseSurface for the new generated shape (upstream SSE " +
+        "double-wrap defect may have been fixed - re-evaluate this rewrite).",
+    );
+    process.exit(1);
+  }
+
+  const replacement = `const sseRequest =
+    <Type, DecodingServices>(
+      schema: Schema.Codec<
+        { readonly event: string; readonly id?: string | undefined; readonly data: Type },
+        { readonly id?: string | undefined; readonly event?: string | undefined; readonly data: string },
+        DecodingServices,
+        never
+      >,
+    ) =>
+    (
+      request: HttpClientRequest.HttpClientRequest,
+    ): Stream.Stream<
+      { readonly event: string; readonly id: string | undefined; readonly data: Type },
+      HttpClientError.HttpClientError | SchemaError | Sse.Retry,
+      DecodingServices
+    > =>
+      HttpClient.filterStatusOk(httpClient)
+        .execute(request)
+        .pipe(
+          Effect.map((response) => response.stream),
+          Stream.unwrap,
+          Stream.decodeText(),
+          Stream.pipeThroughChannel(Sse.decodeSchema(schema)),
+          Stream.map((event) => ({ event: event.event, id: event.id, data: event.data })),
+        );
+  `;
+
+  const sseDataTypePattern = /readonly data: typeof (\w+Sse)\.Type \}/g;
+  return (source.slice(0, start) + replacement + source.slice(end))
+    .replace(idConstPattern, '"id": Schema.optional(Schema.String),')
+    .replace(idTypePattern, 'readonly "id"?: string | undefined,')
+    .replace(sseDataTypePattern, 'readonly data: (typeof $1.Type)["data"] }');
+};
+
+fs.writeFileSync(
+  OUTPUT_PATH,
+  header + fixSseSurface(mapInlineDateTimeSchemas(swapDateTimeSchema(result.stdout))),
+);
 
 const formatResult = childProcess.spawnSync("pnpm", ["exec", "prettier", "--write", OUTPUT_PATH], {
   cwd: CORE_ROOT,

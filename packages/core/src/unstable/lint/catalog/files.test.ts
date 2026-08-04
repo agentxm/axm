@@ -15,6 +15,8 @@ const V1_FILES_RULES = [
   { id: "files/template-valid", severity: "error", kind: "advisory" },
   { id: "files/generator-valid", severity: "error", kind: "advisory" },
   { id: "files/marker-valid", severity: "error", kind: "advisory" },
+  { id: "files/standalone-declaration-valid", severity: "warning", kind: "advisory" },
+  { id: "files/recommended-packs-valid", severity: "warning", kind: "advisory" },
 ] as const;
 
 describe("filesRules catalog membership", () => {

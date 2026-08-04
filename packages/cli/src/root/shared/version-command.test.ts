@@ -5,7 +5,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
+import YAML from "yaml";
 
+import {
+  computePackageContentHashSync,
+  writeTrustFromWorkspaceLockfile,
+} from "../../test-stubs.js";
 import {
   at,
   expectRecord,
@@ -27,7 +32,7 @@ const initWorkspace = (root: string) => {
   );
   fs.writeFileSync(
     path.join(root, ".axm", "axm-lock.yaml"),
-    "lockfileVersion: 1\nskills: {}\ncommands: {}\n",
+    "lockfileVersion: 3\nskills: {}\ncommands: {}\n",
   );
 };
 
@@ -36,6 +41,10 @@ const MANIFEST_FILES = {
   skills: { filename: "skill.json", type: "skill" },
   subagents: { filename: "subagent.json", type: "subagent" },
   mcps: { filename: "mcp.json", type: "mcp-server" },
+  files: { filename: "files.json", type: "files" },
+  rules: { filename: "rule.json", type: "rule" },
+  hooks: { filename: "hook.json", type: "hook" },
+  knowledge: { filename: "knowledge.json", type: "knowledge" },
   packs: { filename: "pack.json", type: "pack" },
 } as const;
 
@@ -52,6 +61,7 @@ const writeManifest = (root: string, type: ManifestPlural, name: string, version
       type: extType,
       name,
       version,
+      ...(type === "packs" ? { dependencies: {} } : {}),
     }),
   );
   const settingsPath = path.join(root, ".axm", "settings.json");
@@ -62,6 +72,34 @@ const writeManifest = (root: string, type: ManifestPlural, name: string, version
     [name]: `workspace:@test/${type}/${name}`,
   };
   fs.writeFileSync(settingsPath, JSON.stringify(settings));
+  if (type === "packs") {
+    const lockfilePath = path.join(root, ".axm", "axm-lock.yaml");
+    const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
+    const packs = expectRecord(lockfile["packs"] ?? {});
+    const updatedPacks = {
+      ...packs,
+      [name]: {
+        type: "workspace",
+        owner: "@test",
+        extensionType: "pack",
+        name,
+        version,
+        sourceHash: computePackageContentHashSync(dir),
+        installedAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+        resolvedSubagents: {},
+        resolvedFiles: {},
+        resolvedRules: {},
+        resolvedHooks: {},
+        resolvedKnowledge: {},
+      },
+    };
+    fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
+    writeTrustFromWorkspaceLockfile(path.join(root, ".axm"));
+  }
   return path.join(dir, filename);
 };
 
@@ -348,18 +386,64 @@ describe("root version command handler", () => {
     );
   });
 
-  it.effect("rejects non-versionable extension type", () => {
-    const { provide } = makeWorkspaceHandlerTestContext();
+  it.effect("infers files type from FQN and bumps patch", () => {
+    const manifestPath = writeManifest(tempDir, "files", "my-file", "0.1.0");
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
 
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleRootVersion({
-          handle: "@te/files/my-file",
+        yield* handleRootVersion({
+          handle: "@test/files/my-file",
           bump: "patch",
           targetVersion: Option.none(),
           preview: false,
-        }).pipe(Effect.flip);
-        expect(getAppError(result).code).toBe("validation");
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("0.1.1");
+        expect(logs.success).toContain("Updated context files @test/files/my-file 0.1.0 -> 0.1.1");
+      }),
+    );
+  });
+
+  it.effect("infers rule type from FQN and bumps patch", () => {
+    const manifestPath = writeManifest(tempDir, "rules", "commit-style", "0.1.0");
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootVersion({
+          handle: "@test/rules/commit-style",
+          bump: "patch",
+          targetVersion: Option.none(),
+          preview: false,
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("0.1.1");
+        expect(logs.success).toContain("Updated rule @test/rules/commit-style 0.1.0 -> 0.1.1");
+      }),
+    );
+  });
+
+  it.effect("infers knowledge type from FQN and bumps minor", () => {
+    const manifestPath = writeManifest(tempDir, "knowledge", "handbook", "1.0.0");
+    const { provide, logs } = makeWorkspaceHandlerTestContext();
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleRootVersion({
+          handle: "@test/knowledge/handbook",
+          bump: "minor",
+          targetVersion: Option.none(),
+          preview: false,
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        expect(manifest.version).toBe("1.1.0");
+        expect(logs.success).toContain(
+          "Updated knowledge bundle @test/knowledge/handbook 1.0.0 -> 1.1.0",
+        );
       }),
     );
   });

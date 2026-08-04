@@ -285,6 +285,34 @@ describe("makeScopedStateApi.settings", () => {
     }),
   );
 
+  it.effect("fails with SettingsDecodeError for removed Library workspace state", () =>
+    Effect.gen(function* () {
+      const counters = yield* makeCounters;
+      const fs = buildFs(
+        {
+          readers: {
+            [SETTINGS_PATH]: () =>
+              Effect.succeed(
+                JSON.stringify({ libraries: { frontend: "@acme/libraries/frontend" } }),
+              ),
+          },
+          missing: new Set(),
+          existsFails: new Set(),
+        },
+        counters,
+      );
+      const api = yield* makeApi("project", fs);
+
+      const err = yield* Effect.flip(api.settings);
+      expect(err).toBeInstanceOf(SettingsDecodeError);
+      if (err._tag === "SettingsDecodeError") {
+        expect(err.raw).toEqual({
+          libraries: { frontend: "@acme/libraries/frontend" },
+        });
+      }
+    }),
+  );
+
   it.effect("explains the authored-to-workspace-source cutover", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
@@ -368,7 +396,7 @@ describe("makeScopedStateApi.settings", () => {
 // Lockfile cell
 // ---------------------------------------------------------------------------
 
-const validLockfileYaml = ["lockfileVersion: 1", "skills: {}", ""].join("\n");
+const validLockfileYaml = ["lockfileVersion: 3", "skills: {}", ""].join("\n");
 
 describe("makeScopedStateApi.lockfile", () => {
   it.effect("returns Option.none() when lockfile is absent in project scope", () =>
@@ -400,7 +428,7 @@ describe("makeScopedStateApi.lockfile", () => {
 
       const result = yield* api.lockfile;
       expect(Option.isSome(result)).toBe(true);
-      expect(Option.getOrThrow(result).lockfileVersion).toBe(1);
+      expect(Option.getOrThrow(result).lockfileVersion).toBe(3);
     }),
   );
 
@@ -489,6 +517,34 @@ describe("makeScopedStateApi.lockfile", () => {
       if (err._tag === "LockfileDecodeError") {
         expect(err.path).toBe(LOCKFILE_PATH);
         expect(err.issues.length).toBeGreaterThan(0);
+      }
+    }),
+  );
+
+  it.effect("fails with LockfileDecodeError for removed Library workspace state", () =>
+    Effect.gen(function* () {
+      const counters = yield* makeCounters;
+      const raw = [
+        "lockfileVersion: 3",
+        "skills: {}",
+        "libraries:",
+        "  frontend:",
+        "    type: registry",
+      ].join("\n");
+      const fs = buildFs(
+        {
+          readers: { [LOCKFILE_PATH]: () => Effect.succeed(raw) },
+          missing: new Set(),
+          existsFails: new Set(),
+        },
+        counters,
+      );
+      const api = yield* makeApi("project", fs);
+
+      const err = yield* Effect.flip(api.lockfile);
+      expect(err).toBeInstanceOf(LockfileDecodeError);
+      if (err._tag === "LockfileDecodeError") {
+        expect(err.issues).toContain("libraries: Library workspace state is no longer supported");
       }
     }),
   );

@@ -5,10 +5,15 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import type * as Scope from "effect/Scope";
 
+import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
+import type { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 import {
   CliRenderer,
   registerEntity,
@@ -20,11 +25,23 @@ import type { Version } from "@agentxm/client-core/unstable/version-constraints"
 import {
   collectAllUpdateEntries,
   collectCommandCurrency,
+  collectCommandSourceFreshness,
+  collectFilesCurrency,
+  collectFilesSourceFreshness,
+  collectHookCurrency,
+  collectHookSourceFreshness,
+  collectKnowledgeCurrency,
+  collectKnowledgeSourceFreshness,
   collectMcpServerCurrency,
+  collectMcpServerSourceFreshness,
   collectPackCurrency,
+  collectRuleCurrency,
+  collectRuleSourceFreshness,
   collectSkillCurrency,
   collectSkillSourceFreshness,
   collectSubagentCurrency,
+  collectSubagentSourceFreshness,
+  WorkspaceMutations,
   type ExtensionCurrencyEntry,
   type ExtensionUpdateEntry,
 } from "@agentxm/client-core/unstable/workspace";
@@ -58,10 +75,12 @@ const OutdatedEntrySchema = Schema.Struct({
   status: Schema.String,
 });
 
-const OutdatedDocumentFields = {
-  data: Schema.Array(OutdatedEntrySchema),
+export const OutdatedDocumentFields = {
+  items: Schema.Array(OutdatedEntrySchema),
   count: Schema.Number,
 } satisfies Schema.Struct.Fields;
+export const OutdatedDocumentSchema = Schema.Struct(OutdatedDocumentFields);
+export type OutdatedDocument = typeof OutdatedDocumentSchema.Type;
 
 // ---------------------------------------------------------------------------
 // Table output
@@ -221,26 +240,49 @@ const defaultCollect = (type: Option.Option<ExtensionType>) =>
     });
   });
 
+/**
+ * Registry currency plus git-source freshness for one type.
+ *
+ * Packs are registry-only, so they have no git source to check.
+ */
+const withSourceFreshness = (
+  currency: Effect.Effect<
+    ReadonlyArray<ExtensionUpdateEntry>,
+    AppError,
+    WorkspaceMutations | SourceHostProviders | FileSystem.FileSystem | Path.Path | Scope.Scope
+  >,
+  freshness: () => Effect.Effect<
+    ReadonlyArray<ExtensionUpdateEntry>,
+    AppError,
+    WorkspaceMutations | SourceHostProviders | FileSystem.FileSystem | Path.Path | Scope.Scope
+  >,
+) =>
+  Effect.scoped(
+    Effect.all([currency, freshness()], { concurrency: "unbounded" }).pipe(
+      Effect.map(([registry, source]) => [...registry, ...source]),
+    ),
+  );
+
 const collectByType = (type: ExtensionType, client: Parameters<typeof collectSkillCurrency>[0]) => {
   switch (type) {
     case "skill":
-      return Effect.scoped(
-        Effect.all([collectSkillCurrency(client), collectSkillSourceFreshness()], {
-          concurrency: "unbounded",
-        }).pipe(Effect.map(([registry, source]) => [...registry, ...source])),
-      );
+      return withSourceFreshness(collectSkillCurrency(client), collectSkillSourceFreshness);
     case "command":
-      return collectCommandCurrency(client);
+      return withSourceFreshness(collectCommandCurrency(client), collectCommandSourceFreshness);
     case "mcp-server":
-      return collectMcpServerCurrency(client);
+      return withSourceFreshness(collectMcpServerCurrency(client), collectMcpServerSourceFreshness);
     case "subagent":
-      return collectSubagentCurrency(client);
+      return withSourceFreshness(collectSubagentCurrency(client), collectSubagentSourceFreshness);
     case "pack":
       return collectPackCurrency(client);
-    default: {
-      const empty: ReadonlyArray<ExtensionUpdateEntry> = [];
-      return Effect.succeed(empty);
-    }
+    case "files":
+      return withSourceFreshness(collectFilesCurrency(client), collectFilesSourceFreshness);
+    case "rule":
+      return withSourceFreshness(collectRuleCurrency(client), collectRuleSourceFreshness);
+    case "hook":
+      return withSourceFreshness(collectHookCurrency(client), collectHookSourceFreshness);
+    case "knowledge":
+      return withSourceFreshness(collectKnowledgeCurrency(client), collectKnowledgeSourceFreshness);
   }
 };
 
@@ -256,12 +298,16 @@ export const handleOutdatedWith = <E, R>(
 ) =>
   Effect.gen(function* () {
     const renderer = yield* CliRenderer;
-    const entries = yield* collect(args.type);
+    const entries = yield* renderer.withSpinner(
+      "Checking extension updates",
+      () => collect(args.type),
+      { successMessage: "Checked extension updates" },
+    );
 
     if (entries.length === 0) {
       const suggestions = [INSTALL_EXTENSION_FROM_REGISTRY];
       if (
-        yield* renderer.result({ data: [], count: 0 }, Schema.Struct(OutdatedDocumentFields), {
+        yield* renderer.result({ items: [], count: 0 }, OutdatedDocumentSchema, {
           suggestions,
         })
       ) {
@@ -280,10 +326,7 @@ export const handleOutdatedWith = <E, R>(
     const jsonRows = outdated.map(entryToJsonRow);
 
     if (
-      yield* renderer.result(
-        { data: jsonRows, count: jsonRows.length },
-        Schema.Struct(OutdatedDocumentFields),
-      )
+      yield* renderer.result({ items: jsonRows, count: jsonRows.length }, OutdatedDocumentSchema)
     ) {
       return;
     }

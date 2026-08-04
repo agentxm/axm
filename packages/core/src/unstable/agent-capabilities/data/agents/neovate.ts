@@ -3,7 +3,7 @@ export const neovateAgent = {
   id: "neovate",
   name: "Neovate",
   vendor: "Ant Group",
-  homepage: "https://neovateai.dev",
+  homepage: "https://github.com/neovateai/neovate-code",
   interfaces: ["cli"],
   family: null,
   rootDir: ".neovate",
@@ -15,7 +15,7 @@ export const neovateAgent = {
   docs: [
     {
       label: "Neovate Code documentation",
-      url: "https://neovateai.dev/docs/features",
+      url: "https://github.com/neovateai/neovate-code",
     },
   ],
   capabilities: {
@@ -24,31 +24,34 @@ export const neovateAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Neovate documents on-demand skills as a feature, but current public docs do not describe an Agent Skills-compatible SKILL.md directory.\n",
+          "Neovate loads directory-based skills (each subdirectory contains a SKILL.md with name+description frontmatter) from .neovate/skills (project) and ~/.neovate/skills (user).",
         docs: [],
-        sources: ["https://neovateai.dev/docs/features"],
+        sources: ["https://github.com/neovateai/neovate-code/blob/master/src/skill.ts"],
         scopes: ["user", "project"],
-        standardsCompliance: "partial",
+        standardsCompliance: "full",
         convention: "vendor",
         directory: ".neovate/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
     command: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Neovate custom slash commands are Markdown files in .neovate/commands (project) and ~/.neovate/commands (user); also reads .claude/commands.",
         docs: [],
-        sources: [],
+        sources: ["https://github.com/neovateai/neovate-code/blob/master/src/slashCommand.ts"],
+        scopes: ["user", "project"],
+        directory: ".neovate/commands",
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
+        status: "supported",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -58,7 +61,11 @@ export const neovateAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://neovateai.dev/en/docs/mcp/"],
+        sources: [
+          "https://github.com/neovateai/neovate-code/blob/master/src/mcp.ts",
+          "https://github.com/neovateai/neovate-code/blob/master/src/config.ts",
+          "https://github.com/neovateai/neovate-code/blob/master/src/commands/mcp.ts",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -70,35 +77,52 @@ export const neovateAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "disable", enabled: false, disabled: true },
+              accepted: [{ name: "disable", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "user",
-                path: "~/.neovate/mcp.json",
+                path: "~/.neovate/config.json",
                 format: "json",
               },
               {
                 scope: "project",
-                path: ".neovate/mcp.json",
+                path: ".neovate/config.json",
                 format: "json",
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: {
+                required: { name: "type", value: "stdio" },
+                accepted: [{ name: "type", value: "stdio" }, null],
+              },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",
@@ -106,40 +130,11 @@ export const neovateAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
     },
     subagent: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
       native: {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
@@ -166,6 +161,20 @@ export const neovateAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

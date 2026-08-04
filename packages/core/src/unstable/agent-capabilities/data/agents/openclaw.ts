@@ -4,7 +4,7 @@ export const openclawAgent = {
   name: "OpenClaw",
   vendor: "OpenClaw",
   homepage: "https://openclaw.ai",
-  interfaces: ["cli", "ide-extension"],
+  interfaces: ["cli"],
   family: null,
   rootDir: null,
   lifecycle: { state: "active" },
@@ -26,7 +26,7 @@ export const openclawAgent = {
         notes: null,
         docs: [],
         sources: [
-          "https://docs.openclaw.ai/skills",
+          "https://docs.openclaw.ai/tools/skills",
           "https://github.com/openclaw/openclaw/blob/main/docs/tools/skills.md",
         ],
         scopes: ["user", "project"],
@@ -36,7 +36,7 @@ export const openclawAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -82,34 +82,6 @@ export const openclawAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
@@ -123,6 +95,20 @@ export const openclawAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "none" },
+      vendorStatus: { state: "active" },
+      notes: null,
+      docs: [],
+      sources: [],
+    },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
     },
   },
   permissions: {

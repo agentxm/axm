@@ -60,6 +60,33 @@ const lineCommentExtensions = new Set([
 
 const strictCommentlessExtensions = new Set([".json", ".jsonc"]);
 
+// Extensions whose line comments use `//` rather than `#`. Rust/Go/Java/Kotlin
+// (and the C family) would otherwise get an invalid `#` marker that breaks the
+// file.
+const slashCommentExtensions = new Set([
+  ".js",
+  ".jsx",
+  ".ts",
+  ".tsx",
+  ".mjs",
+  ".cjs",
+  ".mts",
+  ".cts",
+  ".rs",
+  ".go",
+  ".java",
+  ".kt",
+  ".kts",
+  ".c",
+  ".h",
+  ".cpp",
+  ".hpp",
+  ".cc",
+  ".swift",
+  ".scala",
+  ".dart",
+]);
+
 const extensionOf = (target: string): string => {
   const slash = Math.max(target.lastIndexOf("/"), target.lastIndexOf("\\"));
   const basename = target.slice(slash + 1);
@@ -77,13 +104,12 @@ export const commentStyleForTarget = (target: string): Option.Option<FileComment
   if (blockCommentExtensions.has(ext)) {
     return Option.some({ kind: "block", open: "<!--", close: "-->" });
   }
+  if (slashCommentExtensions.has(ext)) {
+    return Option.some({ kind: "line", prefix: "//" });
+  }
   if (lineCommentExtensions.has(ext)) {
-    const prefix = ext === ".css" ? "/*" : "#";
-    if (prefix === "/*") return Option.some({ kind: "block", open: "/*", close: "*/" });
-    if ([".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts"].includes(ext)) {
-      return Option.some({ kind: "line", prefix: "//" });
-    }
-    return Option.some({ kind: "line", prefix });
+    if (ext === ".css") return Option.some({ kind: "block", open: "/*", close: "*/" });
+    return Option.some({ kind: "line", prefix: "#" });
   }
   return strictCommentlessExtensions.has(ext)
     ? Option.none()
@@ -178,6 +204,10 @@ const sameIdentity = (marker: FileRegionMarker, identity: FileRegionMarkerIdenti
 
 const splitLines = (content: string): ReadonlyArray<string> => content.split(/\r?\n/);
 
+// Preserve the file's existing newline convention so replacing/stripping a
+// managed region does not rewrite CRLF line endings to LF outside the region.
+const detectEol = (content: string): string => (content.includes("\r\n") ? "\r\n" : "\n");
+
 const findRegion = (
   content: string,
   identity: FileRegionMarkerIdentity,
@@ -193,19 +223,14 @@ const findRegion = (
   for (const [index, line] of lines.entries()) {
     const parsed = parseRegionMarker(line, style);
     if (Option.isNone(parsed) || !sameIdentity(parsed.value, identity)) continue;
-    if (parsed.value.kind === "start") {
-      if (start !== undefined)
-        throw new Error(`Nested or duplicate AXM region start: ${identity.region}`);
+    // Be lenient about malformed marker sequences in hand-edited files: take the
+    // first start and the first end after it, ignoring extras, rather than
+    // throwing a raw Error that would escape as a defect and crash sync.
+    if (parsed.value.kind === "start" && start === undefined) {
       start = index;
-    }
-    if (parsed.value.kind === "end") {
-      if (start === undefined) throw new Error(`AXM region end without start: ${identity.region}`);
-      if (end !== undefined) throw new Error(`Duplicate AXM region end: ${identity.region}`);
+    } else if (parsed.value.kind === "end" && start !== undefined && end === undefined) {
       end = index;
     }
-  }
-  if (start !== undefined && end === undefined) {
-    throw new Error(`AXM region start without end: ${identity.region}`);
   }
   return start !== undefined && end !== undefined && start < end
     ? Option.some({ start, end, lines })
@@ -233,14 +258,15 @@ export const replaceManagedRegion = ({
   const startMarker = startLine ?? markers.start;
   const renderedLines = splitLines(rendered);
   const replacement = [startMarker, ...renderedLines, markers.end];
+  const eol = detectEol(content);
   const located = findRegion(content, marker, style);
   if (Option.isNone(located)) {
-    const suffix = content.endsWith("\n") || content.length === 0 ? "" : "\n";
-    return `${content}${suffix}${replacement.join("\n")}\n`;
+    const suffix = content.endsWith("\n") || content.length === 0 ? "" : eol;
+    return `${content}${suffix}${replacement.join(eol)}${eol}`;
   }
   const before = located.value.lines.slice(0, located.value.start);
   const after = located.value.lines.slice(located.value.end + 1);
-  return [...before, ...replacement, ...after].join("\n");
+  return [...before, ...replacement, ...after].join(eol);
 };
 
 /**
@@ -257,5 +283,5 @@ export const stripManagedRegion = (
   if (Option.isNone(located)) return content;
   const before = located.value.lines.slice(0, located.value.start);
   const after = located.value.lines.slice(located.value.end + 1);
-  return [...before, ...after].join("\n");
+  return [...before, ...after].join(detectEol(content));
 };

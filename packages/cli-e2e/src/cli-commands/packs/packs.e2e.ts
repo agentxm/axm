@@ -12,6 +12,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createTempDir, runCli } from "../../e2e/utils.js";
+import { refreshAuthoredWorkspacePackState } from "../../e2e/workspace-pack-state.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -150,6 +151,7 @@ function updatePackManifest(
   manifest.version = args.version;
   manifest.dependencies = args.dependencies;
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  refreshAuthoredWorkspacePackState(workspaceRoot, "@test", packName);
 }
 
 function detachWorkspacePack(
@@ -286,6 +288,96 @@ describe("axm packs add/remove", () => {
       temp.cleanup();
     }
   });
+
+  it("records workspace and Registry dependencies in one pack receipt", async () => {
+    const { temp, registryDir, settingsPath, readLock, cleanup } = setupWorkspaceWithRegistry();
+    try {
+      await runCli(["setup", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+      await publishRegistrySkill(registryDir.path, "registry-member");
+      const registrySkill = await runCli(
+        ["skills", "install", "@test/skills/registry-member", "--yes"],
+        { cwd: temp.path },
+      );
+      expect(registrySkill.exitCode, registrySkill.stderr).toBe(0);
+
+      const workspaceSkill = await runCli(
+        [
+          "skills",
+          "new",
+          "workspace-member",
+          "--owner",
+          "@test",
+          "--agent",
+          "claude-code",
+          "--yes",
+        ],
+        { cwd: temp.path },
+      );
+      expect(workspaceSkill.exitCode, workspaceSkill.stderr).toBe(0);
+      const pack = await runCli(["packs", "new", "mixed-pack", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(pack.exitCode, pack.stderr).toBe(0);
+
+      const addWorkspace = await runCli(
+        ["packs", "add", "mixed-pack", "@test/skills/workspace-member", "--yes"],
+        {
+          cwd: temp.path,
+          env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
+        },
+      );
+      expect(addWorkspace.exitCode, addWorkspace.stderr).toBe(0);
+
+      const addRegistry = await runCli(
+        ["packs", "add", "mixed-pack", "@test/skills/registry-member", "--yes"],
+        { cwd: temp.path },
+      );
+      expect(addRegistry.exitCode, addRegistry.stderr).toBe(0);
+
+      const receipt = readLock().packs["mixed-pack"].resolvedSkills;
+      expect(receipt["@test/skills/workspace-member"]).toMatchObject({
+        source: "workspace",
+        version: "0.0.1",
+        sourceIdentity: "workspace:@test/skills/workspace-member",
+      });
+      expect(receipt["@test/skills/workspace-member"].contentIdentity).toMatch(/^[a-f0-9]{64}$/);
+      expect(receipt["@test/skills/registry-member"]).toMatchObject({
+        source: "registry",
+        version: "0.0.1",
+        publisherBindingId: expect.stringMatching(/^hbnd_/),
+        integrity: expect.stringMatching(/^sha512-/),
+      });
+
+      const unrelated = await runCli(["packs", "new", "drifted-pack", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(unrelated.exitCode, unrelated.stderr).toBe(0);
+      const driftedManifestPath = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "packs",
+        "drifted-pack",
+        "pack.json",
+      );
+      const driftedManifest = JSON.parse(fs.readFileSync(driftedManifestPath, "utf-8"));
+      driftedManifest.description = "Changed outside AXM";
+      fs.writeFileSync(driftedManifestPath, JSON.stringify(driftedManifest, null, 2));
+
+      const show = await runCli(["packs", "show", "mixed-pack", "--json"], {
+        cwd: temp.path,
+      });
+      expect(show.exitCode, show.stderr).toBe(0);
+      const shown = JSON.parse(show.stdout);
+      expect(shown.result.pack).toBe("@test/packs/mixed-pack");
+      expect(shown.result.desiredDependencies).toHaveLength(2);
+      expect(shown.result.resolvedDependencies).toHaveLength(2);
+    } finally {
+      cleanup();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -314,7 +406,7 @@ describe("axm packs publish", () => {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },
       });
-      expect(publishResult.exitCode).toBe(0);
+      expect(publishResult.exitCode, publishResult.stderr).toBe(0);
 
       // Verify index.json in registry
       const registryIndexPath = path.join(
@@ -372,7 +464,7 @@ describe("axm packs publish", () => {
         },
       );
       expect(result.exitCode).toBe(0);
-      expect(JSON.parse(result.stdout).results).toEqual([]);
+      expect(JSON.parse(result.stdout).result.results).toEqual([]);
     } finally {
       cleanup();
     }
@@ -551,13 +643,14 @@ describe("axm packs install", () => {
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       packManifest.dependencies = { "@test/skills/dep-skill": "1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
+      refreshAuthoredWorkspacePackState(temp.path, "@test", "deps-pack");
 
       // Publish the pack (with the skill dependency)
       const packPublishResult = await runCli(["packs", "publish", "deps-pack", "--yes"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },
       });
-      expect(packPublishResult.exitCode).toBe(0);
+      expect(packPublishResult.exitCode, packPublishResult.stderr).toBe(0);
 
       // Clean up local state: remove pack from settings/lockfile/disk
       const settingsBefore = readSettings();
@@ -593,10 +686,11 @@ describe("axm packs install", () => {
       const resolvedKeys = Object.keys(packEntry.resolvedSkills);
       expect(resolvedKeys.length).toBeGreaterThan(0);
       expect(resolvedKeys.some((k: string) => k.includes("dep-skill"))).toBe(true);
-      const resolvedSkillVersion = packEntry.resolvedSkills["@test/skills/dep-skill"];
-      expect(resolvedSkillVersion).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
-      expect(resolvedSkillVersion.startsWith("^")).toBe(false);
-      expect(resolvedSkillVersion.startsWith("~")).toBe(false);
+      const resolvedSkill = packEntry.resolvedSkills["@test/skills/dep-skill"];
+      expect(resolvedSkill.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
+      expect(resolvedSkill.version.startsWith("^")).toBe(false);
+      expect(resolvedSkill.version.startsWith("~")).toBe(false);
+      expect(resolvedSkill.publisherBindingId).toMatch(/^hbnd_/);
 
       // Verify pack in settings
       const settings = readSettings();
@@ -647,12 +741,13 @@ describe("axm packs install", () => {
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       packManifest.dependencies = { "@test/subagents/dep-subagent": "1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
+      refreshAuthoredWorkspacePackState(temp.path, "@test", "subagent-pack");
 
       const packPublishResult = await runCli(["packs", "publish", "subagent-pack", "--yes"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "e2e-test-token" },
       });
-      expect(packPublishResult.exitCode).toBe(0);
+      expect(packPublishResult.exitCode, packPublishResult.stderr).toBe(0);
 
       const settingsBefore = readSettings();
       delete settingsBefore.subagents?.["dep-subagent"];
@@ -677,7 +772,12 @@ describe("axm packs install", () => {
       const lock = readLock();
       const packEntry = lock.packs["subagent-pack"];
       expect(packEntry.resolvedSubagents).toEqual({
-        "@test/subagents/dep-subagent": "1.0.0",
+        "@test/subagents/dep-subagent": {
+          source: "registry",
+          version: "1.0.0",
+          publisherBindingId: expect.stringMatching(/^hbnd_/),
+          integrity: expect.stringMatching(/^sha512-/),
+        },
       });
       expect(lock.subagents["dep-subagent"]).toBeDefined();
 
@@ -916,7 +1016,7 @@ describe("axm packs unpack", () => {
       const result = await runCli(["packs", "unpack", "nonexistent", "--yes"], { cwd: temp.path });
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain("not installed");
+      expect(result.stderr).toContain("not configured");
     } finally {
       temp.cleanup();
     }

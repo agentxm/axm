@@ -10,6 +10,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
@@ -90,35 +91,15 @@ const extensionIndexResponse = {
   versions: [
     {
       version: "1.0.0",
-      published: "2025-01-01T00:00:00Z",
+      published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
       integrity: "sha512-abc123",
       dependencies: {},
       packages: [{ purl: "pkg:npm/react" }],
     },
     {
       version: "0.9.0",
-      published: "2024-12-01T00:00:00Z",
+      published: DateTime.makeUnsafe("2024-12-01T00:00:00Z"),
       integrity: "sha512-def456",
-    },
-  ],
-};
-
-/**
- * Standard extension list response body.
- */
-const extensionListResponse = {
-  extensions: [
-    {
-      name: "test-skill",
-      owner: "@acme",
-      type: "skill",
-      latestVersion: "1.0.0",
-    },
-    {
-      name: "another-skill",
-      owner: "@acme",
-      type: "skill",
-      latestVersion: "2.0.0",
     },
   ],
 };
@@ -376,27 +357,43 @@ describe("getExtensionsByScope", () => {
 // =============================================================================
 
 describe("ownerExists", () => {
-  it.effect("returns exists:true when owner has extensions", () =>
+  it.effect("returns exists:true for an owner", () =>
     Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(
-        () => new Response(JSON.stringify(extensionListResponse), { status: 200 }),
-      );
+      let requestedUrl = "";
+      const httpClient = makeMockHttpClient((request) => {
+        requestedUrl = request.url;
+        return new Response(JSON.stringify({ displayName: "Acme" }), { status: 200 });
+      });
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.ownerExists(registryOwner);
 
       expect(result.exists).toBe(true);
+      expect(requestedUrl).toBe(`${BASE_URL}/v1/owners/@acme`);
     }),
   );
 
-  it.effect("returns exists:false when owner has no extensions", () =>
+  it.effect("returns exists:true for an owner with no extensions", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
-        () => new Response(JSON.stringify({ extensions: [] }), { status: 200 }),
+        () => new Response(JSON.stringify({ displayName: "Empty Owner" }), { status: 200 }),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const result = yield* client.ownerExists(handle("@empty"));
+
+      expect(result.exists).toBe(true);
+    }),
+  );
+
+  it.effect("returns exists:false when the owner endpoint returns 404", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() =>
+        typedErrorResponse(404, "owner_not_found", "Owner not found"),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.ownerExists(handle("@missing"));
 
       expect(result.exists).toBe(false);
     }),
@@ -416,86 +413,13 @@ describe("ownerExists", () => {
   it.effect("fails with REGISTRY_REMOTE_INVALID_RESPONSE on invalid schema", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
-        () => new Response(JSON.stringify({ not: "extensions" }), { status: 200 }),
+        () => new Response(JSON.stringify({ not: "displayName" }), { status: 200 }),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(client.ownerExists(registryOwner));
 
       expect(error.code).toBe("internal");
-    }),
-  );
-});
-
-// =============================================================================
-// getLibrary
-// =============================================================================
-
-describe("getLibrary", () => {
-  it.effect("returns the viewer-relative authoritative resolution", () =>
-    Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(
-        () =>
-          new Response(
-            JSON.stringify({
-              libraryId: "lib_01j00000000000000000000000",
-              reference: "@acme/libraries/frontend",
-              name: "frontend",
-              updatedAt: "2026-07-14T00:00:00.000Z",
-              membershipDigest: "sha256:server-digest",
-              viewerRelative: true,
-              members: [
-                {
-                  memberId: "lmem_01j00000000000000000000000",
-                  extensionId: "ext_01j00000000000000000000000",
-                  extensionVersionId: "extv_01j00000000000000000000000",
-                  owner: "@acme",
-                  type: "skill",
-                  name: "reviewer",
-                  version: "1.2.3",
-                  addedAt: "2026-06-01T00:00:00.000Z",
-                  publishedAt: "2026-05-01T00:00:00.000Z",
-                },
-              ],
-            }),
-            { status: 200 },
-          ),
-      );
-      const client = createRemoteRegistryClient(BASE_URL, httpClient);
-
-      const result = yield* client.getLibrary({
-        owner: registryOwner,
-        name: extensionName("frontend"),
-      });
-
-      expect(Option.isSome(result)).toBe(true);
-      const resolution = Option.getOrThrow(result);
-      expect(resolution.membershipDigest).toBe("sha256:server-digest");
-      expect(resolution.viewerRelative).toBe(true);
-      expect(resolution.members[0]).toEqual(
-        expect.objectContaining({
-          extensionOwner: registryOwner,
-          extensionType: "skill",
-          extensionName: extensionName("reviewer"),
-          resolvedVersion: exactVersion("1.2.3"),
-        }),
-      );
-    }),
-  );
-
-  it.effect("returns Option.none() for an inaccessible Library", () =>
-    Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(() =>
-        typedErrorResponse(404, "library_not_found", "Library not found"),
-      );
-      const client = createRemoteRegistryClient(BASE_URL, httpClient);
-
-      const result = yield* client.getLibrary({
-        owner: registryOwner,
-        name: extensionName("private-library"),
-      });
-
-      expect(Option.isNone(result)).toBe(true);
     }),
   );
 });
@@ -813,7 +737,7 @@ const publishArgs = {
   archive: new Uint8Array([0x50, 0x4b, 0x03, 0x04]),
   metadata: {
     version: exactVersion("1.0.0"),
-    published: "2025-01-01T00:00:00Z",
+    published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
     integrity: "sha512-abc123",
   },
 };

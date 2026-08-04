@@ -20,7 +20,7 @@ import * as Effect from "effect/Effect";
 import { platformCanonicalLintConfig } from "../config.js";
 import { evaluateContexts, type Evaluated } from "../evaluate.js";
 import type { LintFinding, LintRule } from "../rule.js";
-import type { WorkspaceRuleContext } from "../context.js";
+import type { InstalledExtensionManifest, WorkspaceRuleContext } from "../context.js";
 import { workspaceRules } from "./workspace.js";
 import {
   applyOperationIntent,
@@ -51,6 +51,12 @@ interface RawCaseState {
   readonly writablePaths?: ReadonlyArray<string>;
   readonly listings?: Readonly<Record<string, ReadonlyArray<string>>>;
   readonly detectedProjectAgents?: ReadonlyArray<string>;
+  /**
+   * Seeds `context.installedExtensions`. The real projection reads these off
+   * disk in `buildLintWorkspace`; fixtures declare them directly, the same way
+   * `settings` and `lockfile` are declared rather than parsed from files.
+   */
+  readonly installedExtensions?: ReadonlyArray<InstalledExtensionManifest>;
 }
 
 interface FixtureCase {
@@ -109,15 +115,23 @@ const fixtureSpecFor = (state: WorkspaceState, scope: "project" | "user"): Fixtu
   });
 };
 
-const buildContext = (state: WorkspaceState, scope: "project" | "user") =>
+const buildContext = (
+  state: WorkspaceState,
+  scope: "project" | "user",
+  installedExtensions: ReadonlyArray<InstalledExtensionManifest>,
+) =>
   Effect.gen(function* () {
     const workspace = yield* makeWorkspaceReadModel(scope);
-    return {
+    // Annotated rather than `satisfies` so the inferred type stays the wide
+    // `WorkspaceRuleContext` the catalog's rules are generic over.
+    const context: WorkspaceRuleContext = {
       subject: { root: FIXTURE_PROJECT_ROOT, scope },
       workspace,
       axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
+      installedExtensions: { manifests: Effect.succeed(installedExtensions) },
       displayRoot: "",
-    } satisfies WorkspaceRuleContext;
+    };
+    return context;
   }).pipe(Effect.provide(WorkspaceReadModelTest(fixtureSpecFor(state, scope))));
 
 const assertFindingsMatch = (
@@ -158,7 +172,8 @@ describe("workspace catalog — fixtures", () => {
     it.effect(`${caseName}: ${fixture.description}`, () =>
       Effect.gen(function* () {
         const state = seedState(fixture.state);
-        const ctx = yield* buildContext(state, fixture.scope);
+        const installedExtensions = fixture.state.installedExtensions ?? [];
+        const ctx = yield* buildContext(state, fixture.scope, installedExtensions);
 
         const evaluated = yield* evaluateContexts(
           workspaceRules as ReadonlyArray<LintRule<WorkspaceRuleContext>>,
@@ -187,7 +202,7 @@ describe("workspace catalog — fixtures", () => {
             }
           }
         }
-        const ctx2 = yield* buildContext(state, fixture.scope);
+        const ctx2 = yield* buildContext(state, fixture.scope, installedExtensions);
         const evaluated2 = yield* evaluateContexts(
           workspaceRules as ReadonlyArray<LintRule<WorkspaceRuleContext>>,
           [ctx2],

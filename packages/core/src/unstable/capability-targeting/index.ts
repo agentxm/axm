@@ -1,5 +1,10 @@
 /** @experimental All exports from this module are unstable. */
-export { capabilityRenderTargetForAgentId } from "./profile.js";
+export {
+  CAPABILITY_KEYS,
+  INSTRUCTIONS_CAPABILITY_KEY,
+  capabilityKeyForType,
+  capabilityRenderTargetForAgentId,
+} from "./profile.js";
 export { markdownSemanticallyEquivalent } from "./semantic-equivalence.js";
 export {
   AGENT_CAPABILITY_CATALOG_VERSION,

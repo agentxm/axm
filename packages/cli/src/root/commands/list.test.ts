@@ -197,7 +197,7 @@ describe("commands list.handler", () => {
             {
               name: "cmd-one",
               source: "@acme/commands/cmd-one",
-              activation: "enabled",
+              enabled: true,
               classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           ],

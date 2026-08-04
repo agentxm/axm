@@ -7,10 +7,30 @@
   "tags": ["type:lib", "scope:core"],
   "targets": {
     "generate": {
-      "dependsOn": ["generate:schemas", "generate:registry-client", "generate:telemetry-client"],
+      "dependsOn": [
+        "generate:schemas",
+        "generate:registry-client",
+        "generate:telemetry-client",
+        "generate:e2e-extension-matrix"
+      ],
       "executor": "nx:run-commands",
       "options": {
         "command": "echo core generated output is up to date"
+      }
+    },
+    "generate:e2e-extension-matrix": {
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/scripts/generate-e2e-extension-matrix.ts",
+        "{projectRoot}/src/unstable/extensions/common.ts",
+        "{projectRoot}/src/unstable/extension-types/parity/**/*.ts",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{workspaceRoot}/packages/cli-e2e/src/__generated__/extension-type-matrix.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-e2e-extension-matrix.ts"],
+        "cwd": "packages/core"
       }
     },
     "generate:schemas": {

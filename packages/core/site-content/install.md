@@ -194,9 +194,19 @@ setup` just produced.
 
 **`axm: command not found`** — install bin directory is not on PATH:
 
-- **Script (macOS/Linux):** `export PATH="$HOME/.axm/bin:$PATH"`; persist in
-  `~/.bashrc` / `~/.zshrc`.
-- **Script (Windows):** add `%USERPROFILE%\.axm\bin` to PATH via System
-  Environment Variables, or `$env:Path = "$env:USERPROFILE\.axm\bin;$env:Path"`.
+- **Script (macOS/Linux):** run `export PATH="$HOME/.axm/bin:$PATH"`; add the
+  same export to `~/.profile`, `~/.bashrc`, or `~/.zshrc`, then open a new
+  terminal.
+- **Script (Windows PowerShell):** run
+  `$env:Path = "$env:USERPROFILE\.axm\bin;" + $env:Path`; add
+  `%USERPROFILE%\.axm\bin` to your User PATH, then open a new terminal.
+- **Script (Windows Command Prompt):** run
+  `set "PATH=%USERPROFILE%\.axm\bin;%PATH%"`; add
+  `%USERPROFILE%\.axm\bin` to your User PATH, then open a new terminal.
 - **Homebrew:** `brew link axm`.
 - **npm:** `export PATH="$(npm config get prefix)/bin:$PATH"`.
+
+The native installers print commands using the resolved install directory,
+including custom directories. Automation and non-interactive shells may not
+load profile changes, so set PATH explicitly or invoke the absolute executable
+path printed by the installer.

@@ -109,6 +109,78 @@ describe("axm mcps new", () => {
       temp.cleanup();
     }
   });
+
+  it("recovers a relocated workspace-authored MCP server", async () => {
+    const temp = createTempDir();
+
+    try {
+      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      configureWorkspace(temp.path, (settings) => ({
+        ...settings,
+        owner: "@original",
+        agents: ["claude-code"],
+        lint: {
+          rules: {
+            "workspace/agents-detected-declared": "off",
+            // Manifest-only MCP packages are tracked separately from this trust-recovery path.
+            "workspace/configured-but-not-installed": "off",
+          },
+        },
+      }));
+      expect(
+        (
+          await runCli(["mcps", "new", "context", "--description", "Context server", "--yes"], {
+            cwd: temp.path,
+          })
+        ).exitCode,
+      ).toBe(0);
+
+      const originalDir = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@original",
+        "mcps",
+        "context",
+      );
+      const relocatedDir = path.join(temp.path, ".axm", "extensions", "@other", "mcps", "context");
+      fs.mkdirSync(path.dirname(relocatedDir), { recursive: true });
+      fs.renameSync(originalDir, relocatedDir);
+      writeJson(path.join(relocatedDir, "mcp.json"), {
+        ...readJson(path.join(relocatedDir, "mcp.json")),
+        owner: "@other",
+      });
+      configureWorkspace(temp.path, (settings) => ({
+        ...settings,
+        mcpServers: { context: "workspace:@other/mcps/context" },
+      }));
+
+      const status = await runCli(["status"], { cwd: temp.path });
+      expect(status.exitCode).toBe(1);
+      expect(status.stdout + status.stderr).toContain(
+        "axm sync @other/mcps/context --accept-authority-change",
+      );
+
+      const refused = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
+      expect(refused.exitCode).toBe(1);
+      expect(refused.stdout + refused.stderr).not.toContain("workspace:workspace:");
+      expect(refused.stdout + refused.stderr).toContain(
+        "axm sync @other/mcps/context --accept-authority-change",
+      );
+
+      const recovered = await runCli(["sync", "@other/mcps/context", "--accept-authority-change"], {
+        cwd: temp.path,
+      });
+      expect(recovered.exitCode).toBe(0);
+
+      const finalStatus = await runCli(["status"], { cwd: temp.path });
+      expect(finalStatus.exitCode).toBe(0);
+      const lint = await runCli(["lint"], { cwd: temp.path });
+      expect(lint.exitCode).toBe(0);
+    } finally {
+      temp.cleanup();
+    }
+  });
 });
 
 describe("axm hooks new", () => {

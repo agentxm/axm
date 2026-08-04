@@ -63,7 +63,6 @@ export type {
 } from "./refs.js";
 
 // Registry ref builder
-export { buildRegistrySubagentRef } from "./registry-ref-builder.js";
 
 // Lock entry builder
 export { buildSubagentLockEntry } from "./lock-entry-builder.js";
@@ -93,7 +92,4 @@ export type { DisableSubagentOperation } from "./operations/disable.js";
 export { disableSubagent } from "./operations/disable.js";
 
 // Reconciliation adapter
-export {
-  subagentReconciliationAdapter,
-  assertSubagentAdapterLoaded,
-} from "./reconciliation-adapter.js";
+export { subagentReconciliationAdapter } from "./reconciliation-adapter.js";

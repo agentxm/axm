@@ -25,15 +25,15 @@ export const traeAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://github.com/HighMark-31/TRAE-Tips/blob/main/Agents-Rules-Skills.md"],
+        sources: ["https://www.trae.ai/blog/trae_tutorial_0115"],
         scopes: ["project"],
-        standardsCompliance: "partial",
+        standardsCompliance: "full",
         convention: "vendor",
         directory: ".trae/skills",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-07-22",
         writer: null,
       },
     },
@@ -57,7 +57,7 @@ export const traeAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://traeide.com/news/6"],
+        sources: ["https://docs.trae.ai/ide/model-context-protocol"],
         scopes: ["project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -69,11 +69,14 @@ export const traeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -82,25 +85,18 @@ export const traeAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
-                },
-              },
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
                 sse: "url",
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },
@@ -119,42 +115,6 @@ export const traeAgent = {
         writer: null,
       },
     },
-    files: {
-      native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
-        docs: [],
-        sources: [],
-      },
-      axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-      },
-    },
-    rule: {
-      native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
-        notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
-        docs: [],
-        sources: ["https://github.com/HighMark-31/TRAE-Tips/blob/main/Agents-Rules-Skills.md"],
-        scopes: ["project"],
-        standardsCompliance: "partial",
-        convention: "vendor",
-        kind: "rules-dir",
-        files: ["*.md"],
-        nestedDiscovery: false,
-        importSyntax: null,
-        directory: ".trae/rules",
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: null,
-      },
-    },
     hook: {
       native: {
         availability: { via: "none" },
@@ -168,6 +128,29 @@ export const traeAgent = {
         writer: null,
         lastVerified: null,
       },
+    },
+  },
+  instructions: {
+    native: {
+      availability: { via: "native" },
+      vendorStatus: { state: "active" },
+      notes:
+        "Trae combines global user rules with project and nested .trae/rules directories for module-specific instructions.",
+      docs: [],
+      sources: ["https://docs.trae.ai/ide/rules"],
+      scopes: ["project", "user"],
+      standardsCompliance: "partial",
+      convention: "vendor",
+      kind: "rules-dir",
+      files: ["*.md"],
+      nestedDiscovery: true,
+      importSyntax: null,
+      directory: ".trae/rules",
+    },
+    axm: {
+      status: "supported",
+      lastVerified: "2026-07-22",
+      writer: null,
     },
   },
   permissions: {

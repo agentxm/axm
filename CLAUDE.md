@@ -124,9 +124,13 @@ the summary here, follow the guide.
 | [Effect Errors Guide](contributing/guides/effect-errors.md)                 | Before designing or translating Effect errors, read for AppError and service patterns     |
 | [Effect Layers Guide](contributing/guides/effect-layers.md)                 | Before building or wiring layers, read for composition and provision rules                |
 | [Workspace Read Model Guide](contributing/guides/workspace-read-model.md)   | Before migrating workspace reads or using context test fixtures                           |
+| [Workspace State Guide](contributing/guides/workspace-state.md)             | Before changing reconciliation, lifecycle, trust, receipts, sync, packs, or workspace mutations |
+| [Workspace Schema Evolution Guide](contributing/guides/workspace-schema-evolution.md) | Before changing settings/lockfile schemas or decode strictness on workspace paths |
 | [Logging Guide](contributing/guides/logging.md)                             | Before adding structured logs, read for logging conventions                               |
 | [TypeScript Style Guide](contributing/guides/typescript-style.md)           | Before writing or revising TypeScript, read for narrowing and immutability rules          |
 | [Agent Capability Model](contributing/guides/agent-capabilities.md)         | Before adding an agent or changing a capability claim, read for the standard/bridged rule |
+| [Extension Type Parity Guide](contributing/guides/extension-type-parity.md) | Before adding an extension type, adding a per-type surface, or changing a parity obligation |
+| [Lint Rule Authoring Guide](contributing/guides/lint-rule-authoring.md)     | Before adding or changing a lint rule for skills, packs, or workspaces                    |
 
 ## Code Organization
 
@@ -145,6 +149,26 @@ code directly under `src/`.
 
 See [TypeScript Style Guide](contributing/guides/typescript-style.md) for
 examples, narrowing patterns, and rationale.
+
+### Two TypeScript Versions
+
+Deliberate, via a dual alias in the pnpm catalog. Do not collapse it to a single
+`typescript` dependency; the exit point is TypeScript 7.1.
+
+- `tsc` is TypeScript 7, the native compiler (`@typescript/native`), patched by
+  `@effect/tsgo` so it enforces the `@effect/language-service` diagnostics. Every
+  `typecheck` target and `scripts-typecheck` runs on it.
+- `require("typescript")` is Microsoft's TypeScript 6 compatibility package.
+  TypeScript 7.0 ships no stable compiler API, so this is what keeps
+  typescript-eslint and the in-process Nx executors working.
+- `build` stays on TypeScript 6: `@nx/js:tsc` compiles in-process under
+  `--batch`, and `dist/**/*.d.ts` is the published contract. Move it only once
+  `@nx/js:tsc` can run on the TypeScript 7 engine.
+- Need the TypeScript 6 CLI for a one-off check? It is installed as `tsc6`.
+
+Editors use the patched TypeScript 7 language server
+(`typescript.experimental.useTsgo`). The compat package ships no `tsserver.js`,
+so "Use Workspace Version" cannot point at `node_modules/typescript`.
 
 ### TS41 Messages
 
@@ -176,7 +200,7 @@ use `../external/Effect-TS/effect`, not `../../Effect-TS/effect`.
 
 | Package                  | Version         | Local path                     | Upstream                                                | Tag                    |
 | ------------------------ | --------------- | ------------------------------ | ------------------------------------------------------- | ---------------------- |
-| `effect` (+ `@effect/*`) | `4.0.0-beta.98` | `../external/Effect-TS/effect` | [Effect-TS/effect](https://github.com/Effect-TS/effect) | `effect@4.0.0-beta.98` |
+| `effect` (+ `@effect/*`) | `4.0.0-beta.101` | `../external/Effect-TS/effect` | [Effect-TS/effect](https://github.com/Effect-TS/effect) | `effect@4.0.0-beta.101` |
 
 Setup and sync instructions are in the
 [agentxm-internal CLAUDE.md](../agentxm-internal/CLAUDE.md#external-dependency-sources).

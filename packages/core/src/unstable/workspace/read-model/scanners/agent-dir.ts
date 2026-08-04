@@ -129,9 +129,9 @@ const subjectFileNameFor = (type: AgentDirSubjectType, name: string): string => 
 };
 
 /**
- * For directory-style subject roots: enumerate one level of subdirectories
- * and treat each subdirectory as a subject occurrence. The Phase 7 subject
- * module decides whether the directory is well-formed for its subject type.
+ * For directory-style subject roots, skills use one subdirectory per subject.
+ * Commands and subagents may use either a legacy subject directory or the flat
+ * files AXM's agent renderers actually produce.
  *
  * For each occurrence, probe the canonical subject file (e.g., `SKILL.md`)
  * via `fs.exists` so subject modules can consume `subjectFileExists` rather
@@ -168,7 +168,7 @@ const scanSubjectDirectory = (
 
     const candidates = yield* childEntries(SCANNER_NAME, fs, diagnostics, path, subjectAbsolute);
     const nameDirs = yield* filterDirectories(fs, candidates);
-    return yield* Effect.forEach(
+    const directoryOccurrences = yield* Effect.forEach(
       nameDirs,
       (nameDir) =>
         Effect.gen(function* () {
@@ -197,6 +197,40 @@ const scanSubjectDirectory = (
         }),
       { concurrency: "unbounded" },
     );
+    if (subject.type === "skill") return directoryOccurrences;
+
+    const supportedExtensions =
+      subject.type === "command" ? [".md", ".toml", ".txt"] : [".md", ".json"];
+    const directorySet = new Set(nameDirs);
+    const fileOccurrences = yield* Effect.forEach(
+      candidates,
+      (candidate) =>
+        Effect.gen(function* () {
+          if (directorySet.has(candidate)) return Option.none<AgentDirOccurrence>();
+          const extension = path.extname(candidate).toLowerCase();
+          if (!supportedExtensions.includes(extension)) {
+            return Option.none<AgentDirOccurrence>();
+          }
+          const readable = yield* Effect.result(fs.readFile(candidate));
+          if (readable._tag === "Failure") return Option.none<AgentDirOccurrence>();
+          const fileName = path.basename(candidate);
+          const name = normalizeFileBackedName(fileName.slice(0, -extension.length));
+          const contentLocation = makeAbsolutePath(path, candidate);
+          return Option.some({
+            _tag: "agent-dir",
+            scope,
+            type: subject.type,
+            agentId,
+            name,
+            contentLocation,
+            pathSegments: splitAbsolutePathSegments(path, candidate),
+            subjectFile: Option.some(contentLocation),
+            subjectFileExists: true,
+          } satisfies AgentDirOccurrence);
+        }),
+      { concurrency: "unbounded" },
+    );
+    return [...directoryOccurrences, ...fileOccurrences.flatMap(Option.toArray)];
   });
 
 // ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
@@ -131,7 +132,7 @@ const makeRefreshTokenError = () => ({
 describe("AuthClient.buildAuthorizeUrl", () => {
   it.effect("includes a request expiry when provided", () => {
     const layer = makeTestLayer(() => new Response(null, { status: 204 }));
-    const expiresAt = new Date("2026-05-12T12:00:00.000Z");
+    const expiresAt = DateTime.makeUnsafe("2026-05-12T12:00:00.000Z");
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
@@ -145,7 +146,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
       );
 
       expect(url.pathname).toBe("/oauth/authorize");
-      expect(url.searchParams.get("request_expires_at")).toBe(expiresAt.toISOString());
+      expect(url.searchParams.get("request_expires_at")).toBe(DateTime.formatIso(expiresAt));
       expect(url.searchParams.get("scope")).toContain("extensions:publish:new");
     }).pipe(Effect.provide(layer));
   });
@@ -252,7 +253,7 @@ describe("pollOnce", () => {
       expect(result._tag).toBe("Success");
       if (result._tag === "Success") {
         expect(result.token.access_token).toBe("axm_ses_new");
-        expect(result.token.expires_at).toBe(expiresAt);
+        expect(DateTime.formatIso(result.token.expires_at)).toBe(expiresAt);
       }
     });
   });
@@ -560,7 +561,7 @@ describe("AuthClient.refreshToken", () => {
       const result = yield* client.refreshToken("axm_ref_old");
       expect(result.access_token).toBe("axm_ses_refreshed");
       expect(result.refresh_token).toBe("axm_ref_refreshed");
-      expect(result.expires_at).toBe(expiresAt);
+      expect(DateTime.formatIso(result.expires_at)).toBe(expiresAt);
     }).pipe(Effect.provide(layer));
   });
 

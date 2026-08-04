@@ -5,13 +5,11 @@
  */
 
 import * as Schema from "effect/Schema";
-import * as SchemaTransformation from "effect/SchemaTransformation";
 import {
   CanonicalHookEventIdSchema,
   CanonicalHookToolIdSchema,
   HookBlockOutcomeSchema,
   HookModifyOperationSchema,
-  type CanonicalHookEventId,
 } from "../agent-capabilities/index.js";
 import {
   CommonManifestBaseFields,
@@ -33,32 +31,6 @@ export const HookRuntimeSchema = Schema.Literals(["bash", "node", "python"]).ann
 
 /** @experimental */
 export type HookRuntime = Schema.Schema.Type<typeof HookRuntimeSchema>;
-
-export const LegacyHookEventSchema = Schema.Literals([
-  "PreToolUse",
-  "PostToolUse",
-  "UserPromptSubmit",
-  "SessionStart",
-  "Stop",
-  "SubagentStop",
-  "PreCompact",
-]).annotate({
-  identifier: "LegacyHookEvent",
-  title: "Legacy Hook Event",
-  description: "Deprecated Claude-compatible hook event name accepted as a decode alias.",
-});
-
-const legacyHookEventAliases: Readonly<
-  Record<Schema.Schema.Type<typeof LegacyHookEventSchema>, CanonicalHookEventId>
-> = {
-  PreToolUse: "tool.pre",
-  PostToolUse: "tool.post",
-  UserPromptSubmit: "prompt.submit",
-  SessionStart: "session.start",
-  Stop: "turn.end",
-  SubagentStop: "subagent.stop",
-  PreCompact: "compaction.pre",
-};
 
 export const HookEventSchema = CanonicalHookEventIdSchema.annotate({
   identifier: "HookEvent",
@@ -129,37 +101,12 @@ export const CanonicalHookBindingSchema = Schema.Struct({
   description: "Universal hook event binding expressed in AXM canonical vocabulary.",
 });
 
-const LegacyHookBindingSchema = Schema.Struct({
-  event: LegacyHookEventSchema,
-  matcher: Schema.optional(Schema.NonEmptyString),
+export const HookBindingSchema = CanonicalHookBindingSchema.annotate({
+  identifier: "HookBinding",
+  title: "Hook Binding",
+  description:
+    "Universal hook event binding with portable canonical matching and raw native escape hatches.",
 });
-
-export const HookBindingSchema = Schema.Union([CanonicalHookBindingSchema, LegacyHookBindingSchema])
-  .pipe(
-    Schema.decodeTo(
-      CanonicalHookBindingSchema,
-      SchemaTransformation.transform<
-        Schema.Schema.Type<typeof CanonicalHookBindingSchema>,
-        | Schema.Schema.Type<typeof CanonicalHookBindingSchema>
-        | Schema.Schema.Type<typeof LegacyHookBindingSchema>
-      >({
-        decode: (binding) =>
-          "on" in binding
-            ? binding
-            : {
-                on: legacyHookEventAliases[binding.event],
-                ...(binding.matcher === undefined ? {} : { matcherRaw: binding.matcher }),
-              },
-        encode: (binding) => binding,
-      }),
-    ),
-  )
-  .annotate({
-    identifier: "HookBinding",
-    title: "Hook Binding",
-    description:
-      "Universal hook event binding with portable canonical matching and raw native escape hatches.",
-  });
 
 /** @experimental */
 export type HookBinding = Schema.Schema.Type<typeof HookBindingSchema>;
@@ -216,7 +163,6 @@ export const HookManifestSchema = Schema.Struct({
     Schema.annotateKey({ messageMissingKey: "bindings are required" }),
   ),
   timeoutMs: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
-  blocking: Schema.optional(Schema.Boolean),
   capabilities: Schema.optional(HookCapabilitiesSchema),
 }).annotate({
   identifier: "HookManifest",

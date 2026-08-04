@@ -39,8 +39,7 @@ import { parseRegistryInstallTarget } from "../../shared/registry-install-target
 
 export interface InstallMcpServerHandlerArgs {
   readonly source: string;
-  readonly env?: Option.Option<string>;
-  readonly nonInteractive?: boolean;
+  readonly env?: ReadonlyArray<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -54,7 +53,6 @@ export interface ParsedMcpServerInstallArgs {
   readonly resolvedInput: string;
   readonly force: boolean;
   readonly env: Readonly<Record<string, string>>;
-  readonly nonInteractive: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -68,25 +66,28 @@ export interface McpServerInstallSourceRequest {
   readonly versionRange: Option.Option<string>;
 }
 
-const parseEnvFlag = (
-  env: Option.Option<string>,
+/**
+ * Decode repeated `--env KEY=VALUE` flags into a record. Later occurrences of
+ * the same key win. Registry installs resolve declared inputs by name, so a
+ * bare `KEY` (passthrough from the ambient environment, as `axm mcps add`
+ * allows) is rejected here rather than silently resolving to nothing.
+ */
+export const parseEnvFlag = (
+  env: ReadonlyArray<string>,
 ): Effect.Effect<Readonly<Record<string, string>>, AppError> =>
-  Option.match(env, {
-    onNone: () => Effect.succeed({}),
-    onSome: (value) => {
+  Effect.gen(function* () {
+    const parsed: Record<string, string> = {};
+    for (const value of env) {
       const separator = value.indexOf("=");
       if (separator <= 0) {
-        return Effect.fail(
-          makeAppError({
-            code: "usage",
-            detail: "--env must use KEY=VALUE format",
-          }),
-        );
+        return yield* makeAppError({
+          code: "usage",
+          detail: "--env must use KEY=VALUE format",
+        });
       }
-      return Effect.succeed({
-        [value.slice(0, separator)]: value.slice(separator + 1),
-      });
-    },
+      parsed[value.slice(0, separator)] = value.slice(separator + 1);
+    }
+    return parsed;
   });
 
 // -----------------------------------------------------------------------------
@@ -140,7 +141,7 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
     ): Effect.Effect<ParsedMcpServerInstallArgs, AppError> =>
       Effect.gen(function* () {
         const trimmed = args.source.trim();
-        const env = yield* parseEnvFlag(args.env ?? Option.none());
+        const env = yield* parseEnvFlag(args.env ?? []);
         const parsed = parseRegistryInstallTarget(trimmed, {
           expectedType: "mcp-server",
           allowBareName: true,
@@ -155,7 +156,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
               resolvedInput: trimmed,
               force: false,
               env,
-              nonInteractive: args.nonInteractive ?? false,
             };
           }
 
@@ -187,7 +187,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             resolvedInput: `${owner}/mcps/${parsed.success.name}`,
             force: false,
             env,
-            nonInteractive: args.nonInteractive ?? false,
           };
         }
 
@@ -326,7 +325,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
           versionRange: parsed.versionRange,
           force: parsed.force,
           env: parsed.env,
-          nonInteractive: parsed.nonInteractive,
         };
       });
 
@@ -352,7 +350,6 @@ export const InstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                       versionRange: intent.versionRange,
                       skipSettings: Option.none(),
                       env: Option.some(intent.env ?? {}),
-                      nonInteractive: Option.some(intent.nonInteractive ?? false),
                     },
                   }),
                 ),

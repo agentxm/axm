@@ -2,7 +2,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, layer } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -14,12 +15,20 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock, makeRegistrySkillLockEntry } from "../../workspace/test-stubs.js";
+import {
+  configuredRow,
+  makeBaseWorkspaceMock,
+  makeRegistrySkillLockEntry,
+  rowsFor,
+} from "../../workspace/test-stubs.js";
 import { sanitizeName } from "../../extensions/utils.js";
+import { computePackageContentHash } from "../../extensions/package-hash.js";
+import { type ExtensionTrustRecord, type WorkspaceTrustState } from "../../trust/index.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 import { handle } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "../../utils/path-types.js";
+import { computeSkillSourceHash } from "./source-hash.js";
 
 type SettingsSkillValue =
   | string
@@ -45,6 +54,7 @@ const makeWorkspaceMock = (
     configuredAgents?: ReadonlyArray<string>;
     lockfileSkills?: Record<string, SkillLockEntry>;
     settingsSkills?: Record<string, SettingsSkillValue>;
+    contentIdentity?: string;
     updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
     setSkillLockFn?: WorkspaceMutationsService["setSkillLock"];
   } = {},
@@ -52,36 +62,56 @@ const makeWorkspaceMock = (
   const configuredAgents = opts.configuredAgents ?? ["claude-code"];
   const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
   const settingsSkills: Record<string, SettingsSkillValue> = opts.settingsSkills ?? {};
+  const trustState = () => {
+    const name = "my-skill";
+    const lockEntry = lockfileSkills[name];
+    const settingsEntry = settingsSkills[name];
+    if (lockEntry === undefined || settingsEntry === undefined) {
+      const empty: WorkspaceTrustState = { trustStateVersion: 1, records: {} };
+      return Effect.succeed(empty);
+    }
+    const sourceIdentity = getConfiguredSkillSource(settingsEntry);
+    const contentIdentity = opts.contentIdentity ?? "0".repeat(64);
+    const record: ExtensionTrustRecord =
+      lockEntry.type === "registry"
+        ? {
+            extensionType: "skill",
+            name,
+            authority: "registry",
+            sourceIdentity,
+            resolvedVersion: lockEntry.resolvedVersion,
+            publisherBindingId: lockEntry.publisherBindingId,
+            sourceName: lockEntry.sourceName,
+            integrity: lockEntry.integrity,
+            contentIdentity,
+          }
+        : {
+            extensionType: "skill",
+            name,
+            authority: lockEntry.type,
+            sourceIdentity,
+            contentIdentity,
+          };
+    const state: WorkspaceTrustState = {
+      trustStateVersion: 1,
+      records: { [`skill:${name}`]: record },
+    };
+    return Effect.succeed(state);
+  };
 
   return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredSkills: () =>
-      Effect.succeed(
-        Object.fromEntries(
-          Object.entries(settingsSkills).map(([k, v]) => [
-            k,
-            {
-              source: getConfiguredSkillSource(v),
-              enabled: isConfiguredSkillEnabled(v),
-              packagingKind: "non-native" as const,
-            },
-          ]),
-        ),
+    rows: rowsFor({
+      skill: Object.entries(settingsSkills).map(([name, value]) =>
+        configuredRow({
+          type: "skill",
+          name,
+          source: getConfiguredSkillSource(value),
+          enabled: isConfiguredSkillEnabled(value),
+        }),
       ),
-    getInstalledSkills: () =>
-      Effect.succeed(
-        Object.fromEntries(
-          Object.entries(settingsSkills).map(([k, v]) => [
-            k,
-            {
-              lifecycle: "configured" as const,
-              source: getConfiguredSkillSource(v),
-              enabled: isConfiguredSkillEnabled(v),
-              packagingKind: "non-native" as const,
-            },
-          ]),
-        ),
-      ),
+    }),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
+    getTrustState: trustState,
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
     getSkillDir: (name: string) => {
@@ -106,7 +136,6 @@ const makeWorkspaceMock = (
     },
     updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
     setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
-    getConfiguredMcpServers: () => Effect.succeed({}),
   });
 };
 
@@ -123,27 +152,29 @@ const makeOp = (skillName = "my-skill"): EnableSkillOperation => ({
   args: { skillName },
 });
 
-/** Creates a local source lock entry for the in-memory mock (Date objects). */
+/** Creates a local source lock entry for the in-memory mock (DateTime.Utc values). */
 const makeLocalLockEntry = (_agents: string[], sourcePath = "tmp/source"): SkillLockEntry => ({
   type: "local" as const,
   path: decodeRelativePathSync(sourcePath),
-  installedAt: new Date(),
-  updatedAt: new Date(),
+  installedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
+  updatedAt: DateTime.makeUnsafe("2024-01-15T12:00:00.000Z"),
 });
 
-/** Creates a registry source lock entry for the in-memory mock (Date objects). */
+/** Creates a registry source lock entry for the in-memory mock (DateTime.Utc values). */
 const makeRegistryLockEntry = (_agents: string[]): SkillLockEntry =>
   makeRegistrySkillLockEntry({
     owner: handle("@community"),
     name: "my-skill",
     sourceName: "local",
+
+    publisherBindingId: "hbnd_test",
   });
 
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("enableSkill", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -180,6 +211,7 @@ describe("enableSkill", () => {
     it.effect("creates agent symlinks from existing canonical directory", () =>
       Effect.gen(function* () {
         const { axmDir, base, canonicalDir } = setupWorkspace();
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir);
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -189,6 +221,7 @@ describe("enableSkill", () => {
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
+              contentIdentity,
             }),
           ),
         );
@@ -208,7 +241,10 @@ describe("enableSkill", () => {
 
     it.effect("handles multiple agents concurrently", () =>
       Effect.gen(function* () {
-        const { axmDir, base } = setupWorkspace({ agents: ["claude-code", "cursor"] });
+        const { axmDir, base, canonicalDir } = setupWorkspace({
+          agents: ["claude-code", "cursor"],
+        });
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir);
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -218,6 +254,7 @@ describe("enableSkill", () => {
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
+              contentIdentity,
             }),
           ),
         );
@@ -232,7 +269,8 @@ describe("enableSkill", () => {
 
     it.effect("leaves the shared lock entry unchanged", () =>
       Effect.gen(function* () {
-        const { axmDir } = setupWorkspace();
+        const { axmDir, canonicalDir } = setupWorkspace();
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir);
         const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
 
         yield* enableSkill(makeOp()).pipe(
@@ -243,6 +281,7 @@ describe("enableSkill", () => {
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
+              contentIdentity,
               setSkillLockFn,
             }),
           ),
@@ -254,7 +293,8 @@ describe("enableSkill", () => {
 
     it.effect("calls updateSkillEntry to set enabled: true", () =>
       Effect.gen(function* () {
-        const { axmDir } = setupWorkspace();
+        const { axmDir, canonicalDir } = setupWorkspace();
+        const contentIdentity = yield* computeSkillSourceHash(canonicalDir);
         const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
 
         yield* enableSkill(makeOp()).pipe(
@@ -265,6 +305,7 @@ describe("enableSkill", () => {
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },
+              contentIdentity,
               updateSkillEntryFn,
             }),
           ),
@@ -300,7 +341,7 @@ describe("enableSkill", () => {
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("not found");
+        expect(result.message).toContain("not usable");
         // State should NOT have been updated
         expect(updateSkillEntryFn).not.toHaveBeenCalled();
       }),
@@ -325,6 +366,7 @@ describe("enableSkill", () => {
         const registrySrcDir = path.join(registryCanonical, "src");
         fs.mkdirSync(registrySrcDir, { recursive: true });
         fs.writeFileSync(path.join(registrySrcDir, "SKILL.md"), "# my-skill");
+        const contentIdentity = yield* computePackageContentHash(registryCanonical);
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -337,6 +379,7 @@ describe("enableSkill", () => {
                   enabled: false,
                 },
               },
+              contentIdentity,
             }),
           ),
         );
@@ -351,7 +394,7 @@ describe("enableSkill", () => {
   });
 
   describe("settings-only enable (no lock entry)", () => {
-    it.effect("updates settings to enabled: true without lockfile or symlink work", () =>
+    it.effect("fails without trusted canonical content", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
@@ -369,12 +412,11 @@ describe("enableSkill", () => {
               updateSkillEntryFn,
             }),
           ),
+          Effect.catch((error) => Effect.succeed({ result: "error" as const, error })),
         );
 
-        expect(result.result).toBe("success");
-        // Settings should be updated
-        expect(updateSkillEntryFn).toHaveBeenCalledOnce();
-        expect(updateSkillEntryFn).toHaveBeenCalledWith("my-skill", expect.any(Function));
+        expect(result.result).toBe("error");
+        expect(updateSkillEntryFn).not.toHaveBeenCalled();
         // No agent symlinks should have been created (no canonical dir)
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
       }),
@@ -403,7 +445,7 @@ describe("enableSkill", () => {
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("not found");
+        expect(result.message).toContain("not usable");
       }),
     );
   });

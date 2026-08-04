@@ -8,10 +8,9 @@ import * as Effect from "effect/Effect";
 import { claudeCodeCodingAgent } from "./claude-code/service.js";
 import { codexCodingAgent } from "./codex/service.js";
 import { geminiCliCodingAgent } from "./gemini-cli/service.js";
-import { opencodeCodingAgent } from "./opencode/service.js";
 import { handle } from "../test-helpers.js";
 
-const opencodeMcpSyncTimeoutMs = 20_000;
+const mcpSyncTimeoutMs = 20_000;
 
 describe("coding-agent services", () => {
   const TestLayer = NodeServices.layer;
@@ -64,11 +63,11 @@ describe("coding-agent services", () => {
   );
 
   it.effect(
-    "opencode MCP add/remove uses success contract",
+    "claude-code MCP add/remove uses success contract",
     () =>
       withNode(
         Effect.gen(function* () {
-          const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-opencode-test-"));
+          const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-claude-code-test-"));
           try {
             const canonicalPath = `${workspaceRoot}/.axm/extensions/mcp/mcps/chrome-devtools-mcp`;
             mkdirSync(canonicalPath, { recursive: true });
@@ -94,7 +93,7 @@ describe("coding-agent services", () => {
                 },
               }),
             );
-            const addOutcome = yield* opencodeCodingAgent.addMcpServer({
+            const addOutcome = yield* claudeCodeCodingAgent.addMcpServer({
               workspaceRoot,
               serverName: "chrome-devtools-mcp",
               canonicalPath,
@@ -104,22 +103,22 @@ describe("coding-agent services", () => {
             expect(addOutcome._tag).toBe("success");
 
             const fs = yield* FileSystem.FileSystem;
-            const addedConfig = yield* fs.readFileString(`${workspaceRoot}/opencode.jsonc`);
+            const addedConfig = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
             expect(addedConfig).toContain('"chrome-devtools-mcp"');
 
-            const removeOutcome = yield* opencodeCodingAgent.removeMcpServer({
+            const removeOutcome = yield* claudeCodeCodingAgent.removeMcpServer({
               workspaceRoot,
               serverName: "chrome-devtools-mcp",
             });
             expect(removeOutcome._tag).toBe("success");
 
-            const removedConfig = yield* fs.readFileString(`${workspaceRoot}/opencode.jsonc`);
+            const removedConfig = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
             expect(removedConfig).not.toContain('"chrome-devtools-mcp"');
           } finally {
             rmSync(workspaceRoot, { recursive: true, force: true });
           }
         }),
       ),
-    { timeout: opencodeMcpSyncTimeoutMs },
+    { timeout: mcpSyncTimeoutMs },
   );
 });

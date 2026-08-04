@@ -15,6 +15,7 @@ import {
   type SpinnerHandle,
   type SpinnerOptions,
   type SuccessOptions,
+  type ResultOptions,
   type TableView,
   type TreePayload,
   type TaskLogConfig,
@@ -23,6 +24,7 @@ import {
 } from "./cli-renderer.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
+import { redactSensitiveValue } from "../app-error/secret-redaction.js";
 import {
   normalizeSuggestions,
   taskCompletionMessage,
@@ -36,7 +38,7 @@ import {
 
 const emitStderrEvent = (event: Record<string, unknown>) =>
   Effect.sync(() => {
-    process.stderr.write(JSON.stringify(event) + "\n");
+    process.stderr.write(JSON.stringify(redactSensitiveValue(event)) + "\n");
   });
 
 const emitLogEvent = (level: "info" | "warn" | "error", message: string) =>
@@ -64,14 +66,18 @@ const emitSuggestions = (
     { concurrency: 1 },
   ).pipe(Effect.asVoid);
 
-const makeSuccessEnvelope = (data: unknown, options: SuccessOptions | undefined) => {
+const makeResultEnvelope = (data: unknown, options: ResultOptions | undefined) => {
   const summary = options?.summary;
   return makeJsonSuccessEnvelope({
     payload: data,
+    ...(options?.ok === undefined ? {} : { ok: options.ok }),
     ...(summary !== undefined ? { summary } : {}),
     suggestions: normalizeSuggestions(options?.suggestions, options),
   });
 };
+
+const makeSuccessEnvelope = (data: unknown, options: SuccessOptions | undefined) =>
+  makeResultEnvelope(data, options);
 
 // ---------------------------------------------------------------------------
 // Noop handles for machine mode
@@ -88,6 +94,19 @@ const noopSpinnerHandle: SpinnerHandle = {
 const noopProgressHandle: ProgressHandle = {
   ...noopSpinnerHandle,
   advance: () => Effect.void,
+};
+
+const quietTaskLogGroupHandle: TaskLogGroupHandle = {
+  message: () => Effect.void,
+  error: () => Effect.void,
+  success: () => Effect.void,
+};
+
+const quietTaskLogHandle: TaskLogHandle = {
+  message: () => Effect.void,
+  group: () => Effect.succeed(quietTaskLogGroupHandle),
+  error: () => Effect.void,
+  success: () => Effect.void,
 };
 
 // ---------------------------------------------------------------------------
@@ -163,12 +182,16 @@ const encodeJson = <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S
 // MachineRenderer — NDJSON chrome on stderr, JSON data on stdout
 // ---------------------------------------------------------------------------
 
-export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
+export const MachineRenderer = (options?: {
+  readonly quiet?: boolean;
+}): Layer.Layer<CliRenderer> => {
+  const quiet = options?.quiet === true;
   const machineWithSpinner = <A, E, R>(
     message: string,
     f: (handle: SpinnerHandle) => Effect.Effect<A, E, R>,
     options?: SpinnerOptions<A>,
   ): Effect.Effect<A, E, R> => {
+    if (quiet) return f(noopSpinnerHandle);
     const handle = makeStreamSpinnerHandle("work");
     const failureMessage = options?.failureMessage;
     return emitStderrEvent({
@@ -218,6 +241,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     intro: () => Effect.void,
     outro: () => Effect.void,
     message: () => Effect.void,
+    instruction: (message) => emitStderrEvent({ type: "instruction", message }),
     diagnostic: () => Effect.void,
     diagnosticTable: <T extends object>(
       _items: ReadonlyArray<T>,
@@ -246,14 +270,17 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
 
     // Activity — emit NDJSON progress events to stderr
     spinner: (message) =>
-      emitStderrEvent({
-        type: "progress",
-        phase: "start",
-        percent: 0,
-        message: message ?? "",
-      }).pipe(Effect.as(makeStreamSpinnerHandle("start"))),
+      quiet
+        ? Effect.succeed(noopSpinnerHandle)
+        : emitStderrEvent({
+            type: "progress",
+            phase: "start",
+            percent: 0,
+            message: message ?? "",
+          }).pipe(Effect.as(makeStreamSpinnerHandle("start"))),
     withSpinner: machineWithSpinner,
     progress: (config, message) => {
+      if (quiet) return Effect.succeed(noopProgressHandle);
       const max = config.max ?? 100;
       if (message) {
         return emitStderrEvent({
@@ -271,6 +298,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
       f: (handle: ProgressHandle) => Effect.Effect<A, E, R>,
       stopMessage?: string,
     ): Effect.Effect<A, E, R> => {
+      if (quiet) return f(noopProgressHandle);
       const max = config.max ?? 100;
       const handle = makeStreamProgressHandle("progress", max, message);
       return emitStderrEvent({
@@ -294,11 +322,14 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
           } satisfies TaskLogGroupHandle),
         error: (msg: string) => emitLogEvent("error", `[${config.title}] ${msg}`),
         success: (msg: string) => emitLogEvent("info", `[${config.title}] ${msg}`),
-      } satisfies TaskLogHandle),
+      } satisfies TaskLogHandle).pipe(
+        Effect.map((handle) => (quiet ? quietTaskLogHandle : handle)),
+      ),
     withTaskLog: <A, E, R>(
       config: TaskLogConfig,
       f: (handle: TaskLogHandle) => Effect.Effect<A, E, R>,
     ): Effect.Effect<A, E, R> => {
+      if (quiet) return f(quietTaskLogHandle);
       const handle: TaskLogHandle = {
         message: (msg: string) => emitLogEvent("info", `[${config.title}] ${msg}`),
         group: (name: string) =>
@@ -376,7 +407,7 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
               suggestions: _suggestions,
               summary: _summary,
               ...data
-            }) => makeSuccessEnvelope(data, payload),
+            }) => makeResultEnvelope(data, payload),
           ),
           Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
           Effect.as(true),
@@ -389,21 +420,11 @@ export const MachineRenderer = (): Layer.Layer<CliRenderer> => {
     result: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
-      options?: SuccessOptions,
+      options?: ResultOptions,
     ) =>
       encodeJson(data, schema).pipe(
-        Effect.map((encoded) => makeSuccessEnvelope(encoded, options)),
+        Effect.map((encoded) => makeResultEnvelope(encoded, options)),
         Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded, null, 2))),
-        Effect.as(true),
-      ),
-    resultStream: <S extends Schema.Top>(stream: Stream.Stream<Schema.Schema.Type<S>>, schema: S) =>
-      stream.pipe(
-        Stream.mapEffect((item) =>
-          encodeJson(item, schema).pipe(
-            Effect.flatMap((encoded) => writeStdoutLine(JSON.stringify(encoded))),
-          ),
-        ),
-        Stream.runDrain,
         Effect.as(true),
       ),
 

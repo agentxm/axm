@@ -104,7 +104,6 @@ export const augmentAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

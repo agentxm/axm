@@ -109,7 +109,6 @@ export const commandCodeAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

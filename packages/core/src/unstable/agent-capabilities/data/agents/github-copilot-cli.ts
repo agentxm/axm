@@ -138,7 +138,6 @@ export const githubCopilotCliAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

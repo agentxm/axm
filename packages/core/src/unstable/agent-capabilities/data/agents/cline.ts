@@ -104,7 +104,6 @@ export const clineAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

@@ -108,7 +108,6 @@ export const mistralVibeAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

@@ -101,7 +101,6 @@ export const windsurfAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

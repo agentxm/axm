@@ -98,7 +98,6 @@ export const pochiAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

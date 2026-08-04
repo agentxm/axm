@@ -108,7 +108,6 @@ export const qoderAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

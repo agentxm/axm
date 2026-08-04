@@ -100,7 +100,6 @@ export const traeAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

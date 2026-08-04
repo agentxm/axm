@@ -109,7 +109,6 @@ export const neovateAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

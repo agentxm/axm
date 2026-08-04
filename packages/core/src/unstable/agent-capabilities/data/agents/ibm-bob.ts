@@ -108,7 +108,6 @@ export const ibmBobAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

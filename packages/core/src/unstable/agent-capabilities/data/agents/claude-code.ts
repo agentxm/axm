@@ -133,7 +133,6 @@ export const claudeCodeAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

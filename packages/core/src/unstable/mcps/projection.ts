@@ -44,7 +44,9 @@ export interface ProjectExpectedEntryArgs {
   readonly envExpansion?: McpEnvExpansion | undefined;
 }
 
-const ENV_REF_RE = /^\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}$/;
+const ENV_REF_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/;
+const FULL_ENV_REF_RE = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
+const BEARER_ENV_REF_RE = /^Bearer\s+\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/i;
 const DEFAULT_ENV_EXPANSION: McpEnvExpansion = {
   variables: "none",
   defaults: false,
@@ -126,6 +128,72 @@ const projectEnvRecord = (args: {
   return { values, warnings };
 };
 
+const projectRemoteHeaders = (args: {
+  readonly values: Readonly<Record<string, string>>;
+  readonly dialect: McpRemoteDialect;
+  readonly envExpansion: McpEnvExpansion;
+}): {
+  readonly literal: Readonly<Record<string, string>>;
+  readonly env: Readonly<Record<string, string>>;
+  readonly bearerTokenEnv: string | undefined;
+  readonly warnings: ReadonlyArray<string>;
+} => {
+  const literal: Record<string, string> = {};
+  const env: Record<string, string> = {};
+  const warnings: Array<string> = [];
+  let bearerTokenEnv: string | undefined;
+
+  for (const [name, value] of Object.entries(args.values)) {
+    if (args.envExpansion.variables !== "none") {
+      const rendered = renderEnvValue(value, args.envExpansion);
+      literal[name] = rendered.value;
+      if (rendered.warning !== undefined) {
+        warnings.push(`headers.${name}: ${rendered.warning}`);
+      }
+      continue;
+    }
+
+    const bearerMatch =
+      name.toLowerCase() === "authorization" ? BEARER_ENV_REF_RE.exec(value) : null;
+    const bearerVariable = bearerMatch?.[1];
+    if (bearerVariable !== undefined) {
+      if (args.dialect.bearerTokenEnvKey !== undefined && args.dialect.bearerTokenEnvKey !== null) {
+        bearerTokenEnv = bearerVariable;
+      } else {
+        warnings.push(
+          `headers.${name}: cannot project environment reference \${${bearerVariable}} for this agent`,
+        );
+      }
+      continue;
+    }
+
+    const envMatch = FULL_ENV_REF_RE.exec(value);
+    const envVariable = envMatch?.[1];
+    if (envVariable !== undefined) {
+      if (args.dialect.envHeadersKey !== undefined && args.dialect.envHeadersKey !== null) {
+        env[name] = envVariable;
+      } else {
+        warnings.push(
+          `headers.${name}: cannot project environment reference \${${envVariable}} for this agent`,
+        );
+      }
+      continue;
+    }
+
+    const rendered = renderEnvValue(value, args.envExpansion);
+    if (rendered.warning === undefined) {
+      literal[name] = rendered.value;
+    } else {
+      const reference = ENV_REF_RE.exec(value)?.[0] ?? value;
+      warnings.push(
+        `headers.${name}: cannot project environment reference ${reference} for this agent`,
+      );
+    }
+  }
+
+  return { literal, env, bearerTokenEnv, warnings };
+};
+
 const projectInlineStdio = (args: {
   readonly dialect: McpStdioDialect;
   readonly command: string;
@@ -190,16 +258,30 @@ const projectInlineRemote = (args: {
   const entry: Record<string, unknown> = {
     [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source),
   };
-  const headers = projectEnvRecord({
+  const headers = projectRemoteHeaders({
     values: args.headers,
+    dialect: args.dialect,
     envExpansion: args.envExpansion,
-    field: "headers",
   });
   addInlineTypeField(entry, args.dialect.typeField, transport);
   if (args.nativeEnabled) entry["enabled"] = args.enabled;
   entry[urlKey] = args.url;
-  if (Object.keys(headers.values).length > 0 && args.dialect.headersKey !== null) {
-    entry[args.dialect.headersKey] = headers.values;
+  if (Object.keys(headers.literal).length > 0 && args.dialect.headersKey !== null) {
+    entry[args.dialect.headersKey] = headers.literal;
+  }
+  if (
+    headers.bearerTokenEnv !== undefined &&
+    args.dialect.bearerTokenEnvKey !== undefined &&
+    args.dialect.bearerTokenEnvKey !== null
+  ) {
+    entry[args.dialect.bearerTokenEnvKey] = headers.bearerTokenEnv;
+  }
+  if (
+    Object.keys(headers.env).length > 0 &&
+    args.dialect.envHeadersKey !== undefined &&
+    args.dialect.envHeadersKey !== null
+  ) {
+    entry[args.dialect.envHeadersKey] = headers.env;
   }
   return { entry, warnings: headers.warnings };
 };

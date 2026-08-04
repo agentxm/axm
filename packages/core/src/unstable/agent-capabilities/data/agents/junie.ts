@@ -101,7 +101,6 @@ export const junieAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

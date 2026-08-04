@@ -120,7 +120,6 @@ export const cursorAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

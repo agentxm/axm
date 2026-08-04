@@ -432,7 +432,6 @@ describe("agent capability catalog", () => {
                     targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
                     stdio: null,
                     remote: null,
-                    transform: null,
                   },
                 },
               },

@@ -112,7 +112,6 @@ export const kiloAgent = {
               },
               headersKey: "headers",
             },
-            transform: null,
           },
         },
       },

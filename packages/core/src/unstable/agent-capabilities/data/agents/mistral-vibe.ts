@@ -68,48 +68,11 @@ export const mistralVibeAgent = {
         },
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
-        writer: {
-          config: {
-            serversKey: "mcp_servers",
-            nativeEnabled: true,
-            targets: [
-              {
-                scope: "project",
-                path: ".vibe/config.toml",
-                format: "toml",
-              },
-              {
-                scope: "user",
-                path: "~/.vibe/config.toml",
-                format: "toml",
-              },
-            ],
-            stdio: {
-              typeField: {
-                name: "transport",
-                value: "stdio",
-              },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                name: "transport",
-                value: {
-                  "streamable-http": "streamable-http",
-                  sse: "http",
-                },
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
-          },
-        },
+        status: "unsupported",
+        lastVerified: "2026-08-04",
+        writer: null,
+        reason:
+          "Mistral Vibe stores MCP servers as repeated [[mcp_servers]] TOML array-of-table entries. AXM's generic MCP writer currently serializes keyed server maps and cannot represent that shape without corrupting the configuration.",
       },
     },
     subagent: {

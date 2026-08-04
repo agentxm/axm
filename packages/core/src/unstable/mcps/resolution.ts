@@ -9,6 +9,7 @@
  */
 
 import type {
+  McpActivationField,
   McpExtensionCapability,
   McpConfig,
   McpRemoteDialect,
@@ -247,15 +248,26 @@ const addTypeField = (
   typeField: McpStdioDialect["typeField"] | McpRemoteDialect["typeField"],
   transport: "stdio" | UpstreamRemoteTransport,
 ): void => {
-  if (typeField === null) return;
-  if (typeof typeField.value === "string") {
-    entry[typeField.name] = typeField.value;
+  const required = typeField.required;
+  if (required === null) return;
+  if (typeof required.value === "string") {
+    entry[required.name] = required.value;
     return;
   }
   if (transport !== "stdio") {
-    const value = typeField.value[transport];
-    if (value !== undefined) entry[typeField.name] = value;
+    const value = required.value[transport];
+    if (value !== undefined) entry[required.name] = value;
   }
+};
+
+const addActivationField = (
+  entry: Record<string, unknown>,
+  activationField: McpActivationField,
+  enabled: boolean,
+): void => {
+  const required = activationField.required;
+  if (required === null) return;
+  entry[required.name] = enabled ? required.enabled : required.disabled;
 };
 
 const projectStdio = (args: {
@@ -263,7 +275,7 @@ const projectStdio = (args: {
   readonly command: ReadonlyArray<string>;
   readonly env: Readonly<Record<string, string>>;
   readonly enabled: boolean;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly ref: string;
 }): Readonly<Record<string, unknown>> => {
   const [command, ...rest] = args.command;
@@ -271,7 +283,7 @@ const projectStdio = (args: {
     [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({ source: "registry", ref: args.ref }),
   };
   addTypeField(entry, args.dialect.typeField, "stdio");
-  if (args.nativeEnabled) entry["enabled"] = args.enabled;
+  addActivationField(entry, args.activationField, args.enabled);
   if (args.dialect.command === "array") {
     entry["command"] = args.command;
   } else {
@@ -291,14 +303,14 @@ const projectRemote = (args: {
   readonly headers: Readonly<Record<string, string>>;
   readonly values: Readonly<Record<string, string>>;
   readonly enabled: boolean;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly ref: string;
 }): Readonly<Record<string, unknown>> => {
   const entry: Record<string, unknown> = {
     [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({ source: "registry", ref: args.ref }),
   };
   addTypeField(entry, args.dialect.typeField, args.remote.type);
-  if (args.nativeEnabled) entry["enabled"] = args.enabled;
+  addActivationField(entry, args.activationField, args.enabled);
   entry[args.urlKey] = substituteVariables(args.remote.url, args.values);
   if (Object.keys(args.headers).length > 0 && args.dialect.headersKey !== null) {
     entry[args.dialect.headersKey] = args.headers;
@@ -355,7 +367,7 @@ const resolvePackage = (
     command: invocation,
     env: env.env,
     enabled,
-    nativeEnabled: config.nativeEnabled,
+    activationField: config.activationField,
     ref: `${manifest.owner}/mcps/${manifest.name}`,
   });
   if (missing.length > 0) {
@@ -400,7 +412,7 @@ const resolveRemote = (
       command,
       env: {},
       enabled,
-      nativeEnabled: config.nativeEnabled,
+      activationField: config.activationField,
       ref: `${manifest.owner}/mcps/${manifest.name}`,
     });
     return missing.length > 0
@@ -438,7 +450,7 @@ const resolveRemote = (
     headers: headers.headers,
     values,
     enabled,
-    nativeEnabled: config.nativeEnabled,
+    activationField: config.activationField,
     ref: `${manifest.owner}/mcps/${manifest.name}`,
   });
   return missing.length > 0

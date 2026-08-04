@@ -5,6 +5,7 @@
  */
 
 import type {
+  McpActivationField,
   McpEnvExpansion,
   McpRemoteDialect,
   McpStdioDialect,
@@ -40,7 +41,7 @@ export interface ProjectExpectedEntryArgs {
   readonly entry: McpServerEntry;
   readonly stdio: McpStdioDialect | null;
   readonly remote: McpRemoteDialect | null;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly envExpansion?: McpEnvExpansion | undefined;
 }
 
@@ -57,15 +58,26 @@ const addInlineTypeField = (
   typeField: McpStdioDialect["typeField"] | McpRemoteDialect["typeField"],
   transport: "stdio" | InlineRemoteTransport,
 ): void => {
-  if (typeField === null) return;
-  if (typeof typeField.value === "string") {
-    entry[typeField.name] = typeField.value;
+  const required = typeField.required;
+  if (required === null) return;
+  if (typeof required.value === "string") {
+    entry[required.name] = required.value;
     return;
   }
   if (transport !== "stdio") {
-    const value = typeField.value[transport];
-    if (value !== undefined) entry[typeField.name] = value;
+    const value = required.value[transport];
+    if (value !== undefined) entry[required.name] = value;
   }
+};
+
+const addActivationField = (
+  entry: Record<string, unknown>,
+  activationField: McpActivationField,
+  enabled: boolean,
+): void => {
+  const required = activationField.required;
+  if (required === null) return;
+  entry[required.name] = enabled ? required.enabled : required.disabled;
 };
 
 export const inferInlineRemoteTransport = (url: string): InlineRemoteTransport => {
@@ -200,7 +212,7 @@ const projectInlineStdio = (args: {
   readonly commandArgs: ReadonlyArray<string>;
   readonly env: Readonly<Record<string, string>>;
   readonly enabled: boolean;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly envExpansion: McpEnvExpansion;
   readonly source: string;
 }): {
@@ -217,7 +229,7 @@ const projectInlineStdio = (args: {
     field: "env",
   });
   addInlineTypeField(entry, args.dialect.typeField, "stdio");
-  if (args.nativeEnabled) entry["enabled"] = args.enabled;
+  addActivationField(entry, args.activationField, args.enabled);
   if (args.dialect.command === "array") {
     entry["command"] = invocation;
   } else {
@@ -235,7 +247,7 @@ const projectInlineRemote = (args: {
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly enabled: boolean;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly envExpansion: McpEnvExpansion;
   readonly source: string;
 }):
@@ -264,7 +276,7 @@ const projectInlineRemote = (args: {
     envExpansion: args.envExpansion,
   });
   addInlineTypeField(entry, args.dialect.typeField, transport);
-  if (args.nativeEnabled) entry["enabled"] = args.enabled;
+  addActivationField(entry, args.activationField, args.enabled);
   entry[urlKey] = args.url;
   if (Object.keys(headers.literal).length > 0 && args.dialect.headersKey !== null) {
     entry[args.dialect.headersKey] = headers.literal;
@@ -301,7 +313,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       commandArgs: args.entry.args ?? [],
       env: args.entry.env,
       enabled: args.entry.enabled,
-      nativeEnabled: args.nativeEnabled,
+      activationField: args.activationField,
       envExpansion,
       source: args.entry.source,
     });
@@ -327,7 +339,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       url: args.entry.url,
       headers: args.entry.headers ?? {},
       enabled: args.entry.enabled,
-      nativeEnabled: args.nativeEnabled,
+      activationField: args.activationField,
       envExpansion,
       source: args.entry.source,
     });

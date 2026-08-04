@@ -69,22 +69,25 @@ export const kiloAgent = {
         convention: "vendor",
         transports: ["stdio", "http"],
         mcpEnvExpansion: {
-          variables: "braced",
+          variables: "none",
           defaults: false,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-24",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcp",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
+            },
             targets: [
               {
                 scope: "project",
-                path: "kilo.jsonc",
-                format: "jsonc",
+                path: "kilo.json",
+                format: "json",
               },
               {
                 scope: "user",
@@ -94,18 +97,36 @@ export const kiloAgent = {
             ],
             stdio: {
               typeField: {
-                name: "type",
-                value: "local",
+                required: {
+                  name: "type",
+                  value: "local",
+                },
+                accepted: [
+                  {
+                    name: "type",
+                    value: "local",
+                  },
+                ],
               },
               command: "array",
               envKey: "environment",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "remote",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "remote",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "remote",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",

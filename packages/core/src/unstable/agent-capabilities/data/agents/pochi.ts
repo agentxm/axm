@@ -57,7 +57,10 @@ export const pochiAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://docs.getpochi.com/mcp/"],
+        sources: [
+          "https://docs.getpochi.com/mcp/",
+          "https://docs.getpochi.com/tutorials/secure-db-access-in-pochi/",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -69,11 +72,14 @@ export const pochiAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcp",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "disabled", enabled: false, disabled: true },
+              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "project",
@@ -87,12 +93,12 @@ export const pochiAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
               },

@@ -21,17 +21,28 @@ const activeMcpCapability = {
     writer: {
       config: {
         serversKey: "mcpServers",
-        nativeEnabled: true,
+        activationField: {
+          required: { name: "enabled", enabled: true, disabled: false },
+          accepted: [{ name: "enabled", enabled: true, disabled: false }],
+        },
         targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
         stdio: {
-          typeField: null,
+          typeField: { required: null, accepted: [null] },
           command: "split",
           envKey: "env",
         },
         remote: {
           typeField: {
-            name: "type",
-            value: { "streamable-http": "http" },
+            required: {
+              name: "type",
+              value: { "streamable-http": "http" },
+            },
+            accepted: [
+              {
+                name: "type",
+                value: { "streamable-http": "http" },
+              },
+            ],
           },
           urlKey: { "streamable-http": "url" },
           headersKey: "headers",

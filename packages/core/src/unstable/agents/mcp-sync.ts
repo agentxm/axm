@@ -20,6 +20,7 @@ import {
   type AgentId as CapabilityAgentId,
   type McpConfig,
   type McpConfigTarget,
+  type McpEnvExpansion,
   type McpTransport,
 } from "../agent-capabilities/index.js";
 import { getHome } from "./constants.js";
@@ -35,7 +36,12 @@ import {
   buildAxmMcpMetadata,
   isAxmManagedMcpEntry,
 } from "../mcps/metadata.js";
-import { projectExpectedEntry } from "../mcps/projection.js";
+import { inferInlineRemoteTransport, projectExpectedEntry } from "../mcps/projection.js";
+import {
+  resolveSharedMcpTarget,
+  type SharedMcpTargetMember,
+  type SharedMcpTransport,
+} from "../mcps/shared-target.js";
 import { resolveMcpServer } from "../mcps/resolution.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer.js";
 import { managedYamlNames } from "../yaml/index.js";
@@ -559,63 +565,175 @@ export interface PruneManagedMcpServersArgs {
   readonly dryRun?: boolean;
 }
 
+interface SharedSyncMember {
+  readonly targetMember: SharedMcpTargetMember;
+  readonly envExpansion: McpEnvExpansion | undefined;
+}
+
+interface SharedSyncAccumulator {
+  readonly targets: Array<McpServerSyncTarget>;
+  readonly warnings: Array<string>;
+}
+
+const sharedTransportForEntry = (
+  entry: McpServerEntry,
+): Effect.Effect<SharedMcpTransport, AppError> => {
+  if (entry.command !== undefined) return Effect.succeed("stdio");
+  if (entry.url !== undefined) {
+    return Effect.try({
+      try: () => inferInlineRemoteTransport(entry.url ?? ""),
+      catch: (error) =>
+        makeAppError({
+          code: "validation",
+          detail: "Invalid inline MCP server URL",
+          cause: error,
+        }),
+    });
+  }
+  return Effect.fail(
+    makeAppError({
+      code: "validation",
+      detail: "Inline MCP server has no command or URL",
+    }),
+  );
+};
+
+export const syncInlineMcpServerToAgents = (
+  agentIds: ReadonlyArray<string>,
+  args: SyncInlineMcpServerArgs,
+): Effect.Effect<
+  ReadonlyArray<McpServerSyncOutcome>,
+  AppError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const transport = yield* sharedTransportForEntry(args.entry);
+    const scope = args.scope ?? "project";
+    const terminalOutcomes = new Map<string, McpServerSyncOutcome>();
+    const accumulators = new Map<string, SharedSyncAccumulator>();
+    const groups = new Map<string, Array<SharedSyncMember>>();
+
+    for (const agentId of agentIds) {
+      if (!isCapabilityAgentId(agentId)) {
+        terminalOutcomes.set(agentId, {
+          _tag: "unsupported",
+          reason: agentId + " has no MCP capability catalog entry",
+        });
+        continue;
+      }
+      const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+      if (!hasMcpConfig(capability)) {
+        terminalOutcomes.set(agentId, {
+          _tag: "unsupported",
+          reason: agentId + " does not have MCP config support",
+        });
+        continue;
+      }
+      accumulators.set(agentId, { targets: [], warnings: [] });
+      for (const target of capability.axm.writer.config.targets.filter(
+        (candidate) => candidate.scope === scope,
+      )) {
+        const key = target.scope + ":" + target.path;
+        const members = groups.get(key) ?? [];
+        members.push({
+          targetMember: {
+            agentId,
+            config: capability.axm.writer.config,
+            target,
+          },
+          envExpansion: capability.native.mcpEnvExpansion,
+        });
+        groups.set(key, members);
+      }
+    }
+
+    for (const members of groups.values()) {
+      const resolution = resolveSharedMcpTarget({
+        members: members.map((member) => member.targetMember),
+        transport,
+      });
+      if (resolution._tag === "conflict") {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: resolution.reason,
+        });
+      }
+      const projected = members.map((member) => ({
+        agentId: member.targetMember.agentId,
+        result: projectExpectedEntry({
+          serverName: args.serverName,
+          entry: args.entry,
+          stdio: resolution.config.stdio,
+          remote: resolution.config.remote,
+          activationField: resolution.config.activationField,
+          envExpansion: member.envExpansion,
+        }),
+      }));
+      const unsupported = projected.find((item) => item.result._tag === "unsupported");
+      if (unsupported !== undefined && unsupported.result._tag === "unsupported") {
+        return yield* makeAppError({
+          code: "conflict",
+          detail:
+            unsupported.agentId +
+            " cannot read shared MCP target '" +
+            resolution.path +
+            "': " +
+            unsupported.result.reason,
+        });
+      }
+      const firstProjected = projected[0]?.result;
+      if (firstProjected === undefined || firstProjected._tag !== "projected") {
+        return yield* makeAppError({
+          code: "internal",
+          detail: "Shared MCP target projection produced no entry for " + resolution.path,
+        });
+      }
+      const writeResult = yield* writeAgentMcpConfig({
+        workspaceRoot: args.workspaceRoot,
+        serverName: args.serverName,
+        serversKey: resolution.config.serversKey,
+        target: resolution.target,
+        entry: firstProjected.entry,
+      });
+      for (const item of projected) {
+        if (item.result._tag !== "projected") continue;
+        const accumulator = accumulators.get(item.agentId);
+        if (accumulator === undefined) continue;
+        accumulator.targets.push(...writeResult.targets);
+        accumulator.warnings.push(...item.result.warnings);
+      }
+    }
+
+    return agentIds.map((agentId) => {
+      const terminal = terminalOutcomes.get(agentId);
+      if (terminal !== undefined) return terminal;
+      const accumulator = accumulators.get(agentId);
+      if (accumulator === undefined) {
+        return {
+          _tag: "unsupported",
+          reason: agentId + " does not have MCP config support",
+        };
+      }
+      return {
+        _tag: "success",
+        targets: accumulator.targets,
+        ...(accumulator.warnings.length > 0 ? { warnings: accumulator.warnings } : {}),
+      };
+    });
+  });
+
 export const syncInlineMcpServerToAgent = (
   agentId: string,
   args: SyncInlineMcpServerArgs,
 ): Effect.Effect<McpServerSyncOutcome, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    if (!isCapabilityAgentId(agentId)) {
-      return {
+    const outcomes = yield* syncInlineMcpServerToAgents([agentId], args);
+    return (
+      outcomes[0] ?? {
         _tag: "unsupported",
-        reason: `${agentId} has no MCP capability catalog entry`,
-      } as const;
-    }
-
-    const agent: Agent = AGENTS_BY_ID[agentId];
-    const capability = agent.capabilities["mcp-server"];
-    if (!hasMcpConfig(capability)) {
-      return {
-        _tag: "unsupported",
-        reason: `${agentId} does not have MCP config support`,
-      } as const;
-    }
-
-    const config = capability.axm.writer.config;
-    const projected = projectExpectedEntry({
-      serverName: args.serverName,
-      entry: args.entry,
-      stdio: config.stdio,
-      remote: config.remote,
-      nativeEnabled: config.nativeEnabled,
-      envExpansion: capability.native.mcpEnvExpansion,
-    });
-
-    if (projected._tag !== "projected") {
-      return {
-        _tag: "unsupported",
-        reason: `${agentId} ${projected.reason}`,
-      } as const;
-    }
-
-    const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
-    const writeResults = yield* Effect.forEach(
-      targets,
-      (target) =>
-        writeAgentMcpConfig({
-          workspaceRoot: args.workspaceRoot,
-          serverName: args.serverName,
-          serversKey: config.serversKey,
-          target,
-          entry: projected.entry,
-        }),
-      { concurrency: "unbounded" },
+        reason: agentId + " does not have MCP config support",
+      }
     );
-    const syncTargets = writeResults.flatMap((result) => result.targets);
-    return {
-      _tag: "success",
-      targets: syncTargets,
-      ...(projected.warnings.length > 0 ? { warnings: projected.warnings } : {}),
-    } satisfies McpServerSyncOutcome;
   });
 
 export const pruneManagedMcpServersForAgent = (
@@ -682,7 +800,7 @@ export const pruneManagedMcpServersForAgent = (
                   serverName,
                   serversKey: config.serversKey,
                   target,
-                  nativeEnabled: config.nativeEnabled,
+                  activationField: config.activationField,
                   disableOnly: false,
                 }),
               { concurrency: "unbounded" },
@@ -1068,7 +1186,7 @@ export const removeMcpServerFromManifest = (
           serverName: args.serverName,
           serversKey: config.serversKey,
           target,
-          nativeEnabled: config.nativeEnabled,
+          activationField: config.activationField,
           disableOnly: args.disableOnly ?? false,
         }),
       { concurrency: "unbounded" },

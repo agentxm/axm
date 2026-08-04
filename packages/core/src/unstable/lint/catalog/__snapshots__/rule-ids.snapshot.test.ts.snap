@@ -73,6 +73,7 @@ exports[`catalog rule-id snapshot > matches the pinned id snapshot 1`] = `
   "workspace/configured-but-not-installed",
   "workspace/mcps-transport-exclusivity",
   "workspace/mcps-no-secret-literal",
+  "workspace/mcps-shared-target-compatible",
   "workspace/mcps-agent-drift",
   "workspace/mcps-agent-orphaned",
   "workspace/skills-lockfile-aligned",

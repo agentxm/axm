@@ -67,15 +67,22 @@ export const hermesAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcp_servers",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }],
+            },
             targets: [{ scope: "user", path: "~/.hermes/config.yaml", format: "yaml" }],
-            stdio: { typeField: null, command: "split", envKey: "env" },
+            stdio: {
+              typeField: { required: null, accepted: [null] },
+              command: "split",
+              envKey: "env",
+            },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: { "streamable-http": "url" },
               headersKey: "headers",
             },

@@ -121,6 +121,7 @@ export {
   pruneManagedMcpServersForAgent,
   runCliInvocation,
   syncInlineMcpServerToAgent,
+  syncInlineMcpServerToAgents,
   type CliInvocation,
   type CliInvocationResult,
   type MixedStrategyConfig,

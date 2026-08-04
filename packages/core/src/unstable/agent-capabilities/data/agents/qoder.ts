@@ -60,7 +60,10 @@ export const qoderAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://docs.qoder.com/en/cli/mcp-servers"],
+        sources: [
+          "https://docs.qoder.com/user-guide/chat/model-context-protocol",
+          "https://docs.qoder.com/cli/mcp-servers",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -72,11 +75,14 @@ export const qoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "user",
@@ -90,17 +96,31 @@ export const qoderAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: {
+                required: null,
+                accepted: [null, { name: "type", value: "stdio" }],
+              },
               command: "split",
               envKey: "env",
             },
             remote: {
               typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "sse",
+                required: {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
+                accepted: [
+                  {
+                    name: "type",
+                    value: {
+                      "streamable-http": "http",
+                      sse: "sse",
+                    },
+                  },
+                ],
               },
               urlKey: {
                 "streamable-http": "url",

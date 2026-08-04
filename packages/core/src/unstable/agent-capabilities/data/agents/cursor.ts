@@ -83,7 +83,7 @@ export const cursorAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://cursor.com/docs/mcp"],
+        sources: ["https://cursor.com/docs/mcp.md"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -95,25 +95,36 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
                 path: ".cursor/mcp.json",
                 format: "json",
               },
+              {
+                scope: "user",
+                path: "~/.cursor/mcp.json",
+                format: "json",
+              },
             ],
             stdio: {
-              typeField: null,
+              typeField: {
+                required: { name: "type", value: "stdio" },
+                accepted: [{ name: "type", value: "stdio" }, null],
+              },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
                 sse: "url",

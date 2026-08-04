@@ -16,7 +16,11 @@ import { isPathSafe } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { stringifyToml, stringifyTomlKey } from "../toml/index.js";
 import { deleteYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
-import type { McpConfigTarget, McpServersKey } from "../agent-capabilities/index.js";
+import type {
+  McpActivationField,
+  McpConfigTarget,
+  McpServersKey,
+} from "../agent-capabilities/index.js";
 import type { ArtifactChange } from "../plan/plan.js";
 
 export interface WriteAgentMcpConfigArgs {
@@ -32,7 +36,7 @@ export interface RemoveAgentMcpConfigArgs {
   readonly serverName: string;
   readonly serversKey: McpServersKey;
   readonly target: McpConfigTarget;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
 }
 
@@ -198,17 +202,18 @@ const removeJsonLike = (args: {
   readonly raw: string;
   readonly serversKey: string;
   readonly serverName: string;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
 }): Effect.Effect<string, AppError> =>
   Effect.gen(function* () {
     if (args.raw.trim().length === 0) return args.raw;
     const parsed = yield* parseJsonConfig(args.configPath, args.raw);
     yield* validateServersShape(args.configPath, parsed, args.serversKey);
-    if (args.disableOnly && args.nativeEnabled) {
+    const activation = args.activationField.required;
+    if (args.disableOnly && activation !== null) {
       return applyEdits(
         args.raw,
-        modify(args.raw, [args.serversKey, args.serverName, "enabled"], false, {
+        modify(args.raw, [args.serversKey, args.serverName, activation.name], activation.disabled, {
           formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
         }),
       );
@@ -244,13 +249,18 @@ const removeYaml = (args: {
   readonly raw: string;
   readonly serversKey: string;
   readonly serverName: string;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
 }): Effect.Effect<string, AppError> =>
   Effect.sync(() => {
     if (args.raw.trim().length === 0) return args.raw;
-    if (args.disableOnly && args.nativeEnabled) {
-      return setYamlScalar(args.raw, [args.serversKey, args.serverName, "enabled"], false);
+    const activation = args.activationField.required;
+    if (args.disableOnly && activation !== null) {
+      return setYamlScalar(
+        args.raw,
+        [args.serversKey, args.serverName, activation.name],
+        activation.disabled,
+      );
     }
     return deleteYamlEntry(args.raw, args.serversKey, args.serverName);
   }).pipe(Effect.mapError((error) => mapYamlError(args.configPath, error)));
@@ -289,13 +299,18 @@ const removeToml = (args: {
   readonly raw: string;
   readonly serverName: string;
   readonly disableOnly: boolean;
-  readonly nativeEnabled: boolean;
+  readonly activationField: McpActivationField;
 }): string => {
-  if (args.disableOnly && args.nativeEnabled) {
+  const activation = args.activationField.required;
+  if (args.disableOnly && activation !== null) {
     const start = managedTomlStart(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const end = managedTomlEnd(args.serverName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const field = activation.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return args.raw.replace(new RegExp(`${start}[\\s\\S]*?${end}`), (block) =>
-      block.replace(/^enabled = true$/m, "enabled = false"),
+      block.replace(
+        new RegExp(`^${field} = (?:true|false)$`, "m"),
+        `${activation.name} = ${String(activation.disabled)}`,
+      ),
     );
   }
   const stripped = stripManagedTomlBlock(args.raw, args.serverName);
@@ -379,7 +394,7 @@ export const removeAgentMcpConfig = (
                 raw,
                 serverName: args.serverName,
                 disableOnly: args.disableOnly,
-                nativeEnabled: args.nativeEnabled,
+                activationField: args.activationField,
               });
             case "yaml":
               return yield* removeYaml({
@@ -387,7 +402,7 @@ export const removeAgentMcpConfig = (
                 raw,
                 serversKey: args.serversKey,
                 serverName: args.serverName,
-                nativeEnabled: args.nativeEnabled,
+                activationField: args.activationField,
                 disableOnly: args.disableOnly,
               });
             case "json":
@@ -399,7 +414,7 @@ export const removeAgentMcpConfig = (
                 raw,
                 serversKey: args.serversKey,
                 serverName: args.serverName,
-                nativeEnabled: args.nativeEnabled,
+                activationField: args.activationField,
                 disableOnly: args.disableOnly,
               });
           }

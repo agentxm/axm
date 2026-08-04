@@ -97,3 +97,11 @@ export {
   type InlineRemoteTransport,
   type ProjectExpectedEntryArgs,
 } from "./projection.js";
+export {
+  resolveSharedMcpTarget,
+  type ResolvedSharedMcpTarget,
+  type SharedMcpTargetConflict,
+  type SharedMcpTargetMember,
+  type SharedMcpTargetResolution,
+  type SharedMcpTransport,
+} from "./shared-target.js";

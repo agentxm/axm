@@ -90,11 +90,14 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-03",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             targets: [
               {
                 scope: "project",
@@ -108,12 +111,12 @@ export const geminiCliAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "httpUrl",
                 sse: "url",

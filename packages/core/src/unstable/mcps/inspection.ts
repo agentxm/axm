@@ -23,7 +23,17 @@ import { parseTomlValue, stringifyTomlKey } from "../toml/index.js";
 import { managedYamlNames as readManagedYamlNames, readYamlEntry } from "../yaml/index.js";
 import { resolveAgentMcpConfigTargetPath } from "./config-writer.js";
 import { isAxmManagedMcpEntry } from "./metadata.js";
-import { diffAgentEntry, projectExpectedEntry, type ExpectedAgentEntry } from "./projection.js";
+import {
+  diffAgentEntry,
+  inferInlineRemoteTransport,
+  projectExpectedEntry,
+  type ExpectedAgentEntry,
+} from "./projection.js";
+import {
+  resolveSharedMcpTarget,
+  type SharedMcpTargetMember,
+  type SharedMcpTransport,
+} from "./shared-target.js";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 type ConfiguredMcpCapability = AgentMcpCapability & {
@@ -58,6 +68,13 @@ export interface InspectAgentMcpServerArgs {
   readonly agentId: string;
   readonly serverName: string;
   readonly entry: McpServerEntry;
+}
+
+interface InternalInspectAgentMcpServerArgs extends InspectAgentMcpServerArgs {
+  readonly projection?: {
+    readonly config: McpConfig;
+    readonly target: McpConfigTarget;
+  };
 }
 
 export interface ManagedAgentMcpServer {
@@ -261,8 +278,8 @@ const inspectActual = (args: {
     return { status: "absent", fields: [] };
   });
 
-export const inspectAgentMcpServer = (
-  args: InspectAgentMcpServerArgs,
+const inspectAgentMcpServerInternal = (
+  args: InternalInspectAgentMcpServerArgs,
 ): Effect.Effect<AgentMcpServerInspection, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     if (!isCapabilityAgentId(args.agentId)) {
@@ -290,8 +307,10 @@ export const inspectAgentMcpServer = (
       };
     }
 
-    const config = capability.axm.writer.config;
-    const target = config.targets.find((item) => item.scope === args.scope);
+    const nativeConfig = capability.axm.writer.config;
+    const config = args.projection?.config ?? nativeConfig;
+    const target =
+      args.projection?.target ?? nativeConfig.targets.find((item) => item.scope === args.scope);
     if (target === undefined) {
       return {
         agentId: args.agentId,
@@ -309,7 +328,7 @@ export const inspectAgentMcpServer = (
       entry: args.entry,
       stdio: config.stdio,
       remote: config.remote,
-      nativeEnabled: config.nativeEnabled,
+      activationField: config.activationField,
       envExpansion: capability.native.mcpEnvExpansion,
     });
     const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
@@ -344,6 +363,34 @@ export const inspectAgentMcpServer = (
     };
   });
 
+export const inspectAgentMcpServer = (
+  args: InspectAgentMcpServerArgs,
+): Effect.Effect<AgentMcpServerInspection, AppError, FileSystem.FileSystem | Path.Path> =>
+  inspectAgentMcpServerInternal(args);
+
+const inspectionTransportForEntry = (
+  entry: McpServerEntry,
+): Effect.Effect<SharedMcpTransport, AppError> => {
+  if (entry.command !== undefined) return Effect.succeed("stdio");
+  if (entry.url !== undefined) {
+    return Effect.try({
+      try: () => inferInlineRemoteTransport(entry.url ?? ""),
+      catch: (error) =>
+        makeAppError({
+          code: "validation",
+          detail: "Invalid inline MCP server URL",
+          cause: error,
+        }),
+    });
+  }
+  return Effect.fail(
+    makeAppError({
+      code: "validation",
+      detail: "Inline MCP server has no command or URL",
+    }),
+  );
+};
+
 export const inspectMcpServerAcrossAgents = (args: {
   readonly workspaceRoot: string;
   readonly scope: "project" | "user";
@@ -355,18 +402,84 @@ export const inspectMcpServerAcrossAgents = (args: {
   AppError,
   FileSystem.FileSystem | Path.Path
 > =>
-  Effect.forEach(
-    args.agentIds,
-    (agentId) =>
-      inspectAgentMcpServer({
-        workspaceRoot: args.workspaceRoot,
-        scope: args.scope,
-        agentId,
-        serverName: args.serverName,
-        entry: args.entry,
-      }),
-    { concurrency: "unbounded" },
-  );
+  Effect.gen(function* () {
+    if (args.entry.command === undefined && args.entry.url === undefined) {
+      return yield* Effect.forEach(
+        args.agentIds,
+        (agentId) =>
+          inspectAgentMcpServer({
+            workspaceRoot: args.workspaceRoot,
+            scope: args.scope,
+            agentId,
+            serverName: args.serverName,
+            entry: args.entry,
+          }),
+        { concurrency: "unbounded" },
+      );
+    }
+    const transport = yield* inspectionTransportForEntry(args.entry);
+    const groups = new Map<string, Array<SharedMcpTargetMember>>();
+    for (const agentId of args.agentIds) {
+      if (!isCapabilityAgentId(agentId)) continue;
+      const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+      if (!hasMcpConfig(capability)) continue;
+      for (const target of capability.axm.writer.config.targets.filter(
+        (candidate) => candidate.scope === args.scope,
+      )) {
+        const key = target.scope + ":" + target.path;
+        const members = groups.get(key) ?? [];
+        members.push({ agentId, config: capability.axm.writer.config, target });
+        groups.set(key, members);
+      }
+    }
+
+    const byAgentId = new Map<string, AgentMcpServerInspection>();
+    for (const members of groups.values()) {
+      const resolution = resolveSharedMcpTarget({ members, transport });
+      if (resolution._tag === "conflict") {
+        return yield* makeAppError({
+          code: "conflict",
+          detail: resolution.reason,
+        });
+      }
+      const inspections = yield* Effect.forEach(
+        members,
+        (member) =>
+          inspectAgentMcpServerInternal({
+            workspaceRoot: args.workspaceRoot,
+            scope: args.scope,
+            agentId: member.agentId,
+            serverName: args.serverName,
+            entry: args.entry,
+            projection: {
+              config: resolution.config,
+              target: member.target,
+            },
+          }),
+        { concurrency: "unbounded" },
+      );
+      for (const inspection of inspections) {
+        byAgentId.set(inspection.agentId, inspection);
+      }
+    }
+
+    return yield* Effect.forEach(
+      args.agentIds,
+      (agentId) => {
+        const resolved = byAgentId.get(agentId);
+        return resolved === undefined
+          ? inspectAgentMcpServer({
+              workspaceRoot: args.workspaceRoot,
+              scope: args.scope,
+              agentId,
+              serverName: args.serverName,
+              entry: args.entry,
+            })
+          : Effect.succeed(resolved);
+      },
+      { concurrency: "unbounded" },
+    );
+  });
 
 const managedJsonNames = (
   configPath: string,

@@ -37,7 +37,7 @@ import {
   CodingAgentRepository,
   removeMcpServerFromManifest,
   resolveInstructionsConfig,
-  syncInlineMcpServerToAgent,
+  syncInlineMcpServerToAgents,
   syncInstructionTarget,
   syncInstructionsGitignore,
   type McpServerSyncOutcome,
@@ -607,20 +607,26 @@ const adaptIntent = (
             `MCP server "${intent.serverName}" is not an inline settings entry`,
           );
         }
-        const run = syncInlineMcpServerToAgent(intent.agentId, {
-          workspaceRoot: args.workspaceRoot,
-          serverName: intent.serverName,
-          entry,
-          scope: intent.scope,
+        const run = Effect.gen(function* () {
+          const agentIds = yield* ws.getConfiguredAgents();
+          const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+            workspaceRoot: args.workspaceRoot,
+            serverName: intent.serverName,
+            entry,
+            scope: intent.scope,
+          });
+          const index = agentIds.indexOf(intent.agentId);
+          const outcome = index < 0 ? undefined : outcomes[index];
+          return mcpSyncOutcomeResult({
+            action: "synchronized",
+            serverName: intent.serverName,
+            agentId: intent.agentId,
+            outcome: outcome ?? {
+              _tag: "unsupported",
+              reason: intent.agentId + " is not configured in this workspace",
+            },
+          });
         }).pipe(
-          Effect.map((outcome) =>
-            mcpSyncOutcomeResult({
-              action: "synchronized",
-              serverName: intent.serverName,
-              agentId: intent.agentId,
-              outcome,
-            }),
-          ),
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );

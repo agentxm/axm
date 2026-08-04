@@ -10,7 +10,12 @@ import {
   type McpEnvExpansion,
 } from "../../../agent-capabilities/index.js";
 import { isAxmManagedMcpEntry } from "../../../mcps/metadata.js";
-import { diffAgentEntry, projectExpectedEntry } from "../../../mcps/projection.js";
+import {
+  diffAgentEntry,
+  inferInlineRemoteTransport,
+  projectExpectedEntry,
+} from "../../../mcps/projection.js";
+import { resolveSharedMcpTarget, type SharedMcpTargetMember } from "../../../mcps/shared-target.js";
 import type { McpServerEntry } from "../../../settings/index.js";
 import type {
   ActualMcpServer,
@@ -21,6 +26,12 @@ import type { AutofixableFinding, AutofixingRule, LintFinding } from "../../rule
 import { syncMcpServerAgentOp } from "./helpers/install-ops.js";
 
 const RULE_ID = "workspace/mcps-agent-drift";
+
+const relativeToRoot = (root: string, file: string): string => {
+  if (file === root) return "";
+  const prefix = root.endsWith("/") ? root : `${root}/`;
+  return file.startsWith(prefix) ? file.slice(prefix.length) : file;
+};
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
 type ConfiguredMcpCapability = AgentMcpCapability & {
@@ -66,6 +77,7 @@ const findingFor = (args: {
   readonly name: string;
   readonly actual: ActualMcpServer;
   readonly fields: ReadonlyArray<string>;
+  readonly root: string;
 }): AutofixableFinding => {
   const finding = {
     kind: "autofixable",
@@ -77,7 +89,7 @@ const findingFor = (args: {
   } satisfies Omit<AutofixableFinding, "location">;
   return args.actual.configFile === null
     ? finding
-    : { ...finding, location: { file: args.actual.configFile } };
+    : { ...finding, location: { file: relativeToRoot(args.root, args.actual.configFile) } };
 };
 
 interface DriftedAgentConfig {
@@ -90,19 +102,47 @@ const checkActual = (args: {
   readonly row: InstalledMcpServer;
   readonly entry: McpServerEntry;
   readonly actual: ActualMcpServer;
+  readonly configuredAgents: ReadonlySet<string>;
 }): DriftedAgentConfig | undefined => {
   if (args.actual.origin._tag !== "agent-mcp-config") return undefined;
   if (!isCapabilityAgentId(args.actual.origin.agentId)) return undefined;
   if (args.actual.config === null) return undefined;
   const capability = AGENTS_BY_ID[args.actual.origin.agentId].capabilities["mcp-server"];
   if (!hasMcpConfig(capability)) return undefined;
-  const config = capability.axm.writer.config;
+  const nativeConfig = capability.axm.writer.config;
+  const target = nativeConfig.targets.find((candidate) => candidate.scope === args.row.key.scope);
+  if (target === undefined) return undefined;
+  const members: Array<SharedMcpTargetMember> = [];
+  for (const agentId of args.configuredAgents) {
+    if (!isCapabilityAgentId(agentId)) continue;
+    const candidateCapability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+    if (!hasMcpConfig(candidateCapability)) continue;
+    const candidateTarget = candidateCapability.axm.writer.config.targets.find(
+      (candidate) => candidate.scope === args.row.key.scope && candidate.path === target.path,
+    );
+    if (candidateTarget === undefined) continue;
+    members.push({
+      agentId,
+      config: candidateCapability.axm.writer.config,
+      target: candidateTarget,
+    });
+  }
+  const transport =
+    args.entry.command !== undefined
+      ? "stdio"
+      : args.entry.url === undefined
+        ? undefined
+        : inferInlineRemoteTransport(args.entry.url);
+  if (transport === undefined) return undefined;
+  const resolution = resolveSharedMcpTarget({ members, transport });
+  if (resolution._tag === "conflict") return undefined;
+  const config = resolution.config;
   const projected = projectExpectedEntry({
     serverName: args.row.key.name,
     entry: args.entry,
     stdio: config.stdio,
     remote: config.remote,
-    nativeEnabled: config.nativeEnabled,
+    activationField: config.activationField,
     envExpansion: capability.native.mcpEnvExpansion,
   });
   if (projected._tag !== "projected") return undefined;
@@ -117,7 +157,6 @@ const driftedAgentConfigs = (
   configuredAgents: ReadonlySet<string>,
 ): ReadonlyArray<DriftedAgentConfig> =>
   rows.flatMap((row) => {
-    if (row.activation === "disabled") return [];
     const entry = configuredEntry(row);
     if (entry === undefined || !isInlineEntry(entry)) return [];
     return agentActuals(row.actual)
@@ -126,7 +165,7 @@ const driftedAgentConfigs = (
           actual.origin._tag === "agent-mcp-config" && configuredAgents.has(actual.origin.agentId),
       )
       .flatMap((actual) => {
-        const drift = checkActual({ row, entry, actual });
+        const drift = checkActual({ row, entry, actual, configuredAgents });
         return drift === undefined ? [] : [drift];
       });
   });
@@ -134,12 +173,14 @@ const driftedAgentConfigs = (
 const findingsForRows = (
   rows: ReadonlyArray<InstalledMcpServer>,
   configuredAgents: ReadonlySet<string>,
+  root: string,
 ): ReadonlyArray<LintFinding> =>
   driftedAgentConfigs(rows, configuredAgents).map((drift) =>
     findingFor({
       name: drift.row.key.name,
       actual: drift.actual,
       fields: drift.fields,
+      root,
     }),
   );
 
@@ -170,7 +211,7 @@ export const mcpServerAgentDriftRule: AutofixingRule<WorkspaceRuleContext> = {
       const rows = yield* Effect.result(context.workspace.mcpServers.installed);
       if (Result.isFailure(rows)) return [];
       const agents = yield* configuredAgentIds(context);
-      return findingsForRows(rows.success, agents);
+      return findingsForRows(rows.success, agents, context.subject.root);
     }),
   fix: (context, _finding: AutofixableFinding) =>
     Effect.gen(function* () {

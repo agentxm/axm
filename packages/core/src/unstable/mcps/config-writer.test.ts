@@ -124,7 +124,10 @@ describe("agent MCP config writer", () => {
             serverName: "context",
             serversKey: "mcpServers",
             target: { scope: "project", path: "agent.json", format: "json" },
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             disableOnly: false,
           });
 
@@ -168,7 +171,10 @@ describe("agent MCP config writer", () => {
             serverName: "context",
             serversKey: "mcp_servers",
             target: { scope: "project", path: "agent.toml", format: "toml" },
-            nativeEnabled: false,
+            activationField: {
+              required: null,
+              accepted: [null],
+            },
             disableOnly: false,
           });
 
@@ -249,7 +255,10 @@ describe("agent MCP config writer", () => {
             serverName: "beta",
             serversKey: "mcp_servers",
             target,
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }],
+            },
             disableOnly: true,
           });
 
@@ -389,7 +398,10 @@ describe("agent MCP config writer", () => {
             serverName: "context",
             serversKey: "mcp_servers",
             target: { scope: "project", path: "config.yaml", format: "yaml" },
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }],
+            },
             disableOnly: true,
           });
 
@@ -406,7 +418,10 @@ describe("agent MCP config writer", () => {
             serverName: "context",
             serversKey: "mcp_servers",
             target: { scope: "project", path: "config.yaml", format: "yaml" },
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "enabled", enabled: true, disabled: false },
+              accepted: [{ name: "enabled", enabled: true, disabled: false }],
+            },
             disableOnly: false,
           });
 

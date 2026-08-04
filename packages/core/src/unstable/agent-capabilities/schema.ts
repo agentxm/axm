@@ -791,21 +791,67 @@ export const McpTypeFieldValueMapSchema = Schema.Struct({
 export type McpTypeFieldValueMap = Schema.Schema.Type<typeof McpTypeFieldValueMapSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpTypeFieldSchema = Schema.Struct({
+export const McpTypeFieldRepresentationSchema = Schema.Struct({
   name: Schema.NonEmptyString,
   value: Schema.Union([Schema.NonEmptyString, McpTypeFieldValueMapSchema]),
 }).annotate({
+  identifier: "McpTypeFieldRepresentation",
+  title: "MCP Type Field Representation",
+  description: "One accepted per-entry transport discriminator representation.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpTypeFieldRepresentation = Schema.Schema.Type<
+  typeof McpTypeFieldRepresentationSchema
+>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpTypeFieldSchema = Schema.Struct({
+  required: Schema.NullOr(McpTypeFieldRepresentationSchema),
+  accepted: Schema.NonEmptyArray(Schema.NullOr(McpTypeFieldRepresentationSchema)),
+}).annotate({
   identifier: "McpTypeField",
   title: "MCP Type Field",
-  description: "Optional per-entry transport discriminator field.",
+  description:
+    "The discriminator representation AXM writes and every representation the agent accepts.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
 export type McpTypeField = Schema.Schema.Type<typeof McpTypeFieldSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
+export const McpActivationFieldRepresentationSchema = Schema.Struct({
+  name: Schema.NonEmptyString,
+  enabled: Schema.Boolean,
+  disabled: Schema.Boolean,
+}).annotate({
+  identifier: "McpActivationFieldRepresentation",
+  title: "MCP Activation Field Representation",
+  description: "One accepted per-entry activation field and its boolean polarity.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpActivationFieldRepresentation = Schema.Schema.Type<
+  typeof McpActivationFieldRepresentationSchema
+>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpActivationFieldSchema = Schema.Struct({
+  required: Schema.NullOr(McpActivationFieldRepresentationSchema),
+  accepted: Schema.NonEmptyArray(Schema.NullOr(McpActivationFieldRepresentationSchema)),
+}).annotate({
+  identifier: "McpActivationField",
+  title: "MCP Activation Field",
+  description:
+    "The activation representation AXM writes and every representation the agent accepts.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpActivationField = Schema.Schema.Type<typeof McpActivationFieldSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
 export const McpStdioDialectSchema = Schema.Struct({
-  typeField: Schema.NullOr(McpTypeFieldSchema),
+  typeField: McpTypeFieldSchema,
   command: Schema.Literals(["split", "array"]),
   envKey: Schema.NullOr(Schema.NonEmptyString),
 }).annotate({
@@ -832,7 +878,7 @@ export type McpUrlKeyMap = Schema.Schema.Type<typeof McpUrlKeyMapSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpRemoteDialectSchema = Schema.Struct({
-  typeField: Schema.NullOr(McpTypeFieldSchema),
+  typeField: McpTypeFieldSchema,
   urlKey: McpUrlKeyMapSchema,
   headersKey: Schema.NullOr(Schema.NonEmptyString),
   bearerTokenEnvKey: Schema.optionalKey(Schema.NullOr(Schema.NonEmptyString)),
@@ -849,7 +895,7 @@ export type McpRemoteDialect = Schema.Schema.Type<typeof McpRemoteDialectSchema>
 /** @experimental This API is unstable and may change without notice. */
 export const McpConfigSchema = Schema.Struct({
   serversKey: McpServersKeySchema,
-  nativeEnabled: Schema.Boolean,
+  activationField: McpActivationFieldSchema,
   targets: Schema.Array(McpConfigTargetSchema),
   stdio: Schema.NullOr(McpStdioDialectSchema),
   remote: Schema.NullOr(McpRemoteDialectSchema),

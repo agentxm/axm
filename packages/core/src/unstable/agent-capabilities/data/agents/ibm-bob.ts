@@ -73,11 +73,14 @@ export const ibmBobAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: false,
+            activationField: {
+              required: { name: "disabled", enabled: false, disabled: true },
+              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "user",
@@ -91,17 +94,24 @@ export const ibmBobAgent = {
               },
             ],
             stdio: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "streamable-http",
-                },
-              },
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: null,
+              typeField: {
+                required: {
+                  name: "type",
+                  value: { "streamable-http": "streamable-http" },
+                },
+                accepted: [
+                  {
+                    name: "type",
+                    value: { "streamable-http": "streamable-http" },
+                  },
+                  null,
+                ],
+              },
               urlKey: {
                 "streamable-http": "url",
                 sse: "url",

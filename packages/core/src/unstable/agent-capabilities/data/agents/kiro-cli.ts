@@ -59,7 +59,7 @@ export const kiroCliAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://kiro.dev/docs/cli/mcp/", "https://kiro.dev/docs/cli/mcp/configuration/"],
+        sources: ["https://kiro.dev/docs/mcp/configuration/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -71,11 +71,14 @@ export const kiroCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-04",
         writer: {
           config: {
             serversKey: "mcpServers",
-            nativeEnabled: true,
+            activationField: {
+              required: { name: "disabled", enabled: false, disabled: true },
+              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            },
             targets: [
               {
                 scope: "project",
@@ -89,23 +92,16 @@ export const kiroCliAgent = {
               },
             ],
             stdio: {
-              typeField: null,
+              typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
             },
             remote: {
-              typeField: {
-                name: "type",
-                value: {
-                  "streamable-http": "http",
-                  sse: "http",
-                },
-              },
+              typeField: { required: null, accepted: [null] },
               urlKey: {
                 "streamable-http": "url",
-                sse: "url",
               },
-              headersKey: null,
+              headersKey: "headers",
             },
           },
         },

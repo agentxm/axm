@@ -1,3 +1,13 @@
+## 0.24.13 (2026-08-04)
+
+### 🩹 Fixes
+
+- Harden first-publish owner validation, locator parsing, MCP install artifacts, and recovery guidance.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.12 (2026-08-04)
 
 ### 🩹 Fixes

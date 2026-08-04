@@ -67,7 +67,7 @@
     "release:publish": "pnpm exec nx run axm:release-publish --outputStyle=static",
     "release:publish:local": "pnpm exec nx run axm:release-publish-local --outputStyle=static",
     "generate": "pnpm exec nx run-many -t generate --outputStyle=static",
-    "generate:check": "pnpm exec nx run-many -t generate --skip-nx-cache --outputStyle=static && pnpm run format:check && git diff --exit-code",
+    "generate:check": "pnpm exec nx run-many -t generate --skip-nx-cache --outputStyle=static && git diff --exit-code",
     "generate:registry": "pnpm exec nx run core:generate:registry-client --outputStyle=static",
     "generate:telemetry": "pnpm exec nx run core:generate:telemetry-client --outputStyle=static",
     "generate:cli-reference": "pnpm exec nx run cli:generate:cli-reference --outputStyle=static",

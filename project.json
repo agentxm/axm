@@ -39,6 +39,7 @@
       "cache": true,
       "dependsOn": ["utils:build"],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
+      "outputs": ["{workspaceRoot}/test-results/scripts"],
       "options": {
         "command": "pnpm scripts-test",
         "cwd": "."

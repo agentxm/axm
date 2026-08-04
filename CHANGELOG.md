@@ -1,3 +1,13 @@
+## 0.24.12 (2026-08-04)
+
+### 🩹 Fixes
+
+- Harden MCP config projection, inspection, and scoped disable behavior.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.24.11 (2026-08-04)
 
 ### 🩹 Fixes

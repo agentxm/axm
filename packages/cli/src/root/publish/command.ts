@@ -46,6 +46,7 @@ import type {
   JobStepResult,
   OperationPrecondition,
   Plan,
+  PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CompanionPackageSchema } from "@agentxm/client-core/unstable/package-urls";
@@ -191,6 +192,7 @@ interface SelectedEntry extends CatalogEntry {
   readonly fqn: string;
   readonly sourceType: SourceType;
   readonly authored: boolean;
+  readonly includedDependency?: true;
   readonly extensionDir?: string;
   readonly skipReason?: "not_authored" | "not_publishable";
 }
@@ -206,6 +208,7 @@ interface PublishCandidate extends SelectedEntry {
   readonly archive: Uint8Array;
   readonly integrity: string;
   readonly action: "publish" | "skip";
+  readonly existingVersionPolicy: ExistingVersionPolicy;
 }
 
 interface TargetRegistry {
@@ -568,6 +571,7 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
               fqn: dependencyFqn,
               sourceType: "registry",
               authored: false,
+              includedDependency: true,
               skipReason: "not_publishable",
             },
           ];
@@ -579,8 +583,8 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
         selected = [
           ...selected,
           dependency.authored || explicitlyIncluded
-            ? dependency
-            : { ...dependency, skipReason: "not_authored" },
+            ? { ...dependency, includedDependency: true }
+            : { ...dependency, includedDependency: true, skipReason: "not_authored" },
         ];
       }
     }
@@ -588,7 +592,14 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
 
   const unique = new Map<string, SelectedEntry>();
   for (const entry of selected) unique.set(`${entry.type}:${entry.owner}:${entry.name}`, entry);
-  return { mode, entries: [...unique.values()] };
+  const entries = [...unique.values()];
+  return {
+    mode,
+    entries: [
+      ...entries.filter((entry) => entry.includedDependency === true),
+      ...entries.filter((entry) => entry.includedDependency !== true),
+    ],
+  };
 });
 
 const resolveTargetRegistry = Effect.fn("Publish.resolveTargetRegistry")(function* (
@@ -838,6 +849,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     archive,
     integrity,
     action,
+    existingVersionPolicy: policy,
   } satisfies PublishCandidate;
 });
 
@@ -987,6 +999,8 @@ const runPublish = Effect.fn("Publish.run")(function* (
     skipExisting: args.skipExisting,
     bulkSelection,
   });
+  const includedDependencyPolicy: ExistingVersionPolicy =
+    Option.isNone(args.onExisting) && !args.skipExisting ? "verify" : effectivePolicy;
   const prepared = yield* renderer.withSpinner(
     "Preparing publish candidates",
     () =>
@@ -1006,10 +1020,16 @@ const runPublish = Effect.fn("Publish.run")(function* (
           selection.entries,
           (entry) =>
             Effect.result(
-              decodeCandidate(entry, effectivePolicy, registry, args.visibility, {
-                allowOlder: args.allowOlder,
-                allowUnsafeArchive: args.allowUnsafeArchive,
-              }),
+              decodeCandidate(
+                entry,
+                entry.includedDependency === true ? includedDependencyPolicy : effectivePolicy,
+                registry,
+                args.visibility,
+                {
+                  allowOlder: args.allowOlder,
+                  allowUnsafeArchive: args.allowUnsafeArchive,
+                },
+              ),
             ),
           { concurrency: 4 },
         );
@@ -1053,6 +1073,70 @@ const runPublish = Effect.fn("Publish.run")(function* (
   });
   const publishConcurrency = isRemoteRegistry && Option.isNone(storedToken) ? 1 : 4;
 
+  const candidateStep = (candidate: PublishCandidate): PlannedJobStep => {
+    const run = publishCandidate(candidate, registry, args.visibility).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.provideService(AuthClient, authClient),
+      Effect.provideService(CredentialStore, credentialStore),
+      Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
+      Effect.provideService(RegistryUrl, registryUrl),
+      Effect.provideService(CliRenderer, renderer),
+    );
+    return {
+      readiness: "ready",
+      label: `${candidate.action === "skip" ? "Skip" : "Publish"} ${candidate.fqn}`,
+      run:
+        candidate.existingVersionPolicy === "error"
+          ? run
+          : run.pipe(
+              Effect.catch(
+                recoverPublishConflictAsSkipExisting({
+                  registryUrl: registry.url,
+                  target: {
+                    fqn: candidate.fqn,
+                    identity: {
+                      owner: candidate.owner,
+                      type: candidate.type,
+                      name: candidate.name,
+                      version: candidate.version,
+                    },
+                  },
+                  scope: args.scope,
+                  ...(candidate.existingVersionPolicy === "verify"
+                    ? { expectedIntegrity: candidate.integrity }
+                    : {}),
+                }),
+              ),
+            ),
+    };
+  };
+
+  const dependencySteps = decoded.flatMap((result, index): ReadonlyArray<PlannedJobStep> => {
+    const entry = selected[index];
+    if (entry?.includedDependency !== true) return [];
+    if (Result.isFailure(result)) {
+      return [
+        {
+          readiness: "ready",
+          label: `Validate ${entry.fqn}`,
+          run: Effect.fail(result.failure),
+        },
+      ];
+    }
+    return result.success === undefined ? [] : [candidateStep(result.success)];
+  });
+  const remainingSteps = candidates
+    .filter((candidate) => candidate.includedDependency !== true)
+    .map(candidateStep);
+  const jobs =
+    dependencySteps.length === 0
+      ? [{ concurrency: publishConcurrency, steps: remainingSteps }]
+      : [
+          { concurrency: publishConcurrency, steps: dependencySteps },
+          { concurrency: publishConcurrency, steps: remainingSteps },
+        ];
+
   const plan: Plan = {
     _tag: "Plan",
     name: "Publish extensions",
@@ -1062,49 +1146,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
     ...(authenticationPreconditions.length === 0
       ? {}
       : { preconditions: authenticationPreconditions }),
-    jobs: [
-      {
-        concurrency: publishConcurrency,
-        steps: candidates.map((candidate) => {
-          const run = publishCandidate(candidate, registry, args.visibility).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-            Effect.provideService(AuthClient, authClient),
-            Effect.provideService(CredentialStore, credentialStore),
-            Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
-            Effect.provideService(RegistryUrl, registryUrl),
-            Effect.provideService(CliRenderer, renderer),
-          );
-          return {
-            readiness: "ready" as const,
-            label: `${candidate.action === "skip" ? "Skip" : "Publish"} ${candidate.fqn}`,
-            run:
-              effectivePolicy === "error"
-                ? run
-                : run.pipe(
-                    Effect.catch(
-                      recoverPublishConflictAsSkipExisting({
-                        registryUrl: registry.url,
-                        target: {
-                          fqn: candidate.fqn,
-                          identity: {
-                            owner: candidate.owner,
-                            type: candidate.type,
-                            name: candidate.name,
-                            version: candidate.version,
-                          },
-                        },
-                        scope: args.scope,
-                        ...(effectivePolicy === "verify"
-                          ? { expectedIntegrity: candidate.integrity }
-                          : {}),
-                      }),
-                    ),
-                  ),
-          };
-        }),
-      },
-    ],
+    jobs,
   };
   const resolution = yield* previewOrApplyPlan(plan, {
     yes: args.yes,

@@ -195,6 +195,9 @@ describe("axm packs publish", () => {
         const output = result.stdout + result.stderr;
         expect(output).toContain(`${owner}/skills/preview-dep`);
         expect(output).toContain(`${owner}/packs/preview-pack`);
+        expect(output.indexOf(`${owner}/skills/preview-dep`)).toBeLessThan(
+          output.indexOf(`${owner}/packs/preview-pack`),
+        );
 
         // Registry should NOT have anything published (preview only)
         const depIndex = path.join(
@@ -215,6 +218,141 @@ describe("axm packs publish", () => {
         );
         expect(fs.existsSync(depIndex)).toBe(false);
         expect(fs.existsSync(packIndex)).toBe(false);
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+
+    it("verifies an already-published dependency and continues with the pack", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        const owner = "@test";
+
+        await setupWorkspace(temp.path, registryDir.path, owner);
+        createManagedSkill(temp.path, owner, "published-dep", "1.0.0");
+        await createManagedPack(temp.path, owner, "retry-pack", {
+          version: "1.0.0",
+          dependencies: {
+            [`${owner}/skills/published-dep`]: "^1.0.0",
+          },
+        });
+
+        const dependencyResult = await runCli(
+          ["skills", "publish", `${owner}/skills/published-dep`, "--yes"],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+        );
+        expect(dependencyResult.exitCode, dependencyResult.stderr).toBe(0);
+
+        const retryResult = await runCli(
+          [
+            "packs",
+            "publish",
+            `${owner}/packs/retry-pack`,
+            "--include-dependencies",
+            "--yes",
+            "--json",
+          ],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+        );
+        expect(retryResult.exitCode, retryResult.stderr).toBe(0);
+        expect(JSON.parse(retryResult.stdout).result.results).toMatchObject([
+          {
+            name: "published-dep",
+            action: "skip",
+            reason: "version_already_published",
+          },
+          { name: "retry-pack", action: "publish", status: "success" },
+        ]);
+
+        const packIndex = path.join(
+          registryDir.path,
+          "extensions",
+          owner,
+          "packs",
+          "retry-pack",
+          "index.json",
+        );
+        expect(fs.existsSync(packIndex)).toBe(true);
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+
+    it("does not attempt the pack when an included dependency fails preflight", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        const owner = "@test";
+
+        await setupWorkspace(temp.path, registryDir.path, owner);
+        createManagedSkill(temp.path, owner, "invalid-dep", "1.0.0");
+        await createManagedPack(temp.path, owner, "blocked-pack", {
+          version: "1.0.0",
+          dependencies: {
+            [`${owner}/skills/invalid-dep`]: "^1.0.0",
+          },
+        });
+        fs.writeFileSync(
+          path.join(temp.path, ".axm", "extensions", owner, "skills", "invalid-dep", "skill.json"),
+          "{ invalid json",
+        );
+
+        const result = await runCli(
+          ["packs", "publish", `${owner}/packs/blocked-pack`, "--include-dependencies", "--yes"],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+        );
+        expect(result.exitCode).not.toBe(0);
+
+        const packIndex = path.join(
+          registryDir.path,
+          "extensions",
+          owner,
+          "packs",
+          "blocked-pack",
+          "index.json",
+        );
+        expect(fs.existsSync(packIndex)).toBe(false);
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+
+    it("keeps dependency-first ordering in JSON preview output", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        const owner = "@test";
+
+        await setupWorkspace(temp.path, registryDir.path, owner);
+        createManagedSkill(temp.path, owner, "json-dep", "1.0.0");
+        await createManagedPack(temp.path, owner, "json-pack", {
+          version: "1.0.0",
+          dependencies: {
+            [`${owner}/skills/json-dep`]: "^1.0.0",
+          },
+        });
+
+        const result = await runCli(
+          [
+            "packs",
+            "publish",
+            `${owner}/packs/json-pack`,
+            "--include-dependencies",
+            "--preview",
+            "--non-interactive",
+            "--json",
+          ],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+        );
+        expect(result.exitCode, result.stderr).toBe(0);
+        expect(JSON.parse(result.stdout).result.results).toMatchObject([
+          { name: "json-dep", status: "pending" },
+          { name: "json-pack", status: "pending" },
+        ]);
       } finally {
         temp.cleanup();
         registryDir.cleanup();

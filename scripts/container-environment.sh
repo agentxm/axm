@@ -110,7 +110,7 @@ run_ci() {
     --env AXM_RELEASE_PREPARATION="${AXM_RELEASE_PREPARATION:-false}" \
     --env HOME=/tmp/axm-home \
     --env MISE_STATE_DIR=/tmp/axm-home/.local/state/mise \
-    --env npm_config_store_dir=/tmp/axm-home/.local/share/pnpm/store \
+    --env pnpm_config_store_dir=/tmp/axm-home/.local/share/pnpm/store \
     --env NX_CACHE_DIRECTORY=/tmp/axm-home/.cache/nx/cache \
     --env NX_WORKSPACE_DATA_DIRECTORY=/tmp/axm-home/.cache/nx/workspace-data \
     --env NX_PARALLEL="$NX_PARALLEL" \
@@ -154,7 +154,7 @@ run_shell() {
     --env NX_WORKSPACE_DATA_DIRECTORY=/home/agentxm/.cache/nx/workspace-data
     --env NX_PARALLEL="$NX_PARALLEL"
     --env VITEST_MAX_WORKERS="$VITEST_MAX_WORKERS"
-    --env npm_config_store_dir=/home/agentxm/.local/share/pnpm/store
+    --env pnpm_config_store_dir=/home/agentxm/.local/share/pnpm/store
     --pull missing
   )
 
@@ -173,7 +173,7 @@ smoke() {
     set -euo pipefail
     test "$(id -u)" != "0"
     test "$(node --version)" = "v22.22.2"
-    test "$(pnpm --version)" = "10.29.3"
+    test "$(pnpm --version)" = "11.20.0"
     test "$(bun --version)" = "1.3.5"
     git status --short >/dev/null
   '

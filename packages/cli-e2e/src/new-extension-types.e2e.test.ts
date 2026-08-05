@@ -114,7 +114,9 @@ describe("axm mcps new", () => {
     const temp = createTempDir();
 
     try {
-      await runCli(["setup", "--yes", "--non-interactive"], { cwd: temp.path });
+      await runCli(["setup", "--yes", "--non-interactive", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@original",

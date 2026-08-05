@@ -64,8 +64,8 @@ if (
 } else {
   requireText(
     mise,
-    `pnpm = "${packageManagerPnpmVersion}"`,
-    "mise.toml pnpm version must match packageManager",
+    `"npm:pnpm" = "${packageManagerPnpmVersion}"`,
+    "mise.toml npm:pnpm version must match packageManager",
   );
 
   const releaseSetupCount =

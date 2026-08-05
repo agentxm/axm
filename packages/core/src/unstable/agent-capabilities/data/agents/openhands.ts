@@ -23,14 +23,14 @@ export const openhandsAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes:
-          "OpenHands reads Agent Skills from .agents/skills and ~/.agents/skills; .openhands/skills remains a deprecated compatibility path.",
+        notes: null,
         docs: [],
         sources: ["https://docs.openhands.dev/overview/skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         directory: ".agents/skills",
+        additionalReadPaths: [{ path: ".openhands/skills", status: "deprecated" }],
       },
       axm: {
         status: "supported",

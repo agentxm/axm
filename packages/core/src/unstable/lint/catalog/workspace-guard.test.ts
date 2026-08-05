@@ -138,7 +138,7 @@ const findAgent = (id: string) => {
 };
 
 const CLAUDE_CODE = findAgent("claude-code");
-const CURSOR = findAgent("cursor");
+const IFLOW_CLI = findAgent("iflow-cli");
 
 const makeRegistrySkillLockEntry = (name: string, resolvedVersion: string) => ({
   type: "registry",
@@ -286,7 +286,7 @@ const SEMANTIC_PROBES: Record<string, ReadonlyArray<SemanticProbe>> = {
       buildState: () => {
         const state = emptyWorkspaceState();
         state.settings = {
-          agents: [CLAUDE_CODE.id, CURSOR.id],
+          agents: [CLAUDE_CODE.id, IFLOW_CLI.id],
           skills: {
             alpha: "@acme/skills/alpha",
           },

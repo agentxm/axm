@@ -40,6 +40,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
   DocLinkSchema,
@@ -108,6 +109,33 @@ export const ConventionSchema = Schema.Literals(["universal", "vendor", "hosted"
 
 /** @experimental This API is unstable and may change without notice. */
 export type Convention = Schema.Schema.Type<typeof ConventionSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const SkillReadPathStatusSchema = Schema.Literals([
+  "canonical",
+  "compat",
+  "deprecated",
+]).annotate({
+  identifier: "SkillReadPathStatus",
+  title: "Skill Read Path Status",
+  description: "How an additional native Skill directory relates to the agent's primary path.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type SkillReadPathStatus = Schema.Schema.Type<typeof SkillReadPathStatusSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const SkillReadPathSchema = Schema.Struct({
+  path: Schema.NonEmptyString,
+  status: SkillReadPathStatusSchema,
+}).annotate({
+  identifier: "SkillReadPath",
+  title: "Skill Read Path",
+  description: "An additional directory an agent reads for Skill discovery but AXM never writes.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type SkillReadPath = Schema.Schema.Type<typeof SkillReadPathSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const ScopeSchema = Schema.Literals(["user", "project"]).annotate({
@@ -575,6 +603,10 @@ export const SkillsExtensionCapabilitySchema = Schema.Struct({
       ...AvailableSpecTrackedNativeCapabilityFields,
       convention: Schema.Literals(["universal", "vendor"]),
       directory: Schema.NonEmptyString,
+      additionalReadPaths: Schema.Array(SkillReadPathSchema).pipe(
+        Schema.withDecodingDefaultKey(Effect.succeed([])),
+        Schema.optionalKey,
+      ),
     }),
     Schema.Struct({
       ...AvailableSpecTrackedNativeCapabilityFields,

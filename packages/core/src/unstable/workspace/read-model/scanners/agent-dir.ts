@@ -87,12 +87,21 @@ interface SubjectDir {
   readonly type: AgentDirSubjectType;
   readonly relativeDir: string;
   readonly isFile: boolean;
+  readonly readPathStatus?: "primary" | "canonical" | "compat" | "deprecated";
 }
 
 const subjectsForAgent = (descriptor: AgentDescriptor): ReadonlyArray<SubjectDir> => {
   const out: Array<SubjectDir> = [];
   if (descriptor.skills.dir.length > 0) {
-    out.push({ type: "skill", relativeDir: descriptor.skills.dir, isFile: false });
+    out.push({
+      type: "skill",
+      relativeDir: descriptor.skills.dir,
+      isFile: false,
+      readPathStatus: "primary",
+    });
+  }
+  for (const { path, status } of descriptor.skills.additionalReadPaths) {
+    out.push({ type: "skill", relativeDir: path, isFile: false, readPathStatus: status });
   }
   if (descriptor.commands !== undefined) {
     out.push({
@@ -157,6 +166,7 @@ const scanSubjectDirectory = (
         scope,
         type: subject.type,
         agentId,
+        ...(subject.readPathStatus === undefined ? {} : { readPathStatus: subject.readPathStatus }),
         name: normalizeFileBackedName(path.basename(subjectAbsolute)),
         contentLocation,
         pathSegments: splitAbsolutePathSegments(path, subjectAbsolute),
@@ -189,6 +199,9 @@ const scanSubjectDirectory = (
             scope,
             type: subject.type,
             agentId,
+            ...(subject.readPathStatus === undefined
+              ? {}
+              : { readPathStatus: subject.readPathStatus }),
             name,
             contentLocation,
             pathSegments: splitAbsolutePathSegments(path, nameDir),
@@ -223,6 +236,9 @@ const scanSubjectDirectory = (
             scope,
             type: subject.type,
             agentId,
+            ...(subject.readPathStatus === undefined
+              ? {}
+              : { readPathStatus: subject.readPathStatus }),
             name,
             contentLocation,
             pathSegments: splitAbsolutePathSegments(path, candidate),

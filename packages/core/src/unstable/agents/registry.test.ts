@@ -46,6 +46,14 @@ describe("AGENTS registry", () => {
     expect(config.skills.dir.startsWith("/")).toBe(false);
     expect(config.skills.dir.startsWith("~")).toBe(false);
   });
+
+  it.each(agents)("agent $id additional Skill read paths are relative", (config) => {
+    for (const { path } of config.skills.additionalReadPaths) {
+      expect(path.startsWith("/")).toBe(false);
+      expect(path.startsWith("~")).toBe(false);
+      expect(path).not.toBe(config.skills.dir);
+    }
+  });
 });
 
 describe("getAgentIds", () => {

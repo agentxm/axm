@@ -46,7 +46,11 @@ export const defaultActual = (
   scope: Scope,
   observations: AgentScannerObservations,
 ): Option.Option<ActualAgent> => {
-  const agentDir = observations.agentDir.filter((occ) => occ.agentId === agentId);
+  const agentDir = observations.agentDir.filter(
+    (occ) =>
+      occ.agentId === agentId &&
+      (occ.readPathStatus === undefined || occ.readPathStatus === "primary"),
+  );
   const agentSettings = observations.agentSettings.filter((occ) => occ.agentId === agentId);
   const mcpConfig = observations.mcpConfig.filter(
     (occ) => occ.origin === "agent" && occ.agentId === agentId,

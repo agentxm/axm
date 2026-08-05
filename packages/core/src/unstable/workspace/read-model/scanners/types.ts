@@ -104,6 +104,8 @@ export interface AgentDirOccurrence {
   readonly scope: Scope;
   readonly type: AgentDirSubjectType;
   readonly agentId: AgentId;
+  /** Primary write path or the catalog status of an additional read-only path. */
+  readonly readPathStatus?: "primary" | "canonical" | "compat" | "deprecated";
   readonly name: string;
   readonly contentLocation: AbsolutePath;
   readonly pathSegments: ReadonlyArray<string>;

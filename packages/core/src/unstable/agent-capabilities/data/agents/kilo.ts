@@ -23,14 +23,17 @@ export const kiloAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes:
-          "Kilo Code loads Kilo-specific .kilo/skills and also supports .agents/skills and .claude/skills compatibility directories.",
+        notes: null,
         docs: [],
         sources: ["https://kilo.ai/docs/customize/skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
         directory: ".kilo/skills",
+        additionalReadPaths: [
+          { path: ".agents/skills", status: "compat" },
+          { path: ".claude/skills", status: "compat" },
+        ],
       },
       axm: {
         status: "supported",

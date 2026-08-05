@@ -142,6 +142,19 @@ const deriveSkillsDir = (agent: Agent): string => {
   return `${agent.rootDir ?? `.${agent.id}`}/skills`;
 };
 
+/** @experimental This API is unstable and may change without notice. */
+export const deriveSkillConvention = (directory: string): "universal" | "vendor" =>
+  directory === ".agents/skills" || directory.startsWith(".agents/skills/")
+    ? "universal"
+    : "vendor";
+
+const deriveAdditionalSkillReadPaths = (
+  agent: Agent,
+): AgentDescriptor["skills"]["additionalReadPaths"] =>
+  "additionalReadPaths" in agent.capabilities.skill.native
+    ? (agent.capabilities.skill.native.additionalReadPaths ?? [])
+    : [];
+
 const detectionMarkerKey = (marker: AgentDetectionMarker): string =>
   marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
 
@@ -307,6 +320,7 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
     rootDir,
     skills: {
       dir: deriveSkillsDir(agent),
+      additionalReadPaths: deriveAdditionalSkillReadPaths(agent),
     },
     detection,
     ...(commands === undefined ? {} : { commands }),

@@ -30,6 +30,10 @@ export const opencodeAgent = {
         standardsCompliance: "full",
         convention: "vendor",
         directory: ".opencode/skills",
+        additionalReadPaths: [
+          { path: ".claude/skills", status: "compat" },
+          { path: ".agents/skills", status: "compat" },
+        ],
       },
       axm: {
         status: "supported",

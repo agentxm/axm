@@ -53,6 +53,22 @@ const createAgentSkill = (baseDir: string, agentId: "claude-code" | "cursor", na
   fs.writeFileSync(path.join(skillDir, "SKILL.md"), `---\nname: ${name}\n---\n`);
 };
 
+const CLAUDE_SKILL_READERS = [
+  "claude-code",
+  "cline",
+  "crush",
+  "cursor",
+  "firebender",
+  "github-copilot-cli",
+  "goose",
+  "kilo",
+  "ona",
+  "opencode",
+  "zenflow",
+];
+
+const CURSOR_SKILL_READERS = ["crush", "cursor", "firebender"];
+
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
@@ -172,7 +188,7 @@ describe("list.handler", () => {
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,
-          items: [expect.objectContaining({ name: "skill-claude", agents: ["claude-code"] })],
+          items: [expect.objectContaining({ name: "skill-claude", agents: CLAUDE_SKILL_READERS })],
         });
       }),
     );
@@ -261,12 +277,12 @@ describe("list.handler", () => {
           items: [
             {
               name: "skill-one",
-              agents: ["claude-code"],
+              agents: CLAUDE_SKILL_READERS,
               classification: { kind: "lifecycle", lifecycle: "unmanaged" },
             },
             {
               name: "skill-two",
-              agents: ["cursor"],
+              agents: CURSOR_SKILL_READERS,
               classification: { kind: "lifecycle", lifecycle: "unmanaged" },
             },
           ],

@@ -28,8 +28,13 @@ export const crushAgent = {
         sources: ["https://github.com/charmbracelet/crush"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
-        convention: "vendor",
+        convention: "universal",
         directory: ".agents/skills",
+        additionalReadPaths: [
+          { path: ".crush/skills", status: "compat" },
+          { path: ".claude/skills", status: "compat" },
+          { path: ".cursor/skills", status: "compat" },
+        ],
       },
       axm: {
         status: "supported",

@@ -35,6 +35,13 @@ export const firebenderAgent = {
         standardsCompliance: "full",
         convention: "vendor",
         directory: ".firebender/skills",
+        additionalReadPaths: [
+          { path: ".goose/skills", status: "compat" },
+          { path: ".claude/skills", status: "compat" },
+          { path: ".codex/skills", status: "compat" },
+          { path: ".cursor/skills", status: "compat" },
+          { path: ".agents/skills", status: "compat" },
+        ],
       },
       axm: {
         status: "supported",

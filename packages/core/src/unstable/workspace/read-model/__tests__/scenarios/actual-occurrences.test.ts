@@ -30,12 +30,7 @@ import * as Effect from "effect/Effect";
 import { AGENTS } from "../../../../agents/registry.js";
 import type { AgentId } from "../../../../agents/types.js";
 import type { FixtureSpec } from "../../__fixtures__/builder.js";
-import {
-  expectFirst,
-  runScenario,
-  SCENARIO_USER_HOME,
-  SCENARIO_WORKSPACE_ROOT,
-} from "./_harness.js";
+import { runScenario, SCENARIO_USER_HOME, SCENARIO_WORKSPACE_ROOT } from "./_harness.js";
 import type { ActualSkill } from "../../extensions/skill.js";
 
 // ---------------------------------------------------------------------------
@@ -61,10 +56,17 @@ const spec = (project: NonNullable<FixtureSpec["project"]>): FixtureSpec => ({
 const runActual = (s: FixtureSpec) => runScenario(s, (ctx) => ctx.scope("project").skills.actual);
 
 const expectedSkillAgentIdsFor = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> => {
-  const dirs = new Set(agentIds.map((agentId) => AGENTS[agentId].skills.dir));
-  return Object.values(AGENTS)
-    .filter((agent) => dirs.has(agent.skills.dir))
-    .map((agent) => agent.id)
+  const observedDirs = agentIds.map((agentId) => AGENTS[agentId].skills.dir);
+  return observedDirs
+    .flatMap((observedDir) =>
+      Object.values(AGENTS).flatMap((agent) =>
+        [agent.skills.dir, ...agent.skills.additionalReadPaths.map(({ path }) => path)].includes(
+          observedDir,
+        )
+          ? [agent.id]
+          : [],
+      ),
+    )
     .sort();
 };
 
@@ -81,12 +83,10 @@ describe("actual-occurrence shape", () => {
         }),
       );
       const matching = actuals.filter((a) => a.key.name === "some-skill");
-      expect(matching).toHaveLength(1);
-      const entry = expectFirst(matching);
-      expect(entry.origin._tag).toBe("agent-skill-dir");
-      if (entry.origin._tag === "agent-skill-dir") {
-        expect(entry.origin.agentId).toBe("claude-code");
-      }
+      expect(matching).toHaveLength(expectedSkillAgentIdsFor(["claude-code"]).length);
+      expect(matching).toContainEqual(
+        expect.objectContaining({ origin: { _tag: "agent-skill-dir", agentId: "claude-code" } }),
+      );
     }),
   );
 
@@ -184,11 +184,9 @@ describe("actual-occurrence shape", () => {
 describe("occurrence identity", () => {
   it.effect("duplicate scanner observations of one physical occurrence collapse to one entry", () =>
     Effect.gen(function* () {
-      // The closed scanner set in v1 emits at most one occurrence per
-      // physical path. A single Claude Code skill at the same path is
-      // therefore observed as one entry by `skills.actual`. We re-yield the
-      // cell to confirm the cached effect produces the same identity (no
-      // duplication on re-read).
+      // A physical path is attributed once to each catalog agent that reads
+      // it. Re-yield the cell to confirm the cached effect does not duplicate
+      // that stable attribution set on re-read.
       const actualsFirst = yield* runScenario(
         spec({
           agentDirs: {
@@ -204,12 +202,10 @@ describe("occurrence identity", () => {
             return { a1, a2 };
           }),
       );
-      expect(actualsFirst.a1).toHaveLength(1);
-      expect(actualsFirst.a2).toHaveLength(1);
-      // Same identity tuple on both yields → collapsed to one entry.
-      const entry1 = expectFirst(actualsFirst.a1);
-      const entry2 = expectFirst(actualsFirst.a2);
-      expect(identityKey(entry1)).toBe(identityKey(entry2));
+      const expectedCount = expectedSkillAgentIdsFor(["claude-code"]).length;
+      expect(actualsFirst.a1).toHaveLength(expectedCount);
+      expect(actualsFirst.a2).toHaveLength(expectedCount);
+      expect(actualsFirst.a1.map(identityKey)).toEqual(actualsFirst.a2.map(identityKey));
     }),
   );
 

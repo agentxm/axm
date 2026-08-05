@@ -56,7 +56,7 @@ export const codexAgent = {
         sources: ["https://developers.openai.com/codex/skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
-        convention: "vendor",
+        convention: "universal",
         directory: ".agents/skills",
       },
       axm: {

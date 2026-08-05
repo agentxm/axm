@@ -9,8 +9,19 @@ import { LEDGER_PATH, checkParityLedger, countSeedRows } from "./parity-ledger-c
 
 const tempRoots: string[] = [];
 
+const fixtureGitEnvironment = { ...process.env };
+for (const name of Object.keys(fixtureGitEnvironment)) {
+  if (name.startsWith("GIT_")) {
+    delete fixtureGitEnvironment[name];
+  }
+}
+
 const git = (repoRoot: string, args: ReadonlyArray<string>): void => {
-  execFileSync("git", [...args], { cwd: repoRoot, stdio: "ignore" });
+  execFileSync("git", [...args], {
+    cwd: repoRoot,
+    env: fixtureGitEnvironment,
+    stdio: "ignore",
+  });
 };
 
 /** A git repo whose `main` carries `baseline` and whose worktree carries `head`. */
@@ -21,6 +32,7 @@ const createRepoFixture = (baseline: string | null, head: string): string => {
   git(repoRoot, ["init", "--initial-branch", "main"]);
   git(repoRoot, ["config", "user.email", "test@example.com"]);
   git(repoRoot, ["config", "user.name", "Test"]);
+  git(repoRoot, ["config", "commit.gpgSign", "false"]);
 
   const ledgerPath = path.join(repoRoot, LEDGER_PATH);
   fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });

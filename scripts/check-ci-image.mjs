@@ -19,6 +19,13 @@ const workflowSources = readdirSync(".github/workflows")
 const containerLauncher = read("scripts/container-environment.sh");
 const mise = read("mise.toml");
 
+const packageManagerPnpmMatch = /^pnpm@(\d+\.\d+\.\d+)$/u.exec(
+  packageManifest.packageManager ?? "",
+);
+const imagePnpmMatch = /^ARG PNPM_VERSION=(\d+\.\d+\.\d+)$/mu.exec(containerfile);
+const packageManagerPnpmVersion = packageManagerPnpmMatch?.[1];
+const imagePnpmVersion = imagePnpmMatch?.[1];
+
 const requireText = (subject, text, message) => {
   if (!subject.includes(text)) errors.push(message);
 };
@@ -41,11 +48,31 @@ if (!/^ARG UBUNTU_IMAGE=[^@\n]+@sha256:[0-9a-f]{64}$/mu.test(containerfile)) {
 
 for (const [manifestPin, imagePin] of [
   [/node\s*=\s*"22"/u, "ARG NODE_VERSION=22.22.2"],
-  [/pnpm\s*=\s*"10\.29\.3"/u, "ARG PNPM_VERSION=10.29.3"],
   [/bun\s*=\s*"1\.3\.5"/u, "ARG BUN_VERSION=1.3.5"],
 ]) {
   if (!manifestPin.test(mise)) errors.push(`mise.toml is missing ${manifestPin}`);
   requireText(containerfile, imagePin, `Containerfile is missing ${imagePin}`);
+}
+
+if (packageManagerPnpmVersion === undefined) {
+  errors.push("package.json packageManager must pin an exact pnpm version");
+} else if (!mise.includes(`pnpm = "${packageManagerPnpmVersion}"`)) {
+  errors.push("mise.toml pnpm version must match packageManager");
+}
+
+if (imagePnpmVersion === undefined) {
+  errors.push("Containerfile must pin an exact PNPM_VERSION");
+} else {
+  requireText(
+    workflow,
+    `test "$(pnpm --version)" = "${imagePnpmVersion}"`,
+    "CI image smoke test pnpm version must match Containerfile",
+  );
+  requireText(
+    containerLauncher,
+    `test "$(pnpm --version)" = "${imagePnpmVersion}"`,
+    "local CI image smoke test pnpm version must match Containerfile",
+  );
 }
 
 for (const text of [

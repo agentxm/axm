@@ -10,10 +10,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
-  AGENT_IDS as CATALOG_AGENT_IDS,
+  CONFIGURABLE_AGENT_IDS as CATALOG_AGENT_IDS,
   agentById,
   agentSupportsType,
-  type AgentId as CatalogAgentId,
+  type ConfigurableAgentId as CatalogAgentId,
 } from "../agent-capabilities/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";

@@ -15,9 +15,9 @@ import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import { parse, type ParseError } from "jsonc-parser";
 import {
-  AGENTS_BY_ID,
+  CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
-  type AgentId as CapabilityAgentId,
+  type ConfigurableAgentId as CapabilityAgentId,
   type McpConfig,
   type McpConfigTarget,
   type McpEnvExpansion,
@@ -621,7 +621,7 @@ export const syncInlineMcpServerToAgents = (
         });
         continue;
       }
-      const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+      const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
       if (!hasMcpConfig(capability)) {
         terminalOutcomes.set(agentId, {
           _tag: "unsupported",
@@ -748,7 +748,7 @@ export const pruneManagedMcpServersForAgent = (
       } as const;
     }
 
-    const agent: Agent = AGENTS_BY_ID[agentId];
+    const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
     const capability = agent.capabilities["mcp-server"];
     if (!hasMcpConfig(capability)) {
       return {
@@ -816,7 +816,8 @@ export const pruneManagedMcpServersForAgent = (
     } satisfies McpServerSyncOutcome;
   });
 
-const isCapabilityAgentId = (id: string): id is CapabilityAgentId => id in AGENTS_BY_ID;
+const isCapabilityAgentId = (id: string): id is CapabilityAgentId =>
+  id in CONFIGURABLE_AGENTS_BY_ID;
 
 const decodeManifestAt = (
   manifestPath: string,
@@ -1093,7 +1094,7 @@ export const addMcpServerFromManifest = (
       } as const;
     }
 
-    const agent: Agent = AGENTS_BY_ID[agentId];
+    const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
     const capability = agent.capabilities["mcp-server"];
     if (!hasMcpConfig(capability)) {
       return {
@@ -1167,7 +1168,7 @@ export const removeMcpServerFromManifest = (
       } as const;
     }
 
-    const agent: Agent = AGENTS_BY_ID[agentId];
+    const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
     const capability = agent.capabilities["mcp-server"];
     if (!hasMcpConfig(capability)) {
       return {

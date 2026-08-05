@@ -1,8 +1,16 @@
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import {
+  HOSTED_AGENTS_BY_ID,
+  HOSTED_AGENT_IDS,
+  type HostedAgentId,
+} from "@agentxm/client-core/unstable/agent-capabilities";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/client-core/unstable/agents";
 
 const configurableAgentIds = new Set<string>(CONFIGURABLE_AGENT_IDS);
+const hostedAgentIds = new Set<string>(HOSTED_AGENT_IDS);
+
+const isHostedAgentId = (id: string): id is HostedAgentId => hostedAgentIds.has(id);
 
 const numberAt = (values: ReadonlyArray<number>, index: number): number => values[index] ?? 0;
 
@@ -53,6 +61,20 @@ export const validateAgentIds = (
           detail:
             "`universal` is always materialized automatically and cannot be added or removed.",
           suggestions: [{ description: "Choose one of the configurable coding-agent IDs." }],
+        });
+      }
+
+      if (isHostedAgentId(id)) {
+        const agent = HOSTED_AGENTS_BY_ID[id];
+        return yield* makeAppError({
+          code: "validation",
+          detail: `${agent.name} is a hosted agent and cannot be added to local workspace configuration. ${agent.installTarget.instructions}`,
+          suggestions: [
+            {
+              description: `Open the ${agent.name} skill installation guide.`,
+              url: agent.installTarget.docs,
+            },
+          ],
         });
       }
 

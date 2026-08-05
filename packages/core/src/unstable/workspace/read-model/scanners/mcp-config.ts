@@ -37,9 +37,9 @@ import { getHome } from "../../../agents/constants.js";
 import { AGENTS } from "../../../agents/registry.js";
 import type { AgentDescriptor, AgentId } from "../../../agents/types.js";
 import {
-  AGENTS_BY_ID,
+  CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
-  type AgentId as CapabilityAgentId,
+  type ConfigurableAgentId as CapabilityAgentId,
   type McpConfig,
   type McpConfigTarget,
 } from "../../../agent-capabilities/index.js";
@@ -232,11 +232,12 @@ type ConfiguredMcpCapability = AgentMcpCapability & {
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
   capability.axm.writer !== null;
 
-const isCapabilityAgentId = (id: string): id is CapabilityAgentId => id in AGENTS_BY_ID;
+const isCapabilityAgentId = (id: string): id is CapabilityAgentId =>
+  id in CONFIGURABLE_AGENTS_BY_ID;
 
 const capabilityFor = (descriptor: AgentDescriptor): ConfiguredMcpCapability | undefined => {
   if (!isCapabilityAgentId(descriptor.id)) return undefined;
-  const agent = AGENTS_BY_ID[descriptor.id];
+  const agent = CONFIGURABLE_AGENTS_BY_ID[descriptor.id];
   const capability = agent.capabilities["mcp-server"];
   return hasMcpConfig(capability) ? capability : undefined;
 };

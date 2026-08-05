@@ -2,9 +2,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import {
-  AGENTS_BY_ID,
+  CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
-  type AgentId,
+  type ConfigurableAgentId,
   type McpConfig,
   type McpTransport,
 } from "../../../agent-capabilities/index.js";
@@ -33,7 +33,8 @@ type ConfiguredMcpCapability = AgentMcpCapability & {
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
   capability.axm.writer !== null && "transports" in capability.native;
 
-const isCapabilityAgentId = (agentId: string): agentId is AgentId => agentId in AGENTS_BY_ID;
+const isCapabilityAgentId = (agentId: string): agentId is ConfigurableAgentId =>
+  agentId in CONFIGURABLE_AGENTS_BY_ID;
 
 const transportFor = (entry: McpServerEntry) =>
   entry.command !== undefined
@@ -49,7 +50,7 @@ const membersByTarget = (
   const groups = new Map<string, Array<SharedMcpTargetMember>>();
   for (const agentId of agentIds) {
     if (!isCapabilityAgentId(agentId)) continue;
-    const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+    const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
     if (!hasMcpConfig(capability)) continue;
     for (const target of capability.axm.writer.config.targets.filter(
       (candidate) => candidate.scope === scope,

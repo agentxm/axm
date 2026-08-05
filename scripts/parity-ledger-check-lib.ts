@@ -41,11 +41,19 @@ export interface LedgerCheckResult {
   readonly comparison: LedgerComparison;
 }
 
+const isolatedGitEnvironment = { ...process.env };
+for (const name of Object.keys(isolatedGitEnvironment)) {
+  if (name.startsWith("GIT_")) {
+    delete isolatedGitEnvironment[name];
+  }
+}
+
 const git = (repoRoot: string, args: ReadonlyArray<string>): string | null => {
   try {
     return execFileSync("git", [...args], {
       cwd: repoRoot,
       encoding: "utf-8",
+      env: isolatedGitEnvironment,
       stdio: ["ignore", "pipe", "ignore"],
     });
   } catch {

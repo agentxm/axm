@@ -8,8 +8,10 @@ const ciImagePin = read("containers/ci/CI_IMAGE").trim();
 const version = read("containers/ci/VERSION").trim();
 const affectedCiRunner = read("scripts/verify-affected-ci.sh");
 const ciWorkflow = read(".github/workflows/ci.yml");
+const releaseWorkflow = read(".github/workflows/publish.yml");
 const nxManifest = JSON.parse(read("nx.json"));
 const packageManifest = JSON.parse(read("package.json"));
+const workspaceConfig = read("pnpm-workspace.yaml");
 const project = read("project.json");
 const projectManifest = JSON.parse(project);
 const workflow = read(".github/workflows/ci-image.yml");
@@ -18,6 +20,9 @@ const workflowSources = readdirSync(".github/workflows")
   .map((path) => [path, read(`.github/workflows/${path}`)]);
 const containerLauncher = read("scripts/container-environment.sh");
 const mise = read("mise.toml");
+
+const pnpmVersionMatch = /^pnpm@(\d+\.\d+\.\d+)$/u.exec(packageManifest.packageManager ?? "");
+const pnpmVersion = pnpmVersionMatch?.[1];
 
 const requireText = (subject, text, message) => {
   if (!subject.includes(text)) errors.push(message);
@@ -41,11 +46,54 @@ if (!/^ARG UBUNTU_IMAGE=[^@\n]+@sha256:[0-9a-f]{64}$/mu.test(containerfile)) {
 
 for (const [manifestPin, imagePin] of [
   [/node\s*=\s*"22"/u, "ARG NODE_VERSION=22.22.2"],
-  [/pnpm\s*=\s*"10\.29\.3"/u, "ARG PNPM_VERSION=10.29.3"],
   [/bun\s*=\s*"1\.3\.5"/u, "ARG BUN_VERSION=1.3.5"],
 ]) {
   if (!manifestPin.test(mise)) errors.push(`mise.toml is missing ${manifestPin}`);
   requireText(containerfile, imagePin, `Containerfile is missing ${imagePin}`);
+}
+
+if (pnpmVersion === undefined || Number.parseInt(pnpmVersion, 10) < 11) {
+  errors.push("package.json packageManager must pin an exact pnpm 11+ version");
+} else {
+  requireText(mise, `pnpm = "${pnpmVersion}"`, "mise.toml must match packageManager");
+  requireText(
+    containerfile,
+    `ARG PNPM_VERSION=${pnpmVersion}`,
+    "Containerfile pnpm version must match packageManager",
+  );
+  requireText(
+    workflow,
+    `test "$(pnpm --version)" = "${pnpmVersion}"`,
+    "CI image smoke test pnpm version must match packageManager",
+  );
+
+  const releaseSetupCount =
+    releaseWorkflow.split(`corepack prepare pnpm@${pnpmVersion} --activate`).length - 1;
+  if (releaseSetupCount !== 2) {
+    errors.push("both release jobs must activate the packageManager pnpm version");
+  }
+}
+
+for (const text of [
+  "allowBuilds:",
+  '"@swc/core": true',
+  "esbuild: true",
+  "msgpackr-extract: false",
+  "nx: true",
+  "minimumReleaseAge: 1440",
+  '- "@agentxm/*"',
+  "- axm.sh",
+]) {
+  requireText(workspaceConfig, text, `pnpm-workspace.yaml is missing ${text}`);
+}
+if (workspaceConfig.includes("onlyBuiltDependencies:")) {
+  errors.push("pnpm-workspace.yaml must use pnpm 11 allowBuilds");
+}
+
+const storeConfigOccurrences =
+  containerLauncher.match(/--env pnpm_config_store_dir=/gu)?.length ?? 0;
+if (storeConfigOccurrences !== 2 || containerLauncher.includes("--env npm_config_store_dir=")) {
+  errors.push("container launchers must pass both pnpm stores through pnpm_config_store_dir");
 }
 
 for (const text of [

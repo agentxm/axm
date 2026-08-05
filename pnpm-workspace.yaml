@@ -40,10 +40,16 @@ catalog:
   vitest: ^4.1.10
   yaml: ^2.9.0
 
-onlyBuiltDependencies:
-  - "@swc/core"
-  - esbuild
-  - nx
+allowBuilds:
+  "@swc/core": true
+  esbuild: true
+  msgpackr-extract: false
+  nx: true
+
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - "@agentxm/*"
+  - axm.sh
 
 patchedDependencies:
   "@effect/openapi-generator@4.0.0-beta.101": patches/@effect__openapi-generator@4.0.0-beta.101.patch

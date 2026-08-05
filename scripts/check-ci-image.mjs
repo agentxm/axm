@@ -80,6 +80,21 @@ if (imagePnpmVersion === undefined) {
   errors.push("Containerfile must pin an exact PNPM_VERSION");
 } else {
   requireText(
+    containerfile,
+    `mise install "npm:pnpm@\${PNPM_VERSION}"`,
+    "Containerfile must install pnpm through mise's npm backend",
+  );
+  const nodeActivationIndex = containerfile.indexOf(`mise use --global "node@\${NODE_VERSION}"`);
+  const pnpmInstallIndex = containerfile.indexOf(`mise install "npm:pnpm@\${PNPM_VERSION}"`);
+  if (nodeActivationIndex === -1 || nodeActivationIndex >= pnpmInstallIndex) {
+    errors.push("Containerfile must activate Node before using mise's npm backend");
+  }
+  requireText(
+    containerfile,
+    `mise use --global "node@\${NODE_VERSION}" "npm:pnpm@\${PNPM_VERSION}" "bun@\${BUN_VERSION}"`,
+    "Containerfile global tool configuration must use mise's npm pnpm backend",
+  );
+  requireText(
     workflow,
     `test "$(pnpm --version)" = "${imagePnpmVersion}"`,
     "CI image smoke test pnpm version must match Containerfile",

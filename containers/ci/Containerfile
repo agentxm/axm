@@ -82,9 +82,10 @@ RUN groupmod --new-name axm ubuntu \
     && usermod --login axm --home /home/axm --move-home --shell /bin/bash ubuntu \
     && install -d -o axm -g axm /etc/mise /opt/mise /var/cache/mise /var/lib/mise \
     && mise install "node@${NODE_VERSION}" \
-    && mise install "pnpm@${PNPM_VERSION}" \
+    && mise use --global "node@${NODE_VERSION}" \
+    && mise install "npm:pnpm@${PNPM_VERSION}" \
     && mise install "bun@${BUN_VERSION}" \
-    && mise use --global "node@${NODE_VERSION}" "pnpm@${PNPM_VERSION}" "bun@${BUN_VERSION}" \
+    && mise use --global "node@${NODE_VERSION}" "npm:pnpm@${PNPM_VERSION}" "bun@${BUN_VERSION}" \
     && mise reshim \
     && chown -R axm:axm /etc/mise /opt/mise /var/cache/mise /var/lib/mise \
     && chmod -R a+rX /opt/mise

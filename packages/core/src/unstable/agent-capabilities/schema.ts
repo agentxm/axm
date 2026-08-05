@@ -98,12 +98,12 @@ export const StandardsComplianceSchema = Schema.Literals([
 export type StandardsCompliance = Schema.Schema.Type<typeof StandardsComplianceSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const ConventionSchema = Schema.Literals(["universal", "vendor"]).annotate({
+export const ConventionSchema = Schema.Literals(["universal", "vendor", "hosted"]).annotate({
   identifier: "Convention",
   title: "Convention",
   description:
-    "Whether a spec-tracked capability uses the spec-defined or community-standard location.",
-  examples: ["universal", "vendor"],
+    "Whether a spec-tracked capability uses a standard, vendor-specific, or hosted location.",
+  examples: ["universal", "vendor", "hosted"],
 });
 
 /** @experimental This API is unstable and may change without notice. */
@@ -311,11 +311,16 @@ export const VendorStatusSchema = Schema.Union([
 export type VendorStatus = Schema.Schema.Type<typeof VendorStatusSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const AgentInterfaceSchema = Schema.Literals(["cli", "ide-extension"]).annotate({
+export const AgentInterfaceSchema = Schema.Literals([
+  "cli",
+  "ide-extension",
+  "chat",
+  "hosted-agent",
+]).annotate({
   identifier: "AgentInterface",
   title: "Agent Interface",
   description: "Primary product interface where the agent runs.",
-  examples: ["cli", "ide-extension"],
+  examples: ["cli", "ide-extension", "chat", "hosted-agent"],
 });
 
 /** @experimental This API is unstable and may change without notice. */
@@ -568,7 +573,12 @@ export const SkillsExtensionCapabilitySchema = Schema.Struct({
   native: Schema.Union([
     Schema.Struct({
       ...AvailableSpecTrackedNativeCapabilityFields,
+      convention: Schema.Literals(["universal", "vendor"]),
       directory: Schema.NonEmptyString,
+    }),
+    Schema.Struct({
+      ...AvailableSpecTrackedNativeCapabilityFields,
+      convention: Schema.Literal("hosted"),
     }),
     Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
@@ -1564,6 +1574,47 @@ export const CapabilityTargetingSchema = Schema.Struct({
     "Catalog inputs used by AXM's capability-targeted extension renderer and fallback graph.",
 });
 
+/** @experimental This API is unstable and may change without notice. */
+export const HostedInstallDeliverySchema = Schema.Literals(["upload", "directory"]).annotate({
+  identifier: "HostedInstallDelivery",
+  title: "Hosted Install Delivery",
+  description: "User-mediated delivery mechanism accepted by a hosted agent surface.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HostedInstallDelivery = Schema.Schema.Type<typeof HostedInstallDeliverySchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HostedInstallArtifactSchema = Schema.Literals([
+  "directory",
+  "zip",
+  "skill-file-or-zip",
+]).annotate({
+  identifier: "HostedInstallArtifact",
+  title: "Hosted Install Artifact",
+  description: "Artifact shape a hosted agent accepts for manual extension delivery.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HostedInstallArtifact = Schema.Schema.Type<typeof HostedInstallArtifactSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HostedInstallTargetSchema = Schema.Struct({
+  kind: Schema.Literal("hosted"),
+  delivery: Schema.NonEmptyArray(HostedInstallDeliverySchema).pipe(Schema.check(Schema.isUnique())),
+  artifact: HostedInstallArtifactSchema,
+  instructions: Schema.NonEmptyString,
+  docs: UrlSchema,
+}).annotate({
+  identifier: "HostedInstallTarget",
+  title: "Hosted Install Target",
+  description:
+    "Manual delivery instructions for a hosted agent after AXM packages and validates an extension.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HostedInstallTarget = Schema.Schema.Type<typeof HostedInstallTargetSchema>;
+
 const AgentStruct = Schema.Struct({
   id: AgentIdFromYamlSchema,
   name: Schema.NonEmptyString,
@@ -1572,6 +1623,7 @@ const AgentStruct = Schema.Struct({
   interfaces: Schema.NonEmptyArray(AgentInterfaceSchema).pipe(Schema.check(Schema.isUnique())),
   family: Schema.NullOr(Schema.NonEmptyString),
   rootDir: Schema.NullOr(Schema.NonEmptyString),
+  installTarget: Schema.optionalKey(HostedInstallTargetSchema),
   lifecycle: AgentLifecycleSchema,
   detection: DetectionSchema,
   docs: Schema.Array(DocLinkSchema),
@@ -1585,17 +1637,77 @@ const AgentStruct = Schema.Struct({
 export const AgentSchema = AgentStruct.pipe(
   Schema.check(
     Schema.makeFilter((agent: Schema.Schema.Type<typeof AgentStruct>) => {
+      const issues: Array<Schema.FilterIssue> = [];
       if (
         "kind" in agent.instructions.native &&
         agent.instructions.native.kind === "agents-md" &&
         agent.instructions.native.files[0] !== "AGENTS.md"
       ) {
-        return {
+        issues.push({
           path: ["instructions", "native", "files"],
           issue: 'instructions.kind "agents-md" requires AGENTS.md.',
-        };
+        });
       }
-      return undefined;
+
+      const hostedOnly = agent.interfaces.every(
+        (interfaceKind) => interfaceKind === "chat" || interfaceKind === "hosted-agent",
+      );
+      const hasHostedInterface = agent.interfaces.some(
+        (interfaceKind) => interfaceKind === "chat" || interfaceKind === "hosted-agent",
+      );
+      const hasDetectionMarkers =
+        agent.detection.project.markers.length > 0 || agent.detection.user.markers.length > 0;
+
+      if (hasHostedInterface && agent.installTarget === undefined) {
+        issues.push({
+          path: ["installTarget"],
+          issue: "Agents with a hosted interface require installTarget.",
+        });
+      }
+      if (hostedOnly && agent.rootDir !== null) {
+        issues.push({
+          path: ["rootDir"],
+          issue: "Hosted-only agents cannot declare rootDir.",
+        });
+      }
+      if (hostedOnly && hasDetectionMarkers) {
+        issues.push({
+          path: ["detection"],
+          issue: "Hosted-only agents cannot declare local detection markers.",
+        });
+      }
+      const capabilitySlots = [
+        ...Object.values(agent.capabilities),
+        agent.instructions,
+        agent.permissions,
+      ];
+      if (hostedOnly && capabilitySlots.some((capability) => capability.axm.writer !== null)) {
+        issues.push({
+          path: ["capabilities"],
+          issue: "Hosted-only agents cannot declare filesystem writers.",
+        });
+      }
+      if (
+        hostedOnly &&
+        capabilitySlots.some(
+          (capability) =>
+            "directory" in capability.native ||
+            ("configFiles" in capability.native && capability.native.configFiles.length > 0),
+        )
+      ) {
+        issues.push({
+          path: ["capabilities"],
+          issue: "Hosted-only agents cannot declare local capability paths.",
+        });
+      }
+      if (!hasHostedInterface && agent.installTarget !== undefined) {
+        issues.push({
+          path: ["installTarget"],
+          issue: "Local-only agents cannot declare a hosted installTarget.",
+        });
+      }
+
+      return issues;
     }),
   ),
 ).annotate({

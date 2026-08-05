@@ -4,7 +4,10 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { AGENTS_BY_ID, type AgentId } from "@agentxm/client-core/unstable/agent-capabilities";
+import {
+  CONFIGURABLE_AGENTS_BY_ID,
+  type ConfigurableAgentId,
+} from "@agentxm/client-core/unstable/agent-capabilities";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   forceFlag,
@@ -82,7 +85,8 @@ const stringRecord = (value: unknown): Readonly<Record<string, string>> => {
   return record;
 };
 
-const isCapabilityAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS_BY_ID, id);
+const isCapabilityAgentId = (id: string): id is ConfigurableAgentId =>
+  Object.hasOwn(CONFIGURABLE_AGENTS_BY_ID, id);
 
 const readAgentMcpConfig = (agent: unknown): Option.Option<AgentMcpConfig> => {
   if (!isRecord(agent)) return Option.none();
@@ -306,7 +310,7 @@ const collectImportableServers = (
     const agentIds = yield* ws.getConfiguredAgents();
     for (const agentId of agentIds) {
       if (!isCapabilityAgentId(agentId)) continue;
-      const agent = AGENTS_BY_ID[agentId];
+      const agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
       const mcpConfig = readAgentMcpConfig(agent);
       if (Option.isNone(mcpConfig)) continue;
       const targets = mcpConfig.value.targets.filter((target) => target.scope === ws.scope);

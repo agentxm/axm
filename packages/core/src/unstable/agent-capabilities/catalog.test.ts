@@ -2,7 +2,14 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { CONFIGURABLE_AGENT_IDS } from "../agents/types.js";
-import { AgentIdSchema, AGENTS, AGENT_IDS } from "./catalog.js";
+import {
+  AgentIdSchema,
+  AGENTS,
+  AGENT_IDS,
+  HOSTED_AGENTS_BY_ID,
+  HOSTED_AGENT_IDS,
+} from "./catalog.js";
+import { isCapabilitySupported, toNativeAgent } from "./derive.js";
 import {
   AgentLifecycleSchema,
   AgentSchema,
@@ -88,9 +95,62 @@ describe("agent capability catalog", () => {
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
       onExcessProperty: "error",
     });
-    expect(sortedStrings(decoded.map((agent) => agent.id))).toEqual(
-      sortedStrings(CONFIGURABLE_AGENT_IDS),
-    );
+    expect(sortedStrings(decoded.map((agent) => agent.id))).toEqual(sortedStrings(AGENT_IDS));
+  });
+  it("keeps hosted agents out of the configurable filesystem registry", () => {
+    expect(HOSTED_AGENT_IDS).toEqual(["chatgpt", "claude-ai", "cowork", "gemini-app"]);
+    const configurableIds = new Set<string>(CONFIGURABLE_AGENT_IDS);
+    for (const id of HOSTED_AGENT_IDS) {
+      expect(configurableIds.has(id)).toBe(false);
+    }
+
+    for (const id of HOSTED_AGENT_IDS) {
+      const agent = HOSTED_AGENTS_BY_ID[id];
+      expect(agent.rootDir).toBeNull();
+      expect(agent.detection).toEqual({ project: { markers: [] }, user: { markers: [] } });
+      expect(agent.installTarget).toMatchObject({ kind: "hosted" });
+      for (const capability of [
+        ...Object.values(agent.capabilities),
+        agent.instructions,
+        agent.permissions,
+      ]) {
+        expect(capability.axm.writer).toBeNull();
+      }
+      expect(agent.capabilities.skill.axm).toMatchObject({
+        status: "supported",
+        writer: null,
+      });
+      expect(isCapabilitySupported(agent.capabilities.skill)).toBe(true);
+      expect(toNativeAgent(agent).installTarget).toEqual(agent.installTarget);
+    }
+  });
+  it("requires hosted-only agents to declare a hosted install target", () => {
+    expect(() =>
+      decodeAgent(
+        makeAgentInput({
+          interfaces: ["chat"],
+          rootDir: null,
+          detection: { project: { markers: [] }, user: { markers: [] } },
+        }),
+      ),
+    ).toThrow("Agents with a hosted interface require installTarget");
+  });
+  it("rejects filesystem state on hosted-only agents", () => {
+    expect(() =>
+      decodeAgent(
+        makeAgentInput({
+          interfaces: ["hosted-agent"],
+          rootDir: ".sample",
+          installTarget: {
+            kind: "hosted",
+            delivery: ["upload"],
+            artifact: "zip",
+            instructions: "Upload the validated ZIP in the hosted agent settings.",
+            docs: "https://example.com/hosted-install",
+          },
+        }),
+      ),
+    ).toThrow("Hosted-only agents cannot declare rootDir");
   });
   it("exposes native and AXM blocks on every decoded capability", () => {
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {

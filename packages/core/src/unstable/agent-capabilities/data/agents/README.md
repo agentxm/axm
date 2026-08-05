@@ -39,6 +39,11 @@ Writer mechanics live under `axm.writer`:
 - Permission grants use `axm.writer.grants`
 - Capabilities without AXM writer mechanics use `axm.writer: null`
 
+`axm.writer: null` means AXM has no parameterized filesystem writer. It does
+not make a real hosted capability unavailable. Hosted-only agents declare an
+`installTarget` with the accepted artifact shape, manual delivery mechanism,
+exact user instructions, and primary documentation URL.
+
 Use an inactive AXM status entry for unsupported or unknown AXM behavior:
 
 ```ts
@@ -94,7 +99,30 @@ the catalog invariant test enforces this.
 Spec-tracked capabilities (`skills`, `instructions`, `mcp`) also require:
 
 - `standardsCompliance`: `full`, `parity`, `partial`, or `none`
-- `convention`: `universal` or `vendor`
+- `convention`: `universal`, `vendor`, or `hosted`
+
+Use `hosted` only when a spec-compatible extension has no filesystem location
+because the vendor accepts it through an upload or hosted directory. Format
+fidelity remains a separate `standardsCompliance` judgment.
+
+## Hosted agents
+
+Use `chat` for conversational hosted applications and `hosted-agent` for
+hosted task or workflow runtimes. An entry may declare both when the product
+provides both surfaces.
+
+A hosted-only entry must use:
+
+- `rootDir: null`
+- empty project and user detection markers
+- `installTarget.kind: "hosted"`
+- `installTarget.delivery` containing `upload`, `directory`, or both
+- an artifact shape and exact post-validation installation instructions
+
+Hosted entries belong in the capability catalog and its `AGENT_IDS`, but not in
+`CONFIGURABLE_AGENTS_BY_ID` or `CONFIGURABLE_AGENT_IDS`. This keeps local
+workspace scans and projections filesystem-only. `axm agents add` recognizes a
+hosted ID and reports its manual delivery path rather than mutating settings.
 
 Non-spec active capabilities (`commands`, `subagents`, `rules`, `permissions`)
 omit those spec axes.

@@ -8,7 +8,7 @@
  */
 
 import * as Record from "effect/Record";
-import { AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
+import { CONFIGURABLE_AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
 import { deriveAgentDescriptor } from "../agent-capabilities/derive.js";
 import { UNIVERSAL_SKILLS_DIR } from "../extensions/universal-skills-dir.js";
 import { AGENT_IDS, type AgentDescriptor, type AgentId, type AgentRegistry } from "./types.js";
@@ -32,7 +32,7 @@ const UNIVERSAL_AGENT_DESCRIPTOR: AgentDescriptor = {
  * @experimental This API is unstable and may change without notice.
  */
 export const AGENTS: AgentRegistry = {
-  ...Record.map(AGENTS_BY_ID, deriveAgentDescriptor),
+  ...Record.map(CONFIGURABLE_AGENTS_BY_ID, deriveAgentDescriptor),
   universal: UNIVERSAL_AGENT_DESCRIPTOR,
 };
 

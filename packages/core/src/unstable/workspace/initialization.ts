@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
+import { CONFIGURABLE_AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
 import { detectAgents } from "../agents/index.js";
 import { AGENTS } from "../agents/registry.js";
 import {
@@ -76,7 +76,7 @@ const isKnownConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
   isKnownAgentId(id) && isConfigurableAgentId(id);
 
 const isAutoSelectableAgent = (agent: AgentDescriptor): boolean =>
-  agent.id === "universal" || AGENTS_BY_ID[agent.id].lifecycle.state !== "retired";
+  agent.id === "universal" || CONFIGURABLE_AGENTS_BY_ID[agent.id].lifecycle.state !== "retired";
 
 const allAgentDescriptors = (
   preferredIds: ReadonlyArray<string>,

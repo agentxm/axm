@@ -10,9 +10,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { parse, type ParseError } from "jsonc-parser";
 import {
-  AGENTS_BY_ID,
+  CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
-  type AgentId,
+  type ConfigurableAgentId,
   type McpConfig,
   type McpConfigTarget,
   type McpTransport,
@@ -97,7 +97,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
   capability.axm.writer !== null && "transports" in capability.native;
 
-const isCapabilityAgentId = (agentId: string): agentId is AgentId => agentId in AGENTS_BY_ID;
+const isCapabilityAgentId = (agentId: string): agentId is ConfigurableAgentId =>
+  agentId in CONFIGURABLE_AGENTS_BY_ID;
 
 const readOptional = (
   configPath: string,
@@ -294,7 +295,7 @@ const inspectAgentMcpServerInternal = (
       };
     }
 
-    const capability = AGENTS_BY_ID[args.agentId].capabilities["mcp-server"];
+    const capability = CONFIGURABLE_AGENTS_BY_ID[args.agentId].capabilities["mcp-server"];
     if (!hasMcpConfig(capability)) {
       return {
         agentId: args.agentId,
@@ -421,7 +422,7 @@ export const inspectMcpServerAcrossAgents = (args: {
     const groups = new Map<string, Array<SharedMcpTargetMember>>();
     for (const agentId of args.agentIds) {
       if (!isCapabilityAgentId(agentId)) continue;
-      const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+      const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
       if (!hasMcpConfig(capability)) continue;
       for (const target of capability.axm.writer.config.targets.filter(
         (candidate) => candidate.scope === args.scope,
@@ -529,7 +530,7 @@ export const collectManagedAgentMcpServers = (
       (agentId) =>
         Effect.gen(function* () {
           if (!isCapabilityAgentId(agentId)) return [];
-          const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+          const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
           if (!hasMcpConfig(capability)) return [];
           const targets = capability.axm.writer.config.targets.filter(
             (target) => target.scope === args.scope,

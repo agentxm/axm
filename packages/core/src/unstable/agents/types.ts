@@ -6,10 +6,7 @@
  */
 
 import type { Record } from "effect";
-import {
-  AGENT_IDS as CONFIGURABLE_AGENT_IDS,
-  type AgentId as ConfigurableAgentId,
-} from "../agent-capabilities/catalog.js";
+import { CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId } from "../agent-capabilities/catalog.js";
 import type { DetectionMarker, Scope, ScopeDetection } from "../agent-capabilities/schema.js";
 
 // -----------------------------------------------------------------------------

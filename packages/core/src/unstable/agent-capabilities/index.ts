@@ -46,6 +46,9 @@ export {
   HookModifyOperationSchema,
   HookTimeoutSerializationSchema,
   HookToolMappingSchema,
+  HostedInstallArtifactSchema,
+  HostedInstallDeliverySchema,
+  HostedInstallTargetSchema,
   McpEnvExpansionSchema,
   McpExtensionCapabilitySchema,
   McpActivationFieldRepresentationSchema,
@@ -115,6 +118,9 @@ export {
   type HookModifyOperation,
   type HookTimeoutSerialization,
   type HookToolMapping,
+  type HostedInstallArtifact,
+  type HostedInstallDelivery,
+  type HostedInstallTarget,
   type HooksSerializer,
   type HooksWriter,
   type InactiveAxmSupport,
@@ -192,5 +198,17 @@ export {
   type NativeAgent,
   type NativeAgentCapabilities,
 } from "./derive.js";
-export { AGENTS, AGENTS_BY_ID, AGENT_IDS, AgentIdSchema, type AgentId } from "./catalog.js";
+export {
+  AGENTS,
+  AGENTS_BY_ID,
+  AGENT_IDS,
+  AgentIdSchema,
+  CONFIGURABLE_AGENTS_BY_ID,
+  CONFIGURABLE_AGENT_IDS,
+  HOSTED_AGENTS_BY_ID,
+  HOSTED_AGENT_IDS,
+  type AgentId,
+  type ConfigurableAgentId,
+  type HostedAgentId,
+} from "./catalog.js";
 export { agentById } from "./lookup.js";

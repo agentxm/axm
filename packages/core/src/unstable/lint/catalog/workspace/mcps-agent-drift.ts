@@ -3,9 +3,9 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { Operation } from "../../../plan/plan.js";
 import {
-  AGENTS_BY_ID,
+  CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
-  type AgentId,
+  type ConfigurableAgentId,
   type McpConfig,
   type McpEnvExpansion,
 } from "../../../agent-capabilities/index.js";
@@ -48,7 +48,8 @@ type ConfiguredMcpCapability = AgentMcpCapability & {
 const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
   capability.axm.writer !== null && "transports" in capability.native;
 
-const isCapabilityAgentId = (agentId: string): agentId is AgentId => agentId in AGENTS_BY_ID;
+const isCapabilityAgentId = (agentId: string): agentId is ConfigurableAgentId =>
+  agentId in CONFIGURABLE_AGENTS_BY_ID;
 
 const isInlineEntry = (entry: McpServerEntry): boolean =>
   entry.command !== undefined || entry.url !== undefined;
@@ -107,7 +108,8 @@ const checkActual = (args: {
   if (args.actual.origin._tag !== "agent-mcp-config") return undefined;
   if (!isCapabilityAgentId(args.actual.origin.agentId)) return undefined;
   if (args.actual.config === null) return undefined;
-  const capability = AGENTS_BY_ID[args.actual.origin.agentId].capabilities["mcp-server"];
+  const capability =
+    CONFIGURABLE_AGENTS_BY_ID[args.actual.origin.agentId].capabilities["mcp-server"];
   if (!hasMcpConfig(capability)) return undefined;
   const nativeConfig = capability.axm.writer.config;
   const target = nativeConfig.targets.find((candidate) => candidate.scope === args.row.key.scope);
@@ -115,7 +117,7 @@ const checkActual = (args: {
   const members: Array<SharedMcpTargetMember> = [];
   for (const agentId of args.configuredAgents) {
     if (!isCapabilityAgentId(agentId)) continue;
-    const candidateCapability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+    const candidateCapability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
     if (!hasMcpConfig(candidateCapability)) continue;
     const candidateTarget = candidateCapability.axm.writer.config.targets.find(
       (candidate) => candidate.scope === args.row.key.scope && candidate.path === target.path,

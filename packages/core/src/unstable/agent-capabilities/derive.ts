@@ -11,7 +11,7 @@ import type {
   AgentSubagentsDescriptor,
 } from "../agents/types.js";
 import { PER_AGENT_EXTENSION_TYPES, type ExtensionType } from "../extensions/common.js";
-import { AGENTS, AGENT_IDS, type AgentId } from "./catalog.js";
+import { AGENTS, CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId } from "./catalog.js";
 import {
   LEAF_EXTENSION_TYPES,
   SUPPORTED_AXM_SUPPORT,
@@ -111,13 +111,14 @@ const capabilityForType = (
   return undefined;
 };
 
-const catalogAgentIds = new Set<string>(AGENT_IDS);
+const configurableAgentIds = new Set<string>(CONFIGURABLE_AGENT_IDS);
 
-const isCatalogAgentId = (id: string): id is AgentId => catalogAgentIds.has(id);
+const isConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
+  configurableAgentIds.has(id);
 
-const deriveAgentId = (agent: Agent): AgentId => {
-  if (isCatalogAgentId(agent.id)) return agent.id;
-  throw new Error(`Cannot derive descriptor for unknown catalog agent id: ${agent.id}`);
+const deriveAgentId = (agent: Agent): ConfigurableAgentId => {
+  if (isConfigurableAgentId(agent.id)) return agent.id;
+  throw new Error(`Cannot derive filesystem descriptor for non-configurable agent: ${agent.id}`);
 };
 
 const firstPathSegment = (path: string): string | undefined => path.split("/")[0];
@@ -606,6 +607,7 @@ export const toNativeAgent = (agent: Agent): NativeAgent => ({
   interfaces: agent.interfaces,
   family: agent.family,
   rootDir: agent.rootDir,
+  ...(agent.installTarget === undefined ? {} : { installTarget: agent.installTarget }),
   lifecycle: agent.lifecycle,
   detection: agent.detection,
   docs: agent.docs,

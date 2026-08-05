@@ -4,9 +4,12 @@
 repository builds and publishes it independently from AXM releases and from the
 private AgentXM platform.
 
-The image contains the Node, pnpm, and Bun versions declared by `mise.toml`,
-plus Linux build tools and `actionlint`. It contains no repository source,
-dependencies, Git metadata, credentials, or user state.
+The image contains Node, pnpm, and Bun, plus Linux build tools and `actionlint`.
+It contains no repository source, dependencies, Git metadata, credentials, or
+user state. The checked-in image inputs may lead `mise.toml` during a
+producer-first toolchain upgrade; after the new semantic image is published,
+the consumer change updates `CI_IMAGE` and the repository toolchain pins
+together.
 
 ## Versioning and publication
 

@@ -66,7 +66,7 @@ smoke_ci_image() {
     set -euo pipefail
     test "$(id -u)" != "0"
     test "$(node --version)" = "v22.22.2"
-    test "$(pnpm --version)" = "10.29.3"
+    test "$(pnpm --version)" = "11.20.0"
     test "$(bun --version)" = "1.3.5"
     actionlint -version
     test ! -e /workspace/.git

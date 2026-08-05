@@ -33,7 +33,7 @@ export const mistralVibeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -69,7 +69,7 @@ export const mistralVibeAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-08-04",
+        lastVerified: null,
         writer: null,
         reason:
           "Mistral Vibe stores MCP servers as repeated [[mcp_servers]] TOML array-of-table entries. AXM's generic MCP writer currently serializes keyed server maps and cannot represent that shape without corrupting the configuration.",
@@ -88,7 +88,7 @@ export const mistralVibeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -127,7 +127,7 @@ export const mistralVibeAgent = {
               { kind: "modify", operations: ["modify-input", "inject-context"] },
             ],
             sources: ["https://docs.mistral.ai/vibe/code/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_tool",
@@ -135,7 +135,7 @@ export const mistralVibeAgent = {
             matcher: { kind: "regex", example: "bash|read_file|write_file", notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://docs.mistral.ai/vibe/code/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_agent",
@@ -143,7 +143,7 @@ export const mistralVibeAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://docs.mistral.ai/vibe/code/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [],
@@ -172,7 +172,7 @@ export const mistralVibeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },

@@ -25,10 +25,7 @@ export const codestudioAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: [
-          "https://www.syncfusion.com/code-studio/features/",
-          "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
-        ],
+        sources: ["https://www.syncfusion.com/code-studio/features/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -36,7 +33,7 @@ export const codestudioAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -92,7 +89,7 @@ export const codestudioAgent = {
         ],
         scopes: ["user", "project"],
         directory: ".codestudio/agents",
-        layout: "file",
+        layout: "directory",
       },
       axm: {
         status: "unsupported",

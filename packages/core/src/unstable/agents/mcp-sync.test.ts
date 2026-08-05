@@ -536,6 +536,80 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
+  it.effect("uses CodeArts Agent's catalog MCP writer dialect", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-codearts-"));
+        try {
+          const outcome = yield* syncInlineMcpServerToAgent("codearts-agent", {
+            workspaceRoot,
+            serverName: "linear",
+            scope: "project",
+            entry: {
+              source: "inline",
+              command: "npx",
+              args: ["-y", "linear-mcp-server"],
+              enabled: true,
+              env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+            },
+          });
+
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: ".codeartsdoer/codearts_cli.jsonc", change: "created" }],
+            warnings: [
+              "env.LINEAR_API_KEY: does not expand environment reference ${LINEAR_API_KEY}",
+            ],
+          });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(
+            `${workspaceRoot}/.codeartsdoer/codearts_cli.jsonc`,
+          );
+          expect(config).toContain('"mcp"');
+          expect(config).toContain('"type": "local"');
+          expect(config).toContain('"command": [');
+          expect(config).toContain('"environment"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("uses Kimi Code's current catalog MCP writer dialect", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-kimi-"));
+        try {
+          const outcome = yield* syncInlineMcpServerToAgent("kimi-cli", {
+            workspaceRoot,
+            serverName: "sentry",
+            scope: "project",
+            entry: {
+              source: "inline",
+              url: "https://mcp.sentry.dev/sse",
+              headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+              enabled: true,
+              env: {},
+            },
+          });
+
+          expect(outcome).toEqual({
+            _tag: "success",
+            targets: [{ path: ".kimi-code/mcp.json", change: "created" }],
+          });
+          const fs = yield* FileSystem.FileSystem;
+          const config = yield* fs.readFileString(`${workspaceRoot}/.kimi-code/mcp.json`);
+          expect(config).toContain('"mcpServers"');
+          expect(config).toContain('"transport": "sse"');
+          expect(config).toContain('"bearerTokenEnvVar": "SENTRY_TOKEN"');
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("prunes stale AXM-managed MCP servers from agent config", () =>
     withNode(
       Effect.gen(function* () {

@@ -33,7 +33,7 @@ export const droidAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -55,7 +55,7 @@ export const droidAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -87,7 +87,7 @@ export const droidAgent = {
         sources: ["https://docs.factory.ai/cli/configuration/custom-droids"],
         scopes: ["user", "project"],
         directory: ".factory/droids",
-        layout: "file",
+        layout: "directory",
       },
       axm: {
         status: "unsupported",
@@ -125,7 +125,7 @@ export const droidAgent = {
             matcher: { kind: "regex", example: "Execute|Create|Edit|ApplyPatch", notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["deny"] }],
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -133,7 +133,7 @@ export const droidAgent = {
             matcher: { kind: "regex", example: "Execute|Create|Edit|ApplyPatch", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -141,7 +141,7 @@ export const droidAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -149,7 +149,7 @@ export const droidAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
@@ -157,7 +157,7 @@ export const droidAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
@@ -165,7 +165,7 @@ export const droidAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SessionStart",
@@ -173,7 +173,7 @@ export const droidAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -181,25 +181,25 @@ export const droidAgent = {
             nativeName: "Execute",
             canonical: "shell.exec",
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Create",
             canonical: "file.write",
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Edit",
             canonical: "file.edit",
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "ApplyPatch",
             canonical: "file.edit",
             sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -227,7 +227,7 @@ export const droidAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },

@@ -47,7 +47,7 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -66,7 +66,7 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -90,7 +90,7 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -141,7 +141,7 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -187,7 +187,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "BeforeAgent",
@@ -201,7 +201,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "AfterAgent",
@@ -215,7 +215,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "BeforeTool",
@@ -229,7 +229,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "AfterTool",
@@ -243,7 +243,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompress",
@@ -251,7 +251,7 @@ export const geminiCliAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/index.md"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -261,7 +261,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "read_many_files",
@@ -269,7 +269,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "write_file",
@@ -277,7 +277,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "replace",
@@ -285,7 +285,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "run_shell_command",
@@ -293,7 +293,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "web_fetch",
@@ -301,7 +301,7 @@ export const geminiCliAgent = {
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md",
             ],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -324,7 +324,7 @@ export const geminiCliAgent = {
           timeoutSerialization: "milliseconds",
           commandNameSerialization: "manifest",
         },
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
       },
     },
   },
@@ -349,7 +349,7 @@ export const geminiCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -408,7 +408,7 @@ export const geminiCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

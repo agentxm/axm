@@ -33,7 +33,7 @@ export const muxAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -83,7 +83,7 @@ export const muxAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -122,7 +122,7 @@ export const muxAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },

@@ -33,7 +33,7 @@ export const crushAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -73,7 +73,7 @@ export const crushAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcp",
@@ -155,7 +155,7 @@ export const crushAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         reason: "AXM has not implemented a Crush hook writer.",
       },
     },
@@ -177,7 +177,7 @@ export const crushAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -221,7 +221,7 @@ export const crushAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: "2026-06-06",
+      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a narrow Crush permission grant writer.",
     },

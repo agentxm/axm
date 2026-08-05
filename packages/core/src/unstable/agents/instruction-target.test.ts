@@ -34,14 +34,12 @@ const EXPECTED_ADAPTER: ReadonlyArray<AgentId> = [
 // forces a deliberate update here.
 const EXPECTED_SKIP: ReadonlyArray<AgentId> = [
   "aider-desk",
-  "codearts-agent",
   "codemaker",
   "codestudio",
   "cortex",
   "dexto",
   "firebender",
   "goose",
-  "kimi-cli",
   "mcpjam",
   "neovate",
   "openclaw",

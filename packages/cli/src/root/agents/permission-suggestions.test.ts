@@ -55,7 +55,7 @@ describe("buildPermissionSuggestions", () => {
       },
       {
         description: "Configure Kode to allow AXM without per-call prompts",
-        url: "https://github.com/shareAI-lab/Kode-Agent",
+        url: "https://github.com/shareAI-lab/Kode-CLI",
       },
       {
         description: "Allow AXM in OpenCode by adding a permission rule to `opencode.json`",

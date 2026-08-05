@@ -33,7 +33,7 @@ export const clineAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -50,7 +50,7 @@ export const clineAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -73,7 +73,7 @@ export const clineAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -150,7 +150,7 @@ export const clineAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         reason: "AXM has not implemented a Cline hook script directory writer.",
       },
     },
@@ -173,7 +173,7 @@ export const clineAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -197,7 +197,7 @@ export const clineAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: "2026-06-06",
+      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a Cline permission grant writer.",
     },

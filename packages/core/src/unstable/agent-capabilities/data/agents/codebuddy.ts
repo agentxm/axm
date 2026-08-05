@@ -33,7 +33,7 @@ export const codebuddyAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -49,7 +49,7 @@ export const codebuddyAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -72,7 +72,7 @@ export const codebuddyAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -151,7 +151,7 @@ export const codebuddyAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -186,7 +186,7 @@ export const codebuddyAgent = {
             matcher: { kind: "literal-list", example: "startup|resume", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -194,7 +194,7 @@ export const codebuddyAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreToolUse",
@@ -206,7 +206,7 @@ export const codebuddyAgent = {
               { kind: "modify", operations: ["modify-input"] },
             ],
             sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -214,7 +214,7 @@ export const codebuddyAgent = {
             matcher: { kind: "regex", example: "Edit|Write", notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -222,7 +222,7 @@ export const codebuddyAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
@@ -230,7 +230,7 @@ export const codebuddyAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
@@ -238,7 +238,7 @@ export const codebuddyAgent = {
             matcher: { kind: "literal-list", example: "manual|auto", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -246,31 +246,31 @@ export const codebuddyAgent = {
             nativeName: "Read",
             canonical: "file.read",
             sources: ["https://www.codebuddy.ai/docs/cli/settings"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Write",
             canonical: "file.write",
             sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Edit",
             canonical: "file.edit",
             sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Bash",
             canonical: "shell.exec",
             sources: ["https://www.codebuddy.ai/docs/cli/settings"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "WebFetch",
             canonical: "web.fetch",
             sources: ["https://www.codebuddy.ai/docs/cli/settings"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -293,7 +293,7 @@ export const codebuddyAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
       },
     },
   },
@@ -316,7 +316,7 @@ export const codebuddyAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -369,7 +369,7 @@ export const codebuddyAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

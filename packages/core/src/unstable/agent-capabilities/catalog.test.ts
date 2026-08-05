@@ -6,6 +6,7 @@ import {
   AgentIdSchema,
   AGENTS,
   AGENT_IDS,
+  CONFIGURABLE_AGENTS_BY_ID,
   HOSTED_AGENTS_BY_ID,
   HOSTED_AGENT_IDS,
 } from "./catalog.js";
@@ -160,6 +161,36 @@ describe("agent capability catalog", () => {
       for (const capability of Object.values(agent.capabilities)) {
         expect(Object.keys(capability).sort()).toEqual(["axm", "native"]);
       }
+    }
+  });
+  it("keeps active configurable agents covered by a dated AXM verification", () => {
+    const retiredWithoutVerifiedCapabilities: Array<string> = [];
+    for (const id of CONFIGURABLE_AGENT_IDS) {
+      const agent = CONFIGURABLE_AGENTS_BY_ID[id];
+      const capabilities = [
+        ...Object.values(agent.capabilities),
+        agent.instructions,
+        agent.permissions,
+      ];
+      const hasVerifiedCapability = capabilities.some(
+        (capability) => capability.axm.lastVerified !== null,
+      );
+      if (!hasVerifiedCapability && agent.lifecycle.state !== "active") {
+        retiredWithoutVerifiedCapabilities.push(id);
+        continue;
+      }
+      expect(hasVerifiedCapability, `${id} has no verified AXM capability slots`).toBe(true);
+    }
+    expect(retiredWithoutVerifiedCapabilities).toEqual(["codemaker"]);
+  });
+  it("does not claim a permission writer without a concrete grant", () => {
+    for (const agent of AGENTS) {
+      const writer = agent.permissions.axm.writer;
+      if (writer === null) continue;
+      expect(
+        Object.keys(writer.grants).length,
+        `${agent.id} has an empty permission writer`,
+      ).toBeGreaterThan(0);
     }
   });
   it("models native hooks for Codex with an AXM writer", () => {

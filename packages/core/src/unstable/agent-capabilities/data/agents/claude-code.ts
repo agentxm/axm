@@ -60,7 +60,7 @@ export const claudeCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -77,7 +77,7 @@ export const claudeCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -99,7 +99,7 @@ export const claudeCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -173,7 +173,7 @@ export const claudeCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -221,7 +221,7 @@ export const claudeCodeAgent = {
               { kind: "modify", operations: ["modify-input"] },
             ],
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -229,7 +229,7 @@ export const claudeCodeAgent = {
             matcher: { kind: "regex", example: "Write|Edit", notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -241,7 +241,7 @@ export const claudeCodeAgent = {
               { kind: "modify", operations: ["inject-context"] },
             ],
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SessionStart",
@@ -249,7 +249,7 @@ export const claudeCodeAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -257,7 +257,7 @@ export const claudeCodeAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
@@ -265,7 +265,7 @@ export const claudeCodeAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
@@ -273,7 +273,7 @@ export const claudeCodeAgent = {
             matcher: { kind: "regex", example: "manual|auto", notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -281,31 +281,31 @@ export const claudeCodeAgent = {
             nativeName: "Read",
             canonical: "file.read",
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Write",
             canonical: "file.write",
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Edit",
             canonical: "file.edit",
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Bash",
             canonical: "shell.exec",
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "WebFetch",
             canonical: "web.fetch",
             sources: ["https://code.claude.com/docs/en/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -334,7 +334,7 @@ export const claudeCodeAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
       },
     },
   },
@@ -355,7 +355,7 @@ export const claudeCodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -402,7 +402,7 @@ export const claudeCodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

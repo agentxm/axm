@@ -53,7 +53,7 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -73,7 +73,7 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -95,7 +95,7 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -149,7 +149,7 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -167,7 +167,7 @@ export const cursorAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         reason:
           "Cursor's hooks.json maps each event to a flat command array; AXM's only hook serializer emits grouped command-stdin entries, so a writer needs a new serializer rather than catalog data.",
       },
@@ -191,7 +191,7 @@ export const cursorAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -267,7 +267,7 @@ export const cursorAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

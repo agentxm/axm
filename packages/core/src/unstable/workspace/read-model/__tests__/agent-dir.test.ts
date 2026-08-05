@@ -68,6 +68,37 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
     }),
   );
 
+  it.effect("does not scan the workspace root for agents without a skills directory", () =>
+    Effect.gen(function* () {
+      const codemakerDescriptor = AGENTS.codemaker;
+      const { occurrences } = yield* runScanner(
+        {
+          workspaceRoot: WORKSPACE_ROOT,
+          userHome: USER_HOME,
+          project: {
+            agentDirs: {
+              "claude-code": {
+                "skills/some-skill/SKILL.md": "# some-skill\n",
+              },
+            },
+          },
+        },
+        {
+          agentRegistry: {
+            ...AGENTS,
+            codemaker: { ...codemakerDescriptor, skills: { dir: "" } },
+          },
+        },
+      );
+
+      expect(
+        occurrences.filter(
+          (occurrence) => occurrence.type === "skill" && occurrence.agentId === "codemaker",
+        ),
+      ).toEqual([]);
+    }),
+  );
+
   it.effect("emits skill occurrences for .claude/skills/<name>", () =>
     Effect.gen(function* () {
       const { occurrences } = yield* runScanner({

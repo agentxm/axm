@@ -34,7 +34,7 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -50,7 +50,7 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -73,7 +73,7 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -135,7 +135,7 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -176,7 +176,7 @@ export const augmentAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreToolUse",
@@ -184,7 +184,7 @@ export const augmentAgent = {
             matcher: { kind: "regex", example: "terminal|write", notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -192,7 +192,7 @@ export const augmentAgent = {
             matcher: { kind: "regex", example: "terminal|write", notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -200,7 +200,7 @@ export const augmentAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -208,31 +208,31 @@ export const augmentAgent = {
             nativeName: "read",
             canonical: "file.read",
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "write",
             canonical: "file.write",
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "edit",
             canonical: "file.edit",
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "terminal",
             canonical: "shell.exec",
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "web-fetch",
             canonical: "web.fetch",
             sources: ["https://docs.augmentcode.com/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -255,7 +255,7 @@ export const augmentAgent = {
           timeoutSerialization: "milliseconds",
           commandNameSerialization: "omit",
         },
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
       },
     },
   },
@@ -276,7 +276,7 @@ export const augmentAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -315,7 +315,7 @@ export const augmentAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

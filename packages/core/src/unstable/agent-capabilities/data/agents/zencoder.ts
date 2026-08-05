@@ -26,7 +26,7 @@ export const zencoderAgent = {
         notes:
           "Zencoder uses the cross-agent .agents/skills location; the legacy .zencoder/skills path remains readable but is deprecated.",
         docs: [],
-        sources: ["https://docs.zencoder.ai/features/skills"],
+        sources: ["https://docs.zencoder.ai/llms-full.txt"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -34,7 +34,7 @@ export const zencoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -43,9 +43,9 @@ export const zencoderAgent = {
         availability: { via: "none" },
         vendorStatus: { state: "active" },
         notes:
-          "Zencoder configures VS Code MCP servers under the zencoder.mcpServers settings key; JetBrains exposes the same entries through Settings > Tools > Zencoder > MCP Servers.",
+          "Zencoder exposes saved prompts through its product UI, but the vendor documentation does not define a filesystem command directory AXM can target.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.zencoder.ai/llms-full.txt"],
       },
       axm: {
         status: "unsupported",
@@ -59,10 +59,7 @@ export const zencoderAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: [
-          "https://docs.zencoder.ai/zenflow/mcps",
-          "https://docs.zencoder.ai/features/mcp-deep-dive",
-        ],
+        sources: ["https://docs.zencoder.ai/llms-full.txt"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -82,19 +79,18 @@ export const zencoderAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "native" },
+        availability: { via: "none" },
         vendorStatus: { state: "active" },
-        notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
+        notes:
+          "Zencoder custom agents are created, selected, and shared through its UI; the current catalog schema cannot represent that native UI-only surface as a subagent install target.",
         docs: [],
-        sources: ["https://docs.zencoder.ai/features/agents-overview"],
-        scopes: ["user", "project"],
-        directory: ".zencoder/agents",
-        layout: "directory",
+        sources: ["https://docs.zencoder.ai/llms-full.txt"],
       },
       axm: {
-        status: "supported",
-        lastVerified: "2026-06-06",
+        status: "unsupported",
+        lastVerified: null,
         writer: null,
+        reason: "AXM has no delivery path for Zencoder's UI-managed custom agents.",
       },
     },
     hook: {
@@ -118,10 +114,7 @@ export const zencoderAgent = {
       vendorStatus: { state: "active" },
       notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
       docs: [],
-      sources: [
-        "https://docs.zencoder.ai/features/agents-overview",
-        "https://docs.zencoder.ai/learn/10x-engineer/module-03",
-      ],
+      sources: ["https://docs.zencoder.ai/llms-full.txt"],
       scopes: ["project"],
       standardsCompliance: "partial",
       convention: "vendor",
@@ -133,7 +126,7 @@ export const zencoderAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -144,7 +137,7 @@ export const zencoderAgent = {
       notes:
         "Zencoder added MCP tool permission prompts in April 2026. The docs describe user-visible MCP permission control, not a stable AXM-writable permission file.",
       docs: [],
-      sources: ["https://docs.zencoder.ai/changelog/april-2026"],
+      sources: ["https://docs.zencoder.ai/llms-full.txt"],
       scopes: ["user"],
       mechanism: ["ui-only"],
       configFiles: [],
@@ -154,7 +147,7 @@ export const zencoderAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: "2026-06-06",
+      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a Zencoder permission grant writer.",
     },

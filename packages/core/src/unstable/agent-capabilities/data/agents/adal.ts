@@ -33,7 +33,7 @@ export const adalAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -58,10 +58,7 @@ export const adalAgent = {
         notes:
           "AdaL manages MCP servers through the /mcp CLI flow and stores OAuth tokens under ~/.adal/mcp-auth; the docs describe add/remove/test actions rather than a stable editable config file.",
         docs: [],
-        sources: [
-          "https://docs.sylph.ai/features/mcp-support-proposed",
-          "https://raw.githubusercontent.com/SylphAI-Inc/adal-cli/main/docs-site/docs/03-features/mcp-support-proposed.md",
-        ],
+        sources: ["https://docs.sylph.ai/features/mcp-support-proposed"],
         scopes: ["user"],
         standardsCompliance: "partial",
         convention: "vendor",
@@ -73,7 +70,7 @@ export const adalAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented an AdaL MCP writer for the CLI-managed MCP store.",
       },
@@ -124,7 +121,7 @@ export const adalAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -135,10 +132,7 @@ export const adalAgent = {
       notes:
         "AdaL exposes /permissions to configure approval behavior, but the public docs do not document a stable settings file shape for AXM to patch.",
       docs: [],
-      sources: [
-        "https://docs.sylph.ai/features/slash-commands",
-        "https://raw.githubusercontent.com/SylphAI-Inc/adal-cli/main/docs-site/docs/03-features/slash-commands.md",
-      ],
+      sources: ["https://docs.sylph.ai/features/slash-commands"],
       scopes: ["user"],
       mechanism: ["ui-only"],
       configFiles: [],
@@ -148,7 +142,7 @@ export const adalAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: "2026-06-06",
+      lastVerified: null,
       writer: null,
       reason:
         "AXM has not implemented an AdaL permission writer for the interactive /permissions surface.",

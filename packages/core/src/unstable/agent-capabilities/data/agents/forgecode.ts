@@ -29,12 +29,9 @@ export const forgecodeAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "ForgeCode also reads shared ~/.agents/skills and documents ~/forge/skills as its global skills path; ~/.forge is retained as an install marker from vercel-labs/skills.\n",
+          "ForgeCode also reads shared ~/.agents/skills and documents ~/forge/skills as its global skills path.",
         docs: [],
-        sources: [
-          "https://forgecode.dev/docs/skills/",
-          "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
-        ],
+        sources: ["https://forgecode.dev/docs/skills/"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -42,7 +39,7 @@ export const forgecodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -89,7 +86,7 @@ export const forgecodeAgent = {
         sources: ["https://forgecode.dev/docs/creating-agents/"],
         scopes: ["user", "project"],
         directory: ".forge/agents",
-        layout: "file",
+        layout: "directory",
       },
       axm: {
         status: "unsupported",
@@ -129,7 +126,7 @@ export const forgecodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },

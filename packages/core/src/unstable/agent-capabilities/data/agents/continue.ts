@@ -33,7 +33,7 @@ export const continueAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -49,7 +49,7 @@ export const continueAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -75,7 +75,7 @@ export const continueAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented a Continue MCP config writer.",
       },
@@ -136,7 +136,7 @@ export const continueAgent = {
             },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -144,7 +144,7 @@ export const continueAgent = {
             matcher: { kind: "regex", example: "Bash", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -152,7 +152,7 @@ export const continueAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SessionStart",
@@ -160,7 +160,7 @@ export const continueAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -168,7 +168,7 @@ export const continueAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
@@ -176,7 +176,7 @@ export const continueAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
@@ -184,7 +184,7 @@ export const continueAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -192,25 +192,25 @@ export const continueAgent = {
             nativeName: "Read",
             canonical: "file.read",
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Write",
             canonical: "file.write",
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Edit",
             canonical: "file.edit",
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Bash",
             canonical: "shell.exec",
             sources: ["https://github.com/continuedev/continue/issues/11678"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -241,7 +241,7 @@ export const continueAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },

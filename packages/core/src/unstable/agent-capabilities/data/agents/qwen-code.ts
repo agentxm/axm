@@ -33,7 +33,7 @@ export const qwenCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -50,7 +50,7 @@ export const qwenCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -72,7 +72,7 @@ export const qwenCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -122,7 +122,7 @@ export const qwenCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -157,7 +157,7 @@ export const qwenCodeAgent = {
             matcher: { kind: "regex", example: "startup|resume|clear", notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -169,7 +169,7 @@ export const qwenCodeAgent = {
               { kind: "modify", operations: ["inject-context"] },
             ],
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreToolUse",
@@ -181,7 +181,7 @@ export const qwenCodeAgent = {
               { kind: "modify", operations: ["modify-input"] },
             ],
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -193,7 +193,7 @@ export const qwenCodeAgent = {
               { kind: "modify", operations: ["inject-context"] },
             ],
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -201,7 +201,7 @@ export const qwenCodeAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
@@ -213,7 +213,7 @@ export const qwenCodeAgent = {
             },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
@@ -221,7 +221,7 @@ export const qwenCodeAgent = {
             matcher: { kind: "regex", example: "manual|auto", notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -229,25 +229,25 @@ export const qwenCodeAgent = {
             nativeName: "ReadFile",
             canonical: "file.read",
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/developers/tools/file-system/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "WriteFile",
             canonical: "file.write",
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/developers/tools/file-system/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Edit",
             canonical: "file.edit",
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/developers/tools/file-system/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Bash",
             canonical: "shell.exec",
             sources: ["https://qwenlm.github.io/qwen-code-docs/en/developers/tools/shell/"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -270,7 +270,7 @@ export const qwenCodeAgent = {
           timeoutSerialization: "milliseconds",
           commandNameSerialization: "manifest",
         },
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
       },
     },
   },
@@ -292,7 +292,7 @@ export const qwenCodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -336,7 +336,7 @@ export const qwenCodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-24",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

@@ -173,6 +173,7 @@ describe("agent capability derivation", () => {
       "augment",
       "claude-code",
       "cline",
+      "codearts-agent",
       "codebuddy",
       "codex",
       "command-code",
@@ -190,6 +191,7 @@ describe("agent capability derivation", () => {
       "ibm-bob",
       "junie",
       "kilo",
+      "kimi-cli",
       "kiro-cli",
       "kode",
       "mistral-vibe",
@@ -216,16 +218,20 @@ describe("agent capability derivation", () => {
     ).toEqual([
       "augment",
       "claude-code",
+      "codearts-agent",
       "codebuddy",
       "codex",
       "command-code",
       "cursor",
+      "deepagents",
       "devin",
       "gemini-cli",
       "github-copilot-cli",
+      "grok-cli",
       "ibm-bob",
       "junie",
       "kilo",
+      "kimi-cli",
       "kiro-cli",
       "kode",
       "mistral-vibe",
@@ -234,7 +240,6 @@ describe("agent capability derivation", () => {
       "qoder",
       "qwen-code",
       "roo",
-      "zencoder",
     ]);
   });
   it("derives pack compatibility from all member types", () => {
@@ -248,6 +253,7 @@ describe("agent capability derivation", () => {
       "augment",
       "claude-code",
       "cline",
+      "codearts-agent",
       "codebuddy",
       "codex",
       "command-code",
@@ -260,6 +266,7 @@ describe("agent capability derivation", () => {
       "ibm-bob",
       "junie",
       "kilo",
+      "kimi-cli",
       "kiro-cli",
       "pochi",
       "qoder",
@@ -606,6 +613,29 @@ describe("agent capability derivation", () => {
   it("derives explicit rootDir", () => {
     expect(deriveAgentDescriptor(baseAgent).rootDir).toBe(".sample");
     expect(deriveAgentDescriptor(baseAgent).detection).toEqual(sampleRootDetection);
+  });
+  it("isolates legacy skill scanners for agents without a verified skills surface", () => {
+    const descriptor = deriveAgentDescriptor(agentById("codemaker"));
+
+    expect(descriptor.rootDir).toBeUndefined();
+    expect(descriptor.skills.dir).toBe(".codemaker/skills");
+  });
+  it("treats per-agent Markdown collections as directories, not opaque files", () => {
+    for (const agentId of [
+      "codearts-agent",
+      "command-code",
+      "deepagents",
+      "grok-cli",
+      "junie",
+      "kimi-cli",
+      "rovodev",
+    ] as const) {
+      expect(deriveAgentDescriptor(agentById(agentId)).subagents?.isFile).toBeUndefined();
+    }
+
+    for (const agentId of ["ibm-bob", "roo"] as const) {
+      expect(deriveAgentDescriptor(agentById(agentId)).subagents?.isFile).toBe(true);
+    }
   });
   it("does not treat a shared MCP target as agent-specific detection evidence", () => {
     const projectFileMarkers = (agentId: AgentId) =>

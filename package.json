@@ -81,7 +81,7 @@
     "*.{js,ts,mjs,cjs}": "eslint --fix",
     "*.{md,json,jsonc,yml,yaml}": "prettier --write"
   },
-  "packageManager": "pnpm@10.29.3",
+  "packageManager": "pnpm@11.20.0",
   "devDependencies": {
     "@agentxm/client-utils": "workspace:*",
     "@effect/eslint-plugin": "catalog:",

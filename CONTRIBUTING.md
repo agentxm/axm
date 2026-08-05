@@ -6,7 +6,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 ### Prerequisites
 
-- [mise](https://mise.jdx.dev/) (manages Node.js 22.x, pnpm 10.29.3, and Bun 1.3.5 from `mise.toml`)
+- [mise](https://mise.jdx.dev/) (manages Node.js 22.x, pnpm 11.20.0, and Bun 1.3.5 from `mise.toml`)
 - [Nx](https://nx.dev/) (installed as a devDependency — no global install needed)
 
 ### Setup

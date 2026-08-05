@@ -44,7 +44,7 @@ export const rooAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -65,7 +65,7 @@ export const rooAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -92,7 +92,7 @@ export const rooAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         writer: null,
         reason: "The current AXM Roo Code service returns MCP add/remove as unsupported.",
       },
@@ -115,7 +115,7 @@ export const rooAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -163,7 +163,7 @@ export const rooAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -196,7 +196,7 @@ export const rooAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: "2026-06-06",
+      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented Roo Code permission grant writing.",
     },

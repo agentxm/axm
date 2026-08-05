@@ -34,7 +34,7 @@ export const hermesAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -67,7 +67,7 @@ export const hermesAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcp_servers",
@@ -135,7 +135,7 @@ export const hermesAgent = {
             matcher: { kind: "regex", example: "terminal|read_file|write_file", notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["deny"] }],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_tool_call",
@@ -143,7 +143,7 @@ export const hermesAgent = {
             matcher: { kind: "regex", example: "terminal|read_file|write_file", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_llm_call",
@@ -151,7 +151,7 @@ export const hermesAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_llm_call",
@@ -159,7 +159,7 @@ export const hermesAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "on_session_start",
@@ -167,7 +167,7 @@ export const hermesAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "subagent_stop",
@@ -175,7 +175,7 @@ export const hermesAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "transform_llm_output",
@@ -183,7 +183,7 @@ export const hermesAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "modify", operations: ["modify-output"] }],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [],
@@ -213,7 +213,7 @@ export const hermesAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },

@@ -6,7 +6,7 @@
  *
  * Subject coverage in v1:
  *
- * - skill — every agent with `agent.skills.dir`.
+ * - skill — every agent with a non-empty `agent.skills.dir`.
  * - command — every agent with `agent.commands?.dir`.
  * - subagent — every agent with `agent.subagents?.dir`. Single-file
  *   subagent surfaces (`isFile === true`, e.g., `roo`'s `.roomodes`) emit one
@@ -91,7 +91,9 @@ interface SubjectDir {
 
 const subjectsForAgent = (descriptor: AgentDescriptor): ReadonlyArray<SubjectDir> => {
   const out: Array<SubjectDir> = [];
-  out.push({ type: "skill", relativeDir: descriptor.skills.dir, isFile: false });
+  if (descriptor.skills.dir.length > 0) {
+    out.push({ type: "skill", relativeDir: descriptor.skills.dir, isFile: false });
+  }
   if (descriptor.commands !== undefined) {
     out.push({
       type: "command",

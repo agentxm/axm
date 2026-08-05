@@ -38,7 +38,7 @@ export const cortexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -130,7 +130,7 @@ export const cortexAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -138,7 +138,7 @@ export const cortexAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreToolUse",
@@ -146,7 +146,7 @@ export const cortexAgent = {
             matcher: { kind: "regex", example: "Bash|Write|Edit", notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny", "ask"] }],
             sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -154,7 +154,7 @@ export const cortexAgent = {
             matcher: { kind: "regex", example: "Bash|Write|Edit", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -162,7 +162,7 @@ export const cortexAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
@@ -170,7 +170,7 @@ export const cortexAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
@@ -178,7 +178,7 @@ export const cortexAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [],

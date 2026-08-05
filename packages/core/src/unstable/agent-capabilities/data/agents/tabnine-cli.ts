@@ -27,7 +27,6 @@ export const tabnineCliAgent = {
         docs: [],
         sources: [
           "https://docs.tabnine.com/main/getting-started/tabnine-cli/features/agent-skills",
-          "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
         ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
@@ -36,7 +35,7 @@ export const tabnineCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -52,7 +51,7 @@ export const tabnineCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -122,7 +121,7 @@ export const tabnineCliAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.tabnine.com/main/getting-started/tabnine-cli/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "BeforeAgent",
@@ -130,7 +129,7 @@ export const tabnineCliAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.tabnine.com/main/getting-started/tabnine-cli/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "AfterAgent",
@@ -138,7 +137,7 @@ export const tabnineCliAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.tabnine.com/main/getting-started/tabnine-cli/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "BeforeTool",
@@ -150,7 +149,7 @@ export const tabnineCliAgent = {
               { kind: "modify", operations: ["modify-input"] },
             ],
             sources: ["https://docs.tabnine.com/main/getting-started/tabnine-cli/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "AfterTool",
@@ -158,7 +157,7 @@ export const tabnineCliAgent = {
             matcher: { kind: "literal-list", example: "shell,read,write", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.tabnine.com/main/getting-started/tabnine-cli/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompress",
@@ -166,7 +165,7 @@ export const tabnineCliAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.tabnine.com/main/getting-started/tabnine-cli/features/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [],

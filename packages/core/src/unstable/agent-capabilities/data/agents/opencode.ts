@@ -33,7 +33,7 @@ export const opencodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -49,7 +49,7 @@ export const opencodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -72,7 +72,7 @@ export const opencodeAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-08-04",
+        lastVerified: null,
         writer: null,
         reason:
           "OpenCode V2 nests MCP server definitions under mcp.servers. AXM's generic MCP writer currently supports only a single keyed server-map level and would write the obsolete shape.",
@@ -91,7 +91,7 @@ export const opencodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -109,7 +109,7 @@ export const opencodeAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         reason:
           "OpenCode hooks are in-process JavaScript plugin exports, not declarative config; AXM's command-stdin serializer has no way to emit them.",
       },
@@ -133,7 +133,7 @@ export const opencodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -171,7 +171,7 @@ export const opencodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

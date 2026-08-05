@@ -131,6 +131,17 @@ const deriveRootDir = (agent: Agent): string | undefined =>
         ? firstPathSegment(agent.capabilities.skill.native.directory)
         : undefined);
 
+const deriveSkillsDir = (agent: Agent): string => {
+  if ("directory" in agent.capabilities.skill.native) {
+    return agent.capabilities.skill.native.directory;
+  }
+
+  // AgentDescriptor predates capability availability and requires a concrete
+  // skills directory. Keep retired/unverified agents on an isolated legacy
+  // path while the repository capability gate prevents installs or writes.
+  return `${agent.rootDir ?? `.${agent.id}`}/skills`;
+};
+
 const detectionMarkerKey = (marker: AgentDetectionMarker): string =>
   marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
 
@@ -280,7 +291,6 @@ const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor
 
 /** @experimental This API is unstable and may change without notice. */
 export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
-  const skill = agent.capabilities.skill;
   const command = agent.capabilities.command;
   const commands =
     isCapabilitySupported(command) && "directory" in command.native
@@ -296,7 +306,7 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
     name: agent.name,
     rootDir,
     skills: {
-      dir: "directory" in skill.native ? skill.native.directory : "",
+      dir: deriveSkillsDir(agent),
     },
     detection,
     ...(commands === undefined ? {} : { commands }),

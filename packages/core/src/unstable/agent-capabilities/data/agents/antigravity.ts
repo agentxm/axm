@@ -47,7 +47,7 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -64,7 +64,7 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -90,7 +90,7 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -179,7 +179,7 @@ export const antigravityAgent = {
             },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny", "ask"] }],
             sources: ["https://antigravity.google/docs/hooks"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -187,7 +187,7 @@ export const antigravityAgent = {
             matcher: { kind: "regex", example: "run_command", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://antigravity.google/docs/hooks"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreInvocation",
@@ -195,7 +195,7 @@ export const antigravityAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://antigravity.google/docs/hooks"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostInvocation",
@@ -203,7 +203,7 @@ export const antigravityAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://antigravity.google/docs/hooks"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -211,7 +211,7 @@ export const antigravityAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://antigravity.google/docs/hooks"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -219,14 +219,14 @@ export const antigravityAgent = {
             nativeName: "run_command",
             canonical: "shell.exec",
             sources: ["https://antigravity.google/docs/hooks"],
-            lastVerified: "2026-07-24",
+            lastVerified: "2026-08-05",
           },
         ],
       },
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-07-22",
+        lastVerified: null,
         reason:
           "Antigravity namespaces each hook bundle under its own top-level name in hooks.json; AXM's writer targets a single settings key and cannot express that nesting.",
       },
@@ -250,7 +250,7 @@ export const antigravityAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -285,7 +285,7 @@ export const antigravityAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

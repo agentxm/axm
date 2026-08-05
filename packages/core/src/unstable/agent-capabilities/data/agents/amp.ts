@@ -33,7 +33,7 @@ export const ampAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -70,7 +70,7 @@ export const ampAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-07-22",
+        lastVerified: null,
         writer: null,
         reason:
           "Amp nests its servers under the flat amp.mcpServers settings key, which McpServersKey cannot express; a writer needs a schema change rather than catalog data.",
@@ -116,7 +116,7 @@ export const ampAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented Amp plugin/subagent materialization.",
       },
@@ -135,7 +135,7 @@ export const ampAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         reason: "AXM has not implemented Amp plugin or declarative-action hook writers.",
       },
     },
@@ -157,7 +157,7 @@ export const ampAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },

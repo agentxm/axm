@@ -38,7 +38,7 @@ export const firebenderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -91,7 +91,7 @@ export const firebenderAgent = {
         sources: ["https://docs.firebender.com/api-reference/agents"],
         scopes: ["user", "project"],
         directory: ".firebender/agents",
-        layout: "file",
+        layout: "directory",
       },
       axm: {
         status: "unsupported",
@@ -130,7 +130,7 @@ export const firebenderAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "preToolUse",
@@ -142,7 +142,7 @@ export const firebenderAgent = {
               { kind: "modify", operations: ["modify-input"] },
             ],
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "postToolUse",
@@ -150,7 +150,7 @@ export const firebenderAgent = {
             matcher: { kind: "literal-list", example: "Shell,Read,Write,MCP", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "stop",
@@ -158,7 +158,7 @@ export const firebenderAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "subagentStop",
@@ -166,7 +166,7 @@ export const firebenderAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "preCompact",
@@ -174,7 +174,7 @@ export const firebenderAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -182,31 +182,31 @@ export const firebenderAgent = {
             nativeName: "Shell",
             canonical: "shell.exec",
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Read",
             canonical: "file.read",
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Write",
             canonical: "file.write",
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "MCP",
             canonical: "mcp.call",
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "afterFileEdit",
             canonical: "file.edit",
             sources: ["https://docs.firebender.com/multi-agent/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
       },

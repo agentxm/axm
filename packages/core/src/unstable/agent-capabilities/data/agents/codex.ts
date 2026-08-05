@@ -61,7 +61,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -86,7 +86,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -108,7 +108,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcp_servers",
@@ -160,7 +160,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -195,7 +195,7 @@ export const codexAgent = {
             matcher: { kind: "regex", example: "Bash|apply_patch", notes: null },
             decision: [{ kind: "block", outcomes: ["deny"] }],
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PermissionRequest",
@@ -203,7 +203,7 @@ export const codexAgent = {
             matcher: { kind: "regex", example: "Bash|apply_patch", notes: null },
             decision: [{ kind: "block", outcomes: ["deny"] }],
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -211,7 +211,7 @@ export const codexAgent = {
             matcher: { kind: "regex", example: "Bash|apply_patch", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -219,7 +219,7 @@ export const codexAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "block", outcomes: ["deny"] }],
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SessionStart",
@@ -231,7 +231,7 @@ export const codexAgent = {
             },
             decision: [{ kind: "observe" }],
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -239,7 +239,7 @@ export const codexAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
@@ -247,7 +247,7 @@ export const codexAgent = {
             matcher: { kind: "regex", example: null, notes: "Matcher filters subagent type." },
             decision: [{ kind: "observe" }],
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
@@ -255,7 +255,7 @@ export const codexAgent = {
             matcher: { kind: "regex", example: "manual|auto", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -263,25 +263,25 @@ export const codexAgent = {
             nativeName: "apply_patch",
             canonical: "file.edit",
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Edit",
             canonical: "file.edit",
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Write",
             canonical: "file.write",
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Bash",
             canonical: "shell.exec",
             sources: ["https://learn.chatgpt.com/docs/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -304,7 +304,7 @@ export const codexAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
       },
     },
   },
@@ -325,7 +325,7 @@ export const codexAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -382,7 +382,7 @@ export const codexAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

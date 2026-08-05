@@ -33,7 +33,7 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -49,7 +49,7 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -71,7 +71,7 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -117,11 +117,11 @@ export const junieAgent = {
         sources: ["https://junie.jetbrains.com/docs/junie-cli-subagents.html"],
         scopes: ["user", "project"],
         directory: ".junie/agents",
-        layout: "file",
+        layout: "directory",
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -142,7 +142,7 @@ export const junieAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-07-22",
+        lastVerified: null,
         reason: "AXM has no trusted project hook writer target for Junie CLI hooks.",
       },
     },
@@ -168,7 +168,7 @@ export const junieAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -210,7 +210,7 @@ export const junieAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: "2026-06-06",
+      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a Junie Action Allowlist writer.",
     },

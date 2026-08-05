@@ -38,7 +38,7 @@ export const windsurfAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -55,7 +55,7 @@ export const windsurfAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -77,7 +77,7 @@ export const windsurfAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -154,7 +154,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_read_code",
@@ -162,7 +162,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_write_code",
@@ -170,7 +170,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_write_code",
@@ -178,7 +178,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_run_command",
@@ -186,7 +186,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_run_command",
@@ -194,7 +194,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_mcp_tool_use",
@@ -202,7 +202,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_mcp_tool_use",
@@ -210,7 +210,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_user_prompt",
@@ -218,7 +218,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_cascade_response",
@@ -226,7 +226,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_cascade_response_with_transcript",
@@ -234,7 +234,7 @@ export const windsurfAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -242,32 +242,32 @@ export const windsurfAgent = {
             nativeName: "read_code",
             canonical: "file.read",
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "write_code",
             canonical: "file.write",
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "run_command",
             canonical: "shell.exec",
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "mcp_tool_use",
             canonical: "mcp.call",
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
       },
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: "2026-06-06",
+        lastVerified: null,
         reason: "AXM has not implemented a Devin Desktop/Cascade hooks writer.",
       },
     },
@@ -290,7 +290,7 @@ export const windsurfAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -329,7 +329,7 @@ export const windsurfAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

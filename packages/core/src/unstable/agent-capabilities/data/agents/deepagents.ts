@@ -37,7 +37,7 @@ export const deepagentsAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -94,8 +94,8 @@ export const deepagentsAgent = {
         layout: "directory",
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
+        status: "supported",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -135,7 +135,7 @@ export const deepagentsAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-24",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },

@@ -28,10 +28,7 @@ export const devinAgent = {
         notes:
           "Devin also reads universal .agents/skills locations; AXM targets the native .devin/skills project path and XDG user path.\n",
         docs: [],
-        sources: [
-          "https://docs.devin.ai/cli/extensibility/skills/overview",
-          "https://github.com/vercel-labs/skills/blob/main/src/agents.ts",
-        ],
+        sources: ["https://docs.devin.ai/cli/extensibility/skills/overview"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -39,7 +36,7 @@ export const devinAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -76,7 +73,7 @@ export const devinAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -144,7 +141,7 @@ export const devinAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -191,7 +188,7 @@ export const devinAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -199,7 +196,7 @@ export const devinAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreToolUse",
@@ -211,7 +208,7 @@ export const devinAgent = {
               { kind: "modify", operations: ["modify-input"] },
             ],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -219,7 +216,7 @@ export const devinAgent = {
             matcher: { kind: "regex", example: "exec|edit|write", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -227,7 +224,7 @@ export const devinAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -235,25 +232,25 @@ export const devinAgent = {
             nativeName: "read",
             canonical: "file.read",
             sources: ["https://docs.devin.ai/cli/reference/permissions"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "write",
             canonical: "file.write",
             sources: ["https://docs.devin.ai/cli/reference/permissions"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "edit",
             canonical: "file.edit",
             sources: ["https://docs.devin.ai/cli/reference/permissions"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "exec",
             canonical: "shell.exec",
             sources: ["https://docs.devin.ai/cli/reference/permissions"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -276,7 +273,7 @@ export const devinAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
       },
     },
   },
@@ -297,7 +294,7 @@ export const devinAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -351,7 +348,7 @@ export const devinAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-07-22",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

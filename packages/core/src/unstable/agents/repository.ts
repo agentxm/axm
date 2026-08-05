@@ -64,10 +64,9 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
     id: descriptor.id,
     resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
       Effect.gen(function* () {
-        // Behavior-neutral today — every catalog agent supports skills — but
-        // the resolve no longer assumes it. Without this an agent whose skill
-        // capability AXM does not support would resolve an empty directory and
-        // render into the workspace root.
+        // Do not assume every catalog entry supports skills. Without this, an
+        // entry with no verified skill surface would resolve an empty directory
+        // and render into the workspace root.
         if (!descriptorSupportsSkills(descriptor)) {
           return {
             _tag: "unsupported",

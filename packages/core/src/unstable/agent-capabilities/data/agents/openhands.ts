@@ -34,7 +34,7 @@ export const openhandsAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -114,7 +114,7 @@ export const openhandsAgent = {
             matcher: { kind: "literal-list", example: "terminal", notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.openhands.dev/openhands/usage/customization/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -122,7 +122,7 @@ export const openhandsAgent = {
             matcher: { kind: "literal-list", example: "terminal", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.openhands.dev/openhands/usage/customization/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -134,7 +134,7 @@ export const openhandsAgent = {
               { kind: "modify", operations: ["inject-context"] },
             ],
             sources: ["https://docs.openhands.dev/openhands/usage/customization/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -142,7 +142,7 @@ export const openhandsAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.openhands.dev/openhands/usage/customization/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SessionStart",
@@ -150,7 +150,7 @@ export const openhandsAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
             sources: ["https://docs.openhands.dev/openhands/usage/customization/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [],
@@ -179,7 +179,7 @@ export const openhandsAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },

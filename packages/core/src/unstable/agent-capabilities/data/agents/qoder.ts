@@ -33,7 +33,7 @@ export const qoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -50,7 +50,7 @@ export const qoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -75,7 +75,7 @@ export const qoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-04",
+        lastVerified: "2026-08-05",
         writer: {
           config: {
             serversKey: "mcpServers",
@@ -145,7 +145,7 @@ export const qoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-06-06",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -190,7 +190,7 @@ export const qoderAgent = {
             },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
@@ -198,7 +198,7 @@ export const qoderAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreToolUse",
@@ -206,7 +206,7 @@ export const qoderAgent = {
             matcher: { kind: "regex", example: "Write|Edit|Bash", notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny", "ask"] }],
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-07-22",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
@@ -214,7 +214,7 @@ export const qoderAgent = {
             matcher: { kind: "regex", example: "Write|Edit|Bash", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
@@ -222,7 +222,7 @@ export const qoderAgent = {
             matcher: { kind: "none-imperative", example: null, notes: null },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
@@ -234,7 +234,7 @@ export const qoderAgent = {
             },
             decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
@@ -242,7 +242,7 @@ export const qoderAgent = {
             matcher: { kind: "regex", example: "manual|auto", notes: null },
             decision: [{ kind: "observe" }],
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
         tools: [
@@ -250,25 +250,25 @@ export const qoderAgent = {
             nativeName: "Read",
             canonical: "file.read",
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Write",
             canonical: "file.write",
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Edit",
             canonical: "file.edit",
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
           {
             nativeName: "Bash",
             canonical: "shell.exec",
             sources: ["https://docs.qoder.com/en/cli/hooks"],
-            lastVerified: "2026-06-06",
+            lastVerified: "2026-08-05",
           },
         ],
       },
@@ -291,7 +291,7 @@ export const qoderAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
       },
     },
   },
@@ -312,7 +312,7 @@ export const qoderAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -363,7 +363,7 @@ export const qoderAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-06-06",
+      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

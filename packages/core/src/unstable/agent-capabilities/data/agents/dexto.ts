@@ -35,7 +35,7 @@ export const dextoAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-07-22",
+        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -60,7 +60,7 @@ export const dextoAgent = {
         notes:
           "Dexto declares MCP servers under mcpServers in a project agent.yml. The vendor schema adds connectionMode and type fields around the standard server definitions.",
         docs: [],
-        sources: ["https://docs.dexto.ai/docs/mcp/overview/"],
+        sources: ["https://docs.dexto.ai/mcp/"],
         scopes: ["project"],
         standardsCompliance: "parity",
         convention: "vendor",
@@ -122,7 +122,9 @@ export const dextoAgent = {
       notes:
         "Dexto permissions use manual or auto-approve mode plus alwaysAllow and alwaysDeny tool policies in agent.yml.",
       docs: [],
-      sources: ["https://docs.dexto.ai/docs/guides/configuring-dexto/permissions"],
+      sources: [
+        "https://github.com/truffle-ai/dexto/blob/main/docs/docs/guides/configuring-dexto/permissions.md",
+      ],
       scopes: ["project"],
       mechanism: ["config-file", "cli-flag"],
       configFiles: [

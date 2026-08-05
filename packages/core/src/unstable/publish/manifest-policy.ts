@@ -188,10 +188,10 @@ const classifyCompanionPackageManifestError = (
     }
   }
 
-  return {
-    code: "companion_package_invalid",
-    detail: "Manifest packages contains an invalid companion package declaration.",
-  };
+  // No concrete companion-package problem found: the schema decode failed for an
+  // unrelated reason, so let the caller fall back to a generic manifest error
+  // rather than misreporting it as companion_package_invalid.
+  return undefined;
 };
 
 export const validateManifestHasNoAgentsField = (

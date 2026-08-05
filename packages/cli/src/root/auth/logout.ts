@@ -71,8 +71,9 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   }
 
   const handle = existing.value.handle;
-  const identity = handle === "unknown" ? "" : ` as ${handle}`;
-  const optionalHandle = handle !== "unknown" ? { handle } : {};
+  // The anonymous sentinel is normalizeHandle("@unknown") — including the "@".
+  const identity = handle === "@unknown" ? "" : ` as ${handle}`;
+  const optionalHandle = handle !== "@unknown" ? { handle } : {};
 
   // Step 2: Attempt remote revoke (tolerate failure)
   const revokeResult = yield* renderer.withSpinner(
